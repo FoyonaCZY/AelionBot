@@ -1,0 +1,2 @@
+export type UpdatePhase='idle'|'checking'|'current'|'available'|'downloading'|'cancelling'|'downloaded'|'installing'|'error'|'unsupported';
+export interface UpdateState {phase:UpdatePhase;currentVersion:string;repository:string;latestVersion?:string;releaseName?:string;releaseNotes?:string;checkedAt?:string;progress?:{percent:number;transferred:number;total:number;bytesPerSecond:number};error?:string;installBlockedReason?:string;}

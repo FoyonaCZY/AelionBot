@@ -1,0 +1,66 @@
+name: Windows release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Audit source
+        run: npm run audit:publish
+      - name: Typecheck and test
+        run: |
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm test
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            runtime/qemu
+            runtime/downloads
+          key: qemu-windows-${{ hashFiles('scripts/prepare-runtime.mjs', 'scripts/runtime-archiver.mjs') }}
+      - name: Prepare runtime
+        run: npm run vm:prepare-runtime
+      - name: Build and verify installer
+        run: npm run package:release
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          name: AelionBot-Windows
+          path: |
+            release/github/*.exe
+            release/github/*.blockmap
+            release/github/latest.yml
+          retention-days: 3
+      - name: Publish tagged release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $draft = gh release view $tag --json isDraft --jq .isDraft 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            if ($draft -ne 'true') { throw 'This release is already public. Use a new version instead of replacing published binaries.' }
+          } else {
+            gh release create $tag --draft --verify-tag --generate-notes --title "AelionBot $tag"
+            if ($LASTEXITCODE -ne 0) { throw 'Could not create the draft release' }
+          }
+          $files = @(Get-ChildItem -LiteralPath release/github -File | Where-Object { $_.Name -match '\.(exe|blockmap)$|^latest\.yml$' } | ForEach-Object FullName)
+          if ($files.Count -lt 3) { throw 'Release assets are incomplete' }
+          gh release upload $tag @files --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Could not upload release assets' }
+          gh release edit $tag --draft=false --latest

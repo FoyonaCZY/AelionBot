@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "OpenGrokBot · Hermes 风格本地内核",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1320, 690],
+    "views": [
+      { "id": "run-path", "label": "任务执行", "focus": ["client", "coordinator", "harness", "toolgate", "workspace"], "note": "本地后台持有任务；Bot 按授权使用固定工作电脑或用户本机。" },
+      { "id": "durability", "label": "交流与协作", "focus": ["coordinator", "sessionstore", "harness", "skills"], "note": "私聊、协作房间、任务委派与结果交接都留有可恢复记录。" },
+      { "id": "authority", "label": "电脑与权限", "focus": ["toolgate", "vault", "workspace", "host", "vms"], "note": "首版一台受管 VM，不开放自建；共享资源排队，用户本机接管优先。" },
+      { "id": "learning", "label": "学习与复用", "focus": ["harness", "skills", "sessionstore"], "note": "任务证据沉淀为私有记忆和技能；阶段压缩保持历史可回查，后续任务按需复用。" }
+    ]
+  },
+  "components": [
+    { "id": "client", "type": "frontend", "label": "桌面工作台", "sublabel": "Bots · 电脑 · 任务", "pos": [40, 300], "size": [180, 80], "tag": "Windows 优先" },
+    { "id": "coordinator", "type": "backend", "label": "任务与协作内核", "sublabel": "消息 · 调度 · 恢复", "pos": [300, 300], "size": [180, 80] },
+    { "id": "harness", "type": "backend", "label": "精简 Hermes 内核", "sublabel": "推理 · 压缩 · 异步学习", "pos": [560, 300], "size": [180, 80] },
+    { "id": "toolgate", "type": "security", "label": "工具与授权网关", "sublabel": "策略 · 审批 · 操作回执", "pos": [820, 300], "size": [180, 80] },
+    { "id": "workspace", "type": "backend", "label": "Computer 路由", "sublabel": "多对多绑定 · 资源租约", "pos": [1080, 300], "size": [180, 80] },
+    { "id": "sessionstore", "type": "database", "label": "任务与产物存储", "sublabel": "事件 · 检查点 · 文件版本", "pos": [300, 60], "size": [180, 80] },
+    { "id": "models", "type": "external", "label": "模型提供方", "sublabel": "原生 API / 本地模型", "pos": [560, 60], "size": [180, 80] },
+    { "id": "connectors", "type": "external", "label": "办公与代码服务", "sublabel": "API · MCP · Git", "pos": [820, 60], "size": [180, 80] },
+    { "id": "skills", "type": "database", "label": "记忆与技能", "sublabel": "独立作用域 · 版本 · 复用", "pos": [560, 540], "size": [180, 80] },
+    { "id": "vault", "type": "security", "label": "凭据保管库", "sublabel": "账号绑定 · 短期权限", "pos": [820, 540], "size": [180, 80] },
+    { "id": "host", "type": "external", "label": "我的电脑", "sublabel": "本机应用 · 用户优先", "pos": [1080, 60], "size": [180, 80] },
+    { "id": "vms", "type": "backend", "label": "工作电脑", "sublabel": "固定 Linux VM · 应用维护", "pos": [1080, 540], "size": [180, 80] }
+  ],
+  "connections": [
+    { "id": "client-command", "from": "client", "to": "coordinator", "label": "任务指令", "variant": "emphasis" },
+    { "id": "schedule-run", "from": "coordinator", "to": "harness", "label": "执行步骤", "variant": "emphasis" },
+    { "id": "tool-intent", "from": "harness", "to": "toolgate", "label": "工具意图", "variant": "emphasis" },
+    { "id": "execute-action", "from": "toolgate", "to": "workspace", "label": "执行与回执", "variant": "emphasis" },
+    { "id": "persist-state", "from": "coordinator", "to": "sessionstore", "label": "事务记录" },
+    { "id": "model-turn", "from": "harness", "to": "models", "label": "模型调用" },
+    { "id": "service-action", "from": "toolgate", "to": "connectors", "label": "受控调用", "variant": "security" },
+    { "id": "retrieve-context", "from": "harness", "to": "skills", "label": "检索与沉淀", "labelDy": 90 },
+    { "id": "bind-credential", "from": "toolgate", "to": "vault", "label": "凭据绑定", "variant": "security", "labelDy": 90 },
+    { "id": "host-control", "from": "workspace", "to": "host", "label": "本机操作" },
+    { "id": "vm-control", "from": "workspace", "to": "vms", "label": "虚拟机操作", "labelDy": 90 }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "固定环境", "items": ["应用维护唯一工作电脑；用户和 Bot 无需自行创建虚拟机。"] },
+    { "dot": "emerald", "title": "长期学习", "items": ["短记忆、技能、历史分别保存；有价值的任务经验异步沉淀。"] },
+    { "dot": "amber", "title": "两个执行位置", "items": ["多对多绑定工作电脑与本机；共享资源排队，用户接管优先。"] }
+  ]
+}

@@ -1,0 +1,162 @@
+[
+  {
+    "name": "hermes",
+    "repository": "https://github.com/NousResearch/hermes-agent",
+    "revision": "2afd17a9d722036272ea98437f23f81ccc2eec63",
+    "reviewedAt": "2026-09-05T12:58:30.434Z",
+    "files": [
+      {
+        "path": "agent/background_review.py",
+        "bytes": 68618,
+        "sha256": "d79277796dbeb17a334a22a5a9838b9943d8311b37ed6ba8a1387ed72744c22f"
+      },
+      {
+        "path": "agent/review_engine.py",
+        "bytes": 9362,
+        "sha256": "14938dc2d8a967d67f1746cf7de2fdb92d9675fad4d9e9ca06d748a34a0d85f6"
+      },
+      {
+        "path": "agent/memory_manager.py",
+        "bytes": 40788,
+        "sha256": "3299cf57c33b811c3cbed002a9f077f555dad18a274e79ae1607344ec0f62845"
+      },
+      {
+        "path": "agent/context_compressor.py",
+        "bytes": 282203,
+        "sha256": "b31b77167eee4591fba710f26986beeceaf5b2ef8288cb9d2d581656ba1ecb1c"
+      },
+      {
+        "path": "agent/context_engine.py",
+        "bytes": 12710,
+        "sha256": "45ca98bbeaab3dbbcb8b9b009275d287b5c2d552d96a4a2fc56ec8616b290cbe"
+      },
+      {
+        "path": "tools/skill_manager_tool.py",
+        "bytes": 44894,
+        "sha256": "87f088f543adbac9723ef196336f424adf2afd15a6c71c5e0e2918173df1a386"
+      },
+      {
+        "path": "tools/session_search_tool.py",
+        "bytes": 37453,
+        "sha256": "d2412556ce125352dd2af897e2691150c16fba85b7fd5b53456caf51ba540b29"
+      },
+      {
+        "path": "LICENSE",
+        "bytes": 1070,
+        "sha256": "821556e6336796450ab852d375117b48a4887e71d255794fd6318d99982a5ab6"
+      },
+      {
+        "path": "agent/review_idle_queue.py",
+        "bytes": 9173,
+        "sha256": "eccf9a0909882ca96dc88e75f0161abfe450b75198607f60734e40ababf99b3c"
+      },
+      {
+        "path": "agent/conversation_compression.py",
+        "bytes": 219428,
+        "sha256": "b4641046c1975411a2c1b74b8126390f9692f6cc1748b8ea28e077f9eaa19967"
+      },
+      {
+        "path": "agent/compression_facade.py",
+        "bytes": 15535,
+        "sha256": "b35a7030b9aba5a0653331cf5b37a885786b036949ba93727043563c5c006a8e"
+      },
+      {
+        "path": "tools/skill_manager_guards.py",
+        "bytes": 15422,
+        "sha256": "3af7a295755c7b5579b28abcbce44ac081e565cf4003a48b657fa5120f9cffad"
+      }
+    ]
+  },
+  {
+    "name": "codex",
+    "repository": "https://github.com/openai/codex",
+    "revision": "a7a4321593c77933c18f84ba9bd28eba095759d8",
+    "reviewedAt": "2026-09-05T13:04:23.772Z",
+    "files": [
+      {
+        "path": "codex-rs/core/src/compact.rs",
+        "bytes": 29892,
+        "sha256": "d0da046cc7e24928563b51b033b21221f36c4517267929e842352ec92f721888"
+      },
+      {
+        "path": "codex-rs/core/src/compact_token_budget.rs",
+        "bytes": 4006,
+        "sha256": "274a57e36ee1ca74abe73d088867e9b8bde98b66de53a77d004b194bea571d12"
+      },
+      {
+        "path": "LICENSE",
+        "bytes": 10926,
+        "sha256": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc"
+      }
+    ]
+  },
+  {
+    "name": "opencode",
+    "repository": "https://github.com/anomalyco/opencode",
+    "revision": "e2894562f8ba943d72172d10b727c24d5f650c16",
+    "reviewedAt": "2026-09-05T13:04:27.258Z",
+    "files": [
+      {
+        "path": "packages/opencode/src/session/compaction.ts",
+        "bytes": 21236,
+        "sha256": "8d478570a7e4ad32b746030d4f86a1c673949b1e2259bd716b3885d99283289a"
+      },
+      {
+        "path": "LICENSE",
+        "bytes": 1065,
+        "sha256": "625f0f619133f89bbbb2abe37369613dfa1885eba1e50d02170deb62bb42cb6b"
+      },
+      {
+        "path": "packages/core/src/session/compaction.ts",
+        "bytes": 10185,
+        "sha256": "35bc2da1578b6bb80a3c39c1d6c51f234f34ce6586dd4f9d230e2a31b257138d"
+      }
+    ]
+  },
+  {
+    "name": "pi",
+    "repository": "https://github.com/earendil-works/pi",
+    "revision": "da840b6216578c2a571d0374ac6a2091a83f9d91",
+    "reviewedAt": "2026-09-05T13:04:29.903Z",
+    "files": [
+      {
+        "path": "packages/coding-agent/src/core/compaction/compaction.ts",
+        "bytes": 30705,
+        "sha256": "d3f639c21c4b91ebbe9d5716914636c3eb37a19d434e11bd6653fef8050f1357"
+      },
+      {
+        "path": "LICENSE",
+        "bytes": 1069,
+        "sha256": "0457f5bcec3b3b211605dfb5d1a49042fd638f3686a410fe099c24a25af13c48"
+      },
+      {
+        "path": "packages/agent/src/harness/compaction/compaction.ts",
+        "bytes": 27410,
+        "sha256": "6e7aec0d27cb566f8f85f7dd13850eda98f5ddf7e78f9a919fb3dd03c3ea3a8a"
+      }
+    ]
+  },
+  {
+    "name": "openhands",
+    "repository": "https://github.com/OpenHands/software-agent-sdk",
+    "revision": "f47083cc370a85160f0348f32e531ee3514399e5",
+    "reviewedAt": "2026-09-05T13:04:32.839Z",
+    "files": [
+      {
+        "path": "openhands-sdk/openhands/sdk/context/condenser/llm_summarizing_condenser.py",
+        "bytes": 20978,
+        "sha256": "e567d2cb523819b7be486e0e7b49ef91aa8ba02ed8e90ae1b8358440f8d46b71"
+      },
+      {
+        "path": "openhands-sdk/openhands/sdk/context/condenser/base.py",
+        "bytes": 10085,
+        "sha256": "26ecce4b6c42de204396ec38cc94fb032adc6b20180b1d8315f09c1a78bca6a0"
+      },
+      {
+        "path": "LICENSE",
+        "bytes": 1079,
+        "sha256": "14a9b631c658eee682c6c2973525fbdf808c3457176bc47513052c559cc5ce86"
+      }
+    ]
+  }
+]

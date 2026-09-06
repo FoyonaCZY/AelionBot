@@ -1,0 +1,48 @@
+{
+  "repository": "https://github.com/NousResearch/hermes-agent",
+  "revision": "b0ab2e163a50d4e6c36507eba955a6067fde6abc",
+  "reviewDate": "2026-09-05",
+  "scope": "Selected context, compression, history and skill source paths. Memory snapshot and background-learning behavior also referenced official documentation. No upstream code executed.",
+  "files": [
+    {
+      "path": "agent/context_compressor.py",
+      "bytes": 282203,
+      "sha256": "b31b77167eee4591fba710f26986beeceaf5b2ef8288cb9d2d581656ba1ecb1c"
+    },
+    {
+      "path": "agent/context_engine.py",
+      "bytes": 12710,
+      "sha256": "45ca98bbeaab3dbbcb8b9b009275d287b5c2d552d96a4a2fc56ec8616b290cbe"
+    },
+    {
+      "path": "agent/micro_compaction.py",
+      "bytes": 23260,
+      "sha256": "d12ac14e1d2e7c756a4c3ba88c63db1862fb502a130796dc37d69a214d788327"
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 1070,
+      "sha256": "821556e6336796450ab852d375117b48a4887e71d255794fd6318d99982a5ab6"
+    },
+    {
+      "path": "tools/session_search_tool.py",
+      "bytes": 37453,
+      "sha256": "d2412556ce125352dd2af897e2691150c16fba85b7fd5b53456caf51ba540b29"
+    },
+    {
+      "path": "tools/skill_linter.py",
+      "bytes": 11118,
+      "sha256": "8a5d4d4033ad33195bc9dc31ecb78b0bbea85f51af2126d7d482c5b7c0517148"
+    },
+    {
+      "path": "tools/skill_manager_tool.py",
+      "bytes": 44894,
+      "sha256": "87f088f543adbac9723ef196336f424adf2afd15a6c71c5e0e2918173df1a386"
+    },
+    {
+      "path": "tools/skills_tool.py",
+      "bytes": 37268,
+      "sha256": "0f205b8c2d9266d272d8c6cae3d189b86a5aebce98f03b61605d266b65f9497c"
+    }
+  ]
+}

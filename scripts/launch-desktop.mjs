@@ -1,0 +1,18 @@
+import {spawn} from 'node:child_process';
+import {createServer} from 'node:net';
+import {mkdirSync,openSync,closeSync,writeFileSync} from 'node:fs';
+import {resolve,join} from 'node:path';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
+const proof=resolve('.local/proof');mkdirSync(proof,{recursive:true});
+const port=await new Promise((ok,fail)=>{const server=createServer();server.once('error',fail);server.listen(0,'127.0.0.1',()=>{const p=server.address().port;server.close(()=>ok(p));});});
+const out=openSync(join(proof,'electron.stdout.log'),'a'),err=openSync(join(proof,'electron.stderr.log'),'a');
+const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;
+const packaged=process.argv.includes('--packaged');
+if(packaged&&!env.AELION_DATA_DIR)env.AELION_DATA_DIR=resolve('.local/app');
+const executable=packaged?resolve('release/win-unpacked/AelionBot.exe'):require('electron');
+const child=spawn(executable,[...(packaged?[]:['.']),`--remote-debugging-port=${port}`,'--remote-debugging-address=127.0.0.1'],{cwd:resolve('.'),env,detached:true,windowsHide:false,stdio:['ignore',out,err]});
+await new Promise((ok,fail)=>{child.once('spawn',ok);child.once('error',fail);});
+closeSync(out);closeSync(err);child.unref();
+const receipt={pid:child.pid,executable,packaged,debugPort:port,launchedAt:new Date().toISOString(),qaOnly:true};
+writeFileSync(join(proof,'desktop-process.json'),JSON.stringify(receipt,null,2));console.log(JSON.stringify(receipt));

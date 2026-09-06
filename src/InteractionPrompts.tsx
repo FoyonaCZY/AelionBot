@@ -1,0 +1,69 @@
+import {useEffect,useRef,useState} from 'react';
+import type {Bot,InteractionAction,InteractionRequest} from './shared';
+import {Avatar,Icon} from './ui';
+import './interactions.css';
+
+type Permission=Extract<InteractionRequest,{kind:'host_permission'}>;
+type Takeover=Extract<InteractionRequest,{kind:'vm_takeover'}>;
+const errorText=(error:unknown)=>(error as Error).message.replace(/^Error invoking remote method '[^']+': Error: /,'');
+function PermissionCard({request,count}:{request:Permission;count:number}){
+  const [ready,setReady]=useState(false),[pending,setPending]=useState(false),[error,setError]=useState('');
+  const sending=useRef(false);
+  const decide=async(action:'allow'|'allow-always'|'deny')=>{
+    if(sending.current)return;sending.current=true;setPending(true);setError('');
+    try{await window.aelion.respondInteraction({id:request.id,action});}catch(error){setError(errorText(error));sending.current=false;setPending(false);}
+  };
+  useEffect(()=>{const timer=setTimeout(()=>setReady(true),250);return()=>clearTimeout(timer);},[]);
+  const details=request.details;
+  const titles={command:'执行本机命令',read_file:'读取本机文件',write_file:details.overwrite?'覆盖本机文件':'写入本机文件',mcp:'使用本机 MCP 服务'};
+  return <section id={`interaction-${request.id}`} className="conversation-request permission-card" tabIndex={-1} aria-label="本机操作权限">
+    <header><Icon name={details.operation==='command'?'terminal':'file'} size={18}/><h2>本机操作权限</h2><span>{titles[details.operation]}</span>{count>1&&<span className="permission-count">还有 {count-1} 项</span>}</header>
+    <div className="permission-body"><p className="permission-reason">{details.reason}</p>
+    <div className="permission-scope">
+      {details.cwd&&<div><span>工作目录</span><code>{details.cwd}</code></div>}
+      {details.path&&<div><span>{details.operation==='mcp'?'来源配置':'文件路径'}</span><code>{details.path}</code></div>}
+      {details.server&&<div><span>服务</span><code>{details.server}</code></div>}
+      {details.tool&&<div><span>操作</span><code>{details.tool}</code></div>}
+    </div>
+    {details.command!==undefined&&<div className="permission-content"><span>命令</span><pre tabIndex={0}>{details.command}</pre></div>}
+    {details.content!==undefined&&<div className="permission-content"><span>写入内容</span><pre tabIndex={0}>{details.content||'（空文件）'}</pre></div>}
+    {details.arguments&&<div className="permission-content"><span>参数</span><pre tabIndex={0}>{JSON.stringify(details.arguments,null,2)}</pre></div>}
+    {error&&<p className="permission-error" role="alert">{error}</p>}</div>
+    <footer>
+      <button className="secondary-button" disabled={pending} onClick={()=>void decide('deny')}>拒绝并停止</button>
+      <button className="primary-button" disabled={!ready||pending} onClick={event=>{if(event.isTrusted&&event.detail<2)void decide('allow');}}>{pending?'正在处理…':'允许本次'}</button>
+      {details.commandPattern&&<div className="permission-always-option">
+        <button className="secondary-button permission-always-button" disabled={!ready||pending} aria-label={`始终允许 ${details.commandPattern.pattern}`} title={details.commandPattern.pattern} onClick={event=>{if(event.isTrusted&&event.detail<2)void decide('allow-always');}}><span>始终允许</span><code>{details.commandPattern.pattern}</code></button>
+        <span className="permission-pattern-scope">当前工作目录 · {details.commandPattern.kind==='prefix'?'命令前缀匹配':'完整命令匹配'}</span>
+      </div>}
+    </footer>
+  </section>;
+}
+function TakeoverCard({request,onTakeover}:{request:Takeover;onTakeover:(request:Takeover)=>Promise<void>}){
+  const [pending,setPending]=useState(false),[error,setError]=useState('');
+  const act=async(action:InteractionAction)=>{if(pending)return;setPending(true);setError('');try{if(action==='takeover')await onTakeover(request);else await window.aelion.respondInteraction({id:request.id,action});}catch(error){setError(errorText(error));}finally{setPending(false);}};
+  return <section id={`interaction-${request.id}`} className="conversation-request takeover-card" tabIndex={-1} aria-label="需要人工接管"><header><Icon name="computer" size={18}/><h2>需要你接管工作电脑</h2></header><div className="permission-body"><p className="permission-reason">{request.reason}</p>{error&&<p className="permission-error" role="alert">{error}</p>}</div><footer><button className="secondary-button" disabled={pending} onClick={()=>void act('cancel')}>取消任务</button><button className="primary-button" disabled={pending} onClick={()=>void act('takeover')}>{request.phase==='controlling'?'返回工作电脑':'接管电脑'}</button></footer></section>;
+}
+export function ConversationInteractions({requests,botId,onTakeover}:{requests:InteractionRequest[];botId:string;onTakeover:(request:Takeover)=>Promise<void>}){
+  const pending=requests.filter(request=>request.botId===botId),request=pending[0];
+  if(!request)return null;
+  return request.kind==='host_permission'?<PermissionCard key={request.id} request={request} count={pending.length}/>:<TakeoverCard key={request.id} request={request} onTakeover={onTakeover}/>;
+}
+
+export function InteractionNotifications({requests,bots,onView}:{requests:InteractionRequest[];bots:Bot[];onView:(request:InteractionRequest)=>void}){
+  const seen=useRef(new Set<string>()),[visible,setVisible]=useState<string>(),[paused,setPaused]=useState(false);
+  useEffect(()=>{
+    const incoming=requests.filter(request=>(request.kind==='host_permission'||request.phase==='waiting')&&!seen.current.has(request.id));
+    for(const request of incoming)seen.current.add(request.id);
+    if(incoming.length){setPaused(false);setVisible(incoming.at(-1)!.id);}
+  },[requests]);
+  useEffect(()=>{if(!visible||paused)return;const timer=setTimeout(()=>setVisible(current=>current===visible?undefined:current),6500);return()=>clearTimeout(timer);},[visible,paused]);
+  const request=requests.find(request=>request.id===visible&&(request.kind==='host_permission'||request.phase==='waiting'));
+  if(!request)return null;
+  const bot=bots.find(bot=>bot.id===request.botId);
+  return <aside className="interaction-notification" role="status" aria-live="polite" onMouseEnter={()=>setPaused(true)} onMouseLeave={()=>setPaused(false)} onFocus={()=>setPaused(true)} onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node|null))setPaused(false);}}>
+    <button className="interaction-notification-open" onClick={()=>{setVisible(undefined);onView(request);}} aria-label={`查看 ${bot?.name||'Bot'} 的${request.kind==='host_permission'?'权限请求':'接管请求'}`}>
+      {bot&&<Avatar bot={bot} size={32}/>}<span><strong>{bot?.name||'Bot'}</strong><small>{request.kind==='host_permission'?'等待你的本机操作许可':'需要你接管工作电脑'}</small></span><span className="notification-view">查看</span>
+    </button><button className="icon-button notification-close" aria-label="关闭通知" onClick={()=>setVisible(undefined)}><Icon name="close" size={16}/></button>
+  </aside>;
+}

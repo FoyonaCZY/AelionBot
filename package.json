@@ -1,0 +1,117 @@
+{
+  "name": "aelion-bot",
+  "version": "0.4.0",
+  "private": true,
+  "description": "Local Windows AI teammates with a managed Linux computer",
+  "type": "module",
+  "main": "dist-electron/main.cjs",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs",
+    "icons": "node scripts/generate-icons.mjs",
+    "start": "electron .",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "vm:prepare-runtime": "node scripts/prepare-runtime.mjs",
+    "verify:vm": "tsx scripts/verify-vm.ts",
+    "package:win": "npm run icons && npm run build && electron-builder --win dir && node scripts/package-icons.mjs",
+    "package:release": "node scripts/package-release.mjs",
+    "audit:publish": "node scripts/audit-publication.mjs"
+  },
+  "build": {
+    "appId": "com.aelion.bot",
+    "productName": "AelionBot",
+    "npmRebuild": false,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "dist-electron/**",
+      "assets/icon.*",
+      "package.json",
+      "docs/licenses/**"
+    ],
+    "extraResources": [
+      {
+        "from": "runtime/qemu",
+        "to": "qemu",
+        "filter": [
+          "qemu-system-x86_64.exe",
+          "qemu-img.exe",
+          "*.dll",
+          "COPYING*",
+          "VERSION",
+          "aelion-runtime.json",
+          "share/bios*.bin",
+          "share/vgabios*.bin",
+          "share/efi-virtio.rom",
+          "share/kvmvapic.bin",
+          "share/keymaps/**",
+          "share/edk2-x86_64*.fd",
+          "share/edk2-i386-vars.fd",
+          "share/edk2-licenses.txt"
+        ]
+      }
+    ],
+    "win": {
+      "target": "dir",
+      "icon": "assets/icon.ico",
+      "signExecutable": false
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "FoyonaCZY",
+      "repo": "AelionBot",
+      "releaseType": "release"
+    },
+    "electronUpdaterCompatibility": ">=2.16",
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "AelionBot-Setup-${version}-${arch}.${ext}"
+    }
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "@novnc/novnc": "1.7.0",
+    "electron-updater": "6.8.9",
+    "js-tiktoken": "1.0.21",
+    "jsonc-parser": "3.3.1",
+    "mdast-util-from-markdown": "2.0.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-markdown": "10.1.0",
+    "smol-toml": "1.8.0",
+    "ssh2": "1.17.0",
+    "ws": "8.21.3",
+    "yaml": "2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@types/ssh2": "1.15.6",
+    "@types/ws": "8.18.1",
+    "7zip-bin": "5.2.0",
+    "electron": "44.2.0",
+    "electron-builder": "26.15.3",
+    "esbuild": "0.28.2",
+    "playwright": "1.62.1",
+    "tsx": "4.23.13",
+    "typescript": "7.0.2",
+    "vite": "8.2.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FoyonaCZY/AelionBot.git"
+  },
+  "homepage": "https://github.com/FoyonaCZY/AelionBot",
+  "bugs": {
+    "url": "https://github.com/FoyonaCZY/AelionBot/issues"
+  }
+}

@@ -1,0 +1,39 @@
+.composer-wrap.with-request{display:flex;flex-direction:column;min-height:0;max-height:calc(100dvh - 100px)}
+.with-request .composer{flex-shrink:0}
+.conversation-request{display:flex;flex-direction:column;flex:0 1 auto;min-height:0;max-height:min(380px,46dvh);margin-bottom:10px;overflow:hidden;padding:16px;background:#fafafa;border:1px solid #e3e5e7;border-radius:15px;color:#35404e;outline:0}
+.conversation-request>header,.conversation-request>footer{display:flex;align-items:center;flex-shrink:0;gap:8px}
+.conversation-request>header{margin-bottom:12px;flex-wrap:wrap}
+.conversation-request h2{font-size:13px;line-height:20px;margin:0;font-weight:600}
+.conversation-request header>span{font-size:11px;color:#858c96}
+.permission-count{margin-left:auto}
+.permission-body{min-height:0;overflow:auto;scrollbar-width:thin;scrollbar-color:#d5d7db transparent}
+.permission-reason{font-size:12px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;margin:0 0 12px}
+.permission-scope{display:grid;gap:8px}
+.permission-scope>div{display:flex;gap:12px;align-items:baseline}
+.permission-scope span,.permission-content>span{font-size:11px;color:#858c96;flex:0 0 56px}
+.permission-scope code{font:11px/1.7 Consolas,monospace;overflow-wrap:anywhere;min-width:0;color:#465261}
+.permission-content{margin-top:12px}
+.permission-content pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f0f1f3;border-radius:8px;padding:11px;font:12px/1.7 Consolas,monospace;color:#384453;margin:6px 0 0}
+.conversation-request>footer{justify-content:flex-end;margin-top:14px}
+.conversation-request>footer button{padding:8px 13px;white-space:nowrap}
+.permission-card>footer{flex-wrap:wrap}
+.permission-card:has(.permission-always-option){max-height:min(430px,58dvh)}
+.permission-always-option{flex:1 1 100%;min-width:0;display:flex;flex-direction:column;gap:6px;margin-top:2px}
+.permission-card .permission-always-button{display:flex;align-items:center;justify-content:center;gap:10px;min-width:0;width:100%;white-space:normal}
+.permission-always-button>span{flex-shrink:0}
+.permission-always-button code{min-width:0;font:12px/1.5 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-align:left}
+.permission-pattern-scope{font-size:10px;color:#858c96;text-align:center;line-height:1.4}
+.permission-error{font-size:12px;color:#b54c45;line-height:1.7;margin:12px 0 0}
+.permission-content pre:focus-visible{outline:1px solid #b7bec8;outline-offset:-1px}
+.takeover-card .permission-reason:last-child{margin-bottom:0}
+.interaction-notification{position:fixed;top:54px;right:20px;z-index:110;display:flex;align-items:center;width:min(350px,calc(100vw - 32px));padding:8px;background:#fff;border:1px solid #e2e5e9;border-radius:14px;box-shadow:0 7px 30px #0002;color:#35404e}
+.interaction-notification-open{display:flex;align-items:center;gap:10px;flex:1;min-width:0;padding:5px 7px;border-radius:9px;text-align:left}
+.interaction-notification-open:hover{background:#f5f5f5}
+.interaction-notification-open>span:not(.notification-view){flex:1;min-width:0}
+.interaction-notification strong{display:block;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.interaction-notification small{display:block;margin-top:4px;font-size:11px;color:#858c96}
+.interaction-notification .notification-view{font-size:11px;color:#757d88;flex-shrink:0}
+.interaction-notification .notification-close{width:28px;height:28px;flex-shrink:0}
+.bot-working.needs-user{background:#d99b3a}
+@media(max-width:600px){.conversation-request{padding:12px}.permission-scope>div{display:block}.permission-scope span{display:block;margin-bottom:3px}.interaction-notification{right:16px}}
+@media(max-height:560px){.conversation:has(.with-request) .messages{padding-top:0;padding-bottom:0}.composer-wrap.with-request{max-height:calc(100dvh - 78px);padding-top:6px;padding-bottom:8px}.conversation-request{padding:10px;max-height:50dvh;margin-bottom:8px}.conversation-request>header{margin-bottom:8px}.conversation-request>footer{margin-top:8px}.conversation-request>footer button{padding:7px 10px;font-size:11px}.with-request .composer{padding:7px 9px}.with-request .composer textarea{height:32px;min-height:32px;max-height:72px}.with-request .composer-bottom{margin-top:0}}
