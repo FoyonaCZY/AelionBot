@@ -8,12 +8,13 @@ import './group-chat.css';
 import {AttachmentList} from './Attachments';
 import {attachmentSummary} from './attachment-types';
 import {MessageActions} from './MessagePins';
+import type {BotActivities} from './bot-activity';
 
 const errorText=(error:unknown)=>(error as Error).message.replace(/^Error invoking remote method '[^']+': Error: /,'');
 const merge=<T extends {id:string}>(older:T[],newer:T[])=>[...new Map([...older,...newer].map(item=>[item.id,item])).values()];
-export function GroupAvatar({group}:{group:GroupSummary}){
+export function GroupAvatar({group,activities={}}:{group:GroupSummary;activities?:BotActivities}){
   const members=group.members.filter(member=>!member.leftAt).slice(0,4);
-  return <span className="group-avatar" data-count={members.length} role="img" aria-label="群聊">{members.length?members.map(member=><Avatar key={member.id} bot={member}/>):<Icon name="message" size={23}/>}</span>;
+  return <span className="group-avatar" data-count={members.length} role="img" aria-label="群聊">{members.length?members.map(member=><Avatar key={member.id} bot={member} activity={activities[member.id]}/>):<Icon name="message" size={23}/>}</span>;
 }
 export function GroupTaskMessage({message,view,onOpen}:{message:ChatMessage;view?:GroupsView;onOpen:(id:string)=>void}){
   const source=message.groupTaskSource!,room=view?.rooms.find(room=>room.id===source.groupId);
@@ -38,7 +39,7 @@ export function GroupEditor({bots,group,onClose,onSaved,onDeleted}:{bots:Bot[];g
   </section></div>;
 }
 
-export function GroupConversation({group,state,draft,onDraft,onManage,onTakeover,onOpenFile,onSaveFile,visible}:{group:GroupSummary;state:Snapshot;draft:ComposerDraft;onDraft:(draft:ComposerDraft)=>void;onManage:()=>void;onTakeover:(request:Extract<InteractionRequest,{kind:'vm_takeover'}>)=>Promise<void>;onOpenFile:(file:FileItem&{botId:string})=>void;onSaveFile:(file:FileItem&{botId:string})=>void;visible:boolean}){
+export function GroupConversation({group,state,avatarActivities,draft,onDraft,onManage,onTakeover,onOpenFile,onSaveFile,visible}:{group:GroupSummary;state:Snapshot;avatarActivities?:BotActivities;draft:ComposerDraft;onDraft:(draft:ComposerDraft)=>void;onManage:()=>void;onTakeover:(request:Extract<InteractionRequest,{kind:'vm_takeover'}>)=>Promise<void>;onOpenFile:(file:FileItem&{botId:string})=>void;onSaveFile:(file:FileItem&{botId:string})=>void;visible:boolean}){
   const [page,setPage]=useState<GroupPage>(),[error,setError]=useState(''),[sending,setSending]=useState(false),[loading,setLoading]=useState(false);
   const body=useRef<HTMLDivElement>(null),follow=useRef(true),scroll=useRef<{height:number;top:number}|undefined>(undefined),active=useRef(true),sendLock=useRef(false),draftRef=useRef(draft);draftRef.current=draft;
   useEffect(()=>{active.current=true;return()=>{active.current=false;};},[]);
@@ -49,7 +50,7 @@ export function GroupConversation({group,state,draft,onDraft,onManage,onTakeover
   const send=async()=>{if(sendLock.current||!draft.text.trim()&&!draft.attachments?.length)return;const saved=draft;sendLock.current=true;setSending(true);onDraft({text:'',mentions:[]});follow.current=true;try{await window.aelion.sendGroup({id:group.id,message:saved.text,mentions:saved.mentions,attachmentIds:saved.attachments?.map(file=>file.id)});if(active.current)setError('');}catch(error){if(!draftRef.current.text&&!draftRef.current.attachments?.length)onDraft(saved);if(active.current)setError(errorText(error));}finally{sendLock.current=false;if(active.current)setSending(false);}};
   const older=async()=>{if(!page?.before||loading)return;setLoading(true);try{const result=await window.aelion.readGroup({id:group.id,before:page.before});if(body.current)scroll.current={height:body.current.scrollHeight,top:body.current.scrollTop};follow.current=false;setPage(current=>current?{...current,messages:merge(result.messages,current.messages),deliveries:merge(result.deliveries,current.deliveries),before:result.before}:result);}catch(error){setError(errorText(error));}finally{setLoading(false);}};
   const members=state.bots.filter(bot=>group.members.some(member=>member.id===bot.id&&!member.leftAt)),requests=(state.interactions||[]).filter(request=>state.runs.some(run=>run.id===request.runId&&run.groupOrigin?.groupId===group.id)),owner=state.bots.find(bot=>bot.id===requests[0]?.botId);
-  return <><header className="chat-header drag"><button className="bot-heading no-drag" onClick={onManage}><GroupAvatar group={group}/><strong>{group.name}</strong><span className="group-member-count">{members.length+1} 人</span></button><div className="header-actions no-drag"><button className="icon-button" aria-label="群聊设置" onClick={onManage}><Icon name="settings"/></button></div></header>
+  return <><header className="chat-header drag"><button className="bot-heading no-drag" onClick={onManage}><GroupAvatar group={group} activities={avatarActivities}/><strong>{group.name}</strong><span className="group-member-count">{members.length+1} 人</span></button><div className="header-actions no-drag"><button className="icon-button" aria-label="群聊设置" onClick={onManage}><Icon name="settings"/></button></div></header>
     <section ref={body} className="messages group-messages" onScroll={event=>{const element=event.currentTarget;follow.current=element.scrollHeight-element.scrollTop-element.clientHeight<90;}}>{page?.before&&<button className="peer-chat-load" disabled={loading} onClick={()=>void older()}>加载更早消息</button>}{page?.messages.map(message=>{
       if(message.scheduled)return <div key={message.id} className="scheduled-trigger" data-group-message-id={message.id}><div><Icon name="clock" size={15}/><span>定时任务 · {message.scheduled.title}</span><time>{time(message.time)}</time></div><p>{message.content}</p></div>;
       if(message.kind==='reaction')return null;

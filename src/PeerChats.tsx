@@ -7,6 +7,7 @@ import {peerPending,peerStatusLabel} from './peer-types';
 import {Avatar,Icon,time} from './ui';
 import './peer-chat.css';
 import {StreamingReply} from './StreamingReply';
+import type {BotActivities} from './bot-activity';
 
 const errorText=(error:unknown)=>(error as Error).message.replace(/^Error invoking remote method '[^']+': Error: /,'');
 export interface PeerPanel {ownerId:string;threadId?:string;exchangeId?:string;}
@@ -31,7 +32,7 @@ export function PeerNotice({message,view,onOpen}:{message:ChatMessage;view?:Peer
 }
 
 function merged<T extends {id:string}>(older:T[],newer:T[]){const values=new Map(older.map(item=>[item.id,item]));for(const item of newer)values.set(item.id,item);return [...values.values()];}
-export function PrivateChatWindow({panel,view,bots,streamingReplies=[],onNavigate,onClose}:{panel:PeerPanel;view?:PeerView;bots:Bot[];streamingReplies?:Reply[];onNavigate:(panel:PeerPanel)=>void;onClose:()=>void}){
+export function PrivateChatWindow({panel,view,bots,streamingReplies=[],avatarActivities={},onNavigate,onClose}:{panel:PeerPanel;view?:PeerView;bots:Bot[];streamingReplies?:Reply[];avatarActivities?:BotActivities;onNavigate:(panel:PeerPanel)=>void;onClose:()=>void}){
   const streams=streamingReplies.filter(reply=>Boolean(panel.threadId)&&reply.peerThreadId===panel.threadId),streamSignature=streams.map(reply=>reply.id+':'+reply.content).join('|');
   const root=useRef<HTMLElement>(null),body=useRef<HTMLDivElement>(null),follow=useRef(true),jump=useRef(''),scroll=useRef<{top:number;height:number}|undefined>(undefined);
   const close=useRef(onClose);close.current=onClose;
@@ -63,7 +64,7 @@ export function PrivateChatWindow({panel,view,bots,streamingReplies=[],onNavigat
   }}>
     <header className="peer-chat-header">
       {panel.threadId&&<button className="icon-button" aria-label="返回私聊记录" onClick={()=>onNavigate({ownerId:panel.ownerId})}><Icon name="back" size={18}/></button>}
-      <h2>{panel.threadId&&thread?<>{thread.members.map((item,index)=><span className="peer-pair" key={item.id}>{index>0&&<span aria-hidden="true">↔</span>}<Avatar bot={member(item)} size={25}/><span className="peer-pair-name">{member(item).name}{!bots.some(bot=>bot.id===item.id)?'（已删除）':''}</span></span>)}</>:<><Icon name="message" size={21}/><span>{owner?.name||'Bot'} 的私聊记录</span></>}</h2>
+      <h2>{panel.threadId&&thread?<>{thread.members.map((item,index)=><span className="peer-pair" key={item.id}>{index>0&&<span aria-hidden="true">↔</span>}<Avatar bot={member(item)} size={25} activity={avatarActivities[item.id]}/><span className="peer-pair-name">{member(item).name}{!bots.some(bot=>bot.id===item.id)?'（已删除）':''}</span></span>)}</>:<><Icon name="message" size={21}/><span>{owner?.name||'Bot'} 的私聊记录</span></>}</h2>
       {panel.threadId&&<span className="readonly-badge">只读</span>}<button className="icon-button" aria-label="关闭私聊" onClick={onClose}><Icon name="close" size={18}/></button>
     </header>
     {error&&<div className="peer-chat-notice-error" role="alert">{error}</div>}

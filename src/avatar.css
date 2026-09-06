@@ -1,0 +1,19 @@
+.avatar{--avatar-motion-delay:0ms}
+.avatar .avatar-body,.avatar .avatar-gaze,.avatar .avatar-halo{transform-box:view-box;transform-origin:30px 30px}
+.avatar .avatar-eye{transform-box:fill-box;transform-origin:center}
+.avatar .avatar-halo{opacity:0}
+.avatar[data-activity="thinking"] .avatar-body{animation:avatar-think 3.8s ease-in-out infinite;animation-delay:var(--avatar-motion-delay)}
+.avatar[data-activity="thinking"] .avatar-gaze{animation:avatar-look 5.6s ease-in-out infinite;animation-delay:var(--avatar-motion-delay)}
+.avatar[data-activity="working"] .avatar-body{animation:avatar-work 1.85s ease-in-out infinite;animation-delay:var(--avatar-motion-delay)}
+.avatar[data-activity="working"] .avatar-gaze{animation:avatar-focus 2.8s ease-in-out infinite;animation-delay:var(--avatar-motion-delay)}
+.avatar[data-activity="thinking"] .avatar-eye,.avatar[data-activity="working"] .avatar-eye{animation:avatar-blink 6.2s ease-in-out infinite;animation-delay:var(--avatar-motion-delay)}
+.avatar[data-activity="thinking"] .avatar-halo,.avatar[data-activity="working"] .avatar-halo{opacity:.3;animation:avatar-orbit 8s linear infinite;animation-delay:var(--avatar-motion-delay)}
+.avatar[data-activity="working"] .avatar-halo{animation-duration:4.5s;opacity:.4}
+.avatar[data-activity="waiting"] .avatar-halo{opacity:.4;stroke:#bd883b;stroke-dasharray:none}
+@keyframes avatar-think{0%,100%{transform:translateY(.5px) rotate(-2deg)}40%{transform:translateY(-1.2px) rotate(2.5deg)}72%{transform:translateY(-.3px) rotate(.5deg)}}
+@keyframes avatar-work{0%,100%{transform:translateY(.4px) rotate(-1deg)}45%{transform:translateY(-1.8px) rotate(1.4deg)}72%{transform:translateY(-.4px) rotate(-.5deg)}}
+@keyframes avatar-look{0%,18%,100%{transform:translate(0,0)}32%,48%{transform:translate(1.6px,-1px)}65%,82%{transform:translate(-1.1px,-.3px)}}
+@keyframes avatar-focus{0%,100%{transform:translate(-.6px,.3px)}42%,60%{transform:translate(1.4px,1px)}}
+@keyframes avatar-blink{0%,42%,46%,100%{transform:scaleY(1)}43.5%,44.5%{transform:scaleY(.14)}}
+@keyframes avatar-orbit{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.avatar .avatar-body,.avatar .avatar-gaze,.avatar .avatar-eye,.avatar .avatar-halo{animation:none!important;transform:none!important}}
