@@ -15,7 +15,7 @@
   &nbsp;·&nbsp;
   <a href="https://aelion.chat/blog/">技术博客</a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/FoyonaCZY/AelionBot/releases">下载 Windows 版</a>
+  <a href="https://github.com/FoyonaCZY/AelionBot/releases">下载 Windows / Mac 版</a>
   &nbsp;·&nbsp;
   <a href="#用在哪些工作里">应用场景</a>
   &nbsp;·&nbsp;
@@ -23,6 +23,8 @@
 </p>
 
 AelionBot 是一个桌面 AI 工作空间。你可以创建各有分工的 Bot，让它们处理资料、撰写内容或制作小工具。简单的事情单独聊，需要配合的工作拉个群，在同一个地方沟通、查看进展和接收成果。
+
+macOS 15 及以上提供 Apple Silicon 和 Intel 两种预览包，已附带对应的工作电脑运行时。Mac 预览包使用临时签名，尚未公证；首次打开和手动更新说明见 [Mac 预览版说明](docs/releases/v0.6.0.md)。
 
 ## 可以做什么
 

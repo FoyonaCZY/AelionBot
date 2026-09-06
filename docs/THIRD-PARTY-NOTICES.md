@@ -4,11 +4,12 @@ AelionBot 的构建和运行依赖以下上游项目；第三方组件的许可�
 
 | 组件 | 使用方式 | 来源与本地记录 |
 |---|---|---|
-| Electron / Chromium | Windows 客户端运行时 | `package-lock.json`；目录包中的 `LICENSE.electron.txt`、`LICENSES.chromium.html` |
+| Electron / Chromium | Windows / macOS 客户端运行时 | `package-lock.json`；目录包中的 `LICENSE.electron.txt`、`LICENSES.chromium.html` |
 | electron-updater / NSIS | GitHub Release 检查、下载校验和 Windows 更新安装 | 固定依赖见 `package-lock.json`；采用 electron-builder 生成的安装包与更新清单 |
 | 7-Zip | 构建时解压固定版本 QEMU 安装包 | 官方发布来源与 SHA-256 固定在 `scripts/runtime-archiver.mjs`；构建缓存不随源码或客户端分发 |
 | QEMU 11.1.0 | WHPX 固定 guest | [Windows 构建来源](https://qemu.weilnetz.de/w64/)；`runtime/qemu/aelion-runtime.json`；`COPYING*` 随运行时打包 |
-| Debian 12 genericcloud | 固定基础镜像 | [官方镜像目录](https://cloud.debian.org/images/cloud/bookworm/20260903-2590/)；版本和 SHA-512 固定在 `runtime/guest-image.json` |
+| QEMU / Homebrew 原生依赖 | Mac ARM64 / Intel 工作电脑，HVF 加速 | [Homebrew QEMU](https://formulae.brew.sh/formula/qemu)；每个包的 `qemu/aelion-runtime.json` 记录实际版本、来源及构建阶段 SHA-256；许可资料和构建配方位于 `qemu/licenses` |
+| Debian 12 genericcloud | 固定 amd64 / ARM64 基础镜像 | [官方镜像目录](https://cloud.debian.org/images/cloud/bookworm/20260903-2590/)；版本和 SHA-512 固定在 `runtime/guest-image.json` 与 `runtime/guest-image-arm64.json` |
 | Google Chrome | 0.2 在受管 VM 中预装浏览器 | 从 `dl.google.com` 的官方 Debian 安装包安装；guest 中记录下载 SHA-256 和安装版本；不放入 Windows 目录包 |
 | Thunar / LibreOffice / Arc / Papirus | 0.2 文件管理、办公、桌面主题和图标 | 通过 Debian 软件源安装，对应版本和许可保留在 guest 的包管理记录及 `/usr/share/doc` |
 | noVNC、React、ssh2、ws、react-markdown | 桌面显示、界面、SSH、WebSocket、Markdown | 确切版本见 `package-lock.json`，许可文本随 npm 依赖保留 |

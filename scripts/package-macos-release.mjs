@@ -5,6 +5,7 @@ import {resolve,join,basename} from 'node:path';
 import {createHash} from 'node:crypto';
 import {parse} from 'yaml';
 const require=createRequire(import.meta.url),root=resolve(import.meta.dirname,'..'),pkg=JSON.parse(readFileSync(join(root,'package.json'),'utf8')),arch=process.arch;
+for(const key of ['CSC_LINK','CSC_NAME','CSC_KEY_PASSWORD','APPLE_ID','APPLE_APP_SPECIFIC_PASSWORD','APPLE_TEAM_ID','APPLE_API_KEY','APPLE_API_KEY_ID','APPLE_API_ISSUER'])if(process.env[key]==='')delete process.env[key];
 if(process.platform!=='darwin'||!['arm64','x64'].includes(arch))throw Error('Build on the target macOS architecture');
 if(process.env.GITHUB_REF_TYPE==='tag'&&process.env.GITHUB_REF_NAME!==`v${pkg.version}`)throw Error('Tag/version mismatch');
 const output=join(root,'release','github');mkdirSync(output,{recursive:true});

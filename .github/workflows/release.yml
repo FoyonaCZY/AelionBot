@@ -62,7 +62,11 @@ jobs:
         run: brew install qemu
       - name: Prepare bundled runtime
         run: npm run vm:prepare-runtime
-      - name: Build and verify installers
+      - name: Build and verify Windows installer
+        if: runner.os == 'Windows'
+        run: npm run package:release
+      - name: Build and verify Mac installers
+        if: runner.os == 'macOS'
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
