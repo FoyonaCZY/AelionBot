@@ -32,11 +32,17 @@ try{
  await step('launch Writer in the Bot desktop',async()=>{await computer.execute('mac-smoke',{action:'open_app',app:'writer'},AbortSignal.timeout(120000));return windowVisible('libreoffice-writer');});
  await step('verify Writer document editing',async()=>{
   const text=`Aelion ${arch} desktop verification`,signal=AbortSignal.timeout(120000);
+  console.log('Writer: capture and focus document');
   let screen=await computer.execute('mac-smoke',{action:'screenshot'},signal);
   screen=await computer.execute('mac-smoke',{action:'key',key:'ESC',observationId:screen.screenshot.id},signal);
+  console.log('Writer: type verification text');
   screen=await computer.execute('mac-smoke',{action:'type',text,observationId:screen.screenshot.id},signal);
   screen=await computer.execute('mac-smoke',{action:'key',key:'CTRL+A',observationId:screen.screenshot.id},signal);
-  const cleared=await vm.executeDesktop('printf not-copied | xclip -selection clipboard','mac-smoke',signal);if(cleared.exitCode!==0)throw Error('Clipboard fixture failed');
+  writeFileSync(join(out,`mac-${arch}-office.png`),readFileSync(join(computer.imageDir,screen.screenshot.id+'.png')));
+  console.log('Writer: clear clipboard before copying');
+  // xclip stays alive to serve clipboard data; keep its inherited streams off SSH.
+  const cleared=await vm.executeDesktop('printf not-copied | xclip -selection clipboard -in >.desktop/clipboard-fixture.log 2>&1','mac-smoke',AbortSignal.any([signal,AbortSignal.timeout(15000)]));if(cleared.exitCode!==0)throw Error('Clipboard fixture failed');
+  console.log('Writer: copy and verify document');
   screen=await computer.execute('mac-smoke',{action:'key',key:'CTRL+C',observationId:screen.screenshot.id},signal);
   const copied=await vm.executeDesktop('timeout 5 xclip -selection clipboard -o','mac-smoke',signal);if(copied.exitCode!==0||copied.stdout.trim()!==text)throw Error('Writer did not edit and copy the document');
   writeFileSync(join(out,`mac-${arch}-office.png`),readFileSync(join(computer.imageDir,screen.screenshot.id+'.png')));
