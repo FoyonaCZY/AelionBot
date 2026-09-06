@@ -30,6 +30,7 @@
       "dist-electron/**",
       "assets/icon.*",
       "package.json",
+      "docs/THIRD-PARTY-NOTICES.md",
       "docs/licenses/**"
     ],
     "extraResources": [
