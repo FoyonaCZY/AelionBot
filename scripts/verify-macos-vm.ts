@@ -5,8 +5,9 @@ import {VmController} from '../electron/core/vm';
 import {ComputerController} from '../electron/core/computer';
 if(process.platform!=='darwin')throw Error('This smoke test requires macOS');
 const arch=process.arch,out=resolve('output'),data=resolve('.local',`mac-vm-${arch}`);mkdirSync(out,{recursive:true});
-const vm=new VmController({dataDir:data,runtimeDir:resolve('runtime/qemu'),cacheDir:resolve('runtime/downloads'),memoryMiB:3072,cpuCount:2,accelerator:'tcg',startupTimeoutMs:600000}),computer=new ComputerController(vm,data,()=>{});
-const proof:{arch:string;accelerator:string;steps:unknown[];preparation?:unknown[];passed?:boolean;error?:string}={arch,accelerator:'tcg',steps:[]};
+const resources=arch==='x64'?{memoryMiB:4096,cpuCount:4}:{memoryMiB:3072,cpuCount:2};
+const vm=new VmController({dataDir:data,runtimeDir:resolve('runtime/qemu'),cacheDir:resolve('runtime/downloads'),...resources,accelerator:'tcg',startupTimeoutMs:600000}),computer=new ComputerController(vm,data,()=>{});
+const proof:{arch:string;accelerator:string;steps:unknown[];preparation?:unknown[];passed?:boolean;error?:string}={arch,accelerator:'tcg',...resources,steps:[]};
 const save=()=>writeFileSync(join(out,`mac-${arch}-vm-smoke.json`),JSON.stringify(proof,null,2));
 const step=async(name:string,fn:()=>Promise<any>)=>{console.log(name);const started=Date.now(),result=await fn();proof.steps.push({name,milliseconds:Date.now()-started,result});save();return result;};
 const preparationProgress=async()=>{
@@ -27,7 +28,9 @@ try{
  const first=await step('create isolated Bot desktop',()=>computer.execute('mac-smoke',{action:'screenshot'},AbortSignal.timeout(120000)));if(first.screenshot.width<800)throw Error('Desktop screenshot invalid');
  const windowVisible=async(pattern:string)=>{const result=await vm.executeDesktop(`timeout 90 sh -c 'until xdotool search --onlyvisible --class "${pattern}"; do sleep 2; done'`,'mac-smoke',AbortSignal.timeout(120000));if(result.exitCode!==0)throw Error('Application window unavailable: '+pattern);const id=result.stdout.trim().split('\n')[0];if(!/^\d+$/.test(id))throw Error('Invalid application window');const focused=await vm.executeDesktop(`xdotool windowactivate --sync ${id} && sleep 5`,'mac-smoke',AbortSignal.timeout(20000));if(focused.exitCode!==0)throw Error('Application did not receive focus');return id;};
  await step('launch browser in the Bot desktop',async()=>{await computer.execute('mac-smoke',{action:'open_app',app:'browser'},AbortSignal.timeout(120000));return windowVisible('chromium|google-chrome');});
- const loaded=await vm.executeDesktop('timeout 90 sh -c \'until xdotool search --onlyvisible --name "Aelion 工作电脑"; do sleep 1; done\'','mac-smoke',AbortSignal.timeout(120000));if(loaded.exitCode!==0)throw Error('Browser did not load the local start page');
+ const pageDeadline=Date.now()+240000;let loaded=false,nextPageLog=0;
+ while(Date.now()<pageDeadline){const title=await vm.executeDesktop('xdotool search --onlyvisible --name "Aelion 工作电脑"','mac-smoke',AbortSignal.timeout(15000));if(title.exitCode===0){loaded=true;break;}if(Date.now()>=nextPageLog){console.log('Waiting for browser to render the local start page');nextPageLog=Date.now()+30000;}await new Promise(r=>setTimeout(r,2000));}
+ if(!loaded)throw Error('Browser did not load the local start page');
  const browserScreen=await computer.execute('mac-smoke',{action:'screenshot'},AbortSignal.timeout(120000));writeFileSync(join(out,`mac-${arch}-guest.png`),readFileSync(join(computer.imageDir,browserScreen.screenshot.id+'.png')));
  await step('launch Writer in the Bot desktop',async()=>{await computer.execute('mac-smoke',{action:'open_app',app:'writer'},AbortSignal.timeout(120000));return windowVisible('libreoffice-writer');});
  await step('verify Writer document editing',async()=>{
@@ -55,7 +58,9 @@ try{
 }catch(error){proof.error=(error as Error).message;save();let token='';try{token=JSON.parse(readFileSync(join(vm.dir,'machine.json'),'utf8')).seedToken||'';}catch{}
  const redact=(value:string)=>{const safe=value.replace(/-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/g,'[redacted private key]');return token?safe.replaceAll(token,'[redacted seed]'):safe;};
  const logs=Object.fromEntries(['qemu.log','serial.log'].filter(name=>existsSync(join(vm.dir,name))).map(name=>[name,redact(readFileSync(join(vm.dir,name),'utf8').slice(-1000000))]));
- try{logs['bot-desktop.log']=redact((await vm.execute('tail -n 120 /work/mac-smoke/.desktop/desktop.log','mac-smoke',AbortSignal.timeout(15000))).stdout);console.error(logs['bot-desktop.log']);}catch{}
+ for(const name of ['desktop','browser','writer','clipboard','clipboard-fixture'])try{logs[name+'.log']=redact((await vm.execute(`tail -n 100 /work/mac-smoke/.desktop/${name}.log`,'mac-smoke',AbortSignal.timeout(15000))).stdout);console.error(name+':\n'+logs[name+'.log']);}catch{}
+ try{logs['window-titles']=(await vm.executeDesktop('xdotool search --onlyvisible --name "." | while read -r id; do xdotool getwindowname "$id"; done','mac-smoke',AbortSignal.timeout(15000))).stdout;console.error(logs['window-titles']);}catch{}
+ try{writeFileSync(join(out,`mac-${arch}-failure.png`),await vm.desktopScreenshot('mac-smoke',AbortSignal.timeout(20000)));}catch{}
  writeFileSync(join(out,`mac-${arch}-vm-diagnostics.json`),JSON.stringify(logs,null,2));
  try{await preparationProgress();console.error(redact((await vm.desktopDiagnostics()).stdout));}catch{}throw error;}
 finally{computer.release('mac-smoke');await vm.stop().catch(()=>{});vm.dispose();}
