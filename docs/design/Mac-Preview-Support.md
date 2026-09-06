@@ -26,4 +26,6 @@ Windows 回归、两种 Mac 的 Node 测试、打包应用启动和设置窗口�
 
 托管 Mac CI 的 VM 使用 TCG，报告明确记录加速方式。HVF 的编译支持及签名权限可以在 CI 检查，真实硬件加速的稳定性仍需对应实机反馈；不将 TCG 结果描述为 HVF 实机验证。
 
+GitHub 托管 Intel Mac 曾触发上游已记录的 [IO-APIC 定时器启动问题](https://gitlab.com/qemu-project/qemu/-/issues/2832)。CI 会识别启动日志中的内核 panic，核对 VM 身份后关闭失败的测试实例；仅对这一明确的定时器错误最多尝试三次，其他错误直接停止。该处理只用于一次性测试 VM，不会重放 Bot 工具操作。
+
 参考：[QEMU 虚拟化加速](https://www.qemu.org/docs/master/system/introduction.html)、[ARM virt](https://www.qemu.org/docs/master/system/arm/virt.html)、[GitHub Mac runner 限制](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)、[electron-builder macOS](https://www.electron.build/v26/docs/mac/)。
