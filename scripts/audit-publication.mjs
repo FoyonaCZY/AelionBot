@@ -12,7 +12,7 @@ for(const file of [...new Set(files)]){
   if(forbidden.test(file)&&!file.endsWith('.env.example')){findings.push({file,kind:'local-or-sensitive-file'});continue;}
   let data;try{data=worktree?readFileSync(file):execFileSync('git',['show',':'+file],{maxBuffer:6*1024*1024,stdio:['ignore','pipe','ignore']});}catch{findings.push({file,kind:'unreadable-or-oversized-file'});continue;}
   contents.set(file,data);bytes+=data.length;if(data.length>5*1024*1024)findings.push({file,kind:'large-file',bytes:data.length});
-  if(!textExtensions.has(extname(file))&&!['.gitignore','.gitattributes','LICENSE'].includes(file)){if(!/^assets\/icon\.(png|ico)$/.test(file))findings.push({file,kind:'unexpected-artifact'});continue;}
+  if(!textExtensions.has(extname(file))&&!['.gitignore','.gitattributes','LICENSE'].includes(file)){if(!/^assets\/icon\.(png|ico)$/.test(file)&&!/^docs\/assets\/screenshots\/[^/]+\.(png|jpe?g|webp)$/i.test(file))findings.push({file,kind:'unexpected-artifact'});continue;}
   const lines=data.toString('utf8').split(/\r?\n/);
   for(let index=0;index<lines.length;index++){
     const line=lines[index];for(const match of line.matchAll(credential)){

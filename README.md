@@ -1,70 +1,81 @@
-# AelionBot
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/logo-light.svg">
+    <img src="docs/assets/logo-light.svg" alt="AelionBot" width="390">
+  </picture>
+</p>
 
-运行在 Windows 上的本地 AI 工作伙伴。每个 Bot 可以使用独立的模型、记忆和工作桌面，在单聊、私聊和群聊中协作完成任务。
+<h3 align="center">组建你的 AI 工作团队</h3>
 
-## 功能
+<p align="center">把资料和想法发给伙伴，和它们一起推进手头的工作。</p>
 
-- 多 Provider 配置，从兼容接口获取模型列表；每个 Bot 可独立选择模型。
-- 单聊与群聊、Bot 间私聊、文件和图片附件、可查看的工具执行记录。
-- 每个 Bot 使用独立 Linux 桌面，支持浏览器、文件、代码和办公任务。
-- 私有长期记忆与技能、上下文压缩、历史检索、MCP 服务接入。
-- 单聊和群聊定时任务，支持一次性、每天、工作日、每周及固定间隔。
-- 本机操作权限确认与可管理的命令允许规则。
-- 关于页面检查 GitHub Release，下载安装包并重启更新。
+<p align="center">
+  <a href="https://github.com/FoyonaCZY/AelionBot/releases">下载 Windows 版</a>
+  &nbsp;·&nbsp;
+  <a href="#用在哪些工作里">应用场景</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/FoyonaCZY/AelionBot/issues">反馈建议</a>
+</p>
 
-## 安装与使用
+AelionBot 是一个桌面 AI 工作空间。你可以创建各有分工的 Bot，让它们处理资料、撰写内容或制作小工具。简单的事情单独聊，需要配合的工作拉个群，在同一个地方沟通、查看进展和接收成果。
 
-Windows 发行版使用 [GitHub Releases](https://github.com/FoyonaCZY/AelionBot/releases) 中的 `AelionBot-Setup-<版本>-x64.exe`。安装包包含客户端与 QEMU 运行时，工作电脑的系统镜像在首次准备时下载。
+## 可以做什么
 
-1. 在“设置 → 模型”添加 Provider，填写 Base URL 和 API Key，保存并拉取模型列表。
-2. 选择默认模型；需要为某个 Bot 单独配置时，点击 Bot 名称打开资料弹窗。
-3. 使用工作电脑前完成首次准备。该功能需要可用的硬件虚拟化和 Windows 虚拟机监控程序平台（WHPX）。
-4. 发送消息或附件开始工作。操作本机时按提示决定是否允许，工作成果可从文件卡片保存。
-5. “设置 → 关于 → 检查更新”可检查正式 Release；下载完成后点击“重启并更新”。
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>按职责组建团队</h3>
+      <p>给每位 Bot 起个名字，安排它负责的工作。可以让一位整理资料，另一位专心写作，各自保留对话和工作记录。</p>
+      <p><img src="docs/assets/screenshots/bot-team.png" alt="Bot 职责与资料" width="440"></p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>单聊与群聊</h3>
+      <p>和一位伙伴聊需求，或把几位伙伴拉进群里协作。可以 @ 指定成员，Bot 之间也能私聊交换信息。</p>
+      <p><img src="docs/assets/screenshots/group-chat.png" alt="Bot 群聊协作" width="440"></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>独立工作电脑</h3>
+      <p>每位 Bot 都有独立的工作桌面，可以浏览网页、处理文件和使用应用。你能查看进展，或亲自接管电脑。</p>
+      <p><img src="docs/assets/screenshots/computer.png" alt="伙伴的工作电脑" width="440"></p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>资料随消息发送</h3>
+      <p>把文档、表格和图片随消息发过去，和伙伴围绕材料开展工作。完成的文件可以在对话中查看、保存。</p>
+      <p><img src="docs/assets/screenshots/attachments.png" alt="发送附件与查看成果" width="440"></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>保留协作记忆</h3>
+      <p>伙伴可以记住你的偏好和已确认的信息，积累处理同类工作的经验。长期项目也能沿用之前的记录。</p>
+      <p><img src="docs/assets/screenshots/memory.png" alt="伙伴的记忆" width="440"></p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>安排例行工作</h3>
+      <p>给单个 Bot 或群聊安排任务，约定某个时间执行，也可以每天、每周或按间隔重复。</p>
+      <p><sub>按计划执行时，需要保持应用开启。</sub></p>
+      <p><img src="docs/assets/screenshots/scheduled-tasks.png" alt="定时任务" width="440"></p>
+    </td>
+  </tr>
+</table>
 
-更新时程序文件会被替换，聊天、模型配置、记忆、附件和工作电脑镜像保存在独立的数据目录。运行中的任务需要先结束；工作电脑会安全关闭，并在更新后恢复。
+工作进展会显示在聊天里。需要你确认的本机操作会先提出请求，允许的范围也可以调整。
 
-## 本地开发
+## 用在哪些工作里
 
-需要 Windows x64、Node.js 24 或更高版本。
+| 你正在做的事 | 可以交给伙伴的工作                       |
+| ------ | ------------------------------- |
+| 资料调研   | 阅读文件和网页，提取要点，整理成附有来源的主题摘要。      |
+| 内容准备   | 搜集素材、整理提纲、起草文章，让不同伙伴分别参与撰写和校对。  |
+| 数据报表   | 核对几份表格，汇总数据，整理结果并说明值得关注的变化。     |
+| 网页与小工具 | 描述想要的功能，让伙伴协助编写、检查并交付可继续修改的文件。  |
+| 例行工作   | 按约定时间整理周报、汇总项目记录，或根据现有材料生成待办清单。 |
 
-```powershell
-npm ci
-npm run vm:prepare-runtime
-npm run dev
-```
+例如，你可以在群里提出一个具体任务：
 
-也可以构建目录包，再通过项目内的启动脚本使用本地开发数据：
+> “这几份材料是下周分享要用的。资料助手先核对内容，写作助手整理成十分钟的讲稿；有遗漏或拿不准的地方，在群里告诉我。”
 
-```powershell
-npm run package:win
-.\Start-AelionBot.cmd
-```
-
-本地启动脚本使用 `.local/app`；直接运行发行版默认使用 Electron 用户数据目录。系统镜像、工作文件与配置不会提交到源码仓库。
-
-## 检查与发布
-
-```powershell
-npm run typecheck
-npm test
-npm run audit:publish -- --worktree
-npm run package:release
-```
-
-正式安装包、差分更新信息和 `latest.yml` 输出到 `release/github`。修改 `package.json` 版本号并推送匹配的 `v<版本>` 标签后，GitHub Actions 会检查、打包并发布 Release；普通代码推送不会自动发布安装包。详见 [发布说明](docs/RELEASING.md)。
-
-## 数据与权限
-
-- 模型密钥由操作系统加密存储，不写入仓库或前端配置。
-- 本机命令和文件操作遵循用户授权；允许规则可以在设置中关闭或删除。
-- 定时调度需要客户端运行。关闭期间未执行的到期计划会在重开后补跑一次；已经启动的中断任务不会自动重试。
-- 群聊只显示确认发布的完整回复，并抑制无新增信息的重复接话。普通附件阅读不会生成单聊中的群任务卡片。
-- `.local`、构建目录、下载缓存、虚拟机磁盘、截图和本地验收报告已排除在 Git 提交之外。
-
-## 文档
-
-- [技能与 MCP](docs/INTEGRATIONS.md)
-- [上下文与记忆实现](docs/design/Harness-Implementation-v04.md)
-- [第三方组件说明](docs/THIRD-PARTY-NOTICES.md)
-- [发布与自动更新](docs/RELEASING.md)
+之后可以继续补充文件、调整要求，或让某位伙伴接着修改其中一部分。
