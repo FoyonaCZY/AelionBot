@@ -68,7 +68,11 @@ jobs:
         with:
           ref: ${{ github.sha }}
           path: .ci-tools
-          sparse-checkout: scripts/ci-vm-boot.ts
+          sparse-checkout: |
+            scripts/ci-vm-boot.ts
+            electron/core/vm-platform.ts
+            runtime/guest-image.json
+            runtime/guest-image-arm64.json
           sparse-checkout-cone-mode: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -89,7 +93,7 @@ jobs:
           import {resolve,join} from 'node:path';
           import {randomUUID} from 'node:crypto';
           import {VmController} from './electron/core/vm.ts';
-          import {startCiGuest} from './.ci-tools/scripts/ci-vm-boot.ts';
+          import {startCiGuest,ciVmAccelerator} from './.ci-tools/scripts/ci-vm-boot.ts';
           const arch=process.arch,version=JSON.parse(readFileSync('package.json','utf8')).version,folder=resolve('release/packaged');
           execFileSync('/usr/bin/ditto',['-x','-k',resolve(`release/downloaded/AelionBot-${version}-mac-${arch}.zip`),folder],{stdio:'inherit'});
           const app=join(folder,'AelionBot.app'),runtime=join(app,'Contents/Resources/qemu'),binary=join(runtime,'bin',`qemu-system-${arch==='arm64'?'aarch64':'x86_64'}`);
@@ -97,7 +101,7 @@ jobs:
           const entitlements=execFileSync('/usr/bin/codesign',['--display','--entitlements',':-',binary],{encoding:'utf8',stdio:['ignore','pipe','pipe']});
           if(!/<key>com\.apple\.security\.hypervisor<\/key>\s*<true\s*\/>/.test(entitlements))throw Error('Packaged QEMU hypervisor entitlement missing');
           if(!execFileSync(binary,['-accel','help'],{encoding:'utf8'}).includes('hvf'))throw Error('Packaged QEMU HVF support missing');
-          const vm=new VmController({dataDir:resolve('.local/packaged-vm'),runtimeDir:runtime,cacheDir:resolve('runtime/downloads'),memoryMiB:2048,cpuCount:2,accelerator:'tcg',startupTimeoutMs:600000,skipDesktop:true});
+          const accelerator=ciVmAccelerator(runtime),vm=new VmController({dataDir:resolve('.local/packaged-vm'),runtimeDir:runtime,cacheDir:resolve('runtime/downloads'),memoryMiB:2048,cpuCount:2,accelerator,startupTimeoutMs:600000,skipDesktop:true});
           vm.on('state',state=>console.log(state.status+': '+state.detail));
           try{
             await vm.prepare();await startCiGuest(vm);
@@ -105,7 +109,7 @@ jobs:
             if(identity.exitCode!==0||!identity.stdout.includes(arch==='arm64'?'aarch64':'x86_64')||!identity.stdout.includes('1000'))throw Error('Packaged guest identity mismatch');
             const nonce=randomUUID(),write=await vm.execute(`printf '%s' '${nonce}' > proof.txt`,'packaged-proof');if(write.exitCode!==0)throw Error('Packaged guest write failed');
             await vm.stop();await startCiGuest(vm);const read=await vm.execute('cat proof.txt','packaged-proof');if(read.exitCode!==0||read.stdout!==nonce)throw Error('Packaged guest persistence failed');
-            mkdirSync('output',{recursive:true});writeFileSync(`output/packaged-vm-${arch}.json`,JSON.stringify({version,arch,accelerator:'tcg',packagedRuntime:true,passed:true},null,2));
+            mkdirSync('output',{recursive:true});writeFileSync(`output/packaged-vm-${arch}.json`,JSON.stringify({version,arch,accelerator,packagedRuntime:true,passed:true},null,2));
           }finally{await vm.stop().catch(()=>{});vm.dispose();}
           NODE
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

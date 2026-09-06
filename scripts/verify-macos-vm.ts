@@ -3,12 +3,13 @@ import {mkdirSync,writeFileSync,readFileSync,existsSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
 import {VmController} from '../electron/core/vm';
 import {ComputerController} from '../electron/core/computer';
-import {startCiGuest} from './ci-vm-boot';
+import {startCiGuest,ciVmAccelerator} from './ci-vm-boot';
 if(process.platform!=='darwin')throw Error('This smoke test requires macOS');
 const arch=process.arch,out=resolve('output'),data=resolve('.local',`mac-vm-${arch}`);mkdirSync(out,{recursive:true});
 const resources=arch==='x64'?{memoryMiB:4096,cpuCount:4}:{memoryMiB:3072,cpuCount:2};
-const vm=new VmController({dataDir:data,runtimeDir:resolve('runtime/qemu'),cacheDir:resolve('runtime/downloads'),...resources,accelerator:'tcg',startupTimeoutMs:600000}),computer=new ComputerController(vm,data,()=>{});
-const proof:{arch:string;accelerator:string;steps:unknown[];preparation?:unknown[];passed?:boolean;error?:string}={arch,accelerator:'tcg',...resources,steps:[]};
+const accelerator=ciVmAccelerator(resolve('runtime/qemu'));
+const vm=new VmController({dataDir:data,runtimeDir:resolve('runtime/qemu'),cacheDir:resolve('runtime/downloads'),...resources,accelerator,startupTimeoutMs:600000}),computer=new ComputerController(vm,data,()=>{});
+const proof:{arch:string;accelerator:string;steps:unknown[];preparation?:unknown[];passed?:boolean;error?:string}={arch,accelerator,...resources,steps:[]};
 const save=()=>writeFileSync(join(out,`mac-${arch}-vm-smoke.json`),JSON.stringify(proof,null,2));
 const step=async(name:string,fn:()=>Promise<any>)=>{console.log(name);const started=Date.now(),result=await fn();proof.steps.push({name,milliseconds:Date.now()-started,result});save();return result;};
 const preparationProgress=async()=>{
@@ -18,7 +19,7 @@ const preparationProgress=async()=>{
 };
 let latest='';vm.on('state',state=>{if(state.detail!==latest){latest=state.detail;console.log(state.status+': '+state.detail);}});
 try{
- await step('verify pinned guest image',()=>vm.prepare());await step('boot guest using bundled QEMU (TCG on hosted CI)',()=>startCiGuest(vm));
+ await step('verify pinned guest image',()=>vm.prepare());await step(`boot guest using bundled QEMU (${accelerator})`,()=>startCiGuest(vm));
  const identity=await step('verify guest architecture and user',()=>vm.execute('uname -m; id -u; pwd','mac-smoke'));if(identity.exitCode!==0||!identity.stdout.includes(arch==='arm64'?'aarch64':'x86_64')||!identity.stdout.includes('/work/mac-smoke'))throw Error('Guest architecture/workspace mismatch');
  // Hosted Mac runners use TCG: the first measured ARM package install took 33 minutes.
  // Allow the browser and the same restart/repair sequence used by ComputerSetup to finish.
