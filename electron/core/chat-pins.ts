@@ -1,3 +1,5 @@
+import {workCommand} from '../../src/work-types';
+import {conversationWorkspace} from './workspaces';
 import {Attachments} from './attachments';
 import type {Store} from './store';
 import type {HarnessRunOptions} from './peer-runtime-types';
@@ -31,7 +33,8 @@ export class ChatPinQueue {
     if(this.closed)throw new Error('客户端正在退出');
     const attachments=this.attachments.forDraft({kind:'bot',id:input?.botId},input?.attachmentIds),mentions=validateChatInput(this.store,input?.botId,input?.message,input?.mentions,Boolean(attachments.length));
     if(!this.store.modelFor(input.botId).model)throw new Error('请先为这个 Bot 选择模型');
-    this.store.message(input.botId,'user',input.message,{mentions,attachments,inputState:'queued'});this.received(input.botId);
+    const command=workCommand(input.message);if(command&&!command.objective)throw Error(`请在 /${command.kind} 后填写任务内容`);
+    this.store.message(input.botId,'user',input.message,{mentions,attachments,workspaceDir:conversationWorkspace(this.store,{kind:'bot',id:input.botId})||null,inputState:'queued'});this.received(input.botId);
   }
   schedule(botId:string,message:string,scheduled:ScheduledTrigger){
     if(this.closed)throw new Error('客户端正在退出');validateChatInput(this.store,botId,message);

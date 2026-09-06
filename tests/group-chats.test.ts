@@ -40,6 +40,7 @@ test('work progress is visible in the group and own main chat, broadcasts to oth
   const fx=fixture(t,(run,messages,tools)=>{
     if(messages[0].content?.includes('简短汇报工作进度')){assert.equal(tools.length,0);return answer('已核对三处配置，接下来检查运行结果。');}
     if(run.botId!==fx.a.id){if(publishedMessages(messages).some(m=>m.kind==='progress'))recipients.add(run.botId);return silent();}
+    if(actions===0)run.lastProgressAt=new Date(Date.now()-61000).toISOString();
     return actions<4?call('computer_execute',{command:'verify-step'}):answer('已完成核对。');
   },vm);
   const room=fx.groups.create({name:'工作进度',botIds:[fx.a.id,fx.b.id,fx.c.id]});fx.groups.send({id:room.id,message:'请核对配置和运行结果'});await until(fx.settled);

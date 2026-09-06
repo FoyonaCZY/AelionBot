@@ -1,12 +1,13 @@
 import {useEffect,useRef,type ReactNode} from 'react';
 import {Icon} from './ui';
 
-export type SettingsTab='model'|'skills'|'mcp'|'memory'|'computer'|'permissions'|'about';
+export type SettingsTab='runtime'|'model'|'skills'|'mcp'|'memory'|'computer'|'permissions'|'about';
 const pages:ReadonlyArray<{id:SettingsTab;label:string;icon:string}>=[
   {id:'model',label:'模型',icon:'settings'},
   {id:'skills',label:'技能',icon:'book'},
   {id:'mcp',label:'MCP',icon:'globe'},
   {id:'memory',label:'记忆',icon:'memory'},
+  {id:'runtime',label:'运行',icon:'settings'},
   {id:'computer',label:'电脑',icon:'computer'},
   {id:'permissions',label:'权限',icon:'shield'},
   {id:'about',label:'关于',icon:'info'},

@@ -1,10 +1,11 @@
+import type {DelegationContract,DelegationReceipt} from '../electron/core/delegation';
 import type {Attachment} from './attachment-types';
 export interface BotIdentity {id:string;name:string;color:string;}
 export interface BotMention extends BotIdentity {start:number;end:number;}
 export type PeerStatus='queued'|'working'|'waiting'|'reply_queued'|'relaying'|'completed'|'cancelled'|'failed'|'interrupted';
 export interface PeerMessage {attachments?:Attachment[];id:string;exchangeId:string;sender:BotIdentity;content:string;time:string;kind:'request'|'reply'|'progress';}
 export interface PeerThread {id:string;members:[BotIdentity,BotIdentity];createdAt:string;updatedAt:string;messages:PeerMessage[];}
-export interface PeerExchange {
+export interface PeerExchange {task?:DelegationContract;receipt?:DelegationReceipt;
   id:string;threadId:string;fromBotId:string;toBotId:string;rootRunId:string;rootBotId:string;rootRequest:string;parentId?:string;
   status:PeerStatus;createdAt:string;updatedAt:string;requestMessageId:string;replyMessageId?:string;userSummaryMessageId?:string;activeRunId?:string;error?:string;
 }

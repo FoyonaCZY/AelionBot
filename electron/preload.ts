@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { AelionAPI, AppEvent } from '../src/shared';
 const api:AelionAPI={
+  pickConversationWorkspace:scope=>ipcRenderer.invoke('workspace:pick',scope),
+  resetConversationWorkspace:scope=>ipcRenderer.invoke('workspace:reset',scope),
+  workAction:input=>ipcRenderer.invoke('work:action',input),
   updateState:()=>ipcRenderer.invoke('updates:state'),
   checkForUpdates:()=>ipcRenderer.invoke('updates:check'),
   downloadUpdate:()=>ipcRenderer.invoke('updates:download'),
@@ -12,6 +15,7 @@ const api:AelionAPI={
   importAttachments:input=>ipcRenderer.invoke('attachments:import',input),
   previewAttachment:id=>ipcRenderer.invoke('attachments:preview',id),
   saveAttachment:id=>ipcRenderer.invoke('attachments:save',id),
+  saveRuntimeSettings:settings=>ipcRenderer.invoke('runtime:save',settings),
   snapshot:()=>ipcRenderer.invoke('app:snapshot'),
   createScheduledTask:input=>ipcRenderer.invoke('tasks:create',input),
   updateScheduledTask:input=>ipcRenderer.invoke('tasks:update',input),
@@ -62,6 +66,7 @@ const api:AelionAPI={
   openFile:input=>ipcRenderer.invoke('files:open',input),
   openData:()=>ipcRenderer.invoke('app:open-data'),
   refreshIntegrations:()=>ipcRenderer.invoke('integrations:refresh'),
+  manageSkill:input=>ipcRenderer.invoke('skills:manage',input),
   readSkill:input=>ipcRenderer.invoke('skills:read',input),
   addIntegrationSource:kind=>ipcRenderer.invoke('integrations:add-source',kind),
   openIntegrationPath:input=>ipcRenderer.invoke('integrations:open-path',input),

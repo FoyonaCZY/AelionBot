@@ -36,7 +36,7 @@ export class Cognition {
   }
   saveSkill(botId:string,runId:string,name:string,description:string,body:string,sourceRefs?:string[]){
     knowledgeTextSafe(body,this.secrets());const refs=sourceRefs?.map(id=>{const message=this.storage.sourceMessage(botId,id);if(!message)throw new Error('技能来源不存在或无权访问');return message.id;})||this.store.data.messages.filter(message=>message.botId===botId&&(message.runId===runId&&message.role==='user'||message.role==='tool'&&message.status==='done')).slice(-5).map(message=>message.id);const existing=this.skills.list(botId).find(skill=>skill.botId===botId&&skill.name===name),before=existing?this.skills.read(botId,existing.id).body:undefined;
-    const result=this.skills.save(botId,name,description,body,{origin:'foreground',sourceRunId:runId,sourceRefs:refs});this.storage.audit(botId,runId,'skill',existing?'replace':'create',before,body,refs);this.storage.bump(botId);return result;
+    const result=this.skills.save(botId,name,description,body,{origin:'foreground',sourceRunId:runId,sourceRefs:refs});if(!result.unchanged){this.storage.audit(botId,runId,'skill',existing?'replace':'create',before,body,refs);this.storage.bump(botId);}return result;
   }
   view(){if(this.closing)return undefined;return {learning:this.learning.status(),bots:this.store.data.bots.map(bot=>{const events=this.storage.db.prepare('SELECT kind,action,created_at FROM knowledge_events WHERE bot_id=? ORDER BY created_at DESC LIMIT 1').get(bot.id) as any;return {botId:bot.id,memoryRevision:this.storage.revision(bot.id),context:this.context.stats(bot.id),lastLearning:events?{kind:events.kind,action:events.action,time:events.created_at}:undefined};})};}
   deleteBot(botId:string){this.learning.preempt();this.storage.clearBot(botId);}

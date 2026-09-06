@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import type {ModelProvider,ModelSelection,Snapshot} from './shared';
+import type {ModelParameters,ModelProtocol} from './model-types';
 import {SettingsSection} from './SettingsWindow';
 import {ModelSelectionFields,validModelSelection} from './ModelSelectionFields';
 import './model-settings.css';
@@ -41,13 +42,19 @@ function DefaultModelAssignment({providers,selection,busy,onNotify}:{providers:M
 }
 
 function ProviderEditor({provider,disabled,onClose,onSaved}:{provider?:ModelProvider;disabled:boolean;onClose:()=>void;onSaved:(provider:ModelProvider)=>void}){
+  const [parameters,setParameters]=useState<ModelParameters>({protocol:provider?.protocol||'chat',temperature:provider?.temperature,reasoningEffort:provider?.reasoningEffort,thinkingBudget:provider?.thinkingBudget,fallbackModel:provider?.fallbackModel});
   const [name,setName]=useState(provider?.name||''),[baseUrl,setBaseUrl]=useState(provider?.baseUrl||''),[apiKey,setApiKey]=useState(''),[clearKey,setClearKey]=useState(false),[pending,setPending]=useState(false),[error,setError]=useState('');
-  const save=async()=>{setPending(true);setError('');try{const saved=await window.aelion.saveProvider({id:provider?.id,name,baseUrl,apiKey:clearKey?null:apiKey||undefined});setName(saved.name);setBaseUrl(saved.baseUrl);setApiKey('');setClearKey(false);onSaved(saved);}catch(error){setError(errorText(error));}finally{setPending(false);}};
+  const save=async()=>{setPending(true);setError('');try{const saved=await window.aelion.saveProvider({id:provider?.id,name,baseUrl,...parameters,apiKey:clearKey?null:apiKey||undefined});setName(saved.name);setBaseUrl(saved.baseUrl);setApiKey('');setClearKey(false);onSaved(saved);}catch(error){setError(errorText(error));}finally{setPending(false);}};
   return <form className="provider-editor" onSubmit={event=>{event.preventDefault();void save();}}>
     <h4>{provider?'编辑 Provider':'添加 Provider'}</h4><div className="settings-card">
+      <label className="settings-row"><span>协议</span><select value={parameters.protocol} disabled={disabled||pending} onChange={e=>setParameters({protocol:e.target.value as ModelProtocol})}><option value="chat">OpenAI 兼容</option><option value="responses">OpenAI Responses</option><option value="anthropic">Claude Messages</option><option value="gemini">Gemini Generate Content</option></select></label>
       <label className="settings-row"><span>名称</span><input aria-label="Provider 名称" value={name} onChange={event=>setName(event.target.value)} maxLength={80} disabled={disabled||pending} placeholder="例如：OpenAI"/></label>
       <label className="settings-row"><span>Base URL</span><input aria-label="Provider Base URL" value={baseUrl} onChange={event=>setBaseUrl(event.target.value)} maxLength={2000} spellCheck={false} disabled={disabled||pending} placeholder="https://api.example.com/v1"/></label>
       <label className="settings-row"><span>API Key</span><input aria-label="Provider API Key" type="password" autoComplete="off" value={apiKey} onChange={event=>{setApiKey(event.target.value);setClearKey(false);}} disabled={disabled||pending} maxLength={4000} placeholder={provider?.hasKey&&!clearKey?'已保存，留空保持不变':'本地服务可留空'}/></label>
+      <label className="settings-row"><span>温度</span><input type="number" min={0} max={2} step={0.1} placeholder="模型默认" disabled={disabled||pending} value={parameters.temperature??''} onChange={e=>setParameters({...parameters,temperature:e.target.value===''?undefined:Number(e.target.value)})}/></label>
+      {['chat','responses'].includes(parameters.protocol||'chat')&&<label className="settings-row"><span>推理强度</span><select value={parameters.reasoningEffort||''} disabled={disabled||pending} onChange={e=>setParameters({...parameters,reasoningEffort:e.target.value as ModelParameters['reasoningEffort']||undefined})}><option value="">模型默认</option>{['none','minimal','low','medium','high','xhigh'].map(level=><option key={level}>{level}</option>)}</select></label>}
+      {['anthropic','gemini'].includes(parameters.protocol||'chat')&&<label className="settings-row"><span>思考预算</span><input type="number" min={1024} max={64000} placeholder="模型默认" disabled={disabled||pending} value={parameters.thinkingBudget??''} onChange={e=>setParameters({...parameters,thinkingBudget:e.target.value===''?undefined:Number(e.target.value)})}/></label>}
+      <label className="settings-row"><span>故障时的备用模型</span><input value={parameters.fallbackModel||''} disabled={disabled||pending} placeholder="不自动切换" maxLength={256} onChange={e=>setParameters({...parameters,fallbackModel:e.target.value})}/></label>
     </div>
     {provider?.hasKey&&<label className="provider-clear-key"><input type="checkbox" checked={clearKey} disabled={disabled||pending} onChange={event=>{setClearKey(event.target.checked);setApiKey('');}}/>清除已保存的密钥</label>}
     {error&&<p className="provider-error" role="alert">{error}</p>}

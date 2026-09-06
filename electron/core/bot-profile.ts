@@ -10,6 +10,6 @@ export function updateBotProfile(store:Store,providers:ModelProviders,input:BotU
   if(modelChanged)beforeModelChange(bot.id);
   const next={...store.data,bots:store.data.bots.map(item=>item.id===bot.id?{...item,name:input.name.trim(),role:input.role,model}:item)};
   // A rejected model change must not leave a partially updated profile.
-  atomicJson(store.file,next);store.data=next;
+  store.replaceData(next);
   return modelChanged;
 }

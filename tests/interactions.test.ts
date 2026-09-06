@@ -27,23 +27,30 @@ test('refusing a host operation stops the run, skips later calls and keeps tool-
   const answered=store.data.conversations[bot.id].filter(message=>message.role==='tool').map(message=>message.tool_call_id);assert.deepEqual(answered,['call-0','call-1']);assert.equal(interactions.snapshot().length,0);
 });
 
-test('local MCP tools cannot start before their per-call permission is approved',async t=>{
+test('enabled MCP discovery does not request repeated permission',async t=>{
   const {root,store,interactions}=fixture(t);let dispatched=0,modelCalls=0;
   const mcp={hostPermission:()=>({server:'local',command:'node fixture.mjs',cwd:root}),listTools:async()=>{dispatched++;return {tools:[]};}};
   const model={complete:async()=>++modelCalls===1?{content:'检查工具',finishReason:'tool_calls',calls:[{id:'list',type:'function',function:{name:'mcp_list_tools',arguments:'{"server":"local"}'}}]}:{content:'已完成',finishReason:'stop',calls:[]}} as unknown as ModelClient;
   const run=new Harness(store,{} as VmController,model,()=>{},undefined,undefined,{mcp} as unknown as Integrations,undefined,interactions).run(store.data.bots[0].id,'检查本机 MCP');
-  await until(()=>interactions.snapshot().length===1);assert.equal(dispatched,0);interactions.approve(interactions.snapshot()[0].id,true);await run;assert.equal(dispatched,1);assert.equal(store.data.runs[0].status,'completed');
+  await run;assert.equal(interactions.snapshot().length,0);assert.equal(dispatched,1);assert.equal(store.data.runs[0].status,'completed');
 });
 
-test('external skill reads need fresh permission while application-owned skills remain internal',async t=>{
+test('registered skill reads are available without host permission',async t=>{
   const {root,store,interactions}=fixture(t);let modelCalls=0;const reads:string[]=[];
   const skills={list:()=>[{id:'private',name:'private',description:'应用内技能',body:'',botId:store.data.bots[0].id},{id:'external',name:'external',description:'外部技能',body:''}],externalPath:(_botId:string,id:string)=>id==='external'?join(root,'external','SKILL.md'):undefined,read:(_botId:string,id:string)=>{reads.push(id);return {name:id,body:'fixture skill'};}};
+  Object.assign(skills,{observeRead:()=>{}});
   const ids=['private','external','external'];
   const model={complete:async()=>{const index=modelCalls++;return index<ids.length?{content:'读取技能',finishReason:'tool_calls',calls:[{id:`read-${index}`,type:'function',function:{name:'skill_read',arguments:JSON.stringify({id:ids[index]})}}]}:{content:'已完成',finishReason:'stop',calls:[]};}} as unknown as ModelClient;
   const run=new Harness(store,{} as VmController,model,()=>{},undefined,undefined,{skills} as unknown as Integrations,undefined,interactions).run(store.data.bots[0].id,'读取技能');
-  await until(()=>interactions.snapshot().length===1);assert.deepEqual(reads,['private']);const first=interactions.snapshot()[0];assert.equal(first.kind,'host_permission');
-  interactions.approve(first.id,true);await until(()=>interactions.snapshot().length===1&&interactions.snapshot()[0].id!==first.id);assert.deepEqual(reads,['private','external']);
-  interactions.approve(interactions.snapshot()[0].id,false);await run;assert.deepEqual(reads,['private','external']);assert.equal(store.data.runs[0].status,'cancelled');
+  await run;assert.equal(interactions.snapshot().length,0);assert.deepEqual(reads,['private','external','external']);assert.equal(store.data.runs[0].status,'completed');
+});
+
+test('MCP mutations still wait for approval and refusal prevents dispatch',async t=>{
+  const {store,interactions}=fixture(t);let dispatched=0;
+  const mcp={inspectCall:async()=>({fingerprint:'fixture',permission:{operation:'mcp',server:'remote',tool:'write',reason:'写入资源'}}),call:async()=>{dispatched++;return {};}};
+  const model={complete:async()=>({content:'',finishReason:'tool_calls',calls:[{id:'write',type:'function',function:{name:'mcp_call',arguments:JSON.stringify({server:'remote',name:'write',arguments:{value:'fixture'}})}}]})} as unknown as ModelClient;
+  const pending=new Harness(store,{} as VmController,model,()=>{},undefined,undefined,{mcp} as unknown as Integrations,undefined,interactions).run(store.data.bots[0].id,'更新资源');
+  await until(()=>interactions.snapshot().length===1);assert.equal(dispatched,0);interactions.approve(interactions.snapshot()[0].id,false);await pending;assert.equal(dispatched,0);assert.equal(store.data.runs[0].status,'cancelled');
 });
 
 test('VM assistance pauses through takeover and resumes only with a fresh observed screenshot',async t=>{

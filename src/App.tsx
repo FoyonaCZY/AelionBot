@@ -1,3 +1,6 @@
+import {WorkItemsPanel} from './WorkItems';
+import {workspaceKey} from './work-types';
+import {RuntimeSettings} from './RuntimeSettings';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import Markdown from 'react-markdown';
 import {attachmentSummary} from './attachment-types';
@@ -173,7 +176,8 @@ export default function App(){
       })}{liveReplies.filter(reply=>reply.purpose==='progress'||!reply.runId||!timeline.some(item=>item.kind==='run'&&item.id===reply.runId)).map(reply=><StreamingReply key={reply.id} reply={reply}/>)}<div ref={bottom}/></section>
       <div className={`composer-wrap ${waiting?'with-request':''}`}>
         <ConversationInteractions requests={requests.filter(request=>!state.runs.find(run=>run.id===request.runId)?.groupOrigin||state.runs.find(run=>run.id===request.runId)?.groupTask)} botId={bot.id} onTakeover={startTakeover}/>
-        <BotComposer key={bot.id} bot={bot} bots={state.bots} draft={draft} running={running} onChange={draft=>setDrafts(value=>({...value,[bot.id]:draft}))} onSend={()=>void send()} onStop={()=>void window.aelion.cancel(bot.id)}/>
+        <WorkItemsPanel items={state.workItems} scope={{kind:'bot',id:bot.id}} bots={state.bots}/>
+        <BotComposer workspaceDir={state.conversationWorkspaces?.[workspaceKey({kind:'bot',id:bot.id})]} key={bot.id} bot={bot} bots={state.bots} draft={draft} running={running} onChange={draft=>setDrafts(value=>({...value,[bot.id]:draft}))} onSend={()=>void send()} onStop={()=>void window.aelion.cancel(bot.id)}/>
       </div>
       </>:<div className="empty-workspace"><Icon name="bot" size={38}/><h2>还没有 Bot</h2><button className="primary-button" onClick={openNewBot}>创建 Bot</button></div>}
     </main>
@@ -203,6 +207,7 @@ export default function App(){
       </form>}
       {modal==='delete-bot'&&deletingBot&&<div className="delete-bot-confirmation"><p>删除“{deletingBot.name}”及其对话和记忆？工作文件和私聊记录会保留。</p><div className="dialog-actions"><button className="secondary-button" autoFocus disabled={busy} onClick={()=>setModal(null)}>取消</button><button className="danger-button" disabled={busy} onClick={()=>void removeBot()}>{busy?'正在删除…':'删除 Bot'}</button></div></div>}
       {modal==='settings'&&<SettingsWindow tab={settingsTab} onTabChange={setSettingsTab} onClose={()=>void act(closeModal)}>
+        {settingsTab==='runtime'&&<RuntimeSettings settings={state.runtime} onNotify={setToast}/>}
         {settingsTab==='model'&&<ModelSettings state={state} onNotify={setToast}/>}
         {settingsTab==='skills'&&(scopeBot?<>{scopePicker}<SkillsSettings botId={scopeBot.id} skills={state.skills.filter(skill=>!skill.botId||skill.botId===scopeBot.id)} integrations={state.integrations} busy={busy||anyRunning} act={act}/></>:<div className="settings-empty">先创建一个 Bot</div>)}
         {settingsTab==='mcp'&&<McpSettings integrations={state.integrations} busy={busy||anyRunning} act={act}/>}

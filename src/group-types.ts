@@ -3,12 +3,12 @@ import type {MessagePin,PinEvent} from './reactions';
 import type {BotIdentity,BotMention} from './peer-types';
 import type {ScheduledTrigger} from './scheduled-types';
 export const GROUP_LIMITS={bots:8,repetitions:3,groupsPerTask:2} as const;
-const conversationTools=new Set(['attachment_read','read_result','scheduled_tasks_list','scheduled_task_create','scheduled_task_update','scheduled_task_delete','groups_list','group_read','group_create','group_invite','group_send_message','bots_list','bot_read_messages','bot_send_message','history_search','history_read','group_pin','chat_pin']);
+const conversationTools=new Set(['plan_update','goal_set','goal_read','goal_update','task_read','task_update','execution_list','execution_resolve','attachment_read','read_result','scheduled_tasks_list','scheduled_task_create','scheduled_task_update','scheduled_task_delete','groups_list','group_read','group_create','group_invite','group_send_message','bots_list','bot_read_messages','bot_send_message','history_search','history_read','group_pin','chat_pin']);
 export const isGroupWorkTool=(name:string|undefined)=>Boolean(name&&!conversationTools.has(name));
 export type GroupSender={kind:'user';id:'user';name:string}|({kind:'bot'}&BotIdentity)|{kind:'system';id:'system';name:string};
 export interface GroupMember extends BotIdentity {joinedAt:string;leftAt?:string;}
 export interface GroupLifecycleEvent {type:'created'|'members_changed';actor:GroupSender;joined:BotIdentity[];left:BotIdentity[];members:BotIdentity[];}
-export interface GroupMessage {scheduled?:ScheduledTrigger;attachments?:Attachment[];pins?:MessagePin[];reaction?:PinEvent;event?:GroupLifecycleEvent;id:string;seq:number;groupId:string;sender:GroupSender;kind:'message'|'system'|'continue'|'reaction'|'progress';content:string;time:string;rootId?:string;replyTo?:string;runIds?:string[];mentions?:BotMention[];}
+export interface GroupMessage {workItemId?:string;workspaceDir?:string|null;scheduled?:ScheduledTrigger;attachments?:Attachment[];pins?:MessagePin[];reaction?:PinEvent;event?:GroupLifecycleEvent;id:string;seq:number;groupId:string;sender:GroupSender;kind:'message'|'system'|'continue'|'reaction'|'progress';content:string;time:string;rootId?:string;replyTo?:string;runIds?:string[];mentions?:BotMention[];}
 export interface GroupRoom {id:string;name:string;members:GroupMember[];createdBy:GroupSender;createdAt:string;updatedAt:string;messages:GroupMessage[];lastReadSeq:number;activeRootId?:string;}
 export interface GroupRound {id:string;originKey?:string;groupId:string;request:string;status:'active'|'limited'|'stopped';createdAt:string;botMessages:number;botCounts:Record<string,number>;decisions:number;createdGroups:number;reason?:string;repetitions?:number;}
 export type GroupDeliveryStatus='queued'|'deciding'|'running'|'ignored'|'replied'|'limited'|'failed'|'cancelled'|'interrupted'|'delivered'|'read';

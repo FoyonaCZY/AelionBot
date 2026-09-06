@@ -1,0 +1,66 @@
+/* Quiet surfaces keep the companion mark as the main color accent. */
+.composer-tools{position:relative;display:flex;align-items:center;gap:8px;margin-right:auto;min-width:0}
+.composer-tools .composer-plus{border-radius:12px;color:#8d7ca4;transition:background .18s,color .18s,transform .18s}
+.composer-tools .composer-plus:hover,.composer-tools .composer-plus[aria-expanded=true]{color:#8865d0;background:#f1eafa}
+.composer-tools .composer-plus[aria-expanded=true]>svg{transform:rotate(45deg)}
+.composer-tools .composer-plus>svg{transition:transform .2s}
+.composer-add-menu{position:absolute;bottom:calc(100% + 12px);left:0;z-index:30;width:250px;max-width:calc(100vw - 64px);padding:6px;border-radius:14px;background:#fff;border:1px solid #e7e7eb;box-shadow:0 8px 28px #24242b10;animation:companion-arrive .2s ease-out both}
+.composer-add-menu>button{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:8px;text-align:left;font-size:12px;color:#45454d;transition:background .15s}
+.composer-add-menu>button:hover,.composer-add-menu>button:focus-visible{background:#f5f5f7;outline:none}
+.composer-menu-icon{display:grid;place-items:center;flex:0 0 24px;width:24px;height:24px;color:#8b8595}
+.composer-menu-icon>svg{width:17px;height:17px}
+.composer-menu-plan,.composer-menu-goal{color:#8a79a6}
+.composer-add-menu kbd{margin-left:auto;font:11px Consolas,monospace;color:#9898a0}
+.composer-menu-divider{height:1px;background:#eeeef1;margin:5px 10px}
+.composer-workspace{display:flex;align-items:center;max-width:260px;min-width:0;background:#f7f7f9;border:1px solid #ededf0;border-radius:7px;color:#797981;font-size:11px}
+.composer-workspace button{display:flex;align-items:center;gap:6px;padding:5px 7px;min-width:0}.composer-workspace span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.composer-workspace .workspace-remove{padding:5px;flex-shrink:0}.workspace-pending{font-size:11px;color:#999}
+.composer-tools-error{position:absolute;bottom:calc(100% + 8px);left:0;width:320px;max-width:calc(100vw - 64px);background:#fff5f2;border:1px solid #ead6d1;padding:10px;border-radius:10px;font-size:12px;color:#8c4d42;display:flex;align-items:center;gap:8px;z-index:31}.composer-tools-error button{margin-left:auto}
+.command-picker{position:absolute;bottom:calc(100% + 10px);left:0;right:0;z-index:20;background:#fff;border:1px solid #e7e7eb;box-shadow:0 8px 28px #24242b10;border-radius:14px;padding:6px;animation:companion-arrive .2s ease-out both}
+.command-picker button{width:100%;display:flex;align-items:center;gap:11px;padding:10px 11px;border-radius:8px;text-align:left;color:#45454d}
+.command-picker button.active,.command-picker button:hover{background:#f5f5f7}
+.command-picker .command-copy{display:flex;flex-direction:column;flex:1;gap:3px;min-width:0}
+.command-picker strong{font-size:12px;font-weight:500}.command-picker small{font-size:11px;color:#7c7c84;line-height:1.5}
+.command-picker code{flex-shrink:0;font:11px Consolas,monospace;color:#9898a0}
+.work-items-panel{max-height:min(392px,54dvh);min-height:0;overflow-y:auto;overscroll-behavior:contain;margin:-3px -4px 7px;padding:3px 4px 5px;scrollbar-width:thin;scrollbar-color:#dedee3 transparent}
+.work-card{display:flex;flex-direction:column;max-height:min(368px,50dvh);margin-bottom:8px;overflow:hidden}
+.work-card:last-child{margin-bottom:0}
+.work-card-heading{display:flex;align-items:center;gap:6px;flex-shrink:0;padding:0 15px}
+.work-card-toggle{display:flex;align-items:center;gap:12px;flex:1;min-width:0;padding:13px 0 11px;text-align:left;border-radius:12px}
+.work-card-toggle:focus-visible{outline-offset:-2px}
+.work-heading-copy{display:flex;flex:1;flex-direction:column;gap:5px;min-width:0}
+.work-heading-meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.work-kind{font-size:12px;font-weight:500;color:#55555d}.is-open .work-kind{font-size:13px;color:#38383f}
+.work-card-title{display:block;font-size:12px;line-height:1.6;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#424249}
+.work-running .work-status::before,.work-completed .work-status::before{background:#86a493}.work-planning .work-status::before{background:#a18bbb}
+.work-running .work-status::before,.work-planning .work-status::before{animation:companion-status-pulse 2.6s ease-in-out infinite}
+.work-paused .work-status::before,.work-blocked .work-status::before{background:#bdac8c}.work-cancelled .work-status::before{background:#b7b7bf}
+.work-progress-count{flex-shrink:0;font-size:11px;font-weight:400;font-variant-numeric:tabular-nums;color:#87878f;white-space:nowrap}
+.work-card-chevron{display:grid;place-items:center;width:20px;height:24px;color:#a6a6af;border-radius:6px}.work-card-toggle:hover .work-card-chevron{color:#67616f;background:#f5f5f7}
+.work-owner{display:flex;flex-shrink:0}
+.work-card-body{min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 17px 3px;scrollbar-width:thin;scrollbar-color:#dedee3 transparent}
+.work-objective{font-size:13px;font-weight:500;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;margin:1px 0 16px;color:#35353c}
+.work-steps{list-style:none;padding:0;margin:0;display:grid;gap:0}
+.work-steps li{position:relative;display:flex;gap:11px;align-items:flex-start;padding-bottom:13px}
+.work-steps li:last-child{padding-bottom:0}
+.work-steps li:not(:last-child)::before{content:"";position:absolute;left:10px;top:23px;bottom:2px;width:1px;background:#eeeef1}
+.work-step-mark{position:relative;display:grid;place-items:center;width:21px;height:21px;color:#8b8b93;flex-shrink:0;font-size:11px;font-weight:400;font-variant-numeric:tabular-nums}
+.work-steps li>div{flex:1;min-width:0;padding-top:1px}
+.work-steps strong{display:block;font-size:12px;font-weight:400;line-height:1.7;color:#494950;overflow-wrap:anywhere}
+.work-steps p{font-size:11px;color:#7c7c84;margin:3px 0 0;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
+.work-steps [data-status=done] .work-step-mark{color:#749181}
+.work-steps [data-status=done] strong{color:#77777f}
+.work-steps [data-status=working] .work-step-mark{color:#8b6bea}
+.work-steps [data-status=working] strong{color:#36333e;font-weight:500}
+.work-step-orbit{width:9px;height:9px;border:1.5px solid #d5c1ee;border-top-color:#9370c5;border-radius:50%;animation:spin 1.8s linear infinite}
+.work-steps [data-status=skipped]{opacity:.65}.work-steps .work-step-note{color:#7c7c84}
+.work-directory{display:flex;align-items:center;gap:6px;min-width:0;color:#87878f;font-size:10px;margin:12px 0 4px}.work-directory span{min-width:0;overflow-wrap:anywhere}
+.work-card-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-shrink:0;padding:10px 15px 12px;margin-top:8px;border-top:1px solid #eeeef1}
+.work-reason,.work-summary,.work-error{font-size:11px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;color:#75757d}
+.work-reason{flex-shrink:0;max-height:66px;overflow:auto;margin:5px 17px 0;padding-left:10px;border-left:2px solid #d5c4a4;color:#8a7045}
+.work-summary{padding:0;margin:12px 0 0;color:#686f69}
+.work-error{flex-shrink:0;max-height:66px;overflow:auto;margin:0 15px 12px;color:#b57375}
+.work-history-toggle{display:flex;align-items:center;gap:6px;color:#818189;font-size:10px;padding:6px 7px;border-radius:7px;margin:2px 0}
+.work-history-toggle:hover{color:#53535b;background:#f5f5f7}
+@media(max-width:600px){.work-card-heading{padding:0 12px}.work-card-toggle{gap:9px}.work-card-body{padding-left:14px;padding-right:14px}.work-card-actions{padding-left:12px;padding-right:12px}.command-picker button{gap:8px}}
+@media(max-height:560px){.work-items-panel{max-height:40dvh}.work-card{max-height:38dvh}.work-card-toggle{padding:8px 0}.work-card-actions{padding-top:7px;padding-bottom:8px;margin-top:4px}.work-card .companion-badge{width:36px;height:36px;flex-basis:36px}.work-card .companion-badge>.avatar{width:30px;height:30px}}
+@media(prefers-reduced-motion:reduce){.work-status::before,.work-step-orbit,.composer-add-menu,.command-picker{animation:none!important}.composer-tools .composer-plus,.composer-tools .composer-plus>svg{transition:none}}

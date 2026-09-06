@@ -15,10 +15,10 @@ function ToolStep({message,recovered,onScreen}:{message:ChatMessage;recovered:bo
   const [open,setOpen]=useState(false);
   const display=toolDisplay(message),operation=toolOperation(message.tool);
   const state=message.status==='running'?'running':message.status==='failed'?recovered?'recovered':'failed':message.status==='cancelled'?'cancelled':'done';
-  const labels={running:'进行中',done:'完成',failed:'遇到问题',cancelled:'已停止',recovered:'已重试'};
+  const labels={running:'进行中',done:'完成',failed:'遇到问题',cancelled:'已停止',recovered:'已处理'};
   return <li className="activity-step-wrap"><details className={`activity-step ${state}`} open={open} onToggle={event=>setOpen(event.currentTarget.open)}>
     <summary><span className="activity-step-icon"><Icon name={operation.icon} size={15}/></span><span className="activity-step-copy"><span>{display.label}</span>{display.detail&&<small title={display.detail}>{display.detail}</small>}</span><span className="activity-step-status">{labels[state]}</span><StatusMark state={state}/><Icon name="down" size={12}/></summary>
-    {open&&<div className="activity-step-body">{message.status==='failed'&&recovered&&<p className="activity-step-error">此步骤之后已重新执行。</p>}{message.screenshotId&&<ScreenImage id={message.screenshotId} onOpen={onScreen}/>}<ToolDetails message={message}/></div>}
+    {open&&<div className="activity-step-body">{message.status==='failed'&&recovered&&<p className="activity-step-error">此问题已通过后续操作处理，详见执行记录。</p>}{message.screenshotId&&<ScreenImage id={message.screenshotId} onOpen={onScreen}/>}<ToolDetails message={message}/></div>}
   </details></li>;
 }
 
@@ -29,7 +29,7 @@ export function RunMessage({messages,allMessages=messages,isLast=true,run,stream
   const [open,setOpen]=useState(false),[,tick]=useState(0);
   useEffect(()=>{if(!isLast||view.status!=='running'||waiting)return;const timer=setInterval(()=>tick(value=>value+1),1000);return()=>clearInterval(timer);},[isLast,view.status,waiting]);
   const running=isLast&&view.status==='running',failed=isLast&&['failed','interrupted'].includes(view.status),cancelled=isLast&&view.status==='cancelled';
-  const allTools=allMessages.filter(message=>message.role==='tool'),recovered=(message:ChatMessage)=>view.status==='completed'&&allTools.slice(allTools.findIndex(item=>item.id===message.id)+1).some(next=>next.tool===message.tool&&next.status==='done');
+  const allTools=allMessages.filter(message=>message.role==='tool'),recovered=(message:ChatMessage)=>Boolean(message.executionResolved);
   const segmentFailed=!isLast&&view.tools.some(message=>message.status==='failed'&&!recovered(message));
   const notice=friendlyError(view.error);
   const hasActivity=running&&!stream||view.tools.length>0||view.notes.length>0||failed||cancelled;

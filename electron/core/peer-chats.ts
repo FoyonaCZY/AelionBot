@@ -1,3 +1,4 @@
+import {delegationContract} from './delegation';
 import {randomUUID} from 'node:crypto';
 import type {Bot,RunRecord} from '../../src/shared';
 import type {BotIdentity,PeerChatPage,PeerExchange,PeerExchangeView,PeerMessage,PeerThread,PeerThreadSummary,PeerView} from '../../src/peer-types';
@@ -64,6 +65,7 @@ export class PeerChats implements PeerGateway {
     this.store.message(botId,'event',direction==='sent'?`已发送消息给 ${other.name}`:`收到 ${other.name} 的消息`,{peer:{exchangeId:exchange.id,direction},...(time?{time}:{})});
   }
   send(botId:string,runId:string,args:Record<string,unknown>,signal:AbortSignal,options:HarnessRunOptions){
+    const task=args.task===undefined?undefined:delegationContract(args.task);
     if(this.closing||signal.aborted)throw new Error('任务已停止，未发送消息');
     const from=this.store.bot(botId),to=this.store.bot(required(args.botId,'Bot ID',80)),content=required(args.message,'消息',8000),attachments=this.attachments.forBot(botId,args.attachmentIds);
     if(from.id===to.id)throw new Error('不能给自己发送私聊');
@@ -80,6 +82,7 @@ export class PeerChats implements PeerGateway {
     let thread=this.store.data.peerThreads.find(thread=>thread.members.some(member=>member.id===from.id)&&thread.members.some(member=>member.id===to.id));
     if(!thread){thread={id:randomUUID(),members:[identity(from),identity(to)],createdAt:now(),updatedAt:now(),messages:[]};this.store.data.peerThreads.push(thread);}
     const exchange:PeerExchange={id:randomUUID(),threadId:thread.id,fromBotId:from.id,toBotId:to.id,rootRunId,rootBotId,rootRequest:rootRequest.slice(0,8000),parentId:parent?.id,status:'queued',createdAt:now(),updatedAt:now(),requestMessageId:''};
+    if(task)exchange.task=task;
     this.store.data.peerExchanges.push(exchange);exchange.requestMessageId=this.append(exchange,from.id,content,'request',attachments).id;this.notice(from.id,exchange,'sent');this.notice(to.id,exchange,'received');this.touch();
     return {sent:true,exchangeId:exchange.id,threadId:thread.id,recipient:{id:to.id,name:to.name},status:'queued',message:'消息已进入对方收件队列。双方内容保存在私聊中，回信到达会显示可点击的收到消息事件，不需要轮询。'};
   }

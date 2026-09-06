@@ -249,6 +249,13 @@ export class VmController extends EventEmitter {
     this.activeExecutions++;
     try{return await this.execRaw(`mkdir -p ${shQuote(`/work/${botId}`)} && cd ${shQuote(`/work/${botId}`)} && AELION_BOT_ID=${shQuote(botId)} timeout -s TERM 120 sh -lc ${shQuote(command)}`,'aelion',130000,signal,outputLimit);}finally{this.activeExecutions--;}
   }
+  async executePython(code:string,input:Buffer,botId:string,signal?:AbortSignal,outputLimit=2_000_000):Promise<CommandResult>{
+    if(!/^[a-zA-Z0-9_-]{1,80}$/.test(botId))throw new Error('无效工作区');
+    if(this.operation||this.stateValue.status!=='ready')throw new Error('工作电脑尚未就绪或正在维护');
+    if(!code.trim()||code.length>32000||input.length>8*1024*1024)throw new Error('Python 脚本或输入超过大小限制');
+    this.activeExecutions++;
+    try{return await this.execRaw(`mkdir -p ${shQuote(`/work/${botId}`)} && cd ${shQuote(`/work/${botId}`)} && AELION_BOT_ID=${shQuote(botId)} timeout -s TERM 120 python3 -c ${shQuote(code)}`,'aelion',130000,signal,outputLimit,input);}finally{this.activeExecutions--;}
+  }
   async importAttachment(botId:string,id:string,name:string,bytes:Buffer,signal:AbortSignal){
     if(!/^[a-zA-Z0-9_-]{1,80}$/.test(botId)||!/^[a-f0-9-]{36}$/.test(id)||!name||name.length>512||/[\\/\u0000-\u001f]/.test(name)||name==='.'||name==='..')throw new Error('附件目标路径无效');
     if(Buffer.byteLength(name)>220){const extension=extname(name).slice(0,20),stem=extension?name.slice(0,-extname(name).length):name;let shortened='';for(const character of stem){if(Buffer.byteLength(shortened+character+extension)>220)break;shortened+=character;}name=(shortened||'attachment')+extension;}

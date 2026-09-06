@@ -1,27 +1,31 @@
+import type {ModelParameters,NativeAssistant} from './model-types';
+import type {WorkItem,WorkAction} from './work-types';
+import type {RuntimeSettings,TaskPlan,UsageRecord} from './runtime-types';
 import type {Attachment,AttachmentScope,AttachmentUpload} from './attachment-types';
 import type {BotMention,PeerChatPage,PeerNotice,PeerRunOrigin,PeerView} from './peer-types';
 import type {GroupLink,GroupPage,GroupRunOrigin,GroupSummary,GroupsView} from './group-types';
 import type {MessagePin,PinEvent,PinInput} from './reactions';
 import type {UpdateState} from './update-types';
 import type {ScheduledTask,ScheduledTaskInput,ScheduledTaskUpdate,ScheduledTrigger} from './scheduled-types';
+import type {ToolExecution} from './execution-types';
 export type {BotMention,PeerChatPage,PeerNotice,PeerRunOrigin,PeerView} from './peer-types';
 export interface ModelSelection {providerId:string;model:string;contextTokens:number;}
 export interface ProviderModel {id:string;}
-export interface ModelProvider {id:string;name:string;baseUrl:string;hasKey:boolean;models:ProviderModel[];modelsUpdatedAt?:string;modelsCheckedAt?:string;modelsError?:string;}
-export interface ProviderInput {id?:string;name:string;baseUrl:string;apiKey?:string|null;}
+export interface ModelProvider extends ModelParameters {id:string;name:string;baseUrl:string;hasKey:boolean;models:ProviderModel[];modelsUpdatedAt?:string;modelsCheckedAt?:string;modelsError?:string;}
+export interface ProviderInput extends ModelParameters {id?:string;name:string;baseUrl:string;apiKey?:string|null;}
 export interface Bot { id: string; name: string; role: string; color: string; createdAt: string; memories: string[]; model?:ModelSelection; }
 export interface BotUpdateInput {id:string;name:string;role:string;model?:ModelSelection|null;}
 export interface ToolCall { id: string; type: 'function'; function: { name: string; arguments: string }; }
 export interface ScreenReference { id: string; width: number; height: number; attachmentId?:string; }
-export interface WireMessage { role: 'system' | 'user' | 'assistant' | 'tool'; content: string | null; tool_calls?: ToolCall[]; tool_call_id?: string; images?: ScreenReference[]; groupMessageId?:string; }
+export interface WireMessage { native?:NativeAssistant; role: 'system' | 'user' | 'assistant' | 'tool'; content: string | null; tool_calls?: ToolCall[]; tool_call_id?: string; images?: ScreenReference[]; groupMessageId?:string; }
 export interface StreamingReply {id:string;botId:string;runId?:string;content:string;time:string;main:boolean;groupId?:string;peerThreadId?:string;purpose?:'reply'|'progress'|'greeting';mentions?:BotMention[];}
 export interface Artifact { id: string; botId: string; runId: string; path: string; name: string; size: number; modifiedAt: string; }
 export interface ArtifactPreview { kind: 'text' | 'markdown' | 'html' | 'image' | 'pdf' | 'unsupported'; content?: string; dataUrl?: string; truncated?: boolean; }
-export interface ChatMessage { scheduled?:ScheduledTrigger; attachments?:Attachment[]; inputState?:'queued'|'handled'|'cancelled'|'interrupted'; pins?:MessagePin[];reaction?:PinEvent; id: string; botId: string; role: 'user' | 'assistant' | 'tool' | 'event'; content: string; time: string; status?: 'running' | 'done' | 'failed' | 'cancelled'; tool?: string; runId?: string; screenshotId?: string; activity?: {label:string;detail?:string}; presentation?: 'progress'|'answer'|'error'; mentions?:BotMention[];peer?:PeerNotice;groupLink?:GroupLink;groupTaskSource?:{groupId:string;name:string;messageId?:string;continuation?:boolean};audience?:'user';peerSummaryFor?:string;peerContextPublished?:boolean;taskSource?:{botId:string;name:string;exchangeId:string;continuation?:boolean}; }
-export interface RunRecord { attachments?:Attachment[]; inputUpdated?:boolean;supersedesRunId?:string;progressSteps?:number; groupReplyMessageId?:string; id: string; botId: string; status: 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted'; startedAt: string; endedAt?: string; error?: string; modelCalls: number; toolCalls: number; peerOrigin?:PeerRunOrigin;groupOrigin?:GroupRunOrigin;groupTask?:boolean;groupUpdated?:boolean; }
-export interface ModelConfig { baseUrl: string; model: string; hasKey: boolean; contextTokens: number; providerId?:string;providerName?:string;issue?:string; }
+export interface ChatMessage { workspaceDir?:string|null; executionId?:string;executionTarget?:string;executionResolved?:boolean; scheduled?:ScheduledTrigger; attachments?:Attachment[]; inputState?:'queued'|'handled'|'cancelled'|'interrupted'; pins?:MessagePin[];reaction?:PinEvent; id: string; botId: string; role: 'user' | 'assistant' | 'tool' | 'event'; content: string; time: string; status?: 'running' | 'done' | 'failed' | 'cancelled'; tool?: string; runId?: string; screenshotId?: string; activity?: {label:string;detail?:string}; presentation?: 'progress'|'answer'|'error'; mentions?:BotMention[];peer?:PeerNotice;groupLink?:GroupLink;groupTaskSource?:{groupId:string;name:string;messageId?:string;continuation?:boolean};audience?:'user';peerSummaryFor?:string;peerContextPublished?:boolean;taskSource?:{botId:string;name:string;exchangeId:string;continuation?:boolean}; }
+export interface RunRecord { lastProgressAt?:string;lastProgressDigest?:string; workItemId?:string;workspaceDir?:string; plan?:TaskPlan; executions?:ToolExecution[]; attachments?:Attachment[]; inputUpdated?:boolean;supersedesRunId?:string;progressSteps?:number; groupReplyMessageId?:string; id: string; botId: string; status: 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted'; startedAt: string; endedAt?: string; error?: string; modelCalls: number; toolCalls: number; peerOrigin?:PeerRunOrigin;groupOrigin?:GroupRunOrigin;groupTask?:boolean;groupUpdated?:boolean; }
+export interface ModelConfig extends ModelParameters { baseUrl: string; model: string; hasKey: boolean; contextTokens: number; providerId?:string;providerName?:string;issue?:string; }
 export interface SkillSource { label: string; path: string; scope: 'user'|'project'|'private'|'builtin'; readonly: boolean; }
-export interface Skill { id: string; name: string; description: string; body: string; botId?: string; source?: SkillSource; compatibility?: string; availableFiles?: string[]; vmPath?: string; }
+export interface Skill {hash?:string;archived?:boolean;pinned?:boolean;readCount?:number;lastReadAt?:string; id: string; name: string; description: string; body: string; botId?: string; source?: SkillSource; compatibility?: string; availableFiles?: string[]; vmPath?: string; }
 export interface IntegrationSource { id: string; label: string; path: string; kind: 'skills'|'mcp'; scope: 'user'|'project'|'private'|'builtin'; exists: boolean; count: number; issue?: string; }
 export interface McpServerView { id: string; name: string; source: SkillSource; transport: 'stdio'|'http'|'sse'|'unsupported'; endpoint: string; enabled: boolean; status: 'disabled'|'available'|'connecting'|'connected'|'error'|'needs-config'; issue?: string; toolCount?: number; }
 export interface IntegrationsView { sharedSkillDir: string; privateSkillDir: string; mcpFile: string; projectDir: string; sources: IntegrationSource[]; servers: McpServerView[]; scannedAt: string; }
@@ -35,10 +39,13 @@ export interface HostPermissionDetails { operation:'command'|'read_file'|'write_
 export type InteractionRequest = {id:string;botId:string;runId:string;createdAt:string} & ({kind:'host_permission';details:HostPermissionDetails}|{kind:'vm_takeover';reason:string;phase:'waiting'|'controlling'});
 export type InteractionAction='allow'|'allow-always'|'deny'|'takeover'|'resume'|'cancel';
 export interface CognitionView {learning:{enabled:boolean;runningBotId?:string;queued:number};bots:Array<{botId:string;memoryRevision:number;context?:{estimatedTokens:number;inputBudget:number;toolTokens:number;imageTokens:number;epoch:number;compactions:number;prunedOutputs:number;lastIssue?:string};lastLearning?:{kind:string;action:string;time:string}}>}
-export interface Snapshot {updates?:UpdateState; scheduledTasks?:ScheduledTask[]; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; model: ModelConfig; providers?:ModelProvider[];defaultModel?:ModelSelection;botModels?:Record<string,ModelConfig>; streamingReplies?:StreamingReply[]; vm: VmState; skills: Skill[]; artifacts: Artifact[]; computer: ComputerState; dataDir: string; integrations?:IntegrationsView; interactions?:InteractionRequest[]; cognition?:CognitionView; peers?:PeerView;groups?:GroupsView; greetingBotIds?:string[]; commandPermissions?:CommandPermissionRule[]; hostWorkspace?:HostWorkspaceSettings; }
+export interface Snapshot { workItems?:WorkItem[];conversationWorkspaces?:Record<string,string>; runtime?:RuntimeSettings;modelUsage?:UsageRecord[];updates?:UpdateState; scheduledTasks?:ScheduledTask[]; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; model: ModelConfig; providers?:ModelProvider[];defaultModel?:ModelSelection;botModels?:Record<string,ModelConfig>; streamingReplies?:StreamingReply[]; vm: VmState; skills: Skill[]; artifacts: Artifact[]; computer: ComputerState; dataDir: string; integrations?:IntegrationsView; interactions?:InteractionRequest[]; cognition?:CognitionView; peers?:PeerView;groups?:GroupsView; greetingBotIds?:string[]; commandPermissions?:CommandPermissionRule[]; hostWorkspace?:HostWorkspaceSettings; }
 export interface AppEvent { type: 'state'; snapshot: Snapshot; }
 export interface CommandResult { stdout: string; stderr: string; exitCode: number; durationMs: number; }
 export interface AelionAPI {
+  pickConversationWorkspace(scope:AttachmentScope):Promise<string|null>;
+  resetConversationWorkspace(scope:AttachmentScope):Promise<void>;
+  workAction(input:WorkAction):Promise<void>;
   updateState():Promise<UpdateState>;
   checkForUpdates():Promise<void>;
   downloadUpdate():Promise<void>;
@@ -51,6 +58,7 @@ export interface AelionAPI {
   previewAttachment(id:string):Promise<ArtifactPreview>;
   saveAttachment(id:string):Promise<string|null>;
   snapshot(): Promise<Snapshot>;
+  saveRuntimeSettings(settings:RuntimeSettings):Promise<void>;
   createScheduledTask(input:ScheduledTaskInput):Promise<ScheduledTask>;
   updateScheduledTask(input:ScheduledTaskUpdate):Promise<ScheduledTask>;
   deleteScheduledTask(id:string):Promise<void>;
@@ -100,6 +108,7 @@ export interface AelionAPI {
   openFile(input: { botId: string; path: string }): Promise<void>;
   openData(): Promise<void>;
   refreshIntegrations(): Promise<void>;
+  manageSkill(input:{botId:string;id:string;action:string;revision?:number}):Promise<unknown>;
   readSkill(input: {id:string;botId:string}): Promise<Skill>;
   addIntegrationSource(kind:'skills'|'mcp'): Promise<void>;
   openIntegrationPath(input:{kind:'shared-skills'|'private-skills'|'mcp-config'|'source';id?:string}): Promise<void>;

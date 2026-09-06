@@ -1,4 +1,5 @@
 import {AttachmentList} from './Attachments';
+import {FileInfo,FileTypeBadge} from './FileAppearance';
 import {attachmentSummary} from './attachment-types';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import Markdown,{defaultUrlTransform} from 'react-markdown';
@@ -100,5 +101,5 @@ export function Message({message,allowPins=true}:{message:ChatMessage;allowPins?
 
 export interface FileItem {name:string;path:string;size:number;}
 export function FileCard({file,onOpen,onSave,disabled=false}:{file:FileItem;onOpen:()=>void;onSave:()=>void;disabled?:boolean}){
-  return <article className="artifact-card"><button className="artifact-open" onClick={onOpen} disabled={disabled} aria-label={`打开 ${file.name}`}><span className="artifact-icon"><Icon name="file" size={23}/></span><span className="artifact-copy"><strong>{file.name}</strong><small>{bytes(file.size)}</small></span></button><button className="artifact-save icon-button" aria-label={`保存 ${file.name}`} disabled={disabled} onClick={onSave}><Icon name="download" size={18}/></button></article>;
+  return <article className="artifact-card file-tile"><button type="button" className="artifact-open file-tile-open" onClick={onOpen} disabled={disabled} title={`预览 ${file.name}`} aria-label={`打开 ${file.name}`}><FileTypeBadge name={file.name}/><FileInfo name={file.name} size={file.size}/></button><button type="button" className="artifact-save" title="保存到本地" aria-label={`保存 ${file.name}`} disabled={disabled} onClick={onSave}><Icon name="download" size={16}/></button></article>;
 }

@@ -1,3 +1,4 @@
+import {RunPolicy,runtimeSettings} from './core/runtime-policy';
 import { app, BrowserWindow, ipcMain, safeStorage, dialog, shell, Menu, nativeImage } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { join, resolve, dirname } from 'node:path';
@@ -28,6 +29,8 @@ import { BotGreetings } from './core/bot-greetings';
 import {AppUpdates} from './core/app-updates';
 import {createWindowsUpdater,UPDATE_REPOSITORY} from './core/windows-updater';
 import {assertUpdateDataOutsideApp,loadUpdateLaunchContext,saveUpdateLaunchContext,type UpdateLaunchContext} from './core/update-launch-context';
+import {WorkItems} from './core/work-items';
+import {assertWorkspaceScope,conversationWorkspace,setConversationWorkspace} from './core/workspaces';
 import type { Snapshot } from '../src/shared';
 
 let window:BrowserWindow|undefined;
@@ -59,7 +62,7 @@ else {
   app.on('second-instance',()=>{window?.show();window?.focus();});
   app.whenReady().then(initialize).catch(error=>{console.error(error);dialog.showErrorBox('AelionBot 启动失败',String(error.message));app.exit(1);});
 }
-function snapshot():Snapshot{return {updates:appUpdates?.snapshot(),scheduledTasks:store.data.scheduledTasks,bots:store.data.bots,messages:store.data.messages,runs:store.data.runs,model:providers.config(),providers:providers.list(),defaultModel:store.data.defaultModel,botModels:Object.fromEntries(store.data.bots.map(bot=>[bot.id,providers.config(bot.id)])),vm:vm.state,skills:integrations?integrations.skills.all():store.data.skills,artifacts:store.data.artifacts,computer:computer.state,dataDir:store.dir,integrations:integrations?.snapshot(),interactions:interactions?.snapshot()||[],cognition:cognition?.view(),peers:peerChats?.snapshot(),groups:groupChats?.snapshot(),greetingBotIds:greetings?.botIds||[],streamingReplies:[...(harness?.streams.snapshot()||[]),...(greetings?.streams.snapshot()||[])],commandPermissions:commandPermissions?.list()||[],hostWorkspace:host?.workspaceSettings()};}
+function snapshot():Snapshot{return {workItems:store.data.workItems,conversationWorkspaces:store.data.conversationWorkspaces,updates:appUpdates?.snapshot(),scheduledTasks:store.data.scheduledTasks,bots:store.data.bots,messages:store.data.messages,runs:store.data.runs,model:providers.config(),providers:providers.list(),defaultModel:store.data.defaultModel,botModels:Object.fromEntries(store.data.bots.map(bot=>[bot.id,providers.config(bot.id)])),vm:vm.state,skills:integrations?integrations.skills.all():store.data.skills,artifacts:store.data.artifacts,computer:computer.state,dataDir:store.dir,integrations:integrations?.snapshot(),interactions:interactions?.snapshot()||[],cognition:cognition?.view(),peers:peerChats?.snapshot(),groups:groupChats?.snapshot(),greetingBotIds:greetings?.botIds||[],streamingReplies:[...(harness?.streams.snapshot()||[]),...(greetings?.streams.snapshot()||[])],runtime:store?new RunPolicy(store).settings():undefined,modelUsage:store?.data.modelUsage?.slice(-100),commandPermissions:commandPermissions?.list()||[],hostWorkspace:host?.workspaceSettings()};}
 function changed(){if(window&&!window.isDestroyed())window.webContents.send('app:event',{type:'state',snapshot:snapshot()});chatPins?.wake();peerChats?.wake();groupChats?.wake();}
 function handle(channel:string,callback:(...args:any[])=>unknown){
   ipcMain.handle(channel,(event,...args)=>{
@@ -82,7 +85,7 @@ async function initialize(){
   const savedLaunch=process.env.AELION_DATA_DIR?undefined:launchContext;
   const dataDir=process.env.AELION_DATA_DIR?resolve(process.env.AELION_DATA_DIR):savedLaunch?.dataDir||(app.isPackaged?profileDir:resolve('.local/app'));
   const projectDir=resolve(process.env.AELION_PROJECT_DIR||savedLaunch?.projectDir||process.cwd());
-  mkdirSync(dataDir,{recursive:true});store=new Store(dataDir);
+  mkdirSync(dataDir,{recursive:true});store=new Store(dataDir,{incremental:true});
   providers=new ModelProviders(store,{encrypt:value=>{if(!safeStorage.isEncryptionAvailable())throw new Error('系统加密存储不可用，尚未保存 API Key');return safeStorage.encryptString(value).toString('base64');},decrypt:value=>safeStorage.decryptString(Buffer.from(value,'base64'))},changed);
   commandPermissions=new CommandPermissions(join(dataDir,'command-permissions.json'),value=>host?.redact(value)??redactHost(value));
   interactions=new Interactions(()=>{changed();if(window&&!window.isDestroyed()&&!window.isFocused()&&interactions.snapshot().length)window.flashFrame(true);},(request,decision,ruleId)=>store.journal('interaction.decision',{id:request.id,botId:request.botId,runId:request.runId,kind:request.kind,decision,...(ruleId?{ruleId}:{}),time:new Date().toISOString()}),commandPermissions);
@@ -99,7 +102,7 @@ async function initialize(){
     const id=randomUUID();writeFileSync(join(computer.imageDir,`${id}.png`),img.toPNG());return {id,width:size.width,height:size.height};
   });
   await integrations.refresh();
-  model=new ModelClient(botId=>providers.config(botId),botId=>providers.key(botId),id=>computer.image(id));
+  model=new ModelClient(botId=>providers.config(botId),botId=>providers.key(botId),id=>computer.image(id),()=>new RunPolicy(store).settings(),record=>{record.runId||=store.data.runs.find(run=>run.botId===record.botId&&run.status==='running')?.id;(store.data.modelUsage||=[]).push(record);store.journal('model.usage',record);store.save();});
   cognition=new Cognition(store,model,integrations.skills,changed,()=>Boolean(updatePreparing||harness?.busy||groupChats?.busy),()=>providers.secrets());
   harness=new Harness(store,vm,model,changed,computer,(botId,runId)=>artifacts.collect(botId,runId),integrations,host,interactions,cognition,attachments);
   greetings=new BotGreetings(store,model,changed,id=>updatePreparing||harness.isRunning(id));
@@ -151,6 +154,7 @@ async function initialize(){
     const percent=reset?100:Math.round(contents.getZoomFactor()*100)+(zoomIn?10:-10);
     contents.setZoomFactor(Math.max(50,Math.min(200,percent))/100);
   });
+  handle('runtime:save',value=>{store.data.runtime=runtimeSettings(value);store.save();changed();});
   handle('app:snapshot',snapshot);
   handle('updates:state',()=>appUpdates!.snapshot());
   handle('updates:check',()=>appUpdates!.check());
@@ -166,9 +170,27 @@ async function initialize(){
   handle('window:dimmed',enabled=>{if(typeof enabled!=='boolean')throw new Error('无效窗口状态');window?.setTitleBarOverlay({color:enabled?'#b9b9b9':'#f7f7f7',symbolColor:'#555555',height:38});});
   handle('permissions:command-enabled',input=>{if(typeof input?.id!=='string'||typeof input.enabled!=='boolean')throw new Error('无效命令权限参数');commandPermissions.setEnabled(input.id,input.enabled);interactions.applyCommandRules();changed();});
   handle('permissions:command-remove',id=>{if(typeof id!=='string')throw new Error('无效命令模式');commandPermissions.remove(id);changed();});
+  handle('workspace:pick',async scope=>{assertWorkspaceScope(store,scope);const selected=await dialog.showOpenDialog(window!,{title:'选择会话工作目录',defaultPath:conversationWorkspace(store,scope)||host.workspaceSettings().workspaceDir,properties:['openDirectory']});if(selected.canceled||!selected.filePaths[0])return null;const path=setConversationWorkspace(store,host,scope,selected.filePaths[0]);changed();return path;});
+  handle('workspace:reset',scope=>{setConversationWorkspace(store,host,scope,null);changed();});
+  handle('work:action',input=>{
+    const work=new WorkItems(store),existing=work.get(input?.id);
+    if(input?.action==='start'){
+      if(harness.isRunning(existing.botId)||chatPins?.hasPending(existing.botId))throw Error('Bot 正在处理消息，请先暂停当前任务或稍后继续');
+      if(!store.modelFor(existing.botId).model)throw Error('请先为 Bot 选择模型');
+    }
+    const item=work.action(input);
+    if(input.action!=='start'){
+      if(item.activeRunId&&harness.isRunning(item.botId)){const run=store.data.runs.find(r=>r.id===item.activeRunId);if(run){peerChats?.cancelRun(run);groupChats?.cancelRun(run);}harness.cancel(item.botId);}
+      changed();return;
+    }
+    if(item.scope.kind==='group'){groupChats!.startWork(item);changed();return;}
+    greetings?.cancel(item.botId);groupChats?.yieldToUser(item.botId);
+    void harness.run(item.botId,'用户已点击'+(item.kind==='plan'?'执行计划':'继续目标')+'。沿用已保存步骤和执行记录：'+item.objective,{workItemId:item.id,workspaceDir:item.workspaceDir}).catch(error=>{item.status='blocked';item.reason=(error as Error).message;delete item.activeRunId;store.save();changed();});changed();
+  });
   handle('host:workspace-save',path=>{if(harness.busy)throw new Error('请等待当前任务结束后修改默认工作目录');if(typeof path!=='string')throw new Error('无效工作目录');host.setWorkspaceDir(path);changed();});
   handle('host:workspace-pick',async()=>{const selected=await dialog.showOpenDialog(window!,{title:'选择本机默认工作目录',defaultPath:host.workspaceSettings().workspaceDir,properties:['openDirectory']});return selected.canceled?null:selected.filePaths[0]||null;});
   handle('integrations:refresh',async()=>{if(harness.busy)throw new Error('请等待当前任务结束后重新扫描');await integrations.refresh();});
+  handle('skills:manage',input=>{if(harness.busy)throw Error('请等待当前任务结束');const result=integrations.skills.manage(String(input?.botId),String(input?.id),String(input?.action),input?.revision);changed();return result;});
   handle('skills:read',input=>integrations.skills.read(String(input?.botId),String(input?.id)));
   handle('integrations:open-path',async input=>{const target=integrations.path(input||{});const result=await shell.openPath(target);if(result)throw new Error(result);});
   handle('integrations:add-source',async kind=>{
@@ -179,10 +201,10 @@ async function initialize(){
   handle('mcp:enabled',async input=>{if(harness.busy)throw new Error('请等待当前任务结束后修改 MCP');if(typeof input?.enabled!=='boolean')throw new Error('无效状态');await integrations.setEnabled(String(input.id),input.enabled);});
   handle('mcp:test',async id=>{const result=await integrations.mcp.listTools(String(id));return {tools:result.tools.map(tool=>tool.name)};});
   handle('bot:create',(input)=>{if(!input||typeof input.name!=='string'||typeof input.role!=='string'||input.color!==undefined&&typeof input.color!=='string')throw new Error('无效 Bot 参数');const bot=store.createBot(input.name,input.role,input.color);changed();void greetings?.greet(bot.id);return bot;});
-  handle('bot:delete',(id)=>{
+  handle('bot:delete',async(id)=>{
     if(typeof id!=='string')throw new Error('无效 Bot 参数');
     if(harness.isRunning(id))throw new Error('请先停止这个 Bot 的任务并等待结束，再删除');
-    greetings?.cancel(id);chatPins?.cancel(id);peerChats?.deletingBot(id);groupChats?.deletingBot(id);store.deleteBot(id);scheduler?.removeTarget({kind:'bot',id});cognition.deleteBot(id);integrations.skills.forgetBot(id);computer.forget(id);changed();
+    await harness.stopBotProcesses(id);greetings?.cancel(id);chatPins?.cancel(id);peerChats?.deletingBot(id);groupChats?.deletingBot(id);store.deleteBot(id);scheduler?.removeTarget({kind:'bot',id});cognition.deleteBot(id);integrations.skills.forgetBot(id);computer.forget(id);changed();
   });
   handle('bot:update',input=>{
     const modelChanged=updateBotProfile(store,providers,input,id=>beforeModelChange([id]));
@@ -249,10 +271,11 @@ async function initialize(){
     if(exiting)return;event.preventDefault();exiting=true;if(timer)clearInterval(timer);
     appUpdates?.dispose();scheduler?.dispose();greetings?.dispose();for(const bot of store.data.bots)harness.cancel(bot.id);
     providers.dispose();chatPins?.dispose();peerChats?.dispose();groupChats?.dispose();interactions.dispose();host.dispose();
+    await harness.closeProcesses();
     await cognition.close();
     await integrations.close();
     // Quit preserves the managed guest process and data. The next app instance reattaches by UUID/host key.
-    vm.dispose();store.save();app.exit(0);
+    vm.dispose();store.close();app.exit(0);
   });
   app.on('window-all-closed',()=>app.quit());
   vm.on('state',changed);

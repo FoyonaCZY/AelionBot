@@ -104,7 +104,7 @@ test('the first greeting streams without persisting a partial welcome and keeps 
 
 test('progress explanations stream only as previews until their model request finishes',async t=>{
   const finish=deferred<Completion>();let steps=0;
-  const f=fixture(t,async(messages,_tools,_signal,onText)=>{if(messages[0].content?.includes('现在只向用户简短汇报')){onText?.('三步检查已完成');return finish.promise;}return steps++<3?tool('computer_execute',{command:'check'}):answer('任务完成');},{execute:async()=>({stdout:'ok',stderr:'',exitCode:0,durationMs:1})} as unknown as VmController);
+  const f=fixture(t,async(messages,_tools,_signal,onText)=>{if(messages[0].content?.includes('现在只向用户简短汇报')){onText?.('三步检查已完成');return finish.promise;}if(steps===2)f.store.data.runs.at(-1)!.lastProgressAt=new Date(Date.now()-61000).toISOString();return steps++<3?tool('computer_execute',{command:'check'}):answer('任务完成');},{execute:async()=>({stdout:'ok',stderr:'',exitCode:0,durationMs:1})} as unknown as VmController);
   const pending=f.harness.run(f.bot.id,'完成三个检查');await until(()=>f.harness.streams.snapshot().some(reply=>reply.purpose==='progress'));const preview=f.harness.streams.snapshot()[0];assert.equal(preview.main,true);assert.ok(!f.store.data.messages.some(message=>message.audience==='user'));
   finish.resolve(answer('三步检查已完成，接下来整理结果。'));await pending;assert.equal(f.harness.streams.snapshot().length,0);assert.equal(f.store.data.messages.filter(message=>message.id===preview.id&&message.audience==='user').length,1);
 });

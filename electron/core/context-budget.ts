@@ -13,7 +13,7 @@ export function textTokens(text:string){
   const tokens=encoding.encode(text,[],[]).length;
   if(cache.size>2048)cache.clear();cache.set(key,tokens);return tokens;
 }
-export function messageTokens(message:WireMessage){return 5+textTokens(message.content||'')+textTokens(message.tool_calls?JSON.stringify(message.tool_calls):'');}
+export function messageTokens(message:WireMessage){return 5+Math.max(textTokens(message.content||'')+textTokens(message.tool_calls?JSON.stringify(message.tool_calls):''),textTokens(message.native?JSON.stringify(message.native.data):''));}
 export function estimateRequest(messages:WireMessage[],tools:ToolDefinition[],calibration=1){
   const text=messages.reduce((total,message)=>total+messageTokens(message),3),schema=textTokens(JSON.stringify(tools));
   const images=visibleImages(messages);

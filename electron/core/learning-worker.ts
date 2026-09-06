@@ -66,9 +66,9 @@ export class LearningWorker {
     for(let iteration=0;iteration<16;iteration++){
       if(signal.aborted)throw new Error('后台复盘已让出执行');if(expectedRevision!==this.storage.revision(job.botId))throw new Error('知识已更新，旧复盘不再写入');
       const estimated=estimateRequest(history,tools).tokens;if(estimated>budget.input||spent+estimated>Math.min(100000,budget.capacity*4))throw new Error('本次后台复盘达到预算，已有更新保留');
-      const result=await this.model.complete(history,tools,signal,()=>{},{botId:job.botId,maxOutputTokens:budget.output,timeoutMs:90000});spent+=result.usage?.inputTokens||estimated;this.context.observe(job.botId,job.runId,'background_review',result,estimated);
+      const result=await this.model.complete(history,tools,signal,()=>{},{botId:job.botId,runId:job.runId,purpose:'background_review',maxOutputTokens:budget.output,timeoutMs:90000});spent+=result.usage?.inputTokens||estimated;this.context.observe(job.botId,job.runId,'background_review',result,estimated);
       this.storage.reviewMessage(job.id,job.botId,'assistant',redactHost(JSON.stringify({content:result.content,calls:result.calls}),this.secrets()));
-      history.push({role:'assistant',content:result.content||null,...(result.calls.length?{tool_calls:result.calls}:{})});if(!result.calls.length)return;
+      history.push({role:'assistant',native:result.native,content:result.content||null,...(result.calls.length?{tool_calls:result.calls}:{})});if(!result.calls.length)return;
       for(const call of result.calls){let output:unknown;
         try{
           if(signal.aborted)throw new Error('后台复盘已让出执行');if(expectedRevision!==this.storage.revision(job.botId))throw new Error('知识已更新，旧复盘不能写入');if(!REVIEW_TOOL_NAMES.has(call.function.name))throw new Error('后台复盘禁止此工具。只可读取技能/历史，或使用 memory、skill_save 保存知识，不要重试该工具。');
@@ -82,14 +82,9 @@ export class LearningWorker {
             const saved=output as any;if(saved.saved){const key=`memory:${saved.id}`;if(args.action==='remove'&&createdMemories.has(saved.id)){createdMemories.delete(saved.id);changedTargets.delete(key);}else{changedTargets.add(key);if(args.action==='add')createdMemories.add(saved.id);}}
           }else if(name==='skills_list'){catalogRead=true;output=this.skills.search(job.botId,String(args.query||''),Number(args.limit)||40,Number(args.offset)||0).map(({body,...skill})=>skill);}
           else if(name==='skill_read'){
-            const id=String(args.id),external=this.skills.externalPath(job.botId,id);
-            if(external){
-              const metadata=this.skills.list(job.botId).find(skill=>skill.id===id||skill.name===id);let cached:unknown;
-              for(const message of [...this.storage.store.data.messages].reverse()){if(message.botId!==job.botId||message.tool!=='skill_read'||message.status!=='done')continue;try{const value=this.storage.store.readToolResult(job.botId,message.id) as any;if(value?.id===metadata?.id){cached={...value,sourceMode:'已获准读取并保存在应用中的历史副本'};break;}}catch{}}
-              if(!cached)throw new Error('后台不读取新的本机外部文件。该技能尚无已加载副本，请使用已有历史资料或留待前台读取。');output=cached;
-            }else{const skill=this.skills.read(job.botId,id);reads.set(skill.id,this.skills.fingerprint(job.botId,skill.id));output=skill;}
+            const skill=this.skills.read(job.botId,String(args.id));reads.set(skill.id,this.skills.fingerprint(job.botId,skill.id));output=skill;
           }
-          else if(name==='skill_file_read'){if(this.skills.externalPath(job.botId,String(args.id),String(args.path)))throw new Error('后台不读取新的外部资源文件；可回查已保存的工具结果。');output=this.skills.readFile(job.botId,String(args.id),String(args.path));}
+          else if(name==='skill_file_read'){output=this.skills.readFile(job.botId,String(args.id),String(args.path));}
           else if(name==='skill_save'){
             if(!catalogRead)throw new Error('先搜索已有技能，避免重复创建');
             const skillName=String(args.name||'').trim(),description=String(args.description||'').trim(),body=String(args.body||'').trim();
@@ -102,7 +97,7 @@ export class LearningWorker {
             if(matching.length&&!existing)throw new Error('已有同名共享技能，不能自动覆盖外部来源');if(existing&&!this.skills.autoManaged(job.botId,existing.id))throw new Error('这是用户维护的技能，后台复盘不能自动修改');if(existing&&!reads.has(existing.id))throw new Error('修改已有技能前必须先完整读取它');
             const before=existing?this.skills.read(job.botId,existing.id).body:undefined;
             output=this.skills.save(job.botId,skillName,description,body,{origin:'background_review',sourceRunId:job.runId,sourceRefs:refs,expectedHash:existing?reads.get(existing.id):undefined});
-            this.storage.audit(job.botId,job.runId,'skill',existing?'replace':'create',before,body,refs);expectedRevision=this.storage.bump(job.botId);changedTargets.add(`skill:${(output as any).id}`);
+            if(!(output as any).unchanged){this.storage.audit(job.botId,job.runId,'skill',existing?'replace':'create',before,body,refs);expectedRevision=this.storage.bump(job.botId);changedTargets.add(`skill:${(output as any).id}`);}
           }else if(name==='history_search'){output=this.storage.search(job.botId,String(args.query||''),Math.min(8,Number(args.limit)||8));}
           else if(name==='history_read'){output=this.storage.readHistory(job.botId,String(args.messageId),Number(args.before)||0,Number(args.after)||0);for(const item of output as any[])allowedRefs.add(item.messageId);}
           else {const id=String(args.id||'');const message=this.storage.store.data.messages.find(message=>message.botId===job.botId&&message.role==='tool'&&(()=>{try{return JSON.parse(message.content).resultId===id;}catch{return false;}})());if(!message)throw new Error('结果不存在或无权访问');const full=JSON.stringify(this.storage.store.readToolResult(job.botId,message.id));const offset=Math.max(0,Number(args.offset)||0);output={text:full.slice(offset,offset+8000),total:full.length};allowedRefs.add(message.id);}

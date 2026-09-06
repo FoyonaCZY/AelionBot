@@ -162,10 +162,10 @@ test('skill lookup handles multiple query terms and transient test results do no
   const source=f.store.message(f.bot.id,'tool','4 tests passed',{tool:'python_execute',status:'done'});assert.throws(()=>f.memory.apply(f.bot.id,'transient',{action:'add',content:'本次受控样例运行 4 项测试通过。',sourceRefs:[source.id]},{background:true,allowedRefs:new Set([source.id])}),/一次性执行记录/);
 });
 
-test('background review cannot bypass external-file permission by directly reading a new skill',async t=>{
+test('background review can read a registered external skill without a separate permission',async t=>{
   const f=fixture(t),path=join(f.dir,'home','.agents','skills','external','SKILL.md');mkdirSync(dirname(path),{recursive:true});writeFileSync(path,'---\nname: external\ndescription: External source\n---\nPRIVATE EXTERNAL BODY');f.skills.refresh();const external=f.skills.list(f.bot.id).find(skill=>skill.name==='external')!;
-  let step=0,denied=false;const model={complete:async(messages:WireMessage[])=>{if(++step===1)return call('skill_read',{id:external.id});denied=messages.some(message=>message.content?.includes('后台不读取新的本机外部文件'));assert.ok(!JSON.stringify(messages).includes('PRIVATE EXTERNAL BODY'));return done();}} as unknown as ModelClient;
-  const worker=new LearningWorker(f.storage,f.memory,f.skills,model,new ContextEngine(f.storage,model,()=>{}),()=>{},()=>false,()=>[],100000);f.setWorker(worker);f.storage.enqueue(f.bot.id,'external',{messages:[],tools:TOOLS,sourceRefs:[],revision:0,model:f.store.data.model.model});await worker.drain();assert.equal(denied,true);
+  let step=0,read=false;const model={complete:async(messages:WireMessage[])=>{if(++step===1)return call('skill_read',{id:external.id});read=JSON.stringify(messages).includes('PRIVATE EXTERNAL BODY');return done();}} as unknown as ModelClient;
+  const worker=new LearningWorker(f.storage,f.memory,f.skills,model,new ContextEngine(f.storage,model,()=>{}),()=>{},()=>false,()=>[],100000);f.setWorker(worker);f.storage.enqueue(f.bot.id,'external',{messages:[],tools:TOOLS,sourceRefs:[],revision:0,model:f.store.data.model.model});await worker.drain();assert.equal(read,true);
 });
 
 test('valid tool-result references resolve to their source messages without accepting another Bot',t=>{
@@ -174,10 +174,10 @@ test('valid tool-result references resolve to their source messages without acce
   f.memory.apply(f.bot.id,'case',{action:'add',content:'路径 /Reports 是区分大小写的目录。'});f.memory.apply(f.bot.id,'case',{action:'add',content:'路径 /reports 是区分大小写的目录。'});assert.equal(f.storage.memories(f.bot.id).length,3);
 });
 
-test('background review reuses an archived external skill without reopening its changed source',async t=>{
+test('background review reads the current registered skill rather than a stale archived copy',async t=>{
   const f=fixture(t),path=join(f.dir,'home','.agents','skills','cached','SKILL.md');mkdirSync(dirname(path),{recursive:true});writeFileSync(path,'---\nname: cached\ndescription: Cached source\n---\nOriginal permitted body');f.skills.refresh();const skill=f.skills.list(f.bot.id).find(skill=>skill.name==='cached')!;
   f.store.message(f.bot.id,'tool',JSON.stringify({result:{...skill,body:'Original permitted body'}}),{tool:'skill_read',status:'done'});writeFileSync(path,'---\nname: cached\ndescription: Changed\n---\nNEW UNAPPROVED BODY');
-  let step=0;const model={complete:async(messages:WireMessage[])=>{if(++step===1)return call('skill_read',{id:skill.id});assert.ok(JSON.stringify(messages).includes('Original permitted body'));assert.ok(!JSON.stringify(messages).includes('NEW UNAPPROVED BODY'));return done();}} as unknown as ModelClient;
+  let step=0;const model={complete:async(messages:WireMessage[])=>{if(++step===1)return call('skill_read',{id:skill.id});assert.ok(JSON.stringify(messages).includes('NEW UNAPPROVED BODY'));return done();}} as unknown as ModelClient;
   const worker=new LearningWorker(f.storage,f.memory,f.skills,model,new ContextEngine(f.storage,model,()=>{}),()=>{},()=>false,()=>[],100000);f.setWorker(worker);f.storage.enqueue(f.bot.id,'cached',{messages:[],tools:TOOLS,sourceRefs:[],revision:0,model:f.store.data.model.model});await worker.drain();assert.equal(f.storage.jobs(f.bot.id)[0].status,'completed');
 });
 

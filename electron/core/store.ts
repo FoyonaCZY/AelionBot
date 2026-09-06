@@ -1,3 +1,8 @@
+import type {PythonSession} from './python-sessions';
+import type {FileCheckpoint} from './file-checkpoints';
+import type {BackgroundProcess} from '../../src/process-types';
+import {StateDatabase} from './state-database';
+import type {RuntimeSettings,UsageRecord} from '../../src/runtime-types';
 import { appendFileSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, realpathSync, statSync, renameSync, writeFileSync } from 'node:fs';
 import { join, relative, isAbsolute, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -11,7 +16,7 @@ import {BOT_COLORS} from '../../src/bot-colors';
 
 import type {StoredAttachment} from '../../src/attachment-types';
 export interface StoredProvider extends Omit<ModelProvider,'hasKey'> {encryptedKey?:string;}
-interface Persisted {scheduledTasks:ScheduledTask[];attachments:StoredAttachment[]; version: 1; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; conversations: Record<string, WireMessage[]>; summaries: Record<string, string>; contextOffsets:Record<string,number>; model: Omit<ModelConfig, 'hasKey'> & { encryptedKey?: string }; providers?:StoredProvider[];defaultModel?:ModelSelection; skills: Skill[]; artifacts: Artifact[]; skillFilesMigrated?: boolean; peerThreads:PeerThread[];peerExchanges:PeerExchange[];peerContexts:Record<string,WireMessage[]>;peerMessages:ChatMessage[];groups:GroupRoom[];groupRounds:GroupRound[];groupDeliveries:GroupDelivery[];groupContexts:Record<string,WireMessage[]>;groupRunMessages:ChatMessage[]; }
+interface Persisted {pythonSessions?:PythonSession[];fileCheckpoints?:FileCheckpoint[];processes?:BackgroundProcess[];workItems?:import("../../src/work-types").WorkItem[];conversationWorkspaces?:Record<string,string>;runtime?:RuntimeSettings;modelUsage?:UsageRecord[];scheduledTasks:ScheduledTask[];attachments:StoredAttachment[]; version: 1; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; conversations: Record<string, WireMessage[]>; summaries: Record<string, string>; contextOffsets:Record<string,number>; model: Omit<ModelConfig, 'hasKey'> & { encryptedKey?: string }; providers?:StoredProvider[];defaultModel?:ModelSelection; skills: Skill[]; artifacts: Artifact[]; skillFilesMigrated?: boolean; peerThreads:PeerThread[];peerExchanges:PeerExchange[];peerContexts:Record<string,WireMessage[]>;peerMessages:ChatMessage[];groups:GroupRoom[];groupRounds:GroupRound[];groupDeliveries:GroupDelivery[];groupContexts:Record<string,WireMessage[]>;groupRunMessages:ChatMessage[]; }
 export function atomicJson(path: string, value: unknown) {
   const temp = `${path}.${process.pid}.tmp`;
   const fd = openSync(temp, 'w', 0o600);
@@ -19,18 +24,23 @@ export function atomicJson(path: string, value: unknown) {
   renameSync(temp, path);
 }
 export class Store {
+  private database?:StateDatabase;
   readonly file: string;
   data: Persisted;
-  constructor(readonly dir: string) {
+  constructor(readonly dir: string,options:{incremental?:boolean}={}) {
     mkdirSync(dir, { recursive: true });
     this.file = join(dir, 'state.json');
-    const isNew = !existsSync(this.file);
-    this.data = !isNew ? JSON.parse(readFileSync(this.file, 'utf8')) : {
+    if(options.incremental)this.database=new StateDatabase(dir);
+    const restored=this.database?.read(),isNew=!restored&&!existsSync(this.file);
+    this.data = restored as Persisted || (!isNew ? JSON.parse(readFileSync(this.file, 'utf8')) : {
       version: 1, scheduledTasks:[], attachments:[], bots: [], messages: [], runs: [], conversations: {}, summaries: {}, contextOffsets:{}, artifacts:[],peerThreads:[],peerExchanges:[],peerContexts:{},peerMessages:[],groups:[],groupRounds:[],groupDeliveries:[],groupContexts:{},groupRunMessages:[],
       model: { baseUrl: 'https://api.openai.com/v1', model: '', contextTokens: 32000 },
       skills: [{ id: 'verified-files', name: '文件与结果验证', description: '在工作电脑创建文件后重新读取并验证，再交付结果。', body: '在当前 Bot 的工作目录内创建成果。写完后重新读取或运行检查。报告实际文件路径和验证结果。不要把未经执行的代码描述为已经成功运行。使用 Python 标准库完成简单 CSV、JSON、文本和统计任务。' }]
-    };
+    });
     if (this.data.version !== 1) throw new Error('Unsupported data version');
+    this.data.workItems ||= [];
+    this.data.conversationWorkspaces ||= {};
+    for(const item of this.data.workItems){if(item.activeRunId||["running","planning"].includes(item.status)){item.status="paused";item.reason="应用中断，继续前请核对已执行的操作。";delete item.activeRunId;}}
     this.data.contextOffsets ||= {};
     this.data.scheduledTasks ||= [];
     this.data.artifacts ||= [];this.data.attachments||=[];
@@ -38,6 +48,7 @@ export class Store {
     this.data.groups||=[];this.data.groupRounds||=[];this.data.groupDeliveries||=[];this.data.groupContexts||={};this.data.groupRunMessages||=[];
     for(const message of this.data.messages)if(message.inputState==='queued')message.inputState='interrupted';
     this.separatePrivateMessages();
+    for(const run of this.data.runs)for(const execution of run.executions||[])if(execution.status==='running'){execution.status='unknown';execution.endedAt=new Date().toISOString();execution.error='应用中断，操作结果未知。继续前先核对实际状态。';}
     for (const run of this.data.runs) if (run.status === 'running') { run.status = 'interrupted'; run.endedAt = new Date().toISOString(); run.error = '应用中断。请检查已执行的操作后继续，系统不会自动重复工具调用。'; }
     for (const message of [...this.data.messages,...this.data.peerMessages,...this.data.groupRunMessages]) if (message.status === 'running') message.status = 'failed';
     for(const [botId,history] of [...Object.entries(this.data.conversations),...Object.entries(this.data.peerContexts),...Object.entries(this.data.groupContexts)]){
@@ -56,7 +67,9 @@ export class Store {
     if (isNew) this.createBot('工作伙伴', '帮助我处理办公资料与代码工作，直接执行并验证成果，使用中文回复。');
     this.save();
   }
-  save() { atomicJson(this.file, this.data); }
+  save() {if(this.database)this.database.write(this.data);else atomicJson(this.file,this.data);}
+  replaceData(next:Persisted){const previous=this.data;this.data=next;try{this.save();}catch(error){this.data=previous;throw error;}}
+  close(){if(this.database){this.save();atomicJson(this.file,this.data);this.database.close();this.database=undefined;}}
   private separatePrivateMessages(){
     const privateRuns=new Set(this.data.runs.filter(run=>isPrivatePeerOrigin(run.peerOrigin)).map(run=>run.id));
     const misplaced=this.data.messages.filter(message=>privateRuns.has(message.runId||'')&&message.audience!=='user'||message.peer?.direction==='failed');
@@ -85,6 +98,7 @@ export class Store {
     while(id&&!seen.has(id)){
       seen.add(id);const run=this.data.runs.find(run=>run.id===id),message=this.data.messages.filter(message=>message.runId===id&&message.role==='user'&&!message.reaction&&!message.peer&&(!run||message.botId===run.botId)).at(-1);if(message)return message;
       const previous=this.data.runs.find(previous=>previous.id===run?.supersedesRunId&&previous.botId===run?.botId&&previous.inputUpdated&&!previous.peerOrigin&&!previous.groupOrigin);id=previous?.id;
+      if(!id&&run?.workItemId){const work=this.data.workItems?.find(item=>item.id===run.workItemId&&item.botId===run.botId),source=this.data.messages.find(m=>m.id===work?.sourceMessageId&&m.botId===run.botId&&m.role==='user'&&!m.reaction);if(source)return source;}
     }
   }
   private exposeGroupTasks(){
@@ -181,6 +195,8 @@ export class Store {
     this.bot(id);
     if(this.data.runs.some(run=>run.botId===id&&run.status==='running'))throw new Error('请先停止这个 Bot 的任务，再删除');
     const next:Persisted={...this.data,
+      modelUsage:this.data.modelUsage?.filter(item=>item.botId!==id),processes:this.data.processes?.filter(item=>item.botId!==id),pythonSessions:this.data.pythonSessions?.filter(item=>item.botId!==id),fileCheckpoints:this.data.fileCheckpoints?.filter(item=>item.botId!==id),
+      workItems:this.data.workItems?.filter(item=>item.botId!==id),conversationWorkspaces:{...this.data.conversationWorkspaces},
       bots:this.data.bots.filter(bot=>bot.id!==id),
       messages:this.data.messages.filter(message=>message.botId!==id),
       peerMessages:this.data.peerMessages.filter(message=>message.botId!==id),
@@ -191,11 +207,12 @@ export class Store {
       conversations:{...this.data.conversations},summaries:{...this.data.summaries},contextOffsets:{...this.data.contextOffsets},peerContexts:{...this.data.peerContexts},
       peerExchanges:this.data.peerExchanges.map(exchange=>exchange.rootBotId===id?{...exchange,rootRequest:''}:exchange)
     };
+    delete next.conversationWorkspaces!['bot:'+id];
     delete next.conversations[id];delete next.summaries[id];delete next.contextOffsets[id];
     for(const group of this.data.groups){const key=`group:${group.id}:${id}`;delete next.groupContexts[key];delete next.summaries[key];delete next.contextOffsets[key];}
     for(const delivery of this.data.groupDeliveries.filter(delivery=>delivery.recipientId===id)){delete next.groupContexts[`group:${delivery.id}`];delete next.summaries[`group:${delivery.id}`];delete next.contextOffsets[`group:${delivery.id}`];}
     for(const exchange of this.data.peerExchanges.filter(exchange=>exchange.toBotId===id)){delete next.peerContexts[exchange.id];delete next.summaries[`peer:${exchange.id}`];delete next.contextOffsets[`peer:${exchange.id}`];}
-    atomicJson(this.file,next);this.data=next;
+    this.replaceData(next);
   }
   createBot(name: string, role: string, color?: string): Bot {
     if (!name.trim() || name.length > 80 || role.length > 4000) throw new Error('请填写有效的名称与职责');
@@ -217,7 +234,7 @@ export class Store {
     const selection=this.modelSelection(botId);
     if(!selection)return {baseUrl:'',model:'',hasKey:false,contextTokens:32000};
     const provider=this.data.providers.find(provider=>provider.id===selection.providerId);
-    return {...selection,baseUrl:provider?.baseUrl||'',hasKey:Boolean(provider?.encryptedKey),providerName:provider?.name,...(!provider?{issue:'所选 Provider 不存在，请重新选择模型'}:{})};
+    return {...selection,protocol:provider?.protocol,temperature:provider?.temperature,reasoningEffort:provider?.reasoningEffort,thinkingBudget:provider?.thinkingBudget,fallbackModel:provider?.fallbackModel,baseUrl:provider?.baseUrl||'',hasKey:Boolean(provider?.encryptedKey),providerName:provider?.name,...(!provider?{issue:'所选 Provider 不存在，请重新选择模型'}:{})};
   }
   publicModel(hasKey: boolean): ModelConfig { return {...this.modelFor(),hasKey}; }
 }

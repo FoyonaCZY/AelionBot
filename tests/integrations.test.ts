@@ -58,6 +58,8 @@ test('real stdio MCP handshake, filtering, calls, resources and prompts work',as
   const paths=fixture(t);file(join(paths.configDir,'mcp.json'),JSON.stringify({mcpServers:{fixture:{command:process.execPath,args:[resolve('tests/fixtures/mcp-server.mjs'),'--stdio'],cwd:resolve('.'),env:{MCP_FIXTURE_TOKEN:'stdio-fixture-secret'},disabled_tools:['denied']}}}));
   const runtime=new McpRuntime({},()=>{});t.after(()=>runtime.dispose());await runtime.replace(discoverMcp(paths).configs);
   const tools=await runtime.listTools('fixture');assert.deepEqual(tools.tools.map(item=>item.name),['echo']);
+  const inspection=await runtime.inspectCall('fixture','echo',{message:'read only'});assert.equal(inspection.permission,undefined);
+  await assert.rejects(runtime.call('fixture','echo',{message:'not dispatched'},new AbortController().signal,'stale-fingerprint'),/配置已变化/);
   const result=await runtime.call('fixture','echo',{message:'MCP works'},new AbortController().signal);assert.match(JSON.stringify(result),/MCP works/);assert.ok(!JSON.stringify(result).includes('stdio-fixture-secret'));
   await assert.rejects(()=>runtime.call('fixture','denied',{},new AbortController().signal),/禁用/);
   assert.match(JSON.stringify(await runtime.readResource('fixture','fixture://readme',new AbortController().signal)),/resource ready/);

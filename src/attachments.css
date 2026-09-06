@@ -1,14 +1,21 @@
 .message-attachments{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px;max-width:100%;color:inherit}
-.attachment-card{display:flex;align-items:center;max-width:100%;min-width:0;border:1px solid #a3a7ae38;border-radius:11px;background:#ffffff80;overflow:hidden;color:#464b53}
-.attachment-open{display:flex;align-items:center;gap:10px;min-width:0;max-width:280px;padding:10px 12px;text-align:left;color:inherit}
-.attachment-file-icon{display:grid;place-items:center;background:#e7e9ed80;border-radius:8px;width:35px;height:38px;flex-shrink:0;color:#858c95}
-.attachment-name{min-width:0}.attachment-name strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:500;max-width:220px}.attachment-name small{display:block;font-size:10px;color:#979da5;margin-top:4px}
-.attachment-open img{width:44px;height:44px;object-fit:cover;border-radius:6px;flex-shrink:0}
-.user .attachment-card,.from-user .attachment-card{background:#ffffff14;color:inherit;border-color:#ffffff38}.user .attachment-name small,.from-user .attachment-name small{color:#c9cbd0}
-.composer-attachments{margin:4px 8px 9px;gap:7px}.attachment-tag{border-radius:9px;background:#f4f5f6;max-width:260px}.attachment-tag .attachment-open{padding:6px 8px;gap:6px;max-width:226px}.attachment-tag .attachment-file-icon{width:23px;height:25px;background:transparent}.attachment-tag .attachment-open img{width:24px;height:24px;border-radius:4px}.attachment-tag .attachment-name strong{font-size:11px;max-width:176px}.attachment-remove{align-self:stretch;padding:0 9px;color:#8f959e;font-size:19px}.attachment-remove:hover{background:#e8eaed;color:#424850}
+.attachment-card{width:320px}
+.attachment-open img{width:38px;height:42px;object-fit:cover;border-radius:6px;flex-shrink:0}
+.user .attachment-card,.from-user .attachment-card{--file-surface:#ffffff0e;--file-border:#ffffff24;--file-title:#f4f2f8;--file-muted:#aeabb8;box-shadow:none}
+.user .attachment-card:has(button:hover),.from-user .attachment-card:has(button:hover){background:#ffffff17;border-color:#ffffff45}
+.composer-attachments{margin:4px 8px 9px;gap:7px}
+.attachment-tag{width:auto;max-width:268px;border-radius:9px;box-shadow:none;--file-surface:#faf9fc}
+.attachment-tag .attachment-open{padding:6px 9px;gap:8px}
+.attachment-tag .file-type-badge{width:23px;height:28px}
+.attachment-tag .file-type-label{font-size:6px;padding:2px 3px;bottom:3px;left:-2px}
+.attachment-tag .file-type-lines{display:none}
+.attachment-tag .attachment-open img{width:25px;height:28px;border-radius:4px}
+.attachment-tag .file-tile-name{font-size:11px}
+.attachment-remove{display:grid;place-items:center;flex-shrink:0;width:24px;height:24px;padding:0;margin-right:6px;border-radius:6px;color:#98929f}
+.attachment-remove:hover{background:#ece8f1;color:#61596d}
 .composer-attachments{max-height:132px;overflow-y:auto;overscroll-behavior:contain}.composer-attach{margin-right:auto!important;color:#8a9099}.composer-attach:hover{color:#343a43;background:#f1f2f4}.composer.is-dragging{border-color:#8e959f;background:#fafbfc}.composer-uploading,.composer-attachment-error{font-size:11px;color:#9298a1;padding:3px 9px 7px}.composer-attachment-error{color:#a35e52}
 .attachment-preview-layer{position:fixed;inset:0;z-index:180;background:#0006;display:grid;place-items:center;padding:56px 30px 30px;-webkit-app-region:no-drag}
 .attachment-preview{display:flex;flex-direction:column;width:min(1000px,96vw);height:min(760px,88vh);max-height:100%;background:#fff;border-radius:15px;box-shadow:0 20px 80px #0004;overflow:hidden;outline:none}
 .attachment-preview>header{display:flex;align-items:center;gap:12px;border-bottom:1px solid #edeef0;padding:16px 19px;flex-shrink:0}.attachment-preview>header>div{min-width:0;flex:1}.attachment-preview header strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}.attachment-preview header small{font-size:11px;color:#9a9fa7}.attachment-preview header button{border-radius:8px;background:#f1f2f3;padding:8px 14px;font-size:12px}.attachment-preview header .attachment-preview-close{background:transparent;font-size:23px;padding:3px 8px;color:#858b94}
 .attachment-preview-body{display:flex;align-items:center;justify-content:center;min-height:0;flex:1;overflow:auto;padding:20px}.attachment-preview-body>img{max-width:100%;max-height:100%;object-fit:contain}.attachment-preview-body pre{align-self:stretch;width:100%;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 Consolas,monospace;color:#454b54}.attachment-preview-body iframe{border:0;width:100%;height:100%}.attachment-empty{color:#969ca5;text-align:center;font-size:12px}.attachment-error{color:#a35e52;font-size:12px;margin:12px 20px}
-@media(max-width:700px){.attachment-preview-layer{padding:46px 12px 12px}.attachment-preview{width:100%;height:100%}.attachment-preview-body{padding:12px}.attachment-open{max-width:240px}.composer-attachments{margin-left:0;margin-right:0}}
+@media(max-width:700px){.attachment-preview-layer{padding:46px 12px 12px}.attachment-preview{width:100%;height:100%}.attachment-preview-body{padding:12px}.composer-attachments{margin-left:0;margin-right:0}}

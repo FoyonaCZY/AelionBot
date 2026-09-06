@@ -1,0 +1,33 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {spawn,spawnSync} from 'node:child_process';
+import {mkdtempSync,mkdirSync,readFileSync,writeFileSync,existsSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {PYTHON_KERNEL} from '../electron/core/python-sessions';
+import {VM_SUPERVISOR} from '../electron/core/background-processes';
+import {vmPython} from '../electron/core/vm-python';
+import {Store} from '../electron/core/store';
+import {FileCheckpoints} from '../electron/core/file-checkpoints';
+import {DEFAULT_RUNTIME} from '../src/runtime-types';
+import type {VmController} from '../electron/core/vm';
+const python=process.env.AELION_TEST_PYTHON||'python',available=spawnSync(python,['--version'],{windowsHide:true}).status===0;
+test('Python sessions retain state, capture errors and keep processing after an exception',{skip:!available,timeout:10000},async t=>{
+ const dir=mkdtempSync(join(tmpdir(),'aelion-python-')),requests=join(dir,'requests');mkdirSync(requests);writeFileSync(join(dir,'kernel.py'),PYTHON_KERNEL);
+ const syntax=spawnSync(python,['-c','import sys; compile(sys.stdin.read(),"<vm-supervisor>","exec")'],{input:VM_SUPERVISOR,windowsHide:true});assert.equal(syntax.status,0,syntax.stderr.toString());
+ const child=spawn(python,[join(dir,'kernel.py'),dir],{cwd:dir,windowsHide:true,stdio:'ignore'});
+ t.after(async()=>{writeFileSync(join(dir,'stop'),'stop');await new Promise<void>(r=>{if(child.exitCode!==null)return r();child.once('close',()=>r());const timer=setTimeout(()=>{child.kill();},2000);timer.unref();});rmSync(dir,{recursive:true,force:true});});
+ const execute=async(id:string,code:string)=>{const path=join(requests,id+'.json'),temp=path+'.tmp';writeFileSync(temp,JSON.stringify({code}));const {renameSync}=await import('node:fs');renameSync(temp,path);const result=join(dir,id+'.result.json');for(let n=0;n<100&&!existsSync(result);n++)await new Promise(r=>setTimeout(r,20));assert.ok(existsSync(result));return JSON.parse(readFileSync(result,'utf8'));};
+ const first=await execute('a','values = [2, 3, 5]\nsum(values)');assert.match(first.output,/10/);
+ const second=await execute('b','values.append(7)\nsum(values)');assert.match(second.output,/17/);assert.ok(second.variables.some((v:any)=>v.name==='values'));
+ assert.equal((await execute('c','1 / 0')).isError,true);assert.match((await execute('d','len(values)')).output,/4/);
+});
+test('large file writes and checkpoint restoration use stdin instead of oversized commands',{skip:!available},async t=>{
+ const dir=mkdtempSync(join(tmpdir(),'aelion-python-files-')),work=join(dir,'work');mkdirSync(work);t.after(()=>rmSync(dir,{recursive:true,force:true}));let largest=0;
+ const run=(code:string,input?:Buffer)=>{assert.ok(code.length<=32000);largest=Math.max(largest,input?.length||0);const result=spawnSync(python,['-c',code],{cwd:work,input,encoding:'utf8',windowsHide:true,maxBuffer:5*1024*1024,env:{...process.env,PYTHONIOENCODING:'utf-8'}});return Promise.resolve({stdout:result.stdout,stderr:result.stderr,exitCode:result.status??-1,durationMs:1});};
+ const vm={executePython:(code:string,input:Buffer)=>run(code,input),execute:(command:string)=>{assert.ok(command.length<=32000);return run(command.slice('python3 -c '.length+1,-1).replaceAll("'\\''","'"));}} as unknown as VmController;
+ const store=new Store(join(dir,'data'));store.data.runtime={...DEFAULT_RUNTIME,fileCheckpoints:true};const bot=store.data.bots[0],checkpoints=new FileCheckpoints(store,vm),before='original✓'.repeat(140000),after='更新后的数据'.repeat(25000),path=join(work,'large.txt'),signal=new AbortController().signal;writeFileSync(path,before);
+ const record=await checkpoints.vmBefore(bot.id,'r','large.txt',signal);assert.ok(record);
+ const result=await vmPython(vm,bot.id,{body:after},"import pathlib; pathlib.Path('large.txt').write_text(a['body'],encoding='utf-8'); print('ok')",signal);assert.equal(result.exitCode,0,result.stderr);assert.equal(readFileSync(path,'utf8'),after);
+ await checkpoints.vmAfter(record,signal,after);await checkpoints.restore(bot.id,record!.id,signal,'r2');assert.equal(readFileSync(path,'utf8'),before);assert.ok(largest>1000000);
+});

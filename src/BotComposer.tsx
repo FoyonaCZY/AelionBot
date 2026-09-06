@@ -1,8 +1,11 @@
 import {useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
 import type {Bot,BotMention} from './shared';
-import {AttachmentList,AttachmentIcon} from './Attachments';
+import {ComposerTools} from './ComposerTools';
+import {WORK_COMMANDS,workCommand,type WorkMode} from './work-types';
+import {AttachmentList} from './Attachments';
 import {ATTACHMENT_LIMITS,type Attachment,type AttachmentScope} from './attachment-types';
 import {Avatar,Icon} from './ui';
+import {CompanionGlyph} from './CompanionCard';
 
 export interface ComposerDraft {text:string;mentions:BotMention[];attachments?:Attachment[];}
 const empty:ComposerDraft={text:'',mentions:[]};
@@ -32,9 +35,11 @@ function chip(mention:BotMention){
   const node=document.createElement('span');node.className='bot-mention';node.contentEditable='false';node.dataset.botId=mention.id;node.dataset.botName=mention.name;node.dataset.botColor=mention.color;
   const face=document.createElement('span');face.className='mention-avatar';face.style.backgroundColor=mention.color;face.setAttribute('aria-hidden','true');const name=document.createElement('span');name.textContent=`@${mention.name}`;node.append(face,name);return node;
 }
-export function BotComposer({bot,bots,draft=empty,running,onChange,onSend,onStop,attachmentScope}:{bot:Pick<Bot,'id'|'name'>;bots:Bot[];draft?:ComposerDraft;running:boolean;attachmentScope?:AttachmentScope;onChange:(draft:ComposerDraft)=>void;onSend:()=>void;onStop:()=>void}){
+export function BotComposer({bot,bots,draft=empty,running,onChange,onSend,onStop,attachmentScope,workspaceDir}:{bot:Pick<Bot,'id'|'name'>;bots:Bot[];draft?:ComposerDraft;running:boolean;attachmentScope?:AttachmentScope;workspaceDir?:string;onChange:(draft:ComposerDraft)=>void;onSend:()=>void;onStop:()=>void}){
   const editor=useRef<HTMLDivElement>(null),list=useRef<HTMLDivElement>(null),last=useRef(''),composing=useRef(false),sendRef=useRef(onSend);sendRef.current=onSend;
   const draftRef=useRef(draft),changeRef=useRef(onChange),uploadCount=useRef(0),uploadChain=useRef(Promise.resolve());draftRef.current=draft;changeRef.current=onChange;
+  const [focused,setFocused]=useState(false),[commandHidden,setCommandHidden]=useState(false),[commandActive,setCommandActive]=useState(0);
+  const commands=focused&&!commandHidden&&/^\/[a-z]*$/i.test(draft.text)?WORK_COMMANDS.filter(command=>command.name.startsWith(draft.text.slice(1).toLowerCase())):[];
   const [uploading,setUploading]=useState(0),[uploadError,setUploadError]=useState(''),[dragging,setDragging]=useState(false);
   const scope:AttachmentScope=attachmentScope||{kind:'bot',id:bot.id},hasContent=Boolean(draft.text.trim()||draft.attachments?.length);
   const update=(next:ComposerDraft)=>{draftRef.current=next;changeRef.current(next);};
@@ -43,7 +48,7 @@ export function BotComposer({bot,bots,draft=empty,running,onChange,onSend,onStop
   const [query,setQuery]=useState<{start:number;end:number;text:string}>(),[active,setActive]=useState(0);const id=useId();
   const options=query?bots.filter(item=>item.id!==bot.id&&`${item.name} ${item.role}`.toLowerCase().includes(query.text.toLowerCase())).slice(0,20):[];
   const refresh=()=>{
-    const root=editor.current;if(!root)return;const value=read(root);last.current=JSON.stringify(value);update({...value,attachments:draftRef.current.attachments});
+    const root=editor.current;if(!root)return;const value=read(root);setCommandHidden(false);setCommandActive(0);last.current=JSON.stringify(value);update({...value,attachments:draftRef.current.attachments});
     const caret=selectionOffset(root);if(caret===undefined||composing.current){setQuery(undefined);return;}
     const start=Math.max(value.text.lastIndexOf('@',caret-1),value.text.lastIndexOf('＠',caret-1)),word=value.text.slice(start+1,caret);
     if(start<0||/[\s@＠]/.test(word)||word.length>80||value.text[start]==='@'&&start>0&&/[a-zA-Z0-9_.+-]/.test(value.text[start-1])||value.mentions.some(mention=>start>=mention.start&&start<mention.end)){setQuery(undefined);return;}
@@ -63,6 +68,11 @@ export function BotComposer({bot,bots,draft=empty,running,onChange,onSend,onStop
     const root=editor.current;if(!root||!query)return;root.focus({preventScroll:true});const range=document.createRange();range.setStart(...position(root,query.start));range.setEnd(...position(root,query.end));range.deleteContents();
     const space=document.createTextNode(' ');range.insertNode(space);range.insertNode(chip({id:target.id,name:target.name,color:target.color,start:0,end:0}));range.setStart(space,1);range.collapse(true);const selection=getSelection();selection?.removeAllRanges();selection?.addRange(range);refresh();setQuery(undefined);
   };
+  const chooseCommand=(mode:WorkMode)=>{
+    const current=draftRef.current,old=/^\/(?:plan|goal)(?:\s+|$)/i.exec(current.text)?.[0]||(/^\/[a-z]*$/i.test(current.text)?current.text:''),prefix='/'+mode+' ';
+    update({...current,text:prefix+current.text.slice(old.length),mentions:current.mentions.filter(m=>m.start>=old.length).map(m=>({...m,start:m.start-old.length+prefix.length,end:m.end-old.length+prefix.length}))});
+    setCommandHidden(true);setQuery(undefined);editor.current?.focus({preventScroll:true});
+  };
   useLayoutEffect(()=>{
     const root=editor.current,key=JSON.stringify({text:draft.text,mentions:draft.mentions});if(!root||last.current===key)return;
     const focused=document.activeElement===root,fragment=document.createDocumentFragment();let at=0;
@@ -74,15 +84,17 @@ export function BotComposer({bot,bots,draft=empty,running,onChange,onSend,onStop
   return <div className={`composer mention-composer ${dragging?'is-dragging':''}`} onDragOver={event=>{if(event.dataTransfer.types.includes('Files')){event.preventDefault();event.dataTransfer.dropEffect='copy';setDragging(true);}}} onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node|null))setDragging(false);}} onDrop={event=>{event.preventDefault();setDragging(false);const files=Array.from(event.dataTransfer.files);if(files.length)importFiles(files);}}>
     <AttachmentList files={draft.attachments} compact onRemove={id=>update({...draftRef.current,attachments:draftRef.current.attachments?.filter(file=>file.id!==id)})}/>
     {uploading>0&&<div className="composer-uploading" role="status">正在添加附件…</div>}{uploadError&&<div className="composer-attachment-error" role="alert">{uploadError}</div>}
+    {commands.length>0&&<div className="command-picker" role="listbox" id={id+'-commands'} aria-label="选择计划或目标">{commands.map((command,index)=><button type="button" key={command.name} id={id+'-command-'+index} role="option" aria-selected={index===commandActive} className={index===commandActive?'active':''} onMouseDown={event=>event.preventDefault()} onClick={()=>chooseCommand(command.name)}><span className={`composer-menu-icon composer-menu-${command.name}`}><CompanionGlyph kind={command.name}/></span><span className="command-copy"><strong>{command.label}</strong><small>{command.description}</small></span><code>/{command.name}</code></button>)}</div>}
     {query&&<div ref={list} className="mention-picker" role="listbox" id={id} aria-label="选择要联系的 Bot">{options.length?options.map((item,index)=><button key={item.id} id={`${id}-${index}`} role="option" aria-selected={index===active} className={index===active?'active':''} onMouseDown={event=>event.preventDefault()} onClick={()=>choose(item)}><Avatar bot={item} size={30}/><span><strong>{item.name}</strong><small>{item.role||'Bot'}{bots.filter(bot=>bot.name===item.name).length>1?` · ${item.id.slice(0,6)}`:''}</small></span></button>):<div className="mention-empty">没有匹配的 Bot</div>}</div>}
-    <div ref={editor} className="composer-editor" role="textbox" aria-label={`给 ${bot.name} 发消息`} aria-multiline="true" aria-autocomplete="list" aria-controls={query?id:undefined} aria-expanded={Boolean(query)} aria-activedescendant={query&&options.length?`${id}-${Math.min(active,options.length-1)}`:undefined} contentEditable suppressContentEditableWarning data-placeholder={`给 ${bot.name} 发消息`} data-empty={!draft.text} spellCheck={false}
-      onInput={refresh} onClick={refresh} onBlur={()=>setQuery(undefined)} onCompositionStart={()=>{composing.current=true;setQuery(undefined);}} onCompositionEnd={()=>{composing.current=false;requestAnimationFrame(refresh);}}
+    <div ref={editor} className="composer-editor" role="textbox" aria-label={`给 ${bot.name} 发消息`} aria-multiline="true" aria-autocomplete="list" aria-controls={commands.length?id+'-commands':query?id:undefined} aria-expanded={Boolean(query||commands.length)} aria-activedescendant={commands.length?id+'-command-'+commandActive:query&&options.length?`${id}-${Math.min(active,options.length-1)}`:undefined} contentEditable suppressContentEditableWarning data-placeholder={`给 ${bot.name} 发消息`} data-empty={!draft.text} spellCheck={false}
+      onInput={refresh} onClick={refresh} onFocus={()=>setFocused(true)} onBlur={()=>{setFocused(false);setQuery(undefined);}} onCompositionStart={()=>{composing.current=true;setQuery(undefined);}} onCompositionEnd={()=>{composing.current=false;requestAnimationFrame(refresh);}}
       onPaste={event=>{event.preventDefault();const files=Array.from(event.clipboardData.files),text=event.clipboardData.getData('text/plain').slice(0,32000);if(files.length){importFiles(files);return;}if(text&&!/^(?:[a-z]:[\\/]|\\\\|file:)/i.test(text)){insert(text);return;}const selection=getSelection(),range=selection?.rangeCount?selection.getRangeAt(0).cloneRange():undefined;ingest(async()=>{const files=await window.aelion.pasteAttachments(scope);if(!files.length&&text&&range&&editor.current?.contains(range.commonAncestorContainer)){const selection=getSelection();selection?.removeAllRanges();selection?.addRange(range);insert(text);}return files;});}} onDrop={event=>event.preventDefault()}
       onKeyDown={event=>{
         if(composing.current||event.nativeEvent.isComposing)return;
+        if(commands.length){if(event.key==='Escape'){event.preventDefault();event.stopPropagation();setCommandHidden(true);return;}if(['ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();setCommandActive(i=>(i+(event.key==='ArrowDown'?1:-1)+commands.length)%commands.length);return;}if(event.key==='Tab'||event.key==='Enter'&&!event.shiftKey){event.preventDefault();chooseCommand(commands[commandActive]?.name||commands[0].name);return;}}
         if(query){if(event.key==='Escape'){event.preventDefault();event.stopPropagation();setQuery(undefined);return;}if(options.length&&(event.key==='ArrowDown'||event.key==='ArrowUp')){event.preventDefault();setActive(value=>(value+(event.key==='ArrowDown'?1:-1)+options.length)%options.length);return;}if(options.length&&(event.key==='Enter'||event.key==='Tab')){event.preventDefault();choose(options[Math.min(active,options.length-1)]);return;}}
-        if(event.key==='Enter'){event.preventDefault();if(event.shiftKey)insert('\n');else if(hasContent&&!uploadCount.current)sendRef.current();}
+        if(event.key==='Enter'){event.preventDefault();if(event.shiftKey)insert('\n');else if(hasContent&&!uploadCount.current&&!(workCommand(draft.text)&&!workCommand(draft.text)!.objective))sendRef.current();}
       }} onKeyUp={event=>{if(['ArrowLeft','ArrowRight','Home','End','@','＠'].includes(event.key))refresh();}}/>
-    <div className="composer-bottom"><button type="button" className="icon-button composer-attach" aria-label="添加附件" onClick={()=>ingest(()=>window.aelion.pickAttachments(scope))}><AttachmentIcon/></button>{running&&hasContent&&<button className="icon-button" aria-label="停止任务" onClick={onStop}><span className="stop-square"/></button>}{running&&!hasContent?<button className="send-button" aria-label="停止任务" onClick={onStop}><span className="stop-square"/></button>:<button className="send-button" aria-label="发送消息" disabled={!hasContent||uploading>0} onClick={onSend}><Icon name="send"/></button>}</div>
+    <div className="composer-bottom"><ComposerTools scope={scope} workspaceDir={workspaceDir} onFolderPicked={()=>editor.current?.focus({preventScroll:true})} onAttach={()=>ingest(async()=>{const files=await window.aelion.pickAttachments(scope);editor.current?.focus({preventScroll:true});return files;})} onCommand={chooseCommand}/>{running&&hasContent&&<button className="icon-button" aria-label="停止任务" onClick={onStop}><span className="stop-square"/></button>}{running&&!hasContent?<button className="send-button" aria-label="停止任务" onClick={onStop}><span className="stop-square"/></button>:<button className="send-button" aria-label="发送消息" disabled={!hasContent||uploading>0||Boolean(workCommand(draft.text)&&!workCommand(draft.text)!.objective)} onClick={onSend}><Icon name="send"/></button>}</div>
   </div>;
 }

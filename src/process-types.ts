@@ -1,0 +1,1 @@
+export interface BackgroundProcess {vmBootId?:string;id:string;botId:string;runId:string;location:'host'|'vm';purpose:'task'|'service';command:string;cwd:string;createdAt:string;status:'starting'|'running'|'completed'|'failed'|'stopped'|'unknown';exitCode?:number;endedAt?:string;}

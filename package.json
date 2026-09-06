@@ -1,6 +1,6 @@
 {
   "name": "aelion-bot",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "private": true,
   "description": "Local Windows AI teammates with a managed Linux computer",
   "type": "module",
@@ -15,7 +15,7 @@
     "icons": "node scripts/generate-icons.mjs",
     "start": "electron .",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "tsx --test --test-concurrency=2 --test-timeout=30000 tests/*.test.ts",
     "vm:prepare-runtime": "node scripts/prepare-runtime.mjs",
     "verify:vm": "tsx scripts/verify-vm.ts",
     "package:win": "npm run icons && npm run build && electron-builder --win dir && node scripts/package-icons.mjs",

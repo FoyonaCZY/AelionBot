@@ -1,9 +1,10 @@
+import {validateSchema} from './tool-schema';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
 import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {SSEClientTransport} from '@modelcontextprotocol/sdk/client/sse.js';
 import type {Tool} from '@modelcontextprotocol/sdk/types.js';
-import type {McpServerView,ScreenReference} from '../../src/shared';
+import type {HostPermissionDetails,McpServerView,ScreenReference} from '../../src/shared';
 import {publicEndpoint,redactMcp,type McpConfig} from './mcp-config';
 import {hostname,networkInterfaces} from 'node:os';
 
@@ -98,10 +99,19 @@ export class McpRuntime {
     const tools=connection.tools.filter(tool=>!wanted||`${tool.name} ${tool.description||''}`.toLowerCase().includes(wanted));
     return {server:config.id,name:config.name,location:publicEndpoint(config),total:tools.length,tools:tools.slice(0,100)};
   }
-  async call(id:string,name:string,args:Record<string,unknown>,signal:AbortSignal){
+  async inspectCall(id:string,name:string,args:Record<string,unknown>):Promise<{fingerprint:string;permission?:HostPermissionDetails}>{
+    const config=this.find(id),connection=await this.connect(config.id),tool=connection.tools.find(tool=>tool.name===name);
+    if(!tool||!this.allowed(config,name))throw new Error('工具不存在或已被来源配置禁用');
+    validateSchema(tool.inputSchema as Record<string,unknown>,args,name);
+    if(tool.annotations?.readOnlyHint===true&&tool.annotations.destructiveHint!==true)return {fingerprint:connection.fingerprint};
+    return {fingerprint:connection.fingerprint,permission:{operation:'mcp',reason:'确认 MCP 工具的写入或其他有副作用操作',server:config.name,tool:name,arguments:redactMcp(args,config) as Record<string,unknown>,...this.hostPermission(config.id)}};
+  }
+  async call(id:string,name:string,args:Record<string,unknown>,signal:AbortSignal,expectedFingerprint?:string){
     const config=this.find(id),connection=await this.connect(config.id);
     if(signal.aborted)throw new Error('任务已取消');
+    if(connection.fingerprint!==config.fingerprint||expectedFingerprint&&expectedFingerprint!==connection.fingerprint)throw new Error('MCP 配置已变化，请重新核对工具');
     if(!connection.tools.some(tool=>tool.name===name)||!this.allowed(config,name))throw new Error('工具不存在或已被来源配置禁用');
+    validateSchema(connection.tools.find(tool=>tool.name===name)!.inputSchema as Record<string,unknown>,args,name);
     try{
       const result=await connection.client.callTool({name,arguments:args},undefined,{signal,timeout:config.toolTimeout});
       if(JSON.stringify(result).length>16*1024*1024)throw new Error('MCP_RESULT_LIMIT');
@@ -112,7 +122,7 @@ export class McpRuntime {
         catch{return {type:'text',text:'该工具返回的图像无法加载，文本结果仍可读取。'};}
       });
       return {server:config.id,tool:name,...safe,...(images.length?{images}:{})};
-    }catch(error){if(signal.aborted)throw new Error('MCP 操作已取消；已发生的操作不会回滚');throw new Error('MCP 工具调用失败或结果超限；操作可能已经发生，请先核对结果再决定是否重试');}
+    }catch(error){throw Object.assign(new Error(signal.aborted?'MCP 操作已取消；已发生的操作不会回滚':'MCP 工具调用失败或结果超限；操作可能已经发生，请先核对结果再决定是否重试'),{outcomeUnknown:true});}
   }
   private async safeRequest(config:McpConfig,operation:()=>Promise<unknown>){try{const result=await operation();if(JSON.stringify(result).length>16*1024*1024)throw new Error('Result limit');return redactMcp(result,config);}catch{throw new Error('MCP 资源或模板请求失败，请检查服务状态和参数');}}
   async listResources(id:string){const config=this.find(id),connection=await this.connect(config.id);if(!connection.client.getServerCapabilities()?.resources)return {resources:[]};return this.safeRequest(config,()=>connection.client.listResources({}, {timeout:config.toolTimeout}));}

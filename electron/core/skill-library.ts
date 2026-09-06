@@ -3,7 +3,8 @@ import {basename,dirname,join,relative,resolve,sep} from 'node:path';
 import {parseDocument,stringify as yamlStringify} from 'yaml';
 import type {IntegrationSource,Skill} from '../../src/shared';
 import {canonical,hashId,isWithin,skillSources,sourceView,type IntegrationPaths,type SourceDescriptor} from './integration-paths';
-import {Store} from './store';
+import {Store,atomicJson} from './store';
+import {knowledgeTextSafe} from './memory-service';
 
 export interface SkillFile {path:string;bytes:Buffer;}
 interface Entry {summary:Skill;file:string;root:string;}
@@ -77,13 +78,16 @@ export class SkillLibrary {
     }
     this.entries=entries;this.sources=sources;
   }
-  all(){return this.entries.map(entry=>({...entry.summary}));}
+  private metadata(botId:string):Record<string,{archived?:boolean;pinned?:boolean;readCount?:number;lastReadAt?:string}>{this.store.bot(botId);try{return JSON.parse(readFileSync(join(this.paths.dataDir,'bots',botId,'skill-state.json'),'utf8'));}catch{return {};}}
+  private saveMetadata(botId:string,state:ReturnType<SkillLibrary['metadata']>){const dir=join(this.paths.dataDir,'bots',botId);mkdirSync(dir,{recursive:true});atomicJson(join(dir,'skill-state.json'),state);}
+  observeRead(botId:string,id:string){const entry=this.find(botId,id),state=this.metadata(botId);state[entry.summary.id]={...state[entry.summary.id],readCount:(state[entry.summary.id]?.readCount||0)+1,lastReadAt:new Date().toISOString()};this.saveMetadata(botId,state);}
+  all(){return this.entries.map(entry=>({...entry.summary,...(entry.summary.botId?this.metadata(entry.summary.botId)[entry.summary.id]:{})}));}
   forgetBot(botId:string){
     const removed=this.entries.filter(entry=>entry.summary.botId===botId);
     this.entries=this.entries.filter(entry=>entry.summary.botId!==botId);
     this.sources=this.sources.map(source=>source.scope==='private'?{...source,count:Math.max(0,source.count-removed.filter(entry=>isWithin(source.path,entry.file)).length)}:source);
   }
-  list(botId:string){this.store.bot(botId);return this.all().filter(skill=>!skill.botId||skill.botId===botId);}
+  list(botId:string,includeArchived=false){this.store.bot(botId);const metadata=this.metadata(botId);return this.all().filter(skill=>!skill.botId||skill.botId===botId).map(skill=>({...skill,...metadata[skill.id]})).filter(skill=>includeArchived||!skill.archived).sort((a,b)=>Number(Boolean(b.pinned))-Number(Boolean(a.pinned)));}
   search(botId:string,query='',limit=100,offset=0){
     return searchSkills(this.list(botId),query,limit,offset);
   }
@@ -120,13 +124,13 @@ export class SkillLibrary {
     if(statSync(entry.file).size>256*1024)throw new Error('SKILL.md 超过 256 KB');
     const parsed=parseSkill(readFileSync(entry.file,'utf8'),basename(entry.root));
     let files:string[]=[];try{files=this.fileList(entry).map(file=>file.path);}catch{/* Large packages remain readable; explicit materialization reports its limits. */}
-    return {...entry.summary,body:parsed.body,compatibility:parsed.compatibility,availableFiles:files};
+    return {...entry.summary,...this.metadata(botId)[entry.summary.id],body:parsed.body,compatibility:parsed.compatibility,availableFiles:files,hash:this.fingerprint(botId,entry.summary.id)};
   }
   readFile(botId:string,id:string,path:string){
     const entry=this.find(botId,id);
     if(!path||path.includes('\\')||path.startsWith('/')||path.split('/').includes('..')||/^[a-z][a-z0-9+.-]*:/i.test(path)||sensitiveFile(basename(path)))throw new Error('请使用技能目录内的相对资源路径');
     const file=realpathSync.native(resolve(entry.root,path));if(!isWithin(entry.root,file)||!statSync(file).isFile())throw new Error('资源不在技能目录内');
-    if(statSync(file).size>256*1024)throw new Error('资源过大，可将技能包同步到工作电脑后处理');return {path,content:readFileSync(file,'utf8')};
+    if(statSync(file).size>256*1024)throw new Error('资源过大，可将技能包同步到工作电脑后处理');const content=readFileSync(file,'utf8');return {path,content,hash:hashId(content)};
   }
   bundle(botId:string,id:string){const entry=this.find(botId,id);return {id:hashId(canonical(entry.root)),folder:basename(entry.root),files:this.fileList(entry,true)};}
   fingerprint(botId:string,id:string){const entry=this.find(botId,id);return hashId(readFileSync(entry.file,'utf8'));}
@@ -136,6 +140,7 @@ export class SkillLibrary {
     this.store.bot(botId);const existing=this.entries.find(entry=>entry.summary.botId===botId&&entry.summary.name===name);
     if(existing&&!isWithin(canonical(this.paths.dataDir),canonical(existing.file)))throw new Error('此技能指向外部目录，不能自动修改');
     if(provenance.expectedHash&&(!existing||this.fingerprint(botId,existing.summary.id)!==provenance.expectedHash))throw new Error('技能在读取后发生了变化，请重新读取再保存');
+    if(existing){const current=this.read(botId,existing.summary.id);if(current.description===description.trim()&&current.body===body.trim())return {saved:false,unchanged:true,id:current.id,name,scope:'bot-private',path:existing.file,revision:this.revisions(botId,current.id).at(-1)?.revision||0,hash:this.fingerprint(botId,current.id)};}
     const skill:Skill={id:existing?.summary.id||`private-${hashId(`${botId}:${name}`)}`,name,description,body,botId};
     const historyDir=join(this.paths.dataDir,'bots',botId,'skill-history',skill.id);mkdirSync(historyDir,{recursive:true});
     const revisions=existing?this.revisions(botId,existing.summary.id):[];
@@ -144,5 +149,32 @@ export class SkillLibrary {
     writeAtomic(join(historyDir,`${revision}.md`),content);revisions.push({revision,hash:hashId(content),createdAt:new Date().toISOString(),origin:provenance.origin||'foreground',sourceRunId:provenance.sourceRunId,file:`${revision}.md`,...((provenance.sourceRefs?.length)?{sourceRefs:provenance.sourceRefs}:{})});
     writeAtomic(join(historyDir,'revisions.json'),JSON.stringify(revisions,null,2));
     this.refresh();return {saved:true,id:skill.id,name,scope:'bot-private',path,revision,hash:hashId(content)};
+  }
+  patch(botId:string,id:string,oldText:string,newText:string,expectedHash:string,runId:string){
+    const entry=this.find(botId,id);if(entry.summary.botId!==botId)throw Error('只能修改自己的私有技能');const current=this.read(botId,id);
+    if(!oldText||current.body.split(oldText).length!==2)throw Error('被替换文本必须在技能中恰好出现一次');
+    const body=current.body.replace(oldText,newText);knowledgeTextSafe(body,[]);
+    return this.save(botId,current.name,current.description,body,{expectedHash,sourceRunId:runId});
+  }
+  writeResource(botId:string,id:string,path:string,content:string,expectedHash?:string){
+    const entry=this.find(botId,id);if(entry.summary.botId!==botId)throw Error('只能修改自己的私有技能');
+    if(!/^(scripts|references|assets)\/[A-Za-z0-9_./\-\u4e00-\u9fff]+$/.test(path)||path.split('/').some(p=>!p||p==='.'||p==='..'||p.startsWith('.')||sensitiveFile(p)))throw Error('只可写技能 scripts、references、assets 内的普通相对路径');
+    if(content.length>128000)throw Error('技能资源过大');knowledgeTextSafe(content,[]);
+    const file=resolve(entry.root,path);let ancestor=dirname(file);while(!existsSync(ancestor))ancestor=dirname(ancestor);if(!isWithin(entry.root,realpathSync.native(ancestor))||existsSync(file)&&!isWithin(entry.root,realpathSync.native(file)))throw Error('资源路径越过技能目录');
+    const previous=existsSync(file)?readFileSync(file,'utf8'):undefined;
+    if(previous!==undefined&&hashId(previous)!==expectedHash)throw Error('覆盖资源需要先读取并提供最新 hash');
+    if(previous===content)return {unchanged:true,path,hash:hashId(content)};
+    if(previous!==undefined){const backup=join(this.paths.dataDir,'bots',botId,'skill-history',entry.summary.id,'resources',hashId(path),hashId(previous)+'.txt');writeAtomic(backup,previous);}
+    writeAtomic(file,content);return {saved:true,path,hash:hashId(content)};
+  }
+  manage(botId:string,id:string,action:string,revision?:number){
+    const entry=this.find(botId,id),state=this.metadata(botId);
+    if(action==='revisions')return this.revisions(botId,id);
+    if(action==='restore_revision'){
+      if(entry.summary.botId!==botId)throw Error('只能恢复自己的私有技能');const saved=this.revisions(botId,id).find(r=>r.revision===revision);if(!saved||!/^\d+\.md$/.test(saved.file))throw Error('版本不存在');
+      const text=readFileSync(join(this.paths.dataDir,'bots',botId,'skill-history',entry.summary.id,saved.file),'utf8');if(hashId(text)!==saved.hash)throw Error('历史版本内容已变化');const parsed=parseSkill(text,entry.summary.name);return this.save(botId,entry.summary.name,parsed.description,parsed.body,{origin:'restore'});
+    }
+    if(!['pin','unpin','archive','restore'].includes(action))throw Error('未知技能操作');
+    state[entry.summary.id]={...state[entry.summary.id],...(['pin','unpin'].includes(action)?{pinned:action==='pin'}:{archived:action==='archive'})};this.saveMetadata(botId,state);return {id:entry.summary.id,...state[entry.summary.id]};
   }
 }
