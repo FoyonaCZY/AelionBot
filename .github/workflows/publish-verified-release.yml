@@ -14,9 +14,12 @@ concurrency:
   group: publish-aelion-release
   cancel-in-progress: false
 jobs:
-  publish:
+  source:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+      run_id: ${{ steps.source.outputs.run_id }}
     steps:
       - name: Verify completed build
         id: source
@@ -42,9 +45,76 @@ jobs:
           appendFileSync(process.env.GITHUB_OUTPUT,`sha=${run.head_sha}\nrun_id=${id}\n`);
           console.log(`Using verified build ${id}, source ${run.head_sha}`);
           NODE
+  packaged_vm:
+    needs: source
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64
+          - os: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: read
+    steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ steps.source.outputs.sha }}
+          ref: ${{ needs.source.outputs.sha }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          architecture: ${{ matrix.arch }}
+      - run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.source.outputs.run_id }}
+          name: AelionBot-macos-${{ matrix.arch }}
+          path: release/downloaded
+      - name: Verify the installed QEMU runtime
+        run: |
+          node --import tsx --input-type=module <<'NODE'
+          import {execFileSync} from 'node:child_process';
+          import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+          import {resolve,join} from 'node:path';
+          import {randomUUID} from 'node:crypto';
+          import {VmController} from './electron/core/vm.ts';
+          const arch=process.arch,version=JSON.parse(readFileSync('package.json','utf8')).version,folder=resolve('release/packaged');
+          execFileSync('/usr/bin/ditto',['-x','-k',resolve(`release/downloaded/AelionBot-${version}-mac-${arch}.zip`),folder],{stdio:'inherit'});
+          const app=join(folder,'AelionBot.app'),runtime=join(app,'Contents/Resources/qemu'),binary=join(runtime,'bin',`qemu-system-${arch==='arm64'?'aarch64':'x86_64'}`);
+          execFileSync('/usr/bin/codesign',['--verify','--deep','--strict',app],{stdio:'inherit'});
+          const entitlements=execFileSync('/usr/bin/codesign',['--display','--entitlements',':-',binary],{encoding:'utf8',stdio:['ignore','pipe','pipe']});
+          if(!/<key>com\.apple\.security\.hypervisor<\/key>\s*<true\s*\/>/.test(entitlements))throw Error('Packaged QEMU hypervisor entitlement missing');
+          if(!execFileSync(binary,['-accel','help'],{encoding:'utf8'}).includes('hvf'))throw Error('Packaged QEMU HVF support missing');
+          const vm=new VmController({dataDir:resolve('.local/packaged-vm'),runtimeDir:runtime,cacheDir:resolve('runtime/downloads'),memoryMiB:2048,cpuCount:2,accelerator:'tcg',startupTimeoutMs:600000,skipDesktop:true});
+          vm.on('state',state=>console.log(state.status+': '+state.detail));
+          try{
+            await vm.prepare();await vm.start();
+            const identity=await vm.execute('uname -m; id -u','packaged-proof');
+            if(identity.exitCode!==0||!identity.stdout.includes(arch==='arm64'?'aarch64':'x86_64')||!identity.stdout.includes('1000'))throw Error('Packaged guest identity mismatch');
+            const nonce=randomUUID(),write=await vm.execute(`printf '%s' '${nonce}' > proof.txt`,'packaged-proof');if(write.exitCode!==0)throw Error('Packaged guest write failed');
+            await vm.stop();await vm.start();const read=await vm.execute('cat proof.txt','packaged-proof');if(read.exitCode!==0||read.stdout!==nonce)throw Error('Packaged guest persistence failed');
+            mkdirSync('output',{recursive:true});writeFileSync(`output/packaged-vm-${arch}.json`,JSON.stringify({version,arch,accelerator:'tcg',packagedRuntime:true,passed:true},null,2));
+          }finally{await vm.stop().catch(()=>{});vm.dispose();}
+          NODE
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Packaged-VM-${{ matrix.arch }}
+          path: output/packaged-vm-*.json
+          if-no-files-found: error
+          retention-days: 7
+  publish:
+    needs: [source, packaged_vm]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.source.outputs.sha }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
@@ -52,7 +122,7 @@ jobs:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           github-token: ${{ github.token }}
-          run-id: ${{ steps.source.outputs.run_id }}
+          run-id: ${{ needs.source.outputs.run_id }}
           pattern: AelionBot-*
           path: release/downloaded
           merge-multiple: true
@@ -60,7 +130,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          VERIFIED_SHA: ${{ steps.source.outputs.sha }}
+          VERIFIED_SHA: ${{ needs.source.outputs.sha }}
         run: |
           node <<'NODE'
           const {execFileSync,spawnSync}=require('node:child_process'),{readFileSync}=require('node:fs');

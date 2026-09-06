@@ -5,7 +5,7 @@ import {runInNewContext} from 'node:vm';
 import {parse} from 'yaml';
 
 const workflow=parse(readFileSync('.github/workflows/publish-verified-release.yml','utf8'));
-const source=workflow.jobs.publish.steps.find((s:any)=>s.id==='source').run.split('\n').slice(1,-2).join('\n');
+const source=workflow.jobs.source.steps.find((s:any)=>s.id==='source').run.split('\n').slice(1,-2).join('\n');
 function fixture(){
  const common=['Audit source','Typecheck','Test'];
  return {run:{status:'completed',conclusion:'success',path:'.github/workflows/release.yml',event:'workflow_dispatch',head_repository:{full_name:'example/AelionBot'},head_sha:'a'.repeat(40)},
