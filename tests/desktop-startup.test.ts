@@ -5,7 +5,7 @@ import {BOT_DESKTOP_SCRIPT} from '../electron/core/bot-desktop-profile';
 import {SESSION_LAUNCHER} from '../electron/core/desktop-profile';
 
 const python=process.env.AELION_TEST_PYTHON||(process.platform==='win32'?'python':'python3');
-const available=spawnSync(python,['--version'],{windowsHide:true}).status===0;
+const available=spawnSync(python,['--version'],{windowsHide:true,timeout:5000}).status===0;
 function run(code:string){const result=spawnSync(python,['-c',code],{input:JSON.stringify({desktop:BOT_DESKTOP_SCRIPT,launcher:SESSION_LAUNCHER}),encoding:'utf8',windowsHide:true,timeout:10000});assert.equal(result.status,0,result.stderr||String(result.error));}
 
 test('desktop readiness tolerates a slow startup and transient probes, but fails boundedly',{skip:!available},()=>run(String.raw`
