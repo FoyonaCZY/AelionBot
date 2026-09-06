@@ -37,7 +37,7 @@ test('local MCP tools cannot start before their per-call permission is approved'
 
 test('external skill reads need fresh permission while application-owned skills remain internal',async t=>{
   const {root,store,interactions}=fixture(t);let modelCalls=0;const reads:string[]=[];
-  const skills={externalPath:(_botId:string,id:string)=>id==='external'?join(root,'external','SKILL.md'):undefined,read:(_botId:string,id:string)=>{reads.push(id);return {name:id,body:'fixture skill'};}};
+  const skills={list:()=>[{id:'private',name:'private',description:'应用内技能',body:'',botId:store.data.bots[0].id},{id:'external',name:'external',description:'外部技能',body:''}],externalPath:(_botId:string,id:string)=>id==='external'?join(root,'external','SKILL.md'):undefined,read:(_botId:string,id:string)=>{reads.push(id);return {name:id,body:'fixture skill'};}};
   const ids=['private','external','external'];
   const model={complete:async()=>{const index=modelCalls++;return index<ids.length?{content:'读取技能',finishReason:'tool_calls',calls:[{id:`read-${index}`,type:'function',function:{name:'skill_read',arguments:JSON.stringify({id:ids[index]})}}]}:{content:'已完成',finishReason:'stop',calls:[]};}} as unknown as ModelClient;
   const run=new Harness(store,{} as VmController,model,()=>{},undefined,undefined,{skills} as unknown as Integrations,undefined,interactions).run(store.data.bots[0].id,'读取技能');

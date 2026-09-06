@@ -11,7 +11,9 @@ import {LearningWorker,shouldReview} from '../electron/core/learning-worker';
 import {SkillLibrary} from '../electron/core/skill-library';
 import {contextBudget,estimateRequest,exchanges,tailBoundary,textTokens} from '../electron/core/context-budget';
 import {ModelClient,type Completion} from '../electron/core/model';
-import {TOOLS} from '../electron/core/harness';
+import {Harness,TOOLS} from '../electron/core/harness';
+import type {Integrations} from '../electron/core/integrations';
+import type {VmController} from '../electron/core/vm';
 import type {WireMessage} from '../src/shared';
 
 const summary=JSON.stringify({goal:'继续处理当前任务',constraints:['以最后一条用户要求为准'],done:['较早的资料已经读取'],pending:['完成当前工作'],decisions:[],failures:[],next:['核对最新请求']});
@@ -73,6 +75,51 @@ test('background review learns from evidence, preserves skill versions, and deni
   const id=f.storage.enqueue(f.bot.id,'learn',{messages:[{role:'user',content:user.content}],tools:TOOLS,sourceRefs:[user.id,evidence.id],revision:0,model:f.store.data.model.model});await worker.drain();
   assert.equal(f.storage.jobs(f.bot.id).find(job=>job.id===id)?.status,'completed');assert.equal(denied,true);assert.ok(f.memory.snapshot(f.bot.id).user.some(fact=>fact.content==='交付包含测试数量。'));
   const skill=f.skills.list(f.bot.id).find(skill=>skill.name==='CSV 汇总检查')!;assert.ok(skill);assert.equal(f.skills.autoManaged(f.bot.id,skill.id),true);assert.equal(f.skills.revisions(f.bot.id,skill.id).length,1);assert.match(f.skills.read(f.bot.id,skill.id).body,/独立计算/);
+});
+
+test('background review sees the current skill catalog on its first request and can choose no write',async t=>{
+  const f=fixture(t);let calls=0;
+  const model={complete:async(messages:WireMessage[])=>{calls++;const control=messages.at(-1)!.content!;assert.match(control,/已有表格汇总/);assert.match(control,/按团队汇总并核对合计/);assert.ok(!control.includes('PRIVATE_BODY'));assert.ok(!control.includes('另一位的私有流程'));return done('已有技能覆盖本次经验，无需新增。');}} as unknown as ModelClient;
+  const worker=new LearningWorker(f.storage,f.memory,f.skills,model,new ContextEngine(f.storage,model,()=>{}),()=>{},()=>false,()=>[],100000);f.setWorker(worker);
+  f.storage.enqueue(f.bot.id,'catalog-noop',{messages:[],tools:TOOLS,sourceRefs:[],revision:0,model:f.store.data.model.model});
+  const existing=f.skills.save(f.bot.id,'已有表格汇总','按团队汇总并核对合计','PRIVATE_BODY',{origin:'background_review'});
+  const other=f.store.createBot('其他伙伴','隔离');f.skills.save(other.id,'另一位的私有流程','不可见','private');
+  await worker.drain();assert.equal(calls,1);assert.equal(f.skills.revisions(f.bot.id,existing.id).length,1);assert.equal(f.storage.revision(f.bot.id),0);
+  assert.equal(f.storage.jobs(f.bot.id)[0].status,'completed');
+});
+
+test('an Agent may read and improve a catalogued skill without a redundant list call',async t=>{
+  const f=fixture(t),source=f.store.message(f.bot.id,'tool','验证通过',{tool:'python_execute',status:'done'});
+  const body='读取当前任务指定的表格，核对列名与数据类型，汇总结果并独立复核。'.repeat(6),updated=body+'新增规则：空表和缺失列分别验证。';
+  const existing=f.skills.save(f.bot.id,'表格汇总','核对并汇总表格',body,{origin:'background_review'});let step=0;
+  const model={complete:async(messages:WireMessage[])=>{if(++step===1){assert.match(messages.at(-1)!.content!,/表格汇总/);return call('skill_read',{id:existing.id});}if(step===2)return call('skill_save',{name:'表格汇总',description:'核对并汇总表格',body:updated,sourceRefs:[source.id]});return done();}} as unknown as ModelClient;
+  const worker=new LearningWorker(f.storage,f.memory,f.skills,model,new ContextEngine(f.storage,model,()=>{}),()=>{},()=>false,()=>[],100000);f.setWorker(worker);
+  f.storage.enqueue(f.bot.id,'catalog-update',{messages:[],tools:TOOLS,sourceRefs:[source.id],revision:0,model:f.store.data.model.model});await worker.drain();
+  assert.equal(f.skills.read(f.bot.id,existing.id).body,updated);assert.equal(f.skills.revisions(f.bot.id,existing.id).length,2);assert.equal(f.skills.list(f.bot.id).filter(skill=>skill.name==='表格汇总').length,1);
+});
+
+test('a catalog entry alone does not authorize overwriting an unread skill',async t=>{
+  const f=fixture(t),source=f.store.message(f.bot.id,'tool','验证通过',{tool:'python_execute',status:'done'}),body='已验证的通用检查流程。'.repeat(20);
+  const existing=f.skills.save(f.bot.id,'已有检查','通用检查',body,{origin:'background_review'});let step=0,denied=false;
+  const model={complete:async(messages:WireMessage[])=>{if(++step===1)return call('skill_save',{name:'已有检查',description:'通用检查',body:body+'新规则',sourceRefs:[source.id]});denied=messages.at(-1)!.content!.includes('修改已有技能前必须先完整读取');return done();}} as unknown as ModelClient;
+  const worker=new LearningWorker(f.storage,f.memory,f.skills,model,new ContextEngine(f.storage,model,()=>{}),()=>{},()=>false,()=>[],100000);f.setWorker(worker);
+  f.storage.enqueue(f.bot.id,'catalog-unread',{messages:[],tools:TOOLS,sourceRefs:[source.id],revision:0,model:f.store.data.model.model});await worker.drain();
+  assert.equal(denied,true);assert.equal(f.skills.revisions(f.bot.id,existing.id).length,1);assert.equal(f.skills.read(f.bot.id,existing.id).body,body);
+});
+
+test('foreground Agents also see their skill inventory before deciding to save',async t=>{
+  const f=fixture(t);f.store.data.model.model='fixture';
+  f.skills.save(f.bot.id,'资料归档','按主题整理资料','FULL_BODY_NOT_IN_FOREGROUND_CATALOG');let inspected=false;
+  const model={complete:async(messages:WireMessage[])=>{const system=messages[0].content!;assert.match(system,/资料归档/);assert.match(system,/按主题整理资料/);assert.ok(!system.includes('FULL_BODY_NOT_IN_FOREGROUND_CATALOG'));inspected=true;return done('已有资料归档流程，无需重复保存。');}} as unknown as ModelClient;
+  const harness=new Harness(f.store,{} as VmController,model,()=>{},undefined,undefined,{skills:f.skills} as Integrations);
+  try{await harness.run(f.bot.id,'检查有没有可复用的流程');assert.equal(inspected,true);}finally{harness.streams.dispose();}
+});
+
+test('skill lookup can page through matching skills without losing later entries',t=>{
+  const f=fixture(t);for(let i=0;i<7;i++)f.skills.save(f.bot.id,`分页流程 ${i}`,'用于验证分页查询','fixture');
+  const all=f.skills.search(f.bot.id,'分页流程'),paged=[];
+  for(let offset=0;offset<all.length;offset+=2)paged.push(...f.skills.search(f.bot.id,'分页流程',2,offset));
+  assert.deepEqual(paged.map(skill=>skill.id),all.map(skill=>skill.id));assert.equal(new Set(paged.map(skill=>skill.id)).size,7);assert.equal(f.skills.search(f.bot.id,'分页流程',2,99).length,0);
 });
 test('user-owned skills stay protected from automatic maintenance and explicit learning opt-outs are honored',async t=>{
   const f=fixture(t),saved=f.skills.save(f.bot.id,'用户流程','用户创建的流程','用户保留的正文。'),before=f.skills.fingerprint(f.bot.id,saved.id),source=f.store.message(f.bot.id,'tool','success',{tool:'python_execute',status:'done'});

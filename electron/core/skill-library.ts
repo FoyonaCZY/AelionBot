@@ -19,6 +19,11 @@ export function parseSkill(text:string,fallback:string){
 function slug(name:string,id:string){const base=name.normalize('NFKC').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,42).replace(/-$/,'')||'skill';return `${base}-${hashId(id).slice(0,8)}`;}
 function writeAtomic(path:string,text:string){mkdirSync(dirname(path),{recursive:true});const temp=`${path}.${process.pid}.tmp`;writeFileSync(temp,text,{mode:0o600});renameSync(temp,path);}
 function sensitiveFile(name:string){return name==='.env'||name.startsWith('.env.')&&name!=='.env.example'||/\.(key|pem|p12|pfx)$/i.test(name);}
+export function searchSkills(skills:Skill[],query='',limit=100,offset=0){
+  const words=[...new Set(query.normalize('NFKC').toLowerCase().slice(0,300).split(/[\s,，、|]+/).filter(Boolean))].slice(0,12);
+  const start=Number.isFinite(offset)?Math.max(0,Math.trunc(offset)):0,size=Number.isFinite(limit)?Math.max(1,Math.min(100,Math.trunc(limit))):100;
+  return skills.map(skill=>{const name=skill.name.normalize('NFKC').toLowerCase(),text=`${name} ${skill.description} ${skill.source?.label||''}`.normalize('NFKC').toLowerCase();const score=words.reduce((sum,word)=>sum+(name.includes(word)?5:text.includes(word)?1:0),0);return {skill,score};}).filter(item=>!words.length||item.score>0).sort((a,b)=>b.score-a.score).slice(start,start+size).map(item=>item.skill);
+}
 
 export class SkillLibrary {
   private entries:Entry[]=[];
@@ -79,9 +84,8 @@ export class SkillLibrary {
     this.sources=this.sources.map(source=>source.scope==='private'?{...source,count:Math.max(0,source.count-removed.filter(entry=>isWithin(source.path,entry.file)).length)}:source);
   }
   list(botId:string){this.store.bot(botId);return this.all().filter(skill=>!skill.botId||skill.botId===botId);}
-  search(botId:string,query='',limit=100){
-    const words=[...new Set(query.normalize('NFKC').toLowerCase().slice(0,300).split(/[\s,，、|]+/).filter(Boolean))].slice(0,12);
-    return this.list(botId).map(skill=>{const name=skill.name.normalize('NFKC').toLowerCase(),text=`${name} ${skill.description} ${skill.source?.label||''}`.normalize('NFKC').toLowerCase();const score=words.reduce((sum,word)=>sum+(name.includes(word)?5:text.includes(word)?1:0),0);return {skill,score};}).filter(item=>!words.length||item.score>0).sort((a,b)=>b.score-a.score).slice(0,limit).map(item=>item.skill);
+  search(botId:string,query='',limit=100,offset=0){
+    return searchSkills(this.list(botId),query,limit,offset);
   }
   externalPath(botId:string,id:string,resource?:string,bundle=false){
     const entry=this.find(botId,id);if(!entry.summary.source?.readonly)return undefined;
