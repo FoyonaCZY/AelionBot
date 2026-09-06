@@ -99,16 +99,20 @@ exec 9>/var/lib/aelion/desktop.lock
 flock -n 9 || exit 0
 rm -f /var/lib/aelion/desktop-error
 trap 'echo "Desktop preparation failed at $(date -Iseconds)" > /var/lib/aelion/desktop-error' EXIT
+printf system > /var/lib/aelion/desktop-stage
 timeout 600 dpkg --configure -a
 timeout 600 apt-get update
+printf desktop > /var/lib/aelion/desktop-stage
 timeout 2400 apt-get install -y --no-install-recommends linux-image-amd64 git python3-venv ca-certificates curl locales xserver-xorg-core xserver-xorg-video-all xserver-xorg-input-libinput x11-xserver-utils xinit xfce4-session xfce4-settings xfwm4 xfdesktop4 xfce4-panel xfce4-appfinder xfce4-terminal dbus-x11 dbus-user-session lightdm lightdm-gtk-greeter thunar thunar-archive-plugin gvfs gvfs-backends xdg-utils mousepad ristretto evince xclip xdotool arc-theme papirus-icon-theme fonts-noto-core fonts-noto-cjk librsvg2-bin librsvg2-common libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-gtk3 libreoffice-l10n-zh-cn tigervnc-standalone-server python3-pil xauth x11-utils
 if ! command -v google-chrome-stable >/dev/null 2>&1; then
+  printf browser > /var/lib/aelion/desktop-stage
   mkdir -p /var/cache/aelion
   curl --fail --location --retry 3 --connect-timeout 30 --max-time 900 https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /var/cache/aelion/google-chrome.deb
   test "$(dpkg-deb -f /var/cache/aelion/google-chrome.deb Package)" = google-chrome-stable
   sha256sum /var/cache/aelion/google-chrome.deb > /var/lib/aelion/chrome-download.sha256
   timeout 600 apt-get install -y /var/cache/aelion/google-chrome.deb
 fi
+printf finishing > /var/lib/aelion/desktop-stage
 sed -i 's/^# *zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/' /etc/locale.gen
 locale-gen zh_CN.UTF-8
 mkdir -p /etc/lightdm/lightdm.conf.d

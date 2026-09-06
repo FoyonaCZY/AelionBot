@@ -25,7 +25,7 @@ export interface Skill { id: string; name: string; description: string; body: st
 export interface IntegrationSource { id: string; label: string; path: string; kind: 'skills'|'mcp'; scope: 'user'|'project'|'private'|'builtin'; exists: boolean; count: number; issue?: string; }
 export interface McpServerView { id: string; name: string; source: SkillSource; transport: 'stdio'|'http'|'sse'|'unsupported'; endpoint: string; enabled: boolean; status: 'disabled'|'available'|'connecting'|'connected'|'error'|'needs-config'; issue?: string; toolCount?: number; }
 export interface IntegrationsView { sharedSkillDir: string; privateSkillDir: string; mcpFile: string; projectDir: string; sources: IntegrationSource[]; servers: McpServerView[]; scannedAt: string; }
-export interface VmState { status: 'unprepared' | 'preparing' | 'stopped' | 'starting' | 'ready' | 'stopping' | 'error'; detail: string; progress?: number; pid?: number; sshPort?: number; imageVersion: string; desktopReady?: boolean; appsReady?: boolean; maintenance?: boolean; lastError?: string; diskBytes?: number; vncUrl?: string; }
+export interface VmState { status: 'unprepared' | 'preparing' | 'stopped' | 'starting' | 'ready' | 'stopping' | 'error'; detail: string; progress?: number; pid?: number; sshPort?: number; imageVersion: string; desktopReady?: boolean; appsReady?: boolean; maintenance?: boolean; needsReboot?: boolean; lastError?: string; diskBytes?: number; vncUrl?: string; }
 export interface ComputerDesktopState {botId:string;status:'idle'|'starting'|'ready'|'error';ownerBotId?:string;manualControl:boolean;vncUrl?:string;error?:string;}
 export interface ComputerState { desktops:Record<string,ComputerDesktopState>; }
 export interface CommandPattern {kind:'prefix'|'exact';pattern:string;}

@@ -14,6 +14,7 @@ import { atomicJson } from './store';
 import { DESKTOP_SCRIPT, WORKSTATION_VERSION, SESSION_LAUNCHER } from './desktop-profile';
 import { BOT_DESKTOP_SCRIPT,BOT_DESKTOP_VERSION } from './bot-desktop-profile';
 import { verifiedDownload, fileHash } from './download';
+import {workstationProgress} from './workstation-progress';
 
 const runFile = promisify(execFile);
 const { Client, utils } = ssh2;
@@ -165,7 +166,7 @@ export class VmController extends EventEmitter {
     const child=spawn(this.executable,args,{cwd:this.options.runtimeDir,windowsHide:true,detached:true,stdio:['ignore',log,log]});closeSync(log);
     await new Promise<void>((ok,fail)=>{child.once('spawn',ok);child.once('error',fail);});
     r.pid=child.pid;child.unref();this.persist();
-    this.update({status:'starting',detail:'启动工作电脑，等待系统初始化',pid:r.pid,sshPort:r.sshPort,lastError:undefined});
+    this.update({status:'starting',detail:'启动工作电脑，等待系统初始化',pid:r.pid,sshPort:r.sshPort,lastError:undefined,desktopReady:false,appsReady:false,needsReboot:false,maintenance:false,progress:undefined});
     await this.bridge();
     const deadline=Date.now()+240_000;
     while(Date.now()<deadline){
@@ -200,11 +201,11 @@ export class VmController extends EventEmitter {
       const identity=await this.qmp('query-uuid');if(identity.UUID!==this.record.id)throw new Error('VM 身份校验失败');
       const status=await this.qmp('query-status');
       if(status.running){
-        const result=await this.execRaw(`test -f /var/lib/aelion/work-ready && printf READY; systemctl is-active --quiet lightdm && pgrep -u aelion -x xfce4-session >/dev/null && printf DESKTOP; test -f /var/lib/aelion/desktop-error && printf TOOL_ERROR; test -f /var/lib/aelion/desktop-needs-reboot && printf NEEDS_REBOOT; test "$(cat /var/lib/aelion/workstation-version 2>/dev/null)" = '${WORKSTATION_VERSION}' && test -x /usr/bin/google-chrome-stable && test -x /usr/bin/thunar && test -x /usr/local/bin/aelion-session && printf APPS`,'aelion',4000);
+        const result=await this.execRaw(`test -f /var/lib/aelion/work-ready && printf READY; systemctl is-active --quiet lightdm && pgrep -u aelion -x xfce4-session >/dev/null && printf DESKTOP; test -f /var/lib/aelion/desktop-error && printf TOOL_ERROR; test -f /var/lib/aelion/desktop-needs-reboot && printf NEEDS_REBOOT; test "$(cat /var/lib/aelion/workstation-version 2>/dev/null)" = '${WORKSTATION_VERSION}' && test -x /usr/bin/google-chrome-stable && test -x /usr/bin/thunar && test -x /usr/local/bin/aelion-session && printf APPS; printf '\\nSTAGE:'; cat /var/lib/aelion/desktop-stage 2>/dev/null; printf '\\n'`,'aelion',4000);
         const desktop=result.stdout.includes('DESKTOP');
         const lock=await this.execRaw('flock -n /var/lib/aelion/desktop.lock -c true','root',4000);
         const maintenance=lock.exitCode!==0;
-        if(result.stdout.includes('READY')){if(!this.record.initialized){this.record.initialized=true;this.persist();}const appsReady=result.stdout.includes('APPS');this.update({status:'ready',detail:maintenance?'正在更新工作环境':desktop&&appsReady?'工作电脑已就绪':desktop?'桌面在线，应用环境需要准备':'正在准备桌面',pid:this.record.pid,sshPort:this.record.sshPort,desktopReady:desktop,appsReady,maintenance,lastError:result.stdout.includes('TOOL_ERROR')?'应用环境准备失败，请使用“修复工作环境”重试。':result.stdout.includes('NEEDS_REBOOT')?'桌面驱动已安装，请重启工作电脑以启用。':undefined});}
+        if(result.stdout.includes('READY')){if(!this.record.initialized){this.record.initialized=true;this.persist();}const appsReady=result.stdout.includes('APPS'),needsReboot=result.stdout.includes('NEEDS_REBOOT');this.update({status:'ready',detail:maintenance?workstationProgress(result.stdout):needsReboot?'应用已安装，请重启工作电脑完成初始化':desktop&&appsReady?'工作电脑已就绪':desktop?'桌面在线，应用环境需要准备':'正在准备桌面',pid:this.record.pid,sshPort:this.record.sshPort,desktopReady:desktop,appsReady,maintenance,needsReboot,lastError:result.stdout.includes('TOOL_ERROR')?'应用环境准备失败，请使用“修复工作环境”重试。':undefined});}
         else await this.seed();
         await this.bridge();
       }

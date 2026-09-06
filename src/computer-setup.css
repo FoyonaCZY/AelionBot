@@ -1,0 +1,34 @@
+.modal.computer-setup-modal{width:560px;max-width:100%;padding:24px 30px 28px;color:#242424}
+.computer-setup-modal>header{margin-bottom:12px}
+.setup-intro{text-align:center;padding:8px 12px 0}
+.setup-computer-icon{display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:19px;background:#f0f0f0;color:#444}
+.setup-intro h3{font-size:22px;font-weight:600;margin:17px 0 10px;letter-spacing:-.4px}
+.setup-intro p{font-size:13px;line-height:1.8;margin:0;color:#727272}
+.setup-time{display:flex;flex-direction:column;gap:6px;padding:16px 18px;margin:23px 0;background:#f3f3f3;border-radius:14px}
+.setup-time strong{font-size:14px;font-weight:600}
+.setup-time span{color:#707070;font-size:12px;line-height:1.7}
+.setup-steps{list-style:none;margin:22px 0;padding:0;display:grid;gap:18px}
+.setup-steps li{display:flex;align-items:center;gap:14px;color:#8b8b8b}
+.setup-steps li>span{width:27px;height:27px;display:grid;place-items:center;flex-shrink:0;border:1px solid #ddd;border-radius:50%;font-size:12px}
+.setup-steps strong{font-size:13px;font-weight:500;display:block}
+.setup-steps small{display:block;font-size:11px;color:#858585;margin-top:4px}
+.setup-steps .active{color:#222}.setup-steps .active>span{color:white;border-color:#252525;background:#252525}
+.setup-steps .complete{color:#555}.setup-steps .complete>span{background:#eef2ef;border-color:transparent;color:#54775d}
+.setup-current{padding:14px 16px;background:#f6f6f6;border-radius:12px;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.setup-current p{font-size:11px;color:#777;margin:9px 0 0}
+.setup-progress{height:4px;background:#e1e1e1;border-radius:4px;overflow:hidden;width:100%;margin:12px 0 4px}
+.setup-progress>span{display:block;height:100%;border-radius:4px;background:#666;transition:width .3s}
+.setup-progress .indeterminate{width:34%;animation:setup-progress 1.7s ease-in-out infinite}
+@keyframes setup-progress{from{transform:translateX(-100%)}to{transform:translateX(300%)}}
+.setup-requirements{font-size:11px;line-height:1.7;color:#777;margin:20px 0 0}
+.setup-error{color:#a64135;font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+.setup-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}
+.setup-actions button{min-height:39px;font-size:13px}
+.computer-setup-card{display:flex;flex-direction:column;align-items:flex-start;gap:10px;background:#f4f4f4;border:1px solid #e9e9e9;border-radius:14px;padding:22px 19px;color:#555;margin-bottom:14px;min-width:0}
+.computer-setup-card>strong{font-size:14px;font-weight:550;color:#292929;margin-top:3px}
+.computer-setup-card>p{font-size:12px;line-height:1.7;margin:0;overflow-wrap:anywhere;color:#747474}
+.setup-estimate-small{font-size:11px;color:#747474}
+.computer-setup-card>button{margin-top:4px;min-height:35px;max-width:100%}
+.settings-body .computer-setup-card{margin-bottom:0}
+@media(prefers-reduced-motion:reduce){.setup-progress .indeterminate{animation:none;width:100%;opacity:.5}}
+@media(max-height:750px){.modal.computer-setup-modal{padding-top:18px;padding-bottom:20px}.setup-intro{padding-top:0}.setup-computer-icon{width:48px;height:48px}.setup-intro h3{font-size:20px;margin-top:12px}.setup-time{margin:16px 0;padding:12px 15px}.setup-steps{gap:12px;margin:16px 0}.setup-actions{margin-top:18px}}

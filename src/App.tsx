@@ -11,6 +11,8 @@ import {CommandPermissionsSettings} from './CommandPermissionsSettings';
 import {HostWorkspaceSettings} from './HostWorkspaceSettings';
 import {ModelSettings} from './ModelSettings';
 import {AboutSettings} from './AboutSettings';
+import {ComputerSetup,ComputerStatus} from './ComputerSetup';
+import {computerDesktopReady,shouldOfferComputerSetup} from './computer-setup-state';
 import {ScheduledTasks} from './ScheduledTasks';
 import {ModelSelectionFields,validModelSelection} from './ModelSelectionFields';
 import {StreamingReply} from './StreamingReply';
@@ -23,7 +25,7 @@ import {conversationRows} from './conversation-list';
 import {GroupAvatar,GroupConversation,GroupEditor,GroupNotifications,GroupTaskMessage} from './GroupChats';
 import {randomBotColor} from './bot-colors';
 
-type Modal='new'|'profile'|'delete-bot'|'settings'|'computer'|'terminal'|'files'|'preview'|'screen'|null;
+type Modal='new'|'profile'|'delete-bot'|'settings'|'computer'|'computer-setup'|'terminal'|'files'|'preview'|'screen'|null;
 type PreviewFile=FileItem&{botId:string};
 const errorText=(error:unknown)=>(error as Error).message.replace(/^Error invoking remote method '[^']+': Error: /,'');
 
@@ -51,6 +53,7 @@ export default function App(){
   const [busy,setBusy]=useState(false),[toast,setToast]=useState(''),[name,setName]=useState(''),[role,setRole]=useState('');
   const [profileModel,setProfileModel]=useState<ModelSelection|null>(null);
   const [taskModalOpen,setTaskModalOpen]=useState(false);
+  const setupPrompted=useRef('');
   useEffect(()=>{if(taskModalOpen)void window.aelion.setWindowDimmed(true);return()=>{if(taskModalOpen)void window.aelion.setWindowDimmed(false);};},[taskModalOpen]);
   const [controlPending,setControlPending]=useState(false),controlBusy=useRef(false);
   const [computerBotId,setComputerBotId]=useState('');
@@ -74,7 +77,7 @@ export default function App(){
   const anyRunning=state?.runs.some(run=>run.status==='running')||false;
   const greeting=state?.greetingBotIds?.includes(bot?.id||'')||false;
   const draft=drafts[bot?.id||'']||{text:'',mentions:[]};
-  const vmReady=state?.vm.status==='ready',vmBusy=['preparing','starting','stopping'].includes(state?.vm.status||'');
+  const vmReady=state?.vm.status==='ready',desktopAvailable=Boolean(state&&computerDesktopReady(state.vm));
   const desktopBot=state?.bots.find(item=>item.id===computerBotId)||bot;
   const desktop=state?.computer.desktops?.[desktopBot?.id||''];
   const controlled=desktop?.manualControl||false;
@@ -84,20 +87,25 @@ export default function App(){
   const scopeBot=state?.bots.find(item=>item.id===scope)||bot;
   const act=async(operation:()=>Promise<unknown>)=>{setBusy(true);try{await operation();}catch(error){setToast(errorText(error));}finally{setBusy(false);}};
   const computerAction=async(operation:()=>Promise<unknown>)=>{if(controlBusy.current)return;controlBusy.current=true;setControlPending(true);try{await operation();}catch(error){setToast(errorText(error));}finally{controlBusy.current=false;setControlPending(false);}};
-  const closeModal=async()=>{if(modal==='computer'&&controlled&&desktopBot)await window.aelion.setComputerControl({botId:desktopBot.id,enabled:false});setModal(null);};
+  const closeModal=async()=>{if(modal==='computer'&&controlled&&desktopBot)await window.aelion.setComputerControl({botId:desktopBot.id,enabled:false});if(modal==='computer-setup'&&state)try{localStorage.setItem(`aelion-computer-setup:${state.dataDir}`,'dismissed');}catch{}setModal(null);};
   const startTakeover=(request:Extract<InteractionRequest,{kind:'vm_takeover'}>)=>computerAction(async()=>{await closeModal();await window.aelion.respondInteraction({id:request.id,action:'takeover'});setPeerPanel(undefined);setSelected(request.botId);setComputerBotId(request.botId);setModal('computer');});
   const viewInteraction=(request:InteractionRequest)=>void computerAction(async()=>{await closeModal();setPeerPanel(undefined);setQuery('');setSelected(request.botId);setSelectedGroup(state?.runs.find(run=>run.id===request.runId)?.groupOrigin?.groupId||'');setFiles([]);setBotMenu(undefined);setViewingRequest(request.id);});
   const openGroup=(id:string)=>void computerAction(async()=>{await closeModal();setPeerPanel(undefined);setGroupEditor(undefined);setNewMenu(false);setBotMenu(undefined);setSelectedGroup(id);});
   const openPrivateChat=(panel:PeerPanel)=>void computerAction(async()=>{await closeModal();setBotMenu(undefined);setPeerPanel(panel);});
   const toggleComputerControl=()=>computerAction(async()=>{if(!desktopBot)return;if(takeover)await window.aelion.respondInteraction({id:takeover.id,action:controlled&&takeover.phase==='controlling'?'resume':'takeover'});else await window.aelion.setComputerControl({botId:desktopBot.id,enabled:!controlled});});
   useEffect(()=>{if(bot)setComputerBotId(bot.id);},[bot?.id]);
-  useEffect(()=>{if(!desktopBot||!vmReady)return;let active=true;void window.aelion.ensureComputerDesktop(desktopBot.id).catch(error=>{if(active)setToast(errorText(error));});return()=>{active=false;};},[desktopBot?.id,vmReady,state?.vm.pid]);
+  useEffect(()=>{if(!desktopBot||!desktopAvailable)return;let active=true;void window.aelion.ensureComputerDesktop(desktopBot.id).catch(error=>{if(active)setToast(errorText(error));});return()=>{active=false;};},[desktopBot?.id,desktopAvailable,state?.vm.pid]);
   useEffect(()=>{
     if(!window.aelion)return;
     window.aelion.snapshot().then(value=>{setState(value);setSelected(value.messages.at(-1)?.botId||value.bots[0]?.id||'');}).catch(error=>setToast(errorText(error)));
     return window.aelion.onEvent(event=>setState(event.snapshot));
   },[]);
   useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(''),6000);return()=>clearTimeout(timer);},[toast]);
+  useEffect(()=>{
+    if(!state||modal||peerPanel||groupEditor||taskModalOpen||setupPrompted.current===state.dataDir)return;
+    setupPrompted.current=state.dataDir;let dismissed=false;try{dismissed=localStorage.getItem(`aelion-computer-setup:${state.dataDir}`)==='dismissed';}catch{}
+    if(shouldOfferComputerSetup(state.vm,dismissed))setModal('computer-setup');
+  },[state?.dataDir,state?.vm.status,modal,peerPanel,groupEditor,taskModalOpen]);
   useEffect(()=>{
     if(!state||state.bots.some(item=>item.id===selected))return;
     const next=state.bots[0]?.id||'';selectedRef.current=next;setSelected(next);setFiles([]);
@@ -117,7 +125,6 @@ export default function App(){
   const openSettings=(tab:SettingsTab='model')=>{setScope(bot?.id||'');setSettingsTab(tab);setModal('settings');};
   const send=async()=>{if(!bot||sending.current.has(bot.id)||!draft.text.trim()&&!draft.attachments?.length)return;if(draft.text.length>32000){setToast('消息过长，请分段发送');return;}if(!currentModel?.model||currentModel.issue){openSettings();setToast('先为这个 Bot 选择模型');return;}const saved=draft,botId=bot.id;sending.current.add(botId);setDrafts(value=>({...value,[botId]:{text:'',mentions:[]}}));follow.current=true;try{await window.aelion.send({botId,message:saved.text,mentions:saved.mentions,attachmentIds:saved.attachments?.map(file=>file.id)});}catch(error){setDrafts(value=>value[botId]?.text||value[botId]?.attachments?.length?value:{...value,[botId]:saved});setToast(errorText(error));}finally{sending.current.delete(botId);}};
   const continueWork=()=>{if(!bot||running)return;follow.current=true;void window.aelion.send({botId:bot.id,message:'请从现有工作记录继续。先核对上次操作的实际结果，再完成尚未结束的部分；不要重复已经成功的操作。'}).catch(error=>setToast(errorText(error)));};
-  const prepare=()=>act(async()=>{if(state?.vm.status==='unprepared')await window.aelion.vmAction('prepare');await window.aelion.vmAction('start');});
   const refreshFiles=()=>bot&&act(async()=>{const owner=bot.id;const result=await window.aelion.listFiles(owner);if(selectedRef.current===owner)setFiles(result.map(file=>({...file,path:file.path||file.name})));});
   const openFiles=()=>{setFiles([]);setModal('files');void refreshFiles();};
   const openPreview=async(file:PreviewFile)=>{setPreviewFile(file);setPreview(undefined);setPreviewError('');setModal('preview');try{setPreview(await window.aelion.previewFile({botId:file.botId,path:file.path}));}catch(error){setPreviewError(errorText(error));}};
@@ -136,7 +143,7 @@ export default function App(){
   if(!window.aelion)return <div className="launch-note"><h1>AelionBot</h1><p>请通过 Windows 桌面客户端启动。</p></div>;
   if(!state)return <div className="launch-note">正在打开工作台…</div>;
   const rows=conversationRows(state.bots,state.messages,state.groups?.rooms||[],state.runs);
-  const title=modal==='settings'?'设置':modal==='new'?'创建新 Bot':modal==='profile'?'Bot 资料':modal==='delete-bot'?'删除 Bot':modal==='terminal'?'工作终端':modal==='files'?`${bot?.name||'Bot'} 的文件`:modal==='preview'?previewFile?.name:modal==='screen'?'操作截图':'工作电脑';
+  const title=modal==='computer-setup'?'工作电脑设置':modal==='settings'?'设置':modal==='new'?'创建新 Bot':modal==='profile'?'Bot 资料':modal==='delete-bot'?'删除 Bot':modal==='terminal'?'工作终端':modal==='files'?`${bot?.name||'Bot'} 的文件`:modal==='preview'?previewFile?.name:modal==='screen'?'操作截图':'工作电脑';
   const scopePicker=<label className="scope-picker"><span>Bot</span><select aria-label="选择 Bot" disabled={!state.bots.length} value={scopeBot?.id||''} onChange={event=>setScope(event.target.value)}>{state.bots.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>;
   return <div className="app-shell">
     <aside className="sidebar">
@@ -170,7 +177,7 @@ export default function App(){
     </main>
     <aside className="details computer-details">
       <div className="computer-detail-header drag"><span>工作电脑</span><button className="icon-button no-drag" aria-label="电脑设置" onClick={()=>openSettings('computer')}><Icon name="settings" size={18}/></button></div>
-      <div className="computer-preview" role="button" tabIndex={0} aria-label="全屏查看工作电脑" title="全屏查看工作电脑" onClick={()=>setModal('computer')} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();setModal('computer');}}}><div className="computer-preview-surface" inert>{modal!=='computer'&&<Vnc key={desktopBot?.id} url={vmReady?desktop?.vncUrl:undefined}/>}</div><span className="preview-expand"><Icon name="expand" size={15}/></span></div>
+      {desktopAvailable?<div className="computer-preview" role="button" tabIndex={0} aria-label="全屏查看工作电脑" title="全屏查看工作电脑" onClick={()=>setModal('computer')} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();setModal('computer');}}}><div className="computer-preview-surface" inert>{modal!=='computer'&&<Vnc key={desktopBot?.id} url={desktop?.vncUrl}/>}</div><span className="preview-expand"><Icon name="expand" size={15}/></span></div>:<ComputerStatus vm={state.vm} onOpen={()=>setModal('computer-setup')}/>}
       {desktop?.status==='error'&&<div className="desktop-status" role="status"><span title={desktop.error}>独立桌面暂未就绪</span><button onClick={()=>desktopBot&&void act(()=>window.aelion.ensureComputerDesktop(desktopBot.id))}>重试</button></div>}
       <ScheduledTasks target={group?{kind:'group',id:group.id}:bot?{kind:'bot',id:bot.id}:undefined} targetName={group?.name||bot?.name||''} tasks={state.scheduledTasks||[]} onError={setToast} onModalChange={setTaskModalOpen}/>
     </aside>
@@ -181,8 +188,9 @@ export default function App(){
     <PeerNotifications view={state.peers} bots={state.bots} onView={openPrivateChat}/>
     {peerPanel&&<PrivateChatWindow panel={peerPanel} view={state.peers} bots={state.bots} streamingReplies={state.streamingReplies} onNavigate={setPeerPanel} onClose={()=>setPeerPanel(undefined)}/>}
     {botMenu&&menuBot&&<BotContextMenu anchor={botMenu} name={menuBot.name} canDelete={!state.runs.some(run=>run.botId===menuBot.id&&run.status==='running')} onEdit={()=>editBot(menuBot)} onDelete={()=>{setDeletingId(menuBot.id);setBotMenu(undefined);setModal('delete-bot');}} onPrivateChats={()=>openPrivateChat({ownerId:menuBot.id})} onClose={()=>setBotMenu(undefined)}/>}
-    {modal&&<div className={`modal-backdrop ${modal==='settings'?'settings-backdrop':modal==='computer'?'computer-backdrop':['preview','screen'].includes(modal)?'wide-backdrop':''}`} onMouseDown={event=>{if(event.target===event.currentTarget)void act(closeModal);}}><section className={`modal ${modal==='settings'?'settings-modal':modal==='profile'?'bot-profile-modal':modal==='computer'?'computer-modal':['preview','screen'].includes(modal)?'preview-modal':modal==='terminal'?'terminal-modal':''}`} role="dialog" aria-modal="true" aria-label={title}>
+    {modal&&<div className={`modal-backdrop ${modal==='settings'?'settings-backdrop':modal==='computer'?'computer-backdrop':['preview','screen'].includes(modal)?'wide-backdrop':''}`} onMouseDown={event=>{if(event.target===event.currentTarget)void act(closeModal);}}><section className={`modal ${modal==='computer-setup'?'computer-setup-modal':modal==='settings'?'settings-modal':modal==='profile'?'bot-profile-modal':modal==='computer'?'computer-modal':['preview','screen'].includes(modal)?'preview-modal':modal==='terminal'?'terminal-modal':''}`} role="dialog" aria-modal="true" aria-label={title}>
       {modal!=='computer'&&modal!=='settings'&&<header><h2>{title}</h2><div className="modal-header-actions">{modal==='preview'&&previewFile&&<button className="icon-button" aria-label={`保存 ${previewFile.name}`} disabled={busy} onClick={()=>void saveFile(previewFile)}><Icon name="download"/></button>}<button className="icon-button" aria-label="关闭对话框" onClick={()=>void act(closeModal)}><Icon name="close"/></button></div></header>}
+      {modal==='computer-setup'&&<ComputerSetup vm={state.vm} disabled={anyRunning} onClose={()=>void closeModal()} onReady={()=>setModal('computer')} onNotify={setToast}/>}
       {(modal==='new'||modal==='profile')&&<form onSubmit={event=>{event.preventDefault();void act(async()=>{if(modal==='new'){const created=await window.aelion.createBot({name:name||'新 Bot',role:role||'完成办公和代码任务，使用工作电脑实际执行并核对成果。',color:newBotColor});setSelected(created.id);}else await window.aelion.updateBot({id:editingId,name,role,model:profileModel});setModal(null);});}}>
         <div className="new-avatar"><Avatar bot={{name:name||'新 Bot',color:modal==='new'?newBotColor:editingBot?.color||'#268bfa'}} size={modal==='profile'?56:76}/></div>
         <label>名称<input autoFocus value={name} onChange={event=>setName(event.target.value)} maxLength={80} placeholder="给你的新伙伴起个名字"/></label>
@@ -210,8 +218,7 @@ export default function App(){
         {settingsTab==='computer'&&<>
           {state.hostWorkspace&&<HostWorkspaceSettings settings={state.hostWorkspace} busy={busy||anyRunning} act={act} onSaved={()=>setToast('本机工作目录已保存')}/>}
           <SettingsSection title="工作电脑">
-            <div className="settings-computer-title"><Icon name="computer" size={34}/><div><strong>Linux 工作电脑</strong><p>{state.vm.detail}</p></div>{!vmReady&&<button className="primary-button" disabled={vmBusy||busy||anyRunning} onClick={prepare}>{vmBusy?'正在准备…':state.vm.status==='unprepared'?'准备工作电脑':'启动工作电脑'}</button>}</div>
-            {vmBusy&&<div className="progress-track"><div style={{width:`${Math.max(8,(state.vm.progress||0)*100)}%`}}/></div>}
+            {desktopAvailable?<div className="settings-computer-title"><Icon name="computer" size={34}/><div><strong>Linux 工作电脑</strong><p>{state.vm.detail}</p></div></div>:<ComputerStatus vm={state.vm} onOpen={()=>setModal('computer-setup')}/>}
           </SettingsSection>
           <SettingsSection title="环境信息"><dl className="settings-specs">
             <div><dt>应用环境</dt><dd>{state.vm.appsReady?'Chrome · 文件管理器 · 办公套件':'需要准备'}</dd></div>
