@@ -74,3 +74,5 @@ input:focus,input:focus-visible,textarea:focus,textarea:focus-visible,select:foc
 .desktop-status{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:12px;color:#8c9097}
 .desktop-status button{border:0;background:transparent;font:inherit;color:inherit;cursor:pointer;text-decoration:underline}
 .desktop-owner{padding:0 12px;color:#fff;font-size:13px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+[data-platform="darwin"] .sidebar-top{padding-top:36px;min-height:104px}[data-platform="darwin"] .sidebar{padding-top:0}

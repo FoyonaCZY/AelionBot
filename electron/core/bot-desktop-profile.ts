@@ -1,4 +1,4 @@
-export const BOT_DESKTOP_VERSION='3';
+export const BOT_DESKTOP_VERSION='4';
 
 // One X server and D-Bus session per Bot. Reattaching never changes another desktop.
 export const BOT_DESKTOP_SCRIPT=String.raw`#!/usr/bin/python3
@@ -81,7 +81,7 @@ def ensure(bot):
         for folder in ['Desktop','Downloads','Documents','.config','.cache','.local/share']:(work/folder).mkdir(parents=True,exist_ok=True)
         dirs=work/'.config/user-dirs.dirs'
         if not dirs.exists(): dirs.write_text('XDG_DESKTOP_DIR="$HOME/Desktop"\nXDG_DOWNLOAD_DIR="$HOME/Downloads"\nXDG_DOCUMENTS_DIR="$HOME/Documents"\n')
-        for name,command,icon in [('Work','thunar '+str(work),'folder-documents'),('Chrome','google-chrome-stable --no-first-run --no-default-browser-check','google-chrome'),('Writer','libreoffice --writer','libreoffice-writer'),('Calc','libreoffice --calc','libreoffice-calc')]:
+        for name,command,icon in [('Work','thunar '+str(work),'folder-documents'),('Browser','/usr/local/bin/aelion-browser --no-first-run --no-default-browser-check','web-browser'),('Writer','libreoffice --writer','libreoffice-writer'),('Calc','libreoffice --calc','libreoffice-calc')]:
             shortcut=work/'Desktop'/(name+'.desktop')
             if not shortcut.exists(): shortcut.write_text('[Desktop Entry]\nType=Application\nName='+name+'\nExec='+command+'\nIcon='+icon+'\nTerminal=false\n');shortcut.chmod(0o755)
         log=(session/'desktop.log').open('ab')

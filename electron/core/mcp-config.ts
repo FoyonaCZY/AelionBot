@@ -1,3 +1,4 @@
+import {platformName} from './host-platform';
 import {existsSync} from 'node:fs';
 import {basename,isAbsolute,join,resolve} from 'node:path';
 import type {McpServerView,SkillSource,IntegrationSource} from '../../src/shared';
@@ -81,7 +82,7 @@ export function discoverMcp(options:IntegrationPaths):{configs:McpConfig[];sourc
   return {configs,sources};
 }
 export function publicEndpoint(config:McpConfig){
-  if(config.transport==='stdio')return `${basename(config.command||'')} · Windows 本机`;
+  if(config.transport==='stdio')return `${basename(config.command||'')} · ${platformName()} 本机`;
   if(config.url)try{return new URL(config.url).origin;}catch{}
   return '配置不可用';
 }

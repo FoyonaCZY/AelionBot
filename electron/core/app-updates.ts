@@ -2,6 +2,7 @@ import type {UpdateState,UpdatePhase} from '../../src/update-types';
 
 export type UpdateDriverEvent='update-available'|'update-not-available'|'download-progress'|'update-downloaded'|'update-cancelled'|'error';
 export interface UpdateDriver {
+  manualInstall?:boolean;
   on(event:UpdateDriverEvent,listener:(value:any)=>void):unknown;
   removeAllListeners():unknown;
   checkForUpdates():Promise<unknown>;
@@ -29,7 +30,7 @@ function notes(value:unknown):string|undefined{
 export class AppUpdates {
   private state:UpdateState;private operation?:Promise<unknown>;private cancelled=false;private disposed=false;
   constructor(private driver:UpdateDriver,version:string,repository:string,supported:boolean,private hooks:UpdateHooks,private changed:()=>void){
-    this.state={phase:supported?'idle':'unsupported',currentVersion:version,repository};
+    this.state={phase:supported?'idle':'unsupported',currentVersion:version,repository,...(driver.manualInstall?{manualInstall:true}:{})};
     driver.on('update-available',info=>{if(this.state.phase!=='checking')return;this.set({phase:'available',latestVersion:info.version,releaseName:typeof info.releaseName==='string'?info.releaseName.slice(0,160):undefined,releaseNotes:notes(info.releaseNotes),checkedAt:new Date().toISOString(),error:undefined});});
     driver.on('update-not-available',()=>{if(this.state.phase==='checking')this.set({phase:'current',latestVersion:undefined,releaseName:undefined,releaseNotes:undefined,checkedAt:new Date().toISOString(),error:undefined});});
     driver.on('download-progress',progress=>{if(this.state.phase!=='downloading'||this.cancelled)return;this.set({progress:{percent:Math.max(0,Math.min(100,Number(progress.percent)||0)),transferred:Math.max(0,Number(progress.transferred)||0),total:Math.max(0,Number(progress.total)||0),bytesPerSecond:Math.max(0,Number(progress.bytesPerSecond)||0)}});});
@@ -46,12 +47,13 @@ export class AppUpdates {
     this.operation=pending;return pending;
   }
   check(){
-    if(this.state.phase==='unsupported')throw new Error('请在 Windows 发行版中检查更新');
+    if(this.state.phase==='unsupported')throw new Error('请在发行版中检查更新');
     if(this.operation||this.state.phase==='installing')return this.operation;
     this.set({latestVersion:undefined,releaseName:undefined,releaseNotes:undefined});
     return this.perform('checking',async()=>{const result=await this.driver.checkForUpdates();if(!result||this.state.phase==='checking')throw new Error('Updater did not return a result');});
   }
   download(){
+    if(this.driver.manualInstall)throw new Error('此 Mac 预览版请从 GitHub Release 下载更新');
     if(this.operation)return this.operation;
     if(!['available','error'].includes(this.state.phase)||!this.state.latestVersion)throw new Error('请先检查是否有新版本');
     return this.perform('downloading',async()=>{await this.driver.downloadUpdate();if(this.cancelled)this.set({phase:'available',progress:undefined});else if(this.state.phase==='downloading')throw new Error('Update download did not complete');});

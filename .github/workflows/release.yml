@@ -1,14 +1,106 @@
-name: Windows release
+name: Desktop release
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      vm_smoke:
+        description: Run the complete Mac guest desktop smoke test
+        type: boolean
+        default: true
 permissions:
   contents: read
 jobs:
-  windows:
-    runs-on: windows-latest
-    timeout-minutes: 60
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x64
+            os: windows-latest
+            arch: x64
+          - name: macos-arm64
+            os: macos-15
+            arch: arm64
+          - name: macos-x64
+            os: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          architecture: ${{ matrix.arch }}
+          cache: npm
+      - name: Prepare Mac test temporary directory
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p "$RUNNER_TEMP/aelion-tests"
+          echo "TMPDIR=$RUNNER_TEMP/aelion-tests" >> "$GITHUB_ENV"
+      - name: Install dependencies
+        run: npm ci
+      - name: Audit source
+        run: npm run audit:publish
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test
+        run: npm test
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: runner.os == 'Windows'
+        with:
+          path: |
+            runtime/qemu
+            runtime/downloads
+          key: qemu-windows-${{ hashFiles('scripts/prepare-runtime.mjs', 'scripts/runtime-archiver.mjs') }}
+      - name: Install Mac build runtime
+        if: runner.os == 'macOS'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+        run: brew install qemu
+      - name: Prepare bundled runtime
+        run: npm run vm:prepare-runtime
+      - name: Build and verify installers
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npm run package:release
+      - name: Verify packaged Mac app
+        if: runner.os == 'macOS'
+        run: node scripts/verify-macos-app.mjs
+      - name: Verify Mac Linux desktop and persistence
+        if: runner.os == 'macOS' && (github.event_name == 'push' || inputs.vm_smoke)
+        run: node --import tsx scripts/verify-macos-vm.ts
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: AelionBot-${{ matrix.name }}
+          path: |
+            release/github/*.exe
+            release/github/*.blockmap
+            release/github/*.dmg
+            release/github/*.zip
+            release/github/*.yml
+            release/github/*-verification.json
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always() && runner.os == 'macOS'
+        with:
+          name: Mac-checks-${{ matrix.arch }}
+          path: |
+            output/mac-*.json
+            output/mac-*.png
+          if-no-files-found: ignore
+          retention-days: 7
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
@@ -16,51 +108,14 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
-          cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Audit source
-        run: npm run audit:publish
-      - name: Typecheck and test
-        run: |
-          npm run typecheck
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm test
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          path: |
-            runtime/qemu
-            runtime/downloads
-          key: qemu-windows-${{ hashFiles('scripts/prepare-runtime.mjs', 'scripts/runtime-archiver.mjs') }}
-      - name: Prepare runtime
-        run: npm run vm:prepare-runtime
-      - name: Build and verify installer
-        run: npm run package:release
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: github.event_name == 'workflow_dispatch'
-        with:
-          name: AelionBot-Windows
-          path: |
-            release/github/*.exe
-            release/github/*.blockmap
-            release/github/latest.yml
-          retention-days: 3
-      - name: Publish tagged release
-        if: startsWith(github.ref, 'refs/tags/v')
+          pattern: AelionBot-*
+          path: release/downloaded
+          merge-multiple: true
+      - name: Verify complete release and publish
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: |
-          $tag = $env:GITHUB_REF_NAME
-          $draft = gh release view $tag --json isDraft --jq .isDraft 2>$null
-          if ($LASTEXITCODE -eq 0) {
-            if ($draft -ne 'true') { throw 'This release is already public. Use a new version instead of replacing published binaries.' }
-          } else {
-            gh release create $tag --draft --verify-tag --generate-notes --title "AelionBot $tag"
-            if ($LASTEXITCODE -ne 0) { throw 'Could not create the draft release' }
-          }
-          $files = @(Get-ChildItem -LiteralPath release/github -File | Where-Object { $_.Name -match '\.(exe|blockmap)$|^latest\.yml$' } | ForEach-Object FullName)
-          if ($files.Count -lt 3) { throw 'Release assets are incomplete' }
-          gh release upload $tag @files --clobber
-          if ($LASTEXITCODE -ne 0) { throw 'Could not upload release assets' }
-          gh release edit $tag --draft=false --latest
+        run: node scripts/publish-release.mjs release/downloaded

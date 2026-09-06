@@ -7,6 +7,7 @@ import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import {runtimeArchiver} from './runtime-archiver.mjs';
 
+if(process.platform==='darwin'){const {prepareMacRuntime}=await import('./prepare-macos-runtime.mjs');await prepareMacRuntime();process.exit(0);}
 const require = createRequire(import.meta.url);
 const root = resolve(import.meta.dirname, '..');
 const downloads = join(root, 'runtime', 'downloads');

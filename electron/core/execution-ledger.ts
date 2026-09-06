@@ -4,14 +4,15 @@ import type {ToolCall} from '../../src/shared';
 import type {ToolExecution} from '../../src/execution-types';
 import type {Store} from './store';
 import {redactHost} from './host';
+import {hostPathKey} from './host-platform';
 
 function stable(value:unknown):string {if(Array.isArray(value))return '['+value.map(stable).join(',')+']';if(value&&typeof value==='object')return '{'+Object.entries(value).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>JSON.stringify(key)+':'+stable(item)).join(',')+'}';return JSON.stringify(value)??'null';}
 export function executionTarget(tool:string,args:Record<string,unknown>,botId:string,hostWorkspace=''){
   let target:string,operation=tool;
   if(['file_write','file_read','file_patch'].includes(tool)){operation=tool==='file_read'?'vm-read':'vm-write';target=posix.resolve('/work/'+botId,String(args.path||''));}
-  else if(['host_file_write','host_file_read','host_file_patch'].includes(tool)){operation=tool==='host_file_read'?'host-read':'host-write';target=win32.normalize(String(args.path||'')).toLowerCase();}
+  else if(['host_file_write','host_file_read','host_file_patch'].includes(tool)){operation=tool==='host_file_read'?'host-read':'host-write';target=hostPathKey(String(args.path||''));}
   else if(tool==='mcp_call'){target=String(args.server)+':'+String(args.name)+':'+createHash('sha256').update(stable(args.arguments)).digest('hex').slice(0,16);}
-  else if(tool==='host_execute'){target=(String(args.cwd||hostWorkspace)).toLowerCase()+':'+createHash('sha256').update(String(args.command)).digest('hex').slice(0,16);}
+  else if(tool==='host_execute'){target=hostPathKey(String(args.cwd||hostWorkspace))+':'+createHash('sha256').update(String(args.command)).digest('hex').slice(0,16);}
   else target=createHash('sha256').update(stable(args)).digest('hex').slice(0,20);
   return {target:redactHost(target).slice(0,600),targetKey:createHash('sha256').update(`${botId}:${operation}:${target}`).digest('hex')};
 }

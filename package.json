@@ -1,8 +1,8 @@
 {
   "name": "aelion-bot",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
-  "description": "Local Windows AI teammates with a managed Linux computer",
+  "description": "Local AI teammates with a managed Linux computer",
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {
@@ -37,32 +37,32 @@
       "docs/THIRD-PARTY-NOTICES.md",
       "docs/licenses/**"
     ],
-    "extraResources": [
-      {
-        "from": "runtime/qemu",
-        "to": "qemu",
-        "filter": [
-          "qemu-system-x86_64.exe",
-          "qemu-img.exe",
-          "*.dll",
-          "COPYING*",
-          "VERSION",
-          "aelion-runtime.json",
-          "share/bios*.bin",
-          "share/vgabios*.bin",
-          "share/efi-virtio.rom",
-          "share/kvmvapic.bin",
-          "share/keymaps/**",
-          "share/edk2-x86_64*.fd",
-          "share/edk2-i386-vars.fd",
-          "share/edk2-licenses.txt"
-        ]
-      }
-    ],
     "win": {
       "target": "dir",
       "icon": "assets/icon.ico",
-      "signExecutable": false
+      "signExecutable": false,
+      "extraResources": [
+        {
+          "from": "runtime/qemu",
+          "to": "qemu",
+          "filter": [
+            "qemu-system-x86_64.exe",
+            "qemu-img.exe",
+            "*.dll",
+            "COPYING*",
+            "VERSION",
+            "aelion-runtime.json",
+            "share/bios*.bin",
+            "share/vgabios*.bin",
+            "share/efi-virtio.rom",
+            "share/kvmvapic.bin",
+            "share/keymaps/**",
+            "share/edk2-x86_64*.fd",
+            "share/edk2-i386-vars.fd",
+            "share/edk2-licenses.txt"
+          ]
+        }
+      ]
     },
     "publish": {
       "provider": "github",

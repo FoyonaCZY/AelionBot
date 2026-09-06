@@ -1,5 +1,5 @@
 import {clipboard} from 'electron';
-import {execFile} from 'node:child_process';
+import {execFile,execFileSync} from 'node:child_process';
 import {promisify} from 'node:util';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -14,7 +14,8 @@ export async function readAttachmentClipboard():Promise<{paths:string[];files:At
   for(const item of items){
     for(const type of item.types){
       if(/(?:CF_HDROP|format="HDROP")/i.test(type)){const blob=await item.getType(type);if(blob instanceof Blob)paths.push(...dropFilePaths(Buffer.from(await blob.arrayBuffer())));}
-      if(type==='text/uri-list'){const blob=await item.getType(type);if(blob instanceof Blob)for(const line of (await blob.text()).split(/\r?\n/))if(line.startsWith('file:'))try{paths.push(fileURLToPath(line));}catch{}}
+      if(type==='text/uri-list'||type==='public.file-url'){const blob=await item.getType(type);if(blob instanceof Blob)for(const line of (await blob.text()).split(/\r?\n/))if(line.startsWith('file:'))try{paths.push(fileURLToPath(line.replace(/\0+$/,'')));}catch{}}
+      if(process.platform==='darwin'&&type.includes('NSFilenamesPboardType'))try{const blob=await item.getType(type);if(blob instanceof Blob&&blob.size<=1024*1024){const value=JSON.parse(execFileSync('/usr/bin/plutil',['-convert','json','-o','-','-'],{input:Buffer.from(await blob.arrayBuffer()),encoding:'utf8',timeout:3000,maxBuffer:1024*1024}));if(Array.isArray(value)&&value.every(path=>typeof path==='string'))paths.push(...value.slice(0,11));}}catch{/* Try standard file URLs or images. */}
     }
   }
   if(paths.length)return {paths:[...new Set(paths)],files:[]};

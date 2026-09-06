@@ -37,7 +37,7 @@ test('custom folders and tilde paths persist and restoring the default removes t
 test('invalid directories cannot replace an existing preference',t=>{
   const {root,host}=fixture(t),custom=join(root,'valid folder'),file=join(root,'ordinary-file.txt');
   writeFileSync(file,'keep');host.setWorkspaceDir(custom);
-  for(const value of ['', 'relative/folder','C:relative','https://example.com/folder',join(root,'bad*folder'),`${root}\nother`,file,join(file,'child')])assert.throws(()=>host.setWorkspaceDir(value),/目录|参数|文件夹/,value);
+  for(const value of ['', 'relative/folder','C:relative','https://example.com/folder',...(process.platform==='win32'?[join(root,'bad*folder')]:[]),`${root}\nother`,file,join(file,'child')])assert.throws(()=>host.setWorkspaceDir(value),/目录|参数|文件夹/,value);
   assert.equal(host.workspace('bot'),custom);assert.equal(readFileSync(file,'utf8'),'keep');
 });
 

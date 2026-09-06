@@ -79,7 +79,7 @@ export class ComputerController {
   async openApp(botId:string,app:NonNullable<ComputerInput['app']>,url?:string){
     if(this.vm.state.status!=='ready'||!this.vm.state.appsReady||this.vm.state.maintenance)throw new Error('工作电脑应用尚未就绪或正在维护');
     const applications:Record<string,string[]>={
-      browser:['google-chrome-stable',`--user-data-dir=/work/${botId}/.browser-profile`,'--no-first-run','--no-default-browser-check',url||'file:///usr/local/share/aelion/start.html'],
+      browser:['aelion-browser',`--user-data-dir=/work/${botId}/.browser-profile`,'--no-first-run','--no-default-browser-check',url||'file:///usr/local/share/aelion/start.html'],
       files:['thunar',`/work/${botId}`],editor:['mousepad'],writer:['libreoffice','--writer'],calc:['libreoffice','--calc'],terminal:['xfce4-terminal',`--working-directory=/work/${botId}`]
     };
     const args=applications[app];if(!Array.isArray(args))throw new Error('未知桌面应用');

@@ -43,3 +43,5 @@ id_ed25519*
 .npmrc
 .mcp.json
 .aelion/
+runtime/mac-release.json
+runtime/qemu-macos-staging/

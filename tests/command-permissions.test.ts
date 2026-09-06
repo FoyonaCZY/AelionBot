@@ -12,7 +12,7 @@ import type {HostPermissionDetails} from '../src/shared';
 const details=(command:string,cwd='C:\\projects\\sample'):HostPermissionDetails=>({operation:'command',command,cwd,reason:'测试命令权限'});
 function fixture(t:test.TestContext,redact=(value:string)=>value){
   const root=mkdtempSync(join(tmpdir(),'aelion-command-rules-test-')),file=join(root,'command-permissions.json');
-  const rules=new CommandPermissions(file,redact),decisions:Array<{decision:string;ruleId?:string}>=[];
+  const rules=new CommandPermissions(file,redact,'win32'),decisions:Array<{decision:string;ruleId?:string}>=[];
   const interactions=new Interactions(()=>{},(_request,decision,ruleId)=>decisions.push({decision,ruleId}),rules);
   const host=new HostComputer({dataDir:root,projectDir:root,homeDir:root,env:{...process.env}},interactions);
   t.after(()=>{interactions.dispose();host.dispose();assert.equal(dirname(resolve(root)),resolve(tmpdir()));assert.ok(basename(root).startsWith('aelion-command-rules-test-'));rmSync(root,{recursive:true,force:true});});
@@ -60,26 +60,26 @@ test('exact rules retain hashes rather than unmasked credentials',t=>{
   const command=`custom-tool --token '${secret}'`;
   const rule=rules.allow(details(command));assert.equal(rule.kind,'exact');assert.ok(!rule.pattern.includes(secret));
   assert.ok(!readFileSync(file,'utf8').includes(secret));
-  assert.ok(new CommandPermissions(file).match(details(command)));
+  assert.ok(new CommandPermissions(file,undefined,'win32').match(details(command)));
   assert.equal(rules.match(details(command.replace(secret,'different-token'))),undefined);
 });
 
 test('rules persist across restarts and can be disabled, re-enabled and removed',t=>{
   const {rules,file}=fixture(t);const first=rules.allow(details('npm run build'));
   rules.allow(details('npm run build -- --verbose'));assert.equal(rules.list().length,1);
-  const restored=new CommandPermissions(file);assert.equal(restored.match(details('npm run build'))?.id,first.id);
+  const restored=new CommandPermissions(file,undefined,'win32');assert.equal(restored.match(details('npm run build'))?.id,first.id);
   restored.setEnabled(first.id,false);assert.equal(restored.match(details('npm run build')),undefined);
-  assert.equal(new CommandPermissions(file).list()[0].enabled,false);
+  assert.equal(new CommandPermissions(file,undefined,'win32').list()[0].enabled,false);
   restored.setEnabled(first.id,true);assert.ok(restored.match(details('npm run build')));
-  restored.remove(first.id);assert.equal(new CommandPermissions(file).list().length,0);
+  restored.remove(first.id);assert.equal(new CommandPermissions(file,undefined,'win32').list().length,0);
   assert.throws(()=>restored.setEnabled(first.id,true),/不存在/);
 });
 
 test('unreadable or invalid saved patterns grant no permissions',t=>{
   const {rules,file}=fixture(t);rules.allow(details('git status'));
   const saved=JSON.parse(readFileSync(file,'utf8'));saved.rules[0].prefix=['git'];saved.rules[0].pattern='git *';writeFileSync(file,JSON.stringify(saved));
-  assert.equal(new CommandPermissions(file).list().length,0);
-  writeFileSync(file,'not json');assert.equal(new CommandPermissions(file).match(details('git status')),undefined);
+  assert.equal(new CommandPermissions(file,undefined,'win32').list().length,0);
+  writeFileSync(file,'not json');assert.equal(new CommandPermissions(file,undefined,'win32').match(details('git status')),undefined);
 });
 
 test('one-time approval and denial never create saved rules',async t=>{
@@ -132,7 +132,7 @@ test('file and MCP operations cannot inherit or install command rules',async t=>
 
 test('an unsaved rule never authorizes the pending operation',async t=>{
   const {root}=fixture(t),file=join(root,'is-a-directory');mkdirSync(file);
-  const rules=new CommandPermissions(file),interactions=new Interactions(()=>{},undefined,rules),controller=new AbortController();
+  const rules=new CommandPermissions(file,undefined,'win32'),interactions=new Interactions(()=>{},undefined,rules),controller=new AbortController();
   const pending=interactions.permission('a','run',details('git status'),controller.signal),rejected=assert.rejects(pending,/取消/);
   assert.throws(()=>interactions.approveAlways(interactions.snapshot()[0].id));assert.equal(rules.list().length,0);assert.equal(interactions.snapshot().length,1);
   controller.abort();await rejected;interactions.dispose();
@@ -142,7 +142,7 @@ test('a real PowerShell command reuses a saved grant after restart and prompts a
   const {root,file,host,interactions}=fixture(t),signal=new AbortController().signal;
   const first=host.execute('a','run-a',{command:"Write-Output 'first result'",cwd:root,reason:'验证保存规则'},signal);
   interactions.approveAlways(interactions.snapshot()[0].id);assert.match((await first).stdout,/first result/);
-  const restored=new CommandPermissions(file),nextInteractions=new Interactions(()=>{},undefined,restored),nextHost=new HostComputer({dataDir:root,homeDir:root,projectDir:root,env:{...process.env}},nextInteractions);
+  const restored=new CommandPermissions(file,undefined,'win32'),nextInteractions=new Interactions(()=>{},undefined,restored),nextHost=new HostComputer({dataDir:root,homeDir:root,projectDir:root,env:{...process.env}},nextInteractions);
   const second=nextHost.execute('b','run-b',{command:"Write-Output 'second result'",cwd:root,reason:'验证自动允许'},signal);
   assert.equal(nextInteractions.snapshot().length,0);assert.match((await second).stdout,/second result/);
   restored.remove(restored.list()[0].id);

@@ -9,6 +9,7 @@ import type {HostComputer} from './host';
 import type {Interactions} from './interactions';
 import {backoff} from './model';
 import {vmPython} from './vm-python';
+import {hostEnvironment,hostShell} from './host-platform';
 const LIMIT=2*1024*1024;
 // The supervisor owns the child handle; stopping uses a per-job flag, never an unverified persisted PID.
 export const HOST_SUPERVISOR=String.raw`
@@ -16,11 +17,13 @@ const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_pro
 const dir=__dirname,cfg=JSON.parse(fs.readFileSync(path.join(dir,'input.json'),'utf8'));let total=0,stopped=false;
 const state=value=>{const file=path.join(dir,'status.json');fs.writeFileSync(file+'.tmp',JSON.stringify({...value,heartbeat:Date.now()}));fs.renameSync(file+'.tmp',file);};
 const script="$ErrorActionPreference='Stop'\n$ProgressPreference='SilentlyContinue'\n[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)\n$global:LASTEXITCODE=0\ntry { . {\n"+cfg.command+"\n}; exit $LASTEXITCODE } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }";
-const child=cp.spawn(cfg.shell,['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{cwd:cfg.cwd,windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,ELECTRON_RUN_AS_NODE:undefined,GH_PROMPT_DISABLED:'1',GIT_TERMINAL_PROMPT:'0'}});
+const unix=cfg.platform&&cfg.platform!=='win32';
+const child=cp.spawn(cfg.shell,cfg.args||['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{cwd:cfg.cwd,detached:Boolean(unix),windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,ELECTRON_RUN_AS_NODE:undefined,GH_PROMPT_DISABLED:'1',GIT_TERMINAL_PROMPT:'0'}});
 const log=bytes=>{if(total<2097152){const part=bytes.subarray(0,2097152-total);fs.appendFileSync(path.join(dir,'output.log'),part);total+=part.length;}};
 child.stdout.on('data',log);child.stderr.on('data',log);state({status:'running'});
-const timer=setInterval(()=>{state({status:'running'});if(!stopped&&fs.existsSync(path.join(dir,'stop'))){stopped=true;const killer=cp.spawn(path.join(process.env.SystemRoot||'C:\\Windows','System32','taskkill.exe'),['/PID',String(child.pid),'/T','/F'],{windowsHide:true,stdio:'ignore'});killer.on('error',()=>child.kill());}},1000);
-const finish=(code,error)=>{clearInterval(timer);state({status:stopped?'stopped':error||code!==0?'failed':'completed',exitCode:code,endedAt:new Date().toISOString(),error});};
+let forceStop;
+const timer=setInterval(()=>{state({status:'running'});if(!stopped&&fs.existsSync(path.join(dir,'stop'))){stopped=true;if(unix){try{process.kill(-child.pid,'SIGTERM');}catch{}forceStop=setTimeout(()=>{try{process.kill(-child.pid,'SIGKILL');}catch{}},1500);}else{const killer=cp.spawn(path.join(process.env.SystemRoot||'C:\\Windows','System32','taskkill.exe'),['/PID',String(child.pid),'/T','/F'],{windowsHide:true,stdio:'ignore'});killer.on('error',()=>child.kill());}}},1000);
+const finish=(code,error)=>{clearInterval(timer);clearTimeout(forceStop);state({status:stopped?'stopped':error||code!==0?'failed':'completed',exitCode:code,endedAt:new Date().toISOString(),error});};
 child.on('error',e=>finish(null,e.message));child.on('close',code=>finish(code));
 `;
 export const VM_SUPERVISOR=String.raw`
@@ -69,9 +72,9 @@ export class BackgroundProcesses {
   const record:BackgroundProcess={id:randomUUID(),botId,runId,location,purpose,command:this.host?.redact(command)||command,cwd,createdAt:new Date().toISOString(),status:'starting'};this.store.data.processes!.push(record);this.store.save();
   try{
    if(location==='host'){
-    const dir=this.dir(record);mkdirSync(dir,{recursive:true});const shell=join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
-    writeFileSync(join(dir,'input.json'),JSON.stringify({command,cwd,shell}),{mode:0o600});writeFileSync(join(dir,'runner.cjs'),HOST_SUPERVISOR,{mode:0o600});
-    signal.throwIfAborted();const child=spawn(process.execPath,[join(dir,'runner.cjs')],{windowsHide:true,detached:true,stdio:'ignore',env:{...process.env,ELECTRON_RUN_AS_NODE:'1'}});
+    const dir=this.dir(record);mkdirSync(dir,{recursive:true});const env=hostEnvironment(this.host?.options.env||process.env),shell=hostShell(command,env);
+    writeFileSync(join(dir,'input.json'),JSON.stringify({command,cwd,shell:shell.executable,args:shell.args,platform:process.platform}),{mode:0o600});writeFileSync(join(dir,'runner.cjs'),HOST_SUPERVISOR,{mode:0o600});
+    signal.throwIfAborted();const child=spawn(process.execPath,[join(dir,'runner.cjs')],{windowsHide:true,detached:true,stdio:'ignore',env:{...env,ELECTRON_RUN_AS_NODE:'1'}});
     await new Promise<void>((resolve,reject)=>{child.once('spawn',resolve);child.once('error',reject);});child.unref();
    }else{
     const launched=await this.vmScript(record,`import pathlib,json,subprocess,sys; root=pathlib.Path.cwd().resolve(); d=root/'.aelion-processes'/a['id']; d.mkdir(parents=True,exist_ok=False); (d/'input.json').write_text(json.dumps(a)); (d/'runner.py').write_text(a['runner']); p=subprocess.Popen([sys.executable,str(d/'runner.py'),str(d)],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True); print(json.dumps({'started':True,'bootId':pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()}))`,signal,{id:record.id,cwd,command,runner:VM_SUPERVISOR});

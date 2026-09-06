@@ -1,3 +1,5 @@
+import {createMacUpdater,macAutomaticUpdates} from './core/mac-updater';
+import {hostEnvironment} from './core/host-platform';
 import {RunPolicy,runtimeSettings} from './core/runtime-policy';
 import { app, BrowserWindow, ipcMain, safeStorage, dialog, shell, Menu, nativeImage } from 'electron';
 import { randomUUID } from 'node:crypto';
@@ -62,7 +64,7 @@ else {
   app.on('second-instance',()=>{window?.show();window?.focus();});
   app.whenReady().then(initialize).catch(error=>{console.error(error);dialog.showErrorBox('AelionBot 启动失败',String(error.message));app.exit(1);});
 }
-function snapshot():Snapshot{return {workItems:store.data.workItems,conversationWorkspaces:store.data.conversationWorkspaces,updates:appUpdates?.snapshot(),scheduledTasks:store.data.scheduledTasks,bots:store.data.bots,messages:store.data.messages,runs:store.data.runs,model:providers.config(),providers:providers.list(),defaultModel:store.data.defaultModel,botModels:Object.fromEntries(store.data.bots.map(bot=>[bot.id,providers.config(bot.id)])),vm:vm.state,skills:integrations?integrations.skills.all():store.data.skills,artifacts:store.data.artifacts,computer:computer.state,dataDir:store.dir,integrations:integrations?.snapshot(),interactions:interactions?.snapshot()||[],cognition:cognition?.view(),peers:peerChats?.snapshot(),groups:groupChats?.snapshot(),greetingBotIds:greetings?.botIds||[],streamingReplies:[...(harness?.streams.snapshot()||[]),...(greetings?.streams.snapshot()||[])],runtime:store?new RunPolicy(store).settings():undefined,modelUsage:store?.data.modelUsage?.slice(-100),commandPermissions:commandPermissions?.list()||[],hostWorkspace:host?.workspaceSettings()};}
+function snapshot():Snapshot{return {platform:process.platform,workItems:store.data.workItems,conversationWorkspaces:store.data.conversationWorkspaces,updates:appUpdates?.snapshot(),scheduledTasks:store.data.scheduledTasks,bots:store.data.bots,messages:store.data.messages,runs:store.data.runs,model:providers.config(),providers:providers.list(),defaultModel:store.data.defaultModel,botModels:Object.fromEntries(store.data.bots.map(bot=>[bot.id,providers.config(bot.id)])),vm:vm.state,skills:integrations?integrations.skills.all():store.data.skills,artifacts:store.data.artifacts,computer:computer.state,dataDir:store.dir,integrations:integrations?.snapshot(),interactions:interactions?.snapshot()||[],cognition:cognition?.view(),peers:peerChats?.snapshot(),groups:groupChats?.snapshot(),greetingBotIds:greetings?.botIds||[],streamingReplies:[...(harness?.streams.snapshot()||[]),...(greetings?.streams.snapshot()||[])],runtime:store?new RunPolicy(store).settings():undefined,modelUsage:store?.data.modelUsage?.slice(-100),commandPermissions:commandPermissions?.list()||[],hostWorkspace:host?.workspaceSettings()};}
 function changed(){if(window&&!window.isDestroyed())window.webContents.send('app:event',{type:'state',snapshot:snapshot()});chatPins?.wake();peerChats?.wake();groupChats?.wake();}
 function handle(channel:string,callback:(...args:any[])=>unknown){
   ipcMain.handle(channel,(event,...args)=>{
@@ -78,7 +80,7 @@ function beforeModelChange(botIds:string[]){
 }
 function afterModelChange(){changed();chatPins?.wake();cognition.learning.schedule();void greetings?.greetEmpty();}
 async function initialize(){
-  app.setAppUserModelId('com.aelion.bot');Menu.setApplicationMenu(null);
+  app.setAppUserModelId('com.aelion.bot');Menu.setApplicationMenu(process.platform==='darwin'?Menu.buildFromTemplate([{role:'appMenu'},{role:'editMenu'},{role:'viewMenu'},{role:'windowMenu'}]):null);if(process.platform==='darwin')process.env.PATH=hostEnvironment().PATH;
   const profileDir=app.getPath('userData');
   let launchContext:UpdateLaunchContext|undefined;
   try{launchContext=loadUpdateLaunchContext(profileDir,process.execPath);}catch(error){if(!process.env.AELION_DATA_DIR)throw error;}
@@ -126,7 +128,7 @@ async function initialize(){
     if(interactions.snapshot().length||Object.values(computer.state.desktops).some(desktop=>desktop.manualControl))return '请先交还工作电脑并结束待处理操作。';
     if(vm.state.maintenance||['preparing','starting','stopping'].includes(vm.state.status))return '工作电脑正在准备或维护，请稍后更新。';
   };
-  appUpdates=new AppUpdates(createWindowsUpdater(process.execPath),app.getVersion(),UPDATE_REPOSITORY,process.platform==='win32'&&app.isPackaged,{
+  appUpdates=new AppUpdates(process.platform==='darwin'?createMacUpdater(macAutomaticUpdates(process.resourcesPath)):createWindowsUpdater(process.execPath),app.getVersion(),UPDATE_REPOSITORY,['win32','darwin'].includes(process.platform)&&app.isPackaged,{
     blockedReason:updateBlocked,
     prepareInstall:async version=>{
       const blocked=updateBlocked();if(blocked)throw new Error(blocked);
@@ -138,7 +140,7 @@ async function initialize(){
     recoverInstall:async()=>{updatePreparing=false;if(pendingLaunch){const resume=pendingLaunch.resumeComputer;saveUpdateLaunchContext(profileDir,{...pendingLaunch,resumeComputer:false});pendingLaunch=undefined;if(resume)await vm.start().catch(()=>{});}changed();cognition.learning.schedule();}
   },changed);
   cognition.start();
-  window=new BrowserWindow({width:1420,height:920,minWidth:980,minHeight:650,title:'AelionBot',icon:join(app.getAppPath(),'assets',process.platform==='win32'?'icon.ico':'icon.png'),backgroundColor:'#ffffff',show:false,titleBarStyle:'hidden',titleBarOverlay:{color:'#f7f7f7',symbolColor:'#555555',height:38},webPreferences:{preload:join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true}});
+  window=new BrowserWindow({width:1420,height:920,minWidth:980,minHeight:650,title:'AelionBot',icon:join(app.getAppPath(),'assets',process.platform==='win32'?'icon.ico':'icon.png'),backgroundColor:'#ffffff',show:false,titleBarStyle:process.platform==='darwin'?'hiddenInset':'hidden',...(process.platform==='darwin'?{trafficLightPosition:{x:18,y:18}}:{titleBarOverlay:{color:'#f7f7f7',symbolColor:'#555555',height:38}}),webPreferences:{preload:join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true}});
   installComputerView(window);
   window.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   window.webContents.on('will-navigate',(event,url)=>{if(url!==window?.webContents.getURL())event.preventDefault();});
@@ -167,7 +169,7 @@ async function initialize(){
   handle('tasks:delete',id=>scheduler!.remove(String(id)));
   handle('tasks:run',id=>scheduler!.runNow(String(id)));
   handle('interaction:respond',async input=>{if(input?.action==='takeover'){const request=interactions.get(String(input.id));if(request.kind==='vm_takeover')await computer.ensure(request.botId);}return respondToInteraction(interactions,computer,input);});
-  handle('window:dimmed',enabled=>{if(typeof enabled!=='boolean')throw new Error('无效窗口状态');window?.setTitleBarOverlay({color:enabled?'#b9b9b9':'#f7f7f7',symbolColor:'#555555',height:38});});
+  handle('window:dimmed',enabled=>{if(typeof enabled!=='boolean')throw new Error('无效窗口状态');if(process.platform!=='darwin')window?.setTitleBarOverlay({color:enabled?'#b9b9b9':'#f7f7f7',symbolColor:'#555555',height:38});});
   handle('permissions:command-enabled',input=>{if(typeof input?.id!=='string'||typeof input.enabled!=='boolean')throw new Error('无效命令权限参数');commandPermissions.setEnabled(input.id,input.enabled);interactions.applyCommandRules();changed();});
   handle('permissions:command-remove',id=>{if(typeof id!=='string')throw new Error('无效命令模式');commandPermissions.remove(id);changed();});
   handle('workspace:pick',async scope=>{assertWorkspaceScope(store,scope);const selected=await dialog.showOpenDialog(window!,{title:'选择会话工作目录',defaultPath:conversationWorkspace(store,scope)||host.workspaceSettings().workspaceDir,properties:['openDirectory']});if(selected.canceled||!selected.filePaths[0])return null;const path=setConversationWorkspace(store,host,scope,selected.filePaths[0]);changed();return path;});
@@ -275,7 +277,7 @@ async function initialize(){
     await cognition.close();
     await integrations.close();
     // Quit preserves the managed guest process and data. The next app instance reattaches by UUID/host key.
-    vm.dispose();store.close();app.exit(0);
+    if(process.platform==='darwin')await vm.stop().catch(()=>{});vm.dispose();store.close();app.exit(0);
   });
   app.on('window-all-closed',()=>app.quit());
   vm.on('state',changed);

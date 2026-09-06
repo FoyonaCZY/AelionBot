@@ -145,12 +145,12 @@ export default function App(){
     setDrafts(value=>{const next={...value};delete next[id];return next;});
     setScope(value=>value===id?'':value);setDeletingId('');setModal(null);setToast('Bot 已删除');
   });
-  if(!window.aelion)return <div className="launch-note"><h1>AelionBot</h1><p>请通过 Windows 桌面客户端启动。</p></div>;
+  if(!window.aelion)return <div className="launch-note"><h1>AelionBot</h1><p>请通过桌面客户端启动。</p></div>;
   if(!state)return <div className="launch-note">正在打开工作台…</div>;
   const rows=conversationRows(state.bots,state.messages,state.groups?.rooms||[],state.runs);
   const title=modal==='computer-setup'?'工作电脑设置':modal==='settings'?'设置':modal==='new'?'创建新 Bot':modal==='profile'?'Bot 资料':modal==='delete-bot'?'删除 Bot':modal==='terminal'?'工作终端':modal==='files'?`${bot?.name||'Bot'} 的文件`:modal==='preview'?previewFile?.name:modal==='screen'?'操作截图':'工作电脑';
   const scopePicker=<label className="scope-picker"><span>Bot</span><select aria-label="选择 Bot" disabled={!state.bots.length} value={scopeBot?.id||''} onChange={event=>setScope(event.target.value)}>{state.bots.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>;
-  return <div className="app-shell">
+  return <div className="app-shell" data-platform={state.platform}>
     <aside className="sidebar">
       <div className="sidebar-top drag"><span className="brand">Aelion<span>Bot</span></span><div className="new-menu-anchor no-drag"><button className="icon-button" aria-label="新建" aria-haspopup="menu" aria-expanded={newMenu} onClick={()=>{if(!newMenu)setNewBotColor(randomBotColor(newBotColor));setNewMenu(value=>!value);}}><Icon name="plus"/></button>{newMenu&&<div className="new-conversation-menu" role="menu"><button role="menuitem" onClick={()=>{setNewMenu(false);openNewBot();}}><span className="new-bot-icon" aria-hidden="true"><Avatar bot={{name:'新 Bot',color:newBotColor}} size={20}/></span>新建 Bot</button><button role="menuitem" onClick={()=>{setNewMenu(false);setGroupEditor('new');}}><Icon name="message" size={20}/>创建群聊</button></div>}</div></div>
       <label className="search"><Icon name="search" size={18}/><input placeholder="搜索" value={query} onChange={event=>setQuery(event.target.value)}/></label>
