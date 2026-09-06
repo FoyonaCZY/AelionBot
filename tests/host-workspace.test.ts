@@ -8,10 +8,11 @@ import {Interactions,InteractionDenied} from '../electron/core/interactions';
 import {CommandPermissions} from '../electron/core/command-permissions';
 
 function fixture(t:test.TestContext){
-  const root=mkdtempSync(join(tmpdir(),'aelion-workspace-test-')),home=join(root,'home');mkdirSync(home);
+  const tempRoot=realpathSync.native(tmpdir());
+  const root=realpathSync.native(mkdtempSync(join(tempRoot,'aelion-workspace-test-'))),home=join(root,'home');mkdirSync(home);
   const options={dataDir:root,homeDir:home,projectDir:root,env:{...process.env}};
   const interactions=new Interactions(()=>{}),host=new HostComputer(options,interactions);
-  t.after(()=>{interactions.dispose();host.dispose();assert.equal(dirname(resolve(root)),resolve(tmpdir()));assert.ok(basename(root).startsWith('aelion-workspace-test-'));rmSync(root,{recursive:true,force:true});});
+  t.after(()=>{interactions.dispose();host.dispose();assert.equal(dirname(resolve(root)),tempRoot);assert.ok(basename(root).startsWith('aelion-workspace-test-'));rmSync(root,{recursive:true,force:true});});
   return {root,home,options,host,interactions};
 }
 
