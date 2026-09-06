@@ -1,8 +1,8 @@
-export const BOT_DESKTOP_VERSION='4';
+export const BOT_DESKTOP_VERSION='5';
 
 // One X server and D-Bus session per Bot. Reattaching never changes another desktop.
 export const BOT_DESKTOP_SCRIPT=String.raw`#!/usr/bin/python3
-import fcntl, json, os, pathlib, re, secrets, socket, subprocess, sys, time
+import fcntl, json, os, pathlib, re, secrets, signal, socket, subprocess, sys, time
 
 ROOT=pathlib.Path('/home/aelion/.aelion-desktops')
 BOOT=pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()
@@ -35,14 +35,35 @@ def environment(bot,data):
     env=os.environ.copy()
     for key in ['DISPLAY','XAUTHORITY','DBUS_SESSION_BUS_ADDRESS','SESSION_MANAGER','WAYLAND_DISPLAY','XDG_SESSION_ID']:
         env.pop(key,None)
-    env.update(HOME=str(work),DISPLAY=':'+str(data['display']),XAUTHORITY=data['authority'],XDG_RUNTIME_DIR=data['runtime'],XDG_CONFIG_HOME=str(work/'.config'),XDG_CACHE_HOME=str(work/'.cache'),XDG_DATA_HOME=str(work/'.local/share'),XDG_CURRENT_DESKTOP='XFCE',DESKTOP_SESSION='xfce',LANG='zh_CN.UTF-8',AELION_BOT_ID=bot)
+    env.update(HOME=str(work),DISPLAY=':'+str(data['display']),XAUTHORITY=data['authority'],XDG_RUNTIME_DIR=data['runtime'],XDG_CONFIG_HOME=str(work/'.config'),XDG_CACHE_HOME=str(work/'.cache'),XDG_DATA_HOME=str(work/'.local/share'),XDG_CURRENT_DESKTOP='XFCE',DESKTOP_SESSION='xfce',LANG='zh_CN.UTF-8',AELION_BOT_ID=bot,AELION_DESKTOP_CONTEXT=bot)
     try: env['DBUS_SESSION_BUS_ADDRESS']=json.loads((ROOT/(bot+'.env.json')).read_text())['DBUS_SESSION_BUS_ADDRESS']
     except (OSError,ValueError,KeyError): pass
     return env
 
 def ready(env):
-    result=subprocess.run(['xprop','-root','_NET_SUPPORTING_WM_CHECK'],env=env,capture_output=True,text=True,timeout=3)
+    try: result=subprocess.run(['xprop','-root','_NET_SUPPORTING_WM_CHECK'],env=env,capture_output=True,text=True,timeout=3)
+    except subprocess.TimeoutExpired: return False
     return result.returncode==0 and 'window id #' in result.stdout
+
+def display_ready(env):
+    try: return subprocess.run(['xdpyinfo'],env=env,capture_output=True,timeout=3).returncode==0
+    except subprocess.TimeoutExpired: return False
+
+def wait_for(check,child,seconds,label):
+    deadline=time.monotonic()+seconds
+    while time.monotonic()<deadline:
+        if child.poll() is not None: raise RuntimeError(label+' exited')
+        if check(): return
+        time.sleep(.5)
+    raise RuntimeError(label+' startup timed out')
+
+def stop_child(child):
+    if child is None or child.poll() is not None: return
+    try:
+        os.killpg(child.pid,signal.SIGTERM)
+        try: child.wait(timeout=3)
+        except subprocess.TimeoutExpired: os.killpg(child.pid,signal.SIGKILL)
+    except ProcessLookupError: pass
 
 def prepare_browser(work):
     # Chrome cannot create its user-data directory through a dangling XDG symlink.
@@ -88,22 +109,17 @@ def ensure(bot):
         log=(session/'desktop.log').open('ab')
         xserver=subprocess.Popen(['Xtigervnc',':'+str(display),'-geometry','1440x900','-depth','24','-localhost','yes','-SecurityTypes','None','-rfbport',str(data['port']),'-AlwaysShared','-AcceptSetDesktopSize=0','-nolisten','tcp','-auth',authority,'-desktop','Aelion-'+bot],env=env,stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
         data['xpid']=xserver.pid;write(ROOT/(bot+'.json'),data)
+        child=None
         try:
-            for _ in range(60):
-                if xserver.poll() is not None: raise RuntimeError('Bot X server exited; inspect '+str(session/'desktop.log'))
-                if subprocess.run(['xdpyinfo'],env=env,capture_output=True).returncode==0: break
-                time.sleep(.1)
-            else: raise RuntimeError('Bot X server startup timed out')
+            wait_for(lambda: display_ready(env),xserver,20,'Bot X server')
             child=subprocess.Popen(['dbus-run-session','--',sys.executable,__file__,'run',bot],env=env,stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
             data['sessionPid']=child.pid;write(ROOT/(bot+'.json'),data)
-            for _ in range(150):
-                if child.poll() is not None: raise RuntimeError('Bot desktop exited; inspect '+str(session/'desktop.log'))
-                if ready(env): return data
-                time.sleep(.1)
-            raise RuntimeError('Bot desktop startup timed out')
-        except Exception:
-            xserver.terminate()
-            raise
+            wait_for(lambda: ready(env),child,75,'Bot desktop')
+            return data
+        except Exception as error:
+            stop_child(child)
+            stop_child(xserver)
+            raise RuntimeError(str(error)+'; inspect '+str(session/'desktop.log')) from error
 
 def main():
     if len(sys.argv)<3: raise RuntimeError('Expected operation and Bot ID')

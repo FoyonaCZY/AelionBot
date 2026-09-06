@@ -12,6 +12,10 @@ env = os.environ.copy()
 bot=env.get('AELION_BOT_ID')
 if bot:
     if len(sys.argv)<2: sys.exit('An application is required')
+    # Autostart applications already inherit the correct desktop and D-Bus session.
+    # Re-entering ensure here waits on the lock held by the desktop's own startup.
+    if env.get('AELION_DESKTOP_CONTEXT')==bot:
+        os.execvpe(sys.argv[1],sys.argv[1:],env)
     os.execv('/usr/local/bin/aelion-bot-desktop',['aelion-bot-desktop','exec',bot]+sys.argv[1:])
 for process in pathlib.Path('/proc').iterdir():
     if not process.name.isdigit(): continue

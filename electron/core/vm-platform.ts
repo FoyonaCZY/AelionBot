@@ -13,5 +13,6 @@ export const qemuDataDir=(runtimeDir:string)=>existsSync(join(runtimeDir,'share'
 export function qemuFirmware(runtimeDir:string,name:string){for(const folder of ['share','share/qemu']){const file=join(runtimeDir,folder,name);if(existsSync(file))return file;}throw Error(`工作电脑固件缺失：${name}`);}
 export function vmMachineArgs(profile:ReturnType<typeof vmPlatform>,runtimeDir:string,varsFile:string,accelerator=profile.accelerator){
  if(profile.arch==='arm64')return ['-machine','virt','-accel',accelerator,'-cpu',accelerator==='tcg'?'cortex-a72':'host','-drive',`if=pflash,format=raw,readonly=on,file=${qemuFirmware(runtimeDir,'edk2-aarch64-code.fd').replaceAll(',',',,')}`,'-drive',`if=pflash,format=raw,file=${varsFile.replaceAll(',',',,')}`,'-device','virtio-gpu-pci'];
- return ['-machine','q35','-accel',accelerator,...(accelerator==='hvf'?['-cpu','host']:accelerator==='tcg'?['-cpu','max']:[]),'-vga','virtio'];
+ // A baseline with SSE4 supports the browser without advertising costly AVX emulation.
+ return ['-machine','q35','-accel',accelerator,...(accelerator==='hvf'?['-cpu','host']:accelerator==='tcg'?['-cpu','Nehalem']:[]),'-vga','virtio'];
 }
