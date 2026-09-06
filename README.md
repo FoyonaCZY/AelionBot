@@ -11,6 +11,10 @@
 <p align="center">把资料和想法发给伙伴，和它们一起推进手头的工作。</p>
 
 <p align="center">
+  <a href="https://aelion.chat/">官网</a>
+  &nbsp;·&nbsp;
+  <a href="https://aelion.chat/blog/">技术博客</a>
+  &nbsp;·&nbsp;
   <a href="https://github.com/FoyonaCZY/AelionBot/releases">下载 Windows 版</a>
   &nbsp;·&nbsp;
   <a href="#用在哪些工作里">应用场景</a>

@@ -5,14 +5,14 @@ import {extname} from 'node:path';
 const args=process.argv.slice(2),worktree=args.includes('--worktree');
 const files=execFileSync('git',worktree?['ls-files','--cached','--others','--exclude-standard','-z']:['ls-files','--cached','-z'],{encoding:'utf8'}).split('\0').filter(Boolean);
 const findings=[];let bytes=0,allowedFixtures=0;
-const contents=new Map(),textExtensions=new Set(['.ts','.tsx','.mts','.cts','.js','.mjs','.cjs','.json','.md','.html','.txt','.yml','.yaml','.ps1','.cmd','.css','.svg']);
+const contents=new Map(),textExtensions=new Set(['.ts','.tsx','.mts','.cts','.js','.mjs','.cjs','.json','.md','.html','.txt','.yml','.yaml','.ps1','.cmd','.css','.svg','.conf']);
 const forbidden=/(^|\/)(?:\.local|\.git|node_modules|dist|dist-electron|release|output|test-results|playwright-report)(?:\/|$)|^runtime\/(?:qemu|downloads|local-model)(?:\/|$)|(?:^|\/)(?:state\.json|\.env(?:\..*)?|id_rsa.*|id_ed25519.*)$|\.(?:qcow2|vhdx?|iso|sqlite(?:-wal|-shm)?|pfx|p12|pem|log)$/i;
 const credential=/(?:sk-(?:proj-)?[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{30,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/g;
 for(const file of [...new Set(files)]){
   if(forbidden.test(file)&&!file.endsWith('.env.example')){findings.push({file,kind:'local-or-sensitive-file'});continue;}
   let data;try{data=worktree?readFileSync(file):execFileSync('git',['show',':'+file],{maxBuffer:6*1024*1024,stdio:['ignore','pipe','ignore']});}catch{findings.push({file,kind:'unreadable-or-oversized-file'});continue;}
   contents.set(file,data);bytes+=data.length;if(data.length>5*1024*1024)findings.push({file,kind:'large-file',bytes:data.length});
-  if(!textExtensions.has(extname(file))&&!['.gitignore','.gitattributes','LICENSE'].includes(file)){if(!/^assets\/icon\.(png|ico)$/.test(file)&&!/^docs\/assets\/screenshots\/[^/]+\.(png|jpe?g|webp)$/i.test(file))findings.push({file,kind:'unexpected-artifact'});continue;}
+  if(!textExtensions.has(extname(file))&&!['.gitignore','.gitattributes','LICENSE'].includes(file)){if(!/^assets\/icon\.(png|ico)$/.test(file)&&!/^docs\/assets\/screenshots\/[^/]+\.(png|jpe?g|webp)$/i.test(file)&&!/^website\/public\/blog-media\/(?:[^/]+\/)*[^/]+\.(png|jpe?g|webp|gif)$/i.test(file))findings.push({file,kind:'unexpected-artifact'});continue;}
   const lines=data.toString('utf8').split(/\r?\n/);
   for(let index=0;index<lines.length;index++){
     const line=lines[index];for(const match of line.matchAll(credential)){

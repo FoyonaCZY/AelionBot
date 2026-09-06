@@ -7,6 +7,10 @@
   "main": "dist-electron/main.cjs",
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "site:dev": "vite --config website/vite.config.ts",
+    "site:build": "tsc --noEmit -p website/tsconfig.json && node website/scripts/build.mjs",
+    "site:test": "node --test website/tests/*.test.mjs",
+    "site:preview": "vite preview --config website/vite.config.ts --host 127.0.0.1 --port 4173",
     "build": "node scripts/build.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "start": "electron .",
@@ -102,6 +106,8 @@
     "electron": "44.2.0",
     "electron-builder": "26.15.3",
     "esbuild": "0.28.2",
+    "highlight.js": "11.12.0",
+    "markdown-it": "14.3.1",
     "playwright": "1.62.1",
     "tsx": "4.23.13",
     "typescript": "7.0.2",
@@ -111,7 +117,7 @@
     "type": "git",
     "url": "https://github.com/FoyonaCZY/AelionBot.git"
   },
-  "homepage": "https://github.com/FoyonaCZY/AelionBot",
+  "homepage": "https://aelion.chat/",
   "bugs": {
     "url": "https://github.com/FoyonaCZY/AelionBot/issues"
   }
