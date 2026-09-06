@@ -1,5 +1,5 @@
 import {resolve,join} from 'node:path';
-import {mkdirSync,writeFileSync,readFileSync} from 'node:fs';
+import {mkdirSync,writeFileSync,readFileSync,existsSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
 import {VmController} from '../electron/core/vm';
 import {ComputerController} from '../electron/core/computer';
@@ -22,5 +22,8 @@ try{
  const nonce=randomUUID(),written=await vm.executePython('import json,sys,pathlib; a=json.load(sys.stdin); pathlib.Path("proof.txt").write_text(a["nonce"]); print("written")',Buffer.from(JSON.stringify({nonce})),'mac-smoke');if(written.exitCode!==0)throw Error('Guest write failed');
  await step('stop and restart guest',async()=>{computer.release('mac-smoke');await vm.stop();await vm.start();return true;});
  const persisted=await vm.execute('cat proof.txt','mac-smoke');if(persisted.exitCode!==0||!persisted.stdout.includes(nonce))throw Error('Work file did not persist');proof.passed=true;save();
-}catch(error){proof.error=(error as Error).message;save();try{console.error((await vm.execute('tail -n 50 /var/log/aelion-desktop.log','mac-smoke')).stdout);}catch{}throw error;}
+}catch(error){proof.error=(error as Error).message;save();let token='';try{token=JSON.parse(readFileSync(join(vm.dir,'machine.json'),'utf8')).seedToken||'';}catch{}
+ const redact=(value:string)=>{const safe=value.replace(/-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/g,'[redacted private key]');return token?safe.replaceAll(token,'[redacted seed]'):safe;};
+ const logs=Object.fromEntries(['qemu.log','serial.log'].filter(name=>existsSync(join(vm.dir,name))).map(name=>[name,redact(readFileSync(join(vm.dir,name),'utf8').slice(-1000000))]));writeFileSync(join(out,`mac-${arch}-vm-diagnostics.json`),JSON.stringify(logs,null,2));
+ try{console.error(redact((await vm.execute('tail -n 50 /var/log/aelion-desktop.log','mac-smoke')).stdout));}catch{}throw error;}
 finally{computer.release('mac-smoke');await vm.stop().catch(()=>{});vm.dispose();}
