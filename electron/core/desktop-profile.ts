@@ -1,5 +1,6 @@
 import {BOT_DESKTOP_SCRIPT,BOT_DESKTOP_VERSION} from './bot-desktop-profile';
-export const WORKSTATION_VERSION = '3';
+export const WORKSTATION_VERSION = '4';
+const preferChromium=process.platform==='darwin';
 
 const wallpaper = `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1200" viewBox="0 0 1920 1200"><defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#182634"/><stop offset=".55" stop-color="#172235"/><stop offset="1" stop-color="#2e3150"/></linearGradient><radialGradient id="a"><stop stop-color="#668cac" stop-opacity=".36"/><stop offset="1" stop-color="#668cac" stop-opacity="0"/></radialGradient><radialGradient id="b"><stop stop-color="#9b7fc6" stop-opacity=".25"/><stop offset="1" stop-color="#9b7fc6" stop-opacity="0"/></radialGradient></defs><rect width="1920" height="1200" fill="url(#bg)"/><ellipse cx="1450" cy="210" rx="900" ry="740" fill="url(#a)"/><ellipse cx="500" cy="1250" rx="1100" ry="800" fill="url(#b)"/><path d="M-200 1040C370 450 810 1210 2080 190" fill="none" stroke="#dde9f7" stroke-opacity=".09" stroke-width="2"/><path d="M-200 1080C410 510 850 1270 2080 240" fill="none" stroke="#dde9f7" stroke-opacity=".05" stroke-width="2"/><text x="1810" y="1090" text-anchor="end" fill="#e5edf7" fill-opacity=".65" font-family="sans-serif" font-size="30" letter-spacing="2">Aelion</text><text x="1810" y="1123" text-anchor="end" fill="#c5d1e1" fill-opacity=".45" font-family="sans-serif" font-size="14" letter-spacing="4">YOUR WORKSPACE</text></svg>`;
 
@@ -89,7 +90,7 @@ const files:Record<string,string>={
   '/home/aelion/.config/gtk-3.0/gtk.css':'.xfce4-panel{background-color:#1b2939;color:#eef3f8;border-radius:10px;} .xfce4-panel button{border-radius:8px;}\n',
   '/home/aelion/Desktop/Chrome.desktop':launcher('浏览器','/usr/local/bin/aelion-session /usr/local/bin/aelion-browser --no-first-run --no-default-browser-check file:///usr/local/share/aelion/start.html','web-browser'),
   '/usr/share/applications/aelion-browser.desktop':launcher('浏览器','/usr/local/bin/aelion-browser %U','web-browser'),
-  '/usr/local/bin/aelion-browser':'#!/bin/sh\nif command -v google-chrome-stable >/dev/null 2>&1; then exec google-chrome-stable "$@"; fi\nexec chromium "$@"\n',
+  '/usr/local/bin/aelion-browser':preferChromium?'#!/bin/sh\nexec chromium "$@"\n':'#!/bin/sh\nif command -v google-chrome-stable >/dev/null 2>&1; then exec google-chrome-stable "$@"; fi\nexec chromium "$@"\n',
   '/home/aelion/Desktop/Work.desktop':launcher('工作文件','/usr/local/bin/aelion-session thunar /work','folder-documents'),
   '/home/aelion/Desktop/Writer.desktop':launcher('文档','/usr/local/bin/aelion-session libreoffice --writer','libreoffice-writer'),
   '/home/aelion/Desktop/Calc.desktop':launcher('表格','/usr/local/bin/aelion-session libreoffice --calc','libreoffice-calc'),
@@ -112,7 +113,7 @@ printf desktop > /var/lib/aelion/desktop-stage
 arch=$(dpkg --print-architecture)
 case "$arch" in amd64|arm64) ;; *) echo "Unsupported guest architecture: $arch" >&2; exit 1 ;; esac
 timeout 2400 apt-get install -y --no-install-recommends "linux-image-$arch" git python3-venv ca-certificates curl locales xserver-xorg-core xserver-xorg-video-all xserver-xorg-input-libinput x11-xserver-utils xinit xfce4-session xfce4-settings xfwm4 xfdesktop4 xfce4-panel xfce4-appfinder xfce4-terminal dbus-x11 dbus-user-session lightdm lightdm-gtk-greeter thunar thunar-archive-plugin gvfs gvfs-backends xdg-utils mousepad ristretto evince xclip xdotool arc-theme adwaita-icon-theme fonts-noto-core fonts-noto-cjk librsvg2-bin librsvg2-common libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-gtk3 libreoffice-l10n-zh-cn tigervnc-standalone-server python3-pil xauth x11-utils
-if [ "$arch" = arm64 ]; then
+if [ "$arch" = arm64 ] || [ '`+(preferChromium?'1':'0')+String.raw`' = 1 ]; then
   printf browser > /var/lib/aelion/desktop-stage
   timeout 1200 apt-get install -y --no-install-recommends chromium
 elif ! command -v google-chrome-stable >/dev/null 2>&1; then
@@ -166,7 +167,7 @@ systemctl is-active --quiet lightdm
 pgrep -u aelion -x xfce4-session >/dev/null
 runuser -u aelion -- /usr/local/bin/aelion-session /usr/local/bin/aelion-style
 command -v aelion-browser thunar libreoffice xclip xdotool
-if [ "$arch" = arm64 ]; then command -v chromium; else command -v google-chrome-stable; fi
+if [ "$arch" = arm64 ] || [ '`+(preferChromium?'1':'0')+String.raw`' = 1 ]; then command -v chromium; else command -v google-chrome-stable; fi
 touch /var/lib/aelion/desktop-ready
 printf '`+WORKSTATION_VERSION+String.raw`' > /var/lib/aelion/workstation-version
 trap - EXIT

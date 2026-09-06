@@ -12,6 +12,8 @@
 
 ARM 与 x64 的镜像分别固定版本与 SHA-512。不会将旧架构的 system.qcow2 静默换成另一镜像。Mac ARM 固件变量独立保存到数据目录，发行包中的代码固件只读。
 
+Mac 的两种架构统一使用 Debian 提供的 Chromium，避免专有 Chrome 在软件模拟中触发图形和本地模型服务兼容性问题。Windows 继续使用原有 Chrome 安装流程。
+
 ## 构建与更新
 
 - Mac 运行时从 Homebrew QEMU 复制当前架构的二进制、依赖库、固件和许可资料，修正动态库引用为包内相对路径并检查 CPU 架构。客户端无需安装 Homebrew。
