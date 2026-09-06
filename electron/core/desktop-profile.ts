@@ -42,7 +42,7 @@ def set_value(channel, name, kind, value):
     result = run('xfconf-query','-c',channel,'-p',name,'-s',str(value))
     if result.returncode: run('xfconf-query','-c',channel,'-p',name,'-n','-t',kind,'-s',str(value))
 set_value('xsettings','/Net/ThemeName','string','Arc-Darker')
-set_value('xsettings','/Net/IconThemeName','string','Papirus')
+set_value('xsettings','/Net/IconThemeName','string','Adwaita')
 set_value('xsettings','/Gtk/FontName','string','Noto Sans CJK SC 10')
 set_value('xsettings','/Gtk/MonospaceFontName','string','DejaVu Sans Mono 10')
 set_value('xfwm4','/general/theme','string','Arc-Darker')
@@ -107,7 +107,7 @@ timeout 600 apt-get update
 printf desktop > /var/lib/aelion/desktop-stage
 arch=$(dpkg --print-architecture)
 case "$arch" in amd64|arm64) ;; *) echo "Unsupported guest architecture: $arch" >&2; exit 1 ;; esac
-timeout 2400 apt-get install -y --no-install-recommends "linux-image-$arch" git python3-venv ca-certificates curl locales xserver-xorg-core xserver-xorg-video-all xserver-xorg-input-libinput x11-xserver-utils xinit xfce4-session xfce4-settings xfwm4 xfdesktop4 xfce4-panel xfce4-appfinder xfce4-terminal dbus-x11 dbus-user-session lightdm lightdm-gtk-greeter thunar thunar-archive-plugin gvfs gvfs-backends xdg-utils mousepad ristretto evince xclip xdotool arc-theme papirus-icon-theme fonts-noto-core fonts-noto-cjk librsvg2-bin librsvg2-common libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-gtk3 libreoffice-l10n-zh-cn tigervnc-standalone-server python3-pil xauth x11-utils
+timeout 2400 apt-get install -y --no-install-recommends "linux-image-$arch" git python3-venv ca-certificates curl locales xserver-xorg-core xserver-xorg-video-all xserver-xorg-input-libinput x11-xserver-utils xinit xfce4-session xfce4-settings xfwm4 xfdesktop4 xfce4-panel xfce4-appfinder xfce4-terminal dbus-x11 dbus-user-session lightdm lightdm-gtk-greeter thunar thunar-archive-plugin gvfs gvfs-backends xdg-utils mousepad ristretto evince xclip xdotool arc-theme adwaita-icon-theme fonts-noto-core fonts-noto-cjk librsvg2-bin librsvg2-common libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-gtk3 libreoffice-l10n-zh-cn tigervnc-standalone-server python3-pil xauth x11-utils
 if [ "$arch" = arm64 ]; then
   printf browser > /var/lib/aelion/desktop-stage
   timeout 1200 apt-get install -y --no-install-recommends chromium
