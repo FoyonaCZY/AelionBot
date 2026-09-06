@@ -51,9 +51,10 @@ def prepare_browser(work):
     profile.mkdir(mode=0o700,exist_ok=True)
     config=work/'.config'
     config.mkdir(mode=0o700,exist_ok=True)
-    chrome=config/'google-chrome'
-    if not chrome.exists() and not chrome.is_symlink():
-        chrome.symlink_to(profile,target_is_directory=True)
+    for browser in ['google-chrome','chromium']:
+        chrome=config/browser
+        if not chrome.exists() and not chrome.is_symlink():
+            chrome.symlink_to(profile,target_is_directory=True)
 
 def ensure(bot):
     work=workspace(bot); ROOT.mkdir(mode=0o700,exist_ok=True)

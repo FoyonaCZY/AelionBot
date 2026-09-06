@@ -35,12 +35,12 @@ export async function prepareMacRuntime(){
  const formulae=new Map();for(const {source} of jobs){const match=/\/Cellar\/([^/]+)\/([^/]+)\//.exec(source);if(match)formulae.set(match[1],{version:match[2],root:source.slice(0,source.indexOf('/Cellar/')+8)+match[1]+'/'+match[2]});}
  for(const [name,formula] of formulae){const folder=join(licenses,name);mkdirSync(folder,{recursive:true});for(const entry of readdirSync(formula.root))if(/^(COPYING|LICENSE|AUTHORS|NOTICE)/i.test(entry)&&lstatSync(join(formula.root,entry)).isFile())copyFileSync(join(formula.root,entry),join(folder,entry));if(existsSync(join(formula.root,'.brew',name+'.rb')))copyFileSync(join(formula.root,'.brew',name+'.rb'),join(folder,name+'.rb'));}
  const entitlements=join(root,'build','entitlements.mac.plist');
- for(const {output} of [...jobs].reverse()){const bin=output.startsWith(join(staging,'bin')+'/');run('/usr/bin/codesign',['--force','--sign','-',...(bin?['--entitlements',entitlements]:[]),output]);run('/usr/bin/lipo',['-verify_arch',process.arch==='arm64'?'arm64':'x86_64',output]);}
+ for(const {output} of [...jobs].reverse()){const bin=output.startsWith(join(staging,'bin')+'/');run('/usr/bin/codesign',['--force','--sign','-',...(bin?['--entitlements',entitlements]:[]),output]);run('/usr/bin/lipo',[output,'-verify_arch',process.arch==='arm64'?'arm64':'x86_64']);}
  for(const {output} of jobs)for(const lib of linkedLibraries(run('/usr/bin/otool',['-L',output])))if(!system(lib)&&!lib.startsWith('@loader_path/'))throw Error('Non-relocatable library: '+lib);
  const env={...process.env,QEMU_MODULE_DIR:join(staging,'lib','qemu'),DYLD_PRINT_LIBRARIES:'1'};delete env.DYLD_LIBRARY_PATH;delete env.DYLD_FALLBACK_LIBRARY_PATH;
  const version=run(join(staging,'bin',bins[0]),['--version'],{env}).split('\n')[0];run(join(staging,'bin','qemu-img'),['--version'],{env});
  const hashes=Object.fromEntries(jobs.map(({output})=>[relative(staging,output),createHash('sha256').update(readFileSync(output)).digest('hex')]));
- writeFileSync(join(staging,'aelion-runtime.json'),JSON.stringify({platform:'darwin',arch:process.arch,version,source:'https://formulae.brew.sh/formula/qemu',upstream:info.urls?.stable,formulae:[...formulae].map(([name,f])=>({name,version:f.version,source:`https://formulae.brew.sh/formula/${name}`})),files:hashes},null,2));
+ writeFileSync(join(staging,'aelion-runtime.json'),JSON.stringify({platform:'darwin',arch:process.arch,version,source:'https://formulae.brew.sh/formula/qemu',upstream:info.urls?.stable,formulae:[...formulae].map(([name,f])=>({name,version:f.version,source:`https://formulae.brew.sh/formula/${name}`})),hashStage:'runtime-before-app-signing',files:hashes},null,2));
  guardedRemove(destination);renameSync(staging,destination);console.log(JSON.stringify({runtime:destination,arch:process.arch,version,libraries:jobs.length}));
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))await prepareMacRuntime();
