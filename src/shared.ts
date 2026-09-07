@@ -2,7 +2,7 @@ import type {ModelParameters,NativeAssistant} from './model-types';
 import type {HostPermissionMode,HostApprovalView} from './permission-types';
 import type {WorkItem,WorkAction} from './work-types';
 import type {RuntimeSettings,TaskPlan,UsageRecord} from './runtime-types';
-import type {Attachment,AttachmentScope,AttachmentUpload} from './attachment-types';
+import type {Attachment,AttachmentScope,AttachmentUpload,DroppedAttachment,PreparedAttachmentDrop} from './attachment-types';
 import type {BotMention,PeerChatPage,PeerNotice,PeerRunOrigin,PeerView} from './peer-types';
 import type {GroupLink,GroupPage,GroupRunOrigin,GroupSummary,GroupsView} from './group-types';
 import type {MessagePin,PinEvent,PinInput} from './reactions';
@@ -23,7 +23,7 @@ export interface StreamingReply {id:string;botId:string;runId?:string;content:st
 export interface Artifact { id: string; botId: string; runId: string; path: string; name: string; size: number; modifiedAt: string; }
 export interface ArtifactPreview { kind: 'text' | 'markdown' | 'html' | 'image' | 'pdf' | 'unsupported'; content?: string; dataUrl?: string; truncated?: boolean; }
 export interface ChatMessage { workspaceDir?:string|null; executionId?:string;executionTarget?:string;executionResolved?:boolean; scheduled?:ScheduledTrigger; attachments?:Attachment[]; inputState?:'queued'|'handled'|'cancelled'|'interrupted'; pins?:MessagePin[];reaction?:PinEvent; id: string; botId: string; role: 'user' | 'assistant' | 'tool' | 'event'; content: string; time: string; status?: 'running' | 'done' | 'failed' | 'cancelled'; tool?: string; runId?: string; screenshotId?: string; activity?: {label:string;detail?:string}; presentation?: 'progress'|'answer'|'error'; mentions?:BotMention[];peer?:PeerNotice;groupLink?:GroupLink;groupTaskSource?:{groupId:string;name:string;messageId?:string;continuation?:boolean};audience?:'user';peerSummaryFor?:string;peerContextPublished?:boolean;taskSource?:{botId:string;name:string;exchangeId:string;continuation?:boolean}; }
-export interface RunRecord { lastProgressAt?:string;lastProgressDigest?:string; workItemId?:string;workspaceDir?:string; plan?:TaskPlan; executions?:ToolExecution[]; attachments?:Attachment[]; inputUpdated?:boolean;supersedesRunId?:string;progressSteps?:number; groupReplyMessageId?:string; id: string; botId: string; status: 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted'; startedAt: string; endedAt?: string; error?: string; modelCalls: number; toolCalls: number; peerOrigin?:PeerRunOrigin;groupOrigin?:GroupRunOrigin;groupTask?:boolean;groupUpdated?:boolean; }
+export interface RunRecord {resumedFromRunId?:string;contextIssue?:import('./context-issue').ContextIssue; lastProgressAt?:string;lastProgressDigest?:string; workItemId?:string;workspaceDir?:string; plan?:TaskPlan; executions?:ToolExecution[]; attachments?:Attachment[]; inputUpdated?:boolean;supersedesRunId?:string;progressSteps?:number; groupReplyMessageId?:string; id: string; botId: string; status: 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted'; startedAt: string; endedAt?: string; error?: string; modelCalls: number; toolCalls: number; peerOrigin?:PeerRunOrigin;groupOrigin?:GroupRunOrigin;groupTask?:boolean;groupUpdated?:boolean; }
 export interface ModelConfig extends ModelParameters { baseUrl: string; model: string; hasKey: boolean; contextTokens: number; providerId?:string;providerName?:string;issue?:string; }
 export interface SkillSource { label: string; path: string; scope: 'user'|'project'|'private'|'builtin'; readonly: boolean; }
 export interface Skill {hash?:string;archived?:boolean;pinned?:boolean;readCount?:number;lastReadAt?:string; id: string; name: string; description: string; body: string; botId?: string; source?: SkillSource; compatibility?: string; availableFiles?: string[]; vmPath?: string; }
@@ -54,7 +54,11 @@ export interface AelionAPI {
   cancelUpdateDownload():Promise<void>;
   installUpdate():Promise<void>;
   openUpdateRelease():Promise<void>;
+  resumeChat(input:{botId:string;runId:string}):Promise<void>;
   pickAttachments(scope:AttachmentScope):Promise<Attachment[]>;
+  prepareAttachmentDrop(input:{scope:AttachmentScope;files:File[]}):Promise<PreparedAttachmentDrop>;
+  prepareAttachmentPaste(scope:AttachmentScope):Promise<{entries:DroppedAttachment[];attachments:Attachment[]}>;
+  applyAttachmentDrop(input:{scope:AttachmentScope;ids:string[];action:'attach'|'workspace'}):Promise<{attachments:Attachment[];workspaceDir?:string|null}>;
   pasteAttachments(scope:AttachmentScope):Promise<Attachment[]>;
   importAttachments(input:{scope:AttachmentScope;files:AttachmentUpload[]}):Promise<Attachment[]>;
   previewAttachment(id:string):Promise<ArtifactPreview>;
@@ -100,7 +104,7 @@ export interface AelionAPI {
   ensureComputerDesktop(botId:string):Promise<void>;
   setComputerControl(input:{botId:string;enabled:boolean}): Promise<void>;
   setComputerFullscreen(enabled: boolean): Promise<void>;
-  setWindowDimmed(enabled:boolean):Promise<void>;
+  setWindowDimmed(enabled:boolean,color?:string):Promise<void>;
   respondInteraction(input:{id:string;action:InteractionAction}):Promise<void>;
   setCommandPermissionEnabled(input:{id:string;enabled:boolean}):Promise<void>;
   removeCommandPermission(id:string):Promise<void>;

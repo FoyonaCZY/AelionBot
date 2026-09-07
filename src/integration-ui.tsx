@@ -1,6 +1,6 @@
 import {Select} from './Select';
 import {useState} from 'react';
-import Markdown from 'react-markdown';
+import Markdown from './MessageMarkdown';
 import type {IntegrationSource,IntegrationsView,Skill} from './shared';
 import {Icon} from './ui';
 

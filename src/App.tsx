@@ -3,7 +3,7 @@ import {WorkItemsPanel} from './WorkItems';
 import {workspaceKey} from './work-types';
 import {RuntimeSettings} from './RuntimeSettings';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import Markdown from 'react-markdown';
+import Markdown from './MessageMarkdown';
 import {attachmentSummary} from './attachment-types';
 import type {ArtifactPreview,Bot,InteractionRequest,ModelSelection,Snapshot} from './shared';
 import {Avatar,bytes,FileCard,type FileItem,Icon,Message,time,Vnc} from './ui';
@@ -29,6 +29,7 @@ import {conversationRows} from './conversation-list';
 import {GroupAvatar,GroupConversation,GroupEditor,GroupNotifications,GroupTaskMessage} from './GroupChats';
 import {randomBotColor} from './bot-colors';
 import {botActivities} from './bot-activity';
+import {useWindowDimming} from './window-dimming';
 
 type Modal='new'|'profile'|'delete-bot'|'settings'|'computer'|'computer-setup'|'terminal'|'files'|'preview'|'screen'|null;
 type PreviewFile=FileItem&{botId:string};
@@ -47,6 +48,7 @@ function CsvPreview({text}:{text:string}){
 }
 
 export default function App(){
+  useWindowDimming();
   const [state,setState]=useState<Snapshot>(),[selected,setSelected]=useState(''),[query,setQuery]=useState(''),[drafts,setDrafts]=useState<Record<string,ComposerDraft>>({});
   const avatarActivities=useMemo(()=>state?botActivities(state):{},[state]);
   const [peerPanel,setPeerPanel]=useState<PeerPanel>();
@@ -60,7 +62,6 @@ export default function App(){
   const [profileModel,setProfileModel]=useState<ModelSelection|null>(null);
   const [taskModalOpen,setTaskModalOpen]=useState(false);
   const setupPrompted=useRef('');
-  useEffect(()=>{if(taskModalOpen)void window.aelion.setWindowDimmed(true);return()=>{if(taskModalOpen)void window.aelion.setWindowDimmed(false);};},[taskModalOpen]);
   const [controlPending,setControlPending]=useState(false),controlBusy=useRef(false);
   const [computerBotId,setComputerBotId]=useState('');
   const [viewingRequest,setViewingRequest]=useState('');
@@ -130,7 +131,7 @@ export default function App(){
   useEffect(()=>{const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'&&modal&&!(modal==='computer'&&controlled)){if(modal==='computer')void computerAction(closeModal);else void act(closeModal);}};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);},[modal,controlled]);
   const openSettings=(tab:SettingsTab='model')=>{setScope(bot?.id||'');setSettingsTab(tab);setModal('settings');};
   const send=async()=>{if(!bot||sending.current.has(bot.id)||!draft.text.trim()&&!draft.attachments?.length)return;if(draft.text.length>32000){setToast('消息过长，请分段发送');return;}if(!currentModel?.model||currentModel.issue){openSettings();setToast('先为这个 Bot 选择模型');return;}const saved=draft,botId=bot.id;sending.current.add(botId);setDrafts(value=>({...value,[botId]:{text:'',mentions:[]}}));follow.current=true;try{await window.aelion.send({botId,message:saved.text,mentions:saved.mentions,attachmentIds:saved.attachments?.map(file=>file.id)});}catch(error){setDrafts(value=>value[botId]?.text||value[botId]?.attachments?.length?value:{...value,[botId]:saved});setToast(errorText(error));}finally{sending.current.delete(botId);}};
-  const continueWork=()=>{if(!bot||running)return;follow.current=true;void window.aelion.send({botId:bot.id,message:'请从现有工作记录继续。先核对上次操作的实际结果，再完成尚未结束的部分；不要重复已经成功的操作。'}).catch(error=>setToast(errorText(error)));};
+  const continueWork=()=>{if(!bot||running||!latestRun)return;follow.current=true;void window.aelion.resumeChat({botId:bot.id,runId:latestRun.id}).catch(error=>setToast(errorText(error)));};
   const refreshFiles=()=>bot&&act(async()=>{const owner=bot.id;const result=await window.aelion.listFiles(owner);if(selectedRef.current===owner)setFiles(result.map(file=>({...file,path:file.path||file.name})));});
   const openFiles=()=>{setFiles([]);setModal('files');void refreshFiles();};
   const openPreview=async(file:PreviewFile)=>{setPreviewFile(file);setPreview(undefined);setPreviewError('');setModal('preview');try{setPreview(await window.aelion.previewFile({botId:file.botId,path:file.path}));}catch(error){setPreviewError(errorText(error));}};
@@ -173,7 +174,7 @@ export default function App(){
         const key=`${bot.id}:${item.kind}:${item.kind==='run'?item.segmentId:item.id}`;
         if(item.kind==='message')return item.message.groupTaskSource?<GroupTaskMessage key={key} message={item.message} view={state.groups} onOpen={openGroup}/>:item.message.groupLink?<div key={key} className="peer-notice"><button className="peer-notice-open" disabled={!state.groups?.rooms.some(room=>room.id===item.message.groupLink?.groupId)} onClick={()=>openGroup(item.message.groupLink!.groupId)}><Icon name="message" size={16}/>{item.message.content}</button></div>:item.message.taskSource?<PeerTaskMessage key={key} message={item.message} view={state.peers} onOpen={openPrivateChat}/>:item.message.peer?<PeerNotice key={key} message={item.message} view={state.peers} onOpen={openPrivateChat}/>:<Message key={key} message={item.message} allowPins={!state.runs.find(run=>run.id===item.message.runId)?.groupOrigin}/>;
         const run=state.runs.find(run=>run.id===item.id),allRunMessages=runMessages.get(item.id)||[],outputs=item.isLast?state.artifacts.filter(file=>file.botId===bot.id&&file.runId===item.id&&!allRunMessages.some(message=>message.attachments?.some(attachment=>attachment.name===file.name&&attachment.size===file.size))):[];
-        return <React.Fragment key={key}><RunMessage messages={item.messages} allMessages={allRunMessages} isLast={item.isLast} run={run} stream={item.isLast?liveReplies.find(reply=>reply.runId===item.id&&reply.purpose!=='progress'):undefined} waiting={item.isLast?requests.find(request=>request.runId===item.id)?.kind:undefined} latest={item.isLast&&latestRun?.id===item.id} canContinue={!running&&!busy} reviewing={item.isLast&&requests.some(request=>request.runId===item.id&&request.kind==='host_permission'&&request.approval?.phase==='reviewing')} onContinue={continueWork} onSettings={openSettings} onScreen={url=>{setScreen(url);setModal('screen');}}/>{outputs.length>0&&<div className="message-artifacts">{outputs.map(file=><FileCard key={file.id} file={file} onOpen={()=>void openPreview(file)} onSave={()=>void saveFile(file)} disabled={busy||!vmReady}/>)}</div>}</React.Fragment>;
+        return <React.Fragment key={key}><RunMessage model={currentModel} messages={item.messages} allMessages={allRunMessages} isLast={item.isLast} run={run} stream={item.isLast?liveReplies.find(reply=>reply.runId===item.id&&reply.purpose!=='progress'):undefined} waiting={item.isLast?requests.find(request=>request.runId===item.id)?.kind:undefined} latest={item.isLast&&latestRun?.id===item.id} canContinue={!running&&!busy} reviewing={item.isLast&&requests.some(request=>request.runId===item.id&&request.kind==='host_permission'&&request.approval?.phase==='reviewing')} onContinue={continueWork} onSettings={tab=>tab==='model'&&bot.model?editBot(bot):openSettings(tab)} onScreen={url=>{setScreen(url);setModal('screen');}}/>{outputs.length>0&&<div className="message-artifacts">{outputs.map(file=><FileCard key={file.id} file={file} onOpen={()=>void openPreview(file)} onSave={()=>void saveFile(file)} disabled={busy||!vmReady}/>)}</div>}</React.Fragment>;
       })}{liveReplies.filter(reply=>reply.purpose==='progress'||!reply.runId||!timeline.some(item=>item.kind==='run'&&item.id===reply.runId)).map(reply=><StreamingReply key={reply.id} reply={reply}/>)}<div ref={bottom}/></section>
       <div className={`composer-wrap ${waiting?'with-request':''}`}>
         <ConversationInteractions requests={requests.filter(request=>!state.runs.find(run=>run.id===request.runId)?.groupOrigin||state.runs.find(run=>run.id===request.runId)?.groupTask)} botId={bot.id} onTakeover={startTakeover}/>

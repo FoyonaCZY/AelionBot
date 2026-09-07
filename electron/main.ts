@@ -1,7 +1,7 @@
 import {createMacUpdater,macAutomaticUpdates} from './core/mac-updater';
 import {hostEnvironment} from './core/host-platform';
 import {RunPolicy,runtimeSettings} from './core/runtime-policy';
-import { app, BrowserWindow, ipcMain, safeStorage, dialog, shell, Menu, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, safeStorage, dialog, shell, Menu, nativeImage, net } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { join, resolve, dirname } from 'node:path';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -14,6 +14,7 @@ import { Harness, safeRelativePath } from './core/harness';
 import { ComputerController } from './core/computer';
 import { installComputerView } from './core/computer-view';
 import {Attachments} from './core/attachments';
+import {AttachmentDrops} from './core/attachment-drop';
 import {readAttachmentClipboard} from './core/attachment-clipboard';
 import { ArtifactService } from './core/artifacts';
 import { Integrations } from './core/integrations';
@@ -34,6 +35,7 @@ import {createWindowsUpdater,UPDATE_REPOSITORY} from './core/windows-updater';
 import {assertUpdateDataOutsideApp,loadUpdateLaunchContext,saveUpdateLaunchContext,type UpdateLaunchContext} from './core/update-launch-context';
 import {WorkItems} from './core/work-items';
 import {assertWorkspaceScope,conversationWorkspace,setConversationWorkspace} from './core/workspaces';
+import {resumableRun} from './core/resume-run';
 import type { Snapshot } from '../src/shared';
 
 let window:BrowserWindow|undefined;
@@ -93,7 +95,7 @@ async function initialize(){
   providers=new ModelProviders(store,{encrypt:value=>{if(!safeStorage.isEncryptionAvailable())throw new Error('系统加密存储不可用，尚未保存 API Key');return safeStorage.encryptString(value).toString('base64');},decrypt:value=>safeStorage.decryptString(Buffer.from(value,'base64'))},changed);
   commandPermissions=new CommandPermissions(join(dataDir,'command-permissions.json'),value=>host?.redact(value)??redactHost(value));
   interactions=new Interactions(()=>{changed();if(window&&!window.isDestroyed()&&!window.isFocused()&&interactions.snapshot().some(request=>request.kind==='host_permission'?request.approval?.phase!=='reviewing':request.phase==='waiting'))window.flashFrame(true);},(request,decision,ruleId)=>store.journal('interaction.decision',{id:request.id,botId:request.botId,runId:request.runId,kind:request.kind,decision,...(request.kind==='host_permission'&&request.approval?{approval:request.approval}:{}),...(ruleId?{ruleId}:{}),time:new Date().toISOString()}),commandPermissions);
-  vm=new VmController({dataDir,runtimeDir:app.isPackaged?join(process.resourcesPath,'qemu'):resolve('runtime/qemu'),cacheDir:app.isPackaged?join(dataDir,'downloads'):resolve('runtime/downloads')});
+  vm=new VmController({dataDir,runtimeDir:app.isPackaged?join(process.resourcesPath,'qemu'):resolve('runtime/qemu'),cacheDir:app.isPackaged?join(dataDir,'downloads'):resolve('runtime/downloads'),downloadFetch:(url,options)=>net.fetch(url,options)});
   computer=new ComputerController(vm,dataDir,changed);artifacts=new ArtifactService(store,vm);
   attachments=new Attachments(store,vm,artifacts,(bytes,id)=>{const image=nativeImage.createFromBuffer(bytes);if(image.isEmpty())return;const {width,height}=image.getSize();if(width*height>64*1024*1024)return;const scale=Math.min(1,2048/width,2048/height),preview=scale<1?image.resize({width:Math.max(1,Math.round(width*scale)),height:Math.max(1,Math.round(height*scale)),quality:'best'}):image;writeFileSync(join(computer.imageDir,id+'.png'),preview.toPNG());return {id,...preview.getSize()};});
   const homeDir=app.getPath('home');
@@ -173,7 +175,7 @@ async function initialize(){
   handle('tasks:delete',id=>scheduler!.remove(String(id)));
   handle('tasks:run',id=>scheduler!.runNow(String(id)));
   handle('interaction:respond',async input=>{if(input?.action==='takeover'){const request=interactions.get(String(input.id));if(request.kind==='vm_takeover')await computer.ensure(request.botId);}return respondToInteraction(interactions,computer,input);});
-  handle('window:dimmed',enabled=>{if(typeof enabled!=='boolean')throw new Error('无效窗口状态');if(process.platform!=='darwin')window?.setTitleBarOverlay({color:enabled?'#b9b9b9':'#f7f7f7',symbolColor:'#555555',height:38});});
+  handle('window:dimmed',(enabled,color)=>{if(typeof enabled!=='boolean'||color!==undefined&&(typeof color!=='string'||!/^#[a-f0-9]{6}$/i.test(color)))throw new Error('无效窗口状态');const background=color||(enabled?'#b9b9b9':'#f7f7f7'),brightness=[1,3,5].reduce((sum,index)=>sum+parseInt(background.slice(index,index+2),16),0)/3;if(process.platform!=='darwin')window?.setTitleBarOverlay({color:background,symbolColor:brightness<128?'#f2f2f2':'#555555',height:38});});
   handle('permissions:mode',input=>{if(hostApprovals.set(input?.scope,input?.mode))interactions.refreshHostPolicy();changed();});
   handle('permissions:command-enabled',input=>{if(typeof input?.id!=='string'||typeof input.enabled!=='boolean')throw new Error('无效命令权限参数');commandPermissions.setEnabled(input.id,input.enabled);interactions.applyCommandRules();changed();});
   handle('permissions:command-remove',id=>{if(typeof id!=='string')throw new Error('无效命令模式');commandPermissions.remove(id);changed();});
@@ -218,11 +220,16 @@ async function initialize(){
     if(modelChanged)afterModelChange();else {greetings?.cancel(input.id);changed();void greetings?.greet(input.id);}
   });
   handle('attachments:pick',async scope=>{attachments.scope(scope);const result=await dialog.showOpenDialog(window!,{title:'添加附件',properties:['openFile','multiSelections']});return result.canceled?[]:attachments.importPaths(scope,result.filePaths);});
+  const attachmentDrops=new AttachmentDrops(attachments,(scope,path)=>{const selected=setConversationWorkspace(store,host,scope,path);changed();return selected;});
+  handle('attachments:drop-prepare',input=>attachmentDrops.prepare(input?.scope,input?.paths));
+  handle('attachments:drop-apply',input=>attachmentDrops.apply(input?.scope,input?.ids,input?.action));
+  handle('attachments:paste-prepare',async scope=>{attachments.scope(scope);const data=await readAttachmentClipboard();return {entries:data.paths.length?await attachmentDrops.prepare(scope,data.paths):[],attachments:data.files.length?attachments.importFiles(scope,data.files):[]};});
   handle('attachments:import',input=>attachments.importFiles(input?.scope,input?.files));
   handle('attachments:paste',async scope=>{attachments.scope(scope);const data=await readAttachmentClipboard();return data.paths.length?attachments.importPaths(scope,data.paths):data.files.length?attachments.importFiles(scope,data.files):[];});
   handle('attachments:preview',id=>attachments.preview(id));
   handle('attachments:save',async id=>{const file=attachments.metadata(id);const result=await dialog.showSaveDialog(window!,{defaultPath:file.name});if(result.canceled||!result.filePath)return null;writeFileSync(result.filePath,attachments.bytes(id));return result.filePath;});
   handle('chat:send',(input)=>{if(!input||typeof input.botId!=='string'||typeof input.message!=='string')throw new Error('无效消息');return chatPins!.send(input);});
+  handle('chat:resume',input=>{if(typeof input?.botId!=='string'||typeof input.runId!=='string')throw Error('恢复任务参数无效');if(harness.isRunning(input.botId)||chatPins?.hasPending(input.botId))throw Error('Bot 正在处理消息，请稍后继续');const run=resumableRun(store,input.botId,input.runId);greetings?.cancel(input.botId);if(run.groupOrigin)groupChats!.retryRun(run);else if(run.peerOrigin)peerChats!.retryRun(run);else void harness.resume(input.botId,input.runId).catch(error=>{store.message(input.botId,'event',(error as Error).message);changed();});changed();});
   handle('chat:pin',input=>chatPins!.pin(input));
   handle('groups:pin',input=>groupChats!.pinUser(input));
   handle('chat:cancel',(id)=>{const botId=String(id);chatPins?.cancel(botId);const run=store.data.runs.find(run=>run.botId===botId&&run.status==='running');if(run){peerChats?.cancelRun(run);groupChats?.cancelRun(run);}harness.cancel(botId);});

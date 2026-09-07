@@ -56,9 +56,9 @@ export function resultDigest(content:string,limit=900){
   return JSON.stringify(result);
 }
 export function excerpt(text:string,limit:number){if(text.length<=limit)return text;const head=Math.floor(limit*.65);return `${text.slice(0,head)}\n[…内容已外置，可回查原记录…]\n${text.slice(-(limit-head))}`;}
-export function pruneToolOutputs(history:WireMessage[],protectedFrom:number){
+export function pruneToolOutputs(history:WireMessage[],protectedFrom:number,archivedOnly=false){
   const view=history.map(message=>({...message}));let pruned=0;
-  for(let i=0;i<protectedFrom;i++)if(view[i].role==='tool'&&textTokens(view[i].content||'')>350){const digest=resultDigest(view[i].content||'');if(digest.length<(view[i].content?.length||0)){view[i].content=digest;pruned++;}}
+  for(let i=0;i<protectedFrom;i++)if(view[i].role==='tool'&&textTokens(view[i].content||'')>350){if(archivedOnly){try{if(typeof JSON.parse(view[i].content||'').resultId!=='string')continue;}catch{continue;}}const digest=resultDigest(view[i].content||'');if(digest.length<(view[i].content?.length||0)){view[i].content=digest;pruned++;}}
   return {messages:view,pruned};
 }
 export function sourceHash(messages:WireMessage[]){return createHash('sha256').update(JSON.stringify(messages)).digest('hex');}

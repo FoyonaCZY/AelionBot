@@ -4,5 +4,8 @@
   "url": "https://cloud.debian.org/images/cloud/bookworm/20260903-2590/debian-12-genericcloud-arm64-20260903-2590.qcow2",
   "filename": "debian-12-genericcloud-arm64-20260903-2590.qcow2",
   "sha512": "3d02690a4ddebc8238f9bdf293ee9e636f465ecc0d741cef6f0d906c93681226c7ab3718a76d91bc33d8d8bd32d070682f51fc88e57be44fbb5a285820468fca",
-  "sourceMetadata": "https://cloud.debian.org/images/cloud/bookworm/20260903-2590/debian-12-genericcloud-arm64-20260903-2590.json"
+  "sourceMetadata": "https://cloud.debian.org/images/cloud/bookworm/20260903-2590/debian-12-genericcloud-arm64-20260903-2590.json",
+  "mirrors": [
+    "https://cdimage.debian.org/cdimage/cloud/bookworm/20260903-2590/debian-12-genericcloud-arm64-20260903-2590.qcow2"
+  ]
 }

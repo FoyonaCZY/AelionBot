@@ -12,7 +12,7 @@ export interface GroupMessage {workItemId?:string;workspaceDir?:string|null;sche
 export interface GroupRoom {id:string;name:string;members:GroupMember[];createdBy:GroupSender;createdAt:string;updatedAt:string;messages:GroupMessage[];lastReadSeq:number;activeRootId?:string;}
 export interface GroupRound {id:string;originKey?:string;groupId:string;request:string;status:'active'|'limited'|'stopped';createdAt:string;botMessages:number;botCounts:Record<string,number>;decisions:number;createdGroups:number;reason?:string;repetitions?:number;}
 export type GroupDeliveryStatus='queued'|'deciding'|'running'|'ignored'|'replied'|'limited'|'failed'|'cancelled'|'interrupted'|'delivered'|'read';
-export interface GroupDelivery {id:string;groupId:string;messageId:string;recipientId:string;rootId:string;status:GroupDeliveryStatus;createdAt:string;reason?:string;runId?:string;replyMessageId?:string;}
+export interface GroupDelivery {retryRunId?:string;id:string;groupId:string;messageId:string;recipientId:string;rootId:string;status:GroupDeliveryStatus;createdAt:string;reason?:string;runId?:string;replyMessageId?:string;}
 export interface GroupRunOrigin {groupId:string;rootId:string;deliveryId:string;}
 export interface GroupSummary {id:string;name:string;members:GroupMember[];createdBy:GroupSender;updatedAt:string;preview:string;unread:number;lastSeq:number;pending:number;round?:{id:string;status:GroupRound['status'];botMessages:number;reason?:string};activities?:Array<{botId:string;phase:'deciding'|'running'|'updating'}>;activity?:{botId:string;phase:'deciding'|'running'};}
 export interface GroupPage {pins?:Record<string,MessagePin[]>;group:GroupSummary;messages:GroupMessage[];deliveries:GroupDelivery[];before?:string;}

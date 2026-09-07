@@ -105,24 +105,17 @@ mkdir -p /var/lib/aelion
 exec 9>/var/lib/aelion/desktop.lock
 flock -n 9 || exit 0
 rm -f /var/lib/aelion/desktop-error
-trap 'echo "Desktop preparation failed at $(date -Iseconds)" > /var/lib/aelion/desktop-error' EXIT
+trap 'echo "Desktop preparation failed at $(date -Iseconds), stage $(cat /var/lib/aelion/desktop-stage 2>/dev/null)" > /var/lib/aelion/desktop-error' EXIT
 printf system > /var/lib/aelion/desktop-stage
 timeout 600 dpkg --configure -a
-timeout 600 apt-get update
+timeout 600 apt-get -o Acquire::Retries=2 update
 printf desktop > /var/lib/aelion/desktop-stage
 arch=$(dpkg --print-architecture)
 case "$arch" in amd64|arm64) ;; *) echo "Unsupported guest architecture: $arch" >&2; exit 1 ;; esac
-timeout 2400 apt-get install -y --no-install-recommends "linux-image-$arch" git python3-venv ca-certificates curl locales xserver-xorg-core xserver-xorg-video-all xserver-xorg-input-libinput x11-xserver-utils xinit xfce4-session xfce4-settings xfwm4 xfdesktop4 xfce4-panel xfce4-appfinder xfce4-terminal dbus-x11 dbus-user-session lightdm lightdm-gtk-greeter thunar thunar-archive-plugin gvfs gvfs-backends xdg-utils mousepad ristretto evince xclip xdotool arc-theme adwaita-icon-theme fonts-noto-core fonts-noto-cjk librsvg2-bin librsvg2-common libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-gtk3 libreoffice-l10n-zh-cn tigervnc-standalone-server python3-pil xauth x11-utils
-if [ "$arch" = arm64 ] || [ '`+(preferChromium?'1':'0')+String.raw`' = 1 ]; then
+timeout 2400 apt-get -o Acquire::Retries=2 install -y --no-install-recommends "linux-image-$arch" git python3-venv ca-certificates curl locales xserver-xorg-core xserver-xorg-video-all xserver-xorg-input-libinput x11-xserver-utils xinit xfce4-session xfce4-settings xfwm4 xfdesktop4 xfce4-panel xfce4-appfinder xfce4-terminal dbus-x11 dbus-user-session lightdm lightdm-gtk-greeter thunar thunar-archive-plugin gvfs gvfs-backends xdg-utils mousepad ristretto evince xclip xdotool arc-theme adwaita-icon-theme fonts-noto-core fonts-noto-cjk librsvg2-bin librsvg2-common libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-gtk3 libreoffice-l10n-zh-cn tigervnc-standalone-server python3-pil xauth x11-utils
+if [ "$arch" = arm64 ] || [ '`+(preferChromium?'1':'0')+String.raw`' = 1 ] || ! command -v google-chrome-stable >/dev/null 2>&1; then
   printf browser > /var/lib/aelion/desktop-stage
-  timeout 1200 apt-get install -y --no-install-recommends chromium
-elif ! command -v google-chrome-stable >/dev/null 2>&1; then
-  printf browser > /var/lib/aelion/desktop-stage
-  mkdir -p /var/cache/aelion
-  curl --fail --location --retry 3 --connect-timeout 30 --max-time 900 https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /var/cache/aelion/google-chrome.deb
-  test "$(dpkg-deb -f /var/cache/aelion/google-chrome.deb Package)" = google-chrome-stable
-  sha256sum /var/cache/aelion/google-chrome.deb > /var/lib/aelion/chrome-download.sha256
-  timeout 600 apt-get install -y /var/cache/aelion/google-chrome.deb
+  timeout 1200 apt-get -o Acquire::Retries=2 install -y --no-install-recommends chromium
 fi
 printf finishing > /var/lib/aelion/desktop-stage
 sed -i 's/^# *zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/' /etc/locale.gen
@@ -167,7 +160,7 @@ systemctl is-active --quiet lightdm
 pgrep -u aelion -x xfce4-session >/dev/null
 runuser -u aelion -- /usr/local/bin/aelion-session /usr/local/bin/aelion-style
 command -v aelion-browser thunar libreoffice xclip xdotool
-if [ "$arch" = arm64 ] || [ '`+(preferChromium?'1':'0')+String.raw`' = 1 ]; then command -v chromium; else command -v google-chrome-stable; fi
+if [ "$arch" = arm64 ] || [ '`+(preferChromium?'1':'0')+String.raw`' = 1 ]; then command -v chromium; else command -v google-chrome-stable || command -v chromium; fi
 touch /var/lib/aelion/desktop-ready
 printf '`+WORKSTATION_VERSION+String.raw`' > /var/lib/aelion/workstation-version
 trap - EXIT

@@ -1,0 +1,6 @@
+.markdown-table-scroll{max-width:100%;overflow:auto;margin:.8em 0;border:1px solid #dedfe2;border-radius:10px}
+.markdown-table-scroll table{border-collapse:collapse;min-width:100%;width:max-content;font-size:.94em;line-height:1.6}
+.markdown-table-scroll th,.markdown-table-scroll td{max-width:34rem;padding:9px 13px;border-right:1px solid #e3e4e7;border-bottom:1px solid #e3e4e7;text-align:left;overflow-wrap:anywhere}
+.markdown-table-scroll th{font-weight:600;background:#f4f4f5}
+.markdown-table-scroll tr:last-child td{border-bottom:0}.markdown-table-scroll tr>:last-child{border-right:0}
+.markdown-table-scroll td>:first-child{margin-top:0}.markdown-table-scroll td>:last-child{margin-bottom:0}

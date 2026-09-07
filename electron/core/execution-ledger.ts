@@ -18,8 +18,13 @@ export function executionTarget(tool:string,args:Record<string,unknown>,botId:st
 }
 export class ExecutionLedger {
   constructor(private store:Store){}
-  list(botId:string,runId?:string){this.store.bot(botId);const run=this.store.data.runs.find(r=>r.id===runId&&r.botId===botId),work=this.store.data.workItems?.find(w=>w.id===run?.workItemId&&w.botId===botId);return this.store.data.runs.filter(run=>run.botId===botId&&(!runId||run.id===runId||work?.runIds.includes(run.id))).flatMap(run=>run.executions||[]);}
-  forTask(botId:string,runId:string){const run=this.store.data.runs.find(r=>r.id===runId&&r.botId===botId),work=this.store.data.workItems?.find(item=>item.id===run?.workItemId&&item.botId===botId);return work?this.store.data.runs.filter(r=>r.botId===botId&&work.runIds.includes(r.id)).flatMap(r=>r.executions||[]):this.list(botId,runId);}
+  list(botId:string,runId?:string){this.store.bot(botId);return runId?this.forTask(botId,runId):this.store.data.runs.filter(run=>run.botId===botId).flatMap(run=>run.executions||[]);}
+  forTask(botId:string,runId:string){
+    const run=this.store.data.runs.find(r=>r.id===runId&&r.botId===botId);if(!run)return [];
+    const work=this.store.data.workItems?.find(item=>item.id===run.workItemId&&item.botId===botId),ids=new Set(work?.runIds||[runId]);
+    for(const id of ids){const current=this.store.data.runs.find(r=>r.id===id&&r.botId===botId),previous=this.store.data.runs.find(r=>r.id===current?.resumedFromRunId&&r.botId===botId&&r.workspaceDir===current.workspaceDir);if(previous)ids.add(previous.id);}
+    return this.store.data.runs.filter(r=>r.botId===botId&&ids.has(r.id)).flatMap(r=>r.executions||[]);
+  }
   begin(botId:string,runId:string,call:ToolCall,args:Record<string,unknown>,hostWorkspace?:string){
     const run=this.store.data.runs.find(run=>run.id===runId&&run.botId===botId);if(!run)throw Error('执行任务不存在');
     const entry:ToolExecution={id:randomUUID(),callId:call.id,botId,runId,tool:call.function.name,...executionTarget(call.function.name,args,botId,hostWorkspace),status:'running',startedAt:new Date().toISOString()};

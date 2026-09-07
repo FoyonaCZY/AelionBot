@@ -1,4 +1,5 @@
 import type {ChatMessage,RunRecord} from './shared';
+import {isContextCapacityFailure} from './context-issue';
 
 const operations:Record<string,{label:string;active:string;icon:string}>={
   execution_list:{label:'核对执行记录',active:'正在核对执行记录',icon:'check'},
@@ -93,12 +94,13 @@ export function readableContent(content:string){
   return content.replace(/<(think|thinking|analysis)>[\s\S]*?<\/\1>/gi,'').replace(/<(think|thinking|analysis)>[\s\S]*$/gi,'').replace(/<\/(think|thinking|analysis)>/gi,'').trim();
 }
 
-export interface Notice {title:string;description:string;settings?:'model'|'computer'|'mcp';}
+export interface Notice {title:string;description:string;settings?:'model'|'computer'|'mcp';context?:boolean;}
 export function friendlyError(raw:string):Notice{
   if(/HTTP\s*(401|403)\b|unauthorized|invalid.api.key|身份验证|凭据无效/i.test(raw))return {title:'模型连接需要检查',description:'请确认 API Key 和模型访问权限，再继续这项工作。',settings:'model'};
   if(/HTTP\s*429\b|rate.limit|too.many.requests|额度|限流/i.test(raw))return {title:'模型暂时达到使用限制',description:'可以稍后继续，或在设置中更换可用模型。',settings:'model'};
   if(/HTTP\s*5\d\d\b|service.temporarily.unavailable/i.test(raw))return {title:'模型服务暂时不可用',description:'已有工作记录保留，可以稍后继续。'};
-  if(/上下文|context.length|token.limit|执行上限|30 轮/i.test(raw))return {title:'这项工作需要分步继续',description:'已有结果已保留，可以继续处理剩余部分。'};
+  if(isContextCapacityFailure(raw))return {title:'上下文空间不足',description:'工作记录已保留。请调整模型上下文容量或缩小任务输入后继续。',settings:'model',context:true};
+  if(/执行上限|执行.*预算|30 轮/i.test(raw))return {title:'已达到本轮执行预算',description:'已有结果已保留，可以继续处理剩余部分。'};
   if(/工作电脑.*(就绪|启动|准备)|VM.*(ready|running)|SSH|ECONNREFUSED.*127\.0\.0\.1/i.test(raw))return {title:'工作电脑连接中断',description:'请检查工作电脑状态，恢复连接后继续。',settings:'computer'};
   if(/MCP.*未启用|MCP.*授权/i.test(raw))return {title:'外部工具需要设置',description:'请在设置的 MCP 页面检查服务状态，再继续工作。',settings:'mcp'};
   if(/timeout|timed.out|超时/i.test(raw))return {title:'等待响应超时',description:'当前工作已暂停，继续前会先核对已有结果。'};

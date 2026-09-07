@@ -1,6 +1,6 @@
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {AttachmentList} from './Attachments';
-import Markdown from 'react-markdown';
+import Markdown from './MessageMarkdown';
 import type {Bot,ChatMessage,StreamingReply as Reply} from './shared';
 import type {BotIdentity,PeerChatPage,PeerExchangeView,PeerMessage,PeerView} from './peer-types';
 import {peerPending,peerStatusLabel} from './peer-types';
@@ -40,7 +40,6 @@ export function PrivateChatWindow({panel,view,bots,streamingReplies=[],avatarAct
   const owner=bots.find(bot=>bot.id===panel.ownerId),thread=view?.threads.find(thread=>thread.id===panel.threadId)||page?.thread;
   useLayoutEffect(()=>{const previous=document.activeElement as HTMLElement|null;root.current?.focus({preventScroll:true});return()=>{if(previous?.isConnected)previous.focus({preventScroll:true});else document.querySelector<HTMLElement>('.bot-item.selected')?.focus({preventScroll:true});};},[]);
   useEffect(()=>{const escape=(event:KeyboardEvent)=>{if(document.querySelector('.attachment-preview-layer'))return;if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close.current();}};window.addEventListener('keydown',escape,true);return()=>window.removeEventListener('keydown',escape,true);},[]);
-  useEffect(()=>{void window.aelion.setWindowDimmed?.(true).catch(()=>{});return()=>{void window.aelion.setWindowDimmed?.(false).catch(()=>{});};},[]);
   useEffect(()=>{setPage(undefined);setError('');follow.current=true;jump.current=panel.exchangeId||'';},[panel.threadId]);
   useEffect(()=>{
     if(!panel.threadId)return;let active=true;setLoading(true);

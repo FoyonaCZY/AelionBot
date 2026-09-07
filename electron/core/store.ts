@@ -97,7 +97,7 @@ export class Store {
     const seen=new Set<string>();let id:string|undefined=runId;
     while(id&&!seen.has(id)){
       seen.add(id);const run=this.data.runs.find(run=>run.id===id),message=this.data.messages.filter(message=>message.runId===id&&message.role==='user'&&!message.reaction&&!message.peer&&(!run||message.botId===run.botId)).at(-1);if(message)return message;
-      const previous=this.data.runs.find(previous=>previous.id===run?.supersedesRunId&&previous.botId===run?.botId&&previous.inputUpdated&&!previous.peerOrigin&&!previous.groupOrigin);id=previous?.id;
+      const previous=this.data.runs.find(previous=>previous.id===(run?.resumedFromRunId||run?.supersedesRunId)&&previous.botId===run?.botId&&(run?.resumedFromRunId||previous.inputUpdated)&&!previous.peerOrigin&&!previous.groupOrigin);id=previous?.id;
       if(!id&&run?.workItemId){const work=this.data.workItems?.find(item=>item.id===run.workItemId&&item.botId===run.botId),source=this.data.messages.find(m=>m.id===work?.sourceMessageId&&m.botId===run.botId&&m.role==='user'&&!m.reaction);if(source)return source;}
     }
   }

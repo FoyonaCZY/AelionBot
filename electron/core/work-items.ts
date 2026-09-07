@@ -23,7 +23,7 @@ export class WorkItems {
   begin(run:RunRecord,options:HarnessRunOptions,source?:{id:string;content:string}){
     const command=source?workCommand(source.content):undefined;
     if(command&&!this.store.data.workItems!.some(item=>item.botId===run.botId&&item.sourceMessageId===source?.id)){if(!command.objective)throw Error(`请在 /${command.kind} 后填写任务内容`);return this.create(run,command.kind,command.objective,'user',source?.id);}
-    const carry=this.store.data.runs.find(r=>r.botId===run.botId&&r.id===(options.supersedesRunId||options.groupTaskFrom));
+    const carry=this.store.data.runs.find(r=>r.botId===run.botId&&r.id===(options.resumeRunId||options.supersedesRunId||options.groupTaskFrom));
     if(!options.workItemId&&source&&carry&&carry.workspaceDir!==run.workspaceDir)return;
     const pending=source&&!command?[...this.store.data.workItems!].reverse().find(item=>item.botId===run.botId&&item.scope.kind===(run.groupOrigin?'group':'bot')&&item.scope.id===(run.groupOrigin?.groupId||run.botId)&&item.workspaceDir===run.workspaceDir):undefined;
     const id=options.workItemId||carry?.workItemId||(pending?.kind==='plan'&&pending.createdBy==='user'&&!pending.approvedAt&&['ready','paused'].includes(pending.status)?pending.id:undefined);if(!id)return;

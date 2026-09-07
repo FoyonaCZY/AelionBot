@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import Markdown from 'react-markdown';
+import Markdown from './MessageMarkdown';
 import type {ChatMessage} from './shared';
 import {toolResult,toolDisplay,toolOperation} from './activity';
 import {Icon,bytes} from './ui';
@@ -42,8 +42,9 @@ function DataView({value,depth=0}:{value:unknown;depth?:number}){
   if(!entries.length)return <p className="detail-empty">没有额外的返回内容</p>;
   return <dl className="detail-fields">{entries.slice(0,50).map(([key,item])=><div className={item&&typeof item==='object'?'detail-nested':''} key={key}><dt>{fieldLabel(key)}</dt><dd><DataView value={item} depth={depth+1}/></dd></div>)}</dl>;
 }
-export function ErrorDetails({error,exitCode}:{error:string;exitCode?:number}){
+export function ErrorDetails({error,exitCode,compact=false}:{error:string;exitCode?:number;compact?:boolean}){
   const detail=errorExplanation(error);
+  if(compact)return <p className="detail-error-inline">{detail.message}{detail.code&&<small> · {detail.code}</small>}</p>;
   return <div className="detail-error"><div className="detail-error-title"><Icon name="alert" size={17}/><strong>{detail.title}</strong></div><p>{detail.message}</p><div className="detail-error-meta">{detail.code&&<span>{detail.code}</span>}{detail.location&&<span>{detail.location}</span>}{exitCode!==undefined&&<span>退出码 {exitCode}</span>}</div></div>;
 }
 function Collection({items,kind}:{items:unknown[];kind:'skills'|'servers'|'tools'|'resources'|'prompts'}){

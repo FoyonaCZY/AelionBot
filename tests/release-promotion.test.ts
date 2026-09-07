@@ -12,9 +12,9 @@ function fixture(){
   jobs:{jobs:['windows-x64','macos-arm64','macos-x64'].map(name=>({name,conclusion:'success',steps:[...common,...(name==='windows-x64'?['Build and verify Windows installer']:['Build and verify Mac installers','Verify packaged Mac app','Verify Mac Linux desktop and persistence'])].map(name=>({name,conclusion:'success'}))}))},
   artifacts:{artifacts:['AelionBot-windows-x64','AelionBot-macos-arm64','AelionBot-macos-x64'].map(name=>({name,expired:false,size_in_bytes:100}))}};
 }
-function validate(data:ReturnType<typeof fixture>,id='1234'){
+function validate(data:ReturnType<typeof fixture>,id='1234',platforms='all'){
  let output='';
- runInNewContext(source,{process:{env:{BUILD_RUN_ID:id,GITHUB_REPOSITORY:'example/AelionBot',GITHUB_OUTPUT:'result'}},console:{log:()=>{}},require:(name:string)=>{
+ runInNewContext(source,{process:{env:{BUILD_RUN_ID:id,BUILD_PLATFORMS:platforms,GITHUB_REPOSITORY:'example/AelionBot',GITHUB_OUTPUT:'result'}},console:{log:()=>{}},require:(name:string)=>{
   if(name==='node:fs')return {appendFileSync:(_path:string,text:string)=>{output+=text;}};
   if(name==='node:child_process')return {execFileSync:(_command:string,args:string[])=>JSON.stringify(args[1].includes('/jobs?')?data.jobs:args[1].includes('/artifacts?')?data.artifacts:data.run)};
   throw Error('Unexpected import');
@@ -23,6 +23,12 @@ function validate(data:ReturnType<typeof fixture>,id='1234'){
 }
 test('release promotion pins the source from a complete three-platform build',()=>{
  assert.equal(validate(fixture()),'sha='+ 'a'.repeat(40)+'\nrun_id=1234\n');
+});
+test('Windows-only promotion requires Windows tests and assets without requiring Mac jobs',()=>{
+ const data=fixture();data.jobs.jobs=data.jobs.jobs.slice(0,1);data.artifacts.artifacts=data.artifacts.artifacts.slice(0,1);
+ assert.equal(validate(data,'1234','windows'),'sha='+ 'a'.repeat(40)+'\nrun_id=1234\n');assert.throws(()=>validate(data),/Required checks/);
+ data.jobs.jobs[0].steps.find(step=>step.name==='Test')!.conclusion='skipped';assert.throws(()=>validate(data,'1234','windows'),/Required checks/);
+ assert.throws(()=>validate(fixture(),'1234','invalid'),/Invalid release platforms/);
 });
 test('release promotion rejects unfinished builds, foreign code and missing VM verification',()=>{
  for(const patch of [{status:'in_progress'},{conclusion:'failure'},{event:'pull_request'},{path:'other.yml'},{head_repository:{full_name:'other/repository'}},{head_sha:'invalid'}]){

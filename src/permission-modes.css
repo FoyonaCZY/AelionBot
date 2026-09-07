@@ -1,1 +1,18 @@
-.permission-mode{display:flex;align-items:center;gap:3px;position:relative;flex-shrink:0;color:#89818f}.permission-mode .aelion-select{border:0;background:transparent;box-shadow:none;min-height:30px;padding:5px 5px 5px 2px;font-size:11px;min-width:88px;color:inherit;border-radius:7px}.permission-mode .aelion-select:hover{background:#f4f1f8}.permission-mode-auto{color:#8767bf}.permission-mode-full{color:#a57940}.permission-mode-error{position:absolute;bottom:calc(100% + 9px);right:0;width:260px;border:1px solid #eadbd8;background:#fff8f6;padding:10px;border-radius:9px;box-shadow:0 5px 20px #0001;display:flex;gap:8px;font-size:11px;line-height:1.6;z-index:35;color:#956658}.permission-mode-error button{margin-left:auto}.approval-review-note{font-size:11px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere;color:#8d7ea4;margin:0 0 12px}.approval-reviewing .request-status{animation:pulse 1.5s ease-in-out infinite}.approval-reviewing .permission-body{max-height:250px}@media(max-width:1120px){.permission-mode{gap:1px}.permission-mode .aelion-select{min-width:82px;font-size:10px}}
+.permission-mode{display:inline-flex;align-items:center;position:relative;flex-shrink:0}
+.permission-mode>.aelion-select{width:auto;min-width:88px;min-height:29px;padding:4px 8px;gap:6px;border:1px solid #ececef;border-radius:6px;background-color:#f7f7f8;box-shadow:none;color:#65656e;font-size:12px;line-height:1.5}
+.permission-mode>.aelion-select:not(:disabled):hover{border-color:#dedee3;background-color:#f0f0f2;color:#393940;box-shadow:none}
+.permission-mode>.aelion-select:open{border-color:#d9d9df;background-color:#ededf0;color:#393940;box-shadow:none}
+.permission-mode>.aelion-select:focus-visible{outline:2px solid #b2b2bc;outline-offset:2px;box-shadow:none}
+.permission-mode>.aelion-select::picker-icon{flex-basis:11px;width:11px;height:11px;background:#95959f}
+@supports(appearance:base-select){
+  .permission-mode>.aelion-select::picker(select){width:176px;max-width:calc(100vw - 24px);left:auto;right:anchor(right);margin:7px 0;padding:4px;border:1px solid #e4e4e8;border-radius:7px;background:#fff;box-shadow:0 5px 18px #20202712;font-size:13px}
+  .permission-mode>.aelion-select option{min-height:36px;padding:8px 11px;gap:14px;border-radius:4px;white-space:nowrap;overflow-wrap:normal;font-size:13px;font-weight:400;color:#56565f}
+  .permission-mode>.aelion-select option:checked{background:transparent;color:#303038;font-weight:500}
+  .permission-mode>.aelion-select option:hover,.permission-mode>.aelion-select option:focus-visible{background:#f2f2f5;color:#303038}
+  .permission-mode>.aelion-select option::checkmark{background:#66666f}
+}
+.permission-mode-error{position:absolute;bottom:calc(100% + 9px);right:0;width:260px;max-width:calc(100vw - 24px);padding:10px 12px;border:1px solid #e5dcdb;border-radius:8px;background:#fff;box-shadow:0 4px 16px #24212b0d;display:flex;align-items:flex-start;gap:8px;font-size:11px;line-height:1.7;z-index:35;color:#996b66}
+.permission-mode-error button{margin-left:auto;flex-shrink:0;padding:2px;color:inherit}
+.approval-review-note{font-size:11px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere;color:#8d7ea4;margin:0 0 12px}
+.approval-reviewing .request-status{animation:pulse 1.5s ease-in-out infinite}
+.approval-reviewing .permission-body{max-height:250px}

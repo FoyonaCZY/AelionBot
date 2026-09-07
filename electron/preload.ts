@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { AelionAPI, AppEvent } from '../src/shared';
 const api:AelionAPI={
   setHostPermissionMode:input=>ipcRenderer.invoke('permissions:mode',input),
@@ -12,6 +12,9 @@ const api:AelionAPI={
   installUpdate:()=>ipcRenderer.invoke('updates:install'),
   openUpdateRelease:()=>ipcRenderer.invoke('updates:open-release'),
   pickAttachments:scope=>ipcRenderer.invoke('attachments:pick',scope),
+  prepareAttachmentDrop:async input=>{if(!Array.isArray(input.files)||input.files.length>10)throw Error('一次最多拖入 10 个文件或文件夹');const paths:string[]=[],virtualIndexes:number[]=[];input.files.forEach((file,index)=>{const path=webUtils.getPathForFile(file);if(path)paths.push(path);else virtualIndexes.push(index);});return {entries:await ipcRenderer.invoke('attachments:drop-prepare',{scope:input.scope,paths}),virtualIndexes};},
+  prepareAttachmentPaste:scope=>ipcRenderer.invoke('attachments:paste-prepare',scope),
+  applyAttachmentDrop:input=>ipcRenderer.invoke('attachments:drop-apply',input),
   pasteAttachments:scope=>ipcRenderer.invoke('attachments:paste',scope),
   importAttachments:input=>ipcRenderer.invoke('attachments:import',input),
   previewAttachment:id=>ipcRenderer.invoke('attachments:preview',id),
@@ -26,6 +29,7 @@ const api:AelionAPI={
   deleteBot:id=>ipcRenderer.invoke('bot:delete',id),
   updateBot:input=>ipcRenderer.invoke('bot:update',input),
   send:input=>ipcRenderer.invoke('chat:send',input),
+  resumeChat:input=>ipcRenderer.invoke('chat:resume',input),
   pinChat:input=>ipcRenderer.invoke('chat:pin',input),
   pinGroup:input=>ipcRenderer.invoke('groups:pin',input),
   readPrivateChat:input=>ipcRenderer.invoke('peers:read',input),
@@ -57,7 +61,7 @@ const api:AelionAPI={
   ensureComputerDesktop:botId=>ipcRenderer.invoke('computer:ensure',botId),
   setComputerControl:input=>ipcRenderer.invoke('computer:control',input),
   setComputerFullscreen:enabled=>ipcRenderer.invoke('computer:fullscreen',enabled),
-  setWindowDimmed:enabled=>ipcRenderer.invoke('window:dimmed',enabled),
+  setWindowDimmed:(enabled,color)=>ipcRenderer.invoke('window:dimmed',enabled,color),
   respondInteraction:input=>ipcRenderer.invoke('interaction:respond',input),
   setCommandPermissionEnabled:input=>ipcRenderer.invoke('permissions:command-enabled',input),
   removeCommandPermission:id=>ipcRenderer.invoke('permissions:command-remove',id),

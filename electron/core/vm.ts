@@ -13,8 +13,8 @@ import type { CommandResult, VmState } from '../../src/shared';
 import { atomicJson } from './store';
 import { DESKTOP_SCRIPT, WORKSTATION_VERSION, SESSION_LAUNCHER } from './desktop-profile';
 import { BOT_DESKTOP_SCRIPT,BOT_DESKTOP_VERSION } from './bot-desktop-profile';
-import { verifiedDownload, fileHash } from './download';
-import {workstationProgress} from './workstation-progress';
+import { verifiedDownload, fileHash,type ResourceFetch } from './download';
+import {workstationProgress,workstationFailure} from './workstation-progress';
 
 const runFile = promisify(execFile);
 const { Client, utils } = ssh2;
@@ -25,7 +25,7 @@ async function freePort(): Promise<number> {
   return new Promise((ok, fail) => { const server=createTcpServer(); server.once('error',fail); server.listen(0,'127.0.0.1',()=>{const address=server.address(); const port=typeof address==='object'&&address?address.port:0;server.close(()=>ok(port));}); });
 }
 interface VmRecord {arch?:GuestArch;id: string; pid?: number; initialized?:boolean; sshPort: number; qmpPort: number; vncPort: number; seedPort: number; seedToken: string; hostKeyHash: string; preparedAt: string; }
-export interface VmOptions { dataDir: string; runtimeDir: string; cacheDir: string; memoryMiB?: number;cpuCount?:number;platform?:NodeJS.Platform;arch?:GuestArch;accelerator?:'tcg'|'hvf'|'whpx';startupTimeoutMs?:number;skipDesktop?:boolean; }
+export interface VmOptions { dataDir: string; runtimeDir: string; cacheDir: string; memoryMiB?: number;cpuCount?:number;platform?:NodeJS.Platform;arch?:GuestArch;accelerator?:'tcg'|'hvf'|'whpx';startupTimeoutMs?:number;skipDesktop?:boolean;downloadFetch?:ResourceFetch; }
 
 const INIT_SCRIPT = `#!/bin/sh
 set -eu
@@ -81,10 +81,9 @@ export class VmController extends EventEmitter {
     const cache=join(this.options.cacheDir,imageProfile.filename);
     if(!existsSync(base)&&existsSync(cache)) {
       this.update({detail:'校验本地镜像缓存'});
-      if(await fileHash(cache)!==imageProfile.sha512) throw new Error('镜像缓存校验失败');
-      copyFileSync(cache,base);
+      if(await fileHash(cache)===imageProfile.sha512)copyFileSync(cache,base);else this.update({detail:'本地镜像缓存校验失败，正在重新下载'});
     }
-    await verifiedDownload(imageProfile.url,base,imageProfile.sha512,(progress,detail)=>this.update({progress,detail}));
+    await verifiedDownload(imageProfile.url,base,imageProfile.sha512,(progress,detail)=>this.update({progress,detail}),'sha512',{fetch:this.options.downloadFetch,mirrors:imageProfile.mirrors});
     const img=qemuBinary(this.options.runtimeDir,this.platform.imageTool);
     const rootDisk=join(this.dir,'system.qcow2');const workDisk=join(this.dir,'work.qcow2');
     if(!existsSync(rootDisk)) await runFile(img,['create','-f','qcow2','-F','qcow2','-b',base,rootDisk,'16G'],{windowsHide:true});
@@ -184,7 +183,7 @@ export class VmController extends EventEmitter {
       }catch{/* SSH readiness is polled; process remains authoritative. */}
       await sleep(1500);
     }
-    throw new Error('工作电脑进程仍在运行，但初始化超过 4 分钟。没有重新启动实例，请查看 serial.log。');
+    throw new Error(`工作电脑进程仍在运行，但初始化超过 ${Math.ceil((this.options.startupTimeoutMs||240000)/60000)} 分钟。请查看工作电脑启动日志后重试。`);
   }); }
   async qmp(command: string, args?:Record<string,unknown>):Promise<any> {
     if(!this.record?.qmpPort)throw new Error('工作电脑尚未运行');
@@ -212,7 +211,7 @@ export class VmController extends EventEmitter {
         const desktop=result.stdout.includes('DESKTOP');
         const lock=await this.execRaw('flock -n /var/lib/aelion/desktop.lock -c true','root',4000);
         const maintenance=lock.exitCode!==0;
-        if(result.stdout.includes('READY')){if(!this.record.initialized){this.record.initialized=true;this.persist();}const appsReady=result.stdout.includes('APPS'),needsReboot=result.stdout.includes('NEEDS_REBOOT');this.update({status:'ready',detail:maintenance?workstationProgress(result.stdout):needsReboot?'应用已安装，请重启工作电脑完成初始化':desktop&&appsReady?'工作电脑已就绪':desktop?'桌面在线，应用环境需要准备':'正在准备桌面',pid:this.record.pid,sshPort:this.record.sshPort,desktopReady:desktop,appsReady,maintenance,needsReboot,lastError:result.stdout.includes('TOOL_ERROR')?'应用环境准备失败，请使用“修复工作环境”重试。':undefined});}
+        if(result.stdout.includes('READY')){if(!this.record.initialized){this.record.initialized=true;this.persist();}const appsReady=result.stdout.includes('APPS'),needsReboot=result.stdout.includes('NEEDS_REBOOT');this.update({status:'ready',detail:maintenance?workstationProgress(result.stdout):needsReboot?'应用已安装，请重启工作电脑完成初始化':desktop&&appsReady?'工作电脑已就绪':desktop?'桌面在线，应用环境需要准备':'正在准备桌面',pid:this.record.pid,sshPort:this.record.sshPort,desktopReady:desktop,appsReady,maintenance,needsReboot,lastError:result.stdout.includes('TOOL_ERROR')?workstationFailure(result.stdout):undefined});}
         else await this.seed();
         await this.bridge();
       }
