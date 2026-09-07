@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="460" viewBox="0 0 1280 460" fill="none">
+  <title>AelionBot 的好搭档</title><desc>蓝、紫、绿三位 Bot 伙伴站在一起，保留 AelionBot 灵动的轮廓和白色眼睛。</desc>
+  <defs>
+    <radialGradient id="stage"><stop stop-color="#30243f"/><stop offset="1" stop-color="#0b0b10"/></radialGradient>
+    <radialGradient id="purple" cx=".29" cy=".18" r=".95"><stop stop-color="#b29af8"/><stop offset=".48" stop-color="#8b6bea"/><stop offset="1" stop-color="#5136a0"/></radialGradient>
+    <radialGradient id="blue" cx=".29" cy=".18" r=".95"><stop stop-color="#94cbfd"/><stop offset=".48" stop-color="#518fe3"/><stop offset="1" stop-color="#3252a5"/></radialGradient>
+    <radialGradient id="green" cx=".29" cy=".18" r=".95"><stop stop-color="#9ad5c8"/><stop offset=".48" stop-color="#51a28e"/><stop offset="1" stop-color="#2a625c"/></radialGradient>
+    <filter id="floor"><feGaussianBlur stdDeviation="15"/></filter>
+    <g id="eyes"><ellipse cx="48" cy="52" rx="5" ry="10" fill="white" transform="rotate(-14 48 52)"/><ellipse cx="72" cy="48" rx="5" ry="10" fill="white" transform="rotate(-14 72 48)"/></g>
+  </defs>
+  <rect width="1280" height="460" rx="24" fill="#0b0b10"/>
+  <ellipse cx="640" cy="380" rx="440" ry="100" fill="url(#stage)"/>
+  <ellipse cx="640" cy="402" rx="300" ry="12" fill="#685180" opacity=".23" filter="url(#floor)"/>
+  <g transform="translate(220 133) rotate(-12 130 130) scale(2.12)"><path d="M62 6C94 6 112 28 112 62C112 92 92 112 58 112C24 112 8 92 8 60C8 28 30 6 62 6Z" fill="url(#blue)"/><use href="#eyes"/></g>
+  <g transform="translate(839 118) rotate(13 113 113) scale(1.97)"><path d="M62 6C94 6 112 28 112 62C112 92 92 112 58 112C24 112 8 92 8 60C8 28 30 6 62 6Z" fill="url(#green)"/><use href="#eyes"/></g>
+  <g transform="translate(433 30) rotate(-5 200 200) scale(3.25)"><path d="M62 6C94 6 112 28 112 62C112 92 92 112 58 112C24 112 8 92 8 60C8 28 30 6 62 6Z" fill="url(#purple)"/><use href="#eyes"/></g>
+</svg>

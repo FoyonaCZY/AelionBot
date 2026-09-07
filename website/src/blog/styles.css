@@ -112,3 +112,13 @@
 /* Long-form reading uses firmer contrast than the illustrative homepage. */
 .blog-heading>p,.post-card-copy>p,.article-description,.article-meta,.post-card-meta,.blog-empty>p,.article-body,.question-answer p{color:#726879}
 .article-toc a,.article-toc .toc-level-3,.article-bottom,.post-card-author{color:#897392}
+
+/* Keep the journal in the same restrained product language. */
+.blog-site{background:#fff}.blog-heading h1,.blog-not-found h1{font-weight:600;letter-spacing:-.045em}
+.blog-heading h1 em,.blog-not-found h1 em{color:#929099;font-style:normal;font-weight:600}
+.blog-eyebrow,.blog-home-link,.post-card-meta,.post-card-author,.article-meta,.article-description{color:#93909a}
+.blog-heading>p,.post-card-copy>p,.article-body{color:#66616d}
+.blog-empty{border:0;background:#f6f6f8;border-radius:15px}.blog-empty-symbol{rotate:0;box-shadow:none;border:0;background:#ecebf0;color:#91869f}
+.blog-empty h3{color:#55505c}.blog-empty>p{color:#98919f}.post-tag{background:#f3f2f5;border-color:transparent;color:#92859d}
+.post-card{border-bottom-color:#e9e7ec}.article-layout,.post-index-heading{border-color:#e7e5eb}
+.article-header h1{font-weight:600;color:#302a36}.author-dot{box-shadow:none}

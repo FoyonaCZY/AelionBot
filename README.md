@@ -2,105 +2,94 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="docs/assets/logo-light.svg">
-    <img src="docs/assets/logo-light.svg" alt="AelionBot" width="390">
+    <img src="docs/assets/logo-light.svg" alt="AelionBot" width="320">
   </picture>
 </p>
 
-<h3 align="center">组建你的 AI 工作团队</h3>
+<h2 align="center">好想法，一起做出来。</h2>
 
-<p align="center">把资料和想法发给伙伴，和它们一起推进手头的工作。</p>
+<p align="center">让擅长不同事情的 AI 伙伴，来到你的桌面。</p>
 
 <p align="center">
-  <a href="https://aelion.chat/">官网</a>
+  <a href="https://aelion.chat/">逛逛官网</a>
   &nbsp;·&nbsp;
-  <a href="https://aelion.chat/blog/">技术博客</a>
+  <a href="https://github.com/FoyonaCZY/AelionBot/releases/latest">下载 Windows 版</a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/FoyonaCZY/AelionBot/releases">下载 Windows / Mac 版</a>
-  &nbsp;·&nbsp;
-  <a href="#用在哪些工作里">应用场景</a>
+  <a href="https://aelion.chat/blog/">博客</a>
   &nbsp;·&nbsp;
   <a href="https://github.com/FoyonaCZY/AelionBot/issues">反馈建议</a>
 </p>
 
-AelionBot 是一个桌面 AI 工作空间。你可以创建各有分工的 Bot，让它们处理资料、撰写内容或制作小工具。简单的事情单独聊，需要配合的工作拉个群，在同一个地方沟通、查看进展和接收成果。
+<p align="center"><img src="docs/assets/product/companions.svg" alt="各有本事，一起做事的 AelionBot 伙伴" width="100%"></p>
 
-macOS 15 及以上提供 Apple Silicon 和 Intel 两种预览包，已附带对应的工作电脑运行时。Mac 预览包使用临时签名，尚未公证；首次打开和手动更新说明见 [Mac 预览版说明](docs/releases/v0.6.0.md)。
+AelionBot 是一个和 AI 伙伴一起工作的地方。给它们起名字、安排分工，把手头的资料和想法交过去，再一起把事情做完。
 
-## 可以做什么
+一场分享、一份报表、一个自己想用的小工具，都可以从一句话开始。你可以随时补充要求、看看进展，也可以把几位伙伴拉进群里，让它们互相配合。
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>按职责组建团队</h3>
-      <p>给每位 Bot 起个名字，安排它负责的工作。可以让一位整理资料，另一位专心写作，各自保留对话和工作记录。</p>
-      <p><img src="docs/assets/screenshots/bot-team.png" alt="Bot 职责与资料" width="440"></p>
-    </td>
-    <td width="50%" valign="top">
-      <h3>单聊与群聊</h3>
-      <p>和一位伙伴聊需求，或把几位伙伴拉进群里协作。可以 @ 指定成员，Bot 之间也能私聊交换信息。</p>
-      <p><img src="docs/assets/screenshots/group-chat.png" alt="Bot 群聊协作" width="440"></p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>独立工作电脑</h3>
-      <p>每位 Bot 都有独立的工作桌面，可以浏览网页、处理文件和使用应用。你能查看进展，或亲自接管电脑。</p>
-      <p><img src="docs/assets/screenshots/computer.png" alt="伙伴的工作电脑" width="440"></p>
-    </td>
-    <td width="50%" valign="top">
-      <h3>资料随消息发送</h3>
-      <p>把文档、表格和图片随消息发过去，和伙伴围绕材料开展工作。完成的文件可以在对话中查看、保存。</p>
-      <p><img src="docs/assets/screenshots/attachments.png" alt="发送附件与查看成果" width="440"></p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>保留协作记忆</h3>
-      <p>伙伴可以记住你的偏好和已确认的信息，积累处理同类工作的经验。长期项目也能沿用之前的记录。</p>
-      <p><img src="docs/assets/screenshots/memory.png" alt="伙伴的记忆" width="440"></p>
-    </td>
-    <td width="50%" valign="top">
-      <h3>安排例行工作</h3>
-      <p>给单个 Bot 或群聊安排任务，约定某个时间执行，也可以每天、每周或按间隔重复。</p>
-      <p><sub>按计划执行时，需要保持应用开启。</sub></p>
-      <p><img src="docs/assets/screenshots/scheduled-tasks.png" alt="定时任务" width="440"></p>
-    </td>
-  </tr>
-</table>
+## 先交给它一件小事
 
-工作进展会显示在聊天里。需要你确认的本机操作会先提出请求，允许的范围也可以调整。
+> “这些材料，帮我准备一份下周分享的讲稿。主题是「让灵感有处可去」，大约十分钟。”
 
-### 工作目录、计划与目标
+伙伴会围绕你的材料整理思路、起草内容，把做好的文件交回对话里。读完后，继续告诉它：“开场再轻松一点”“这里加一个例子”，把作品慢慢改成你想要的样子。
 
-- 输入框左下角的 **＋** 可以上传附件、选择本机工作目录。目录按单聊或群聊保存，显示为可移除的标签；本机命令的默认目录和文件的相对路径使用该目录。已经开始的任务保留原目录，目录选择不会增加操作权限。
-- 输入 **`/plan 任务内容`**，Bot 先调查并生成带有验收条件的步骤清单。计划显示在输入框上方，点击 **开始执行** 后才允许实际修改项目。
-- 输入 **`/goal 目标内容`**，Bot 会建立目标并持续执行、核对结果；遇到阻碍会说明原因。卡片支持暂停、继续、查看步骤和完成依据。达到运行预算或应用退出时保留进展，不自动重复执行。
-- Bot 也能在已授权的任务范围内主动设置计划或目标，使用同一套步骤、执行记录和权限机制。输入 `/` 可以选择指令，附件、粘贴和 `@` 提及仍然可用。
+<p align="center"><img src="docs/assets/product/conversation.png" alt="写作伙伴整理分享思路，并在对话中交付讲稿" width="960"></p>
 
-### 本机权限模式
+<p align="center"><sub>当前版本的真实界面，使用示例任务展示。</sub></p>
 
-在 Bot 主会话输入框底部选择权限模式。设置按 Bot 保存，从群聊接下的工作也跟随这个设置，群聊没有独立的权限选择。
+## 每一位，都有自己的本事
 
-- **每次询问**：命令、文件等本机操作每次等待确认，不套用自动放行规则。
-- **自动审批**：工作目录内普通文件的读取、创建、编辑，以及可明确识别的简单文件命令，由本地规则直接放行，不消耗审核模型 Token。敏感配置、越界写入和其他未匹配的操作交给应用的默认模型审核。你已保存的命令规则仍可生效；模型审批本身不产生长期权限。
-- **完全访问**：Bot 的本机操作直接执行。VM 人工接管、远程 MCP 操作仍按各自流程处理。
+你可以有一位整理资料的伙伴、一位擅长写作的搭档，再加一位帮你做小工具的朋友。名字和职责由你决定，头像也能换成喜欢的颜色，试试渐变或拼色。
 
-自动审核不放行、未配置默认模型或审核失败时，会回到会话内请你确认。切换模式会重新处理尚未执行的请求，取消任务会撤销审核，过期的审核结果不能继续执行操作。
+需要专心处理一件事，就单独聊。需要不同的思路，就把伙伴们拉到一起。
 
-项目内编辑采用本地规则的设计参考了 [Claude Code 的权限模式](https://code.claude.com/docs/en/permission-modes) 和 [Gemini CLI 的写入策略](https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/policy/policies/write.toml)。本机权限模式是应用的执行审批层，不是操作系统沙箱。
+## 一起商量，也一起动手
 
-## 用在哪些工作里
+在群里交代任务，让资料伙伴先核对材料，写作伙伴接着起草，另一位再来检查。可以叫某位伙伴接手一部分，也能在过程中调整方向。
 
-| 你正在做的事 | 可以交给伙伴的工作                       |
-| ------ | ------------------------------- |
-| 资料调研   | 阅读文件和网页，提取要点，整理成附有来源的主题摘要。      |
-| 内容准备   | 搜集素材、整理提纲、起草文章，让不同伙伴分别参与撰写和校对。  |
-| 数据报表   | 核对几份表格，汇总数据，整理结果并说明值得关注的变化。     |
-| 网页与小工具 | 描述想要的功能，让伙伴协助编写、检查并交付可继续修改的文件。  |
-| 例行工作   | 按约定时间整理周报、汇总项目记录，或根据现有材料生成待办清单。 |
+每位伙伴都有自己的工作电脑，能够浏览网页、处理文件和使用应用。工作过程可以查看，需要时你也能亲自接管。
 
-例如，你可以在群里提出一个具体任务：
+<p align="center"><img src="docs/assets/product/collaboration.png" alt="资料、灵感与写作伙伴在同一群聊中配合，完成分享讲稿" width="960"></p>
 
-> “这几份材料是下周分享要用的。资料助手先核对内容，写作助手整理成十分钟的讲稿；有遗漏或拿不准的地方，在群里告诉我。”
+## 收到一些真正用得上的成果
 
-之后可以继续补充文件、调整要求，或让某位伙伴接着修改其中一部分。
+把文档、表格、图片和文件夹随消息发过去，让讨论围绕实际材料展开。完成的讲稿、整理好的资料或做出来的小工具，会回到对话里，方便查看和保存。
+
+做完一版，还可以接着改。你不用换一个地方重新说明需求。
+
+## 合作久了，沟通也更顺了
+
+喜欢怎样的表达、一个项目已经确认过哪些背景，伙伴都可以记下来。下一次接着聊时，就能沿着已有的记录继续工作。
+
+大一些的事情，可以先一起确定计划，再分步推进。你能查看步骤和进展，也能暂停后继续。每周的周报、每天的资料整理，则可以约好时间，让伙伴按计划处理。
+
+<sub>定时任务执行时，需要保持应用开启。</sub>
+
+## 你正好需要，它正好拿手
+
+| 你手头的事 | 试着这样开口 | 一起完成什么 |
+| --- | --- | --- |
+| 准备分享 | “这些材料，帮我整理成十分钟能讲清楚的内容。” | 有重点的提纲与讲稿，继续打磨到适合你的表达。 |
+| 阅读与研究 | “先帮我读完这些资料，整理重要结论和出处。” | 一份便于回看、可以继续追问的主题笔记。 |
+| 核对报表 | “这几份表格有哪些重复、遗漏和值得关注的变化？” | 整理后的汇总表，以及需要再核对的问题。 |
+| 制作小工具 | “我想要一个演讲时用的计时器，界面简单一点。” | 一件能试用、能继续调整的小作品。 |
+| 推进长期项目 | “先把接下来的事情列个计划，我们分步来。” | 看得见进展的工作过程，随时补充或调整方向。 |
+
+## 按你的节奏来
+
+你决定伙伴接触哪些资料、怎样获得操作许可。工作过程中，随时可以补充想法、暂停任务，或把某一步接回自己手里。
+
+你也可以先从一位伙伴开始。找到合拍的方式，再慢慢组建自己的小团队。
+
+---
+
+<h3 align="center">下一件事，一起做。</h3>
+
+<p align="center">
+  <a href="https://github.com/FoyonaCZY/AelionBot/releases/latest"><strong>下载 Windows 版</strong></a>
+  &nbsp;·&nbsp;
+  <a href="docs/releases/v0.6.0.md">Mac 预览版说明</a>
+  &nbsp;·&nbsp;
+  <a href="docs/USAGE.md">使用帮助</a>
+</p>
+
+<p align="center"><sub>首次使用，按引导连接你选择的 AI 服务；使用费用按所选服务计算。</sub></p>

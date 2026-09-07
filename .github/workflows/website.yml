@@ -1,0 +1,99 @@
+name: Deploy website
+run-name: Website · ${{ github.event.head_commit.message || 'Manual deployment' }}
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - 'docs/assets/**'
+      - 'assets/icon.svg'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - '.github/workflows/website.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aelion-website-production
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: website-production
+      url: https://aelion.chat
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Audit publication
+        run: npm run audit:publish
+      - name: Test website and deployment package
+        run: npm run site:test
+      - name: Test atomic deployment and rollback
+        run: python3 -m unittest discover -s website/deploy/tests -p 'test_*.py' -v
+      - name: Build website
+        run: npm run site:build
+      - name: Prepare verified package
+        shell: bash
+        run: |
+          set -euo pipefail
+          node website/deploy/prepare.mjs
+          tar -czf "$RUNNER_TEMP/aelion-website.tar.gz" -C website/dist .
+      - name: Save deployment package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: website-${{ github.sha }}
+          path: ${{ runner.temp }}/aelion-website.tar.gz
+          retention-days: 14
+          if-no-files-found: error
+      - name: Deploy website
+        shell: bash
+        env:
+          WEBSITE_HOST: ${{ vars.WEBSITE_HOST }}
+          WEBSITE_PORT: ${{ vars.WEBSITE_PORT }}
+          WEBSITE_USER: ${{ vars.WEBSITE_USER }}
+          WEBSITE_DEPLOY_KEY: ${{ secrets.WEBSITE_DEPLOY_KEY }}
+          WEBSITE_KNOWN_HOSTS: ${{ secrets.WEBSITE_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          : "${WEBSITE_HOST:?Missing WEBSITE_HOST}"
+          : "${WEBSITE_PORT:?Missing WEBSITE_PORT}"
+          : "${WEBSITE_USER:?Missing WEBSITE_USER}"
+          : "${WEBSITE_DEPLOY_KEY:?Missing WEBSITE_DEPLOY_KEY}"
+          : "${WEBSITE_KNOWN_HOSTS:?Missing WEBSITE_KNOWN_HOSTS}"
+          [[ "$WEBSITE_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
+          [[ "$WEBSITE_PORT" =~ ^[0-9]+$ && "$WEBSITE_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          ssh_dir=$(mktemp -d "$RUNNER_TEMP/aelion-website-ssh.XXXXXX")
+          trap 'rm -f -- "$ssh_dir/key" "$ssh_dir/known_hosts"; rmdir -- "$ssh_dir"' EXIT
+          umask 077
+          printf '%s\n' "$WEBSITE_DEPLOY_KEY" > "$ssh_dir/key"
+          printf '%s\n' "$WEBSITE_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          ssh -T -i "$ssh_dir/key" -p "$WEBSITE_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$ssh_dir/known_hosts" \
+            -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            "$WEBSITE_USER@$WEBSITE_HOST" \
+            "deploy $GITHUB_SHA $GITHUB_RUN_NUMBER $GITHUB_RUN_ATTEMPT" \
+            < "$RUNNER_TEMP/aelion-website.tar.gz"
+      - name: Verify public website
+        run: node website/deploy/verify.mjs
+      - name: Record deployed version
+        shell: bash
+        run: |
+          printf '### Website deployed\n\nhttps://aelion.chat/\n\nRevision: `%s`\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"

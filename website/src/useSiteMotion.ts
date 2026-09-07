@@ -15,11 +15,17 @@ export function useSiteMotion(rootRef:RefObject<HTMLDivElement|null>,enabled:boo
   useEffect(()=>{
     const root=rootRef.current;if(!root)return;
     let scrollFrame=0,pointerFrame=0,clientX=0,clientY=0;
+    const scenes=[...root.querySelectorAll<HTMLElement>('[data-scroll-scene]')];
     const updateScroll=()=>{
       scrollFrame=0;
       const distance=document.documentElement.scrollHeight-window.innerHeight;
       root.style.setProperty('--scroll-progress',String(distance>0?Math.min(1,Math.max(0,window.scrollY/distance)):0));
       root.dataset.scrolled=String(window.scrollY>28);
+      for(const scene of scenes){
+        const box=scene.getBoundingClientRect(),kind=scene.dataset.scrollScene;
+        const progress=kind==='hero'?-box.top/box.height:kind==='making'?(72-box.top)/Math.max(1,box.height-window.innerHeight+72):(window.innerHeight-box.top)/(window.innerHeight+box.height*.3);
+        scene.style.setProperty('--scene-progress',String(enabled?Math.max(0,Math.min(1,progress)):1));
+      }
     };
     const onScroll=()=>{if(!scrollFrame)scrollFrame=requestAnimationFrame(updateScroll);};
     const onPointer=(event:globalThis.PointerEvent)=>{

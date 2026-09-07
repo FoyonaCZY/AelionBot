@@ -14,7 +14,7 @@ npm run site:build
 npm run site:preview
 ```
 
-静态构建输出到 `website/dist/`。官网复用 `docs/assets/` 中的 Logo 和应用截图，版本号取自根目录 `package.json`。协作示例只用于介绍功能；下载、代码与反馈入口指向项目的 GitHub 页面。
+静态构建输出到 `website/dist/`。官网使用 `docs/assets/` 中的 Logo 与 `docs/assets/product/` 中新截取的产品画面，版本号取自根目录 `package.json`。截图来自真实应用组件，采用示例任务；Bot 主视觉和成果插画由网页直接绘制，配色、场景与滚动动效遵循系统的减少动态效果设置。下载、代码与反馈入口指向项目的 GitHub 页面。
 
 ## 写技术博客
 
@@ -45,7 +45,7 @@ draft: true
 
 草稿预览仅存在于本地开发服务。文章支持代码高亮与复制、表格、图片、引用和自动目录。图片放入 `website/public/blog-media/`，正文写 `![说明](/blog-media/图片名.png)`。
 
-准备发布时，把 `draft` 改为 `false`，执行 `npm run site:test` 和 `npm run site:build`，提交文章与图片，再将新的官网构建同步到服务器。文章上线地址为 `https://aelion.chat/blog/<slug>/`。构建会同步更新列表、独立文章页面和站点地图。
+准备发布时，把 `draft` 改为 `false`，执行 `npm run site:test` 和 `npm run site:build`，提交文章与图片并推送到 `main`。GitHub Actions 会自动构建并发布到官网。文章上线地址为 `https://aelion.chat/blog/<slug>/`，列表和站点地图一起更新。
 
 这里的“草稿”只控制官网展示；本仓库是公开的，提交到 GitHub 的 Markdown 文件仍然可以被查看。需要保密的内容请留在仓库之外。
 
@@ -58,4 +58,6 @@ draft: true
 - 证书覆盖两个域名，保存在 `/etc/letsencrypt/live/aelion.chat/`。
 - HTTP 证书验证目录为 `/var/www/letsencrypt`，由 Certbot 自动续期；续期成功后通过 `aelion-nginx.sh` 部署钩子检查并平滑重载 Nginx。
 
-更新时将新的静态构建放入独立版本目录，检查文件后切换 `current` 链接。HTML 页面要求重新验证缓存，带哈希的资源文件使用长期缓存。博客使用实际生成的目录和 `index.html`，不依赖把所有路径回退到首页；未发布或不存在的文章返回 404。
+推送官网相关修改到 `main` 会触发 [Deploy website 工作流](../.github/workflows/website.yml)，也可以在 Actions 手动运行。工作流完成测试、构建与文件校验后，使用专用账号切换 `current`；检查失败会恢复上一版。部署配置、重试和回滚方式见 [部署说明](deploy/README.md)。
+
+HTML 页面要求重新验证缓存，带哈希的资源文件使用长期缓存。博客使用实际生成的目录和 `index.html`，未发布或不存在的文章返回 404。

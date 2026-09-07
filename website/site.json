@@ -3,7 +3,6 @@
   "repository": "https://github.com/FoyonaCZY/AelionBot",
   "navigation": [
     {"label": "博客", "href": "/blog/", "external": false},
-    {"label": "常见问题", "href": "/#questions", "external": false},
     {"label": "GitHub", "href": "https://github.com/FoyonaCZY/AelionBot", "external": true}
   ]
 }

@@ -10,6 +10,8 @@ runtime/local-model/
 .env.*
 !.env.example
 *.log
+__pycache__/
+*.py[cod]
 test-results/
 playwright-report/
 output/
