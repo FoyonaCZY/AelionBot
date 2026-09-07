@@ -43,6 +43,7 @@ import type { Snapshot } from '../src/shared';
 import {externalWebUrl} from '../src/external-links';
 import {usageReport} from './core/usage-report';
 import {reasoningEffort as cleanReasoning} from '../src/reasoning';
+import {Shutdown} from './core/shutdown';
 
 let window:BrowserWindow|undefined;
 let vm:VmController;
@@ -77,7 +78,7 @@ else {
   app.whenReady().then(initialize).catch(error=>{diagnostics?.record('app.startup-error',error);console.error(error);dialog.showErrorBox('AelionBot 启动失败',String(error.message));app.exit(1);});
 }
 function snapshot():Snapshot{return {platform:process.platform,workItems:store.data.workItems,conversationWorkspaces:store.data.conversationWorkspaces,updates:appUpdates?.snapshot(),scheduledTasks:store.data.scheduledTasks,bots:store.data.bots,messages:store.data.messages,runs:store.data.runs,model:providers.config(),providers:providers.list(),defaultModel:store.data.defaultModel,botModels:Object.fromEntries(store.data.bots.map(bot=>[bot.id,providers.config(bot.id)])),vm:vm.state,skills:integrations?integrations.skills.all():store.data.skills,artifacts:store.data.artifacts,computer:computer.state,dataDir:store.dir,integrations:integrations?.snapshot(),interactions:interactions?.snapshot()||[],cognition:cognition?.view(),peers:peerChats?.snapshot(),groups:groupChats?.snapshot(),greetingBotIds:greetings?.botIds||[],streamingReplies:[...(harness?.streams.snapshot()||[]),...(greetings?.streams.snapshot()||[])],runtime:store?new RunPolicy(store).settings():undefined,modelUsage:store?.data.modelUsage?.slice(-100),commandPermissions:commandPermissions?.list()||[],hostPermissionModes:hostApprovals?.modes(),hostWorkspace:host?.workspaceSettings()};}
-function changed(){if(window&&!window.isDestroyed())window.webContents.send('app:event',{type:'state',snapshot:snapshot()});chatPins?.wake();peerChats?.wake();groupChats?.wake();}
+function changed(){if(exiting)return;if(window&&!window.isDestroyed())window.webContents.send('app:event',{type:'state',snapshot:snapshot()});chatPins?.wake();peerChats?.wake();groupChats?.wake();}
 function handle(channel:string,callback:(...args:any[])=>unknown){
   ipcMain.handle(channel,async(event,...args)=>{
     if(!window||event.sender.id!==window.webContents.id||event.senderFrame!==window.webContents.mainFrame)throw new Error('不受信任的调用来源');
@@ -304,16 +305,13 @@ async function initialize(){
     writeFileSync(target.filePath,bytes);return target.filePath;
   });
   handle('app:open-data',()=>shell.openPath(dataDir));
-  app.on('before-quit',async event=>{
-    if(exiting)return;event.preventDefault();exiting=true;if(timer)clearInterval(timer);
-    diagnostics?.dispose();appUpdates?.dispose();scheduler?.dispose();greetings?.dispose();for(const bot of store.data.bots)harness.cancel(bot.id);
-    providers.dispose();chatPins?.dispose();peerChats?.dispose();groupChats?.dispose();interactions.dispose();host.dispose();
-    await harness.closeProcesses();
-    await cognition.close();
-    await integrations.close();
-    // Quit preserves the managed guest process and data. The next app instance reattaches by UUID/host key.
-    if(process.platform==='darwin')await vm.stop().catch(()=>{});vm.dispose();store.close();app.exit(0);
+  const shutdown=new Shutdown({
+    stop:()=>{vm.beginShutdown();if(timer)clearInterval(timer);for(const close of [()=>appUpdates?.dispose(),()=>scheduler?.dispose(),()=>greetings?.dispose(),()=>{for(const bot of store.data.bots)harness.cancel(bot.id);},()=>providers.dispose(),()=>chatPins?.dispose(),()=>peerChats?.dispose(),()=>groupChats?.dispose(),()=>interactions.dispose(),()=>host.dispose()])try{close();}catch(error){diagnostics?.record('app.shutdown-error',error);}},
+    closeWork:()=>[harness.closeProcesses(),cognition.close(),integrations.close()],
+    closeVm:()=>vm.shutdownForExit(),closeState:()=>{vm.dispose();store.close();},
+    report:error=>diagnostics?.record('app.shutdown-error',error),exit:()=>{diagnostics?.dispose();app.exit(0);}
   });
+  app.on('before-quit',event=>{event.preventDefault();if(exiting)return;exiting=true;void shutdown.run();});
   app.on('window-all-closed',()=>app.quit());
   vm.on('state',changed);
   const dev=process.env.AELION_DEV_URL;

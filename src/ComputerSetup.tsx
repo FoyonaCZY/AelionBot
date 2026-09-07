@@ -6,8 +6,8 @@ import './computer-setup.css';
 
 const steps=['下载系统镜像','启动系统','安装桌面与应用','重启并连接桌面'];
 function SetupProgress({vm}:{vm:VmState}){
-  const downloading=vm.status==='preparing',percent=downloading&&Number.isFinite(vm.progress)?Math.round(Math.min(1,Math.max(0,vm.progress!))*100):undefined;
-  return <div className="setup-progress" role="progressbar" aria-label={downloading?'系统镜像下载进度':'工作环境安装进度'} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-valuetext={percent===undefined?'正在准备':`${percent}%`}><span className={percent===undefined?'indeterminate':''} style={percent===undefined?undefined:{width:`${percent}%`}}/></div>;
+  const downloading=vm.status==='preparing',percent=downloading&&Number.isFinite(vm.progress)?Math.round(Math.min(1,Math.max(0,vm.progress!))*100):vm.maintenance&&Number.isFinite(vm.installation?.percent)?Math.floor(vm.installation!.percent!):undefined;
+  return <div className="setup-progress" role="progressbar" aria-label={downloading?'系统镜像下载进度':'当前安装阶段进度'} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-valuetext={percent===undefined?'正在准备':`${percent}%`}><span className={percent===undefined?'indeterminate':''} style={percent===undefined?undefined:{width:`${percent}%`}}/></div>;
 }
 export function ComputerStatus({vm,onOpen}:{vm:VmState;onOpen:()=>void}){
   const view=computerSetupState(vm);

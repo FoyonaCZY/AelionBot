@@ -14,7 +14,10 @@ import { atomicJson } from './store';
 import { DESKTOP_SCRIPT, WORKSTATION_VERSION, SESSION_LAUNCHER } from './desktop-profile';
 import { BOT_DESKTOP_SCRIPT,BOT_DESKTOP_VERSION } from './bot-desktop-profile';
 import { verifiedDownload, fileHash,type ResourceFetch } from './download';
-import {workstationProgress,workstationFailure} from './workstation-progress';
+import {workstationProgress,workstationFailure,installationProgress} from './workstation-progress';
+import {PACKAGE_INSTALLER_BOOTSTRAP} from './package-installer';
+import {shutdownOwnedVm} from './vm-shutdown';
+import {stopOwnedQemuWindows,inspectOwnedQemuWindows} from './owned-qemu';
 
 const runFile = promisify(execFile);
 const { Client, utils } = ssh2;
@@ -53,6 +56,9 @@ export class VmController extends EventEmitter {
   private stateValue: VmState;
   private operation = false;
   private activeExecutions = 0;
+  private closing=false;
+  private shutdownTask?:Promise<void>;
+  private child?:import('node:child_process').ChildProcess;
   private seedServer?: HttpServer;
   private vncBridge?: WebSocketServer;
   private vncToken = randomBytes(24).toString('hex');
@@ -65,9 +71,11 @@ export class VmController extends EventEmitter {
     this.stateValue={status:this.record?'stopped':'unprepared',detail:this.record?'工作电脑已准备':'首次使用前需要准备工作电脑',imageVersion:this.platform.image.version};
   }
   get state() { return {...this.stateValue}; }
-  private update(patch: Partial<VmState>) { this.stateValue={...this.stateValue,...patch};this.emit('state',this.state); }
+  private update(patch: Partial<VmState>) { const changed=Object.entries(patch).some(([key,value])=>this.stateValue[key as keyof VmState]!==value);this.stateValue={...this.stateValue,...patch};if(changed)this.emit('state',this.state); }
+  private assertOpen(){if(this.closing)throw Error('客户端正在退出，已取消工作电脑操作');}
   private persist() { atomicJson(join(this.dir,'machine.json'),this.record); }
   private async exclusive<T>(fn:()=>Promise<T>) {
+    this.assertOpen();
     if(this.operation) throw new Error('工作电脑正在执行维护操作，请等待完成');
     this.operation=true;
     try{return await fn();}catch(error){this.update({status:'error',lastError:String((error as Error).message),detail:String((error as Error).message)});throw error;}finally{this.operation=false;}
@@ -84,6 +92,7 @@ export class VmController extends EventEmitter {
       if(await fileHash(cache)===imageProfile.sha512)copyFileSync(cache,base);else this.update({detail:'本地镜像缓存校验失败，正在重新下载'});
     }
     await verifiedDownload(imageProfile.url,base,imageProfile.sha512,(progress,detail)=>this.update({progress,detail}),'sha512',{fetch:this.options.downloadFetch,mirrors:imageProfile.mirrors});
+    this.assertOpen();
     const img=qemuBinary(this.options.runtimeDir,this.platform.imageTool);
     const rootDisk=join(this.dir,'system.qcow2');const workDisk=join(this.dir,'work.qcow2');
     if(!existsSync(rootDisk)) await runFile(img,['create','-f','qcow2','-F','qcow2','-b',base,rootDisk,'16G'],{windowsHide:true});
@@ -109,6 +118,7 @@ export class VmController extends EventEmitter {
     });
   }
   private async seed() {
+    this.assertOpen();
     if(this.seedServer) return;
     const record=this.record!;
     const userData=this.cloudConfig();
@@ -150,13 +160,14 @@ export class VmController extends EventEmitter {
     const address=this.vncBridge.address();if(address&&typeof address==='object')this.update({vncUrl:`ws://127.0.0.1:${address.port}/${this.vncToken}`});
   }
   private closeServers() { this.seedServer?.close();this.seedServer=undefined;for(const client of this.vncBridge?.clients||[])client.terminate();this.vncBridge?.close();this.vncBridge=undefined;this.desktopPorts.clear();this.desktopRuntime=undefined;this.update({vncUrl:undefined}); }
-  async start() { if(!this.record) await this.prepare();return this.exclusive(async()=>{
+  async start() { this.assertOpen();if(!this.record) await this.prepare();return this.exclusive(async()=>{
     this.checkArchitecture();
     if(process.platform==='darwin'&&process.arch==='x64'){let translated=false;try{translated=execFileSync('/usr/sbin/sysctl',['-in','sysctl.proc_translated'],{encoding:'utf8',stdio:['ignore','pipe','ignore']}).trim()==='1';}catch{}if(translated)throw Error('当前运行的是 Intel 安装包，请为这台 Apple Silicon Mac 下载 ARM64 安装包');}
     await this.refresh();if(this.stateValue.status==='ready')return;
     if(processAlive(this.record?.pid))throw new Error('检测到工作 VM 进程仍存在，暂不启动第二个实例；请检查日志。');
     if(!existsSync(this.executable))throw new Error('QEMU 运行时缺失');
     this.closeServers();await this.seed();
+    this.assertOpen();
     const r=this.record!;r.sshPort=await freePort();r.qmpPort=await freePort();r.vncPort=await freePort();
     const qpath=(value:string)=>value.replaceAll(',',',,');
     const args=['-L',qemuDataDir(this.options.runtimeDir),'-name',`aelion-${r.id}`,'-uuid',r.id,...vmMachineArgs(this.platform,this.options.runtimeDir,join(this.dir,'efi-vars.fd'),this.options.accelerator||this.platform.accelerator),'-m',String(this.options.memoryMiB||4096),'-smp',String(this.options.cpuCount||4),'-display','none',
@@ -170,12 +181,15 @@ export class VmController extends EventEmitter {
     const log=openSync(join(this.dir,'qemu.log'),'a');
     const env={...process.env};if(process.platform==='darwin'){env.QEMU_MODULE_DIR=join(this.options.runtimeDir,'lib','qemu');delete env.DYLD_LIBRARY_PATH;delete env.DYLD_FALLBACK_LIBRARY_PATH;delete env.DYLD_INSERT_LIBRARIES;}
     const child=spawn(this.executable,args,{cwd:this.options.runtimeDir,env,windowsHide:true,detached:true,stdio:['ignore',log,log]});closeSync(log);
+    this.child=child;r.pid=child.pid;
+    child.once('exit',()=>{if(this.child===child)this.child=undefined;});
     await new Promise<void>((ok,fail)=>{child.once('spawn',ok);child.once('error',fail);});
-    r.pid=child.pid;child.unref();this.persist();
+    child.unref();this.persist();this.assertOpen();
     this.update({status:'starting',detail:'启动工作电脑，等待系统初始化',pid:r.pid,sshPort:r.sshPort,lastError:undefined,desktopReady:false,appsReady:false,needsReboot:false,maintenance:false,progress:undefined});
     await this.bridge();
     const deadline=Date.now()+(this.options.startupTimeoutMs||240_000);
     while(Date.now()<deadline){
+      this.assertOpen();
       if(!processAlive(r.pid))throw new Error(`QEMU 已退出：${readFileSync(join(this.dir,'qemu.log'),'utf8').slice(-1800)}`);
       try {
         const result=await this.execRaw('test -f /var/lib/aelion/work-ready && test -d /work && printf AELION_READY','aelion',5000);
@@ -188,34 +202,44 @@ export class VmController extends EventEmitter {
   async qmp(command: string, args?:Record<string,unknown>):Promise<any> {
     if(!this.record?.qmpPort)throw new Error('工作电脑尚未运行');
     return new Promise((ok,fail)=>{
-      const socket=createConnection({host:'127.0.0.1',port:this.record!.qmpPort});let buffer='';let finished=false;
-      const finish=(error?:Error,value?:unknown)=>{if(finished)return;finished=true;socket.destroy();error?fail(error):ok(value);};
-      socket.setTimeout(3000,()=>finish(new Error('QMP 连接超时')));socket.on('error',error=>finish(error));
-      socket.on('data',chunk=>{buffer+=chunk.toString();let index;while((index=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,index).trim();buffer=buffer.slice(index+1);if(!line)continue;let msg;try{msg=JSON.parse(line);}catch{continue;}
+      const socket=createConnection({host:'127.0.0.1',port:this.record!.qmpPort});let buffer='';let finished=false,identityVerified=false,sent=false;
+      const mutating=['system_powerdown','quit','system_reset'].includes(command),expectedId=this.record!.id;
+      const sendCommand=()=>{sent=true;socket.write(JSON.stringify({execute:command,arguments:args,id:'cmd'})+'\n');};
+      const finish=(error?:Error,value?:unknown)=>{if(finished)return;finished=true;clearTimeout(timeout);socket.destroy();error?fail(error):ok(value);};
+      const timeout=setTimeout(()=>finish(new Error('QMP 连接超时')),3000);socket.on('error',error=>finish(error));
+      socket.on('data',chunk=>{buffer+=chunk.toString();if(buffer.length>256000){finish(Error('QMP 响应过大'));return;}let index;while((index=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,index).trim();buffer=buffer.slice(index+1);if(!line)continue;let msg;try{msg=JSON.parse(line);}catch{continue;}
         if(msg.QMP)socket.write(JSON.stringify({execute:'qmp_capabilities',id:'cap'})+'\n');
-        else if(msg.id==='cap'){if(msg.error)finish(new Error(JSON.stringify(msg.error)));else socket.write(JSON.stringify({execute:command,arguments:args,id:'cmd'})+'\n');}
+        else if(msg.id==='cap'){if(msg.error)finish(new Error(JSON.stringify(msg.error)));else if(mutating)socket.write(JSON.stringify({execute:'query-uuid',id:'identity'})+'\n');else sendCommand();}
+        else if(msg.id==='identity'){if(msg.error||msg.return?.UUID!==expectedId)finish(new Error('拒绝操作身份不匹配的 QEMU'));else{identityVerified=true;sendCommand();}}
         else if(msg.id==='cmd')msg.error?finish(new Error(JSON.stringify(msg.error))):finish(undefined,msg.return);
       }});
-      socket.on('close',()=>{if(!finished)finish(new Error('QMP 已断开'));});
+      socket.on('close',()=>{if(!finished)finish(command==='quit'&&identityVerified&&sent?undefined:new Error('QMP 已断开'));});
     });
   }
   async refresh() {
+    if(this.closing)return this.state;
     if(!this.record)return this.state;
     this.update({diskBytes:statSync(join(this.dir,'system.qcow2')).size+statSync(join(this.dir,'work.qcow2')).size});
-    if(!processAlive(this.record.pid)){if(!this.operation)this.update({status:'stopped',detail:'工作电脑已关闭，工作文件已保留',pid:undefined,vncUrl:undefined});return this.state;}
+    if(!processAlive(this.record.pid)){if(this.record.pid){this.record.pid=undefined;this.persist();}if(!this.operation)this.update({status:'stopped',detail:'工作电脑已关闭，工作文件已保留',pid:undefined,vncUrl:undefined});return this.state;}
+    let identityVerified=false;
     try{
-      const identity=await this.qmp('query-uuid');if(identity.UUID!==this.record.id)throw new Error('VM 身份校验失败');
+      const identity=await this.qmp('query-uuid');if(identity.UUID!==this.record.id)throw new Error('VM 身份校验失败');identityVerified=true;
       const status=await this.qmp('query-status');
       if(status.running){
-        const result=await this.execRaw(`test -f /var/lib/aelion/work-ready && printf READY; systemctl is-active --quiet lightdm && pgrep -u aelion -x xfce4-session >/dev/null && printf DESKTOP; test -f /var/lib/aelion/desktop-error && printf TOOL_ERROR; test -f /var/lib/aelion/desktop-needs-reboot && printf NEEDS_REBOOT; test "$(cat /var/lib/aelion/workstation-version 2>/dev/null)" = '${WORKSTATION_VERSION}' && test -x /usr/local/bin/aelion-browser && test -x /usr/bin/thunar && test -x /usr/local/bin/aelion-session && printf APPS; printf '\\nSTAGE:'; cat /var/lib/aelion/desktop-stage 2>/dev/null; printf '\\n'`,'aelion',4000);
+        const result=await this.execRaw(`test -f /var/lib/aelion/work-ready && printf READY; systemctl is-active --quiet lightdm && pgrep -u aelion -x xfce4-session >/dev/null && printf DESKTOP; test -f /var/lib/aelion/desktop-error && printf TOOL_ERROR; test -f /var/lib/aelion/desktop-needs-reboot && printf NEEDS_REBOOT; test "$(cat /var/lib/aelion/workstation-version 2>/dev/null)" = '${WORKSTATION_VERSION}' && test -x /usr/local/bin/aelion-browser && test -x /usr/bin/thunar && test -x /usr/local/bin/aelion-session && printf APPS; printf '\\nSTAGE:'; cat /var/lib/aelion/desktop-stage 2>/dev/null; printf '\\nINSTALL_PROGRESS:'; cat /var/lib/aelion/desktop-progress.json 2>/dev/null; printf '\\n'`,'aelion',4000);
         const desktop=result.stdout.includes('DESKTOP');
         const lock=await this.execRaw('flock -n /var/lib/aelion/desktop.lock -c true','root',4000);
-        const maintenance=lock.exitCode!==0;
+        const maintenance=lock.exitCode!==0;this.update({installation:maintenance?installationProgress(result.stdout):undefined});
         if(result.stdout.includes('READY')){if(!this.record.initialized){this.record.initialized=true;this.persist();}const appsReady=result.stdout.includes('APPS'),needsReboot=result.stdout.includes('NEEDS_REBOOT');this.update({status:'ready',detail:maintenance?workstationProgress(result.stdout):needsReboot?'应用已安装，请重启工作电脑完成初始化':desktop&&appsReady?'工作电脑已就绪':desktop?'桌面在线，应用环境需要准备':'正在准备桌面',pid:this.record.pid,sshPort:this.record.sshPort,desktopReady:desktop,appsReady,maintenance,needsReboot,lastError:result.stdout.includes('TOOL_ERROR')?workstationFailure(result.stdout):undefined});}
         else await this.seed();
-        await this.bridge();
+        if(!this.closing)await this.bridge();
       }
-    }catch(error){if(!this.operation){
+    }catch(error){
+      if(!identityVerified&&!this.closing&&this.record.pid&&process.platform==='win32'){
+        const identity=await inspectOwnedQemuWindows({id:this.record.id,pid:this.record.pid,executable:this.executable,systemDisk:join(this.dir,'system.qcow2'),workDisk:join(this.dir,'work.qcow2')});
+        if(identity==='missing'||identity==='foreign'){this.record.pid=undefined;this.persist();this.closeServers();this.update({status:'stopped',pid:undefined,detail:'工作电脑已关闭，工作文件已保留',lastError:undefined});return this.state;}
+      }
+      if(!this.operation){
       if(!this.record.initialized){try{await this.seed();this.update({status:'starting',detail:'正在继续首次初始化',pid:this.record.pid});return this.state;}catch{}}
       this.update({status:'error',detail:'VM 进程存在，连接尚未恢复',lastError:(error as Error).message,pid:this.record.pid});
     }}
@@ -295,8 +319,8 @@ print(json.dumps({'path':str(target),'size':len(blob),'sha256':a['sha256']},ensu
       await this.exclusive(async()=>{
         this.update({maintenance:true,detail:'正在准备 Bot 独立桌面'});
         const payload=Buffer.from(JSON.stringify({'/usr/local/bin/aelion-bot-desktop':BOT_DESKTOP_SCRIPT,'/usr/local/bin/aelion-session':SESSION_LAUNCHER})).toString('base64');
-        const install=`set -eu\nexport DEBIAN_FRONTEND=noninteractive\nexec 9>/var/lib/aelion/desktop.lock\nflock -n 9\ntimeout 90 apt-get update\ntimeout 180 apt-get install -y --no-install-recommends tigervnc-standalone-server python3-pil xauth x11-utils xdotool xclip\npython3 - <<'PY'\nimport json,base64,pathlib\nfor name,body in json.loads(base64.b64decode('${payload}')).items():\n p=pathlib.Path(name); backup=p.with_suffix('.before-bot-desktops')\n if p.exists() and not backup.exists(): backup.write_bytes(p.read_bytes())\n temp=p.with_suffix('.new');temp.write_text(body);temp.chmod(0o755);temp.replace(p)\nfrom PIL import features\nassert features.check_feature('xcb'), 'Pillow XCB support is required'\npathlib.Path('/var/lib/aelion/bot-desktop-version').write_text('${BOT_DESKTOP_VERSION}')\nPY`;
-        try{const result=await this.execRaw(install,'root',300000);if(result.exitCode!==0)throw new Error(`独立桌面准备失败：${result.stderr.slice(-1600)}`);}
+        const install=`set -eu\nexport DEBIAN_FRONTEND=noninteractive\nexec 9>/var/lib/aelion/desktop.lock\nflock -n 9\n${PACKAGE_INSTALLER_BOOTSTRAP}\n/usr/local/sbin/aelion-packages runtime tigervnc-standalone-server python3-pil xauth x11-utils xdotool xclip\npython3 - <<'PY'\nimport json,base64,pathlib\nfor name,body in json.loads(base64.b64decode('${payload}')).items():\n p=pathlib.Path(name); backup=p.with_suffix('.before-bot-desktops')\n if p.exists() and not backup.exists(): backup.write_bytes(p.read_bytes())\n temp=p.with_suffix('.new');temp.write_text(body);temp.chmod(0o755);temp.replace(p)\nfrom PIL import features\nassert features.check_feature('xcb'), 'Pillow XCB support is required'\npathlib.Path('/var/lib/aelion/bot-desktop-version').write_text('${BOT_DESKTOP_VERSION}')\nPY`;
+        try{const result=await this.execRaw(install,'root',900000);if(result.exitCode!==0)throw new Error(`独立桌面准备失败：${result.stderr.slice(-1600)}`);}
         finally{this.update({maintenance:false});}
       });
     };
@@ -345,8 +369,7 @@ print(json.dumps({'path':str(target),'size':len(blob),'sha256':a['sha256']},ensu
   async repairTools(){return this.exclusive(async()=>{
     if(!processAlive(this.record?.pid))throw new Error('请先启动工作电脑');
     this.update({maintenance:true,lastError:undefined,detail:'正在更新工作环境'});
-    const body=Buffer.from(DESKTOP_SCRIPT).toString('base64');
-    await this.execRaw(`python3 -c ${shQuote(`import base64,os; p='/usr/local/sbin/aelion-desktop.new'; open(p,'wb').write(base64.b64decode('${body}')); os.chmod(p,0o755); os.replace(p,'/usr/local/sbin/aelion-desktop')`)}`,'root',5000);
+    await this.execRaw(`python3 -c ${shQuote("import os,sys; p='/usr/local/sbin/aelion-desktop.new'; open(p,'wb').write(sys.stdin.buffer.read()); os.chmod(p,0o755); os.replace(p,'/usr/local/sbin/aelion-desktop')")}`,'root',10000,undefined,2048,Buffer.from(DESKTOP_SCRIPT));
     await this.execRaw('nohup /usr/local/sbin/aelion-desktop > /var/log/aelion-desktop.log 2>&1 </dev/null &','root',5000);
     this.update({detail:'已启动工具环境修复，工作文件保留'});
   });}
@@ -363,6 +386,17 @@ print(json.dumps({'path':str(target),'size':len(blob),'sha256':a['sha256']},ensu
     this.record!.pid=undefined;this.persist();this.closeServers();this.update({status:'stopped',detail:'工作电脑已关闭，工作文件已保留',pid:undefined,vncUrl:undefined});
   });}
   async restart(){await this.stop();await this.start();}
+  beginShutdown(){this.closing=true;}
+  shutdownForExit(){this.beginShutdown();return this.shutdownTask??=this.finishShutdown();}
+  private async finishShutdown(){
+    const target=this.record&&this.record.pid?{id:this.record.id,pid:this.record.pid}:undefined;
+    try{if(target)await shutdownOwnedVm(target,{alive:processAlive,qmp:command=>this.qmp(command),force:async()=>{
+      if(process.platform==='win32')return stopOwnedQemuWindows({...target,executable:this.executable,systemDisk:join(this.dir,'system.qcow2'),workDisk:join(this.dir,'work.qcow2')});
+      const child=this.child;if(child?.pid===target.pid&&child.exitCode===null){child.kill('SIGTERM');return true;}return false;
+    }});
+      if(this.record){this.record.pid=undefined;this.persist();}this.update({status:this.record?'stopped':'unprepared',pid:undefined,detail:'工作电脑已关闭，工作文件已保留',vncUrl:undefined});
+    }finally{this.closeServers();}
+  }
   async desktopDiagnostics(){return this.execRaw('systemctl status lightdm --no-pager -l; ls -l /dev/dri /dev/fb0 2>/dev/null; grep -E "CONFIG_DRM|CONFIG_FB_VESA|CONFIG_FB_SIMPLE" /boot/config-$(uname -r) | head -n 15; tail -n 20 /var/log/Xorg.0.log; pgrep -af "Xorg|xfce|lightdm|aelion-desktop|apt-get|dpkg"; ls /boot/vmlinuz*; ls /var/lib/aelion; cat /etc/default/grub.d/90-aelion.cfg 2>/dev/null; tail -n 30 /var/log/aelion-desktop.log','root',10000);}
   async displayDiagnostics(){return this.execRaw('DISPLAY=:0 XAUTHORITY=/home/aelion/.Xauthority xset q; DISPLAY=:0 XAUTHORITY=/home/aelion/.Xauthority xrandr --query; cat /proc/bus/input/devices | grep -E "Name=|Handlers="','aelion',10000);}
   dispose(){this.closeServers();}

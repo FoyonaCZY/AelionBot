@@ -16,7 +16,17 @@ on:
 permissions:
   contents: read
 jobs:
+  guest-installer:
+    name: Debian installer check
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Verify signed package installation and source fallback
+        run: |
+          docker run --rm -v "$PWD:/src:ro" debian:bookworm-slim sh -ec 'apt-get -o Acquire::Retries=2 update && apt-get install -y --no-install-recommends python3 ca-certificates && python3 /src/scripts/verify-package-installer.py'
   build:
+    needs: guest-installer
     name: ${{ matrix.name }}
     strategy:
       fail-fast: false

@@ -31,7 +31,7 @@ test('Mac virtual machines choose native images, hardware accelerator and ARM fi
  const runtime=temporary(t);mkdirSync(join(runtime,'share','qemu'),{recursive:true});for(const name of ['edk2-aarch64-code.fd','edk2-arm-vars.fd'])writeFileSync(join(runtime,'share','qemu',name),'fixture');
  const arm=vmPlatform('darwin','arm64'),intel=vmPlatform('darwin','x64');assert.equal(arm.accelerator,'hvf');assert.ok(arm.image.filename.includes('arm64'));assert.ok(intel.image.filename.includes('amd64'));
  const args=vmMachineArgs(arm,runtime,join(runtime,'vars.fd'));assert.ok(args.includes('host'));assert.ok(args.includes('virt'));assert.ok(args.some(a=>a.includes('edk2-aarch64-code.fd')));assert.ok(!args.includes('whpx'));assert.ok(!args.includes('q35'));
- assert.ok(vmMachineArgs(arm,runtime,join(runtime,'vars.fd'),'tcg').includes('cortex-a72'));assert.ok(DESKTOP_SCRIPT.includes('linux-image-$arch'));assert.match(DESKTOP_SCRIPT,/apt-get[^\n]*\binstall\b[^\n]*\bchromium\b/);
+ assert.ok(vmMachineArgs(arm,runtime,join(runtime,'vars.fd'),'tcg').includes('cortex-a72'));assert.ok(DESKTOP_SCRIPT.includes('linux-image-$arch'));assert.match(DESKTOP_SCRIPT,/\/usr\/local\/sbin\/aelion-packages browser chromium\b/);
 });
 test('POSIX execution awaits permission and keeps nonzero exit codes and Unicode',{skip:process.platform==='win32'},async t=>{
  const root=temporary(t),interactions=new Interactions(()=>{}),host=new HostComputer({dataDir:root,homeDir:root,projectDir:root},interactions);t.after(()=>{interactions.dispose();host.dispose();});

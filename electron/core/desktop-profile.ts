@@ -1,4 +1,5 @@
 import {BOT_DESKTOP_SCRIPT,BOT_DESKTOP_VERSION} from './bot-desktop-profile';
+import {PACKAGE_INSTALLER_BOOTSTRAP} from './package-installer';
 export const WORKSTATION_VERSION = '4';
 const preferChromium=process.platform==='darwin';
 
@@ -107,15 +108,16 @@ flock -n 9 || exit 0
 rm -f /var/lib/aelion/desktop-error
 trap 'echo "Desktop preparation failed at $(date -Iseconds), stage $(cat /var/lib/aelion/desktop-stage 2>/dev/null)" > /var/lib/aelion/desktop-error' EXIT
 printf system > /var/lib/aelion/desktop-stage
-timeout 600 dpkg --configure -a
-timeout 600 apt-get -o Acquire::Retries=2 update
+timeout 600 dpkg --configure -a || echo 'Pending package dependencies will be repaired by APT'
+`+PACKAGE_INSTALLER_BOOTSTRAP+String.raw`
 printf desktop > /var/lib/aelion/desktop-stage
 arch=$(dpkg --print-architecture)
 case "$arch" in amd64|arm64) ;; *) echo "Unsupported guest architecture: $arch" >&2; exit 1 ;; esac
-timeout 2400 apt-get -o Acquire::Retries=2 install -y --no-install-recommends "linux-image-$arch" git python3-venv ca-certificates curl locales xserver-xorg-core xserver-xorg-video-all xserver-xorg-input-libinput x11-xserver-utils xinit xfce4-session xfce4-settings xfwm4 xfdesktop4 xfce4-panel xfce4-appfinder xfce4-terminal dbus-x11 dbus-user-session lightdm lightdm-gtk-greeter thunar thunar-archive-plugin gvfs gvfs-backends xdg-utils mousepad ristretto evince xclip xdotool arc-theme adwaita-icon-theme fonts-noto-core fonts-noto-cjk librsvg2-bin librsvg2-common libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-gtk3 libreoffice-l10n-zh-cn tigervnc-standalone-server python3-pil xauth x11-utils
+/usr/local/sbin/aelion-packages desktop "linux-image-$arch" git python3-venv ca-certificates curl locales xserver-xorg-core xserver-xorg-video-all xserver-xorg-input-libinput x11-xserver-utils xinit xfce4-session xfce4-settings xfwm4 xfdesktop4 xfce4-panel xfce4-appfinder xfce4-terminal dbus-x11 dbus-user-session lightdm lightdm-gtk-greeter thunar thunar-archive-plugin gvfs gvfs-backends xdg-utils mousepad ristretto evince xclip xdotool arc-theme adwaita-icon-theme fonts-noto-core fonts-noto-cjk librsvg2-bin librsvg2-common tigervnc-standalone-server python3-pil xauth x11-utils
+/usr/local/sbin/aelion-packages office libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-gtk3 libreoffice-l10n-zh-cn
 if [ "$arch" = arm64 ] || [ '`+(preferChromium?'1':'0')+String.raw`' = 1 ] || ! command -v google-chrome-stable >/dev/null 2>&1; then
   printf browser > /var/lib/aelion/desktop-stage
-  timeout 1200 apt-get -o Acquire::Retries=2 install -y --no-install-recommends chromium
+  /usr/local/sbin/aelion-packages browser chromium
 fi
 printf finishing > /var/lib/aelion/desktop-stage
 sed -i 's/^# *zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/' /etc/locale.gen
