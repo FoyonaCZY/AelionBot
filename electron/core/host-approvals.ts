@@ -62,7 +62,7 @@ export class HostApprovals implements HostApprovalPolicy {
     return {kind:'review',mode,reason:risk.reason,reviewer:config.model};
   }
   async review(request:HostPermissionRequest,signal:AbortSignal){
-    const identity=()=>{const config=this.options.defaultModel();return JSON.stringify([config.providerId,config.model,config.baseUrl,config.protocol,config.issue,config.hasKey]);};
+    const identity=()=>{const config=this.options.defaultModel();return JSON.stringify([config.providerId,config.model,config.baseUrl,config.protocol,config.reasoningEffort,config.issue,config.hasKey]);};
     const before=identity(),result=await this.reviewer(request,this.context(request),signal);signal.throwIfAborted();
     return identity()===before?result:{decision:'ask' as const,reason:'默认模型配置已变化，需要重新确认本次操作',reviewer:result.reviewer};
   }

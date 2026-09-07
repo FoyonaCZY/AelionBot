@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { AelionAPI, AppEvent } from '../src/shared';
 const api:AelionAPI={
+  queryUsage:input=>ipcRenderer.invoke('usage:query',input),
   prepareDiagnostics:()=>ipcRenderer.invoke('diagnostics:prepare'),
   exportDiagnostics:id=>ipcRenderer.invoke('diagnostics:export',id),
   openDiagnosticIssue:id=>ipcRenderer.invoke('diagnostics:issue',id),

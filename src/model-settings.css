@@ -1,6 +1,7 @@
 .model-assignment{margin-top:12px}
 .model-default-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;background:#f0f0f0;border-radius:18px;font-size:14px;color:#333}
 .model-default-row+.settings-card{margin-top:12px}
+.model-reasoning-card{margin-top:12px}
 .modal.bot-profile-modal{width:520px;scrollbar-width:thin;scrollbar-color:#cdcdcd transparent}
 .bot-profile-model{margin:22px 0}
 .bot-profile-model h3{font-size:12px;font-weight:400;color:#8a8d90;margin:0 0 9px}

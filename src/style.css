@@ -12,14 +12,6 @@
 :root .modal form>label{font-size:12px}
 :root .modal input,:root .modal textarea{font-size:13px}
 :root .details-top{padding-top:32px}
-:root .markdown{white-space:normal}
-:root .markdown p{margin:0 0 10px}
-:root .markdown p:last-child{margin-bottom:0}
-:root .markdown ol,:root .markdown ul{padding-left:22px;margin:8px 0}
-:root .markdown li{margin:5px 0}
-:root .markdown code{font-family:Consolas,monospace;font-size:12px;background:#e5e7e9;padding:2px 4px;border-radius:4px;overflow-wrap:anywhere}
-:root .markdown pre{background:#e7e9eb;border-radius:9px;padding:12px;white-space:pre-wrap;overflow-wrap:anywhere}
-:root .markdown pre code{background:none;padding:0}
 :root .skill-card pre{font:11px/1.7 Consolas,monospace;overflow-wrap:anywhere;max-height:340px;overflow:auto;color:#60666c}
 
 /* The side panel is a computer surface; files stay with their conversation. */

@@ -2,6 +2,7 @@ import {Select} from './Select';
 import {WorkItemsPanel} from './WorkItems';
 import {workspaceKey} from './work-types';
 import {RuntimeSettings} from './RuntimeSettings';
+import {UsageSettings} from './UsageSettings';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import Markdown from './MessageMarkdown';
 import {attachmentSummary} from './attachment-types';
@@ -64,6 +65,7 @@ export default function App(){
   const [botMenu,setBotMenu]=useState<BotMenuAnchor>(),[editingId,setEditingId]=useState(''),[deletingId,setDeletingId]=useState('');
   const [busy,setBusy]=useState(false),[toast,setToast]=useState(''),[name,setName]=useState(''),[role,setRole]=useState('');
   const [profileModel,setProfileModel]=useState<ModelSelection|null>(null);
+  const [profileReasoning,setProfileReasoning]=useState('');
   const [taskModalOpen,setTaskModalOpen]=useState(false);
   const setupPrompted=useRef('');
   const [controlPending,setControlPending]=useState(false),controlBusy=useRef(false);
@@ -78,7 +80,7 @@ export default function App(){
   const currentModel=bot?(state?.botModels?.[bot.id]||state?.model):state?.model;
   const menuBot=state?.bots.find(item=>item.id===botMenu?.id),editingBot=state?.bots.find(item=>item.id===editingId),deletingBot=state?.bots.find(item=>item.id===deletingId);
   const profileRunning=state?.runs.some(run=>run.botId===editingId&&run.status==='running')||false;
-  const profileModelChanged=JSON.stringify(profileModel)!==JSON.stringify(editingBot?.model||null);
+  const profileModelChanged=JSON.stringify(profileModel)!==JSON.stringify(editingBot?.model||null)||profileReasoning.trim()!==(editingBot?.reasoningEffort||'');
   const messages=state?.messages.filter(message=>message.botId===bot?.id&&(message.audience==='user'||!state.runs.some(run=>run.id===message.runId&&isPrivatePeerOrigin(run.peerOrigin))))||[];
   const runMessages=new Map<string,typeof messages>();for(const message of messages)if(message.runId){const list=runMessages.get(message.runId)||[];list.push(message);runMessages.set(message.runId,list);}
   const timeline=conversationTimeline(messages);
@@ -140,8 +142,8 @@ export default function App(){
   const openFiles=()=>{setFiles([]);setModal('files');void refreshFiles();};
   const openPreview=async(file:PreviewFile)=>{setPreviewFile(file);setPreview(undefined);setPreviewError('');setModal('preview');try{setPreview(await window.aelion.previewFile({botId:file.botId,path:file.path}));}catch(error){setPreviewError(errorText(error));}};
   const saveFile=(file:PreviewFile)=>act(async()=>{const path=await window.aelion.exportFile({botId:file.botId,path:file.path});if(path)setToast(`已保存：${path}`);});
-  const openNewBot=()=>{if(!newMenu)setNewBotPalette(randomBotPalette(newBotPalette));setName('');setRole('');setModal('new');};
-  const editBot=(target:Bot)=>{setBotMenu(undefined);setEditingId(target.id);setName(target.name);setRole(target.role);setProfileModel(target.model?{...target.model}:null);setProfilePalette(displayBotPalette(target));setModal('profile');};
+  const openNewBot=()=>{if(!newMenu)setNewBotPalette(randomBotPalette(newBotPalette));setName('');setRole('');setProfileModel(null);setProfileReasoning(state?.defaultModel?.reasoningEffort||'');setModal('new');};
+  const editBot=(target:Bot)=>{setBotMenu(undefined);setEditingId(target.id);setName(target.name);setRole(target.role);setProfileModel(target.model?{...target.model}:null);setProfileReasoning(target.reasoningEffort||'');setProfilePalette(displayBotPalette(target));setModal('profile');};
   const showBotMenu=(target:Bot,trigger:HTMLButtonElement,x?:number,y?:number)=>{
     const box=trigger.getBoundingClientRect();setBotMenu({id:target.id,trigger,x:x??box.left+24,y:y??box.bottom});
   };
@@ -200,21 +202,22 @@ export default function App(){
     <PeerNotifications view={state.peers} bots={state.bots} onView={openPrivateChat}/>
     {peerPanel&&<PrivateChatWindow panel={peerPanel} view={state.peers} bots={state.bots} streamingReplies={state.streamingReplies} avatarActivities={avatarActivities} onNavigate={setPeerPanel} onClose={()=>setPeerPanel(undefined)}/>}
     {botMenu&&menuBot&&<BotContextMenu anchor={botMenu} name={menuBot.name} canDelete={!state.runs.some(run=>run.botId===menuBot.id&&run.status==='running')} onEdit={()=>editBot(menuBot)} onDelete={()=>{setDeletingId(menuBot.id);setBotMenu(undefined);setModal('delete-bot');}} onPrivateChats={()=>openPrivateChat({ownerId:menuBot.id})} onClose={()=>setBotMenu(undefined)}/>}
-    {modal&&<div className={`modal-backdrop ${modal==='settings'?'settings-backdrop':modal==='computer'?'computer-backdrop':['preview','screen'].includes(modal)?'wide-backdrop':''}`} onMouseDown={event=>{if(event.target===event.currentTarget)void act(closeModal);}}><section className={`modal ${modal==='computer-setup'?'computer-setup-modal':modal==='settings'?'settings-modal':modal==='profile'?'bot-profile-modal':modal==='computer'?'computer-modal':['preview','screen'].includes(modal)?'preview-modal':modal==='terminal'?'terminal-modal':''}`} role="dialog" aria-modal="true" aria-label={title}>
+    {modal&&<div className={`modal-backdrop ${modal==='settings'?'settings-backdrop':modal==='computer'?'computer-backdrop':['preview','screen'].includes(modal)?'wide-backdrop':''}`} onMouseDown={event=>{if(event.target===event.currentTarget)void act(closeModal);}}><section className={`modal ${modal==='computer-setup'?'computer-setup-modal':modal==='settings'?'settings-modal':(modal==='profile'||modal==='new')?'bot-profile-modal':modal==='computer'?'computer-modal':['preview','screen'].includes(modal)?'preview-modal':modal==='terminal'?'terminal-modal':''}`} role="dialog" aria-modal="true" aria-label={title}>
       {modal!=='computer'&&modal!=='settings'&&<header><h2>{title}</h2><div className="modal-header-actions">{modal==='preview'&&previewFile&&<button className="icon-button" aria-label={`保存 ${previewFile.name}`} disabled={busy} onClick={()=>void saveFile(previewFile)}><Icon name="download"/></button>}<button className="icon-button" aria-label="关闭对话框" onClick={()=>void act(closeModal)}><Icon name="close"/></button></div></header>}
       {modal==='computer-setup'&&<ComputerSetup vm={state.vm} disabled={anyRunning} onClose={()=>void closeModal()} onReady={()=>setModal('computer')} onNotify={setToast}/>}
-      {(modal==='new'||modal==='profile')&&<form onSubmit={event=>{event.preventDefault();void act(async()=>{if(modal==='new'){const created=await window.aelion.createBot({name:name||'新 Bot',role:role||'完成办公和代码任务，使用工作电脑实际执行并核对成果。',...newBotPalette});setSelected(created.id);}else await window.aelion.updateBot({id:editingId,name,role,model:profileModel,color:profilePalette.color,avatarStyle:profilePalette.avatarStyle??null});setModal(null);});}}>
+      {(modal==='new'||modal==='profile')&&<form onSubmit={event=>{event.preventDefault();void act(async()=>{if(modal==='new'){const created=await window.aelion.createBot({name:name||'新 Bot',role:role||'完成办公和代码任务，使用工作电脑实际执行并核对成果。',model:profileModel,reasoningEffort:profileReasoning||null,...newBotPalette});setSelected(created.id);}else await window.aelion.updateBot({id:editingId,name,role,model:profileModel,reasoningEffort:profileReasoning||null,color:profilePalette.color,avatarStyle:profilePalette.avatarStyle??null});setModal(null);});}}>
         <BotPaletteEditor value={modal==='new'?newBotPalette:profilePalette} onChange={modal==='new'?setNewBotPalette:setProfilePalette} name={name||'新 Bot'} disabled={busy}/>
         <label>名称<input autoFocus value={name} onChange={event=>setName(event.target.value)} maxLength={80} placeholder="给你的新伙伴起个名字"/></label>
         <label>职责描述<textarea rows={modal==='profile'?3:4} maxLength={4000} value={role} onChange={event=>setRole(event.target.value)}/></label>
-        {modal==='profile'&&<div className="bot-profile-model"><h3>模型</h3><ModelSelectionFields providers={state.providers||[]} value={profileModel} onChange={setProfileModel} defaultModel={state.defaultModel} inheritDefault disabled={busy||profileRunning}/></div>}
+        <div className="bot-profile-model"><h3>模型</h3><ModelSelectionFields providers={state.providers||[]} value={profileModel} onChange={setProfileModel} defaultModel={state.defaultModel} reasoningValue={profileReasoning} onReasoningChange={setProfileReasoning} inheritDefault disabled={busy||modal==='profile'&&profileRunning}/></div>
         {modal==='new'&&<div className="presets">{['整理资料与写作','分析数据与报表','编写代码与测试'].map(value=><button type="button" key={value} onClick={()=>{setName(value.split('与')[0]);setRole(`帮助我${value}，使用工作电脑执行并验证成果。`);}}>{value}</button>)}</div>}
-        <button className="primary-button full" disabled={busy||modal==='profile'&&(!name.trim()||!validModelSelection(profileModel,state.providers||[])||profileModelChanged&&profileRunning)}>{modal==='new'?'创建伙伴':'保存资料'}</button>
+        <button className="primary-button full" disabled={busy||!validModelSelection(profileModel,state.providers||[])||modal==='profile'&&(!name.trim()||profileModelChanged&&profileRunning)}>{modal==='new'?'创建伙伴':'保存资料'}</button>
       </form>}
       {modal==='delete-bot'&&deletingBot&&<div className="delete-bot-confirmation"><p>删除“{deletingBot.name}”及其对话和记忆？工作文件和私聊记录会保留。</p><div className="dialog-actions"><button className="secondary-button" autoFocus disabled={busy} onClick={()=>setModal(null)}>取消</button><button className="danger-button" disabled={busy} onClick={()=>void removeBot()}>{busy?'正在删除…':'删除 Bot'}</button></div></div>}
       {modal==='settings'&&<SettingsWindow tab={settingsTab} onTabChange={setSettingsTab} onClose={()=>void act(closeModal)}>
         {settingsTab==='runtime'&&<RuntimeSettings settings={state.runtime} onNotify={setToast}/>}
         {settingsTab==='model'&&<ModelSettings state={state} onNotify={setToast}/>}
+        {settingsTab==='usage'&&<UsageSettings state={state}/>}
         {settingsTab==='skills'&&(scopeBot?<>{scopePicker}<SkillsSettings botId={scopeBot.id} skills={state.skills.filter(skill=>!skill.botId||skill.botId===scopeBot.id)} integrations={state.integrations} busy={busy||anyRunning} act={act}/></>:<div className="settings-empty">先创建一个 Bot</div>)}
         {settingsTab==='mcp'&&<McpSettings integrations={state.integrations} busy={busy||anyRunning} act={act}/>}
         {settingsTab==='memory'&&<>

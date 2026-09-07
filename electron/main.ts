@@ -41,6 +41,8 @@ import {assertWorkspaceScope,conversationWorkspace,setConversationWorkspace} fro
 import {resumableRun} from './core/resume-run';
 import type { Snapshot } from '../src/shared';
 import {externalWebUrl} from '../src/external-links';
+import {usageReport} from './core/usage-report';
+import {reasoningEffort as cleanReasoning} from '../src/reasoning';
 
 let window:BrowserWindow|undefined;
 let vm:VmController;
@@ -176,6 +178,7 @@ async function initialize(){
   });
   handle('runtime:save',value=>{store.data.runtime=runtimeSettings(value);store.save();changed();});
   handle('app:snapshot',snapshot);
+  handle('usage:query',input=>usageReport(store.data.modelUsage||[],providers.list(),input));
   handle('app:open-external-url',value=>{const url=externalWebUrl(value);if(!url)throw new Error('只能在浏览器中打开有效的 HTTP 或 HTTPS 链接');return shell.openExternal(url);});
   handle('updates:state',()=>appUpdates!.snapshot());
   handle('updates:check',()=>appUpdates!.check());
@@ -229,7 +232,7 @@ async function initialize(){
   });
   handle('mcp:enabled',async input=>{if(harness.busy)throw new Error('请等待当前任务结束后修改 MCP');if(typeof input?.enabled!=='boolean')throw new Error('无效状态');await integrations.setEnabled(String(input.id),input.enabled);});
   handle('mcp:test',async id=>{const result=await integrations.mcp.listTools(String(id));return {tools:result.tools.map(tool=>tool.name)};});
-  handle('bot:create',(input)=>{if(!input||typeof input.name!=='string'||typeof input.role!=='string'||input.color!==undefined&&typeof input.color!=='string')throw new Error('无效 Bot 参数');const bot=store.createBot(input.name,input.role,input.color,input.avatarStyle);changed();void greetings?.greet(bot.id);return bot;});
+  handle('bot:create',(input)=>{if(!input||typeof input.name!=='string'||typeof input.role!=='string'||input.color!==undefined&&typeof input.color!=='string')throw new Error('无效 Bot 参数');const model=input.model?providers.selection(input.model):undefined,reasoningEffort=cleanReasoning(input.reasoningEffort===undefined?store.data.defaultModel?.reasoningEffort:input.reasoningEffort);const bot=store.createBot(input.name,input.role,input.color,input.avatarStyle,{model,reasoningEffort});changed();void greetings?.greet(bot.id);return bot;});
   handle('bot:delete',async(id)=>{
     if(typeof id!=='string')throw new Error('无效 Bot 参数');
     if(harness.isRunning(id))throw new Error('请先停止这个 Bot 的任务并等待结束，再删除');

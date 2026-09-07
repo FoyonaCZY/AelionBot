@@ -47,9 +47,9 @@ export class ModelClient {
     for(const call of result.calls){if(!call.id||!call.function.name)throw new RequestError('模型工具调用缺少 ID 或名称');try{const args=JSON.parse(call.function.arguments);if(!args||typeof args!=='object'||Array.isArray(args))throw Error();}catch{throw new RequestError('模型工具参数不是完整 JSON 对象，未执行');}}
     if(new Set(result.calls.map(c=>c.id)).size!==result.calls.length)throw new RequestError('模型返回重复的工具调用 ID，未执行');
     if(result.usage)result.usage={...result.usage,latencyMs:Date.now()-start,attempts:attempt+1};
-    this.observe({id:randomUUID(),botId:options.botId,runId:options.runId,purpose:options.purpose||'foreground',model:cfg.model,providerId:cfg.providerId,time:new Date().toISOString(),usage:result.usage,estimatedTokens:estimateRequest(messages,tools).tokens+Math.ceil(JSON.stringify(result.calls).length/3)+Math.ceil(result.content.length/3)});return result;
+    this.observe({id:randomUUID(),botId:options.botId,runId:options.runId,purpose:options.purpose||'foreground',model:cfg.model,providerId:cfg.providerId,providerName:cfg.providerName,time:new Date().toISOString(),usage:result.usage,estimatedTokens:estimateRequest(messages,tools).tokens+Math.ceil(JSON.stringify(result.calls).length/3)+Math.ceil(result.content.length/3)});return result;
    }catch(error){
-    const safe=redactHost((error as Error)?.message||String(error),[key]);this.observe({id:randomUUID(),botId:options.botId,runId:options.runId,purpose:options.purpose||'foreground',model:cfg.model,providerId:cfg.providerId,time:new Date().toISOString(),usage:accumulator?.usage,error:safe});
+    const safe=redactHost((error as Error)?.message||String(error),[key]);this.observe({id:randomUUID(),botId:options.botId,runId:options.runId,purpose:options.purpose||'foreground',model:cfg.model,providerId:cfg.providerId,providerName:cfg.providerName,time:new Date().toISOString(),usage:accumulator?.usage,error:safe});
     signal.throwIfAborted();if(error instanceof ContextOverflowError)throw error;
     const retryable=error instanceof RequestError?error.retryable:error instanceof TypeError||timeout.aborted;
     if(!retryable||emitted&&!options.onReset)throw Error(safe);

@@ -3,6 +3,7 @@ import type {ModelConfig,WireMessage,ToolCall} from '../../src/shared';
 import type {ModelProtocol,NativeAssistant} from '../../src/model-types';
 import type {Completion,ToolDefinition} from './model';
 import {visibleImages} from '../../src/model-images';
+import {modelUsage} from './model-usage';
 
 export const nativeKey=(cfg:ModelConfig)=>`${cfg.providerId||''}:${cfg.baseUrl.replace(/\/$/,'')}:${cfg.model}`;
 const rawCall=(name:string,args:unknown,id?:string):ToolCall=>({id:id??randomUUID(),type:'function',function:{name,arguments:typeof args==='string'?args:JSON.stringify(args||{})}});
@@ -57,6 +58,7 @@ export class StreamAccumulator {
  constructor(private protocol:ModelProtocol,private key:string,private onText:(delta:string)=>void){}
  private text(value:unknown){if(typeof value==='string'){this.content+=value;this.onText(value);}}
  consume(item:any){
+  if(this.protocol==='responses'&&item.type==='response.failed')this.usage=modelUsage('responses',item.response?.usage,this.usage);
   if(item.error||item.type==='error'||item.type==='response.failed')throw Error(`模型流错误：${item.error?.message||item.response?.error?.message||'unknown'}`);
   if(this.protocol==='responses'){
    if(item.type==='response.output_text.delta')this.text(item.delta);
@@ -64,21 +66,21 @@ export class StreamAccumulator {
     const r=item.response;this.output=r.output||[];this.finishReason=item.type==='response.completed'?'stop':r.incomplete_details?.reason==='max_output_tokens'?'length':'incomplete';this.ended=true;
     this.content=this.output.filter(i=>i.type==='message').flatMap(i=>i.content||[]).filter(i=>i.type==='output_text').map(i=>i.text).join('')||this.content;
     for(const i of this.output)if(i.type==='function_call')this.calls.set(this.calls.size,rawCall(i.name,i.arguments,i.call_id||''));
-    const u=r.usage;if(u)this.usage={inputTokens:u.input_tokens||0,outputTokens:u.output_tokens||0,cachedTokens:u.input_tokens_details?.cached_tokens||0,reasoningTokens:u.output_tokens_details?.reasoning_tokens||0};
+    this.usage=modelUsage('responses',r.usage,this.usage);
    }return;
   }
   if(this.protocol==='anthropic'){
-   if(item.type==='message_start'){const u=item.message.usage||{};this.usage={inputTokens:(u.input_tokens||0)+(u.cache_read_input_tokens||0)+(u.cache_creation_input_tokens||0),outputTokens:u.output_tokens||0,cachedTokens:u.cache_read_input_tokens||0};}
+   if(item.type==='message_start')this.usage=modelUsage('anthropic',item.message?.usage,this.usage);
    if(item.type==='content_block_start'){this.blocks.set(item.index,structuredClone(item.content_block));if(item.content_block.type==='text')this.text(item.content_block.text);}
    if(item.type==='content_block_delta'){const b=this.blocks.get(item.index),d=item.delta;if(!b)throw Error('模型内容块缺少起始事件');if(d.type==='text_delta'){b.text=(b.text||'')+d.text;this.text(d.text);}if(d.type==='input_json_delta')this.json.set(item.index,(this.json.get(item.index)||'')+d.partial_json);if(d.type==='thinking_delta')b.thinking=(b.thinking||'')+d.thinking;if(d.type==='signature_delta')b.signature=(b.signature||'')+d.signature;}
-   if(item.type==='message_delta'){if(item.delta?.stop_reason)this.finishReason=item.delta.stop_reason==='max_tokens'?'length':item.delta.stop_reason;if(this.usage&&item.usage?.output_tokens!==undefined)this.usage.outputTokens=item.usage.output_tokens;}
+   if(item.type==='message_delta'){if(item.delta?.stop_reason)this.finishReason=item.delta.stop_reason==='max_tokens'?'length':item.delta.stop_reason;this.usage=modelUsage('anthropic',item.usage,this.usage);}
    if(item.type==='message_stop'){this.ended=true;for(const [index,b] of this.blocks){if(b.type==='tool_use'){if(this.json.has(index))b.input=JSON.parse(this.json.get(index)!);this.calls.set(index,rawCall(b.name,b.input,b.id||''));}}}return;
   }
   if(this.protocol==='gemini'){
    const c=item.candidates?.[0];if(c){for(const part of c.content?.parts||[]){this.parts.push(structuredClone(part));if(part.text&&!part.thought)this.text(part.text);if(part.functionCall){const f=part.functionCall;this.calls.set(this.calls.size,rawCall(f.name,f.args,f.id));}}if(c.finishReason){this.finishReason=c.finishReason==='MAX_TOKENS'?'length':c.finishReason;this.ended=true;}}
-   const u=item.usageMetadata;if(u)this.usage={inputTokens:u.promptTokenCount||0,outputTokens:(u.candidatesTokenCount||0)+(u.thoughtsTokenCount||0),cachedTokens:u.cachedContentTokenCount||0,reasoningTokens:u.thoughtsTokenCount||0};return;
+   this.usage=modelUsage('gemini',item.usageMetadata,this.usage);return;
   }
-  const u=item.usage;if(Number.isFinite(u?.prompt_tokens)&&Number.isFinite(u?.completion_tokens))this.usage={inputTokens:u.prompt_tokens,outputTokens:u.completion_tokens,cachedTokens:u.prompt_tokens_details?.cached_tokens||0,reasoningTokens:u.completion_tokens_details?.reasoning_tokens||0};
+  this.usage=modelUsage('chat',item.usage,this.usage);
   const c=item.choices?.[0];if(!c)return;if(c.finish_reason){this.finishReason=c.finish_reason;this.ended=true;}const d=c.delta||c.message||{};
   if(typeof d.content==='string')this.text(d.content);
   for(const key of ['reasoning_content','reasoning','reasoning_details'])if(d[key]!==undefined){if(typeof d[key]==='string')this.extras[key]=(this.extras[key]||'')+d[key];else if(Array.isArray(d[key]))this.extras[key]=[...(this.extras[key]||[]),...d[key]];}

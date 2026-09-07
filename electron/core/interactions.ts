@@ -49,12 +49,14 @@ export class Interactions {
     return this.enqueue({id:randomUUID(),botId,runId,createdAt:new Date().toISOString(),kind:'vm_takeover',reason,phase:controlling?'controlling':'waiting'},signal);
   }
   approve(id:string,allow:boolean){
-    if(this.get(id).kind!=='host_permission')throw new Error('请求类型不匹配');
+    const request=this.get(id);if(request.kind!=='host_permission')throw new Error('请求类型不匹配');
+    if(allow&&request.approval?.phase==='reviewing')throw new Error('自动审核尚未结束');
     this.finish(id,allow?undefined:new InteractionDenied(),allow?'allowed':'denied');
   }
   approveAlways(id:string){
     const request=this.get(id);
     if(request.kind!=='host_permission'||request.details.operation!=='command'||!this.commands)throw new Error('此请求不支持始终允许');
+    if(request.approval?.phase==='reviewing')throw new Error('自动审核尚未结束');
     if(this.hostPolicy&&this.hostPolicy.modeFor(request)!=='auto')throw new Error('每次询问模式不能保存自动放行规则');
     const rule=this.commands.allow(request.details);
     this.finish(id,undefined,'always-allowed',rule.id);
@@ -77,6 +79,7 @@ export class Interactions {
       if(policy.modeFor(item.request)!=='auto'){this.refreshHostPolicy();return;}
       item.request.approval={mode:'auto',phase:'waiting',...result};
       if(result.decision==='allow')this.finish(id,undefined,'auto-model');
+      else if(result.decision==='deny')this.finish(id,new InteractionDenied(`自动审核未放行，任务已停止：${result.reason}`),'auto-model-deny');
       else{try{this.record?.(structuredClone(item.request),'auto-model-'+result.decision);}catch{}this.changed();}
     }).catch(()=>{
       const item=this.pending.get(id);if(!item||item!==pending||item.revision!==revision||controller.signal.aborted||item.request.kind!=='host_permission')return;

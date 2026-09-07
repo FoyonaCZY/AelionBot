@@ -71,10 +71,18 @@ test('model approvals are single-use and are not converted into command rules',a
   const f=fixture(t);f.mode('auto');await f.permission(command(f.project));await f.permission(command(f.project));assert.equal(f.reviews(),2);assert.equal(f.rules.list().length,0);
 });
 
-for(const decision of ['deny','ask'] as const)test(`a reviewer ${decision} waits for a human instead of executing`,async t=>{
+for(const decision of ['ask'] as const)test(`a reviewer ${decision} waits for a human instead of executing`,async t=>{
   const f=fixture(t,async()=>({decision,reason:'需要确认准确的操作范围'}));f.mode('auto');let executed=false;
   const pending=f.permission(command(f.project)).then(()=>{executed=true;});await until(()=>(f.interactions.snapshot()[0] as HostPermissionRequest)?.approval?.phase==='waiting');
   assert.equal(executed,false);const request=f.interactions.snapshot()[0] as HostPermissionRequest;assert.equal(request.approval?.decision,decision);assert.match(request.approval?.reason||'',/操作范围/);f.interactions.approve(request.id,true);await pending;assert.equal(executed,true);
+});
+
+test('a definite model denial stops the operation without requesting a human override',async t=>{
+  const review=deferred<ModelApproval>(),f=fixture(t,async()=>review.promise);f.mode('auto');
+  const pending=f.permission(command(f.project)),rejected=assert.rejects(pending,/自动审核未放行.*超出用户要求/);
+  const request=f.interactions.snapshot()[0];assert.throws(()=>f.interactions.approve(request.id,true),/审核尚未结束/);assert.throws(()=>f.interactions.approveAlways(request.id),/审核尚未结束/);
+  review.resolve({decision:'deny',reason:'超出用户要求'});await rejected;
+  assert.equal(f.interactions.snapshot().length,0);assert.equal(f.records.at(-1)?.decision,'auto-model-deny');
 });
 
 test('review errors and missing defaults fall back to a visible human request',async t=>{

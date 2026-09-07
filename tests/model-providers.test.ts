@@ -23,6 +23,29 @@ import {GroupChats} from '../electron/core/group-chats';
 import {groupPending} from '../src/group-types';
 import type {VmController} from '../electron/core/vm';
 import type {WireMessage} from '../src/shared';
+import {protocolRequest} from '../electron/core/model-protocol';
+
+test('provider reasoning migrates once to independent Bot settings and the default reviewer',t=>{
+  const f=fixture(t),a=f.store.data.bots[0],b=f.store.createBot('Beta','test');
+  f.store.data.providers=[{id:'a',name:'Alpha',baseUrl:'https://a.example/v1',models:[],reasoningEffort:'high'},{id:'b',name:'Beta',baseUrl:'https://b.example/v1',models:[],reasoningEffort:'custom-ultra'}];
+  f.store.data.defaultModel={providerId:'a',model:'default-model',contextTokens:32000};b.model={providerId:'b',model:'beta-model',contextTokens:64000};f.store.save();
+  const providers=f.router();assert.equal(providers.config(a.id).reasoningEffort,'high');assert.equal(providers.config(b.id).reasoningEffort,'custom-ultra');assert.equal(providers.config().reasoningEffort,'high');assert.ok(providers.list().every(provider=>provider.reasoningEffort===undefined));
+  assert.deepEqual(JSON.parse(readFileSync(join(f.dir,'reasoning-migration-backup.json'),'utf8')).providers,[{id:'a',reasoningEffort:'high'},{id:'b',reasoningEffort:'custom-ultra'}]);
+  providers.setDefault({...f.store.data.defaultModel!,reasoningEffort:'minimal'});assert.equal(providers.config().reasoningEffort,'minimal');assert.equal(providers.config(a.id).reasoningEffort,'high');
+  updateBotProfile(f.store,providers,{id:a.id,name:a.name,role:a.role,reasoningEffort:null});assert.equal(providers.config(a.id).reasoningEffort,undefined);
+  const reopened=new ModelProviders(new Store(f.dir),f.secret);assert.equal(reopened.config(a.id).reasoningEffort,undefined);assert.equal(reopened.config(b.id).reasoningEffort,'custom-ultra');reopened.dispose();
+});
+
+test('custom model names and per-Bot reasoning reach the chosen protocol without affecting peers',t=>{
+  const f=fixture(t),providers=f.router(),a=f.store.data.bots[0],b=f.store.createBot('Beta','test'),provider=providers.save({name:'Empty list',baseUrl:'https://a.example/v1',protocol:'responses'});
+  providers.setDefault({providerId:provider.id,model:'not-in-catalog/v2',contextTokens:64000});
+  updateBotProfile(f.store,providers,{id:a.id,name:a.name,role:a.role,model:null,reasoningEffort:' ultra-plus '});
+  assert.equal(providers.config(a.id).reasoningEffort,'ultra-plus');assert.equal(providers.config(b.id).reasoningEffort,undefined);
+  let body=protocolRequest(providers.config(a.id),[],[],1024,'',()=> '').body as any;assert.equal(body.model,'not-in-catalog/v2');assert.equal(body.reasoning.effort,'ultra-plus');
+  body=protocolRequest({...providers.config(a.id),protocol:'chat'},[],[],1024,'',()=> '').body as any;assert.equal(body.reasoning_effort,'ultra-plus');
+  const before=JSON.stringify(f.store.data);assert.throws(()=>updateBotProfile(f.store,providers,{id:a.id,name:'changed',role:a.role,reasoningEffort:'bad\nvalue'}),/推理强度/);assert.equal(JSON.stringify(f.store.data),before);
+  assert.throws(()=>updateBotProfile(f.store,providers,{id:a.id,name:'changed',role:a.role,reasoningEffort:'low'},()=>{throw Error('busy');}),/busy/);assert.equal(JSON.stringify(f.store.data),before);
+});
 
 const pause=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms));
 async function until(predicate:()=>boolean){for(let n=0;n<400;n++){if(predicate())return;await pause(10);}throw Error('Provider test did not settle');}

@@ -11,12 +11,12 @@ import type {DiagnosticPreview} from './diagnostic-types';
 import type {ScheduledTask,ScheduledTaskInput,ScheduledTaskUpdate,ScheduledTrigger} from './scheduled-types';
 import type {ToolExecution} from './execution-types';
 export type {BotMention,PeerChatPage,PeerNotice,PeerRunOrigin,PeerView} from './peer-types';
-export interface ModelSelection {providerId:string;model:string;contextTokens:number;}
+export interface ModelSelection {providerId:string;model:string;contextTokens:number;reasoningEffort?:string;}
 export interface ProviderModel {id:string;}
 export interface ModelProvider extends ModelParameters {id:string;name:string;baseUrl:string;hasKey:boolean;models:ProviderModel[];modelsUpdatedAt?:string;modelsCheckedAt?:string;modelsError?:string;}
 export interface ProviderInput extends ModelParameters {id?:string;name:string;baseUrl:string;apiKey?:string|null;}
-export interface Bot { id: string; name: string; role: string; color: string; avatarStyle?:import('./bot-colors').BotAvatarStyle; createdAt: string; memories: string[]; model?:ModelSelection; }
-export interface BotUpdateInput {id:string;name:string;role:string;model?:ModelSelection|null;color?:string;avatarStyle?:import('./bot-colors').BotAvatarStyle|null;}
+export interface Bot { id: string; name: string; role: string; color: string; avatarStyle?:import('./bot-colors').BotAvatarStyle; createdAt: string; memories: string[]; model?:ModelSelection; reasoningEffort?:string; }
+export interface BotUpdateInput {id:string;name:string;role:string;model?:ModelSelection|null;reasoningEffort?:string|null;color?:string;avatarStyle?:import('./bot-colors').BotAvatarStyle|null;}
 export interface ToolCall { id: string; type: 'function'; function: { name: string; arguments: string }; }
 export interface ScreenReference { id: string; width: number; height: number; attachmentId?:string; }
 export interface WireMessage { native?:NativeAssistant; role: 'system' | 'user' | 'assistant' | 'tool'; content: string | null; tool_calls?: ToolCall[]; tool_call_id?: string; images?: ScreenReference[]; groupMessageId?:string; }
@@ -73,7 +73,7 @@ export interface AelionAPI {
   updateScheduledTask(input:ScheduledTaskUpdate):Promise<ScheduledTask>;
   deleteScheduledTask(id:string):Promise<void>;
   runScheduledTask(id:string):Promise<void>;
-  createBot(input: { name: string; role: string; color?: string;avatarStyle?:import('./bot-colors').BotAvatarStyle|null }): Promise<Bot>;
+  createBot(input: { name: string; role: string; color?: string;avatarStyle?:import('./bot-colors').BotAvatarStyle|null;model?:ModelSelection|null;reasoningEffort?:string|null }): Promise<Bot>;
   deleteBot(id: string): Promise<void>;
   updateBot(input: BotUpdateInput): Promise<void>;
   send(input: { botId: string; message: string; mentions?:BotMention[];attachmentIds?:string[] }): Promise<void>;
@@ -92,6 +92,7 @@ export interface AelionAPI {
   cancel(botId: string): Promise<void>;
   saveModel(input: { baseUrl: string; model: string; apiKey?: string; contextTokens: number }): Promise<void>;
   testModel(): Promise<string>;
+  queryUsage(input:import('./usage-types').UsageQuery):Promise<import('./usage-types').UsageReport>;
   saveProvider(input:ProviderInput):Promise<ModelProvider>;
   refreshProviderModels(id:string):Promise<ModelProvider>;
   removeProvider(id:string):Promise<void>;

@@ -17,6 +17,7 @@ import './avatar.css';
 
 export function Icon({name,size=20}:{name:string;size?:number}){
   const shapes:Record<string,React.ReactNode>={
+    chart:<><path d="M4 4v16h16M8 16v-5m5 5V6m5 10V9"/></>,
     clock:<><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
     shield:<><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="m8 12 3 3 5-6"/></>,
     message:<><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l-2 2V11.5A8.5 8.5 0 0 1 10.5 3h2a8.5 8.5 0 0 1 8.5 8.5Z"/><path d="M7 9h9M7 13h6"/></>,

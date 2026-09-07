@@ -1,4 +1,4 @@
-import {DEFAULT_RUNTIME,type RuntimeSettings,type TaskPlan} from '../../src/runtime-types';
+import {DEFAULT_RUNTIME,reportedTotal,type RuntimeSettings,type TaskPlan} from '../../src/runtime-types';
 import type {Store} from './store';
 import {ExecutionLedger} from './execution-ledger';
 export function runtimeSettings(value:unknown):RuntimeSettings{
@@ -16,7 +16,7 @@ export class RunPolicy {
   if(cfg.maxTurns&&iteration>=cfg.maxTurns)throw Error(`达到 ${cfg.maxTurns} 轮执行预算，任务与执行记录已保留，可检查后继续`);
   if(Date.now()-Date.parse(run.startedAt)>=cfg.maxMinutes*60000)throw Error('达到本次执行时间预算，任务与执行记录已保留');
   if(cfg.maxTokens>0){
-   const used=this.store.data.modelUsage?.filter(x=>x.runId===runId).reduce((n,x)=>n+(x.usage?x.usage.inputTokens+x.usage.outputTokens:x.estimatedTokens||0),0)||0;
+   const used=this.store.data.modelUsage?.filter(x=>x.runId===runId).reduce((n,x)=>n+(reportedTotal(x.usage)??x.estimatedTokens??((x.usage?.inputTokens??0)+(x.usage?.outputTokens??0))),0)||0;
    if(used>=cfg.maxTokens)throw Error('达到本次模型用量预算，任务与执行记录已保留');
   }
  }

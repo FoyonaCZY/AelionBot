@@ -2,5 +2,6 @@ export interface RuntimeSettings {maxTurns:number;maxMinutes:number;maxTokens:nu
 export const DEFAULT_RUNTIME:RuntimeSettings={maxTurns:120,maxMinutes:60,maxTokens:0,modelRetries:2,requestTimeoutMs:180000,maxOutputTokens:8192,parallelReads:4,progressSeconds:60,fileCheckpoints:false};
 export interface TaskStep {id:string;title:string;acceptance:string;status:'pending'|'working'|'done'|'skipped';evidenceIds:string[];note?:string;}
 export interface TaskPlan {revision:number;goal:string;steps:TaskStep[];}
-export interface ModelUsage {inputTokens:number;outputTokens:number;cachedTokens:number;reasoningTokens?:number;latencyMs?:number;attempts?:number;}
-export interface UsageRecord {estimatedTokens?:number;id:string;botId?:string;runId?:string;purpose:string;model:string;providerId?:string;time:string;usage?:ModelUsage;error?:string;}
+export interface ModelUsage {version?:2;inputTokens?:number;outputTokens?:number;totalTokens?:number;cachedTokens?:number;cacheWriteTokens?:number;reasoningTokens?:number;latencyMs?:number;attempts?:number;}
+export interface UsageRecord {estimatedTokens?:number;id:string;botId?:string;runId?:string;purpose:string;model:string;providerId?:string;providerName?:string;time:string;usage?:ModelUsage;error?:string;}
+export function reportedTotal(usage?:ModelUsage){return usage?.totalTokens??(usage?.inputTokens!==undefined&&usage.outputTokens!==undefined?usage.inputTokens+usage.outputTokens:undefined);}

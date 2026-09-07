@@ -50,7 +50,7 @@ function TakeoverCard({request,onTakeover}:{request:Takeover;onTakeover:(request
   return <section id={`interaction-${request.id}`} className="conversation-request takeover-card companion-surface" tabIndex={-1} aria-label="需要人工接管"><header><CompanionBadge kind="takeover" activity="waiting"/><div className="request-heading-copy"><h2>接管工作电脑</h2></div><span className="request-status companion-status">{request.phase==='controlling'?'接管中':'等待接管'}</span></header><div className="permission-body"><p className="permission-reason">{request.reason}</p>{error&&<p className="permission-error" role="alert">{error}</p>}</div><footer><button type="button" className="companion-button" disabled={pending} onClick={()=>void act('cancel')}>取消任务</button><button type="button" className="companion-button companion-primary" disabled={pending} onClick={()=>void act('takeover')}>{request.phase==='controlling'?'返回工作电脑':'接管电脑'}</button></footer></section>;
 }
 export function ConversationInteractions({requests,botId,onTakeover}:{requests:InteractionRequest[];botId:string;onTakeover:(request:Takeover)=>Promise<void>}){
-  const pending=requests.filter(request=>request.botId===botId),request=pending[0];
+  const pending=requests.filter(request=>request.botId===botId&&(request.kind!=='host_permission'||request.approval?.phase!=='reviewing')),request=pending[0];
   if(!request)return null;
   return request.kind==='host_permission'?<PermissionCard key={request.id} request={request} count={pending.length}/>:<TakeoverCard key={request.id} request={request} onTakeover={onTakeover}/>;
 }

@@ -13,7 +13,7 @@ export function MessageLink({href,children,node,onClick,onAuxClick,...props}:Com
   // Footnotes and other in-document anchors stay inside the message view.
   if(href?.startsWith('#'))return <a {...props} href={href} onClick={onClick} onAuxClick={onAuxClick}>{children}</a>;
   if(!url)return <>{children}</>;
-  return <><a {...props} href={url} target="_blank" rel="noopener noreferrer"
+  return <><a {...props} href={url} title={props.title||url} target="_blank" rel="noopener noreferrer"
     onClick={event=>{onClick?.(event);if(event.button===0)void open(event);}}
     onAuxClick={event=>{onAuxClick?.(event);if(event.button===1)void open(event);}}>{children}</a>
     {failedUrl===url&&<span className="message-link-error" role="alert">无法打开浏览器，请复制链接后打开。</span>}</>;

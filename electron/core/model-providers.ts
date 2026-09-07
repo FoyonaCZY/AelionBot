@@ -6,12 +6,13 @@ import {Store,atomicJson,type StoredProvider} from './store';
 import {validateModelEndpoint} from './model';
 import {redactHost} from './host';
 import type {ModelParameters} from '../../src/model-types';
+import {reasoningEffort as cleanReasoning} from '../../src/reasoning';
 
 export function modelParameters(input:ModelParameters):ModelParameters{
  const {protocol,temperature,reasoningEffort,thinkingBudget,fallbackModel}=input;
  if(protocol!==undefined&&!['chat','responses','anthropic','gemini'].includes(protocol))throw Error('模型协议无效');
  if(temperature!==undefined&&(!Number.isFinite(temperature)||temperature<0||temperature>2))throw Error('温度应为 0–2');
- if(reasoningEffort!==undefined&&!['none','minimal','low','medium','high','xhigh'].includes(reasoningEffort))throw Error('推理强度无效');
+ cleanReasoning(reasoningEffort);
  if(thinkingBudget!==undefined&&(!Number.isInteger(thinkingBudget)||thinkingBudget<1024||thinkingBudget>64000))throw Error('思考预算应为 1024–64000');
  if(fallbackModel!==undefined&&(typeof fallbackModel!=='string'||fallbackModel.length>256||/[\u0000-\u001f]/.test(fallbackModel)))throw Error('备用模型无效');
  return {protocol,temperature,reasoningEffort,thinkingBudget,fallbackModel:fallbackModel?.trim()||undefined};
@@ -27,14 +28,22 @@ export class ModelProviders {
   private requests=new Map<string,{revision:string;controller:AbortController;promise:Promise<ModelProvider>}>();
   private decrypted=new Map<string,string>();
   constructor(readonly store:Store,private codec:CredentialCodec,private changed:()=>void=()=>{}){
-    if(store.data.providers!==undefined)return;
+    if(store.data.providers!==undefined){this.migrateReasoning();return;}
     const legacy=store.data.model,providers:StoredProvider[]=[];let defaultModel:ModelSelection|undefined;
     if(legacy.model||legacy.encryptedKey||legacy.baseUrl!=='https://api.openai.com/v1'){
       const backup=join(store.dir,'providers-migration-backup.json');if(!existsSync(backup))atomicJson(backup,store.data);
       const provider:StoredProvider={id:randomUUID(),name:'默认 Provider',baseUrl:legacy.baseUrl,models:legacy.model?[{id:legacy.model}]:[],...(legacy.encryptedKey?{encryptedKey:legacy.encryptedKey}:{})};providers.push(provider);
-      if(legacy.model)defaultModel={providerId:provider.id,model:legacy.model,contextTokens:legacy.contextTokens};
+      if(legacy.model)defaultModel={providerId:provider.id,model:legacy.model,contextTokens:legacy.contextTokens,...(legacy.reasoningEffort?{reasoningEffort:cleanReasoning(legacy.reasoningEffort)}:{})};
     }
-    this.commit({providers,defaultModel});
+    this.commit({providers,defaultModel,...(legacy.reasoningEffort?{bots:store.data.bots.map(bot=>({...bot,reasoningEffort:bot.reasoningEffort??cleanReasoning(legacy.reasoningEffort)}))}:{})});
+  }
+  private migrateReasoning(){
+    const providers=this.store.data.providers!;if(!providers.some(provider=>provider.reasoningEffort!==undefined))return;
+    const backup=join(this.store.dir,'reasoning-migration-backup.json');if(!existsSync(backup))atomicJson(backup,{version:1,providers:providers.filter(provider=>provider.reasoningEffort!==undefined).map(provider=>({id:provider.id,reasoningEffort:provider.reasoningEffort}))});
+    const inherited=(selection?:ModelSelection)=>selection?.reasoningEffort??providers.find(provider=>provider.id===selection?.providerId)?.reasoningEffort;
+    const bots=this.store.data.bots.map(bot=>{const effort=bot.reasoningEffort??inherited(bot.model||this.store.data.defaultModel);return effort?{...bot,reasoningEffort:cleanReasoning(effort)}:bot;});
+    const selection=this.store.data.defaultModel,effort=inherited(selection),defaultModel=selection&&effort?{...selection,reasoningEffort:cleanReasoning(effort)}:selection;
+    this.commit({bots,defaultModel,providers:providers.map(({reasoningEffort,...provider})=>provider)});
   }
   private commit(patch:Partial<Store['data']>){
     const next={...this.store.data,...patch},selection=next.defaultModel,provider=next.providers?.find(item=>item.id===selection?.providerId);
@@ -55,7 +64,7 @@ export class ModelProviders {
     if(!value||typeof value!=='object')throw new Error('请选择 Provider 和模型');
     const input=value as ModelSelection,providerId=text(input.providerId,'Provider',80),model=text(input.model,'模型名称',256),contextTokens=input.contextTokens;
     this.provider(providerId);if(!Number.isInteger(contextTokens)||contextTokens<8000||contextTokens>1000000)throw new Error('上下文容量应为 8000–1000000');
-    return {providerId,model,contextTokens};
+    const effort=cleanReasoning(input.reasoningEffort);return {providerId,model,contextTokens,...(effort?{reasoningEffort:effort}:{})};
   }
   setDefault(value:unknown){this.commit({defaultModel:this.selection(value)});}
   setBot(botId:string,value:unknown){this.store.bot(botId);const selection=this.selection(value);this.commit({bots:this.store.data.bots.map(bot=>bot.id===botId?{...bot,model:selection}:bot)});}
@@ -71,6 +80,7 @@ export class ModelProviders {
     if(changedOrigin&&previous.encryptedKey&&!supplied&&input.apiKey!==null)throw new Error('更换服务地址后请重新填写 API Key');
     const encryptedKey=supplied?this.codec.encrypt(supplied):input.apiKey===null?undefined:previous?.encryptedKey;
     const parameters=modelParameters({...previous,...input});
+    delete parameters.reasoningEffort;
     const connectionChanged=!previous||previous.baseUrl!==baseUrl||previous.encryptedKey!==encryptedKey||previous.protocol!==parameters.protocol;
     const provider:StoredProvider={id:previous?.id||randomUUID(),name,baseUrl,models:connectionChanged?[]:previous.models,...(!connectionChanged?{modelsUpdatedAt:previous.modelsUpdatedAt,modelsCheckedAt:previous.modelsCheckedAt,modelsError:previous.modelsError}:{}),...(encryptedKey?{encryptedKey}:{})};
     Object.assign(provider,parameters);
