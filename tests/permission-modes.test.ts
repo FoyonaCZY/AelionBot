@@ -138,7 +138,11 @@ test('ordinary authentication source code is not mistaken for a credential store
 
 test('choosing a broad workspace does not make system-directory writes a low-risk edit',()=>{
   assert.equal(classifyHostOperation({operation:'write_file',path:'C:\\Windows\\System32\\drivers\\etc\\hosts',content:'data',reason:'test'},{...context,workspaceDir:'C:\\'}).lowRisk,false);
-  assert.equal(classifyHostOperation({operation:'write_file',path:'/etc/sudoers',content:'data',reason:'test'},{...context,platform:'darwin',workspaceDir:'/',dataDir:'/Users/test/.aelion'}).lowRisk,false);
+  const mac={...context,platform:'darwin' as const,workspaceDir:'/',dataDir:'/Users/test/.aelion'};
+  for(const path of ['/etc/sudoers','/private/etc/sudoers','/etc/aelion-new-config','/private/etc/aelion-new-config','/bin/aelion-test','/usr/bin/aelion-test','/Library/LaunchAgents/aelion.plist','/Applications/AelionBot.app/Contents/Info.plist'])
+    assert.equal(classifyHostOperation({operation:'write_file',path,content:'data',reason:'test'},mac).lowRisk,false,path);
+  for(const path of ['/Users/test/project/app.ts','/private/tmp/aelion-project/app.ts','/ApplicationsProject/app.ts'])
+    assert.equal(classifyHostOperation({operation:'write_file',path,content:'data',reason:'test'},mac).lowRisk,true,path);
 });
 
 test('shell expressions, scripts, writes and credential reads cannot pass the literal read filter',()=>{

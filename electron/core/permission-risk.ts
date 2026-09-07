@@ -7,6 +7,7 @@ const sensitiveSegment=/^(?:\.ssh|\.aws|\.azure|\.kube|\.gnupg|\.codex|\.aelion|
 const sensitiveFile=/^(?:\.env(?:\..*)?|\.netrc|_netrc|\.npmrc|\.pypirc|\.git-credentials|\.boto|id_(?:rsa|dsa|ecdsa|ed25519)(?:\..*)?|.*(?:credentials?|secrets?|passwords?|tokens?|private[-_]keys?).*|(?:login|web) data(?:-.*)?|cookies(?:-.*)?|.*\.(?:pem|p12|pfx|key|keystore))$/i;
 const protectedWriteSegment=/^(?:\.vscode|\.idea|\.husky|\.claude|\.gemini|\.agents)$/i;
 const protectedWriteFile=/^(?:\.gitconfig|\.gitmodules|\.bashrc|\.bash_profile|\.zshrc|\.zprofile|\.profile|\.ripgreprc|\.mcp\.json|\.claude\.json)$/i;
+const posixSystemWriteRoots=['/etc','/private/etc','/bin','/sbin','/usr/bin','/usr/sbin','/usr/lib','/System/Library','/Library/LaunchAgents','/Library/LaunchDaemons','/Library/Keychains','/Applications'];
 const pathApi=(context:HostRiskContext)=>context.platform==='win32'?win32:posix;
 function canonical(value:string,context:HostRiskContext){
   let path=pathApi(context).normalize(value);
@@ -32,7 +33,9 @@ function ordinaryProjectWrite(value:string,context:HostRiskContext,cwd=context.w
   if(!ordinaryProjectPath(value,context,cwd))return false;
   const path=canonical(pathApi(context).resolve(cwd!,value),context);if(!path)return false;
   const normalized=path.replaceAll('\\','/');
-  if(context.platform==='win32'?/^[a-z]:\/(?:windows|program files(?: \(x86\))?|programdata)(?:\/|$)/i.test(normalized):/^\/(?:etc|bin|sbin|usr\/(?:bin|sbin|lib)|System\/Library|Library\/(?:LaunchAgents|LaunchDaemons|Keychains)|Applications)(?:\/|$)/.test(normalized))return false;
+  // Compare resolved directory roots too: on macOS /etc resolves to /private/etc,
+  // and other system directories may also be aliases on the current platform.
+  if(context.platform==='win32'?/^[a-z]:\/(?:windows|program files(?: \(x86\))?|programdata)(?:\/|$)/i.test(normalized):posixSystemWriteRoots.some(root=>inside(path,root,context)))return false;
   const parts=path.split(/[\\/]/).filter(Boolean);if(parts.some(part=>protectedWriteSegment.test(part))||protectedWriteFile.test(parts.at(-1)||''))return false;
   // A protected directory may itself be a junction/alias to another path in the project.
   for(const name of ['.git','.vscode','.idea','.husky','.claude','.gemini','.agents'])if(inside(path,pathApi(context).join(context.workspaceDir!,name),context))return false;
