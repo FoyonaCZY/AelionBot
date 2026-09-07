@@ -4,3 +4,4 @@
 .markdown-table-scroll th{font-weight:600;background:#f4f4f5}
 .markdown-table-scroll tr:last-child td{border-bottom:0}.markdown-table-scroll tr>:last-child{border-right:0}
 .markdown-table-scroll td>:first-child{margin-top:0}.markdown-table-scroll td>:last-child{margin-bottom:0}
+.message-link-error{margin-inline-start:6px;color:#ad4545;font-size:12px}

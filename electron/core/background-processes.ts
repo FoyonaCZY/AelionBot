@@ -10,6 +10,7 @@ import type {Interactions} from './interactions';
 import {backoff} from './model';
 import {vmPython} from './vm-python';
 import {hostEnvironment,hostShell} from './host-platform';
+import {bytePage} from './bounded-output';
 const LIMIT=2*1024*1024;
 // The supervisor owns the child handle; stopping uses a per-job flag, never an unverified persisted PID.
 export const HOST_SUPERVISOR=String.raw`
@@ -87,8 +88,11 @@ export class BackgroundProcesses {
   const record=this.get(botId,id);if(!Number.isInteger(offset)||offset<0||offset>LIMIT)throw Error('日志位置无效');let data:any;
   if(record.location==='host'){
    const dir=this.dir(record);try{data=JSON.parse(readFileSync(join(dir,'status.json'),'utf8'));}catch{data={status:Date.now()-Date.parse(record.createdAt)<10000?'starting':'unknown'};}
-   const log=existsSync(join(dir,'output.log'))?readFileSync(join(dir,'output.log')):Buffer.alloc(0);data={...data,output:log.subarray(offset,offset+12000).toString('utf8'),nextOffset:Math.min(log.length,offset+12000),truncated:log.length>=LIMIT};
-  }else data=await this.vmScript(record,`import pathlib,json,time; d=pathlib.Path.cwd()/'.aelion-processes'/'${id}'; p=d/'status.json'; s=json.loads(p.read_text()) if p.exists() else {'status':'starting'}; boot=pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip(); s['status']='stopped' if ${JSON.stringify(record.vmBootId||'')} and boot!=${JSON.stringify(record.vmBootId||'')} else s['status']; s['ageMs']=time.time()*1000-s.get('heartbeat',time.time()*1000); p=d/'output.log'; b=p.read_bytes() if p.exists() else b''; s.update(output=b[${offset}:${offset+12000}].decode('utf-8','replace'),nextOffset=min(len(b),${offset+12000}),truncated=len(b)>=${LIMIT}); print(json.dumps(s))`,signal);
+   const log=existsSync(join(dir,'output.log'))?readFileSync(join(dir,'output.log')):Buffer.alloc(0),page=bytePage(log,offset,12000,['completed','failed','stopped'].includes(data.status));data={...data,...page,logBytes:log.length,hasMoreLog:page.nextOffset<log.length,truncated:log.length>=LIMIT};
+  }else {
+   data=await this.vmScript(record,`import pathlib,json,time,base64; d=pathlib.Path.cwd()/'.aelion-processes'/'${id}'; p=d/'status.json'; s=json.loads(p.read_text()) if p.exists() else {'status':'starting'}; boot=pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip(); s['status']='stopped' if ${JSON.stringify(record.vmBootId||'')} and boot!=${JSON.stringify(record.vmBootId||'')} else s['status']; s['ageMs']=time.time()*1000-s.get('heartbeat',time.time()*1000); p=d/'output.log'; size=p.stat().st_size if p.exists() else 0; start=max(0,min(size,${offset})-3); f=p.open('rb') if p.exists() else None; f.seek(start) if f else None; b=f.read(12007) if f else b''; f.close() if f else None; s.update(_logBytes=base64.b64encode(b).decode(),_logStart=start,logBytes=size,truncated=size>=${LIMIT}); print(json.dumps(s))`,signal);
+   if(typeof data._logBytes==='string'){const start=Number(data._logStart)||0,bytes=Buffer.from(data._logBytes,'base64'),page=bytePage(bytes,offset-start,12000,['completed','failed','stopped'].includes(data.status)&&start+bytes.length>=data.logBytes);delete data._logBytes;delete data._logStart;data={...data,...page,offset:start+page.offset,nextOffset:start+page.nextOffset,hasMoreLog:start+page.nextOffset<data.logBytes};}
+  }
   if(data.status==='running'&&Number(data.ageMs??Date.now()-Number(data.heartbeat))>10000||data.status==='starting'&&Date.now()-Date.parse(record.createdAt)>10000)data.status='unknown';record.status=['starting','running','completed','failed','stopped','unknown'].includes(data.status)?data.status:'unknown';record.exitCode=data.exitCode;record.endedAt=data.endedAt;this.store.save();return {...record,...data,output:this.host?.redact(data.output||'')||data.output||''};
  }
  async wait(botId:string,id:string,signal:AbortSignal,milliseconds=10000,offset=0){const until=Date.now()+Math.min(30000,Math.max(0,milliseconds));let result;do{result=await this.status(botId,id,signal,offset);if(!['starting','running'].includes(result.status)||Date.now()>=until)return result;await backoff(Math.min(500,until-Date.now()),signal);}while(true);}

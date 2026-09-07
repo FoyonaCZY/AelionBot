@@ -117,6 +117,7 @@ export interface AelionAPI {
   openComputerApp(input: { botId: string; app: 'browser' | 'files' | 'editor' | 'writer' | 'calc' | 'terminal' }): Promise<void>;
   openFile(input: { botId: string; path: string }): Promise<void>;
   openData(): Promise<void>;
+  openExternalUrl(url:string):Promise<void>;
   refreshIntegrations(): Promise<void>;
   manageSkill(input:{botId:string;id:string;action:string;revision?:number}):Promise<unknown>;
   readSkill(input: {id:string;botId:string}): Promise<Skill>;

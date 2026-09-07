@@ -40,6 +40,7 @@ import {WorkItems} from './core/work-items';
 import {assertWorkspaceScope,conversationWorkspace,setConversationWorkspace} from './core/workspaces';
 import {resumableRun} from './core/resume-run';
 import type { Snapshot } from '../src/shared';
+import {externalWebUrl} from '../src/external-links';
 
 let window:BrowserWindow|undefined;
 let vm:VmController;
@@ -107,7 +108,7 @@ async function initialize(){
   const configDir=resolve(process.env.AELION_CONFIG_HOME||savedLaunch?.configDir||join(homeDir,'.aelion'));
   diagnostics=new Diagnostics({dataDir,snapshot,paths:()=>[dataDir,profileDir,homeDir,projectDir,configDir,app.getAppPath(),...Object.values(store.data.conversationWorkspaces||{})],secrets:()=>{let keys:string[]=[];try{keys=providers.secrets();}catch{}return [...keys,...Object.entries(process.env).filter(([name])=>/TOKEN|SECRET|PASSWORD|PASSWD|KEY|CREDENTIAL|AUTH/i.test(name)).map(([,value])=>value||'')];},environment:{appVersion:app.getVersion(),platform:process.platform,arch:process.arch,osRelease:osRelease(),electron:process.versions.electron,chrome:process.versions.chrome,node:process.versions.node,packaged:app.isPackaged,cpuCount:availableParallelism(),memoryGiB:Math.round(totalmem()/1024**3)}});
   diagnostics.record('app.started',`AelionBot ${app.getVersion()} (${process.platform} ${process.arch})`);
-  host=new HostComputer({dataDir,homeDir,projectDir,env:{...process.env},secrets:()=>providers.secrets()},interactions);
+  host=new HostComputer({dataDir,homeDir,projectDir,runtimeDir:__dirname,env:{...process.env},secrets:()=>providers.secrets()},interactions);
   integrations=new Integrations(store,{homeDir,projectDir,dataDir,configDir,env:{...process.env}},changed,(data,mime)=>{
     if(!['image/png','image/jpeg','image/webp'].includes(mime)||typeof data!=='string'||data.length>12*1024*1024)throw new Error('MCP 图像类型或大小不受支持');
     const img=nativeImage.createFromDataURL(`data:${mime};base64,${data}`);const size=img.getSize();
@@ -175,6 +176,7 @@ async function initialize(){
   });
   handle('runtime:save',value=>{store.data.runtime=runtimeSettings(value);store.save();changed();});
   handle('app:snapshot',snapshot);
+  handle('app:open-external-url',value=>{const url=externalWebUrl(value);if(!url)throw new Error('只能在浏览器中打开有效的 HTTP 或 HTTPS 链接');return shell.openExternal(url);});
   handle('updates:state',()=>appUpdates!.snapshot());
   handle('updates:check',()=>appUpdates!.check());
   handle('updates:download',()=>appUpdates!.download());

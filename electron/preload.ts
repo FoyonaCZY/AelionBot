@@ -73,6 +73,7 @@ const api:AelionAPI={
   openComputerApp:input=>ipcRenderer.invoke('computer:open-app',input),
   openFile:input=>ipcRenderer.invoke('files:open',input),
   openData:()=>ipcRenderer.invoke('app:open-data'),
+  openExternalUrl:url=>ipcRenderer.invoke('app:open-external-url',url),
   refreshIntegrations:()=>ipcRenderer.invoke('integrations:refresh'),
   manageSkill:input=>ipcRenderer.invoke('skills:manage',input),
   readSkill:input=>ipcRenderer.invoke('skills:read',input),

@@ -93,7 +93,7 @@ test('goal keeps working after premature final text and needs real verification 
     if(turn===5)return response([call('goal_update',{status:'completed',summary:'实际读取并核对了文件内容',evidenceIds:[evidence]})]);
     return response([],'目标已完成。');
   }} as unknown as ModelClient;
-  await new Harness(store,{execute:async()=>({exitCode:0,stdout:'ok'})} as unknown as VmController,model,()=>{}).run(bot.id,'/goal 修复项目并验证');
+  await new Harness(store,{execute:async(_command:string,botId:string)=>({exitCode:0,stdout:JSON.stringify({path:`/work/${botId}/result.txt`,data:Buffer.from('ok').toString('base64')})})} as unknown as VmController,model,()=>{}).run(bot.id,'/goal 修复项目并验证');
   assert.equal(turn,6);const item=store.data.workItems![0];assert.equal(item.status,'completed');assert.match(item.summary!,/实际读取/);assert.equal(store.data.runs[0].status,'completed');
 });
 
@@ -174,7 +174,7 @@ test('a group plan runs through broadcast, confirmation, execution and final gro
     if(run.plan.steps[0].status!=='done')return response([call('plan_update',plan(run.plan.revision,'done',[evidence.id]))]);
     return response([],'已经核对完成，结果已验证。');
   }} as unknown as ModelClient;
-  harness=new Harness(store,{execute:async()=>({exitCode:0,stdout:'verified'})} as unknown as VmController,model,()=>{});harness.setGroupGateway(groups);
+  harness=new Harness(store,{execute:async(_command:string,botId:string)=>({exitCode:0,stdout:JSON.stringify({path:`/work/${botId}/proof.txt`,data:Buffer.from('verified').toString('base64')})})} as unknown as VmController,model,()=>{});harness.setGroupGateway(groups);
   const room=groups.create({name:'项目群',botIds:[bot.id,other.id]}),text='/plan @'+bot.name+' 核对文件';
   groups.send({id:room.id,message:text,mentions:[{id:bot.id,name:bot.name,color:bot.color,start:6,end:7+bot.name.length}]});groups.start();
   const until=async(check:()=>boolean)=>{for(let i=0;i<200;i++){if(check())return;await new Promise(resolve=>setTimeout(resolve,25));}throw Error('Group workflow did not settle: '+JSON.stringify(store.data.runs.map(r=>({status:r.status,error:r.error}))));};

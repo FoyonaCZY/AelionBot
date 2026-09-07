@@ -64,7 +64,7 @@ test('a later standalone reaction cannot end a task that already used a work too
     if(calls===2)return {content:'文件已读取，正在整理结论。',calls:[{id:randomUUID(),type:'function',function:{name:'chat_pin',arguments:JSON.stringify({messageId:target.id,emoji:'👀'})}}],finishReason:'tool_calls'};
     return {content:'已经读取 README，项目说明如下。',calls:[],finishReason:'stop'};
   }} as unknown as ModelClient;
-  const harness=new Harness(store,{execute:async()=>({stdout:'项目说明',stderr:'',exitCode:0,durationMs:1})} as unknown as VmController,model,()=>{});await harness.run(bot.id,'阅读项目说明');
+  const harness=new Harness(store,{execute:async(_command:string,botId:string)=>({stdout:JSON.stringify({path:`/work/${botId}/README.md`,data:Buffer.from('项目说明').toString('base64')}),stderr:'',exitCode:0,durationMs:1})} as unknown as VmController,model,()=>{});await harness.run(bot.id,'阅读项目说明');
   assert.equal(calls,3);assert.equal(store.data.runs[0].status,'completed');assert.ok(store.data.messages.some(message=>message.presentation==='answer'&&message.content.startsWith('已经读取 README')));assert.ok(store.data.messages.some(message=>message.presentation==='progress'&&message.content==='文件已读取，正在整理结论。'));
 });
 

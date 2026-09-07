@@ -26,6 +26,8 @@ const operations:Record<string,{label:string;active:string;icon:string}>={
   goal_read:{label:'查看目标',active:'正在查看目标',icon:'check'},
   goal_update:{label:'更新目标进度',active:'正在更新目标进度',icon:'check'},
   host_list_directory:{label:'查看本机目录',active:'正在查看本机目录',icon:'folder'},
+  host_find_files:{label:'查找本机文件',active:'正在查找本机文件',icon:'search'},
+  host_search_files:{label:'搜索本机文件',active:'正在搜索本机文件',icon:'search'},
   attachment_read:{label:'读取附件',active:'正在读取附件',icon:'file'},
   attachment_save:{label:'接收附件',active:'正在接收附件',icon:'file'},
   message_attach:{label:'添加附件',active:'正在添加附件',icon:'file'},
@@ -41,11 +43,13 @@ const operations:Record<string,{label:string;active:string;icon:string}>={
   host_execute:{label:'执行本机命令',active:'正在执行本机命令',icon:'terminal'},
   host_file_read:{label:'读取本机文件',active:'正在读取本机文件',icon:'file'},
   host_file_write:{label:'写入本机文件',active:'正在写入本机文件',icon:'file'},
+  host_file_patch:{label:'修改本机文件',active:'正在修改本机文件',icon:'file'},
   request_user_control:{label:'请求人工接管',active:'等待你处理工作电脑',icon:'computer'},
   computer:{label:'操作电脑',active:'正在操作电脑',icon:'computer'},
   computer_execute:{label:'执行命令',active:'正在执行命令',icon:'terminal'},
   python_execute:{label:'运行代码',active:'正在运行代码',icon:'terminal'},
   file_read:{label:'读取文件',active:'正在读取文件',icon:'file'},
+  file_patch:{label:'修改文件',active:'正在修改文件',icon:'file'},
   file_write:{label:'保存文件',active:'正在保存文件',icon:'file'},
   memory:{label:'更新记忆',active:'正在更新记忆',icon:'book'},
   history_search:{label:'查找历史记录',active:'正在查找历史记录',icon:'search'},
@@ -71,7 +75,7 @@ export function describeTool(name:string,input:Record<string,unknown>={},output?
   let label=toolOperation(name).label,detail='';
   const result=output&&typeof output==='object'?output as Record<string,unknown>:{};
   const text=(value:unknown)=>typeof value==='string'?value.replace(/[\r\n\t]/g,' ').trim().slice(0,100):'';
-  if(['file_read','file_write','skill_file_read','host_file_read','host_file_write'].includes(name))detail=text(input.path).replace(/\\/g,'/').split('/').at(-1)||'';
+  if(['file_read','file_write','file_patch','skill_file_read','host_file_read','host_file_write','host_file_patch'].includes(name))detail=text(typeof input.path==='string'?input.path.replace(/\\/g,'/').split('/').at(-1):'')+(Number.isInteger(input.startLine)?` · 第 ${input.startLine} 行起`:'');
   if(['skill_read','skill_save','skill_materialize'].includes(name))detail=text(result.name||input.name);
   if(name==='mcp_call')detail=text(result.tool||input.name);
   if(name==='bot_send_message')detail=text((result.recipient as Record<string,unknown>|undefined)?.name);

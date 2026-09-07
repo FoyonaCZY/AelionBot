@@ -10,7 +10,7 @@ function stable(value:unknown):string {if(Array.isArray(value))return '['+value.
 export function executionTarget(tool:string,args:Record<string,unknown>,botId:string,hostWorkspace=''){
   let target:string,operation=tool;
   if(['file_write','file_read','file_patch'].includes(tool)){operation=tool==='file_read'?'vm-read':'vm-write';target=posix.resolve('/work/'+botId,String(args.path||''));}
-  else if(['host_file_write','host_file_read','host_file_patch'].includes(tool)){operation=tool==='host_file_read'?'host-read':'host-write';target=hostPathKey(String(args.path||''));}
+  else if(['host_file_write','host_file_read','host_file_patch','host_list_directory'].includes(tool)){operation=tool==='host_file_read'?'host-read':tool==='host_list_directory'?'host-list':'host-write';const path=String(args.path||hostWorkspace),windows=/^[a-z]:[\\/]|^\\\\/i.test(path)||/^[a-z]:[\\/]|^\\\\/i.test(hostWorkspace),api=windows?win32:posix;target=hostPathKey(hostWorkspace&&!api.isAbsolute(path)?api.resolve(hostWorkspace,path):path,windows?'win32':process.platform);}
   else if(tool==='mcp_call'){target=String(args.server)+':'+String(args.name)+':'+createHash('sha256').update(stable(args.arguments)).digest('hex').slice(0,16);}
   else if(tool==='host_execute'){target=hostPathKey(String(args.cwd||hostWorkspace))+':'+createHash('sha256').update(String(args.command)).digest('hex').slice(0,16);}
   else target=createHash('sha256').update(stable(args)).digest('hex').slice(0,20);
