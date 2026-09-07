@@ -16,7 +16,7 @@ import {BOT_COLORS} from '../../src/bot-colors';
 
 import type {StoredAttachment} from '../../src/attachment-types';
 export interface StoredProvider extends Omit<ModelProvider,'hasKey'> {encryptedKey?:string;}
-interface Persisted {hostPermissionModes?:Record<string,import("../../src/permission-types").HostPermissionMode>;pythonSessions?:PythonSession[];fileCheckpoints?:FileCheckpoint[];processes?:BackgroundProcess[];workItems?:import("../../src/work-types").WorkItem[];conversationWorkspaces?:Record<string,string>;runtime?:RuntimeSettings;modelUsage?:UsageRecord[];scheduledTasks:ScheduledTask[];attachments:StoredAttachment[]; version: 1; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; conversations: Record<string, WireMessage[]>; summaries: Record<string, string>; contextOffsets:Record<string,number>; model: Omit<ModelConfig, 'hasKey'> & { encryptedKey?: string }; providers?:StoredProvider[];defaultModel?:ModelSelection; skills: Skill[]; artifacts: Artifact[]; skillFilesMigrated?: boolean; peerThreads:PeerThread[];peerExchanges:PeerExchange[];peerContexts:Record<string,WireMessage[]>;peerMessages:ChatMessage[];groups:GroupRoom[];groupRounds:GroupRound[];groupDeliveries:GroupDelivery[];groupContexts:Record<string,WireMessage[]>;groupRunMessages:ChatMessage[]; }
+interface Persisted {hostPermissionModes?:Record<string,import("../../src/permission-types").HostPermissionMode>;pythonSessions?:PythonSession[];fileCheckpoints?:FileCheckpoint[];processes?:BackgroundProcess[];workItems?:import("../../src/work-types").WorkItem[];conversationWorkspaces?:Record<string,string>;runtime?:RuntimeSettings;unlimitedTokenBudgetMigrated?:boolean;modelUsage?:UsageRecord[];scheduledTasks:ScheduledTask[];attachments:StoredAttachment[]; version: 1; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; conversations: Record<string, WireMessage[]>; summaries: Record<string, string>; contextOffsets:Record<string,number>; model: Omit<ModelConfig, 'hasKey'> & { encryptedKey?: string }; providers?:StoredProvider[];defaultModel?:ModelSelection; skills: Skill[]; artifacts: Artifact[]; skillFilesMigrated?: boolean; peerThreads:PeerThread[];peerExchanges:PeerExchange[];peerContexts:Record<string,WireMessage[]>;peerMessages:ChatMessage[];groups:GroupRoom[];groupRounds:GroupRound[];groupDeliveries:GroupDelivery[];groupContexts:Record<string,WireMessage[]>;groupRunMessages:ChatMessage[]; }
 export function atomicJson(path: string, value: unknown) {
   const temp = `${path}.${process.pid}.tmp`;
   const fd = openSync(temp, 'w', 0o600);
@@ -38,6 +38,12 @@ export class Store {
       skills: [{ id: 'verified-files', name: '文件与结果验证', description: '在工作电脑创建文件后重新读取并验证，再交付结果。', body: '在当前 Bot 的工作目录内创建成果。写完后重新读取或运行检查。报告实际文件路径和验证结果。不要把未经执行的代码描述为已经成功运行。使用 Python 标准库完成简单 CSV、JSON、文本和统计任务。' }]
     });
     if (this.data.version !== 1) throw new Error('Unsupported data version');
+    if(!this.data.unlimitedTokenBudgetMigrated){
+      // Older saves did not distinguish the 500k preset from an explicit limit.
+      // Migrate it once so a later user-selected 500k limit survives restarts.
+      if(this.data.runtime?.maxTokens===500000)this.data.runtime.maxTokens=0;
+      this.data.unlimitedTokenBudgetMigrated=true;
+    }
     this.data.workItems ||= [];
     this.data.conversationWorkspaces ||= {};
     for(const item of this.data.workItems){if(item.activeRunId||["running","planning"].includes(item.status)){item.status="paused";item.reason="应用中断，继续前请核对已执行的操作。";delete item.activeRunId;}}
