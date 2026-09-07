@@ -296,6 +296,7 @@ async function initialize(){
   const dev=process.env.AELION_DEV_URL;
   if(dev){if(new URL(dev).hostname!=='127.0.0.1')throw new Error('开发服务器必须在本机');await window.loadURL(dev);}else await window.loadFile(join(__dirname,'../dist/index.html'));
   window.show();
+  appUpdates.startAutomaticChecks();
   void greetings.greetEmpty();
   await vm.refresh();
   if(exiting)return;

@@ -11,6 +11,8 @@ export interface UpdateDriver {
   quitAndInstall():void;
 }
 interface UpdateHooks {blockedReason:()=>string|undefined;prepareInstall:(version:string)=>Promise<void>;recoverInstall:()=>Promise<void>;}
+export const UPDATE_CHECK_START_DELAY_MS=30_000;
+export const UPDATE_CHECK_INTERVAL_MS=5*60_000;
 export function updateError(error:unknown){
   const raw=error instanceof Error?`${(error as Error&{code?:string}).code||''} ${error.message}`:String(error);
   if(/ERR_UPDATER_NO_PUBLISHED_VERSIONS|ERR_UPDATER_LATEST_VERSION_NOT_FOUND|No published versions/i.test(raw))return '仓库还没有可用于更新的正式 Release。';
@@ -29,6 +31,7 @@ function notes(value:unknown):string|undefined{
 }
 export class AppUpdates {
   private state:UpdateState;private operation?:Promise<unknown>;private cancelled=false;private disposed=false;
+  private automaticTimer?:ReturnType<typeof setTimeout>;
   constructor(private driver:UpdateDriver,version:string,repository:string,supported:boolean,private hooks:UpdateHooks,private changed:()=>void){
     this.state={phase:supported?'idle':'unsupported',currentVersion:version,repository,...(driver.manualInstall?{manualInstall:true}:{})};
     driver.on('update-available',info=>{if(this.state.phase!=='checking')return;this.set({phase:'available',latestVersion:info.version,releaseName:typeof info.releaseName==='string'?info.releaseName.slice(0,160):undefined,releaseNotes:notes(info.releaseNotes),checkedAt:new Date().toISOString(),error:undefined});});
@@ -52,6 +55,18 @@ export class AppUpdates {
     this.set({latestVersion:undefined,releaseName:undefined,releaseNotes:undefined});
     return this.perform('checking',async()=>{const result=await this.driver.checkForUpdates();if(!result||this.state.phase==='checking')throw new Error('Updater did not return a result');});
   }
+  startAutomaticChecks(){
+    if(this.disposed||this.automaticTimer||this.state.phase==='unsupported')return;
+    const poll=async()=>{
+      try{
+        // Keep a discovered update and any download/installation under user control.
+        if(!this.disposed&&!this.operation&&!this.state.latestVersion&&['idle','current','error'].includes(this.state.phase))await this.check();
+      }finally{
+        if(!this.disposed){this.automaticTimer=setTimeout(()=>void poll(),UPDATE_CHECK_INTERVAL_MS);this.automaticTimer.unref?.();}
+      }
+    };
+    this.automaticTimer=setTimeout(()=>void poll(),UPDATE_CHECK_START_DELAY_MS);this.automaticTimer.unref?.();
+  }
   download(){
     if(this.driver.manualInstall)throw new Error('此 Mac 预览版请从 GitHub Release 下载更新');
     if(this.operation)return this.operation;
@@ -66,5 +81,5 @@ export class AppUpdates {
     try{await this.hooks.prepareInstall(this.state.latestVersion);if(!this.disposed)this.driver.quitAndInstall();}
     catch(error){await this.hooks.recoverInstall().catch(()=>{});this.set({phase:'downloaded',error:error instanceof Error?error.message:'无法准备更新，请稍后重试。'});}
   }
-  dispose(){this.disposed=true;this.driver.cancelDownload();this.driver.removeAllListeners();}
+  dispose(){this.disposed=true;if(this.automaticTimer)clearTimeout(this.automaticTimer);this.automaticTimer=undefined;this.driver.cancelDownload();this.driver.removeAllListeners();}
 }
