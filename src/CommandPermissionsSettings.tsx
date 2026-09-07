@@ -3,7 +3,7 @@ import {Icon} from './ui';
 import {SettingsSection} from './SettingsWindow';
 
 export function CommandPermissionsSettings({rules,busy,act}:{rules:CommandPermissionRule[];busy:boolean;act:(operation:()=>Promise<unknown>)=>Promise<void>}){
-  return <SettingsSection title="始终允许的命令模式">
+  return <SettingsSection title="自动审批中的命令规则">
     {rules.length?<div className="settings-card command-permissions-list">{rules.map(rule=><article key={rule.id} data-rule-id={rule.id} className={`command-rule ${rule.enabled?'':'is-disabled'}`}>
       <div className="command-rule-main">
         <code className="command-rule-pattern">{rule.pattern}</code>

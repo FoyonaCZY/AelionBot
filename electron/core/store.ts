@@ -16,7 +16,7 @@ import {BOT_COLORS} from '../../src/bot-colors';
 
 import type {StoredAttachment} from '../../src/attachment-types';
 export interface StoredProvider extends Omit<ModelProvider,'hasKey'> {encryptedKey?:string;}
-interface Persisted {pythonSessions?:PythonSession[];fileCheckpoints?:FileCheckpoint[];processes?:BackgroundProcess[];workItems?:import("../../src/work-types").WorkItem[];conversationWorkspaces?:Record<string,string>;runtime?:RuntimeSettings;modelUsage?:UsageRecord[];scheduledTasks:ScheduledTask[];attachments:StoredAttachment[]; version: 1; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; conversations: Record<string, WireMessage[]>; summaries: Record<string, string>; contextOffsets:Record<string,number>; model: Omit<ModelConfig, 'hasKey'> & { encryptedKey?: string }; providers?:StoredProvider[];defaultModel?:ModelSelection; skills: Skill[]; artifacts: Artifact[]; skillFilesMigrated?: boolean; peerThreads:PeerThread[];peerExchanges:PeerExchange[];peerContexts:Record<string,WireMessage[]>;peerMessages:ChatMessage[];groups:GroupRoom[];groupRounds:GroupRound[];groupDeliveries:GroupDelivery[];groupContexts:Record<string,WireMessage[]>;groupRunMessages:ChatMessage[]; }
+interface Persisted {hostPermissionModes?:Record<string,import("../../src/permission-types").HostPermissionMode>;pythonSessions?:PythonSession[];fileCheckpoints?:FileCheckpoint[];processes?:BackgroundProcess[];workItems?:import("../../src/work-types").WorkItem[];conversationWorkspaces?:Record<string,string>;runtime?:RuntimeSettings;modelUsage?:UsageRecord[];scheduledTasks:ScheduledTask[];attachments:StoredAttachment[]; version: 1; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; conversations: Record<string, WireMessage[]>; summaries: Record<string, string>; contextOffsets:Record<string,number>; model: Omit<ModelConfig, 'hasKey'> & { encryptedKey?: string }; providers?:StoredProvider[];defaultModel?:ModelSelection; skills: Skill[]; artifacts: Artifact[]; skillFilesMigrated?: boolean; peerThreads:PeerThread[];peerExchanges:PeerExchange[];peerContexts:Record<string,WireMessage[]>;peerMessages:ChatMessage[];groups:GroupRoom[];groupRounds:GroupRound[];groupDeliveries:GroupDelivery[];groupContexts:Record<string,WireMessage[]>;groupRunMessages:ChatMessage[]; }
 export function atomicJson(path: string, value: unknown) {
   const temp = `${path}.${process.pid}.tmp`;
   const fd = openSync(temp, 'w', 0o600);
@@ -195,6 +195,7 @@ export class Store {
     this.bot(id);
     if(this.data.runs.some(run=>run.botId===id&&run.status==='running'))throw new Error('请先停止这个 Bot 的任务，再删除');
     const next:Persisted={...this.data,
+      hostPermissionModes:{...this.data.hostPermissionModes},
       modelUsage:this.data.modelUsage?.filter(item=>item.botId!==id),processes:this.data.processes?.filter(item=>item.botId!==id),pythonSessions:this.data.pythonSessions?.filter(item=>item.botId!==id),fileCheckpoints:this.data.fileCheckpoints?.filter(item=>item.botId!==id),
       workItems:this.data.workItems?.filter(item=>item.botId!==id),conversationWorkspaces:{...this.data.conversationWorkspaces},
       bots:this.data.bots.filter(bot=>bot.id!==id),
@@ -207,7 +208,7 @@ export class Store {
       conversations:{...this.data.conversations},summaries:{...this.data.summaries},contextOffsets:{...this.data.contextOffsets},peerContexts:{...this.data.peerContexts},
       peerExchanges:this.data.peerExchanges.map(exchange=>exchange.rootBotId===id?{...exchange,rootRequest:''}:exchange)
     };
-    delete next.conversationWorkspaces!['bot:'+id];
+    delete next.conversationWorkspaces!['bot:'+id];delete next.hostPermissionModes!['bot:'+id];
     delete next.conversations[id];delete next.summaries[id];delete next.contextOffsets[id];
     for(const group of this.data.groups){const key=`group:${group.id}:${id}`;delete next.groupContexts[key];delete next.summaries[key];delete next.contextOffsets[key];}
     for(const delivery of this.data.groupDeliveries.filter(delivery=>delivery.recipientId===id)){delete next.groupContexts[`group:${delivery.id}`];delete next.summaries[`group:${delivery.id}`];delete next.contextOffsets[`group:${delivery.id}`];}

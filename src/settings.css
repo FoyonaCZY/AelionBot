@@ -20,7 +20,7 @@
 .settings-modal .settings-row>span{line-height:1.5}
 .settings-modal .settings-row input{margin:0;min-width:0;width:100%;height:41px;font-size:14px;line-height:1.5;border:1px solid #d9d9d9;border-radius:10px;padding:9px 12px;background:#fafafa;color:#262626}
 .settings-modal .settings-row input::placeholder{color:#999}
-.settings-modal input:focus-visible,.settings-modal select:focus-visible{outline:2px solid #838383;outline-offset:2px;border-color:#939393}
+.settings-modal input:focus-visible{outline:2px solid #838383;outline-offset:2px;border-color:#939393}
 .settings-modal button:focus-visible,.settings-modal summary:focus-visible{outline:2px solid #838383;outline-offset:3px}
 .settings-modal .settings-number input{width:160px;justify-self:end;text-align:right}
 .settings-modal .settings-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:24px}
@@ -36,7 +36,8 @@
 .settings-modal .text-button{font-size:12px;line-height:1.5;color:#535353;padding:7px 10px;border-radius:8px;white-space:nowrap}
 .settings-modal .text-button:hover{background:#e3e3e3;color:#202020}
 .settings-modal .scope-picker{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:15px 19px;min-height:70px;border-radius:17px;background:var(--settings-fill);margin:0 0 28px;color:#292929;font-size:14px}
-.settings-modal .scope-picker select{min-width:160px;max-width:65%;border:1px solid #d8d8d8;border-radius:10px;padding:9px 34px 9px 12px;background:#e8e8e8;font-family:inherit;font-size:13px;color:#2d2d2d;text-overflow:ellipsis}
+.settings-modal .settings-row .aelion-select{min-height:41px;font-size:14px}
+.settings-modal .scope-picker .aelion-select{min-width:min(160px,65%);max-width:65%}
 .settings-modal .settings-empty{background:var(--settings-fill);border-radius:17px;padding:50px 20px;color:#858585;font-size:13px}
 .settings-modal .test-result,.settings-modal .computer-notice{font-size:13px;line-height:1.7;border-radius:10px;padding:12px 15px;margin:16px 0 0;overflow-wrap:anywhere}
 .settings-modal .settings-note{font-size:12px;line-height:1.6;color:#888;margin:13px 10px 0}

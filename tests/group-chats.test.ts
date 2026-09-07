@@ -23,6 +23,22 @@ async function until(predicate:()=>boolean){for(let i=0;i<650;i++){if(predicate(
 const answer=(content:string):Completion=>({content,calls:[],finishReason:'stop'}),silent=()=>answer('[群聊静默]');
 const call=(name:string,args:Record<string,unknown>):Completion=>({content:'',calls:[{id:randomUUID(),type:'function',function:{name,arguments:JSON.stringify(args)}}],finishReason:'tool_calls'});
 const waitAbort=(signal:AbortSignal)=>new Promise<Completion>((_,reject)=>{if(signal.aborted)reject(signal.reason);else signal.addEventListener('abort',()=>reject(signal.reason),{once:true});});
+
+test('a group reaction alongside file work preserves the final reply and its delivery record',async t=>{
+  let requests=0;
+  const fx=fixture(t,(run)=>{
+    if(run.botId!==fx.a.id)return silent();
+    const room=fx.store.data.groups.find(room=>room.id===run.groupOrigin!.groupId)!,user=room.messages.find(message=>message.sender.kind==='user'&&message.kind==='message');
+    if(!user)return silent();
+    requests++;if(requests===1)return {content:'先看文件内容，再把结论发到群里。',calls:[...call('group_pin',{groupId:room.id,messageId:user.id,emoji:'👀'}).calls,...call('file_read',{path:'README.md'}).calls],finishReason:'tool_calls'};
+    return answer('README 已核对，项目说明完整。');
+  },{execute:async()=>({stdout:'项目说明',stderr:'',exitCode:0,durationMs:1})} as unknown as VmController);
+  const room=fx.groups.create({name:'项目核对',botIds:[fx.a.id,fx.b.id]});fx.groups.send({id:room.id,message:'请读取 README 并说明结果'});await until(fx.settled);
+  const messages=fx.groups.read({id:room.id}).messages,user=messages.find(message=>message.sender.kind==='user'&&message.kind==='message')!,reply=messages.find(message=>message.sender.id===fx.a.id&&message.kind==='message'&&message.content==='README 已核对，项目说明完整。');
+  assert.equal(requests,2);assert.ok(reply);assert.ok(user.pins?.some(pin=>pin.actor.id===fx.a.id));
+  assert.equal(fx.store.data.groupDeliveries.find(delivery=>delivery.messageId===user.id&&delivery.recipientId===fx.a.id)?.replyMessageId,reply.id);
+  assert.ok(fx.store.data.messages.some(message=>message.botId===fx.a.id&&message.presentation==='progress'&&message.content==='先看文件内容，再把结论发到群里。'));
+});
 function fixture(t:test.TestContext,complete:(run:RunRecord,messages:WireMessage[],tools:ToolDefinition[],signal:AbortSignal)=>Completion|Promise<Completion>=()=>silent(),vm?:VmController){
   const dir=mkdtempSync(join(tmpdir(),'aelion-group-test-')),store=new Store(dir),a=store.data.bots[0],b=store.createBot('数据伙伴','分析'),c=store.createBot('核对伙伴','核对'),busy=new Set<string>();let groups:GroupChats;
   store.data.model.contextTokens=64000;

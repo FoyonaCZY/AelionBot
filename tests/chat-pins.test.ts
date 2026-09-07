@@ -10,6 +10,8 @@ import {ChatPinQueue,pinChat} from '../electron/core/chat-pins';
 import {memoryRoute} from '../electron/core/memory-routing';
 import type {ModelClient} from '../electron/core/model';
 import type {VmController} from '../electron/core/vm';
+import type {HostComputer} from '../electron/core/host';
+import {Interactions} from '../electron/core/interactions';
 const wait=async(predicate:()=>boolean)=>{for(let n=0;n<100;n++){if(predicate())return;await new Promise(resolve=>setTimeout(resolve,10));}throw new Error('pin wait timed out');};
 function fixture(t:test.TestContext){
   const dir=mkdtempSync(join(tmpdir(),'aelion-pin-test-')),store=new Store(dir),bot=store.data.bots[0];store.data.model.model='fixture';
@@ -37,6 +39,41 @@ test('Bot chat_pin adds an attributed reaction and completes without a second mo
   assert.ok(!store.data.messages.some(m=>m.role==='assistant'&&m.content));assert.ok(!JSON.stringify(store.data.conversations[bot.id]).includes('重复的口头确认'));
   const other=store.createBot('另一个','测试');assert.throws(()=>pinChat(store,other.id,{kind:'user',id:'user',name:'你'},{messageId:target.id,emoji:'👍'}),/当前聊天/);
   assert.throws(()=>pinChat(store,bot.id,{kind:'user',id:'user',name:'你'},{messageId:target.id,emoji:'不是表情' as any}),/无效/);
+});
+
+test('a reaction mixed with project discovery continues to a final answer and keeps its progress text',async t=>{
+  const {store,bot,dir,beforeCleanup}=fixture(t),interactions=new Interactions(()=>{});beforeCleanup(()=>interactions.dispose());let calls=0,reads=0;
+  const invoke=(name:string,args:Record<string,unknown>={})=>({id:randomUUID(),type:'function' as const,function:{name,arguments:JSON.stringify(args)}});
+  const progress='我先查看项目结构和可用技能，再整理项目的主要模块。';
+  const model={complete:async(messages:any[])=>{
+    calls++;if(calls===1){const target=store.data.messages.find(m=>m.role==='user')!;return {content:progress,calls:[invoke('chat_pin',{messageId:target.id,emoji:'👀'}),invoke('task_read'),invoke('host_list_directory',{reason:'了解项目结构'}),invoke('skills_list')],finishReason:'tool_calls'};}
+    assert.ok(messages.some(message=>message.role==='assistant'&&message.content===progress));assert.ok(messages.some(message=>message.role==='tool'&&message.content.includes('README.md')));
+    return {content:'已了解项目结构：入口是 README.md，下一步可按模块继续阅读。',calls:[],finishReason:'stop'};
+  }} as unknown as ModelClient;
+  const host={options:{},workspace:()=>dir,context:()=>({workspace:dir}),redact:(text:string)=>text,listDirectory:async()=>{reads++;return {path:dir,items:[{name:'README.md',kind:'file'}]};}} as unknown as HostComputer;
+  const harness=new Harness(store,{} as VmController,model,()=>{},undefined,undefined,undefined,host,interactions);await harness.run(bot.id,'熟悉一下这个项目');
+  assert.equal(calls,2);assert.equal(reads,1);assert.equal(store.data.runs[0].status,'completed');assert.equal(store.data.runs[0].toolCalls,4);
+  assert.ok(store.data.messages.some(message=>message.presentation==='progress'&&message.content===progress));assert.ok(store.data.messages.some(message=>message.presentation==='answer'&&message.content.startsWith('已了解项目结构')));
+  assert.equal(store.data.messages.find(message=>message.role==='user')?.pins?.[0].emoji,'👀');
+});
+
+test('a later standalone reaction cannot end a task that already used a work tool',async t=>{
+  const {store,bot}=fixture(t);let calls=0;
+  const model={complete:async()=>{calls++;const target=store.data.messages.find(message=>message.role==='user')!;
+    if(calls===1)return {content:'先读取文件。',calls:[{id:randomUUID(),type:'function',function:{name:'file_read',arguments:'{"path":"README.md"}'}}],finishReason:'tool_calls'};
+    if(calls===2)return {content:'文件已读取，正在整理结论。',calls:[{id:randomUUID(),type:'function',function:{name:'chat_pin',arguments:JSON.stringify({messageId:target.id,emoji:'👀'})}}],finishReason:'tool_calls'};
+    return {content:'已经读取 README，项目说明如下。',calls:[],finishReason:'stop'};
+  }} as unknown as ModelClient;
+  const harness=new Harness(store,{execute:async()=>({stdout:'项目说明',stderr:'',exitCode:0,durationMs:1})} as unknown as VmController,model,()=>{});await harness.run(bot.id,'阅读项目说明');
+  assert.equal(calls,3);assert.equal(store.data.runs[0].status,'completed');assert.ok(store.data.messages.some(message=>message.presentation==='answer'&&message.content.startsWith('已经读取 README')));assert.ok(store.data.messages.some(message=>message.presentation==='progress'&&message.content==='文件已读取，正在整理结论。'));
+});
+
+test('a reaction after superseding an unfinished task still requires the task response',async t=>{
+  const {store,bot}=fixture(t),previous={id:randomUUID(),botId:bot.id,status:'cancelled' as const,inputUpdated:true,startedAt:new Date().toISOString(),modelCalls:1,toolCalls:1};store.data.runs.push(previous);
+  const target=store.message(bot.id,'user','检查文件并说明结果',{runId:previous.id});store.message(bot.id,'tool','文件已经读取',{runId:previous.id,tool:'file_read',status:'done'});let calls=0;
+  const model={complete:async()=>++calls===1?{content:'按你的新要求整理已读取的内容。',calls:[{id:randomUUID(),type:'function',function:{name:'chat_pin',arguments:JSON.stringify({messageId:target.id,emoji:'👀'})}}],finishReason:'tool_calls'}:{content:'根据已经读取的文件，结果如下。',calls:[],finishReason:'stop'}} as unknown as ModelClient;
+  await new Harness(store,{} as VmController,model,()=>{}).run(bot.id,'说明得简短一些',{supersedesRunId:previous.id});
+  assert.equal(calls,2);assert.ok(store.data.messages.some(message=>message.presentation==='answer'&&message.content.startsWith('根据已经读取的文件')));
 });
 
 

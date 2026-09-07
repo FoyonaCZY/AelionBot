@@ -99,12 +99,13 @@ export class McpRuntime {
     const tools=connection.tools.filter(tool=>!wanted||`${tool.name} ${tool.description||''}`.toLowerCase().includes(wanted));
     return {server:config.id,name:config.name,location:publicEndpoint(config),total:tools.length,tools:tools.slice(0,100)};
   }
-  async inspectCall(id:string,name:string,args:Record<string,unknown>):Promise<{fingerprint:string;permission?:HostPermissionDetails}>{
+  async inspectCall(id:string,name:string,args:Record<string,unknown>,requireLocalApproval=false):Promise<{fingerprint:string;permission?:HostPermissionDetails}>{
     const config=this.find(id),connection=await this.connect(config.id),tool=connection.tools.find(tool=>tool.name===name);
     if(!tool||!this.allowed(config,name))throw new Error('工具不存在或已被来源配置禁用');
     validateSchema(tool.inputSchema as Record<string,unknown>,args,name);
-    if(tool.annotations?.readOnlyHint===true&&tool.annotations.destructiveHint!==true)return {fingerprint:connection.fingerprint};
-    return {fingerprint:connection.fingerprint,permission:{operation:'mcp',reason:'确认 MCP 工具的写入或其他有副作用操作',server:config.name,tool:name,arguments:redactMcp(args,config) as Record<string,unknown>,...this.hostPermission(config.id)}};
+    const local=this.hostPermission(config.id);
+    if(tool.annotations?.readOnlyHint===true&&tool.annotations.destructiveHint!==true&&(!requireLocalApproval||!local))return {fingerprint:connection.fingerprint};
+    return {fingerprint:connection.fingerprint,permission:{operation:'mcp',permissionScope:local?'host':'remote',reason:'确认 MCP 工具操作',server:config.name,tool:name,arguments:redactMcp(args,config) as Record<string,unknown>,...local}};
   }
   async call(id:string,name:string,args:Record<string,unknown>,signal:AbortSignal,expectedFingerprint?:string){
     const config=this.find(id),connection=await this.connect(config.id);

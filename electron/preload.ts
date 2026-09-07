@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { AelionAPI, AppEvent } from '../src/shared';
 const api:AelionAPI={
+  setHostPermissionMode:input=>ipcRenderer.invoke('permissions:mode',input),
   pickConversationWorkspace:scope=>ipcRenderer.invoke('workspace:pick',scope),
   resetConversationWorkspace:scope=>ipcRenderer.invoke('workspace:reset',scope),
   workAction:input=>ipcRenderer.invoke('work:action',input),

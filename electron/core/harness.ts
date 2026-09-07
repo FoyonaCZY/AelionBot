@@ -1,3 +1,4 @@
+import {platformName,shellName} from './host-platform';
 import { randomUUID } from 'node:crypto';
 import {ExecutionLedger} from './execution-ledger';
 import {WorkItems,PLANNING_TOOLS} from './work-items';
@@ -47,6 +48,17 @@ const tool=(name:string,description:string,properties:Record<string,unknown>,req
 const string={type:'string'};
 const attachmentList={type:'array',maxItems:10,items:{type:'object',properties:{attachmentId:{type:'string',description:'已有附件 ID'},path:{type:'string',description:'当前 Bot 工作目录内的文件路径'}},additionalProperties:false}};
 const privateTools=new Set(['bots_list','bot_read_messages','bot_send_message','attachment_read','start_main_task']);
+const isReactionTool=(name:string)=>name==='chat_pin'||name==='group_pin';
+function reactionOnlyRun(store:Store,run:RunRecord){
+  const seen=new Set<string>();let current:RunRecord|undefined=run;
+  while(current&&!seen.has(current.id)){
+    seen.add(current.id);
+    // An acknowledgement must not complete a task, including one resumed after new input.
+    if(current.workItemId||current.plan||current.peerOrigin||current.executions?.some(entry=>!isReactionTool(entry.tool))||store.runMessages(current.id).some(message=>message.role==='tool'&&!isReactionTool(message.tool||'')))return false;
+    const previousId:string|undefined=current.supersedesRunId;current=previousId?store.data.runs.find(previous=>previous.id===previousId&&previous.botId===run.botId):undefined;
+  }
+  return true;
+}
 class GroupUpdated extends Error {constructor(){super('有新的群发事件，已保留执行结果并重新接收消息');}}
 class InputUpdated extends Error {constructor(){super('已收到用户的新输入，旧生成已取消，执行结果已保留');}}
 interface ActiveRuntime {runId:string;updated:boolean;updateKind?:'group'|'input';inference?:AbortController;}
@@ -66,7 +78,7 @@ export const TOOLS:ToolDefinition[]=[
   tool('goal_read','读取本次计划或目标的状态与完成依据。',{},[]),
   tool('goal_set','在用户已经授权的当前任务范围内设置持续执行目标。设置后实际执行，直至有证据完成或遇到明确阻碍；不能扩大任务范围或权限。',{objective:string},['objective']),
   tool('goal_update','报告目标或计划无法继续的阻碍；目标完成时必须引用实际成功执行的证据并给出完成依据。',{status:{type:'string',enum:['completed','blocked']},reason:string,summary:string,evidenceIds:{type:'array',items:string,maxItems:10}},['status']),
-  tool('host_list_directory','列出用户本机项目目录的直接子项。需要单次读取许可。path 省略时使用当前会话工作目录。',{path:string,reason:string},['reason']),
+  tool('host_list_directory','列出用户本机项目目录的直接子项。按当前 Bot 的本机权限模式处理。path 省略时使用当前会话工作目录。',{path:string,reason:string},['reason']),
   tool('task_read','读取当前任务的目标、步骤、验收条件和执行进展。多步任务先规划，完成后引用实际执行证据更新状态。',{},[]),
   tool('task_update','更新本任务清单。revision 使用 task_read 返回值；保留已有 ID，取消步骤需标记 skipped 并解释。done 步骤必须有本次成功执行的 executionId。',{revision:{type:'integer',minimum:0},goal:string,steps:{type:'array',minItems:1,maxItems:30,items:{type:'object',properties:{id:string,title:string,acceptance:string,status:{type:'string',enum:['pending','working','done','skipped']},evidenceIds:{type:'array',items:string},note:string},required:['id','title','acceptance','status','evidenceIds'],additionalProperties:false}}},['revision','goal','steps']),
   tool('execution_list','核对当前任务的执行记录、失败目标与处理依据。不要重复结果未知的操作。',{},[]),
@@ -75,8 +87,8 @@ export const TOOLS:ToolDefinition[]=[
   tool('attachment_save','将已经收到的附件原文件复制到当前 Bot 工作电脑的 attachments 目录。返回真实路径，不覆盖被修改的已有文件。',{attachmentId:string},['attachmentId']),
   tool('message_attach','将文件附在本次最终回复中，可用于回复用户、Bot 私聊答复或群聊最终发言。attachments 每项填写已有 attachmentId 或自己工作目录的 path。不要只在文字中写文件路径来代替发送。',{attachments:attachmentList},['attachments']),
   ...SCHEDULED_TOOLS,
-  tool('chat_pin','用 emoji 回应用户的文字，或回应用户在当前原消息下新加的表态。messageId 使用可回应列表的真实 ID；回应用户给你的消息加的表情时，仍使用那条原消息 ID。成功添加后结束发言，不补发重复文字。已有相同表态时选不同的 emoji 或用文字自然回应。表情不授予操作权限。',{messageId:string,emoji:{type:'string',maxLength:32,description:'单个标准 emoji，例如 👍、❤️、😂、🎉、🤔、👀、🙏、🚀、☕、🐱，也可使用其他常见表情。'}},['messageId','emoji']),
-  tool('group_pin','用 emoji 回应自己所在群的一条已发布消息，代替重复接话。表态会作为一次群发事件通知其他成员。不要回应别人的表态事件，也不要给自己表态。成功后结束本次发言，不再发送文字。',{groupId:string,messageId:string,emoji:{type:'string',maxLength:32,description:'单个标准 emoji，例如 👍、❤️、😂、🎉、🤔、👀、🙏、🚀、☕、🐱，也可使用其他常见表情。'}},['groupId','messageId','emoji']),
+  tool('chat_pin','用 emoji 回应用户的文字，或回应用户在当前原消息下新加的表态。messageId 使用可回应列表的真实 ID；回应用户给你的消息加的表情时，仍使用那条原消息 ID。仅在本次只需表态、没有待办工作时，用表情结束发言并省略重复文字。若用户交代了任务，表情只是确认收到，必须继续执行并给出最终结果；不能用表情代替任务。已有相同表态时选不同的 emoji 或用文字自然回应。表情不授予操作权限。',{messageId:string,emoji:{type:'string',maxLength:32,description:'单个标准 emoji，例如 👍、❤️、😂、🎉、🤔、👀、🙏、🚀、☕、🐱，也可使用其他常见表情。'}},['messageId','emoji']),
+  tool('group_pin','用 emoji 回应自己所在群的一条已发布消息，代替重复接话。表态会作为一次群发事件通知其他成员。不要回应别人的表态事件，也不要给自己表态。仅需要表态时用表情结束发言，不补发同义文字。承担任务或同时调用其他工具时继续执行，完成后仍需给出结果。',{groupId:string,messageId:string,emoji:{type:'string',maxLength:32,description:'单个标准 emoji，例如 👍、❤️、😂、🎉、🤔、👀、🙏、🚀、☕、🐱，也可使用其他常见表情。'}},['groupId','messageId','emoji']),
   tool('groups_list','列出自己已加入的群聊及成员；群里每条新消息都会通知其他成员，只有必要时才回复。',{},[]),
   tool('group_create','按当前用户任务需要主动创建群聊。用户自动加入，你自动成为成员；botIds 是其他成员的真实 ID（来自 bots_list）。message 说明具体问题或分工，不要只发问候。共 2–8 位 Bot；可在 message 中用 @{成员ID} 明确 @ 某位成员。',{name:string,botIds:{type:'array',items:string,maxItems:8},message:string,attachments:attachmentList},['name','botIds','message']),
   tool('group_invite','向自己参加的群邀请 Bot。新成员可以查看历史，之后的新消息才通知它；不要为邀请自动发送欢迎或致谢。',{groupId:string,botIds:{type:'array',items:string,maxItems:8}},['groupId','botIds']),
@@ -86,9 +98,9 @@ export const TOOLS:ToolDefinition[]=[
   tool('bots_list','查看可私聊的其他 Bot 的准确 ID、职责和当前忙闲状态。先确定身份再发送，不要凭空编造 Bot 或回复。',{},[]),
   tool('bot_send_message','给另一个 Bot 发送私聊请求或协作任务。botId 必须来自 bots_list 或当前用户明确 @ 的身份。消息最长 8000 字符，只共享本次任务所需的内容。调用只确认已排队，不代表对方已经回复；回复会保存在私聊中，并在主会话显示可点击的收到消息事件，不要轮询或重复催问。接到私聊时最终答复会自动回给发起方，不要给它新建回复请求。',{botId:string,message:string,attachments:attachmentList},['botId','message']),
   tool('bot_read_messages','按需回看自己与指定 Bot 的真实私聊记录，不可读取不属于自己的私聊。before 为上一页返回的消息 ID。',{botId:string,before:string},['botId']),
-  tool('host_execute','在用户本机执行命令（Windows 使用 PowerShell，macOS 使用 zsh），可直接使用本机 gh/git 的现有登录状态。匹配用户已保存的命令权限规则时可直接执行，否则等待用户允许；拒绝会停止任务。cwd 是绝对路径，省略时使用本次会话选定的本机工作目录。命令最长 6000 字符、最多 120 秒；不能交互输入。超时或取消后先检查结果，不能盲目重试。',{command:string,cwd:string,reason:string,timeoutMs:{type:'integer',minimum:100,maximum:120000}},['command','reason']),
-  tool('host_file_read','读取用户本机的 UTF-8 文件，每次都需要用户单次允许。path 可为本机绝对路径或相对于本次工作目录的路径。offset 是字符偏移；每次返回最多 12000 字符，文件不超过 2 MB。凭据会尽量遮蔽，不要尝试提取登录令牌。',{path:string,reason:string,offset:{type:'integer',minimum:0}},['path','reason']),
-  tool('host_file_write','向用户本机文件写入 UTF-8 内容，path 可相对于本次工作目录，每次都展示路径和完整新内容并等待用户单次允许。现有文件必须明确 overwrite=true；先读取核对内容。不要把已遮蔽的凭据占位符写回配置。',{path:string,content:string,reason:string,overwrite:{type:'boolean'}},['path','content','reason']),
+  tool('host_execute','在用户本机执行命令（Windows 使用 PowerShell，macOS 使用 zsh），可直接使用本机 gh/git 的现有登录状态。按当前会话的本机权限模式审批；每次询问会等待用户确认，自动审批由程序或默认模型审核，完全访问直接执行。拒绝后停止。cwd 是绝对路径，省略时使用本次会话选定的本机工作目录。命令最长 6000 字符、最多 120 秒；不能交互输入。超时或取消后先检查结果，不能盲目重试。',{command:string,cwd:string,reason:string,timeoutMs:{type:'integer',minimum:100,maximum:120000}},['command','reason']),
+  tool('host_file_read','读取用户本机的 UTF-8 文件，由应用按当前会话权限模式审批。path 可为本机绝对路径或相对于本次工作目录的路径。offset 是字符偏移；每次返回最多 12000 字符，文件不超过 2 MB。凭据会尽量遮蔽，不要尝试提取登录令牌。',{path:string,reason:string,offset:{type:'integer',minimum:0}},['path','reason']),
+  tool('host_file_write','向用户本机文件写入 UTF-8 内容，path 可相对于本次工作目录，按当前会话权限模式审批，需要用户确认时展示完整新内容。现有文件必须明确 overwrite=true；先读取核对内容。不要把已遮蔽的凭据占位符写回配置。',{path:string,content:string,reason:string,overwrite:{type:'boolean'}},['path','content','reason']),
   tool('request_user_control','工作电脑遇到登录、验证码或其他需要人类处理的步骤时使用。暂停当前 Bot 并提醒用户接管 VM；用户点交还并继续后，返回新的 VM 截图。不能索取用户密码或假定登录成功，必须按新截图核对结果。',{reason:string},['reason']),
   tool('computer','操作当前 Bot 专属的真实 Linux 桌面，不会切换其他 Bot 的桌面。先 screenshot 观察；鼠标与键盘动作必须携带最新截图的 observationId，坐标为截图原始像素。每次动作都会返回新截图。type 使用工作电脑剪贴板粘贴 Unicode 文本；终端中可指定 pasteKey=CTRL+SHIFT+V。open_app 可启动 Chrome、文件管理器等；action=wait 最长等待 2 秒。',{action:{type:'string',enum:['screenshot','click','double_click','move','drag','scroll','key','type','wait','open_app']},observationId:string,x:{type:'number'},y:{type:'number'},toX:{type:'number'},toY:{type:'number'},button:{type:'string',enum:['left','middle','right']},direction:{type:'string',enum:['up','down','left','right']},amount:{type:'integer'},key:string,text:string,pasteKey:{type:'string',enum:['CTRL+V','CTRL+SHIFT+V']},milliseconds:{type:'integer'},app:{type:'string',enum:['browser','files','editor','writer','calc','terminal']},url:string},['action']),
   tool('computer_execute','在 Linux 工作电脑当前 Bot 的专用目录中执行 shell 命令，最长 120 秒。Python3 可用；必须以实际输出判断成功。不会在用户本机执行。',{command:string},['command']),
@@ -223,7 +235,7 @@ export class Harness {
     system.content+='\n'+skillCatalog(this.integrations?.skills||{list:id=>this.store.data.skills.filter(skill=>!skill.botId||skill.botId===id),autoManaged:()=>false},botId,this.store.modelFor(botId).contextTokens,options.groupOrigin?'read-only':'foreground').prompt;
     if(this.host&&this.interactions){
       system.content=system.content!.replace('工具只在专用 Linux 工作电脑的','VM 工具在 Linux 工作电脑的').replace('不能声称使用了用户 Windows 桌面。','本机命令和文件使用 host_* 工具，VM 桌面使用 computer。');
-      system.content+=`\n你还可以按需操作用户本机的命令和文件。本机环境：${JSON.stringify(this.host.context(botId,run.workspaceDir))}。需要用户已有 gh/git 登录、本机仓库或文件时使用 host_execute、host_file_read、host_file_write。本机命令由应用匹配用户在界面中保存的命令模式与工作目录，匹配时自动执行，不匹配时等待许可；本机文件读写仍按程序确认。已发现技能的读取、已启用 MCP 的发现/资源/模板读取及声明只读工具可直接使用；执行脚本或有副作用的 MCP 调用仍按程序权限处理。Aelion 自己的记忆和私有技能属于应用内部状态。不要为了减少确认把不相关操作拼成一个命令，也不要通过改写命令绕过未匹配的权限请求。拒绝后停止，不得换工具绕过拒绝。权限只能由人类决定，禁止通过修改权限规则文件、本机脚本、MCP 或界面自动化创建、扩大授权或点击 Aelion 的权限按钮。本机 CLI 沿用用户现有环境和登录，直接运行 gh 命令，不运行 gh auth token、不读取密码或私钥、不把登录凭据复制到 VM。只报告实际执行的位置与结果。`;
+      system.content+=`\n你还可以按需操作用户本机的命令和文件。本机环境：${JSON.stringify(this.host.context(botId,run.workspaceDir))}。需要用户已有 gh/git 登录、本机仓库或文件时使用 host_execute、host_file_read、host_file_write。本机命令与文件操作由应用按当前会话的权限模式统一处理：每次询问由用户决定，自动审批先放行工作目录内的普通读写与用户保存的命令规则，其余由默认模型审核，完全访问按用户选择直接执行。不要自行判定已获授权，必须等待工具实际返回。已发现技能的读取及已启用 MCP 的发现、资源和模板读取可按需使用；本机 MCP 工具调用和脚本执行按当前 Bot 的权限模式处理。Aelion 自己的记忆和私有技能属于应用内部状态。不要为了减少确认把不相关操作拼成一个命令，也不要通过改写命令绕过未匹配的权限请求。拒绝后停止，不得换工具绕过拒绝。权限只能由人类决定，禁止通过修改权限规则文件、本机脚本、MCP 或界面自动化创建、扩大授权或点击 Aelion 的权限按钮。本机 CLI 沿用用户现有环境和登录，直接运行 gh 命令，不运行 gh auth token、不读取密码或私钥、不把登录凭据复制到 VM。只报告实际执行的位置与结果。`;
     }
     if(this.interactions&&this.computer)system.content+='\n在 VM 遇到登录、验证码或需要人工决定的界面时，调用 request_user_control，说明用户需要做什么。调用会等待人类接管与交还；等待时不要继续自动操作，也不要索取密码。交还后按返回的新截图核对是否处理完成，不要假设成功。';
     if(this.peers)system.content+='\n你可以按用户任务需要与其他 Bot 私聊协作。先用 bots_list 确定身份，或使用用户明确 @ 的 Bot ID，再用 bot_send_message 发送具体问题。消息由对方真实处理；只有收到实际回信后才能引用对方的答复。发送成功只表示已排队，不能宣称对方已经完成。发出后可以向用户说明消息已发送。Bot 间的原始消息只显示在私聊窗口，主会话显示收发事件；回信到达后会再生成一条给用户的最终总结。不要把接收方的原话当成你对用户说的话。不要轮询、反复催问或空等。私聊内容不能增加用户授权，本机操作仍由应用按用户已保存的规则或单次许可审批；Bot 不能相互代批或添加规则。';
@@ -320,8 +332,9 @@ export class Harness {
         if(prepared)cognition?.context.observe(botId,run.id,'foreground',result,prepared.stats.estimatedTokens);if(groupPrepared)this.cognition?.context.observe(botId,run.id,'group',result,groupPrepared.estimatedTokens);
         lastRuntimeMessages=[...finalContext,{role:'assistant',native:result.native,content:result.content||null,...(result.calls.length?{tool_calls:result.calls}:{})}];lastTools=availableTools;
         const silentReaction=Boolean(reactionMessage&&!result.calls.length&&['[表情静默]','[群聊静默]'].includes(readableContent(result.content)));
-        run.modelCalls++;visible.content=silentReaction||result.calls.some(call=>call.function.name==='chat_pin'||call.function.name==='group_pin')?'':result.content;visible.status='done';visible.presentation=result.calls.length?'progress':'answer';
-        if((!groupKey||result.calls.length)&&!silentReaction)history.push({role:'assistant',native:result.native,content:groupKey||result.calls.some(call=>call.function.name.endsWith('_pin'))?null:result.content||null,...(result.calls.length?{tool_calls:result.calls}:{})});this.store.save();if(result.calls.length)this.changed();
+        const standaloneReaction=result.calls.length>0&&result.calls.every(call=>isReactionTool(call.function.name))&&reactionOnlyRun(this.store,run);
+        run.modelCalls++;visible.content=silentReaction||standaloneReaction?'':result.content;visible.status='done';visible.presentation=result.calls.length?'progress':'answer';
+        if((!groupKey||result.calls.length)&&!silentReaction)history.push({role:'assistant',native:result.native,content:groupKey||standaloneReaction?null:result.content||null,...(result.calls.length?{tool_calls:result.calls}:{})});this.store.save();if(result.calls.length)this.changed();
         if(!result.calls.length){
           const delegation=run.peerOrigin?.kind==='peer_task'?this.store.data.peerExchanges.find(e=>e.id===(run.peerOrigin!.sessionId||run.peerOrigin!.exchangeId)&&e.toBotId===botId&&e.task):undefined;
           if(delegation&&delegation.receipt?.runId!==run.id){visible.content='';visible.presentation='progress';history.push({role:'system',content:'当前委托还没有执行回执。请先调用 delegation_receipt，逐项说明验收结果并引用实际证据；遇到阻碍则记录 blocked。委托内容：'+JSON.stringify(delegation.task)});visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});continue;}
@@ -411,7 +424,8 @@ export class Harness {
           }else{sameFailureCount=0;lastFailure='';}
         }
         history.push(...observations);this.store.save();
-        if(pinned&&!pendingFailures.size){visible.content='';const record=this.store.data.runs.find(item=>item.id===run.id)!;record.status='completed';record.endedAt=new Date().toISOString();this.store.save();this.changed();return;}
+        if(pinned&&standaloneReaction&&!pendingFailures.size){visible.content='';const record=this.store.data.runs.find(item=>item.id===run.id)!;record.status='completed';record.endedAt=new Date().toISOString();this.store.save();this.changed();return;}
+        if(pinned&&!standaloneReaction)history.push({role:'system',content:'表情已经添加，当前工作尚未因此完成。继续处理用户的任务，核对已有工具结果后给出最终答复，不要重复已经执行的操作。'});
         const recentSteps=this.store.runMessages(run.id).filter(message=>message.role==='tool'&&isGroupWorkTool(message.tool)).slice(-PROGRESS_STEPS),report=progressDue(run,recentSteps,new RunPolicy(this.store).settings().progressSeconds);
         if(report.due){
           checkpoint();groupRuntime.inference=new AbortController();const progressSignal=AbortSignal.any([controller.signal,groupRuntime.inference.signal]);
@@ -513,7 +527,7 @@ export class Harness {
       const server=requiredText(args,'server',160);
       if(name==='mcp_list_tools')return mcp.listTools(server,typeof args.query==='string'?args.query:'');
       if(name==='mcp_call'){
-        const input=args.arguments;if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('MCP 参数必须是对象');const toolName=requiredText(args,'name',200),inspection=await mcp.inspectCall(server,toolName,input as Record<string,unknown>);
+        const input=args.arguments;if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('MCP 参数必须是对象');const toolName=requiredText(args,'name',200),inspection=await mcp.inspectCall(server,toolName,input as Record<string,unknown>,Boolean(this.interactions?.hasHostPolicy));
         if(inspection.permission){if(!this.interactions)throw new Error('此 MCP 操作需要用户确认');await this.interactions.permission(bot.id,runId,inspection.permission,signal);}
         signal.throwIfAborted();return mcp.call(server,toolName,input as Record<string,unknown>,signal,inspection.fingerprint);
       }

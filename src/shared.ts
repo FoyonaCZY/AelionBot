@@ -1,4 +1,5 @@
 import type {ModelParameters,NativeAssistant} from './model-types';
+import type {HostPermissionMode,HostApprovalView} from './permission-types';
 import type {WorkItem,WorkAction} from './work-types';
 import type {RuntimeSettings,TaskPlan,UsageRecord} from './runtime-types';
 import type {Attachment,AttachmentScope,AttachmentUpload} from './attachment-types';
@@ -35,14 +36,15 @@ export interface ComputerState { desktops:Record<string,ComputerDesktopState>; }
 export interface CommandPattern {kind:'prefix'|'exact';pattern:string;}
 export interface CommandPermissionRule extends CommandPattern {id:string;cwd:string;enabled:boolean;createdAt:string;}
 export interface HostWorkspaceSettings {workspaceDir:string;defaultWorkspaceDir:string;}
-export interface HostPermissionDetails { operation:'command'|'read_file'|'write_file'|'mcp'; reason:string; command?:string; cwd?:string; path?:string; content?:string; overwrite?:boolean; server?:string; tool?:string; arguments?:Record<string,unknown>; commandPattern?:CommandPattern; }
-export type InteractionRequest = {id:string;botId:string;runId:string;createdAt:string} & ({kind:'host_permission';details:HostPermissionDetails}|{kind:'vm_takeover';reason:string;phase:'waiting'|'controlling'});
+export interface HostPermissionDetails { permissionScope?:'host'|'remote'; operation:'command'|'read_file'|'write_file'|'mcp'; reason:string; command?:string; cwd?:string; path?:string; content?:string; overwrite?:boolean; server?:string; tool?:string; arguments?:Record<string,unknown>; commandPattern?:CommandPattern; }
+export type InteractionRequest = {id:string;botId:string;runId:string;createdAt:string} & ({kind:'host_permission';details:HostPermissionDetails;approval?:HostApprovalView}|{kind:'vm_takeover';reason:string;phase:'waiting'|'controlling'});
 export type InteractionAction='allow'|'allow-always'|'deny'|'takeover'|'resume'|'cancel';
 export interface CognitionView {learning:{enabled:boolean;runningBotId?:string;queued:number};bots:Array<{botId:string;memoryRevision:number;context?:{estimatedTokens:number;inputBudget:number;toolTokens:number;imageTokens:number;epoch:number;compactions:number;prunedOutputs:number;lastIssue?:string};lastLearning?:{kind:string;action:string;time:string}}>}
-export interface Snapshot {platform?:string; workItems?:WorkItem[];conversationWorkspaces?:Record<string,string>; runtime?:RuntimeSettings;modelUsage?:UsageRecord[];updates?:UpdateState; scheduledTasks?:ScheduledTask[]; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; model: ModelConfig; providers?:ModelProvider[];defaultModel?:ModelSelection;botModels?:Record<string,ModelConfig>; streamingReplies?:StreamingReply[]; vm: VmState; skills: Skill[]; artifacts: Artifact[]; computer: ComputerState; dataDir: string; integrations?:IntegrationsView; interactions?:InteractionRequest[]; cognition?:CognitionView; peers?:PeerView;groups?:GroupsView; greetingBotIds?:string[]; commandPermissions?:CommandPermissionRule[]; hostWorkspace?:HostWorkspaceSettings; }
+export interface Snapshot {hostPermissionModes?:Record<string,HostPermissionMode>;platform?:string; workItems?:WorkItem[];conversationWorkspaces?:Record<string,string>; runtime?:RuntimeSettings;modelUsage?:UsageRecord[];updates?:UpdateState; scheduledTasks?:ScheduledTask[]; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; model: ModelConfig; providers?:ModelProvider[];defaultModel?:ModelSelection;botModels?:Record<string,ModelConfig>; streamingReplies?:StreamingReply[]; vm: VmState; skills: Skill[]; artifacts: Artifact[]; computer: ComputerState; dataDir: string; integrations?:IntegrationsView; interactions?:InteractionRequest[]; cognition?:CognitionView; peers?:PeerView;groups?:GroupsView; greetingBotIds?:string[]; commandPermissions?:CommandPermissionRule[]; hostWorkspace?:HostWorkspaceSettings; }
 export interface AppEvent { type: 'state'; snapshot: Snapshot; }
 export interface CommandResult { stdout: string; stderr: string; exitCode: number; durationMs: number; }
 export interface AelionAPI {
+  setHostPermissionMode(input:{scope:AttachmentScope;mode:HostPermissionMode}):Promise<void>;
   pickConversationWorkspace(scope:AttachmentScope):Promise<string|null>;
   resetConversationWorkspace(scope:AttachmentScope):Promise<void>;
   workAction(input:WorkAction):Promise<void>;

@@ -3,6 +3,7 @@ import type {Bot,InteractionAction,InteractionRequest} from './shared';
 import {Avatar,Icon} from './ui';
 import {CompanionBadge} from './CompanionCard';
 import './interactions.css';
+import './permission-modes.css';
 
 type Permission=Extract<InteractionRequest,{kind:'host_permission'}>;
 type Takeover=Extract<InteractionRequest,{kind:'vm_takeover'}>;
@@ -15,11 +16,11 @@ function PermissionCard({request,count}:{request:Permission;count:number}){
     try{await window.aelion.respondInteraction({id:request.id,action});}catch(error){setError(errorText(error));sending.current=false;setPending(false);}
   };
   useEffect(()=>{const timer=setTimeout(()=>setReady(true),250);return()=>clearTimeout(timer);},[]);
-  const details=request.details;
+  const details=request.details,reviewing=request.approval?.phase==='reviewing';
   const titles={command:'执行本机命令',read_file:'读取本机文件',write_file:details.overwrite?'覆盖本机文件':'写入本机文件',mcp:'使用本机 MCP 服务'};
-  return <section id={`interaction-${request.id}`} className="conversation-request permission-card companion-surface" tabIndex={-1} aria-label="本机操作权限">
-    <header><CompanionBadge kind="permission" activity="waiting"/><div className="request-heading-copy"><h2>{titles[details.operation]}</h2></div><span className="request-status companion-status">{count>1?`还有 ${count-1} 项`:'等待确认'}</span></header>
-    <div className="permission-body"><p className="permission-reason">{details.reason}</p>
+  return <section id={`interaction-${request.id}`} className={`conversation-request permission-card companion-surface ${reviewing?'approval-reviewing':''}`} tabIndex={-1} aria-label="本机操作权限">
+    <header><CompanionBadge kind="permission" activity={reviewing?'thinking':'waiting'}/><div className="request-heading-copy"><h2>{titles[details.operation]}</h2></div><span className="request-status companion-status">{reviewing?'审核中':count>1?`还有 ${count-1} 项`:'等待确认'}</span></header>
+    <div className="permission-body">{request.approval&&(reviewing||request.approval.reason)&&<p className="approval-review-note" role="status">{reviewing?`${request.approval.reviewer||'默认模型'} 正在审核本次操作`:request.approval.decision==='deny'?`自动审核未放行：${request.approval.reason}`:request.approval.reason}</p>}<p className="permission-reason">{details.reason}</p>
     <div className="permission-scope">
       {details.cwd&&<div><span>工作目录</span><code>{details.cwd}</code></div>}
       {details.path&&<div><span>{details.operation==='mcp'?'来源配置':'文件路径'}</span><code>{details.path}</code></div>}
@@ -57,12 +58,12 @@ export function ConversationInteractions({requests,botId,onTakeover}:{requests:I
 export function InteractionNotifications({requests,bots,onView}:{requests:InteractionRequest[];bots:Bot[];onView:(request:InteractionRequest)=>void}){
   const seen=useRef(new Set<string>()),[visible,setVisible]=useState<string>(),[paused,setPaused]=useState(false);
   useEffect(()=>{
-    const incoming=requests.filter(request=>(request.kind==='host_permission'||request.phase==='waiting')&&!seen.current.has(request.id));
+    const incoming=requests.filter(request=>(request.kind==='host_permission'?request.approval?.phase!=='reviewing':request.phase==='waiting')&&!seen.current.has(request.id));
     for(const request of incoming)seen.current.add(request.id);
     if(incoming.length){setPaused(false);setVisible(incoming.at(-1)!.id);}
   },[requests]);
   useEffect(()=>{if(!visible||paused)return;const timer=setTimeout(()=>setVisible(current=>current===visible?undefined:current),6500);return()=>clearTimeout(timer);},[visible,paused]);
-  const request=requests.find(request=>request.id===visible&&(request.kind==='host_permission'||request.phase==='waiting'));
+  const request=requests.find(request=>request.id===visible&&(request.kind==='host_permission'?request.approval?.phase!=='reviewing':request.phase==='waiting'));
   if(!request)return null;
   const bot=bots.find(bot=>bot.id===request.botId);
   return <aside className="interaction-notification companion-surface" role="status" aria-live="polite" onMouseEnter={()=>setPaused(true)} onMouseLeave={()=>setPaused(false)} onFocus={()=>setPaused(true)} onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node|null))setPaused(false);}}>

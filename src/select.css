@@ -1,0 +1,40 @@
+.aelion-select,.aelion-combobox .aelion-combobox-input{
+  box-sizing:border-box;min-width:0;width:100%;min-height:38px;margin:0;
+  padding:8px 34px 8px 12px;border:1px solid #dedee5;border-radius:9px;
+  background:#fff;color:#393940;font:400 13px/1.5 Inter,"Segoe UI","Microsoft YaHei UI",sans-serif;
+  text-align:left;outline:none;transition:border-color .15s,background .15s,box-shadow .15s;
+}
+.aelion-select{appearance:none;cursor:pointer;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238d8996' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
+.aelion-select:not(:disabled):hover,.aelion-combobox .aelion-combobox-input:not(:disabled):hover{border-color:#c3bdcf}
+.aelion-select:focus-visible,.aelion-select:open,.aelion-combobox .aelion-combobox-input:focus-visible{border-color:#a68bcf;box-shadow:0 0 0 3px #8b6bea12;outline:none}
+.aelion-select:disabled,.aelion-combobox .aelion-combobox-input:disabled{background-color:#f6f6f8;border-color:#e6e6ea;color:#9a9aa3;cursor:not-allowed;opacity:1;box-shadow:none}
+.aelion-select option{background:#fff;color:#393940}
+.aelion-select option:disabled{color:#a3a0aa}
+@supports(appearance:base-select){
+  .aelion-select,.aelion-select::picker(select){appearance:base-select}
+  .aelion-select{display:flex;align-items:center;gap:12px;background-image:none;padding-right:12px}
+  .aelion-select>button{display:block;flex:1;min-width:0;padding:0;border:0;background:none;font:inherit;color:inherit;text-align:inherit;overflow:hidden}
+  .aelion-select selectedcontent{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .aelion-select::picker-icon{content:"";flex:0 0 14px;width:14px;height:14px;margin-left:auto;background:#8d8996;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m7 10 5 5 5-5' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;transition:transform .15s}
+  .aelion-select:open::picker-icon{transform:rotate(180deg)}
+  .aelion-select::picker(select){box-sizing:border-box;width:anchor-size(width);max-width:calc(100vw - 24px);max-height:min(320px,65vh);margin:5px 0;padding:5px;border:1px solid #e4e1e9;border-radius:11px;background:#fff;color:#393940;box-shadow:0 8px 28px #25202f14;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#dad6e1 transparent;font:400 13px/1.5 Inter,"Segoe UI","Microsoft YaHei UI",sans-serif}
+  .aelion-select option{display:flex;align-items:center;gap:12px;min-height:34px;padding:8px 10px;border:0;border-radius:6px;white-space:normal;overflow-wrap:anywhere;cursor:pointer;outline:none}
+  .aelion-select option:hover,.aelion-select option:focus-visible{background:#f4f3f7}
+  .aelion-select option:checked{background:#f3effa;color:#695183;font-weight:400}
+  .aelion-select option:checked:hover,.aelion-select option:checked:focus-visible{background:#ece5f6}
+  .aelion-select option:disabled{color:#a3a0aa;background:transparent;cursor:not-allowed}
+  .aelion-select option::checkmark{content:"";order:1;flex:0 0 14px;width:14px;height:14px;margin-left:auto;background:#8b6bea;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m5 12 4 4L19 6' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat}
+}
+.aelion-combobox{display:block;position:relative;min-width:0;width:100%;margin:0}
+.aelion-combobox-arrow{position:absolute;right:12px;top:50%;width:14px;height:14px;transform:translateY(-50%);background:#8d8996;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m7 10 5 5 5-5' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;cursor:pointer}
+.aelion-combobox[data-open=true] .aelion-combobox-arrow{transform:translateY(-50%) rotate(180deg)}
+.aelion-combobox[data-disabled=true] .aelion-combobox-arrow{cursor:not-allowed;opacity:.5}
+.aelion-combobox-list{box-sizing:border-box;position:fixed;inset:auto;margin:0;max-height:272px;padding:5px;border:1px solid #e4e1e9;border-radius:11px;background:#fff;color:#393940;box-shadow:0 8px 28px #25202f14;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#dad6e1 transparent;font:400 13px/1.5 Inter,"Segoe UI","Microsoft YaHei UI",sans-serif}
+.aelion-combobox-list:popover-open{display:block}
+.aelion-combobox-option{display:flex;align-items:center;gap:12px;min-height:34px;padding:8px 10px;border-radius:6px;white-space:normal;overflow-wrap:anywhere;cursor:pointer}
+.aelion-combobox-option.is-active{background:#f4f3f7}
+.aelion-combobox-option[aria-selected=true]{background:#f3effa;color:#695183}
+.aelion-combobox-option[aria-selected=true].is-active{background:#ece5f6}
+.aelion-option-check{flex:0 0 14px;width:14px;height:14px;margin-left:auto;background:#8b6bea;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m5 12 4 4L19 6' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat}
+.aelion-combobox-empty{display:block;padding:10px;font-size:12px;color:#80808a}
+@media(prefers-reduced-motion:reduce){.aelion-select,.aelion-combobox .aelion-combobox-input,.aelion-select::picker-icon{transition:none}}
