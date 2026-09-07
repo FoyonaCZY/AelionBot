@@ -8,14 +8,22 @@ import {AttachmentList} from './Attachments';
 import {ATTACHMENT_LIMITS,type Attachment,type AttachmentScope,type DroppedAttachment} from './attachment-types';
 import {Avatar,Icon} from './ui';
 import {CompanionGlyph} from './CompanionCard';
+import {botIdentity,normalizeBotAvatarStyle,type BotPalette} from './bot-colors';
+import {botAvatarDataUrl} from './bot-avatar';
 
 export interface ComposerDraft {text:string;mentions:BotMention[];attachments?:Attachment[];}
 const empty:ComposerDraft={text:'',mentions:[]};
+function chipStyle(value?:string){try{return value&&value.length<=256?normalizeBotAvatarStyle(JSON.parse(value)):undefined;}catch{return undefined;}}
+function paintChip(node:HTMLElement,palette:BotPalette){
+  node.dataset.botColor=palette.color;
+  if(palette.avatarStyle)node.dataset.botAvatarStyle=JSON.stringify(palette.avatarStyle);else delete node.dataset.botAvatarStyle;
+  const face=node.querySelector<HTMLElement>('.mention-avatar');if(face){face.style.backgroundColor='';face.style.backgroundImage=`url("${botAvatarDataUrl(palette)}")`;}
+}
 function read(root:Node):ComposerDraft{
   let text='';const mentions:BotMention[]=[];
   const visit=(node:Node)=>{
     if(node.nodeType===Node.TEXT_NODE){text+=node.textContent||'';return;}
-    if(node instanceof HTMLElement&&node.dataset.botId){const name=node.dataset.botName||'',start=text.length;text+=`@${name}`;mentions.push({id:node.dataset.botId,name,color:node.dataset.botColor||'#858b95',start,end:text.length});return;}
+    if(node instanceof HTMLElement&&node.dataset.botId){const name=node.dataset.botName||'',start=text.length,avatarStyle=chipStyle(node.dataset.botAvatarStyle);text+=`@${name}`;mentions.push({id:node.dataset.botId,name,color:node.dataset.botColor||'#858b95',...(avatarStyle?{avatarStyle}:{}),start,end:text.length});return;}
     if(node instanceof HTMLBRElement){if(!node.dataset.caretPlaceholder)text+='\n';return;}
     if(node instanceof HTMLElement&&['DIV','P'].includes(node.tagName)&&node!==root&&text&&!text.endsWith('\n'))text+='\n';
     node.childNodes.forEach(visit);
@@ -35,7 +43,7 @@ function position(root:HTMLElement,offset:number):[Node,number]{
 }
 function chip(mention:BotMention){
   const node=document.createElement('span');node.className='bot-mention';node.contentEditable='false';node.dataset.botId=mention.id;node.dataset.botName=mention.name;node.dataset.botColor=mention.color;
-  const face=document.createElement('span');face.className='mention-avatar';face.style.backgroundColor=mention.color;face.setAttribute('aria-hidden','true');const name=document.createElement('span');name.textContent=`@${mention.name}`;node.append(face,name);return node;
+  const face=document.createElement('span');face.className='mention-avatar';face.setAttribute('aria-hidden','true');const name=document.createElement('span');name.textContent=`@${mention.name}`;node.append(face,name);paintChip(node,mention);return node;
 }
 export function BotComposer({bot,bots,draft=empty,running,onChange,onSend,onStop,attachmentScope,workspaceDir,permissionMode}:{bot:Pick<Bot,'id'|'name'>;bots:Bot[];draft?:ComposerDraft;running:boolean;attachmentScope?:AttachmentScope;workspaceDir?:string;permissionMode?:HostPermissionMode;onChange:(draft:ComposerDraft)=>void;onSend:()=>void;onStop:()=>void}){
   const editor=useRef<HTMLDivElement>(null),list=useRef<HTMLDivElement>(null),last=useRef(''),composing=useRef(false),sendRef=useRef(onSend);sendRef.current=onSend;
@@ -83,7 +91,7 @@ export function BotComposer({bot,bots,draft=empty,running,onChange,onSend,onStop
   };
   const choose=(target:Bot)=>{
     const root=editor.current;if(!root||!query)return;root.focus({preventScroll:true});const range=document.createRange();range.setStart(...position(root,query.start));range.setEnd(...position(root,query.end));range.deleteContents();
-    const space=document.createTextNode(' ');range.insertNode(space);range.insertNode(chip({id:target.id,name:target.name,color:target.color,start:0,end:0}));range.setStart(space,1);range.collapse(true);const selection=getSelection();selection?.removeAllRanges();selection?.addRange(range);refresh();setQuery(undefined);
+    const space=document.createTextNode(' ');range.insertNode(space);range.insertNode(chip({...botIdentity(target),start:0,end:0}));range.setStart(space,1);range.collapse(true);const selection=getSelection();selection?.removeAllRanges();selection?.addRange(range);refresh();setQuery(undefined);
   };
   const chooseCommand=(mode:WorkMode)=>{
     const current=draftRef.current,old=/^\/(?:plan|goal)(?:\s+|$)/i.exec(current.text)?.[0]||(/^\/[a-z]*$/i.test(current.text)?current.text:''),prefix='/'+mode+' ';
@@ -97,6 +105,7 @@ export function BotComposer({bot,bots,draft=empty,running,onChange,onSend,onStop
     fragment.append(document.createTextNode(draft.text.slice(at)));if(draft.text.endsWith('\n')){const placeholder=document.createElement('br');placeholder.dataset.caretPlaceholder='true';fragment.append(placeholder);}root.replaceChildren(fragment);last.current=key;setQuery(undefined);
     if(focused){const range=document.createRange();range.selectNodeContents(root);range.collapse(false);const selection=getSelection();selection?.removeAllRanges();selection?.addRange(range);}
   },[draft]);
+  useLayoutEffect(()=>{for(const node of editor.current?.querySelectorAll<HTMLElement>('[data-bot-id]')||[]){const live=bots.find(item=>item.id===node.dataset.botId);if(live)paintChip(node,live);}},[bots,draft]);
   useEffect(()=>{const item=list.current?.children[active] as HTMLElement|undefined;if(item&&list.current){if(item.offsetTop<list.current.scrollTop)list.current.scrollTop=item.offsetTop;else if(item.offsetTop+item.offsetHeight>list.current.scrollTop+list.current.clientHeight)list.current.scrollTop=item.offsetTop+item.offsetHeight-list.current.clientHeight;}},[active]);
   return <div className={`composer mention-composer ${dragging?'is-dragging':''}`} onDragOver={event=>{if(event.dataTransfer.types.includes('Files')){event.preventDefault();event.dataTransfer.dropEffect='copy';setDragging(true);}}} onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node|null))setDragging(false);}} onDrop={event=>{event.preventDefault();setDragging(false);const files=Array.from(event.dataTransfer.files);if(files.length)importFiles(files);}}>
     <AttachmentList files={draft.attachments} compact onRemove={id=>update({...draftRef.current,attachments:draftRef.current.attachments?.filter(file=>file.id!==id)})}/>

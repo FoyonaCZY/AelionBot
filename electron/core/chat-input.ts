@@ -1,4 +1,5 @@
 import type {Store} from './store';
+import {botIdentity} from '../../src/bot-colors';
 import type {BotMention,ChatMessage} from '../../src/shared';
 import {attachmentSummary} from '../../src/attachment-types';
 
@@ -7,7 +8,7 @@ export function validateChatInput(store:Store,botId:string,input:string,value?:B
   if(value===undefined)return [];if(!Array.isArray(value)||value.length>12)throw new Error('提及的 Bot 无效');let end=0;
   return value.map(mention=>{
     if(!mention||typeof mention.id!=='string'||typeof mention.name!=='string'||!Number.isInteger(mention.start)||!Number.isInteger(mention.end)||mention.start<end||mention.end<=mention.start||mention.end>input.length||input.slice(mention.start,mention.end)!==`@${mention.name}`)throw new Error('Bot 提及的位置已变化，请重新选择');
-    const target=store.bot(mention.id);if(target.id===botId)throw new Error('请选择其他 Bot');end=mention.end;return {id:target.id,name:mention.name,color:target.color,start:mention.start,end:mention.end};
+    const target=store.bot(mention.id);if(target.id===botId)throw new Error('请选择其他 Bot');end=mention.end;return {...botIdentity(target),name:mention.name,start:mention.start,end:mention.end};
   });
 }
 export function chatInputText(message:ChatMessage){

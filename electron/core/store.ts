@@ -12,7 +12,7 @@ import {isPrivatePeerOrigin,peerPending} from '../../src/peer-types';
 import type {GroupDelivery,GroupRoom,GroupRound} from '../../src/group-types';
 import type {ScheduledTask} from '../../src/scheduled-types';
 import {isGroupWorkTool} from '../../src/group-types';
-import {BOT_COLORS} from '../../src/bot-colors';
+import {BOT_COLORS,normalizeBotPalette,type BotAvatarStyle} from '../../src/bot-colors';
 
 import type {StoredAttachment} from '../../src/attachment-types';
 export interface StoredProvider extends Omit<ModelProvider,'hasKey'> {encryptedKey?:string;}
@@ -221,10 +221,10 @@ export class Store {
     for(const exchange of this.data.peerExchanges.filter(exchange=>exchange.toBotId===id)){delete next.peerContexts[exchange.id];delete next.summaries[`peer:${exchange.id}`];delete next.contextOffsets[`peer:${exchange.id}`];}
     this.replaceData(next);
   }
-  createBot(name: string, role: string, color?: string): Bot {
+  createBot(name: string, role: string, color?: string,avatarStyle?:BotAvatarStyle|null): Bot {
     if (!name.trim() || name.length > 80 || role.length > 4000) throw new Error('请填写有效的名称与职责');
-    if (color!==undefined&&!BOT_COLORS.includes(color)) throw new Error('无效的 Bot 头像颜色');
-    const bot = { id: randomUUID(), name: name.trim(), role: role.trim(), color: color??BOT_COLORS[this.data.bots.length % BOT_COLORS.length], createdAt: new Date().toISOString(), memories: [] };
+    const palette=normalizeBotPalette({color:color===undefined?BOT_COLORS[this.data.bots.length%BOT_COLORS.length]:color,avatarStyle});
+    const bot:Bot = { id: randomUUID(), name: name.trim(), role: role.trim(), ...palette, createdAt: new Date().toISOString(), memories: [] };
     this.data.bots.push(bot); this.data.conversations[bot.id] = [];
     this.save();
     return bot;

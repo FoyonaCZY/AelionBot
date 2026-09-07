@@ -2,6 +2,7 @@ import {useState} from 'react';
 import {version} from '../package.json';
 import type {UpdateState} from './update-types';
 import {SettingsSection} from './SettingsWindow';
+import {FeedbackSettings} from './FeedbackSettings';
 import {bytes} from './ui';
 import './updates.css';
 
@@ -10,7 +11,7 @@ export function AboutSettings({update,onNotify}:{update?:UpdateState;onNotify:(t
   const [pending,setPending]=useState(false),phase=update?.phase||'idle',working=['checking','downloading','cancelling','installing'].includes(phase);
   const act=async(action:()=>Promise<unknown>)=>{setPending(true);try{await action();}catch(error){onNotify((error as Error).message.replace(/^Error invoking remote method '[^']+': Error: /,''));}finally{setPending(false);}};
   const check=()=>void act(()=>window.aelion.checkForUpdates());
-  return <SettingsSection title="应用"><div className="about-app">
+  return <><SettingsSection title="应用"><div className="about-app">
     <div className="about-update-heading"><div><span className="brand">Aelion<span>Bot</span></span><p className="about-version">版本 {update?.currentVersion||version}</p></div><button className="secondary-button" disabled={pending||working||phase==='unsupported'} onClick={check}>{phase==='checking'?'检查中…':'检查更新'}</button></div>
     {update&&<div className="about-update-content">
       <div className="about-update-status" role="status">{labels[phase]}{update.latestVersion&&['available','downloading','downloaded','installing'].includes(phase)&&<strong> {update.latestVersion}</strong>}</div>
@@ -26,5 +27,5 @@ export function AboutSettings({update,onNotify}:{update?:UpdateState;onNotify:(t
       </div>
       <p className="update-source">更新来源：{update.repository}</p>
     </div>}
-  </div></SettingsSection>;
+  </div></SettingsSection><FeedbackSettings onNotify={onNotify}/></>;
 }

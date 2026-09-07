@@ -31,6 +31,9 @@ import {groupPending} from '../src/group-types';
 import {peerPending} from '../src/peer-types';
 import { BotGreetings } from './core/bot-greetings';
 import {AppUpdates} from './core/app-updates';
+import {Diagnostics} from './core/diagnostics';
+import {availableParallelism,release as osRelease,totalmem} from 'node:os';
+import {writeFile} from 'node:fs/promises';
 import {createWindowsUpdater,UPDATE_REPOSITORY} from './core/windows-updater';
 import {assertUpdateDataOutsideApp,loadUpdateLaunchContext,saveUpdateLaunchContext,type UpdateLaunchContext} from './core/update-launch-context';
 import {WorkItems} from './core/work-items';
@@ -59,6 +62,8 @@ let chatPins:ChatPinQueue|undefined;
 let scheduler:TaskScheduler|undefined;
 let greetings:BotGreetings|undefined;
 let appUpdates:AppUpdates|undefined;
+let diagnostics:Diagnostics|undefined;
+process.on('uncaughtExceptionMonitor',(error,origin)=>diagnostics?.record('process.'+origin,error));
 let updatePreparing=false;
 let timer:NodeJS.Timeout|undefined;
 let polling=false;
@@ -66,15 +71,15 @@ let exiting=false;
 if(!app.requestSingleInstanceLock()){app.quit();}
 else {
   app.on('second-instance',()=>{window?.show();window?.focus();});
-  app.whenReady().then(initialize).catch(error=>{console.error(error);dialog.showErrorBox('AelionBot 启动失败',String(error.message));app.exit(1);});
+  app.whenReady().then(initialize).catch(error=>{diagnostics?.record('app.startup-error',error);console.error(error);dialog.showErrorBox('AelionBot 启动失败',String(error.message));app.exit(1);});
 }
 function snapshot():Snapshot{return {platform:process.platform,workItems:store.data.workItems,conversationWorkspaces:store.data.conversationWorkspaces,updates:appUpdates?.snapshot(),scheduledTasks:store.data.scheduledTasks,bots:store.data.bots,messages:store.data.messages,runs:store.data.runs,model:providers.config(),providers:providers.list(),defaultModel:store.data.defaultModel,botModels:Object.fromEntries(store.data.bots.map(bot=>[bot.id,providers.config(bot.id)])),vm:vm.state,skills:integrations?integrations.skills.all():store.data.skills,artifacts:store.data.artifacts,computer:computer.state,dataDir:store.dir,integrations:integrations?.snapshot(),interactions:interactions?.snapshot()||[],cognition:cognition?.view(),peers:peerChats?.snapshot(),groups:groupChats?.snapshot(),greetingBotIds:greetings?.botIds||[],streamingReplies:[...(harness?.streams.snapshot()||[]),...(greetings?.streams.snapshot()||[])],runtime:store?new RunPolicy(store).settings():undefined,modelUsage:store?.data.modelUsage?.slice(-100),commandPermissions:commandPermissions?.list()||[],hostPermissionModes:hostApprovals?.modes(),hostWorkspace:host?.workspaceSettings()};}
 function changed(){if(window&&!window.isDestroyed())window.webContents.send('app:event',{type:'state',snapshot:snapshot()});chatPins?.wake();peerChats?.wake();groupChats?.wake();}
 function handle(channel:string,callback:(...args:any[])=>unknown){
-  ipcMain.handle(channel,(event,...args)=>{
+  ipcMain.handle(channel,async(event,...args)=>{
     if(!window||event.sender.id!==window.webContents.id||event.senderFrame!==window.webContents.mainFrame)throw new Error('不受信任的调用来源');
     if(updatePreparing&&!['app:snapshot','updates:state','updates:open-release','window:dimmed'].includes(channel))throw new Error('正在准备安装更新，请稍候');
-    return callback(...args);
+    try{return await callback(...args);}catch(error){diagnostics?.record('ipc.'+channel,error);throw error;}
   });
 }
 function beforeModelChange(botIds:string[]){
@@ -100,6 +105,8 @@ async function initialize(){
   attachments=new Attachments(store,vm,artifacts,(bytes,id)=>{const image=nativeImage.createFromBuffer(bytes);if(image.isEmpty())return;const {width,height}=image.getSize();if(width*height>64*1024*1024)return;const scale=Math.min(1,2048/width,2048/height),preview=scale<1?image.resize({width:Math.max(1,Math.round(width*scale)),height:Math.max(1,Math.round(height*scale)),quality:'best'}):image;writeFileSync(join(computer.imageDir,id+'.png'),preview.toPNG());return {id,...preview.getSize()};});
   const homeDir=app.getPath('home');
   const configDir=resolve(process.env.AELION_CONFIG_HOME||savedLaunch?.configDir||join(homeDir,'.aelion'));
+  diagnostics=new Diagnostics({dataDir,snapshot,paths:()=>[dataDir,profileDir,homeDir,projectDir,configDir,app.getAppPath(),...Object.values(store.data.conversationWorkspaces||{})],secrets:()=>{let keys:string[]=[];try{keys=providers.secrets();}catch{}return [...keys,...Object.entries(process.env).filter(([name])=>/TOKEN|SECRET|PASSWORD|PASSWD|KEY|CREDENTIAL|AUTH/i.test(name)).map(([,value])=>value||'')];},environment:{appVersion:app.getVersion(),platform:process.platform,arch:process.arch,osRelease:osRelease(),electron:process.versions.electron,chrome:process.versions.chrome,node:process.versions.node,packaged:app.isPackaged,cpuCount:availableParallelism(),memoryGiB:Math.round(totalmem()/1024**3)}});
+  diagnostics.record('app.started',`AelionBot ${app.getVersion()} (${process.platform} ${process.arch})`);
   host=new HostComputer({dataDir,homeDir,projectDir,env:{...process.env},secrets:()=>providers.secrets()},interactions);
   integrations=new Integrations(store,{homeDir,projectDir,dataDir,configDir,env:{...process.env}},changed,(data,mime)=>{
     if(!['image/png','image/jpeg','image/webp'].includes(mime)||typeof data!=='string'||data.length>12*1024*1024)throw new Error('MCP 图像类型或大小不受支持');
@@ -148,6 +155,10 @@ async function initialize(){
   cognition.start();
   window=new BrowserWindow({width:1420,height:920,minWidth:980,minHeight:650,title:'AelionBot',icon:join(app.getAppPath(),'assets',process.platform==='win32'?'icon.ico':'icon.png'),backgroundColor:'#ffffff',show:false,titleBarStyle:process.platform==='darwin'?'hiddenInset':'hidden',...(process.platform==='darwin'?{trafficLightPosition:{x:18,y:18}}:{titleBarOverlay:{color:'#f7f7f7',symbolColor:'#555555',height:38}}),webPreferences:{preload:join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true}});
   installComputerView(window);
+  window.on('unresponsive',()=>diagnostics?.record('renderer.unresponsive','页面未响应'));
+  window.webContents.on('render-process-gone',(_event,details)=>diagnostics?.record('renderer.gone',`${details.reason}; exitCode=${details.exitCode}`));
+  window.webContents.on('did-fail-load',(_event,code,description)=>diagnostics?.record('renderer.load',`${code}: ${description}`));
+  window.webContents.on('console-message',details=>{if(['warning','error'].includes(details.level)&&details.frame===window?.webContents.mainFrame)diagnostics?.record('renderer.'+details.level,`${details.message}\nLine ${details.lineNumber}`);});
   window.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   window.webContents.on('will-navigate',(event,url)=>{if(url!==window?.webContents.getURL())event.preventDefault();});
   // Keep display zoom available even with the application menu disabled.
@@ -170,6 +181,13 @@ async function initialize(){
   handle('updates:cancel',()=>appUpdates!.cancel());
   handle('updates:install',()=>appUpdates!.install());
   handle('updates:open-release',()=>shell.openExternal(`https://github.com/${UPDATE_REPOSITORY}/releases/latest`));
+  handle('diagnostics:prepare',()=>diagnostics!.prepare());
+  handle('diagnostics:export',async id=>{
+    const report=diagnostics!.archive(id),target=await dialog.showSaveDialog(window!,{title:'导出诊断日志',defaultPath:join(app.getPath('downloads'),report.fileName),filters:[{name:'诊断包',extensions:['zip']}]});
+    if(target.canceled||!target.filePath)return null;
+    await writeFile(target.filePath,report.bytes,{mode:0o600});return target.filePath;
+  });
+  handle('diagnostics:issue',id=>shell.openExternal(diagnostics!.issueUrl(id,UPDATE_REPOSITORY)));
   handle('tasks:create',input=>scheduler!.create(input));
   handle('tasks:update',input=>scheduler!.update(input));
   handle('tasks:delete',id=>scheduler!.remove(String(id)));
@@ -209,7 +227,7 @@ async function initialize(){
   });
   handle('mcp:enabled',async input=>{if(harness.busy)throw new Error('请等待当前任务结束后修改 MCP');if(typeof input?.enabled!=='boolean')throw new Error('无效状态');await integrations.setEnabled(String(input.id),input.enabled);});
   handle('mcp:test',async id=>{const result=await integrations.mcp.listTools(String(id));return {tools:result.tools.map(tool=>tool.name)};});
-  handle('bot:create',(input)=>{if(!input||typeof input.name!=='string'||typeof input.role!=='string'||input.color!==undefined&&typeof input.color!=='string')throw new Error('无效 Bot 参数');const bot=store.createBot(input.name,input.role,input.color);changed();void greetings?.greet(bot.id);return bot;});
+  handle('bot:create',(input)=>{if(!input||typeof input.name!=='string'||typeof input.role!=='string'||input.color!==undefined&&typeof input.color!=='string')throw new Error('无效 Bot 参数');const bot=store.createBot(input.name,input.role,input.color,input.avatarStyle);changed();void greetings?.greet(bot.id);return bot;});
   handle('bot:delete',async(id)=>{
     if(typeof id!=='string')throw new Error('无效 Bot 参数');
     if(harness.isRunning(id))throw new Error('请先停止这个 Bot 的任务并等待结束，再删除');
@@ -283,7 +301,7 @@ async function initialize(){
   handle('app:open-data',()=>shell.openPath(dataDir));
   app.on('before-quit',async event=>{
     if(exiting)return;event.preventDefault();exiting=true;if(timer)clearInterval(timer);
-    appUpdates?.dispose();scheduler?.dispose();greetings?.dispose();for(const bot of store.data.bots)harness.cancel(bot.id);
+    diagnostics?.dispose();appUpdates?.dispose();scheduler?.dispose();greetings?.dispose();for(const bot of store.data.bots)harness.cancel(bot.id);
     providers.dispose();chatPins?.dispose();peerChats?.dispose();groupChats?.dispose();interactions.dispose();host.dispose();
     await harness.closeProcesses();
     await cognition.close();

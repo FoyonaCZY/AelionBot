@@ -1,4 +1,5 @@
 import {delegationContract} from './delegation';
+import {botIdentity} from '../../src/bot-colors';
 import {randomUUID} from 'node:crypto';
 import type {Bot,RunRecord} from '../../src/shared';
 import type {BotIdentity,PeerChatPage,PeerExchange,PeerExchangeView,PeerMessage,PeerThread,PeerThreadSummary,PeerView} from '../../src/peer-types';
@@ -10,7 +11,7 @@ import {Store} from './store';
 import type {HarnessRunOptions,PeerGateway} from './peer-runtime-types';
 
 interface Runner {isRunning:(botId:string)=>boolean;run:(botId:string,input:string,options:HarnessRunOptions)=>Promise<void>;cancel:(botId:string)=>void;}
-const identity=(bot:Bot):BotIdentity=>({id:bot.id,name:bot.name,color:bot.color});
+const identity=botIdentity;
 const now=()=>new Date().toISOString();
 function required(value:unknown,label:string,max:number){if(typeof value!=='string'||!value.trim()||value.length>max||/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value))throw new Error(`${label}无效`);return value.trim();}
 export class PeerChats implements PeerGateway {

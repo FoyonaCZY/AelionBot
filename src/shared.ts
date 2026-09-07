@@ -7,6 +7,7 @@ import type {BotMention,PeerChatPage,PeerNotice,PeerRunOrigin,PeerView} from './
 import type {GroupLink,GroupPage,GroupRunOrigin,GroupSummary,GroupsView} from './group-types';
 import type {MessagePin,PinEvent,PinInput} from './reactions';
 import type {UpdateState} from './update-types';
+import type {DiagnosticPreview} from './diagnostic-types';
 import type {ScheduledTask,ScheduledTaskInput,ScheduledTaskUpdate,ScheduledTrigger} from './scheduled-types';
 import type {ToolExecution} from './execution-types';
 export type {BotMention,PeerChatPage,PeerNotice,PeerRunOrigin,PeerView} from './peer-types';
@@ -14,8 +15,8 @@ export interface ModelSelection {providerId:string;model:string;contextTokens:nu
 export interface ProviderModel {id:string;}
 export interface ModelProvider extends ModelParameters {id:string;name:string;baseUrl:string;hasKey:boolean;models:ProviderModel[];modelsUpdatedAt?:string;modelsCheckedAt?:string;modelsError?:string;}
 export interface ProviderInput extends ModelParameters {id?:string;name:string;baseUrl:string;apiKey?:string|null;}
-export interface Bot { id: string; name: string; role: string; color: string; createdAt: string; memories: string[]; model?:ModelSelection; }
-export interface BotUpdateInput {id:string;name:string;role:string;model?:ModelSelection|null;}
+export interface Bot { id: string; name: string; role: string; color: string; avatarStyle?:import('./bot-colors').BotAvatarStyle; createdAt: string; memories: string[]; model?:ModelSelection; }
+export interface BotUpdateInput {id:string;name:string;role:string;model?:ModelSelection|null;color?:string;avatarStyle?:import('./bot-colors').BotAvatarStyle|null;}
 export interface ToolCall { id: string; type: 'function'; function: { name: string; arguments: string }; }
 export interface ScreenReference { id: string; width: number; height: number; attachmentId?:string; }
 export interface WireMessage { native?:NativeAssistant; role: 'system' | 'user' | 'assistant' | 'tool'; content: string | null; tool_calls?: ToolCall[]; tool_call_id?: string; images?: ScreenReference[]; groupMessageId?:string; }
@@ -44,6 +45,9 @@ export interface Snapshot {hostPermissionModes?:Record<string,HostPermissionMode
 export interface AppEvent { type: 'state'; snapshot: Snapshot; }
 export interface CommandResult { stdout: string; stderr: string; exitCode: number; durationMs: number; }
 export interface AelionAPI {
+  prepareDiagnostics():Promise<DiagnosticPreview>;
+  exportDiagnostics(id:string):Promise<string|null>;
+  openDiagnosticIssue(id:string):Promise<void>;
   setHostPermissionMode(input:{scope:AttachmentScope;mode:HostPermissionMode}):Promise<void>;
   pickConversationWorkspace(scope:AttachmentScope):Promise<string|null>;
   resetConversationWorkspace(scope:AttachmentScope):Promise<void>;
@@ -69,7 +73,7 @@ export interface AelionAPI {
   updateScheduledTask(input:ScheduledTaskUpdate):Promise<ScheduledTask>;
   deleteScheduledTask(id:string):Promise<void>;
   runScheduledTask(id:string):Promise<void>;
-  createBot(input: { name: string; role: string; color?: string }): Promise<Bot>;
+  createBot(input: { name: string; role: string; color?: string;avatarStyle?:import('./bot-colors').BotAvatarStyle|null }): Promise<Bot>;
   deleteBot(id: string): Promise<void>;
   updateBot(input: BotUpdateInput): Promise<void>;
   send(input: { botId: string; message: string; mentions?:BotMention[];attachmentIds?:string[] }): Promise<void>;

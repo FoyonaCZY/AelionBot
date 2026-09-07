@@ -1,7 +1,9 @@
 import {AttachmentList} from './Attachments';
 import {FileInfo,FileTypeBadge} from './FileAppearance';
 import {attachmentSummary} from './attachment-types';
-import React,{useEffect,useMemo,useRef,useState} from 'react';
+import React,{useContext,useEffect,useId,useMemo,useRef,useState} from 'react';
+import {botAvatarContent} from './bot-avatar';
+import {BotAvatarContext} from './BotAvatarContext';
 import {defaultUrlTransform} from 'react-markdown';
 import Markdown from './MessageMarkdown';
 import RFB from '@novnc/novnc';
@@ -37,13 +39,12 @@ export function Icon({name,size=20}:{name:string;size?:number}){
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{shapes[name]||shapes.file}</svg>;
 }
-export function Avatar({bot,size=44,activity='idle'}:{bot:Pick<Bot,'name'|'color'>&{id?:string};size?:number;activity?:BotActivity}){
+export function Avatar({bot,size=44,activity='idle'}:{bot:Pick<Bot,'name'|'color'|'avatarStyle'>&{id?:string};size?:number;activity?:BotActivity}){
+  const id=useId(),palette=useContext(BotAvatarContext).get(bot.id||'')||bot;
+  const markup=botAvatarContent(palette,id),content=useMemo(()=>({__html:markup}),[markup]);
   let phase=0;for(const letter of bot.id||bot.name)phase=(phase*31+letter.charCodeAt(0))>>>0;
   const label={idle:'',thinking:'正在思考',working:'正在工作',waiting:'等待你处理'}[activity];
-  return <svg width={size} height={size} viewBox="0 0 60 60" className="avatar" role="img" data-activity={activity} style={{'--avatar-motion-delay':`-${phase%2400}ms`} as React.CSSProperties} aria-label={label?`${bot.name}，${label}`:bot.name}>
-    <circle className="avatar-halo" cx="30" cy="30" r="28.2" fill="none" stroke={bot.color} strokeWidth="1.4" strokeDasharray="22 155" strokeLinecap="round"/>
-    <g className="avatar-body"><path d="M31 3C47 3 56 14 56 31C56 46 46 56 29 56C12 56 4 46 4 30C4 14 15 3 31 3Z" fill={bot.color}/><g className="avatar-gaze"><g className="avatar-eye"><ellipse cx="24" cy="26" rx="2.5" ry="5" fill="white" transform="rotate(-14 24 26)"/></g><g className="avatar-eye"><ellipse cx="36" cy="24" rx="2.5" ry="5" fill="white" transform="rotate(-14 36 24)"/></g></g></g>
-  </svg>;
+  return <svg width={size} height={size} viewBox="0 0 60 60" className="avatar" role="img" data-activity={activity} style={{'--avatar-motion-delay':`-${phase%2400}ms`} as React.CSSProperties} aria-label={label?`${bot.name}，${label}`:bot.name} dangerouslySetInnerHTML={content}/>;
 }
 export const time=(value:string)=>new Date(value).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
 export const bytes=(size:number)=>size<1024?`${size} B`:size<1048576?`${Math.round(size/102.4)/10} KB`:`${Math.round(size/104857.6)/10} MB`;

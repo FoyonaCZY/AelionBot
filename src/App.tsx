@@ -28,7 +28,9 @@ import {PeerNotice,PeerTaskMessage,PeerNotifications,PrivateChatWindow,type Peer
 import {isPrivatePeerOrigin} from './peer-types';
 import {conversationRows} from './conversation-list';
 import {GroupAvatar,GroupConversation,GroupEditor,GroupNotifications,GroupTaskMessage} from './GroupChats';
-import {randomBotColor} from './bot-colors';
+import {randomBotPalette,displayBotPalette,DEFAULT_BOT_PALETTE,type BotPalette} from './bot-colors';
+import {BotPaletteEditor} from './BotPaletteEditor';
+import {BotAvatarProvider} from './BotAvatarContext';
 import {botActivities} from './bot-activity';
 import {useWindowDimming} from './window-dimming';
 
@@ -55,7 +57,8 @@ export default function App(){
   const [peerPanel,setPeerPanel]=useState<PeerPanel>();
   const [selectedGroup,setSelectedGroup]=useState(''),[groupEditor,setGroupEditor]=useState<string>(),[newMenu,setNewMenu]=useState(false);
   const [groupDrafts,setGroupDrafts]=useState<Record<string,ComposerDraft>>({});
-  const [newBotColor,setNewBotColor]=useState(randomBotColor);
+  const [newBotPalette,setNewBotPalette]=useState(randomBotPalette);
+  const [profilePalette,setProfilePalette]=useState<BotPalette>({...DEFAULT_BOT_PALETTE});
   const group=state?.groups?.rooms.find(room=>room.id===selectedGroup);
   const [modal,setModal]=useState<Modal>(null),[settingsTab,setSettingsTab]=useState<SettingsTab>('model'),[scope,setScope]=useState('');
   const [botMenu,setBotMenu]=useState<BotMenuAnchor>(),[editingId,setEditingId]=useState(''),[deletingId,setDeletingId]=useState('');
@@ -137,8 +140,8 @@ export default function App(){
   const openFiles=()=>{setFiles([]);setModal('files');void refreshFiles();};
   const openPreview=async(file:PreviewFile)=>{setPreviewFile(file);setPreview(undefined);setPreviewError('');setModal('preview');try{setPreview(await window.aelion.previewFile({botId:file.botId,path:file.path}));}catch(error){setPreviewError(errorText(error));}};
   const saveFile=(file:PreviewFile)=>act(async()=>{const path=await window.aelion.exportFile({botId:file.botId,path:file.path});if(path)setToast(`已保存：${path}`);});
-  const openNewBot=()=>{setName('');setRole('');setModal('new');};
-  const editBot=(target:Bot)=>{setBotMenu(undefined);setEditingId(target.id);setName(target.name);setRole(target.role);setProfileModel(target.model?{...target.model}:null);setModal('profile');};
+  const openNewBot=()=>{if(!newMenu)setNewBotPalette(randomBotPalette(newBotPalette));setName('');setRole('');setModal('new');};
+  const editBot=(target:Bot)=>{setBotMenu(undefined);setEditingId(target.id);setName(target.name);setRole(target.role);setProfileModel(target.model?{...target.model}:null);setProfilePalette(displayBotPalette(target));setModal('profile');};
   const showBotMenu=(target:Bot,trigger:HTMLButtonElement,x?:number,y?:number)=>{
     const box=trigger.getBoundingClientRect();setBotMenu({id:target.id,trigger,x:x??box.left+24,y:y??box.bottom});
   };
@@ -153,9 +156,9 @@ export default function App(){
   const rows=conversationRows(state.bots,state.messages,state.groups?.rooms||[],state.runs);
   const title=modal==='computer-setup'?'工作电脑设置':modal==='settings'?'设置':modal==='new'?'创建新 Bot':modal==='profile'?'Bot 资料':modal==='delete-bot'?'删除 Bot':modal==='terminal'?'工作终端':modal==='files'?`${bot?.name||'Bot'} 的文件`:modal==='preview'?previewFile?.name:modal==='screen'?'操作截图':'工作电脑';
   const scopePicker=<label className="scope-picker"><span>Bot</span><Select aria-label="选择 Bot" disabled={!state.bots.length} value={scopeBot?.id||''} onChange={event=>setScope(event.target.value)}>{state.bots.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</Select></label>;
-  return <div className="app-shell" data-platform={state.platform}>
+  return <BotAvatarProvider bots={state.bots}><div className="app-shell" data-platform={state.platform}>
     <aside className="sidebar">
-      <div className="sidebar-top drag"><span className="brand">Aelion<span>Bot</span></span><div className="new-menu-anchor no-drag"><button className="icon-button" aria-label="新建" aria-haspopup="menu" aria-expanded={newMenu} onClick={()=>{if(!newMenu)setNewBotColor(randomBotColor(newBotColor));setNewMenu(value=>!value);}}><Icon name="plus"/></button>{newMenu&&<div className="new-conversation-menu" role="menu"><button role="menuitem" onClick={()=>{setNewMenu(false);openNewBot();}}><span className="new-bot-icon" aria-hidden="true"><Avatar bot={{name:'新 Bot',color:newBotColor}} size={20}/></span>新建 Bot</button><button role="menuitem" onClick={()=>{setNewMenu(false);setGroupEditor('new');}}><Icon name="message" size={20}/>创建群聊</button></div>}</div></div>
+      <div className="sidebar-top drag"><span className="brand">Aelion<span>Bot</span></span><div className="new-menu-anchor no-drag"><button className="icon-button" aria-label="新建" aria-haspopup="menu" aria-expanded={newMenu} onClick={()=>{if(!newMenu)setNewBotPalette(randomBotPalette(newBotPalette));setNewMenu(value=>!value);}}><Icon name="plus"/></button>{newMenu&&<div className="new-conversation-menu" role="menu"><button role="menuitem" onClick={()=>{setNewMenu(false);openNewBot();}}><span className="new-bot-icon" aria-hidden="true"><Avatar bot={{name:'新 Bot',...newBotPalette}} size={20}/></span>新建 Bot</button><button role="menuitem" onClick={()=>{setNewMenu(false);setGroupEditor('new');}}><Icon name="message" size={20}/>创建群聊</button></div>}</div></div>
       <label className="search"><Icon name="search" size={18}/><input placeholder="搜索" value={query} onChange={event=>setQuery(event.target.value)}/></label>
       <div className="bot-list conversation-list" role="region" aria-label="会话列表">{rows.filter(row=>(row.kind==='bot'?row.bot.name:row.group.name).toLowerCase().includes(query.toLowerCase())).map(row=>{
         if(row.kind==='group'){
@@ -200,8 +203,8 @@ export default function App(){
     {modal&&<div className={`modal-backdrop ${modal==='settings'?'settings-backdrop':modal==='computer'?'computer-backdrop':['preview','screen'].includes(modal)?'wide-backdrop':''}`} onMouseDown={event=>{if(event.target===event.currentTarget)void act(closeModal);}}><section className={`modal ${modal==='computer-setup'?'computer-setup-modal':modal==='settings'?'settings-modal':modal==='profile'?'bot-profile-modal':modal==='computer'?'computer-modal':['preview','screen'].includes(modal)?'preview-modal':modal==='terminal'?'terminal-modal':''}`} role="dialog" aria-modal="true" aria-label={title}>
       {modal!=='computer'&&modal!=='settings'&&<header><h2>{title}</h2><div className="modal-header-actions">{modal==='preview'&&previewFile&&<button className="icon-button" aria-label={`保存 ${previewFile.name}`} disabled={busy} onClick={()=>void saveFile(previewFile)}><Icon name="download"/></button>}<button className="icon-button" aria-label="关闭对话框" onClick={()=>void act(closeModal)}><Icon name="close"/></button></div></header>}
       {modal==='computer-setup'&&<ComputerSetup vm={state.vm} disabled={anyRunning} onClose={()=>void closeModal()} onReady={()=>setModal('computer')} onNotify={setToast}/>}
-      {(modal==='new'||modal==='profile')&&<form onSubmit={event=>{event.preventDefault();void act(async()=>{if(modal==='new'){const created=await window.aelion.createBot({name:name||'新 Bot',role:role||'完成办公和代码任务，使用工作电脑实际执行并核对成果。',color:newBotColor});setSelected(created.id);}else await window.aelion.updateBot({id:editingId,name,role,model:profileModel});setModal(null);});}}>
-        <div className="new-avatar"><Avatar bot={{name:name||'新 Bot',color:modal==='new'?newBotColor:editingBot?.color||'#268bfa'}} size={modal==='profile'?56:76}/></div>
+      {(modal==='new'||modal==='profile')&&<form onSubmit={event=>{event.preventDefault();void act(async()=>{if(modal==='new'){const created=await window.aelion.createBot({name:name||'新 Bot',role:role||'完成办公和代码任务，使用工作电脑实际执行并核对成果。',...newBotPalette});setSelected(created.id);}else await window.aelion.updateBot({id:editingId,name,role,model:profileModel,color:profilePalette.color,avatarStyle:profilePalette.avatarStyle??null});setModal(null);});}}>
+        <BotPaletteEditor value={modal==='new'?newBotPalette:profilePalette} onChange={modal==='new'?setNewBotPalette:setProfilePalette} name={name||'新 Bot'} disabled={busy}/>
         <label>名称<input autoFocus value={name} onChange={event=>setName(event.target.value)} maxLength={80} placeholder="给你的新伙伴起个名字"/></label>
         <label>职责描述<textarea rows={modal==='profile'?3:4} maxLength={4000} value={role} onChange={event=>setRole(event.target.value)}/></label>
         {modal==='profile'&&<div className="bot-profile-model"><h3>模型</h3><ModelSelectionFields providers={state.providers||[]} value={profileModel} onChange={setProfileModel} defaultModel={state.defaultModel} inheritDefault disabled={busy||profileRunning}/></div>}
@@ -255,5 +258,5 @@ export default function App(){
       {modal==='preview'&&previewFile&&<><div className="preview-meta"><span>{bytes(previewFile.size)}</span><button className="text-button" disabled={busy||Boolean(state.computer.desktops?.[previewFile.botId]?.ownerBotId)} onClick={()=>act(async()=>{await window.aelion.openFile({botId:previewFile.botId,path:previewFile.path});setComputerBotId(previewFile.botId);setModal('computer');})}>在工作电脑打开</button></div><div className="artifact-preview-body">{previewError?<div className="settings-empty">{previewError}</div>:!preview?<div className="settings-empty">正在加载文件…</div>:preview.kind==='markdown'?<div className="markdown document-preview"><Markdown>{preview.content||''}</Markdown></div>:preview.kind==='image'?<img className="artifact-image" src={preview.dataUrl} alt={previewFile.name}/>:preview.kind==='pdf'?<iframe title={previewFile.name} src={preview.dataUrl} className="artifact-frame"/>:preview.kind==='html'?<iframe title={previewFile.name} srcDoc={preview.content} sandbox="" className="artifact-frame"/>:preview.kind==='text'?previewFile.name.toLowerCase().endsWith('.csv')?<CsvPreview text={preview.content||''}/>:<pre className="text-preview">{preview.content}</pre>:<div className="unsupported-preview"><Icon name="file" size={52}/><strong>{previewFile.name}</strong></div>}</div>{preview?.truncated&&<p className="subtle">预览已截断，保存文件可查看完整内容。</p>}</>}
       {modal==='screen'&&<img className="artifact-image screen-full" src={screen} alt="Bot 操作后的工作电脑截图"/>}
     </section></div>}
-  </div>;
+  </div></BotAvatarProvider>;
 }
