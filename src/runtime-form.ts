@@ -4,7 +4,7 @@ export type RuntimeNumberKey=keyof Omit<RuntimeSettings,'fileCheckpoints'>;
 export interface RuntimeField {key:RuntimeNumberKey;label:string;hint:string;unit:string;min:number;max:number;factor?:number;stepper?:boolean;}
 export const RUNTIME_FIELDS:readonly RuntimeField[]=[
   {key:'maxTurns',label:'执行轮数',hint:'0 表示不限',unit:'轮',min:0,max:10000},
-  {key:'maxMinutes',label:'最长执行时间',hint:'达到后暂停任务',unit:'分钟',min:1,max:1440},
+  {key:'maxMinutes',label:'最长执行时间',hint:'0 表示不限',unit:'分钟',min:0,max:1440},
   {key:'maxTokens',label:'模型用量',hint:'0 表示不限',unit:'Token',min:0,max:10000000},
   {key:'requestTimeoutMs',label:'请求超时',hint:'单次请求的等待时间',unit:'秒',min:1,max:600,factor:1000},
   {key:'modelRetries',label:'失败重试',hint:'0 表示不重试',unit:'次',min:0,max:5,stepper:true},

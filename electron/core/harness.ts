@@ -230,7 +230,8 @@ export class Harness {
     const carry=resumed||this.store.data.runs.find(run=>run.id===(options.groupTaskFrom||options.supersedesRunId)&&run.botId===botId);
     const selectedWorkspace=options.workspaceDir!==undefined?options.workspaceDir:inputs.length&&inputs.at(-1)?.workspaceDir!==undefined?inputs.at(-1)!.workspaceDir:conversationWorkspace(this.store,options.groupOrigin?{kind:'group',id:options.groupOrigin.groupId}:{kind:'bot',id:botId});
     const run:RunRecord={workspaceDir:selectedWorkspace||this.host?.workspace(botId),...(options.groupTaskFrom&&carry?.attachments?{attachments:carry.attachments}:{}),progressSteps:carry?.progressSteps||0,id:randomUUID(),botId,status:'running' as const,startedAt:new Date().toISOString(),modelCalls:0,toolCalls:0,...(options.peerOrigin?{peerOrigin:options.peerOrigin}:{}),...(options.groupOrigin?{groupOrigin:options.groupOrigin}:{}),...(options.supersedesRunId?{supersedesRunId:options.supersedesRunId}:{})};
-    const budgetTimer=setTimeout(()=>controller.abort(new Error('达到本次执行时间预算，已停止并保留执行记录')),new RunPolicy(this.store).settings().maxMinutes*60000);budgetTimer.unref();
+    const maxMinutes=new RunPolicy(this.store).settings().maxMinutes;
+    const budgetTimer=maxMinutes>0?setTimeout(()=>controller.abort(new Error('达到本次执行时间预算，已停止并保留执行记录')),maxMinutes*60000):undefined;budgetTimer?.unref();
     const groupRuntime:ActiveRuntime={runId:run.id,updated:false};this.runtimes.set(botId,groupRuntime);
     if(options.groupOrigin)this.groupActive.set(botId,groupRuntime);
     const checkpoint=()=>{if(groupRuntime.updated)throw groupRuntime.updateKind==='input'?new InputUpdated():new GroupUpdated();};

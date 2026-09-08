@@ -4,7 +4,7 @@ import {ExecutionLedger} from './execution-ledger';
 export function runtimeSettings(value:unknown):RuntimeSettings{
  const input=value as Partial<RuntimeSettings>;if(!input||typeof input!=='object'||Array.isArray(input))throw Error('运行设置无效');
  const result={...DEFAULT_RUNTIME,...input};
- const ranges={maxTurns:[0,10000],maxMinutes:[1,1440],maxTokens:[0,10000000],modelRetries:[0,5],requestTimeoutMs:[1000,600000],maxOutputTokens:[256,65536],parallelReads:[1,8],progressSeconds:[15,600]} as const;
+ const ranges={maxTurns:[0,10000],maxMinutes:[0,1440],maxTokens:[0,10000000],modelRetries:[0,5],requestTimeoutMs:[1000,600000],maxOutputTokens:[256,65536],parallelReads:[1,8],progressSeconds:[15,600]} as const;
  for(const [key,[min,max]] of Object.entries(ranges))if(!Number.isInteger(result[key as keyof typeof ranges])||Number(result[key as keyof typeof ranges])<min||Number(result[key as keyof typeof ranges])>max)throw Error(`运行设置 ${key} 超出范围`);
  if(typeof result.fileCheckpoints!=='boolean'||Object.keys(input).some(key=>!(key in DEFAULT_RUNTIME)))throw Error('运行设置无效');return result;
 }
@@ -14,7 +14,7 @@ export class RunPolicy {
  check(botId:string,runId:string,iteration:number){
   const run=this.run(botId,runId),cfg=this.settings();
   if(cfg.maxTurns&&iteration>=cfg.maxTurns)throw Error(`达到 ${cfg.maxTurns} 轮执行预算，任务与执行记录已保留，可检查后继续`);
-  if(Date.now()-Date.parse(run.startedAt)>=cfg.maxMinutes*60000)throw Error('达到本次执行时间预算，任务与执行记录已保留');
+  if(cfg.maxMinutes>0&&Date.now()-Date.parse(run.startedAt)>=cfg.maxMinutes*60000)throw Error('达到本次执行时间预算，任务与执行记录已保留');
   if(cfg.maxTokens>0){
    const used=this.store.data.modelUsage?.filter(x=>x.runId===runId).reduce((n,x)=>n+(reportedTotal(x.usage)??x.estimatedTokens??((x.usage?.inputTokens??0)+(x.usage?.outputTokens??0))),0)||0;
    if(used>=cfg.maxTokens)throw Error('达到本次模型用量预算，任务与执行记录已保留');

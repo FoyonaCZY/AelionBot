@@ -1,5 +1,5 @@
 export interface RuntimeSettings {maxTurns:number;maxMinutes:number;maxTokens:number;modelRetries:number;requestTimeoutMs:number;maxOutputTokens:number;parallelReads:number;progressSeconds:number;fileCheckpoints:boolean;}
-export const DEFAULT_RUNTIME:RuntimeSettings={maxTurns:120,maxMinutes:60,maxTokens:0,modelRetries:2,requestTimeoutMs:180000,maxOutputTokens:8192,parallelReads:4,progressSeconds:60,fileCheckpoints:false};
+export const DEFAULT_RUNTIME:RuntimeSettings={maxTurns:0,maxMinutes:0,maxTokens:0,modelRetries:2,requestTimeoutMs:180000,maxOutputTokens:8192,parallelReads:4,progressSeconds:60,fileCheckpoints:false};
 export interface TaskStep {id:string;title:string;acceptance:string;status:'pending'|'working'|'done'|'skipped';evidenceIds:string[];note?:string;}
 export interface TaskPlan {revision:number;goal:string;steps:TaskStep[];}
 export interface ModelUsage {version?:2;inputTokens?:number;outputTokens?:number;totalTokens?:number;cachedTokens?:number;cacheWriteTokens?:number;reasoningTokens?:number;latencyMs?:number;attempts?:number;}

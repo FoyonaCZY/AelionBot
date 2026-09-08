@@ -40,7 +40,20 @@ test('an explicit cap counts reported or estimated usage for its own run and can
  store.data.runtime=runtimeSettings({...store.data.runtime,maxTokens:0});
  assert.doesNotThrow(()=>policy.check(botId,run.id,1));
  store.data.runtime.maxTurns=1;assert.throws(()=>policy.check(botId,run.id,1),/轮执行预算/);
- store.data.runtime.maxTurns=0;run.startedAt=new Date(Date.now()-61*60000).toISOString();assert.throws(()=>policy.check(botId,run.id,1),/执行时间预算/);
+ store.data.runtime.maxTurns=0;store.data.runtime.maxMinutes=60;run.startedAt=new Date(Date.now()-61*60000).toISOString();assert.throws(()=>policy.check(botId,run.id,1),/执行时间预算/);
+ store.data.runtime.maxMinutes=0;assert.doesNotThrow(()=>policy.check(botId,run.id,10001));
+});
+
+test('default task limits are unlimited and do not schedule an immediate abort',async t=>{
+ const {store}=fixture(t);assert.equal(runtimeSettings({}).maxTurns,0);assert.equal(runtimeSettings({}).maxMinutes,0);
+ const model={complete:async(_messages:unknown,_tools:unknown,signal:AbortSignal)=>{
+  await new Promise(resolve=>setTimeout(resolve,25));assert.equal(signal.aborted,false);
+  return {content:'已完成',finishReason:'stop',calls:[]};
+ }} as unknown as ModelClient;
+ await new Harness(store,{} as VmController,model,()=>{}).run(store.data.bots[0].id,'回答问题');
+ assert.equal(store.data.runs[0].status,'completed');
+ for(const maxMinutes of [0,1,60,1440])assert.equal(runtimeSettings({maxMinutes}).maxMinutes,maxMinutes);
+ for(const maxMinutes of [-1,0.5,1441,'0',null])assert.throws(()=>runtimeSettings({maxMinutes}),/maxMinutes/);
 });
 
 test('runtime settings accept unlimited and positive token caps, and reject invalid values',()=>{
