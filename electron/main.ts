@@ -250,7 +250,7 @@ async function initialize(){
   handle('attachments:paste-prepare',async scope=>{attachments.scope(scope);const data=await readAttachmentClipboard();return {entries:data.paths.length?await attachmentDrops.prepare(scope,data.paths):[],attachments:data.files.length?attachments.importFiles(scope,data.files):[]};});
   handle('attachments:import',input=>attachments.importFiles(input?.scope,input?.files));
   handle('attachments:paste',async scope=>{attachments.scope(scope);const data=await readAttachmentClipboard();return data.paths.length?attachments.importPaths(scope,data.paths):data.files.length?attachments.importFiles(scope,data.files):[];});
-  handle('attachments:preview',id=>attachments.preview(id));
+  handle('attachments:preview',id=>attachments.previewRich(id));
   handle('attachments:save',async id=>{const file=attachments.metadata(id);const result=await dialog.showSaveDialog(window!,{defaultPath:file.name});if(result.canceled||!result.filePath)return null;writeFileSync(result.filePath,attachments.bytes(id));return result.filePath;});
   handle('chat:send',(input)=>{if(!input||typeof input.botId!=='string'||typeof input.message!=='string')throw new Error('无效消息');return chatPins!.send(input);});
   handle('chat:resume',input=>{if(typeof input?.botId!=='string'||typeof input.runId!=='string')throw Error('恢复任务参数无效');if(harness.isRunning(input.botId)||chatPins?.hasPending(input.botId))throw Error('Bot 正在处理消息，请稍后继续');const run=resumableRun(store,input.botId,input.runId);greetings?.cancel(input.botId);if(run.groupOrigin)groupChats!.retryRun(run);else if(run.peerOrigin)peerChats!.retryRun(run);else void harness.resume(input.botId,input.runId).catch(error=>{store.message(input.botId,'event',(error as Error).message);changed();});changed();});

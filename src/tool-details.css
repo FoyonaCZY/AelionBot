@@ -9,7 +9,7 @@
 .detail-copy:hover{color:#547695}
 .tool-detail-section{padding:0 18px 17px;min-width:0}
 .tool-detail-section>h4{font-weight:500;font-size:11px;color:#95a1ae;margin:14px 0 9px}
-.detail-text-content{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.9;color:#657387;max-height:360px;overflow:auto;font:12px/1.9 "Segoe UI","Microsoft YaHei UI",sans-serif;border-top:1px solid #edf0f3;padding-top:13px}
+.detail-text-content{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.9;color:#657387;max-height:360px;overflow:auto;font:500 12px/1.9 "Segoe UI","Microsoft YaHei UI",sans-serif;border-top:1px solid #edf0f3;padding-top:13px}
 .detail-document{color:#677789;line-height:1.85;max-height:380px;overflow:auto;border-top:1px solid #edf0f3;padding-top:14px;overflow-wrap:anywhere}
 .detail-document.markdown h1,.detail-document.markdown h2,.detail-document.markdown h3{font-size:13px;font-weight:550;margin:8px 0 12px;color:#52677c}
 .detail-description{padding:0 18px;margin:0 0 15px;line-height:1.85;color:#8c99a8;font-size:11px}

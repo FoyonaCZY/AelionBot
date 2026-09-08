@@ -1,4 +1,5 @@
 import {randomUUID,createHash} from 'node:crypto';
+import {officeExtensions,officePreview} from './office-preview';
 import {mkdirSync,readFileSync,writeFileSync,statSync,lstatSync,unlinkSync} from 'node:fs';
 import {join,extname,basename} from 'node:path';
 import type {Store} from './store';
@@ -59,6 +60,20 @@ export class Attachments {
   }
   read(botId:string,id:string,offset=0){this.forBot(botId,[id]);if(!Number.isInteger(offset)||offset<0)throw new Error('附件读取位置无效');const file=this.file(id),text=this.text(file);return {attachment:ref(file),...(text!==undefined?{content:text.slice(offset,offset+12000),offset,total:text.length,more:offset+12000<text.length}:file.image?{images:[file.image]}:{message:'这是二进制文件，可用 attachment_save 复制到自己的工作目录后，使用电脑或文件解析工具处理。'})};}
   async materialize(botId:string,id:string,signal:AbortSignal){this.forBot(botId,[id]);if(!this.vm)throw new Error('工作电脑尚未就绪');const file=this.file(id);return this.vm.importAttachment(botId,id,file.name,this.bytes(id),signal);}
-  preview(id:string):ArtifactPreview{const file=this.file(id);if(file.image){const data=readFileSync(join(this.store.dir,'screenshots',`${file.image.id}.png`));return {kind:'image',dataUrl:`data:image/png;base64,${data.toString('base64')}`};}if(file.mime==='application/pdf')return {kind:'pdf',dataUrl:`data:application/pdf;base64,${this.bytes(id).toString('base64')}`};const text=this.text(file);return text!==undefined?{kind:'text',content:text.slice(0,120000),truncated:text.length>120000}:{kind:'unsupported'};}
+  preview(id:string):ArtifactPreview{
+    const file=this.file(id);
+    if(file.mime.startsWith('image/'))return {kind:'image',dataUrl:`data:${file.mime};base64,${this.bytes(id).toString('base64')}`};
+    if(file.mime==='application/pdf')return {kind:'pdf',dataUrl:`data:application/pdf;base64,${this.bytes(id).toString('base64')}`};
+    const text=this.text(file),ext=extname(file.name).toLowerCase();
+    return text!==undefined?{kind:ext==='.md'?'markdown':['.html','.htm'].includes(ext)?'html':'text',content:text.slice(0,120000),truncated:text.length>120000}:{kind:'unsupported'};
+  }
+  async previewRich(id:string):Promise<ArtifactPreview>{
+    const file=this.file(id),extension=extname(file.name).toLowerCase();
+    if(!officeExtensions.has(extension))return this.preview(id);
+    if(!this.vm)throw new Error('启动工作电脑后，即可预览此文档。');
+    const botId=file.ownerBotId||(file.draftScope?.kind==='bot'?file.draftScope.id:undefined)||this.store.data.bots.find(bot=>this.canRead(bot.id,id))?.id||this.store.data.bots[0]?.id;
+    if(!botId)throw new Error('请先创建一个 Bot，再预览此文档。');
+    return officePreview(this.vm,botId,extension,this.bytes(id));
+  }
   metadata(id:string){return ref(this.file(id));}
 }

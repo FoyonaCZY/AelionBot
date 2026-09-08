@@ -19,7 +19,7 @@
 .bot-color-input{display:flex;align-items:center;gap:8px;min-width:0;padding:5px 8px;border:1px solid #e4dfec;border-radius:8px;background:#fff}
 .bot-palette-editor .bot-color-swatch{appearance:none;flex:0 0 25px;width:25px;height:25px;min-width:25px;border:0;border-radius:5px;padding:0;margin:0;background:none;cursor:pointer}
 .bot-color-swatch::-webkit-color-swatch-wrapper{padding:0}.bot-color-swatch::-webkit-color-swatch{border:1px solid #0000000b;border-radius:5px}
-.bot-palette-editor .bot-color-hex{min-width:0;flex:1;width:100%;height:25px;margin:0;padding:0;border:0;border-radius:0;background:transparent;font:11px/1.5 Consolas,monospace;color:#65616e}
+.bot-palette-editor .bot-color-hex{min-width:0;flex:1;width:100%;height:25px;margin:0;padding:0;border:0;border-radius:0;background:transparent;font:500 11px/1.5 Consolas,monospace;color:#65616e}
 .bot-color-input:focus-within{border-color:#af98ca;outline:2px solid #8b6bea12}.bot-palette-editor .bot-color-hex:focus-visible{outline:none;box-shadow:none}
 .bot-color-error{display:block;font-size:10px;line-height:1.6;color:#aa7068;margin-top:5px}
 .bot-palette-editor .bot-palette-pattern{display:grid;grid-template-columns:80px minmax(0,1fr);align-items:center;gap:12px;margin:13px 0 0;font-size:11px;color:#87808f}

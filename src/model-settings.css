@@ -4,7 +4,7 @@
 .model-reasoning-card{margin-top:12px}
 .modal.bot-profile-modal{width:520px;scrollbar-width:thin;scrollbar-color:#cdcdcd transparent}
 .bot-profile-model{margin:22px 0}
-.bot-profile-model h3{font-size:12px;font-weight:400;color:#8a8d90;margin:0 0 9px}
+.bot-profile-model h3{font-size:12px;font-weight:425;color:#8a8d90;margin:0 0 9px}
 .bot-profile-modal .model-default-row{padding:15px 16px;min-height:54px;border-radius:12px;font-size:13px}
 .bot-profile-modal .model-default-row>span{min-width:0;overflow-wrap:anywhere}
 .bot-profile-modal .settings-card{padding:0 16px;border-radius:12px;background:#f0f0f0}

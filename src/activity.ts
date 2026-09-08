@@ -93,6 +93,18 @@ export function toolResult(message:ChatMessage):unknown{
 }
 export function toolDisplay(message:ChatMessage){return message.activity||describeTool(message.tool||'',{},toolResult(message));}
 
+export interface LiveBotStep {phase:'thinking'|'working'|'waiting';label:string;detail?:string;}
+export function liveBotStep(messages:ChatMessage[],run?:RunRecord,waiting?:'host_permission'|'vm_takeover',reviewing=false):LiveBotStep|undefined{
+  if(!run||run.status!=='running')return;
+  if(reviewing)return {phase:'thinking',label:'正在确认操作权限'};
+  if(waiting)return {phase:'waiting',label:waiting==='host_permission'?'等待你的操作许可':'等待你处理工作电脑'};
+  const current=[...messages].reverse().find(message=>message.runId===run.id&&message.role==='tool'&&message.status==='running');
+  if(current){const display=toolDisplay(current);return {phase:'working',label:/^(正在|等待)/.test(display.label)?display.label:`正在${display.label}`,detail:display.detail};}
+  const execution=[...(run.executions||[])].reverse().find(item=>item.status==='running');
+  if(execution)return {phase:'working',label:toolOperation(execution.tool).active};
+  return {phase:'thinking',label:run.toolCalls?'正在整理结果':'正在思考'};
+}
+
 export function readableContent(content:string){
   // Some compatible model providers put tagged reasoning in the content stream.
   return content.replace(/<(think|thinking|analysis)>[\s\S]*?<\/\1>/gi,'').replace(/<(think|thinking|analysis)>[\s\S]*$/gi,'').replace(/<\/(think|thinking|analysis)>/gi,'').trim();

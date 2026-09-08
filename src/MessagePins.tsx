@@ -9,9 +9,10 @@ interface Anchor {left:number;top:number;copyText:string;returnFocus:HTMLElement
 
 export function MessagePins({messageId,pins,pending,onChoose}:{messageId:string;pins:MessagePin[];pending:boolean;onChoose:(emoji:PinEmoji)=>void}){
   if(!pins.length)return null;
-  return <div className="message-pins" data-pin-target={messageId}>{[...new Set(pins.map(pin=>pin.emoji))].map(emoji=>{
+  return <div className="message-pins" role="group" aria-label="消息回应" data-pin-target={messageId}>{[...new Set(pins.map(pin=>pin.emoji))].map(emoji=>{
     const selected=pins.filter(pin=>pin.emoji===emoji);if(!selected.length)return null;const own=selected.some(pin=>pin.actor.id==='user'),names=selected.map(pin=>pin.actor.name).join('、');
-    return <button key={emoji} className={`pin-chip ${own?'own':''}`} aria-pressed={own} aria-label={`${emoji} ${selected.length} 人：${names}`} title={names} disabled={pending} onClick={()=>onChoose(emoji)}><span>{emoji}</span><small>{selected.length}</small></button>;
+    const label=PIN_EMOJI_BY_VALUE.get(emoji)?.label||emoji;
+    return <button key={emoji} type="button" className={`pin-chip ${own?'own':''}`} aria-pressed={own} aria-label={`${emoji} ${label}，${selected.length} 人：${names}${own?'，点击撤回':'，点击回应'}`} title={`${label} · ${names}${own?' · 点击撤回':''}`} disabled={pending} onClick={()=>onChoose(emoji)}><span aria-hidden="true">{emoji}</span>{selected.length>1&&<small aria-hidden="true">{selected.length}</small>}</button>;
   })}</div>;
 }
 

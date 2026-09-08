@@ -1,7 +1,9 @@
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {AttachmentList} from './Attachments';
+import {BotWorkingStatus} from './BotWorkingStatus';
+import {liveBotStep} from './activity';
 import Markdown from './MessageMarkdown';
-import type {Bot,ChatMessage,StreamingReply as Reply} from './shared';
+import type {Bot,ChatMessage,RunRecord,StreamingReply as Reply} from './shared';
 import type {BotIdentity,PeerChatPage,PeerExchangeView,PeerMessage,PeerView} from './peer-types';
 import {peerPending,peerStatusLabel} from './peer-types';
 import {Avatar,Icon,time} from './ui';
@@ -32,7 +34,7 @@ export function PeerNotice({message,view,onOpen}:{message:ChatMessage;view?:Peer
 }
 
 function merged<T extends {id:string}>(older:T[],newer:T[]){const values=new Map(older.map(item=>[item.id,item]));for(const item of newer)values.set(item.id,item);return [...values.values()];}
-export function PrivateChatWindow({panel,view,bots,streamingReplies=[],avatarActivities={},onNavigate,onClose}:{panel:PeerPanel;view?:PeerView;bots:Bot[];streamingReplies?:Reply[];avatarActivities?:BotActivities;onNavigate:(panel:PeerPanel)=>void;onClose:()=>void}){
+export function PrivateChatWindow({panel,view,bots,streamingReplies=[],avatarActivities={},runs=[],messages=[],onNavigate,onClose}:{panel:PeerPanel;view?:PeerView;bots:Bot[];streamingReplies?:Reply[];avatarActivities?:BotActivities;runs?:RunRecord[];messages?:ChatMessage[];onNavigate:(panel:PeerPanel)=>void;onClose:()=>void}){
   const streams=streamingReplies.filter(reply=>Boolean(panel.threadId)&&reply.peerThreadId===panel.threadId),streamSignature=streams.map(reply=>reply.id+':'+reply.content).join('|');
   const root=useRef<HTMLElement>(null),body=useRef<HTMLDivElement>(null),follow=useRef(true),jump=useRef(''),scroll=useRef<{top:number;height:number}|undefined>(undefined);
   const close=useRef(onClose);close.current=onClose;
@@ -73,12 +75,13 @@ export function PrivateChatWindow({panel,view,bots,streamingReplies=[],avatarAct
         {!page&&loading&&<div className="peer-chat-empty">正在读取私聊记录…</div>}
         {page?.messages.map((message,index)=>{const exchange=view?.exchanges.find(exchange=>exchange.id===message.exchangeId)||page.exchanges.find(exchange=>exchange.id===message.exchangeId),previous=page.messages[index-1],showDate=!previous||new Date(message.time).getTime()-new Date(previous.time).getTime()>15*60*1000;return <PrivateMessage key={message.id} message={message} exchange={exchange} showDate={showDate}/>;})}
         {streams.map(reply=><StreamingReply key={reply.id} reply={reply} bots={bots} context="peer"/>)}
+        {[...new Map((view?.exchanges||page?.exchanges||[]).filter(exchange=>exchange.threadId===panel.threadId&&peerPending(exchange.status)).map(exchange=>[(['reply_queued','relaying'].includes(exchange.status)?exchange.fromBotId:exchange.toBotId),exchange])).entries()].map(([id,exchange])=>{const bot=bots.find(bot=>bot.id===id)||thread?.members.find(bot=>bot.id===id),run=[...runs].reverse().find(run=>run.botId===id&&run.peerOrigin?.exchangeId===exchange.id&&run.status==='running');return bot?<BotWorkingStatus key={id} bot={bot} showName step={liveBotStep(messages,run)||{phase:'thinking',label:exchange.status==='queued'?'正在准备处理':['reply_queued','relaying'].includes(exchange.status)?'正在整理回复':'正在思考'}}/>:null;})}
       </>}
     </div>
   </section></div>;
 }
 function PrivateMessage({message,exchange,showDate}:{message:PeerMessage;exchange?:PeerExchangeView;showDate:boolean}){
-  const status=message.kind==='request'&&exchange?.status!=='completed'?exchange:undefined;
+  const status=message.kind==='request'&&exchange&&['failed','cancelled','interrupted'].includes(exchange.status)?exchange:undefined;
   return <>{showDate&&<div className="peer-date">{new Date(message.time).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>}<div className="peer-message" data-exchange-id={message.exchangeId}><Avatar bot={message.sender} size={29}/><div><span className="peer-author">{message.sender.name}</span><div className="peer-bubble markdown"><Markdown>{message.content}</Markdown><AttachmentList files={message.attachments}/></div>{status&&<small className={status.status}>{peerStatusLabel(status.status)}{status.error?` · ${status.error}`:''}</small>}</div></div></>;
 }
 export function PeerNotifications({view,bots,onView}:{view?:PeerView;bots:Bot[];onView:(panel:PeerPanel)=>void}){

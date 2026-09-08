@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { extname, basename } from 'node:path';
 import type { Artifact, ArtifactPreview } from '../../src/shared';
 import { Store } from './store';
+import {officeExtensions,officePreview,OFFICE_PREVIEW_LIMIT} from './office-preview';
 import { VmController, shQuote } from './vm';
 
 export function artifactPath(value:string){
@@ -61,13 +62,14 @@ print(json.dumps(files,ensure_ascii=False))`;
   }
   async preview(botId:string,path:string):Promise<ArtifactPreview>{
     const extension=extname(artifactPath(path)).toLowerCase();
-    const imageTypes:Record<string,string>={'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif','.svg':'image/svg+xml'};
-    const isText=['.md','.txt','.csv','.tsv','.json','.py','.js','.ts','.tsx','.jsx','.css','.html','.yml','.yaml','.xml','.log','.sh','.sql'].includes(extension);
+    if(officeExtensions.has(extension))return officePreview(this.vm,botId,extension,await this.read(botId,path,OFFICE_PREVIEW_LIMIT));
+    const imageTypes:Record<string,string>={'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif','.svg':'image/svg+xml','.bmp':'image/bmp','.avif':'image/avif'};
+    const isText=['.md','.txt','.csv','.tsv','.json','.py','.js','.ts','.tsx','.jsx','.css','.html','.htm','.yml','.yaml','.xml','.log','.sh','.sql'].includes(extension);
     if(!isText&&!imageTypes[extension]&&extension!=='.pdf')return {kind:'unsupported'};
     const bytes=await this.read(botId,path,isText?2*1024*1024:15*1024*1024);
     if(imageTypes[extension])return {kind:'image',dataUrl:`data:${imageTypes[extension]};base64,${bytes.toString('base64')}`};
     if(extension==='.pdf')return {kind:'pdf',dataUrl:`data:application/pdf;base64,${bytes.toString('base64')}`};
-    return {kind:extension==='.md'?'markdown':extension==='.html'?'html':'text',content:bytes.toString('utf8').slice(0,120000),truncated:bytes.toString('utf8').length>120000};
+    return {kind:extension==='.md'?'markdown':['.html','.htm'].includes(extension)?'html':'text',content:bytes.toString('utf8').slice(0,120000),truncated:bytes.toString('utf8').length>120000};
   }
   async open(botId:string,path:string){
     this.store.bot(botId);path=artifactPath(path);

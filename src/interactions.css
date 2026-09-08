@@ -13,10 +13,10 @@
 .permission-scope:empty{display:none}
 .permission-scope>div{display:flex;gap:12px;align-items:baseline}
 .permission-scope span{font-size:11px;color:#7b7b83;flex:0 0 56px}
-.permission-scope code{font:11px/1.7 Consolas,monospace;overflow-wrap:anywhere;min-width:0;color:#62626b}
+.permission-scope code{font:500 11px/1.7 Consolas,monospace;overflow-wrap:anywhere;min-width:0;color:#62626b}
 .permission-content{margin-top:14px;min-width:0}
 .permission-content>span{display:block;margin-bottom:7px;font-size:11px;color:#7b7b83}
-.permission-content pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:10px 12px;border-radius:8px;background:#f6f6f8;font:12px/1.8 Consolas,monospace;color:#44444d;margin:0}
+.permission-content pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:10px 12px;border-radius:8px;background:#f6f6f8;font:500 12px/1.8 Consolas,monospace;color:#44444d;margin:0}
 .conversation-request>footer{justify-content:flex-end;margin-top:15px;padding-top:12px;border-top:1px solid #eeeef1}
 .permission-card>footer{flex-direction:column;align-items:stretch;gap:12px}
 .permission-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px}
@@ -27,7 +27,7 @@
 .permission-always-scope{min-width:0;display:flex;flex-direction:column;gap:3px}
 .permission-pattern{display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 10px;min-width:0;font-size:11px;color:#7b7b83}
 .permission-pattern>span{flex-shrink:0}
-.permission-pattern code{min-width:0;max-height:50px;overflow:auto;font:11px/1.7 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;color:#62626b}
+.permission-pattern code{min-width:0;max-height:50px;overflow:auto;font:500 11px/1.7 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;color:#62626b}
 .permission-pattern-scope{font-size:10px;color:#7b7b83;line-height:1.6}
 .permission-error{font-size:11px;color:#b57678;line-height:1.7;margin:12px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .permission-content pre:focus-visible{outline:2px solid #b29acb;outline-offset:-2px}

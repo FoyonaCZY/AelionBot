@@ -30,7 +30,7 @@
 .file-type-paper{fill:var(--file-tint);stroke:currentColor;stroke-opacity:.13;stroke-width:1}
 .file-type-fold{fill:currentColor;fill-opacity:.12}
 .file-type-lines{stroke:currentColor;stroke-opacity:.4;stroke-width:1.5;stroke-linecap:round}
-.file-type-label{position:absolute;bottom:5px;left:-3px;padding:2px 4px;border-radius:3px;background:var(--file-ink);color:#fff;font:650 8px/1.1 Inter,"Segoe UI",sans-serif;letter-spacing:.2px;box-shadow:0 1px 2px #2621370a}
+.file-type-label{position:absolute;bottom:5px;left:-3px;padding:2px 4px;border-radius:3px;background:var(--file-ink);color:#fff;font:700 8px/1.1 Inter,"Segoe UI",sans-serif;letter-spacing:.2px;box-shadow:0 1px 2px #2621370a}
 .file-type-slides{--file-ink:#ca7952;--file-tint:#fcf0e8}
 .file-type-pdf{--file-ink:#d3636a;--file-tint:#fceef0}
 .file-type-document{--file-ink:#5888ca;--file-tint:#edf3fc}

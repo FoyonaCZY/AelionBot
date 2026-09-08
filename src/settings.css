@@ -13,7 +13,7 @@
 .settings-modal .settings-body{min-height:0;flex:1;overflow-y:auto;overscroll-behavior:contain;padding:0 46px 40px;scrollbar-width:thin;scrollbar-color:#cdcdcd transparent;scrollbar-gutter:stable}
 .settings-modal .settings-section{margin:0 0 30px}
 .settings-modal .settings-section:last-child{margin-bottom:0}
-.settings-modal .settings-section>h3{font-size:14px;line-height:1.5;color:var(--settings-muted);font-weight:400;margin:0 10px 11px}
+.settings-modal .settings-section>h3{font-size:14px;line-height:1.5;color:var(--settings-muted);font-weight:425;margin:0 10px 11px}
 .settings-modal .settings-card{background:var(--settings-fill);border:0;border-radius:17px;padding:0 19px}
 .settings-modal .settings-row{display:grid;grid-template-columns:130px minmax(0,1fr);align-items:center;gap:22px;min-height:73px;margin:0;padding:15px 0;font-size:15px;color:#262626}
 .settings-modal .settings-row+.settings-row{border-top:1px solid var(--settings-line)}
@@ -42,7 +42,7 @@
 .settings-modal .test-result,.settings-modal .computer-notice{font-size:13px;line-height:1.7;border-radius:10px;padding:12px 15px;margin:16px 0 0;overflow-wrap:anywhere}
 .settings-modal .settings-note{font-size:12px;line-height:1.6;color:#888;margin:13px 10px 0}
 .settings-modal .learning-setting{border:0;border-radius:17px;background:var(--settings-fill);padding:20px 19px;min-height:72px;margin:0;gap:24px}
-.settings-modal .learning-setting strong{font-size:14px;font-weight:400;color:#252525}
+.settings-modal .learning-setting strong{font-size:14px;font-weight:425;color:#252525}
 .settings-modal .learning-setting>div>span{font-size:12px;color:#7b7b7b;margin-top:7px}
 .settings-modal .learning-switch{width:41px;height:24px;border-radius:14px;background:#d5d5d5;padding:3px}
 .settings-modal .learning-switch i{width:18px;height:18px;box-shadow:0 1px 3px #0002}
@@ -73,11 +73,11 @@
 .settings-modal .command-rule{display:flex;align-items:flex-start;gap:20px;padding:21px 0}
 .settings-modal .command-rule+.command-rule{border-top:1px solid var(--settings-line)}
 .settings-modal .command-rule-main{flex:1;min-width:0}
-.settings-modal .command-rule-pattern{display:block;font:14px/1.7 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;color:#292929}
+.settings-modal .command-rule-pattern{display:block;font:500 14px/1.7 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;color:#292929}
 .settings-modal .command-rule-kind{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
 .settings-modal .command-rule-kind span{font-size:11px;line-height:1.5;padding:3px 7px;border-radius:5px;background:#e3e3e3;color:#747474}
 .settings-modal .command-rule-directory{margin-top:13px;font-size:11px;color:#888;line-height:1.7}
-.settings-modal .command-rule-directory code{display:block;font:11px/1.8 Consolas,monospace;color:#737373;overflow-wrap:anywhere;margin-top:3px}
+.settings-modal .command-rule-directory code{display:block;font:500 11px/1.8 Consolas,monospace;color:#737373;overflow-wrap:anywhere;margin-top:3px}
 .settings-modal .command-rule-actions{display:flex;align-items:center;gap:12px;padding-top:2px}
 .settings-modal .command-rule-delete{width:30px;height:30px;color:#777}
 .settings-modal .command-rule.is-disabled .command-rule-main{opacity:.55}
@@ -89,14 +89,14 @@
 .settings-modal .integration-toolbar .secondary-button{font-size:12px;padding:9px 12px}
 .settings-modal .integration-path{padding:18px 19px;margin:0 0 24px;border:0;border-radius:17px;background:var(--settings-fill);gap:16px}
 .settings-modal .integration-path>div{min-width:0}
-.settings-modal .integration-path strong{font-size:14px;font-weight:400;color:#303030}
+.settings-modal .integration-path strong{font-size:14px;font-weight:500;color:#303030}
 .settings-modal .integration-path code,.settings-modal .skill-origin code{font-size:11px;color:#818181;line-height:1.7;margin-top:6px;overflow-wrap:anywhere}
 .settings-modal .skills-grid{padding:0 19px;border-radius:17px;background:var(--settings-fill)}
 .settings-modal .skills-grid:empty{display:none}
 .settings-modal .settings-skill{padding:0;margin:0;background:none;border:0;border-radius:0}
 .settings-modal .settings-skill+.settings-skill{border-top:1px solid var(--settings-line)}
 .settings-modal .settings-skill>summary{padding:20px 0;min-height:61px;color:#535353;gap:12px}
-.settings-modal .settings-skill>summary strong{font-size:14px;font-weight:400;color:#262626;overflow-wrap:anywhere}
+.settings-modal .settings-skill>summary strong{font-size:14px;font-weight:425;color:#262626;overflow-wrap:anywhere}
 .settings-modal .settings-skill>summary>span{padding:3px 7px;border-radius:5px;background:#e5e5e5;color:#7b7b7b;font-size:11px;white-space:nowrap}
 .settings-modal .settings-skill>summary>svg:last-child{margin-left:3px;color:#858585;transition:transform .15s}
 .settings-modal .settings-skill[open]>summary>svg:last-child{transform:rotate(180deg)}
@@ -113,7 +113,7 @@
 .settings-modal .integration-sources>summary>svg{color:#878787;transition:transform .15s}
 .settings-modal .integration-sources[open]>summary>svg{transform:rotate(180deg)}
 .settings-modal .integration-source{padding:16px 0;border:0;border-top:1px solid var(--settings-line);gap:13px}
-.settings-modal .integration-source strong{font-size:13px;font-weight:400;color:#363636}
+.settings-modal .integration-source strong{font-size:13px;font-weight:425;color:#363636}
 .settings-modal .integration-source code{font-size:11px;color:#808080;margin-top:5px}
 .settings-modal .integration-source>span{font-size:11px;color:#888}
 .settings-modal .mcp-card{padding:21px;margin:0 0 16px;border:0;border-radius:17px;background:var(--settings-fill)}

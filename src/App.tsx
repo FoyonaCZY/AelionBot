@@ -4,11 +4,13 @@ import {workspaceKey} from './work-types';
 import {RuntimeSettings} from './RuntimeSettings';
 import {UsageSettings} from './UsageSettings';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import Markdown from './MessageMarkdown';
+import {FilePreviewProvider,useFilePreview} from './FilePreviewContext';
 import {attachmentSummary} from './attachment-types';
-import type {ArtifactPreview,Bot,InteractionRequest,ModelSelection,Snapshot} from './shared';
+import type {Bot,InteractionRequest,ModelSelection,Snapshot} from './shared';
 import {Avatar,bytes,FileCard,type FileItem,Icon,Message,time,Vnc} from './ui';
 import {RunMessage} from './activity-ui';
+import {BotWorkingStatus} from './BotWorkingStatus';
+import {liveBotStep} from './activity';
 import {conversationTimeline,friendlyError,readableContent} from './activity';
 import {SkillsSettings,McpSettings} from './integration-ui';
 import {SettingsWindow,SettingsSection,type SettingsTab} from './SettingsWindow';
@@ -35,23 +37,13 @@ import {BotAvatarProvider} from './BotAvatarContext';
 import {botActivities} from './bot-activity';
 import {useWindowDimming} from './window-dimming';
 
-type Modal='new'|'profile'|'delete-bot'|'settings'|'computer'|'computer-setup'|'terminal'|'files'|'preview'|'screen'|null;
+type Modal='new'|'profile'|'delete-bot'|'settings'|'computer'|'computer-setup'|'terminal'|'files'|'screen'|null;
 type PreviewFile=FileItem&{botId:string};
 const errorText=(error:unknown)=>(error as Error).message.replace(/^Error invoking remote method '[^']+': Error: /,'');
 
-function CsvPreview({text}:{text:string}){
-  const rows:string[][]=[];let row:string[]=[],cell='',quoted=false;
-  for(let i=0;i<text.length&&rows.length<201;i++){
-    const c=text[i];if(c==='"'){if(quoted&&text[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;}
-    else if(c===','&&!quoted){row.push(cell);cell='';}
-    else if(c==='\n'&&!quoted){row.push(cell.replace(/\r$/,''));rows.push(row);row=[];cell='';}
-    else cell+=c;
-  }
-  if(cell||row.length){row.push(cell.replace(/\r$/,''));rows.push(row);}
-  return <div className="table-preview"><table><thead><tr>{rows[0]?.map((value,i)=><th key={i}>{value}</th>)}</tr></thead><tbody>{rows.slice(1,201).map((values,i)=><tr key={i}>{values.slice(0,30).map((value,j)=><td key={j}>{value}</td>)}</tr>)}</tbody></table>{rows.length>200&&<p className="subtle">预览前 200 行，完整内容可保存到本机。</p>}</div>;
-}
-
-export default function App(){
+export default function App(){return <FilePreviewProvider><AppContent/></FilePreviewProvider>;}
+function AppContent(){
+  const showPreview=useFilePreview()!;
   useWindowDimming();
   const [state,setState]=useState<Snapshot>(),[selected,setSelected]=useState(''),[query,setQuery]=useState(''),[drafts,setDrafts]=useState<Record<string,ComposerDraft>>({});
   const avatarActivities=useMemo(()=>state?botActivities(state):{},[state]);
@@ -73,7 +65,7 @@ export default function App(){
   const [viewingRequest,setViewingRequest]=useState('');
 
   const [command,setCommand]=useState('uname -s; id -u; pwd'),[output,setOutput]=useState(''),[files,setFiles]=useState<FileItem[]>([]);
-  const [previewFile,setPreviewFile]=useState<PreviewFile>(),[preview,setPreview]=useState<ArtifactPreview>(),[previewError,setPreviewError]=useState(''),[screen,setScreen]=useState('');
+  const [screen,setScreen]=useState('');
   const sending=useRef(new Set<string>());
   const bottom=useRef<HTMLDivElement>(null),follow=useRef(true),selectedRef=useRef(selected);selectedRef.current=selected;
   const bot=state?.bots.find(item=>item.id===selected)||state?.bots[0];
@@ -140,7 +132,12 @@ export default function App(){
   const continueWork=()=>{if(!bot||running||!latestRun)return;follow.current=true;void window.aelion.resumeChat({botId:bot.id,runId:latestRun.id}).catch(error=>setToast(errorText(error)));};
   const refreshFiles=()=>bot&&act(async()=>{const owner=bot.id;const result=await window.aelion.listFiles(owner);if(selectedRef.current===owner)setFiles(result.map(file=>({...file,path:file.path||file.name})));});
   const openFiles=()=>{setFiles([]);setModal('files');void refreshFiles();};
-  const openPreview=async(file:PreviewFile)=>{setPreviewFile(file);setPreview(undefined);setPreviewError('');setModal('preview');try{setPreview(await window.aelion.previewFile({botId:file.botId,path:file.path}));}catch(error){setPreviewError(errorText(error));}};
+  const openPreview=(file:PreviewFile)=>{
+    setModal(null);
+    showPreview([{id:'artifact:'+file.botId+':'+file.path,name:file.name,size:file.size,load:()=>window.aelion.previewFile({botId:file.botId,path:file.path}),save:()=>window.aelion.exportFile({botId:file.botId,path:file.path}),
+      ...(!state?.computer.desktops?.[file.botId]?.ownerBotId?{openInComputer:async()=>{await window.aelion.openFile({botId:file.botId,path:file.path});setComputerBotId(file.botId);setModal('computer');}}:{})
+    }]);
+  };
   const saveFile=(file:PreviewFile)=>act(async()=>{const path=await window.aelion.exportFile({botId:file.botId,path:file.path});if(path)setToast(`已保存：${path}`);});
   const openNewBot=()=>{if(!newMenu)setNewBotPalette(randomBotPalette(newBotPalette));setName('');setRole('');setProfileModel(null);setProfileReasoning(state?.defaultModel?.reasoningEffort||'');setModal('new');};
   const editBot=(target:Bot)=>{setBotMenu(undefined);setEditingId(target.id);setName(target.name);setRole(target.role);setProfileModel(target.model?{...target.model}:null);setProfileReasoning(target.reasoningEffort||'');setProfilePalette(displayBotPalette(target));setModal('profile');};
@@ -156,7 +153,7 @@ export default function App(){
   if(!window.aelion)return <div className="launch-note"><h1>AelionBot</h1><p>请通过桌面客户端启动。</p></div>;
   if(!state)return <div className="launch-note">正在打开工作台…</div>;
   const rows=conversationRows(state.bots,state.messages,state.groups?.rooms||[],state.runs);
-  const title=modal==='computer-setup'?'工作电脑设置':modal==='settings'?'设置':modal==='new'?'创建新 Bot':modal==='profile'?'Bot 资料':modal==='delete-bot'?'删除 Bot':modal==='terminal'?'工作终端':modal==='files'?`${bot?.name||'Bot'} 的文件`:modal==='preview'?previewFile?.name:modal==='screen'?'操作截图':'工作电脑';
+  const title=modal==='computer-setup'?'工作电脑设置':modal==='settings'?'设置':modal==='new'?'创建新 Bot':modal==='profile'?'Bot 资料':modal==='delete-bot'?'删除 Bot':modal==='terminal'?'工作终端':modal==='files'?`${bot?.name||'Bot'} 的文件`:modal==='screen'?'操作截图':'工作电脑';
   const scopePicker=<label className="scope-picker"><span>Bot</span><Select aria-label="选择 Bot" disabled={!state.bots.length} value={scopeBot?.id||''} onChange={event=>setScope(event.target.value)}>{state.bots.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</Select></label>;
   return <BotAvatarProvider bots={state.bots}><div className="app-shell" data-platform={state.platform}>
     <aside className="sidebar">
@@ -181,7 +178,7 @@ export default function App(){
         if(item.kind==='message')return item.message.groupTaskSource?<GroupTaskMessage key={key} message={item.message} view={state.groups} onOpen={openGroup}/>:item.message.groupLink?<div key={key} className="peer-notice"><button className="peer-notice-open" disabled={!state.groups?.rooms.some(room=>room.id===item.message.groupLink?.groupId)} onClick={()=>openGroup(item.message.groupLink!.groupId)}><Icon name="message" size={16}/>{item.message.content}</button></div>:item.message.taskSource?<PeerTaskMessage key={key} message={item.message} view={state.peers} onOpen={openPrivateChat}/>:item.message.peer?<PeerNotice key={key} message={item.message} view={state.peers} onOpen={openPrivateChat}/>:<Message key={key} message={item.message} allowPins={!state.runs.find(run=>run.id===item.message.runId)?.groupOrigin}/>;
         const run=state.runs.find(run=>run.id===item.id),allRunMessages=runMessages.get(item.id)||[],outputs=item.isLast?state.artifacts.filter(file=>file.botId===bot.id&&file.runId===item.id&&!allRunMessages.some(message=>message.attachments?.some(attachment=>attachment.name===file.name&&attachment.size===file.size))):[];
         return <React.Fragment key={key}><RunMessage model={currentModel} messages={item.messages} allMessages={allRunMessages} isLast={item.isLast} run={run} stream={item.isLast?liveReplies.find(reply=>reply.runId===item.id&&reply.purpose!=='progress'):undefined} waiting={item.isLast?requests.find(request=>request.runId===item.id)?.kind:undefined} latest={item.isLast&&latestRun?.id===item.id} canContinue={!running&&!busy} reviewing={item.isLast&&requests.some(request=>request.runId===item.id&&request.kind==='host_permission'&&request.approval?.phase==='reviewing')} onContinue={continueWork} onSettings={tab=>tab==='model'&&bot.model?editBot(bot):openSettings(tab)} onScreen={url=>{setScreen(url);setModal('screen');}}/>{outputs.length>0&&<div className="message-artifacts">{outputs.map(file=><FileCard key={file.id} file={file} onOpen={()=>void openPreview(file)} onSave={()=>void saveFile(file)} disabled={busy||!vmReady}/>)}</div>}</React.Fragment>;
-      })}{liveReplies.filter(reply=>reply.purpose==='progress'||!reply.runId||!timeline.some(item=>item.kind==='run'&&item.id===reply.runId)).map(reply=><StreamingReply key={reply.id} reply={reply}/>)}<div ref={bottom}/></section>
+      })}{liveReplies.filter(reply=>reply.purpose==='progress'||!reply.runId||!timeline.some(item=>item.kind==='run'&&item.id===reply.runId)).map(reply=><StreamingReply key={reply.id} reply={reply}/>)}{(running||greeting)&&<BotWorkingStatus bot={bot} step={liveBotStep(messages,latestRun,waiting?.kind,waiting?.kind==='host_permission'&&waiting.approval?.phase==='reviewing')||{phase:'thinking',label:greeting?'正在准备打招呼':'正在准备处理'}}/>}<div ref={bottom}/></section>
       <div className={`composer-wrap ${waiting?'with-request':''}`}>
         <ConversationInteractions requests={requests.filter(request=>!state.runs.find(run=>run.id===request.runId)?.groupOrigin||state.runs.find(run=>run.id===request.runId)?.groupTask)} botId={bot.id} onTakeover={startTakeover}/>
         <WorkItemsPanel items={state.workItems} scope={{kind:'bot',id:bot.id}} bots={state.bots}/>
@@ -200,10 +197,10 @@ export default function App(){
     <GroupNotifications view={state.groups} selected={!modal&&!peerPanel&&!taskModalOpen?group?.id:undefined} onView={openGroup}/>
     {groupEditor&&<GroupEditor key={groupEditor} bots={state.bots} group={state.groups?.rooms.find(room=>room.id===groupEditor)} onClose={()=>setGroupEditor(undefined)} onSaved={id=>{setGroupEditor(undefined);setSelectedGroup(id);}} onDeleted={id=>{setGroupEditor(undefined);if(selectedGroup===id)setSelectedGroup('');setGroupDrafts(value=>{const next={...value};delete next[id];return next;});}}/>}
     <PeerNotifications view={state.peers} bots={state.bots} onView={openPrivateChat}/>
-    {peerPanel&&<PrivateChatWindow panel={peerPanel} view={state.peers} bots={state.bots} streamingReplies={state.streamingReplies} avatarActivities={avatarActivities} onNavigate={setPeerPanel} onClose={()=>setPeerPanel(undefined)}/>}
+    {peerPanel&&<PrivateChatWindow panel={peerPanel} view={state.peers} bots={state.bots} streamingReplies={state.streamingReplies} avatarActivities={avatarActivities} runs={state.runs} messages={state.messages} onNavigate={setPeerPanel} onClose={()=>setPeerPanel(undefined)}/>}
     {botMenu&&menuBot&&<BotContextMenu anchor={botMenu} name={menuBot.name} canDelete={!state.runs.some(run=>run.botId===menuBot.id&&run.status==='running')} onEdit={()=>editBot(menuBot)} onDelete={()=>{setDeletingId(menuBot.id);setBotMenu(undefined);setModal('delete-bot');}} onPrivateChats={()=>openPrivateChat({ownerId:menuBot.id})} onClose={()=>setBotMenu(undefined)}/>}
-    {modal&&<div className={`modal-backdrop ${modal==='settings'?'settings-backdrop':modal==='computer'?'computer-backdrop':['preview','screen'].includes(modal)?'wide-backdrop':''}`} onMouseDown={event=>{if(event.target===event.currentTarget)void act(closeModal);}}><section className={`modal ${modal==='computer-setup'?'computer-setup-modal':modal==='settings'?'settings-modal':(modal==='profile'||modal==='new')?'bot-profile-modal':modal==='computer'?'computer-modal':['preview','screen'].includes(modal)?'preview-modal':modal==='terminal'?'terminal-modal':''}`} role="dialog" aria-modal="true" aria-label={title}>
-      {modal!=='computer'&&modal!=='settings'&&<header><h2>{title}</h2><div className="modal-header-actions">{modal==='preview'&&previewFile&&<button className="icon-button" aria-label={`保存 ${previewFile.name}`} disabled={busy} onClick={()=>void saveFile(previewFile)}><Icon name="download"/></button>}<button className="icon-button" aria-label="关闭对话框" onClick={()=>void act(closeModal)}><Icon name="close"/></button></div></header>}
+    {modal&&<div className={`modal-backdrop ${modal==='settings'?'settings-backdrop':modal==='computer'?'computer-backdrop':modal==='screen'?'wide-backdrop':''}`} onMouseDown={event=>{if(event.target===event.currentTarget)void act(closeModal);}}><section className={`modal ${modal==='computer-setup'?'computer-setup-modal':modal==='settings'?'settings-modal':(modal==='profile'||modal==='new')?'bot-profile-modal':modal==='computer'?'computer-modal':modal==='screen'?'preview-modal':modal==='terminal'?'terminal-modal':''}`} role="dialog" aria-modal="true" aria-label={title}>
+      {modal!=='computer'&&modal!=='settings'&&<header><h2>{title}</h2><div className="modal-header-actions"><button className="icon-button" aria-label="关闭对话框" onClick={()=>void act(closeModal)}><Icon name="close"/></button></div></header>}
       {modal==='computer-setup'&&<ComputerSetup vm={state.vm} disabled={anyRunning} onClose={()=>void closeModal()} onReady={()=>setModal('computer')} onNotify={setToast}/>}
       {(modal==='new'||modal==='profile')&&<form onSubmit={event=>{event.preventDefault();void act(async()=>{if(modal==='new'){const created=await window.aelion.createBot({name:name||'新 Bot',role:role||'完成办公和代码任务，使用工作电脑实际执行并核对成果。',model:profileModel,reasoningEffort:profileReasoning||null,...newBotPalette});setSelected(created.id);}else await window.aelion.updateBot({id:editingId,name,role,model:profileModel,reasoningEffort:profileReasoning||null,color:profilePalette.color,avatarStyle:profilePalette.avatarStyle??null});setModal(null);});}}>
         <BotPaletteEditor value={modal==='new'?newBotPalette:profilePalette} onChange={modal==='new'?setNewBotPalette:setProfilePalette} name={name||'新 Bot'} disabled={busy}/>
@@ -258,7 +255,7 @@ export default function App(){
       {modal==='terminal'&&<><form className="terminal-input" onSubmit={event=>{event.preventDefault();void act(async()=>{setOutput('正在执行…');try{const result=await window.aelion.vmTerminal(command);setOutput(`${result.stdout}${result.stderr?'\n'+result.stderr:''}\n\n退出码 ${result.exitCode} · ${result.durationMs} ms`);}catch(error){setOutput(errorText(error));throw error;}});}}><input value={command} onChange={event=>setCommand(event.target.value)} spellCheck={false}/><button className="primary-button" disabled={busy}>运行</button></form><pre className="terminal-output">{output}</pre></>}
       {modal==='computer'&&<><div className="expanded-screen"><Vnc key={desktopBot?.id} url={vmReady?desktop?.vncUrl:undefined} control={controlled}/></div><div className="computer-floating-controls"><span className="desktop-owner">{desktopBot?.name}</span><button className="computer-control" aria-pressed={controlled} disabled={!vmReady||desktop?.status!=='ready'||controlPending} onClick={toggleComputerControl}>{controlled?(takeover?.phase==='controlling'?'交还并继续':'交还控制'):'接管电脑'}</button><button className="computer-close icon-button" aria-label="退出全屏" title="退出全屏" disabled={controlPending} onClick={()=>void computerAction(closeModal)}><Icon name="close"/></button></div></>}
       {modal==='files'&&<><div className="files-toolbar"><span>工作电脑中的文件</span><button className="text-button" disabled={!vmReady||busy} onClick={()=>void refreshFiles()}>刷新</button></div>{files.length?<div className="file-library">{files.map(file=><FileCard key={file.path} file={file} onOpen={()=>void openPreview({...file,botId:bot?.id||''})} onSave={()=>void saveFile({...file,botId:bot?.id||''})} disabled={busy||!vmReady}/>)}</div>:<div className="settings-empty">{busy?'正在读取文件…':vmReady?'还没有工作文件':'启动工作电脑后查看文件'}</div>}</>}
-      {modal==='preview'&&previewFile&&<><div className="preview-meta"><span>{bytes(previewFile.size)}</span><button className="text-button" disabled={busy||Boolean(state.computer.desktops?.[previewFile.botId]?.ownerBotId)} onClick={()=>act(async()=>{await window.aelion.openFile({botId:previewFile.botId,path:previewFile.path});setComputerBotId(previewFile.botId);setModal('computer');})}>在工作电脑打开</button></div><div className="artifact-preview-body">{previewError?<div className="settings-empty">{previewError}</div>:!preview?<div className="settings-empty">正在加载文件…</div>:preview.kind==='markdown'?<div className="markdown document-preview"><Markdown>{preview.content||''}</Markdown></div>:preview.kind==='image'?<img className="artifact-image" src={preview.dataUrl} alt={previewFile.name}/>:preview.kind==='pdf'?<iframe title={previewFile.name} src={preview.dataUrl} className="artifact-frame"/>:preview.kind==='html'?<iframe title={previewFile.name} srcDoc={preview.content} sandbox="" className="artifact-frame"/>:preview.kind==='text'?previewFile.name.toLowerCase().endsWith('.csv')?<CsvPreview text={preview.content||''}/>:<pre className="text-preview">{preview.content}</pre>:<div className="unsupported-preview"><Icon name="file" size={52}/><strong>{previewFile.name}</strong></div>}</div>{preview?.truncated&&<p className="subtle">预览已截断，保存文件可查看完整内容。</p>}</>}
+
       {modal==='screen'&&<img className="artifact-image screen-full" src={screen} alt="Bot 操作后的工作电脑截图"/>}
     </section></div>}
   </div></BotAvatarProvider>;

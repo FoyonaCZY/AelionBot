@@ -34,14 +34,14 @@
 .message-code-block{min-width:0;max-width:100%;margin:1em 0;overflow:hidden;border:1px solid var(--message-line,#e5e5e9);border-radius:10px;background:var(--message-surface,#f7f7f8);color:var(--message-ink,#343840);text-align:left}
 .message-code-header{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:39px;padding:3px 8px 3px 16px;border-bottom:1px solid var(--message-line,#e5e5e9);user-select:none}
 .message-code-language{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--message-muted,#74747d);font:500 11px/1.5 Inter,'Segoe UI','Microsoft YaHei UI',sans-serif}
-.message-code-copy{flex-shrink:0;min-width:64px;min-height:30px;padding:4px 8px;border:0;border-radius:5px;background:transparent;color:var(--message-muted,#74747d);font:400 11px/1.5 Inter,'Segoe UI','Microsoft YaHei UI',sans-serif;cursor:pointer;transition:none}
+.message-code-copy{flex-shrink:0;min-width:64px;min-height:30px;padding:4px 8px;border:0;border-radius:5px;background:transparent;color:var(--message-muted,#74747d);font:500 11px/1.5 Inter,'Segoe UI','Microsoft YaHei UI',sans-serif;cursor:pointer;transition:none}
 .message-code-copy:hover{color:var(--message-ink,#343840);background:var(--message-inline,#ededf0)}
 .message-code-copy[data-status=copied]{color:var(--code-string,#38715d)}
 .message-code-copy[data-status=error]{color:#ad4545}
 .message-code-copy:focus-visible{outline:2px solid var(--message-link-line,#cdbde7);outline-offset:0}
 :root .message-code-block pre.message-code-scroll{max-width:100%;margin:0;padding:14px 16px 16px;border:0;border-radius:0;background:transparent;color:inherit;text-align:left;overflow:auto;white-space:pre;overflow-wrap:normal;word-break:normal;tab-size:4;scrollbar-width:thin;scrollbar-color:#cccbd2 transparent}
 :root .message-code-block pre.message-code-scroll:focus-visible{outline:2px solid var(--message-link-line,#cdbde7);outline-offset:-2px}
-:root .message-code-block pre.message-code-scroll code{display:block;min-width:100%;width:max-content;margin:0;padding:0;border:0;border-radius:0;background:none;color:inherit;font:12.5px/1.8 'Cascadia Code','SFMono-Regular',Consolas,'Liberation Mono',monospace;white-space:inherit;overflow-wrap:normal;word-break:normal;font-variant-ligatures:none}
+:root .message-code-block pre.message-code-scroll code{display:block;min-width:100%;width:max-content;margin:0;padding:0;border:0;border-radius:0;background:none;color:inherit;font:500 12.5px/1.8 'Cascadia Code','SFMono-Regular',Consolas,'Liberation Mono',monospace;white-space:inherit;overflow-wrap:normal;word-break:normal;font-variant-ligatures:none}
 .message-code-block .hljs-comment,.message-code-block .hljs-quote{color:var(--code-comment,#747980)}
 .message-code-block :is(.hljs-keyword,.hljs-selector-tag,.hljs-literal,.hljs-doctag){color:var(--code-keyword,#88548f)}
 .message-code-block :is(.hljs-string,.hljs-regexp,.hljs-addition,.hljs-attribute){color:var(--code-string,#38715d)}

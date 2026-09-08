@@ -10,7 +10,7 @@
 .composer-menu-icon{display:grid;place-items:center;flex:0 0 24px;width:24px;height:24px;color:#8b8595}
 .composer-menu-icon>svg{width:17px;height:17px}
 .composer-menu-plan,.composer-menu-goal{color:#8a79a6}
-.composer-add-menu kbd{margin-left:auto;font:11px Consolas,monospace;color:#9898a0}
+.composer-add-menu kbd{margin-left:auto;font:500 11px Consolas,monospace;color:#9898a0}
 .composer-menu-divider{height:1px;background:#eeeef1;margin:5px 10px}
 .composer-workspace{display:flex;align-items:center;max-width:260px;min-width:0;background:#f7f7f9;border:1px solid #ededf0;border-radius:7px;color:#797981;font-size:11px}
 .composer-workspace button{display:flex;align-items:center;gap:6px;padding:5px 7px;min-width:0}.composer-workspace span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.composer-workspace .workspace-remove{padding:5px;flex-shrink:0}.workspace-pending{font-size:11px;color:#999}
@@ -20,7 +20,7 @@
 .command-picker button.active,.command-picker button:hover{background:#f5f5f7}
 .command-picker .command-copy{display:flex;flex-direction:column;flex:1;gap:3px;min-width:0}
 .command-picker strong{font-size:12px;font-weight:500}.command-picker small{font-size:11px;color:#7c7c84;line-height:1.5}
-.command-picker code{flex-shrink:0;font:11px Consolas,monospace;color:#9898a0}
+.command-picker code{flex-shrink:0;font:500 11px Consolas,monospace;color:#9898a0}
 .work-items-panel{max-height:min(392px,54dvh);min-height:0;overflow-y:auto;overscroll-behavior:contain;margin:-3px -4px 7px;padding:3px 4px 5px;scrollbar-width:thin;scrollbar-color:#dedee3 transparent}
 .work-card{display:flex;flex-direction:column;max-height:min(368px,50dvh);margin-bottom:8px;overflow:hidden}
 .work-card:last-child{margin-bottom:0}
@@ -30,11 +30,11 @@
 .work-heading-copy{display:flex;flex:1;flex-direction:column;gap:5px;min-width:0}
 .work-heading-meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
 .work-kind{font-size:12px;font-weight:500;color:#55555d}.is-open .work-kind{font-size:13px;color:#38383f}
-.work-card-title{display:block;font-size:12px;line-height:1.6;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#424249}
+.work-card-title{display:block;font-size:12px;line-height:1.6;font-weight:425;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#424249}
 .work-running .work-status::before,.work-completed .work-status::before{background:#86a493}.work-planning .work-status::before{background:#a18bbb}
 .work-running .work-status::before,.work-planning .work-status::before{animation:companion-status-pulse 2.6s ease-in-out infinite}
 .work-paused .work-status::before,.work-blocked .work-status::before{background:#bdac8c}.work-cancelled .work-status::before{background:#b7b7bf}
-.work-progress-count{flex-shrink:0;font-size:11px;font-weight:400;font-variant-numeric:tabular-nums;color:#87878f;white-space:nowrap}
+.work-progress-count{flex-shrink:0;font-size:11px;font-weight:500;font-variant-numeric:tabular-nums;color:#87878f;white-space:nowrap}
 .work-card-chevron{display:grid;place-items:center;width:20px;height:24px;color:#a6a6af;border-radius:6px}.work-card-toggle:hover .work-card-chevron{color:#67616f;background:#f5f5f7}
 .work-owner{display:flex;flex-shrink:0}
 .work-card-body{min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 17px 3px;scrollbar-width:thin;scrollbar-color:#dedee3 transparent}
@@ -43,9 +43,9 @@
 .work-steps li{position:relative;display:flex;gap:11px;align-items:flex-start;padding-bottom:13px}
 .work-steps li:last-child{padding-bottom:0}
 .work-steps li:not(:last-child)::before{content:"";position:absolute;left:10px;top:23px;bottom:2px;width:1px;background:#eeeef1}
-.work-step-mark{position:relative;display:grid;place-items:center;width:21px;height:21px;color:#8b8b93;flex-shrink:0;font-size:11px;font-weight:400;font-variant-numeric:tabular-nums}
+.work-step-mark{position:relative;display:grid;place-items:center;width:21px;height:21px;color:#8b8b93;flex-shrink:0;font-size:11px;font-weight:500;font-variant-numeric:tabular-nums}
 .work-steps li>div{flex:1;min-width:0;padding-top:1px}
-.work-steps strong{display:block;font-size:12px;font-weight:400;line-height:1.7;color:#494950;overflow-wrap:anywhere}
+.work-steps strong{display:block;font-size:12px;font-weight:500;line-height:1.7;color:#494950;overflow-wrap:anywhere}
 .work-steps p{font-size:11px;color:#7c7c84;margin:3px 0 0;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
 .work-steps [data-status=done] .work-step-mark{color:#749181}
 .work-steps [data-status=done] strong{color:#77777f}

@@ -6,7 +6,7 @@
 .permission-mode>.aelion-select::picker-icon{flex-basis:11px;width:11px;height:11px;background:#95959f}
 @supports(appearance:base-select){
   .permission-mode>.aelion-select::picker(select){width:176px;max-width:calc(100vw - 24px);left:auto;right:anchor(right);margin:7px 0;padding:4px;border:1px solid #e4e4e8;border-radius:7px;background:#fff;box-shadow:0 5px 18px #20202712;font-size:13px}
-  .permission-mode>.aelion-select option{min-height:36px;padding:8px 11px;gap:14px;border-radius:4px;white-space:nowrap;overflow-wrap:normal;font-size:13px;font-weight:400;color:#56565f}
+  .permission-mode>.aelion-select option{min-height:36px;padding:8px 11px;gap:14px;border-radius:4px;white-space:nowrap;overflow-wrap:normal;font-size:13px;font-weight:500;color:#56565f}
   .permission-mode>.aelion-select option:checked{background:transparent;color:#303038;font-weight:500}
   .permission-mode>.aelion-select option:hover,.permission-mode>.aelion-select option:focus-visible{background:#f2f2f5;color:#303038}
   .permission-mode>.aelion-select option::checkmark{background:#66666f}

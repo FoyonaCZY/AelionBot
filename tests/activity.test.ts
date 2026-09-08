@@ -1,9 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {conversationTimeline,describeTool,friendlyError,readableContent,runPresentation,technicalOutput} from '../src/activity';
+import {conversationTimeline,describeTool,friendlyError,readableContent,runPresentation,technicalOutput,liveBotStep} from '../src/activity';
 import type {ChatMessage,RunRecord} from '../src/shared';
 const message=(id:string,role:ChatMessage['role'],content='',extra:Partial<ChatMessage>={}):ChatMessage=>({id,botId:'bot',role,content,time:'2026-09-05T10:00:00Z',runId:'run',status:'done',...extra});
 const run=(status:RunRecord['status']):RunRecord=>({id:'run',botId:'bot',status,startedAt:'2026-09-05T10:00:00Z',modelCalls:2,toolCalls:2});
+
+test('live status follows the current step and vanishes for every terminal state',()=>{
+  const read=message('read','tool','private command',{tool:'file_read',status:'running',activity:{label:'读取文件',detail:'提纲.md'}});
+  assert.deepEqual(liveBotStep([read],run('running')),{phase:'working',label:'正在读取文件',detail:'提纲.md'});
+  const write=message('write','tool','private payload',{tool:'file_write',status:'running',activity:{label:'保存文件',detail:'报告.md'}});
+  assert.equal(liveBotStep([{...read,status:'done'},write],run('running'))?.label,'正在保存文件');
+  for(const status of ['completed','failed','cancelled','interrupted'] as const)assert.equal(liveBotStep([read],run(status)),undefined);
+  assert.doesNotMatch(JSON.stringify(liveBotStep([read],run('running'))),/private command/);
+});
+test('permission waiting takes precedence and another run cannot supply a stale step',()=>{
+  const tool=message('read','tool','{}',{tool:'file_read',status:'running',runId:'older-run'});
+  assert.equal(liveBotStep([tool],run('running'))?.phase,'thinking');
+  assert.deepEqual(liveBotStep([tool],run('running'),'host_permission'),{phase:'waiting',label:'等待你的操作许可'});
+  assert.deepEqual(liveBotStep([tool],run('running'),'host_permission',true),{phase:'thinking',label:'正在确认操作权限'});
+});
 
 test('completed progress stays between chronological tool segments and the final answer',()=>{
   const messages=[message('user','user','生成报告'),message('plan','assistant','先读取资料'),message('read','tool','{}',{tool:'file_read'}),message('empty','assistant',''),message('write','tool','{}',{tool:'file_write'}),message('final','assistant','报告已完成')];
