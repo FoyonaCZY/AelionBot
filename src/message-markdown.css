@@ -59,11 +59,4 @@
 .markdown-table-scroll td>:first-child{margin-top:0}.markdown-table-scroll td>:last-child{margin-bottom:0}
 .message-link-error{margin-inline-start:6px;color:#ad4545;font-size:12px}
 
-:root .group-message:not(.from-user) .group-message-bubble,:root .peer-message .peer-bubble{padding:3px 0;border-radius:0;background:transparent}
-:root .peer-message .peer-author{margin-left:0}
-:root .from-user .markdown{
-  --message-line:#48484e;--message-surface:#2c2c31;--message-ink:#eeeef1;--message-muted:#bcbcc5;
-  --message-link:#d6c4fb;--message-link-line:#86749f;--message-inline:#ffffff1a;
-  --code-comment:#a4a4b1;--code-keyword:#c6a6e0;--code-string:#a3ccb8;--code-function:#9bbde5;--code-number:#debb93;
-}
 @media(forced-colors:active){.message-code-block,.markdown-table-scroll{border-color:CanvasText}.message-code-header{border-color:CanvasText}:root .markdown a[href]{color:LinkText;text-decoration-color:LinkText}}

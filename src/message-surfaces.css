@@ -1,0 +1,52 @@
+/* Keep conversation surfaces separate from document and attachment previews. */
+.messages,.peer-chat-body{
+  background:#fbfafc;
+  container:conversation / inline-size;
+}
+.composer-wrap{background:#fbfafc}
+
+:root :is(.bubble,.group-message-bubble,.peer-bubble).markdown,
+:root :is(.bubble,.group-message-bubble,.peer-bubble) .markdown{
+  --message-line:#e2dee8;
+  --message-surface:#faf9fc;
+  --message-ink:#393342;
+  --message-muted:#7c7287;
+  --message-link:#755491;
+  --message-link-line:#c6b5d6;
+  --message-inline:#ffffffb3;
+  --code-comment:#79717f;
+}
+:root :is(.bubble,.group-message-bubble,.peer-bubble) :is(h1,h2,h3){font-weight:600;letter-spacing:-.01em}
+:root :is(.bubble,.group-message-bubble,.peer-bubble) h2{font-size:1.15em}
+:root :is(.bubble,.group-message-bubble,.peer-bubble) h3{font-size:1.04em}
+:root :is(.bubble,.group-message-bubble,.peer-bubble) blockquote{border-color:#c5bacf;color:#817289}
+:root :is(.bubble,.group-message-bubble,.peer-bubble) .message-code-block{border-color:#e0dbe6;box-shadow:none}
+:root :is(.bubble,.group-message-bubble,.peer-bubble) .message-code-header{min-height:35px;padding-left:14px;border-bottom-color:#e9e4ee}
+:root :is(.bubble,.group-message-bubble,.peer-bubble) pre.message-code-scroll{padding:12px 14px 15px}
+
+:root :is(.message-row,.group-message,.peer-message) .file-tile{
+  --file-surface:#faf9fc;
+  --file-border:#e0dce7;
+  --file-title:#4a4053;
+  --file-muted:#85768f;
+  border-radius:10px;
+  box-shadow:none;
+}
+:root :is(.message-row,.group-message,.peer-message) .file-tile:has(button:not(:disabled):hover,button:focus-visible){
+  background:#fff;border-color:#cec3d9;box-shadow:none;
+}
+:root :is(.message-row,.group-message,.peer-message) .bot-mention{background:#ffffff77;color:#786183}
+
+/* The conversation can be narrow even in a wide window with side panels. */
+@container conversation (max-width:560px){
+  :root .message-row.assistant .bubble{max-width:95%;padding:13px 15px}
+  :root .message-row.assistant:has(.message-code-block) .bubble{width:95%}
+  :root .message-row.user .bubble{max-width:86%;padding:12px 15px}
+  :root .group-message-copy{max-width:calc(100% - 44px)}
+  :root .peer-message>div{max-width:calc(100% - 40px)}
+  :root :is(.group-message-bubble,.peer-bubble){padding:12px 15px}
+}
+@media(forced-colors:active){
+  :root :is(.message-row .bubble,.group-message-bubble,.peer-bubble){border:1px solid CanvasText}
+  :root :is(.bubble,.group-message-bubble,.peer-bubble) .message-code-block{border-color:CanvasText}
+}

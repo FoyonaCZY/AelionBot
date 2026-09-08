@@ -1,8 +1,7 @@
 .message-attachments{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px;max-width:100%;color:inherit}
 .attachment-card{width:320px}
 .attachment-open img{width:38px;height:42px;object-fit:cover;border-radius:6px;flex-shrink:0}
-.user .attachment-card,.from-user .attachment-card{--file-surface:#ffffff0e;--file-border:#ffffff24;--file-title:#f4f2f8;--file-muted:#aeabb8;box-shadow:none}
-.user .attachment-card:has(button:hover),.from-user .attachment-card:has(button:hover){background:#ffffff17;border-color:#ffffff45}
+
 .composer-attachments{margin:4px 8px 9px;gap:7px}
 .attachment-tag{width:auto;max-width:268px;border-radius:9px;box-shadow:none;--file-surface:#faf9fc}
 .attachment-tag .attachment-open{padding:6px 9px;gap:8px}

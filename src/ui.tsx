@@ -14,6 +14,7 @@ import {readableContent} from './activity';
 import {MessageActions} from './MessagePins';
 import type {BotActivity} from './bot-activity';
 import './avatar.css';
+import './message-surfaces.css';
 
 export function Icon({name,size=20}:{name:string;size?:number}){
   const shapes:Record<string,React.ReactNode>={

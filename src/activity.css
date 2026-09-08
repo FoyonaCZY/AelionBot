@@ -1,7 +1,7 @@
-.message-row.assistant .bubble{background:transparent;border-radius:0;padding:4px 0;min-width:0;width:100%;max-width:100%;line-height:1.8;color:#303037}
-.message-row.assistant .bubble.failed{background:#fff2ef;color:#89483d;padding:12px 14px;border-radius:8px}
-.message-row.assistant{margin:12px 0 25px}
-.message-row.assistant .message-time{margin-left:0;color:#b7babf}
+.message-row.assistant .bubble{width:fit-content}
+.message-row.assistant:has(.message-code-block) .bubble{width:min(86%,700px)}
+.message-row.assistant .bubble.failed{background:#f9ecea;color:#89483d}
+
 .run-message{min-width:0;margin:4px 0 20px}
 .run-completion{display:flex;align-items:center;gap:9px;margin:8px 0 15px;padding:7px 3px;color:#81858b;font-size:12px;min-height:36px}
 .run-message .message-row.assistant{margin-bottom:0}
