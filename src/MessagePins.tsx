@@ -16,10 +16,20 @@ export function MessagePins({messageId,pins,pending,onChoose}:{messageId:string;
   })}</div>;
 }
 
-export function MessageActions({messageId,content,pins=[],onPin,bubbleClassName,children}:{messageId:string;content:string;pins?:MessagePin[];onPin?:(input:PinInput)=>Promise<void>;bubbleClassName:string;children:ReactNode}){
+export function MessageActions({messageId,content,pins=[],onPin,onReply,bubbleClassName,children}:{messageId:string;content:string;pins?:MessagePin[];onPin?:(input:PinInput)=>Promise<void>;onReply?:()=>void;bubbleClassName:string;children:ReactNode}){
   const [anchor,setAnchor]=useState<Anchor>(),[expanded,setExpanded]=useState(false),[pending,setPending]=useState(false),[error,setError]=useState(''),[query,setQuery]=useState(''),[category,setCategory]=useState('all'),[focusedEmoji,setFocusedEmoji]=useState('');
+  const [hovered,setHovered]=useState(false),[toolbarPosition,setToolbarPosition]=useState({left:0,top:0});
+  const toolbar=useRef<HTMLDivElement>(null),hoverTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
+  const showToolbar=()=>{clearTimeout(hoverTimer.current);window.dispatchEvent(new CustomEvent('aelion:message-hover',{detail:messageId}));setHovered(true);};
+  const hideToolbar=()=>{clearTimeout(hoverTimer.current);hoverTimer.current=setTimeout(()=>{if(!bubble.current?.contains(document.activeElement)&&!toolbar.current?.contains(document.activeElement))setHovered(false);},140);};
+  useEffect(()=>()=>clearTimeout(hoverTimer.current),[]);
   const options=useMemo(()=>searchPinEmojis(query,category),[query,category]);
   const bubble=useRef<HTMLDivElement>(null),menu=useRef<HTMLDivElement>(null),grid=useRef<HTMLDivElement>(null),busy=useRef(false),anchorRef=useRef(anchor);anchorRef.current=anchor;
+  useLayoutEffect(()=>{
+    if(!hovered||!bubble.current)return;
+    const place=()=>{const box=bubble.current!.getBoundingClientRect(),surface=bubble.current!.closest('.messages,.peer-chat-body')?.getBoundingClientRect(),width=(onPin?28:0)+(onReply?28:0)+(onPin&&onReply?4:0),right=Math.min(window.innerWidth-8,surface?.right||window.innerWidth-8);let left=box.right+6,top=box.top+Math.min(box.height,48)/2-14;if(left+width>right){if(box.left-width-6>=(surface?.left||0)+4)left=box.left-width-6;else{left=Math.max(surface?.left||8,box.right-width);top=box.top-31;}}setToolbarPosition({left:Math.max(8,left),top:Math.max(42,top)});};
+    place();const observer=new ResizeObserver(place);observer.observe(bubble.current);const hide=()=>setHovered(false);const other=(event:Event)=>{if((event as CustomEvent).detail!==messageId)setHovered(false);};window.addEventListener('aelion:message-hover',other);window.addEventListener('scroll',hide,true);window.addEventListener('resize',hide);return()=>{observer.disconnect();window.removeEventListener('aelion:message-hover',other);window.removeEventListener('scroll',hide,true);window.removeEventListener('resize',hide);};
+  },[hovered,onPin,onReply,messageId]);
   const dismiss=(restore=false)=>{const previous=anchorRef.current?.returnFocus;setAnchor(undefined);setExpanded(false);if(restore)(previous?.isConnected?previous:bubble.current)?.focus({preventScroll:true});};
   const open=(x?:number,y?:number)=>{
     if(!content.trim())return;const element=bubble.current;if(!element)return;const box=element.getBoundingClientRect(),selection=getSelection();
@@ -46,10 +56,14 @@ export function MessageActions({messageId,content,pins=[],onPin,bubbleClassName,
   const copy=async()=>{const text=anchorRef.current?.copyText||content;dismiss(true);try{await navigator.clipboard.writeText(text);}catch(error){setError(errorText(error));}};
   const emojiButton=(emoji:PinEmoji,inGrid=false)=>{const label=PIN_EMOJI_BY_VALUE.get(emoji)?.label||emoji,selected=pins.some(pin=>pin.emoji===emoji&&pin.actor.id==='user');return <button key={emoji} type="button" role={expanded?undefined:'menuitemcheckbox'} aria-checked={expanded?undefined:selected} aria-pressed={expanded?selected:undefined} aria-label={`${emoji} ${label}`} title={label} tabIndex={inGrid?(emoji===(focusedEmoji||options[0]?.emoji)?0:-1):undefined} onFocus={inGrid?()=>setFocusedEmoji(emoji):undefined} disabled={pending} onClick={()=>void choose(emoji)}>{emoji}</button>;};
   return <>
-    <div ref={bubble} className={`${bubbleClassName} message-context-target`} tabIndex={content?0:undefined} aria-haspopup={content?'menu':undefined} aria-expanded={anchor?true:undefined}
+    <div ref={bubble} className={`${bubbleClassName} message-context-target`} data-hover-actions={onPin||onReply?'true':undefined} onMouseEnter={showToolbar} onMouseLeave={hideToolbar} onFocusCapture={showToolbar} onBlurCapture={hideToolbar} tabIndex={content?0:undefined} aria-haspopup={content?'menu':undefined} aria-expanded={anchor?true:undefined}
       onContextMenu={event=>{if(!content.trim())return;event.preventDefault();event.stopPropagation();open(event.clientX||undefined,event.clientY||undefined);}}
       onKeyDown={event=>{if(event.key==='ContextMenu'||event.shiftKey&&event.key==='F10'){event.preventDefault();event.stopPropagation();open();}}}>{children}</div>
     {onPin&&<MessagePins messageId={messageId} pins={pins} pending={pending} onChoose={emoji=>void choose(emoji)}/>}
+    {hovered&&(onPin||onReply)&&createPortal(<div ref={toolbar} className="message-hover-actions" role="group" aria-label="消息操作" style={toolbarPosition} onMouseEnter={showToolbar} onMouseLeave={hideToolbar} onFocusCapture={showToolbar} onBlurCapture={hideToolbar}>
+      {onPin&&<button type="button" aria-label="添加表情" title="添加表情" onClick={event=>{const rect=event.currentTarget.getBoundingClientRect();open(rect.left,rect.bottom+5);}}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14s1 3 4 3 4-3 4-3M8 9h.01M16 9h.01" strokeLinecap="round"/></svg></button>}
+      {onReply&&<button type="button" aria-label="回复消息" title="回复消息" onClick={()=>{setHovered(false);onReply();}}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="m9 5-6 6 6 6M3 11h11a7 7 0 0 1 7 7" strokeLinecap="round" strokeLinejoin="round"/></svg></button>}
+    </div>,document.body)}
     {error&&<span className="pin-error" role="alert">{error}</span>}
     {anchor&&createPortal(<div ref={menu} className={`message-context-menu ${expanded?'emoji-expanded':''}`} role={expanded?'dialog':'menu'} aria-label={expanded?'选择表情':'消息菜单'} data-message-menu={messageId} style={{left:anchor.left,top:anchor.top}} onContextMenu={event=>event.preventDefault()} onKeyDown={event=>{
       if(event.key==='Escape'){event.preventDefault();event.stopPropagation();dismiss(true);return;}
@@ -70,6 +84,7 @@ export function MessageActions({messageId,content,pins=[],onPin,bubbleClassName,
         <div className="message-emoji-label" aria-live="polite">{query?`搜索结果 · ${options.length}`:category==='all'?'全部表情':PIN_EMOJI_CATEGORIES.find(item=>item.id===category)?.name}</div>
         <div ref={grid} className={`message-emoji-grid ${options.length?'':'is-empty'}`} role="group" aria-label="表情列表">{options.length?options.map(item=>emojiButton(item.emoji,true)):<span className="message-emoji-empty">没有找到表情</span>}</div>
       </div>}<div className="message-menu-separator" role="separator"/></>}
+      {onReply&&<button type="button" className="message-menu-action" role={expanded?undefined:'menuitem'} onClick={()=>{dismiss();setHovered(false);onReply();}}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="m9 5-6 6 6 6M3 11h11a7 7 0 0 1 7 7"/></svg>回复</button>}
       <button type="button" className="message-menu-action" role={expanded?undefined:'menuitem'} onClick={()=>void copy()}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><rect x="8" y="3" width="12" height="15" rx="2"/><path d="M16 21H5a2 2 0 0 1-2-2V8"/></svg>复制</button>
     </div>,document.body)}
   </>;

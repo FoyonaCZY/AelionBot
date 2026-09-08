@@ -1,3 +1,5 @@
+import {MessageQuote} from './MessageQuote';
+import {MessageTime} from './ConversationTime';
 import {AttachmentList} from './Attachments';
 import {FileInfo,FileTypeBadge} from './FileAppearance';
 import {attachmentSummary} from './attachment-types';
@@ -94,14 +96,14 @@ export function MentionContent({content,mentions=[],markdown=false}:{content:str
   if(markdown)return <Markdown urlTransform={url=>prepared?.links.has(url)?url:defaultUrlTransform(url)} components={{a:({href,children,node,...props})=>{const mention=href?prepared?.links.get(href):undefined;return mention?<MentionTag mention={mention}/>:<MessageLink href={href} {...props}>{children}</MessageLink>;}}}>{prepared?.markdown||content}</Markdown>;
   const parts:React.ReactNode[]=[];let at=0;for(const mention of validMentions(content,mentions)){parts.push(content.slice(at,mention.start),<MentionTag key={`${mention.id}-${mention.start}`} mention={mention}/>);at=mention.end;}parts.push(content.slice(at));return <>{parts}</>;
 }
-export function Message({message,allowPins=true}:{message:ChatMessage;allowPins?:boolean}){
-  if(message.scheduled)return <div className="scheduled-trigger" data-message-id={message.id}><div><Icon name="clock" size={15}/><span>定时任务 · {message.scheduled.title}</span><time>{time(message.time)}</time></div><p>{message.content}</p></div>;
+export function Message({message,allowPins=true,onReply}:{message:ChatMessage;allowPins?:boolean;onReply?:(message:ChatMessage)=>void}){
+  if(message.scheduled)return <><MessageTime id={message.id} time={message.time}/><div className="scheduled-trigger" data-message-id={message.id}><div><Icon name="clock" size={15}/><span>定时任务 · {message.scheduled.title}</span></div><p>{message.content}</p></div></>;
   if(message.reaction)return null;
   if(message.role==='event')return <div className="event-message">{message.content}</div>;
   if(message.role==='tool')return null;
   if(!message.content&&!message.attachments?.length&&message.status!=='running')return null;
   const content=message.role==='assistant'?(message.content.startsWith('执行检查发现未解决')?'发现校验问题，继续检查并修正。':readableContent(message.content)):message.content;
-  return <div className={`message-row ${message.role}`} data-message-id={message.id}><MessageActions messageId={message.id} content={content||attachmentSummary(message.attachments)} pins={message.pins} bubbleClassName={`bubble ${message.status==='failed'?'failed':''}`} onPin={allowPins&&(content||message.attachments?.length)&&(!message.status||message.status==='done')?input=>window.aelion.pinChat({...input,botId:message.botId}):undefined}>{content?(message.role==='assistant'?<div className="markdown"><MentionContent content={content} mentions={message.mentions} markdown/></div>:<MentionContent content={content} mentions={message.mentions}/>):message.attachments?.length?null:<span className="typing"><i/><i/><i/></span>}<AttachmentList files={message.attachments}/></MessageActions><span className="message-time">{time(message.time)}</span></div>;
+  return <><MessageTime id={message.id} time={message.time}/><div className={`message-row ${message.role}`} data-message-id={message.id}><MessageActions messageId={message.id} content={content||attachmentSummary(message.attachments)} pins={message.pins} onReply={onReply&&!['running','cancelled'].includes(message.status||'done')&&(content||message.attachments?.length)?()=>onReply(message):undefined} bubbleClassName={`bubble ${message.status==='failed'?'failed':''}`} onPin={allowPins&&(content||message.attachments?.length)&&(!message.status||message.status==='done')?input=>window.aelion.pinChat({...input,botId:message.botId}):undefined}>{message.reply&&<MessageQuote reply={message.reply}/>}{content?(message.role==='assistant'?<div className="markdown"><MentionContent content={content} mentions={message.mentions} markdown/></div>:<MentionContent content={content} mentions={message.mentions}/>):message.attachments?.length?null:<span className="typing"><i/><i/><i/></span>}<AttachmentList files={message.attachments}/></MessageActions></div></>;
 }
 
 export interface FileItem {name:string;path:string;size:number;}

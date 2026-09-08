@@ -26,9 +26,6 @@ function WorkCard({item,bots}:{item:WorkItem;bots:Bot[]}){
   </section>;
 }
 export function WorkItemsPanel({items=[],scope,bots}:{items?:WorkItem[];scope:AttachmentScope;bots:Bot[]}){
-  const [history,setHistory]=useState(false);
-  const scoped=items.filter(item=>item.scope.kind===scope.kind&&item.scope.id===scope.id&&bots.some(bot=>bot.id===item.botId)).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
-  if(!scoped.length)return null;
-  const active=scoped.filter(item=>!['completed','cancelled'].includes(item.status)),past=scoped.filter(item=>['completed','cancelled'].includes(item.status));
-  return <div className="work-items-panel">{active.map(item=><WorkCard key={item.id} item={item} bots={bots}/>)}{past.length>0&&<><button className="work-history-toggle" aria-expanded={history} onClick={()=>setHistory(!history)}>{history?'收起':'查看'}已结束的计划与目标（{past.length}）<Icon name={history?'down':'arrow'} size={12}/></button>{history&&past.map(item=><WorkCard key={item.id} item={item} bots={bots}/>)}</>}</div>;
+  const active=items.filter(item=>item.scope.kind===scope.kind&&item.scope.id===scope.id&&bots.some(bot=>bot.id===item.botId)&&!['completed','cancelled'].includes(item.status)).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
+  return active.length?<div className="work-items-panel">{active.map(item=><WorkCard key={item.id} item={item} bots={bots}/>)}</div>:null;
 }

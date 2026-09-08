@@ -1,3 +1,5 @@
+import {MessageTime} from './ConversationTime';
+import {formatConversationTime} from './conversation-time';
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {AttachmentList} from './Attachments';
 import {BotWorkingStatus} from './BotWorkingStatus';
@@ -17,7 +19,7 @@ export function PeerTaskMessage({message,view,onOpen}:{message:ChatMessage;view?
   const source=message.taskSource!;
   const exchange=view?.exchanges.find(item=>item.id===source.exchangeId),thread=view?.threads.find(item=>item.id===exchange?.threadId);
   const sender=thread?.members.find(member=>member.id===source.botId)||{id:source.botId,name:source.name,color:'#8b6bea'};
-  return <div className="peer-task-message"><button className="peer-task-source" disabled={!thread} onClick={()=>onOpen({ownerId:message.botId,threadId:thread!.id,exchangeId:source.exchangeId})}><Avatar bot={sender} size={19}/><span>{source.continuation?'继续来自':'来自'} <strong>{sender.name}</strong> 的任务</span><Icon name="arrow" size={12}/></button><p>{message.content}</p></div>;
+  return <><MessageTime id={message.id} time={message.time}/><div className="peer-task-message"><button className="peer-task-source" disabled={!thread} onClick={()=>onOpen({ownerId:message.botId,threadId:thread!.id,exchangeId:source.exchangeId})}><Avatar bot={sender} size={19}/><span>{source.continuation?'继续来自':'来自'} <strong>{sender.name}</strong> 的任务</span><Icon name="arrow" size={12}/></button><p>{message.content}</p></div></>;
 }
 export function PeerNotice({message,view,onOpen}:{message:ChatMessage;view?:PeerView;onOpen:(panel:PeerPanel)=>void}){
   const [pending,setPending]=useState(false),[error,setError]=useState('');
@@ -82,7 +84,7 @@ export function PrivateChatWindow({panel,view,bots,streamingReplies=[],avatarAct
 }
 function PrivateMessage({message,exchange,showDate}:{message:PeerMessage;exchange?:PeerExchangeView;showDate:boolean}){
   const status=message.kind==='request'&&exchange&&['failed','cancelled','interrupted'].includes(exchange.status)?exchange:undefined;
-  return <>{showDate&&<div className="peer-date">{new Date(message.time).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>}<div className="peer-message" data-exchange-id={message.exchangeId}><Avatar bot={message.sender} size={29}/><div><span className="peer-author">{message.sender.name}</span><div className="peer-bubble markdown"><Markdown>{message.content}</Markdown><AttachmentList files={message.attachments}/></div>{status&&<small className={status.status}>{peerStatusLabel(status.status)}{status.error?` · ${status.error}`:''}</small>}</div></div></>;
+  return <>{showDate&&<div className="peer-date">{formatConversationTime(message.time)}</div>}<div className="peer-message" data-exchange-id={message.exchangeId}><Avatar bot={message.sender} size={29}/><div><span className="peer-author">{message.sender.name}</span><div className="peer-bubble markdown"><Markdown>{message.content}</Markdown><AttachmentList files={message.attachments}/></div>{status&&<small className={status.status}>{peerStatusLabel(status.status)}{status.error?` · ${status.error}`:''}</small>}</div></div></>;
 }
 export function PeerNotifications({view,bots,onView}:{view?:PeerView;bots:Bot[];onView:(panel:PeerPanel)=>void}){
   const seen=useRef(new Set<string>()),seeded=useRef(false),[visible,setVisible]=useState<string>(),[paused,setPaused]=useState(false);

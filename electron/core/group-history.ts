@@ -14,7 +14,7 @@ import {groupReplyContent} from '../../src/message-envelope';
 export const groupContextKey=(groupId:string,botId:string)=>`group:${groupId}:${botId}`;
 function published(store:Store,message:GroupMessage,botId:string):WireMessage{
   const content=groupReplyContent(message.content,message.sender.kind==='bot'?message.sender.id:undefined);
-  return {role:message.sender.id===botId?'assistant':'user',groupMessageId:message.id,...new Attachments(store).wire(botId,JSON.stringify({messageId:message.id,seq:message.seq,sender:message.sender,kind:message.kind,content,attachments:message.attachments,mentions:message.mentions,mentioned:message.mentions?.some(mention=>mention.id===botId)||false,reaction:message.reaction,event:message.event}),message.attachments,true)};
+  return {role:message.sender.id===botId?'assistant':'user',groupMessageId:message.id,...new Attachments(store).wire(botId,JSON.stringify({messageId:message.id,seq:message.seq,sender:message.sender,kind:message.kind,reply:message.reply,content,attachments:message.attachments,mentions:message.mentions,mentioned:message.mentions?.some(mention=>mention.id===botId)||false,reaction:message.reaction,event:message.event}),message.attachments,true)};
 }
 export function groupHistory(store:Store,groupId:string,botId:string){
   const room=store.data.groups.find(room=>room.id===groupId);if(!room)throw new Error('群聊不存在');

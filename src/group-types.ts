@@ -1,3 +1,4 @@
+import type {MessageReply} from './message-replies';
 import type {Attachment} from './attachment-types';
 import type {MessagePin,PinEvent} from './reactions';
 import type {BotIdentity,BotMention} from './peer-types';
@@ -8,7 +9,7 @@ export const isGroupWorkTool=(name:string|undefined)=>Boolean(name&&!conversatio
 export type GroupSender={kind:'user';id:'user';name:string}|({kind:'bot'}&BotIdentity)|{kind:'system';id:'system';name:string};
 export interface GroupMember extends BotIdentity {joinedAt:string;leftAt?:string;}
 export interface GroupLifecycleEvent {type:'created'|'members_changed';actor:GroupSender;joined:BotIdentity[];left:BotIdentity[];members:BotIdentity[];}
-export interface GroupMessage {workItemId?:string;workspaceDir?:string|null;scheduled?:ScheduledTrigger;attachments?:Attachment[];pins?:MessagePin[];reaction?:PinEvent;event?:GroupLifecycleEvent;id:string;seq:number;groupId:string;sender:GroupSender;kind:'message'|'system'|'continue'|'reaction'|'progress';content:string;time:string;rootId?:string;replyTo?:string;runIds?:string[];mentions?:BotMention[];}
+export interface GroupMessage {reply?:MessageReply;workItemId?:string;workspaceDir?:string|null;scheduled?:ScheduledTrigger;attachments?:Attachment[];pins?:MessagePin[];reaction?:PinEvent;event?:GroupLifecycleEvent;id:string;seq:number;groupId:string;sender:GroupSender;kind:'message'|'system'|'continue'|'reaction'|'progress';content:string;time:string;rootId?:string;replyTo?:string;runIds?:string[];mentions?:BotMention[];}
 export interface GroupRoom {id:string;name:string;members:GroupMember[];createdBy:GroupSender;createdAt:string;updatedAt:string;messages:GroupMessage[];lastReadSeq:number;activeRootId?:string;}
 export interface GroupRound {id:string;originKey?:string;groupId:string;request:string;status:'active'|'limited'|'stopped';createdAt:string;botMessages:number;botCounts:Record<string,number>;decisions:number;createdGroups:number;reason?:string;repetitions?:number;}
 export type GroupDeliveryStatus='queued'|'deciding'|'running'|'ignored'|'replied'|'limited'|'failed'|'cancelled'|'interrupted'|'delivered'|'read';

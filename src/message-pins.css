@@ -1,11 +1,11 @@
-/* Reactions sit across the bubble edge and retain their own layout space. */
-.message-pins{position:relative;z-index:1;display:flex;flex-wrap:wrap;align-items:center;gap:3px;margin:-14px 12px 0;max-width:calc(100% - 24px)}
-.pin-chip{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:3px 6px;border:0;border-radius:8px;background:transparent;min-width:32px;min-height:30px;line-height:1;transition:background .15s;animation:pin-appear .16s ease-out}
-.pin-chip>span{display:block;font-family:"Segoe UI Emoji","Apple Color Emoji",sans-serif;font-size:21px;line-height:24px;font-weight:400}
-.pin-chip small{font-size:11px;font-weight:550;font-variant-numeric:tabular-nums;color:#8a8098}
-.pin-chip.own{background:transparent}.pin-chip.own small{color:#78618e}
-.pin-chip:hover,.pin-chip.own:hover{background:#e9e3f266}
-.pin-chip:focus-visible{outline:2px solid #b4a0d0;outline-offset:2px}
+/* Compact reactions overlap the bubble edge, with a flat canvas-colored cutout. */
+.message-pins{position:relative;z-index:1;display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:-5px 10px 0;max-width:calc(100% - 20px)}
+.pin-chip{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:2px 9px;border:0;border-radius:999px;background:#dcecff;box-shadow:0 0 0 2px #fbfafc;min-width:36px;min-height:24px;line-height:1;transition:background .15s;animation:pin-appear .16s ease-out}
+.pin-chip>span{display:block;font-family:"Segoe UI Emoji","Apple Color Emoji",sans-serif;font-size:16px;line-height:20px;font-weight:400}
+.pin-chip small{font-size:11px;font-weight:550;font-variant-numeric:tabular-nums;color:#587694}
+.pin-chip.own{background:#cfe5ff}.pin-chip.own small{color:#466887}
+.pin-chip:hover{background:#cce3ff}.pin-chip.own:hover{background:#c2ddfc}
+.pin-chip:focus-visible{outline:2px solid #8db9e8;outline-offset:3px}
 .group-message.from-user .message-pins{justify-content:flex-end}
 @keyframes pin-appear{from{opacity:.4;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
 .pin-error{display:block;color:#a85b4c;font-size:11px;max-width:320px;line-height:1.6;margin:6px 4px 0}

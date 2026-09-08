@@ -1,3 +1,5 @@
+import type {MessageReply} from './message-replies';
+import {MessageQuote} from './MessageQuote';
 import {useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
 import type {Bot,BotMention} from './shared';
 import {PermissionModePicker} from './PermissionModePicker';
@@ -11,7 +13,7 @@ import {CompanionGlyph} from './CompanionCard';
 import {botIdentity,normalizeBotAvatarStyle,type BotPalette} from './bot-colors';
 import {botAvatarDataUrl} from './bot-avatar';
 
-export interface ComposerDraft {text:string;mentions:BotMention[];attachments?:Attachment[];}
+export interface ComposerDraft {reply?:MessageReply;text:string;mentions:BotMention[];attachments?:Attachment[];}
 const empty:ComposerDraft={text:'',mentions:[]};
 function chipStyle(value?:string){try{return value&&value.length<=256?normalizeBotAvatarStyle(JSON.parse(value)):undefined;}catch{return undefined;}}
 function paintChip(node:HTMLElement,palette:BotPalette){
@@ -73,7 +75,7 @@ export function BotComposer({bot,bots,draft=empty,running,onChange,onSend,onStop
   const [query,setQuery]=useState<{start:number;end:number;text:string}>(),[active,setActive]=useState(0);const id=useId();
   const options=query?bots.filter(item=>item.id!==bot.id&&`${item.name} ${item.role}`.toLowerCase().includes(query.text.toLowerCase())).slice(0,20):[];
   const refresh=()=>{
-    const root=editor.current;if(!root)return;const value=read(root);setCommandHidden(false);setCommandActive(0);last.current=JSON.stringify(value);update({...value,attachments:draftRef.current.attachments});
+    const root=editor.current;if(!root)return;const value=read(root);setCommandHidden(false);setCommandActive(0);last.current=JSON.stringify(value);update({...draftRef.current,...value});
     const caret=selectionOffset(root);if(caret===undefined||composing.current){setQuery(undefined);return;}
     const start=Math.max(value.text.lastIndexOf('@',caret-1),value.text.lastIndexOf('＠',caret-1)),word=value.text.slice(start+1,caret);
     if(start<0||/[\s@＠]/.test(word)||word.length>80||value.text[start]==='@'&&start>0&&/[a-zA-Z0-9_.+-]/.test(value.text[start-1])||value.mentions.some(mention=>start>=mention.start&&start<mention.end)){setQuery(undefined);return;}
@@ -105,9 +107,11 @@ export function BotComposer({bot,bots,draft=empty,running,onChange,onSend,onStop
     fragment.append(document.createTextNode(draft.text.slice(at)));if(draft.text.endsWith('\n')){const placeholder=document.createElement('br');placeholder.dataset.caretPlaceholder='true';fragment.append(placeholder);}root.replaceChildren(fragment);last.current=key;setQuery(undefined);
     if(focused){const range=document.createRange();range.selectNodeContents(root);range.collapse(false);const selection=getSelection();selection?.removeAllRanges();selection?.addRange(range);}
   },[draft]);
+  useEffect(()=>{if(draft.reply){const root=editor.current;if(!root)return;root.focus({preventScroll:true});const range=document.createRange();range.selectNodeContents(root);range.collapse(false);const selection=getSelection();selection?.removeAllRanges();selection?.addRange(range);}},[draft.reply?.messageId]);
   useLayoutEffect(()=>{for(const node of editor.current?.querySelectorAll<HTMLElement>('[data-bot-id]')||[]){const live=bots.find(item=>item.id===node.dataset.botId);if(live)paintChip(node,live);}},[bots,draft]);
   useEffect(()=>{const item=list.current?.children[active] as HTMLElement|undefined;if(item&&list.current){if(item.offsetTop<list.current.scrollTop)list.current.scrollTop=item.offsetTop;else if(item.offsetTop+item.offsetHeight>list.current.scrollTop+list.current.clientHeight)list.current.scrollTop=item.offsetTop+item.offsetHeight-list.current.clientHeight;}},[active]);
   return <div className={`composer mention-composer ${dragging?'is-dragging':''}`} onDragOver={event=>{if(event.dataTransfer.types.includes('Files')){event.preventDefault();event.dataTransfer.dropEffect='copy';setDragging(true);}}} onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node|null))setDragging(false);}} onDrop={event=>{event.preventDefault();setDragging(false);const files=Array.from(event.dataTransfer.files);if(files.length)importFiles(files);}}>
+    {draft.reply&&<MessageQuote reply={draft.reply} onCancel={()=>{update({...draftRef.current,reply:undefined});editor.current?.focus({preventScroll:true});}}/>}
     <AttachmentList files={draft.attachments} compact onRemove={id=>update({...draftRef.current,attachments:draftRef.current.attachments?.filter(file=>file.id!==id)})}/>
     {directories.length>0&&<div className="composer-directory-choices">{directories.map(entry=><div className="composer-directory-choice" key={entry.id}><Icon name="folder" size={17}/><strong title={entry.name}>{entry.name}</strong><button type="button" disabled={uploading>0} onClick={()=>useDirectory(entry,'workspace')}>设为工作目录</button><button type="button" disabled={uploading>0} onClick={()=>useDirectory(entry,'attach')}>打包为附件</button><button type="button" className="icon-button" aria-label={`移除文件夹 ${entry.name}`} onClick={()=>setDirectories(current=>current.filter(item=>item.id!==entry.id))}><Icon name="close" size={14}/></button></div>)}</div>}
     {uploading>0&&<div className="composer-uploading" role="status">正在添加附件…</div>}{uploadError&&<div className="composer-attachment-error" role="alert"><span>{uploadError}</span><button type="button" aria-label="关闭附件错误" onClick={()=>setUploadError('')}><Icon name="close" size={14}/></button></div>}

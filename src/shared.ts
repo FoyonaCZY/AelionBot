@@ -1,3 +1,4 @@
+import type {MessageReply} from './message-replies';
 import type {ModelParameters,NativeAssistant} from './model-types';
 import type {HostPermissionMode,HostApprovalView} from './permission-types';
 import type {WorkItem,WorkAction} from './work-types';
@@ -23,7 +24,7 @@ export interface WireMessage { native?:NativeAssistant; role: 'system' | 'user' 
 export interface StreamingReply {id:string;botId:string;runId?:string;content:string;time:string;main:boolean;groupId?:string;peerThreadId?:string;purpose?:'reply'|'progress'|'greeting';mentions?:BotMention[];}
 export interface Artifact { id: string; botId: string; runId: string; path: string; name: string; size: number; modifiedAt: string; }
 export interface ArtifactPreview { kind: 'text' | 'markdown' | 'html' | 'image' | 'pdf' | 'unsupported'; content?: string; dataUrl?: string; truncated?: boolean; }
-export interface ChatMessage { workspaceDir?:string|null; executionId?:string;executionTarget?:string;executionResolved?:boolean; scheduled?:ScheduledTrigger; attachments?:Attachment[]; inputState?:'queued'|'handled'|'cancelled'|'interrupted'; pins?:MessagePin[];reaction?:PinEvent; id: string; botId: string; role: 'user' | 'assistant' | 'tool' | 'event'; content: string; time: string; status?: 'running' | 'done' | 'failed' | 'cancelled'; tool?: string; runId?: string; screenshotId?: string; activity?: {label:string;detail?:string}; presentation?: 'progress'|'answer'|'error'; mentions?:BotMention[];peer?:PeerNotice;groupLink?:GroupLink;groupTaskSource?:{groupId:string;name:string;messageId?:string;continuation?:boolean};audience?:'user';peerSummaryFor?:string;peerContextPublished?:boolean;taskSource?:{botId:string;name:string;exchangeId:string;continuation?:boolean}; }
+export interface ChatMessage { reply?:MessageReply; workspaceDir?:string|null; executionId?:string;executionTarget?:string;executionResolved?:boolean; scheduled?:ScheduledTrigger; attachments?:Attachment[]; inputState?:'queued'|'handled'|'cancelled'|'interrupted'; pins?:MessagePin[];reaction?:PinEvent; id: string; botId: string; role: 'user' | 'assistant' | 'tool' | 'event'; content: string; time: string; status?: 'running' | 'done' | 'failed' | 'cancelled'; tool?: string; runId?: string; screenshotId?: string; activity?: {label:string;detail?:string}; presentation?: 'progress'|'answer'|'error'; mentions?:BotMention[];peer?:PeerNotice;groupLink?:GroupLink;groupTaskSource?:{groupId:string;name:string;messageId?:string;continuation?:boolean};audience?:'user';peerSummaryFor?:string;peerContextPublished?:boolean;taskSource?:{botId:string;name:string;exchangeId:string;continuation?:boolean}; }
 export interface RunRecord {resumedFromRunId?:string;contextIssue?:import('./context-issue').ContextIssue; lastProgressAt?:string;lastProgressDigest?:string; workItemId?:string;workspaceDir?:string; plan?:TaskPlan; executions?:ToolExecution[]; attachments?:Attachment[]; inputUpdated?:boolean;supersedesRunId?:string;progressSteps?:number; groupReplyMessageId?:string; id: string; botId: string; status: 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted'; startedAt: string; endedAt?: string; error?: string; modelCalls: number; toolCalls: number; peerOrigin?:PeerRunOrigin;groupOrigin?:GroupRunOrigin;groupTask?:boolean;groupUpdated?:boolean; }
 export interface ModelConfig extends ModelParameters { baseUrl: string; model: string; hasKey: boolean; contextTokens: number; providerId?:string;providerName?:string;issue?:string; }
 export interface SkillSource { label: string; path: string; scope: 'user'|'project'|'private'|'builtin'; readonly: boolean; }
@@ -77,7 +78,7 @@ export interface AelionAPI {
   createBot(input: { name: string; role: string; color?: string;avatarStyle?:import('./bot-colors').BotAvatarStyle|null;model?:ModelSelection|null;reasoningEffort?:string|null }): Promise<Bot>;
   deleteBot(id: string): Promise<void>;
   updateBot(input: BotUpdateInput): Promise<void>;
-  send(input: { botId: string; message: string; mentions?:BotMention[];attachmentIds?:string[] }): Promise<void>;
+  send(input: { botId: string; message: string; replyToMessageId?:string; mentions?:BotMention[];attachmentIds?:string[] }): Promise<void>;
   pinChat(input:PinInput&{botId:string}):Promise<void>;
   pinGroup(input:PinInput&{groupId:string}):Promise<void>;
   readPrivateChat(input:{threadId:string;before?:string}):Promise<PeerChatPage>;
@@ -86,7 +87,7 @@ export interface AelionAPI {
   updateGroup(input:{id:string;name:string;botIds:string[]}):Promise<void>;
   deleteGroup(id:string):Promise<void>;
   readGroup(input:{id:string;before?:string}):Promise<GroupPage>;
-  sendGroup(input:{id:string;message:string;mentions?:BotMention[];attachmentIds?:string[]}):Promise<void>;
+  sendGroup(input:{id:string;message:string;replyToMessageId?:string;mentions?:BotMention[];attachmentIds?:string[]}):Promise<void>;
   markGroupRead(input:{id:string;seq:number}):Promise<void>;
   stopGroup(id:string):Promise<void>;
   continueGroup(id:string):Promise<void>;

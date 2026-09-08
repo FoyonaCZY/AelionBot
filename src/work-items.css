@@ -59,8 +59,6 @@
 .work-reason{flex-shrink:0;max-height:66px;overflow:auto;margin:5px 17px 0;padding-left:10px;border-left:2px solid #d5c4a4;color:#8a7045}
 .work-summary{padding:0;margin:12px 0 0;color:#686f69}
 .work-error{flex-shrink:0;max-height:66px;overflow:auto;margin:0 15px 12px;color:#b57375}
-.work-history-toggle{display:flex;align-items:center;gap:6px;color:#818189;font-size:10px;padding:6px 7px;border-radius:7px;margin:2px 0}
-.work-history-toggle:hover{color:#53535b;background:#f5f5f7}
 @media(max-width:600px){.work-card-heading{padding:0 12px}.work-card-toggle{gap:9px}.work-card-body{padding-left:14px;padding-right:14px}.work-card-actions{padding-left:12px;padding-right:12px}.command-picker button{gap:8px}}
 @media(max-height:560px){.work-items-panel{max-height:40dvh}.work-card{max-height:38dvh}.work-card-toggle{padding:8px 0}.work-card-actions{padding-top:7px;padding-bottom:8px;margin-top:4px}.work-card .companion-badge{width:36px;height:36px;flex-basis:36px}.work-card .companion-badge>.avatar{width:30px;height:30px}}
 @media(prefers-reduced-motion:reduce){.work-status::before,.work-step-orbit,.composer-add-menu,.command-picker{animation:none!important}.composer-tools .composer-plus,.composer-tools .composer-plus>svg{transition:none}}

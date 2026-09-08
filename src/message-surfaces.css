@@ -1,9 +1,9 @@
 /* Keep conversation surfaces separate from document and attachment previews. */
 .messages,.peer-chat-body{
-  background:#fbfafc;
+  background:#fff;
   container:conversation / inline-size;
 }
-.composer-wrap{background:#fbfafc}
+.composer-wrap{background:#fff}
 
 :root :is(.bubble,.group-message-bubble,.peer-bubble).markdown,
 :root :is(.bubble,.group-message-bubble,.peer-bubble) .markdown{
