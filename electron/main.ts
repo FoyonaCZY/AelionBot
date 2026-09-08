@@ -104,7 +104,7 @@ async function initialize(){
   providers=new ModelProviders(store,{encrypt:value=>{if(!safeStorage.isEncryptionAvailable())throw new Error('系统加密存储不可用，尚未保存 API Key');return safeStorage.encryptString(value).toString('base64');},decrypt:value=>safeStorage.decryptString(Buffer.from(value,'base64'))},changed);
   commandPermissions=new CommandPermissions(join(dataDir,'command-permissions.json'),value=>host?.redact(value)??redactHost(value));
   interactions=new Interactions(()=>{changed();if(window&&!window.isDestroyed()&&!window.isFocused()&&interactions.snapshot().some(request=>request.kind==='host_permission'?request.approval?.phase!=='reviewing':request.phase==='waiting'))window.flashFrame(true);},(request,decision,ruleId)=>store.journal('interaction.decision',{id:request.id,botId:request.botId,runId:request.runId,kind:request.kind,decision,...(request.kind==='host_permission'&&request.approval?{approval:request.approval}:{}),...(ruleId?{ruleId}:{}),time:new Date().toISOString()}),commandPermissions);
-  vm=new VmController({dataDir,runtimeDir:app.isPackaged?join(process.resourcesPath,'qemu'):resolve('runtime/qemu'),cacheDir:app.isPackaged?join(dataDir,'downloads'):resolve('runtime/downloads'),downloadFetch:(url,options)=>net.fetch(url,options)});
+  vm=new VmController({dataDir,wallpaperPath:join(app.getAppPath(),'assets','wallpaper-light.png'),runtimeDir:app.isPackaged?join(process.resourcesPath,'qemu'):resolve('runtime/qemu'),cacheDir:app.isPackaged?join(dataDir,'downloads'):resolve('runtime/downloads'),downloadFetch:(url,options)=>net.fetch(url,options)});
   computer=new ComputerController(vm,dataDir,changed);artifacts=new ArtifactService(store,vm);
   attachments=new Attachments(store,vm,artifacts,(bytes,id)=>{const image=nativeImage.createFromBuffer(bytes);if(image.isEmpty())return;const {width,height}=image.getSize();if(width*height>64*1024*1024)return;const scale=Math.min(1,2048/width,2048/height),preview=scale<1?image.resize({width:Math.max(1,Math.round(width*scale)),height:Math.max(1,Math.round(height*scale)),quality:'best'}):image;writeFileSync(join(computer.imageDir,id+'.png'),preview.toPNG());return {id,...preview.getSize()};});
   const homeDir=app.getPath('home');
@@ -237,7 +237,7 @@ async function initialize(){
   handle('bot:delete',async(id)=>{
     if(typeof id!=='string')throw new Error('无效 Bot 参数');
     if(harness.isRunning(id))throw new Error('请先停止这个 Bot 的任务并等待结束，再删除');
-    await harness.stopBotProcesses(id);greetings?.cancel(id);chatPins?.cancel(id);peerChats?.deletingBot(id);groupChats?.deletingBot(id);store.deleteBot(id);scheduler?.removeTarget({kind:'bot',id});cognition.deleteBot(id);integrations.skills.forgetBot(id);computer.forget(id);changed();
+    await harness.stopBotProcesses(id);greetings?.cancel(id);chatPins?.cancel(id);peerChats?.deletingBot(id);groupChats?.deletingBot(id);store.deleteBot(id);integrations.skills.forgetBot(id);scheduler?.removeTarget({kind:'bot',id});cognition.deleteBot(id);computer.forget(id);changed();
   });
   handle('bot:update',input=>{
     const modelChanged=updateBotProfile(store,providers,input,id=>beforeModelChange([id]));

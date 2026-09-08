@@ -22,6 +22,7 @@ import {ModelSettings} from './ModelSettings';
 import {AboutSettings} from './AboutSettings';
 import {SidebarUpdate} from './SidebarUpdate';
 import {ComputerSetup,ComputerStatus} from './ComputerSetup';
+import {ComputerPanel} from './ComputerPanel';
 import {computerDesktopReady,shouldOfferComputerSetup} from './computer-setup-state';
 import {ScheduledTasks} from './ScheduledTasks';
 import {ModelSelectionFields,validModelSelection} from './ModelSelectionFields';
@@ -190,8 +191,7 @@ function AppContent(){
       </>:<div className="empty-workspace"><Icon name="bot" size={38}/><h2>还没有 Bot</h2><button className="primary-button" onClick={openNewBot}>创建 Bot</button></div>}
     </main>
     <aside className="details computer-details">
-      <div className="computer-detail-header drag"><span>工作电脑</span><button className="icon-button no-drag" aria-label="电脑设置" onClick={()=>openSettings('computer')}><Icon name="settings" size={18}/></button></div>
-      {desktopAvailable?<div className="computer-preview" role="button" tabIndex={0} aria-label="全屏查看工作电脑" title="全屏查看工作电脑" onClick={()=>setModal('computer')} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();setModal('computer');}}}><div className="computer-preview-surface" inert>{modal!=='computer'&&<Vnc key={desktopBot?.id} url={desktop?.vncUrl}/>}</div><span className="preview-expand"><Icon name="expand" size={15}/></span></div>:<ComputerStatus vm={state.vm} onOpen={()=>setModal('computer-setup')}/>}
+      <ComputerPanel vm={state.vm} ready={desktopAvailable} bot={desktopBot} onOpen={()=>setModal('computer')} onSetup={()=>setModal('computer-setup')} onSettings={()=>openSettings('computer')}>{desktopAvailable&&modal!=='computer'&&<Vnc key={desktopBot?.id} url={desktop?.vncUrl}/>}</ComputerPanel>
       {desktop?.status==='error'&&<div className="desktop-status" role="status"><span title={desktop.error}>独立桌面暂未就绪</span><button onClick={()=>desktopBot&&void act(()=>window.aelion.ensureComputerDesktop(desktopBot.id))}>重试</button></div>}
       <ScheduledTasks target={group?{kind:'group',id:group.id}:bot?{kind:'bot',id:bot.id}:undefined} targetName={group?.name||bot?.name||''} tasks={state.scheduledTasks||[]} onError={setToast} onModalChange={setTaskModalOpen}/>
     </aside>
@@ -204,7 +204,7 @@ function AppContent(){
     {botMenu&&menuBot&&<BotContextMenu anchor={botMenu} name={menuBot.name} canDelete={!state.runs.some(run=>run.botId===menuBot.id&&run.status==='running')} onEdit={()=>editBot(menuBot)} onDelete={()=>{setDeletingId(menuBot.id);setBotMenu(undefined);setModal('delete-bot');}} onPrivateChats={()=>openPrivateChat({ownerId:menuBot.id})} onClose={()=>setBotMenu(undefined)}/>}
     {modal&&<div className={`modal-backdrop ${modal==='settings'?'settings-backdrop':modal==='computer'?'computer-backdrop':modal==='screen'?'wide-backdrop':''}`} onMouseDown={event=>{if(event.target===event.currentTarget)void act(closeModal);}}><section className={`modal ${modal==='computer-setup'?'computer-setup-modal':modal==='settings'?'settings-modal':(modal==='profile'||modal==='new')?'bot-profile-modal':modal==='computer'?'computer-modal':modal==='screen'?'preview-modal':modal==='terminal'?'terminal-modal':''}`} role="dialog" aria-modal="true" aria-label={title}>
       {modal!=='computer'&&modal!=='settings'&&<header><h2>{title}</h2><div className="modal-header-actions"><button className="icon-button" aria-label="关闭对话框" onClick={()=>void act(closeModal)}><Icon name="close"/></button></div></header>}
-      {modal==='computer-setup'&&<ComputerSetup vm={state.vm} disabled={anyRunning} onClose={()=>void closeModal()} onReady={()=>setModal('computer')} onNotify={setToast}/>}
+      {modal==='computer-setup'&&<ComputerSetup vm={state.vm} bot={bot} disabled={anyRunning} onClose={()=>void closeModal()} onReady={()=>setModal('computer')} onNotify={setToast}/>}
       {(modal==='new'||modal==='profile')&&<form onSubmit={event=>{event.preventDefault();void act(async()=>{if(modal==='new'){const created=await window.aelion.createBot({name:name||'新 Bot',role:role||'完成办公和代码任务，使用工作电脑实际执行并核对成果。',model:profileModel,reasoningEffort:profileReasoning||null,...newBotPalette});setSelected(created.id);}else await window.aelion.updateBot({id:editingId,name,role,model:profileModel,reasoningEffort:profileReasoning||null,color:profilePalette.color,avatarStyle:profilePalette.avatarStyle??null});setModal(null);});}}>
         <BotPaletteEditor value={modal==='new'?newBotPalette:profilePalette} onChange={modal==='new'?setNewBotPalette:setProfilePalette} name={name||'新 Bot'} disabled={busy}/>
         <label>名称<input autoFocus value={name} onChange={event=>setName(event.target.value)} maxLength={80} placeholder="给你的新伙伴起个名字"/></label>

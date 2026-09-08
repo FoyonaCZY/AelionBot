@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {existsSync,mkdtempSync,readFileSync,realpathSync,rmSync,writeFileSync} from 'node:fs';
+import {existsSync,mkdtempSync,mkdirSync,readFileSync,realpathSync,rmSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {basename,dirname,join,resolve} from 'node:path';
 import {HostComputer,redactHost} from '../electron/core/host';
@@ -58,6 +58,18 @@ test('unapproved commands do not start a process or even create their default wo
   const {host,interactions}=fixture(t),controller=new AbortController();
   const pending=host.execute('bot-a','run-a',{command:"Write-Output 'not run'",reason:'检查'},controller.signal);const rejected=assert.rejects(pending,/取消/);
   assert.equal(existsSync(host.workspace('bot-a')),false);controller.abort();await rejected;assert.equal(interactions.snapshot().length,0);assert.equal(existsSync(host.workspace('bot-a')),false);
+});
+
+test('relative command directories resolve against the selected project before approval',async t=>{
+ const {root,host,interactions}=fixture(t),project=join(root,'selected'),nested=join(project,'nested');mkdirSync(nested,{recursive:true});
+ for(const [cwd,expected] of [['.',project],['nested',nested],['',project]]){
+  const running=host.execute('bot-a','run-a',{command:process.platform==='win32'?'Get-Location':'pwd',cwd,reason:'检查项目目录'},new AbortController().signal,project);
+  const request=interactions.snapshot()[0];assert.equal(request.kind,'host_permission');
+  if(request.kind==='host_permission')assert.equal(request.details.cwd,expected);
+  interactions.approve(request.id,true);assert.equal((await running).cwd,expected);
+ }
+ const denied=host.execute('bot-a','run-a',{command:'echo denied',cwd:'.',reason:'检查拒绝'},new AbortController().signal,project),rejection=assert.rejects(denied,InteractionDenied);
+ interactions.approve(interactions.snapshot()[0].id,false);await rejection;
 });
 
 test('approved PowerShell preserves Unicode, native exit codes and environment while redacting secrets',{skip:process.platform!=='win32'},async t=>{

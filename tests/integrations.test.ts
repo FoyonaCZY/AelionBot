@@ -6,6 +6,7 @@ import {join,dirname,basename,resolve} from 'node:path';
 import {createHash} from 'node:crypto';
 import {Store} from '../electron/core/store';
 import {SkillLibrary,parseSkill} from '../electron/core/skill-library';
+import {TaskScheduler} from '../electron/core/task-scheduler';
 import {discoverMcp,publicEndpoint} from '../electron/core/mcp-config';
 import {McpRuntime} from '../electron/core/mcp-runtime';
 import type {IntegrationPaths} from '../electron/core/integration-paths';
@@ -17,6 +18,31 @@ function fixture(t:test.TestContext):IntegrationPaths{
 }
 function file(path:string,text:string){mkdirSync(dirname(path),{recursive:true});writeFileSync(path,text);}
 const skill=(name:string,body:string)=>`---\nname: ${name}\ndescription: reusable workflow\n---\n\n${body}\n`;
+test('deleting a Bot with private skills cannot break scheduled cleanup or later snapshots',t=>{
+  const paths=fixture(t),store=new Store(paths.dataDir),first=store.data.bots[0],second=store.createBot('second','scope');
+  t.after(()=>store.close());
+  for(const bot of [first,second])store.data.skills.push({id:'private-'+bot.id,name:'Private workflow',description:'Private workflow',body:'Private content',botId:bot.id});
+  const library=new SkillLibrary(store,paths),sharedIds=library.all().filter(skill=>!skill.botId).map(skill=>skill.id);
+  let snapshots=0;
+  const scheduler=new TaskScheduler(store,{ready:()=>false,send:()=>{}},()=>{library.all();snapshots++;});
+  t.after(()=>scheduler.dispose());
+  for(const bot of [first,second]){
+    scheduler.create({target:{kind:'bot',id:bot.id},title:'Reminder',prompt:'Check progress',schedule:{kind:'interval',minutes:60,timeZone:'Asia/Shanghai'}});
+  }
+  for(const bot of [first,second]){
+    store.deleteBot(bot.id);
+    assert.doesNotThrow(()=>scheduler.removeTarget({kind:'bot',id:bot.id}));
+    assert.ok(!library.all().some(skill=>skill.botId===bot.id));
+    assert.throws(()=>library.list(bot.id),/Bot 不存在/);
+    const created=store.createBot('new after deletion','scope');
+    assert.deepEqual(library.list(created.id).map(skill=>skill.id),sharedIds);
+    if(bot===first)assert.ok(library.list(second.id).some(skill=>skill.id==='private-'+second.id));
+    library.forgetBot(bot.id);
+  }
+  const third=store.createBot('third','scope');
+  assert.deepEqual(library.list(third.id).map(skill=>skill.id),sharedIds);
+  assert.equal(store.data.scheduledTasks.length,0);assert.equal(snapshots,4);
+});
 test('standard skills discover across agents, preserve variants, and keep private file storage authoritative',t=>{
   const paths=fixture(t);const shared=join(paths.homeDir,'.agents','skills','shared-one','SKILL.md');file(shared,skill('shared-one','Shared procedure'));
   file(join(paths.homeDir,'.claude','skills','group','duplicate','SKILL.md'),skill('duplicate','Claude variant'));

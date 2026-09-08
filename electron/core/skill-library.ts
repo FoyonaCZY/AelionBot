@@ -81,7 +81,11 @@ export class SkillLibrary {
   private metadata(botId:string):Record<string,{archived?:boolean;pinned?:boolean;readCount?:number;lastReadAt?:string}>{this.store.bot(botId);try{return JSON.parse(readFileSync(join(this.paths.dataDir,'bots',botId,'skill-state.json'),'utf8'));}catch{return {};}}
   private saveMetadata(botId:string,state:ReturnType<SkillLibrary['metadata']>){const dir=join(this.paths.dataDir,'bots',botId);mkdirSync(dir,{recursive:true});atomicJson(join(dir,'skill-state.json'),state);}
   observeRead(botId:string,id:string){const entry=this.find(botId,id),state=this.metadata(botId);state[entry.summary.id]={...state[entry.summary.id],readCount:(state[entry.summary.id]?.readCount||0)+1,lastReadAt:new Date().toISOString()};this.saveMetadata(botId,state);}
-  all(){return this.entries.map(entry=>({...entry.summary,...(entry.summary.botId?this.metadata(entry.summary.botId)[entry.summary.id]:{})}));}
+  all(){
+    // A snapshot may be requested between deleting a Bot and clearing its skill cache.
+    const bots=new Set(this.store.data.bots.map(bot=>bot.id));
+    return this.entries.filter(entry=>!entry.summary.botId||bots.has(entry.summary.botId)).map(entry=>({...entry.summary,...(entry.summary.botId?this.metadata(entry.summary.botId)[entry.summary.id]:{})}));
+  }
   forgetBot(botId:string){
     const removed=this.entries.filter(entry=>entry.summary.botId===botId);
     this.entries=this.entries.filter(entry=>entry.summary.botId!==botId);

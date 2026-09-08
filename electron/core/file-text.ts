@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import {isUtf8} from 'node:buffer';
 
 export const TEXT_FILE_LIMIT=2*1024*1024;
-export const READ_PAGE_FIELDS={offset:{type:'integer',minimum:0},startLine:{type:'integer',minimum:1},lineCount:{type:'integer',minimum:1,maximum:2000},maxChars:{type:'integer',minimum:1,maximum:32000},withLineNumbers:{type:'boolean'}};
+export const READ_PAGE_FIELDS={offset:{type:'integer',minimum:0,description:'字符偏移。按行读取时省略或传 0；非零 offset 不能与行号参数同时使用。'},startLine:{type:'integer',minimum:1,description:'按行读取的起始行，从 1 开始。'},lineCount:{type:'integer',minimum:1,maximum:2000},maxChars:{type:'integer',minimum:1,maximum:32000},withLineNumbers:{type:'boolean'}};
 export class FileToolError extends Error {constructor(readonly code:string,message:string){super(message);this.name='FileToolError';}}
 export function toolFailure(error:unknown){const code=(error as {code?:unknown})?.code;return {error:error instanceof Error?error.message:String(error),...(typeof code==='string'&&/^[A-Z][A-Z0-9_]{0,63}$/.test(code)?{errorCode:code}:{})};}
 export function boundedInteger(value:unknown,fallback:number,min:number,max:number,name:string){if(value===undefined)return fallback;if(typeof value!=='number'||!Number.isSafeInteger(value)||value<min||value>max)throw new FileToolError('INVALID_ARGUMENT',`${name} 必须是 ${min}–${max} 范围内的整数`);return value;}
@@ -22,7 +22,7 @@ export function textPage(text:string,args:Record<string,unknown>={}){
   const offset=boundedInteger(args.offset,0,0,Number.MAX_SAFE_INTEGER,'offset'),startLine=boundedInteger(args.startLine,1,1,Number.MAX_SAFE_INTEGER,'startLine'),lineCount=boundedInteger(args.lineCount,200,1,2000,'lineCount'),maxChars=boundedInteger(args.maxChars,12000,1,32000,'maxChars');
   if(args.withLineNumbers!==undefined&&typeof args.withLineNumbers!=='boolean')throw new FileToolError('INVALID_ARGUMENT','withLineNumbers 必须是布尔值');
   const numbered=args.withLineNumbers===true,lineMode=args.startLine!==undefined||args.lineCount!==undefined||numbered;
-  if(lineMode&&args.offset!==undefined)throw new FileToolError('INVALID_ARGUMENT','offset 与按行读取参数不能同时使用');
+  if(lineMode&&offset!==0)throw new FileToolError('INVALID_ARGUMENT','非零 offset 与按行读取参数不能同时使用；按行读取时省略 offset 或传 0');
   if(numbered&&maxChars<64)throw new FileToolError('INVALID_ARGUMENT','带行号读取时 maxChars 至少为 64');
   const starts:number[]=[];if(text.length)starts.push(0);for(let index=0;index<text.length;index++)if(text[index]==='\n'&&index+1<text.length)starts.push(index+1);
   const lineAt=(index:number)=>{let left=0,right=starts.length;while(left<right){const mid=(left+right)>>>1;if(starts[mid]<=index)left=mid+1;else right=mid;}return left;};

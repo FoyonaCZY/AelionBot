@@ -13,6 +13,8 @@ import type { CommandResult, VmState } from '../../src/shared';
 import { atomicJson } from './store';
 import { DESKTOP_SCRIPT, WORKSTATION_VERSION, SESSION_LAUNCHER } from './desktop-profile';
 import { BOT_DESKTOP_SCRIPT,BOT_DESKTOP_VERSION } from './bot-desktop-profile';
+import { WALLPAPER_INSTALL_SCRIPT } from './desktop-wallpaper';
+import { DESKTOP_APPEARANCE_VERSION } from './desktop-appearance';
 import { verifiedDownload, fileHash,type ResourceFetch } from './download';
 import {workstationProgress,workstationFailure,installationProgress} from './workstation-progress';
 import {PACKAGE_INSTALLER_BOOTSTRAP} from './package-installer';
@@ -28,7 +30,7 @@ async function freePort(): Promise<number> {
   return new Promise((ok, fail) => { const server=createTcpServer(); server.once('error',fail); server.listen(0,'127.0.0.1',()=>{const address=server.address(); const port=typeof address==='object'&&address?address.port:0;server.close(()=>ok(port));}); });
 }
 interface VmRecord {arch?:GuestArch;id: string; pid?: number; initialized?:boolean; sshPort: number; qmpPort: number; vncPort: number; seedPort: number; seedToken: string; hostKeyHash: string; preparedAt: string; }
-export interface VmOptions { dataDir: string; runtimeDir: string; cacheDir: string; memoryMiB?: number;cpuCount?:number;platform?:NodeJS.Platform;arch?:GuestArch;accelerator?:'tcg'|'hvf'|'whpx';startupTimeoutMs?:number;skipDesktop?:boolean;downloadFetch?:ResourceFetch; }
+export interface VmOptions { dataDir: string; runtimeDir: string; cacheDir: string; wallpaperPath?:string; memoryMiB?: number;cpuCount?:number;platform?:NodeJS.Platform;arch?:GuestArch;accelerator?:'tcg'|'hvf'|'whpx';startupTimeoutMs?:number;skipDesktop?:boolean;downloadFetch?:ResourceFetch; }
 
 const INIT_SCRIPT = `#!/bin/sh
 set -eu
@@ -64,6 +66,8 @@ export class VmController extends EventEmitter {
   private vncToken = randomBytes(24).toString('hex');
   private desktopPorts=new Map<string,number>();
   private desktopRuntime?:Promise<void>;
+  private wallpaperTask?:Promise<void>;
+  private wallpaperRetryAt=0;
   constructor(readonly options: VmOptions) {
     super(); this.dir=join(options.dataDir,'vm');mkdirSync(this.dir,{recursive:true});
     this.platform=vmPlatform(options.platform,options.arch);this.executable=qemuBinary(options.runtimeDir,this.platform.executable);
@@ -159,7 +163,7 @@ export class VmController extends EventEmitter {
     await new Promise<void>((ok,fail)=>{this.vncBridge!.once('listening',ok);this.vncBridge!.once('error',fail);});
     const address=this.vncBridge.address();if(address&&typeof address==='object')this.update({vncUrl:`ws://127.0.0.1:${address.port}/${this.vncToken}`});
   }
-  private closeServers() { this.seedServer?.close();this.seedServer=undefined;for(const client of this.vncBridge?.clients||[])client.terminate();this.vncBridge?.close();this.vncBridge=undefined;this.desktopPorts.clear();this.desktopRuntime=undefined;this.update({vncUrl:undefined}); }
+  private closeServers() { this.seedServer?.close();this.seedServer=undefined;for(const client of this.vncBridge?.clients||[])client.terminate();this.vncBridge?.close();this.vncBridge=undefined;this.desktopPorts.clear();this.desktopRuntime=undefined;this.wallpaperTask=undefined;this.wallpaperRetryAt=0;this.update({vncUrl:undefined}); }
   async start() { this.assertOpen();if(!this.record) await this.prepare();return this.exclusive(async()=>{
     this.checkArchitecture();
     if(process.platform==='darwin'&&process.arch==='x64'){let translated=false;try{translated=execFileSync('/usr/sbin/sysctl',['-in','sysctl.proc_translated'],{encoding:'utf8',stdio:['ignore','pipe','ignore']}).trim()==='1';}catch{}if(translated)throw Error('当前运行的是 Intel 安装包，请为这台 Apple Silicon Mac 下载 ARM64 安装包');}
@@ -232,6 +236,7 @@ export class VmController extends EventEmitter {
         const maintenance=lock.exitCode!==0;this.update({installation:maintenance?installationProgress(result.stdout):undefined});
         if(result.stdout.includes('READY')){if(!this.record.initialized){this.record.initialized=true;this.persist();}const appsReady=result.stdout.includes('APPS'),needsReboot=result.stdout.includes('NEEDS_REBOOT');this.update({status:'ready',detail:maintenance?workstationProgress(result.stdout):needsReboot?'应用已安装，请重启工作电脑完成初始化':desktop&&appsReady?'工作电脑已就绪':desktop?'桌面在线，应用环境需要准备':'正在准备桌面',pid:this.record.pid,sshPort:this.record.sshPort,desktopReady:desktop,appsReady,maintenance,needsReboot,lastError:result.stdout.includes('TOOL_ERROR')?workstationFailure(result.stdout):undefined});}
         else await this.seed();
+        if(!this.closing)await this.ensureWallpaper();
         if(!this.closing)await this.bridge();
       }
     }catch(error){
@@ -244,6 +249,26 @@ export class VmController extends EventEmitter {
       this.update({status:'error',detail:'VM 进程存在，连接尚未恢复',lastError:(error as Error).message,pid:this.record.pid});
     }}
     return this.state;
+  }
+  private async ensureWallpaper(){
+    if(!this.options.wallpaperPath||this.closing||this.stateValue.status!=='ready'||!this.stateValue.appsReady||this.stateValue.maintenance||Date.now()<this.wallpaperRetryAt)return;
+    if(this.wallpaperTask)return this.wallpaperTask;
+    const install=async()=>{
+      const image=readFileSync(this.options.wallpaperPath!);
+      if(image.length>8*1024*1024||!image.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex')))throw new Error('工作电脑壁纸无效');
+      const hash=createHash('sha256').update(image).digest('hex');
+      const probe=await this.execRaw(`test "$(cat /var/lib/aelion/desktop-appearance-version 2>/dev/null)" = ${shQuote(DESKTOP_APPEARANCE_VERSION)} && sha256sum /usr/local/share/aelion/wallpaper.png`,'aelion',5000);
+      if(probe.exitCode===0&&probe.stdout.trim().split(/\s+/)[0]===hash)return;
+      const result=await this.execRaw(`flock -n /var/lib/aelion/desktop.lock python3 -c ${shQuote(WALLPAPER_INSTALL_SCRIPT)} ${shQuote(hash)}`,'root',60000,undefined,10000,image);
+      if(result.exitCode!==0)throw new Error(result.stderr||'工作电脑壁纸更新失败');
+    };
+    // A cosmetic update must not turn a healthy computer into an error state.
+    const pending=install().catch(error=>{
+      if(this.wallpaperTask===pending){this.wallpaperTask=undefined;this.wallpaperRetryAt=Date.now()+60000;}
+      console.warn('工作电脑壁纸稍后重试：',(error as Error).message);
+    });
+    this.wallpaperTask=pending;
+    await pending;
   }
   private async execRaw(command:string,username:'aelion'|'root',timeoutMs:number,signal?:AbortSignal,outputLimit=2_000_000,inputBytes?:Buffer):Promise<CommandResult>{
     // QEMU's local forwarding can briefly refuse a new socket under concurrent load.

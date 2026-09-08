@@ -99,10 +99,11 @@ export function liveBotStep(messages:ChatMessage[],run?:RunRecord,waiting?:'host
   if(reviewing)return {phase:'thinking',label:'正在确认操作权限'};
   if(waiting)return {phase:'waiting',label:waiting==='host_permission'?'等待你的操作许可':'等待你处理工作电脑'};
   const current=[...messages].reverse().find(message=>message.runId===run.id&&message.role==='tool'&&message.status==='running');
-  if(current){const display=toolDisplay(current);return {phase:'working',label:/^(正在|等待)/.test(display.label)?display.label:`正在${display.label}`,detail:display.detail};}
   const execution=[...(run.executions||[])].reverse().find(item=>item.status==='running');
+  if(current?.tool==='tools_batch'&&execution&&execution.tool!=='tools_batch')return {phase:'working',label:toolOperation(execution.tool).active};
+  if(current){const display=toolDisplay(current);return {phase:'working',label:/^(正在|等待)/.test(display.label)?display.label:`正在${display.label}`,detail:display.detail};}
   if(execution)return {phase:'working',label:toolOperation(execution.tool).active};
-  return {phase:'thinking',label:run.toolCalls?'正在整理结果':'正在思考'};
+  return {phase:'thinking',label:'正在思考'};
 }
 
 export function readableContent(content:string){
@@ -126,7 +127,9 @@ export function friendlyError(raw:string):Notice{
 }
 
 export type TimelineItem={kind:'message';id:string;message:ChatMessage}|{kind:'run';id:string;segmentId:string;isLast:boolean;messages:ChatMessage[]};
+const internalVerificationNotice=(message:ChatMessage)=>message.role==='assistant'&&message.status==='failed'&&message.presentation==='progress'&&message.content==='发现校验问题，正在检查并修正。';
 export function conversationTimeline(messages:ChatMessage[]):TimelineItem[]{
+  messages=messages.filter(message=>!internalVerificationNotice(message));
   const timeline:TimelineItem[]=[];
   const progress=new Set<string>(),laterActivity=new Set<string>();
   for(let i=messages.length-1;i>=0;i--){
@@ -145,6 +148,7 @@ export function conversationTimeline(messages:ChatMessage[]):TimelineItem[]{
   return timeline;
 }
 export function runPresentation(messages:ChatMessage[],run?:RunRecord){
+  messages=messages.filter(message=>!internalVerificationNotice(message));
   const tools=messages.filter(message=>message.role==='tool');
   const assistants=messages.filter(message=>message.role==='assistant');
   const last=assistants.at(-1);

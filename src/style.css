@@ -47,10 +47,10 @@
 @media(max-width:1150px){.computer-details{padding:0 13px 20px}.computer-preview{height:170px}.settings-modal{width:650px}.modal-backdrop{padding:25px}.document-preview{padding:25px}.toolbar-buttons .secondary-button{padding:8px 10px}}
 @media(max-width:900px){.app-shell{grid-template-columns:200px minmax(0,1fr)}.computer-details{display:none}.modal-backdrop{grid-template-columns:minmax(0,1fr)}.modal{max-width:100%}}
 @media(max-width:600px){.app-shell{grid-template-columns:160px minmax(0,1fr)}.sidebar-top{padding:12px}.brand{font-size:16px}.bot-line small{display:none}.chat-header{padding:12px}.header-actions{gap:4px}.bot-heading{min-width:0}.bot-heading strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.messages{padding:16px 14px}.composer-wrap{padding:10px 12px 13px}}
-.modal-backdrop.computer-backdrop{padding:0;background:#17191d}
-.modal.computer-modal{position:relative;width:100%;height:100%;max-width:none;max-height:none;padding:0;border-radius:0;background:#17191d;overflow:hidden;box-shadow:none}
-.computer-modal .expanded-screen{width:100%;height:100%;border-radius:0;background:#17191d}
-.computer-modal .vnc-shell{background:#17191d}
+.modal-backdrop.computer-backdrop{padding:0;background:#f5f4f8}
+.modal.computer-modal{position:relative;width:100%;height:100%;max-width:none;max-height:none;padding:0;border-radius:0;background:#f5f4f8;overflow:hidden;box-shadow:none}
+.computer-modal .expanded-screen{width:100%;height:100%;border-radius:0;background:#f5f4f8}
+.computer-modal .vnc-shell{background:#f5f4f8}
 .computer-floating-controls{position:absolute;right:20px;bottom:20px;z-index:2;display:flex;align-items:center;gap:10px}
 .computer-control,.computer-close.icon-button{height:42px;border:1px solid #ffffff26;border-radius:999px;background:#20252ce8;color:#fff;box-shadow:0 4px 18px #0003;backdrop-filter:blur(12px)}
 .computer-control{padding:0 18px;font-size:13px;white-space:nowrap}.computer-close.icon-button{width:42px}

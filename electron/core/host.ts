@@ -58,7 +58,7 @@ export class HostComputer {
   private stamp(path:string){if(!existsSync(path))return 'missing';const stat=statSync(path);return `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}`;}
   async execute(botId:string,runId:string,args:Record<string,unknown>,signal:AbortSignal,workspace?:string){
     const command=text(args.command,'command',6000),reason=text(args.reason,'reason',1000);
-    const defaultCwd=workspace||this.workspace(botId),cwd=this.canonical(args.cwd===undefined?defaultCwd:this.path(args.cwd));
+    const defaultCwd=workspace||this.workspace(botId),cwd=this.canonical(args.cwd===undefined||args.cwd===''?defaultCwd:this.resolveFilePath(args.cwd,defaultCwd));
     if(args.cwd!==undefined&&(!existsSync(cwd)||!statSync(cwd).isDirectory()))throw new Error('本机工作目录不存在');
     const timeout=args.timeoutMs===undefined?120000:Number(args.timeoutMs);if(!Number.isInteger(timeout)||timeout<100||timeout>120000)throw new Error('超时必须在 100–120000 毫秒之间');
     await this.interactions.permission(botId,runId,{operation:'command',reason,command,cwd},signal);aborted(signal);
@@ -137,7 +137,7 @@ export class HostComputer {
     }catch(error){throw filesystemError(error,path);}
   }
   async searchFiles(botId:string,runId:string,args:Record<string,unknown>,signal:AbortSignal,workspace?:string,kind:'find'|'search'='search'){
-    const path=this.canonical(this.resolveFilePath(args.path===undefined?workspace||this.workspace(botId):args.path,workspace)),reason=text(args.reason,'reason',1000);
+    const path=this.canonical(this.resolveFilePath(args.path===undefined||args.path===''?workspace||this.workspace(botId):args.path,workspace)),reason=text(args.reason,'reason',1000);
     const glob=text((kind==='find'?args.pattern:args.glob)??'**/*','glob',500).replaceAll('\\','/');
     if(/^[a-z]:|^\//i.test(glob)||glob.split('/').includes('..'))throw new FileToolError('INVALID_ARGUMENT','glob 必须相对于检索目录，不能包含绝对路径或 ..');
     const query=kind==='search'?args.query:undefined;if(kind==='search'&&(typeof query!=='string'||!query.length||query.length>1000||/[\r\n]/.test(query)||forbidden.test(query)))throw new FileToolError('INVALID_ARGUMENT','query 需要 1–1000 字符的单行文本或 JavaScript 正则');

@@ -63,7 +63,7 @@ export function Vnc({url,control=false}:{url?:string;control?:boolean}){
     let active=true;
     let frameTimer:ReturnType<typeof setInterval>|undefined;
     try{
-      const client=new RFB(host.current,url,{shared:true});rfb.current=client;client.scaleViewport=true;client.resizeSession=false;client.viewOnly=!control;
+      const client=new RFB(host.current,url,{shared:true});rfb.current=client;client.background='#f5f4f8';client.scaleViewport=true;client.resizeSession=false;client.viewOnly=!control;
       client.addEventListener('connect',()=>{
         if(!active)return;
         const begin=Date.now();

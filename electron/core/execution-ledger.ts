@@ -5,6 +5,11 @@ import type {ToolExecution} from '../../src/execution-types';
 import type {Store} from './store';
 import {redactHost} from './host';
 import {hostPathKey} from './host-platform';
+import {READ_TOOLS} from './tool-pipeline';
+
+// Failed reads remain in the ledger and model history, but do not represent
+// unfinished side effects that must be repaired before a task can finish.
+const nonBlockingFailures=new Set([...READ_TOOLS,'tools_batch','execution_resolve']);
 
 function stable(value:unknown):string {if(Array.isArray(value))return '['+value.map(stable).join(',')+']';if(value&&typeof value==='object')return '{'+Object.entries(value).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>JSON.stringify(key)+':'+stable(item)).join(',')+'}';return JSON.stringify(value)??'null';}
 export function executionTarget(tool:string,args:Record<string,unknown>,botId:string,hostWorkspace=''){
@@ -37,7 +42,7 @@ export class ExecutionLedger {
     this.store.save();this.store.journal('execution.finished',{id:entry.id,runId:entry.runId,status,resultId});
   }
   pending(botId:string,runId:string){return this.forTask(botId,runId).filter(entry=>['failed','unknown'].includes(entry.status)&&!entry.resolution);}
-  failureMap(botId:string,runId:string){return new Map(this.pending(botId,runId).map(entry=>[entry.id,JSON.stringify({executionId:entry.id,tool:entry.tool,target:entry.target,status:entry.status,error:entry.error})]));}
+  failureMap(botId:string,runId:string){return new Map(this.pending(botId,runId).filter(entry=>entry.status!=='failed'||!nonBlockingFailures.has(entry.tool)).map(entry=>[entry.id,JSON.stringify({executionId:entry.id,tool:entry.tool,target:entry.target,status:entry.status,error:entry.error})]));}
   resolve(botId:string,runId:string,args:Record<string,unknown>){
     const entries=this.forTask(botId,runId),entry=entries.find(entry=>entry.id===args.executionId);
     if(!entry||!['failed','unknown'].includes(entry.status)||entry.resolution)throw Error('没有可处理的当前任务失败记录');

@@ -20,6 +20,25 @@ test('permission waiting takes precedence and another run cannot supply a stale 
   assert.deepEqual(liveBotStep([tool],run('running'),'host_permission',true),{phase:'thinking',label:'正在确认操作权限'});
 });
 
+test('waiting for another model turn does not imply the task is wrapping up',()=>{
+ assert.deepEqual(liveBotStep([],run('running')),{phase:'thinking',label:'正在思考'});
+});
+
+test('batch status follows the active child operation and clears when it finishes',()=>{
+ const batch=message('batch','tool','',{tool:'tools_batch',status:'running'}),record=run('running');
+ record.executions=[{id:'child',callId:'child',botId:'bot',runId:record.id,tool:'host_file_read',target:'README.md',targetKey:'read',status:'running',startedAt:'2026-09-05T10:00:00Z'}];
+ assert.equal(liveBotStep([batch],record)?.label,'正在读取本机文件');
+ const write=message('write','tool','',{tool:'host_file_patch',status:'running'});
+ assert.equal(liveBotStep([write],record)?.label,'正在修改本机文件');
+ record.executions[0].status='succeeded';assert.equal(liveBotStep([{...write,status:'done'}],record)?.label,'正在思考');
+});
+
+test('legacy internal verification placeholders are absent from chat and progress notes',()=>{
+ const placeholder=message('internal','assistant','发现校验问题，正在检查并修正。',{status:'failed',presentation:'progress'}),progress=message('progress','assistant','已读取项目入口。',{presentation:'progress'});
+ assert.deepEqual(conversationTimeline([placeholder,progress]).map(item=>item.id),['progress']);
+ assert.deepEqual(runPresentation([placeholder,progress],{...run('failed'),error:'执行仍有未解决错误'}).notes.map(item=>item.id),['progress']);
+});
+
 test('completed progress stays between chronological tool segments and the final answer',()=>{
   const messages=[message('user','user','生成报告'),message('plan','assistant','先读取资料'),message('read','tool','{}',{tool:'file_read'}),message('empty','assistant',''),message('write','tool','{}',{tool:'file_write'}),message('final','assistant','报告已完成')];
   const timeline=conversationTimeline(messages);assert.equal(timeline.length,3);assert.equal(timeline[0].kind,'message');assert.equal(timeline[1].kind,'message');assert.equal(timeline[1].id,'plan');assert.equal(timeline[2].kind,'run');

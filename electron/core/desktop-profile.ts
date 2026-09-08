@@ -1,9 +1,11 @@
 import {BOT_DESKTOP_SCRIPT,BOT_DESKTOP_VERSION} from './bot-desktop-profile';
 import {PACKAGE_INSTALLER_BOOTSTRAP} from './package-installer';
+import {DESKTOP_APPEARANCE_SCRIPT} from './desktop-appearance';
 export const WORKSTATION_VERSION = '4';
 const preferChromium=process.platform==='darwin';
 
-const wallpaper = `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1200" viewBox="0 0 1920 1200"><defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#182634"/><stop offset=".55" stop-color="#172235"/><stop offset="1" stop-color="#2e3150"/></linearGradient><radialGradient id="a"><stop stop-color="#668cac" stop-opacity=".36"/><stop offset="1" stop-color="#668cac" stop-opacity="0"/></radialGradient><radialGradient id="b"><stop stop-color="#9b7fc6" stop-opacity=".25"/><stop offset="1" stop-color="#9b7fc6" stop-opacity="0"/></radialGradient></defs><rect width="1920" height="1200" fill="url(#bg)"/><ellipse cx="1450" cy="210" rx="900" ry="740" fill="url(#a)"/><ellipse cx="500" cy="1250" rx="1100" ry="800" fill="url(#b)"/><path d="M-200 1040C370 450 810 1210 2080 190" fill="none" stroke="#dde9f7" stroke-opacity=".09" stroke-width="2"/><path d="M-200 1080C410 510 850 1270 2080 240" fill="none" stroke="#dde9f7" stroke-opacity=".05" stroke-width="2"/><text x="1810" y="1090" text-anchor="end" fill="#e5edf7" fill-opacity=".65" font-family="sans-serif" font-size="30" letter-spacing="2">Aelion</text><text x="1810" y="1123" text-anchor="end" fill="#c5d1e1" fill-opacity=".45" font-family="sans-serif" font-size="14" letter-spacing="4">YOUR WORKSPACE</text></svg>`;
+// Lightweight light fallback while the bundled wallpaper is being transferred.
+const wallpaper = `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1200" viewBox="0 0 1920 1200"><defs><linearGradient id="a" x2="1" y2="1"><stop stop-color="#ece7f6"/><stop offset="1" stop-color="#b9cbe7"/></linearGradient><linearGradient id="b" x2="1" y2="1"><stop stop-color="#ded7f0"/><stop offset="1" stop-color="#eef2ee"/></linearGradient></defs><rect width="1920" height="1200" fill="#f5f4f2"/><path d="M630 1200C930 850 660 270 1280 0H1920V1200Z" fill="url(#a)"/><path d="M1050 1200C820 640 1700 630 1610 0H1920V1200Z" fill="url(#b)"/></svg>`;
 
 const homePage = `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>Aelion 工作电脑</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#f6f7f9;color:#202631;font:16px/1.7 "Noto Sans CJK SC",sans-serif}main{max-width:940px;margin:auto;padding:90px 40px}.brand{font-size:18px;font-weight:650;color:#687789;margin-bottom:66px}h1{font-size:44px;letter-spacing:-1px;margin:0 0 10px;font-weight:600}.intro{color:#76808e;margin-bottom:32px}form{display:flex;background:white;border:1px solid #e0e4eb;border-radius:17px;padding:10px 12px;gap:10px;box-shadow:0 8px 30px #20304004}input{border:0;outline:0;background:none;flex:1;padding:10px;font:inherit}button{border:0;border-radius:11px;background:#24374c;color:white;padding:10px 24px;font:inherit;cursor:pointer}.links{display:flex;gap:12px;margin:24px 0 60px;flex-wrap:wrap}a{color:#41536a;text-decoration:none;background:#e9edf2;border-radius:10px;padding:9px 18px;font-size:14px}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.card{background:white;border:1px solid #e3e6eb;border-radius:17px;padding:23px}.card strong{display:block;margin-bottom:8px}.card p{color:#7c8591;font-size:13px;margin:0}footer{margin-top:36px;color:#939ba5;font-size:12px}</style><main><div class="brand">Aelion · 工作电脑</div><h1>开始今天的工作。</h1><p class="intro">浏览网页，整理资料，把想法变成成果。</p><form action="https://www.google.com/search"><input name="q" placeholder="搜索网页…" aria-label="搜索网页"><button>搜索</button></form><nav class="links"><a href="https://www.google.com">Google</a><a href="https://www.bing.com">Bing</a><a href="https://github.com">GitHub</a><a href="https://www.wikipedia.org">Wikipedia</a></nav><section class="cards"><div class="card"><strong>浏览器</strong><p>浏览器已安装。可以浏览网页、下载资料或打开本地预览。</p></div><div class="card"><strong>工作文件</strong><p>从桌面的“工作文件”打开文件管理器。每个 Bot 有自己的工作文件夹。</p></div><div class="card"><strong>文档与表格</strong><p>Writer、Calc、Impress、PDF 阅读器和文本编辑器已准备好。</p></div></section><footer>文件保存在这台工作电脑中。通过 AelionBot 的对话产物卡片预览和导出。</footer></main></html>`;
 
@@ -77,6 +79,7 @@ run('xdg-settings','set','default-web-browser','aelion-browser.desktop')
 run('xset','s','off'); run('xset','-dpms'); run('xset','s','noblank')
 run('xfdesktop','--reload')
 if '--arrange' in run('xfdesktop','--help').stdout: run('xfdesktop','--arrange')
+run('/usr/local/bin/aelion-appearance')
 `;
 
 const launcher=(name:string,exec:string,icon:string)=>`[Desktop Entry]\nVersion=1.0\nType=Application\nName=${name}\nExec=${exec}\nIcon=${icon}\nTerminal=false\nStartupNotify=true\n`;
@@ -85,10 +88,10 @@ const files:Record<string,string>={
   '/usr/local/bin/aelion-bot-desktop':BOT_DESKTOP_SCRIPT,
   '/var/lib/aelion/bot-desktop-version':BOT_DESKTOP_VERSION,
   '/usr/local/bin/aelion-style':styleScript,
+  '/usr/local/bin/aelion-appearance':DESKTOP_APPEARANCE_SCRIPT,
   '/usr/local/share/aelion/wallpaper.svg':wallpaper,
   '/usr/local/share/aelion/start.html':homePage,
   '/home/aelion/.config/xfce4/helpers.rc':'WebBrowser=custom\nWebBrowserCustom=/usr/local/bin/aelion-browser\nFileManager=Thunar\nTerminalEmulator=xfce4-terminal\n',
-  '/home/aelion/.config/gtk-3.0/gtk.css':'.xfce4-panel{background-color:#1b2939;color:#eef3f8;border-radius:10px;} .xfce4-panel button{border-radius:8px;}\n',
   '/home/aelion/Desktop/Chrome.desktop':launcher('浏览器','/usr/local/bin/aelion-session /usr/local/bin/aelion-browser --no-first-run --no-default-browser-check file:///usr/local/share/aelion/start.html','web-browser'),
   '/usr/share/applications/aelion-browser.desktop':launcher('浏览器','/usr/local/bin/aelion-browser %U','web-browser'),
   '/usr/local/bin/aelion-browser':preferChromium?'#!/bin/sh\nexec chromium "$@"\n':'#!/bin/sh\nif command -v google-chrome-stable >/dev/null 2>&1; then exec google-chrome-stable "$@"; fi\nexec chromium "$@"\n',
@@ -142,7 +145,9 @@ for name, content in files.items():
         while parent != pathlib.Path('/home/aelion'):
             os.chown(parent,1000,1000); parent=parent.parent
 PY
-rsvg-convert -o /usr/local/share/aelion/wallpaper.png /usr/local/share/aelion/wallpaper.svg
+if [ ! -s /usr/local/share/aelion/wallpaper.png ]; then
+  rsvg-convert -o /usr/local/share/aelion/wallpaper.png /usr/local/share/aelion/wallpaper.svg
+fi
 systemctl enable lightdm
 kernel=$(find /boot -maxdepth 1 -name "vmlinuz-*-$arch" ! -name '*cloud*' | sort -V | tail -n 1 | sed 's|.*/vmlinuz-||')
 test -n "$kernel"

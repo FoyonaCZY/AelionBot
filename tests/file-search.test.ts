@@ -20,6 +20,12 @@ async function fixture(t:test.TestContext){
  return {root,project,data,runtime,host,interactions,file,run};
 }
 
+test('empty search paths use the selected workspace and still request permission',async t=>{
+ const f=await fixture(t),path=f.file('README.md','workspace overview');
+ assert.deepEqual((await f.run({path:'',pattern:'**/*.md'},'find')).files,[path]);
+ assert.deepEqual((await f.run({path:'',query:'overview',outputMode:'files'})).files,[path]);
+});
+
 test('native glob respects nested gitignore rules and paginates stable paths',async t=>{
  const f=await fixture(t);f.file('.gitignore','ignored/\n*.tmp\n');f.file('ignored/file.ts','needle');f.file('root.tmp','needle');f.file('src/.gitignore','!keep.tmp\n');const kept=f.file('src/keep.tmp','needle');f.file('src/a.ts','needle');f.file('src/b.ts','needle');
  const tmp=await f.run({pattern:'**/*.tmp'},'find');assert.deepEqual(tmp.files,[kept]);

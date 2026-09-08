@@ -1,34 +1,55 @@
-.modal.computer-setup-modal{width:560px;max-width:100%;padding:24px 30px 28px;color:#242424}
-.computer-setup-modal>header{margin-bottom:12px}
-.setup-intro{text-align:center;padding:8px 12px 0}
-.setup-computer-icon{display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:19px;background:#f0f0f0;color:#444}
-.setup-intro h3{font-size:22px;font-weight:600;margin:17px 0 10px;letter-spacing:-.4px}
-.setup-intro p{font-size:13px;line-height:1.8;margin:0;color:#727272}
-.setup-time{display:flex;flex-direction:column;gap:6px;padding:16px 18px;margin:23px 0;background:#f3f3f3;border-radius:14px}
-.setup-time strong{font-size:14px;font-weight:600}
-.setup-time span{color:#707070;font-size:12px;line-height:1.7}
-.setup-steps{list-style:none;margin:22px 0;padding:0;display:grid;gap:18px}
-.setup-steps li{display:flex;align-items:center;gap:14px;color:#8b8b8b}
-.setup-steps li>span{width:27px;height:27px;display:grid;place-items:center;flex-shrink:0;border:1px solid #ddd;border-radius:50%;font-size:12px}
-.setup-steps strong{font-size:13px;font-weight:500;display:block}
-.setup-steps small{display:block;font-size:11px;color:#858585;margin-top:4px}
-.setup-steps .active{color:#222}.setup-steps .active>span{color:white;border-color:#252525;background:#252525}
-.setup-steps .complete{color:#555}.setup-steps .complete>span{background:#eef2ef;border-color:transparent;color:#54775d}
-.setup-current{padding:14px 16px;background:#f6f6f6;border-radius:12px;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
-.setup-current p{font-size:11px;color:#777;margin:9px 0 0}
-.setup-progress{height:4px;background:#e1e1e1;border-radius:4px;overflow:hidden;width:100%;margin:12px 0 4px}
-.setup-progress>span{display:block;height:100%;border-radius:4px;background:#666;transition:width .3s}
+.modal.computer-setup-modal{position:relative;width:420px;max-width:calc(100vw - 32px);padding:32px;border:1px solid #eeebf2;border-radius:24px;background:#fff;color:#35303e;box-shadow:0 24px 100px #30223c18}
+.computer-setup-modal>header{position:absolute;top:12px;right:12px;margin:0;padding:0;border:0;z-index:2}
+.computer-setup-modal>header h2{display:none}
+.computer-setup-modal>header .icon-button{width:28px;height:28px;color:#aaa2b0;border-radius:50%}
+.computer-setup-modal>header .icon-button:hover{background:#f4f1f7;color:#62576f}
+.computer-setup{padding:4px 0 0;text-align:center}
+.setup-mascot{height:122px;width:160px;margin:0 auto 8px;position:relative;display:grid;place-items:center}
+.setup-mascot>.avatar{position:relative;z-index:1;overflow:visible;transform:rotate(-7deg);transition:transform .4s}
+.setup-mascot .avatar-halo{display:none}
+.setup-mascot-floor{position:absolute;bottom:12px;width:88px;height:9px;border-radius:50%;background:#f0ebf6}
+.setup-mascot-spark{position:absolute;width:5px;height:5px;border-radius:50%;background:#ded3ec}
+.setup-mascot-spark.spark-one{left:17px;top:42px}.setup-mascot-spark.spark-two{right:16px;top:70px;width:4px;height:4px;background:#cbdedc}
+.setup-mascot-check{position:absolute;right:36px;bottom:28px;z-index:2;width:23px;height:23px;display:grid;place-items:center;border:3px solid #fff;border-radius:50%;background:#b6d9cb;color:#355b4f}
+.computer-setup[data-state=working] .setup-mascot>.avatar{animation:setup-float 3s ease-in-out infinite}
+.computer-setup[data-state=working] .setup-mascot-floor{animation:setup-shadow 3s ease-in-out infinite}
+.computer-setup[data-state=stopped] .avatar-eye{transform:scaleY(.2)}
+.setup-intro h3{font-size:23px;line-height:1.4;font-weight:550;letter-spacing:-.6px;margin:0 0 11px;color:#35303e}
+.setup-intro p{font-size:12px;line-height:1.8;margin:0;color:#968c9f}
+.setup-capabilities{display:flex;justify-content:center;gap:19px;margin:29px 0 31px;color:#95879f}
+.setup-capabilities span{display:flex;align-items:center;gap:6px;font-size:11px;white-space:nowrap}
+.setup-current{max-width:258px;margin:27px auto 17px;text-align:left}
+.setup-current-label{display:flex;justify-content:space-between;gap:12px;color:#8e809b;font-size:11px}
+.setup-current-label>span:last-child{color:#b0a5ba;font-variant-numeric:tabular-nums}
+.setup-progress{height:3px;background:#eee9f3;border-radius:4px;overflow:hidden;width:100%;margin:12px 0 4px}
+.setup-progress>span{display:block;height:100%;border-radius:4px;background:#ab94c6;transition:width .3s}
 .setup-progress .indeterminate{width:34%;animation:setup-progress 1.7s ease-in-out infinite}
-@keyframes setup-progress{from{transform:translateX(-100%)}to{transform:translateX(300%)}}
-.setup-requirements{font-size:11px;line-height:1.7;color:#777;margin:20px 0 0}
-.setup-error{color:#a64135;font-size:12px;line-height:1.7;overflow-wrap:anywhere}
-.setup-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}
-.setup-actions button{min-height:39px;font-size:13px}
+.setup-diagnostics{margin:12px 0;color:#a79aaf;font-size:11px;text-align:left}
+.setup-diagnostics summary{text-align:center;cursor:pointer;list-style:none;padding:4px}
+.setup-diagnostics summary::-webkit-details-marker{display:none}
+.setup-diagnostics summary:hover{color:#786087}
+.setup-diagnostics p{max-height:100px;overflow:auto;overflow-wrap:anywhere;white-space:pre-wrap;line-height:1.8;text-align:left;margin:8px 0;padding:12px;background:#f8f6fa;border-radius:10px}
+.setup-diagnostics .setup-error{color:#a46d65;background:#faf6f4}
+.setup-requirements{font-size:11px;line-height:1.7;color:#a18374;margin:18px 0 0}
+.setup-actions{display:flex;justify-content:center;gap:10px;margin-top:28px}
+.setup-actions button{display:flex;align-items:center;justify-content:center;gap:16px;min-height:41px;padding:10px 22px;font-size:12px;font-weight:500;border-radius:13px;box-shadow:none}
+.setup-actions .primary-button{background:#82639e;color:#fff;min-width:162px;border:1px solid transparent}
+.setup-actions .primary-button:hover{background:#73548f}
+.setup-actions .secondary-button{background:#f5f2f8;border:1px solid transparent;color:#93839f;min-width:84px}
+.setup-actions .secondary-button:hover{background:#eee8f4}
+.setup-actions .setup-background{background:#f0eaf7;color:#82649b;min-width:200px}
+.setup-actions .setup-background:hover{background:#e8dff2}
+.setup-footnote{display:flex;align-items:center;justify-content:center;gap:6px;font-size:10px;color:#b0a5ba;line-height:1.7;margin:16px 0 0;position:relative}
+.setup-footnote details summary{display:flex;cursor:pointer;list-style:none;padding:2px}
+.setup-footnote details p{position:absolute;left:0;right:0;bottom:20px;margin:0;padding:12px;border:1px solid #eee9f3;border-radius:10px;background:#fff;color:#95869f;box-shadow:0 5px 20px #3422410c;text-align:left}
 .computer-setup-card{display:flex;flex-direction:column;align-items:flex-start;gap:10px;background:#f4f4f4;border:1px solid #e9e9e9;border-radius:14px;padding:22px 19px;color:#555;margin-bottom:14px;min-width:0}
 .computer-setup-card>strong{font-size:14px;font-weight:550;color:#292929;margin-top:3px}
 .computer-setup-card>p{font-size:12px;line-height:1.7;margin:0;overflow-wrap:anywhere;color:#747474}
 .setup-estimate-small{font-size:11px;color:#747474}
 .computer-setup-card>button{margin-top:4px;min-height:35px;max-width:100%}
 .settings-body .computer-setup-card{margin-bottom:0}
-@media(prefers-reduced-motion:reduce){.setup-progress .indeterminate{animation:none;width:100%;opacity:.5}}
-@media(max-height:750px){.modal.computer-setup-modal{padding-top:18px;padding-bottom:20px}.setup-intro{padding-top:0}.setup-computer-icon{width:48px;height:48px}.setup-intro h3{font-size:20px;margin-top:12px}.setup-time{margin:16px 0;padding:12px 15px}.setup-steps{gap:12px;margin:16px 0}.setup-actions{margin-top:18px}}
+@keyframes setup-progress{from{transform:translateX(-100%)}to{transform:translateX(300%)}}
+@keyframes setup-float{0%,100%{transform:translateY(0) rotate(-7deg)}50%{transform:translateY(-6px) rotate(5deg)}}
+@keyframes setup-shadow{0%,100%{transform:scaleX(1);opacity:1}50%{transform:scaleX(.8);opacity:.55}}
+@media(prefers-reduced-motion:reduce){.computer-setup[data-state=working] .setup-mascot>.avatar,.computer-setup[data-state=working] .setup-mascot-floor{animation:none}.setup-progress .indeterminate{animation:none;width:100%;opacity:.5}}
+@media(max-height:550px){.modal.computer-setup-modal{padding:22px 28px}.setup-mascot{height:89px;margin-bottom:4px}.setup-mascot>.avatar{width:60px;height:60px}.setup-mascot-floor{bottom:0}.setup-actions{margin-top:20px}.setup-capabilities{margin:20px 0}.setup-current{margin-top:20px}}

@@ -22,6 +22,8 @@ const signal=()=>new AbortController().signal;
 test('character and line pagination preserve Unicode and make progress to EOF',()=>{
  const text='😀中文\r\nsecond\r\n尾行';let offset=0,joined='';do{const page=textPage(text,{offset,maxChars:3});joined+=page.content;assert.ok(page.nextOffset>offset||page.eof);offset=page.nextOffset;if(page.eof)break;}while(true);assert.equal(joined,text);
  const page=textPage(text,{startLine:2,lineCount:1});assert.equal(page.content,'second\r\n');assert.equal(page.startLine,2);assert.equal(page.endLine,2);assert.equal(page.nextLine,3);assert.equal(page.rangeTruncated,false);
+ assert.deepEqual(textPage(text,{offset:0,startLine:2,lineCount:1}),page);
+ assert.deepEqual(textPage(text,{offset:0,startLine:1,lineCount:2,withLineNumbers:true}),textPage(text,{startLine:1,lineCount:2,withLineNumbers:true}));
  const numbered=textPage(text,{startLine:1,lineCount:2,withLineNumbers:true});assert.equal(numbered.content,'1 | 😀中文\r\n2 | second\r\n');assert.equal(numbered.nextOffset,text.indexOf('尾'));
  assert.equal(textPage(text,{startLine:50}).eof,true);assert.equal(textPage('',{}).totalLines,0);assert.equal(textPage('a\n',{}).totalLines,1);assert.throws(()=>textPage(text,{offset:1,startLine:2}),/不能同时/);
  const long=textPage('x'.repeat(1000)+'\nnext',{startLine:1,lineCount:2,maxChars:80,withLineNumbers:true});assert.equal(long.content.length,80);assert.equal(long.partialLine,true);assert.equal(textPage('x'.repeat(1000)+'\nnext',{offset:long.nextOffset,maxChars:32000}).content.length,1005-long.nextOffset);

@@ -379,7 +379,7 @@ export class Harness {
             visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});this.changed();continue;
           }
           if(pendingFailures.size&&currentWork?.status!=='blocked'){
-            visible.content='发现校验问题，正在检查并修正。';visible.status='failed';visible.presentation='progress';this.store.save();this.changed();
+            visible.content='';visible.status='done';visible.presentation='progress';this.store.journal('run.verification',{runId:run.id,pendingExecutionIds:[...pendingFailures.keys()]});this.store.save();this.changed();
             if(verificationRetries++>=2)throw new Error('执行仍有未解决错误，不能确认完成。请检查工具记录后继续。');
             history.push({role:'system',content:`执行环境确认以下操作仍有未解决记录：${JSON.stringify([...pendingFailures])}。不要宣称已完成。同一目标重试成功可解决原失败；采用替代方案时，用 execution_resolve 引用后续成功执行的 executionId 并说明依据。用 execution_list 核对。另一文件或无关命令成功不能证明问题已解决。`});
             visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});continue;

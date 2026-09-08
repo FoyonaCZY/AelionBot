@@ -1,0 +1,29 @@
+.computer-details{--computer-panel-inset:20px}
+.computer-panel{position:relative;width:calc(100% + var(--computer-panel-inset,20px)*2);margin:40px calc(-1*var(--computer-panel-inset,20px)) 0;min-width:0;background:#fff}
+.computer-panel-screen{position:relative;width:100%;overflow:hidden;border:0;border-radius:0;background:#f5f4f8;cursor:pointer;outline-offset:-3px}
+.computer-panel-display{width:100%;height:100%;pointer-events:none;position:absolute;inset:0}
+.computer-panel-display .vnc-shell{background:#f5f4f8}
+.computer-panel-settings,.computer-panel-expand{position:absolute;display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:7px}
+.computer-panel-settings{z-index:2;right:11px;top:11px;background:transparent;color:#928b9a}
+.computer-panel-settings:hover{color:#5e506d;background:#eee9f4}
+.computer-panel.is-online .computer-panel-settings,.computer-panel-expand{color:#fff;background:#18202cb3}
+.computer-panel.is-online .computer-panel-settings:hover{background:#151c2bdd}
+.computer-panel-expand{right:11px;bottom:11px;pointer-events:none}
+.computer-panel-screen:hover .computer-panel-expand{background:#151c2bdd}
+.computer-rest-card{display:flex;flex-direction:column;align-items:center;min-width:0;padding:28px 22px 21px;min-height:245px;color:#837a8e}
+.computer-rest-visual{position:relative;flex-shrink:0;width:198px;height:139px}
+.computer-rest-visual>.computer-rest-scene{display:block;width:100%;height:100%}
+.computer-rest-visual>.avatar{position:absolute;left:76px;top:38px;width:46px;height:46px;overflow:visible}
+.computer-rest-visual.is-sleeping .avatar-gaze{transform:translateY(2px)}
+.computer-rest-visual.is-sleeping .avatar-eye{transform:scaleY(.18)}
+.computer-rest-visual .avatar-halo{display:none}
+.computer-rest-title{font-size:12px;line-height:1.5;font-weight:500;color:#8a8094;margin:-3px 0 12px}
+.computer-rest-start{display:flex;align-items:center;justify-content:center;gap:7px;min-height:33px;padding:7px 14px;border:0;border-radius:18px;background:#eeE9f5;color:#79648e;font-size:12px;font-weight:500}
+.computer-rest-start:hover{background:#e5dcee;color:#604b76}
+.computer-rest-start svg{flex-shrink:0}
+.computer-rest-card .setup-progress{width:min(170px,100%);margin:0 0 12px;background:#ede7f3}
+.computer-rest-card .setup-progress>span{background:#a593bd}
+.computer-rest-card[data-state=error] .computer-rest-title{color:#a27668}
+.computer-rest-card[data-state=error] .computer-rest-start{color:#956e60;background:#f4ece8}
+@media(max-width:1150px){.computer-details{--computer-panel-inset:13px}.computer-rest-card{padding-left:16px;padding-right:16px}}
+@media(prefers-reduced-motion:reduce){.computer-rest-visual .avatar-body,.computer-rest-visual .avatar-gaze,.computer-rest-visual .avatar-eye{animation:none!important}}
