@@ -3,6 +3,7 @@ import type {RunRecord} from '../../src/shared';
 import type {WorkItem,WorkMode,WorkAction} from '../../src/work-types';
 import {workCommand} from '../../src/work-types';
 import {RunPolicy} from './runtime-policy';
+import {ExecutionLedger} from './execution-ledger';
 import type {Store} from './store';
 import type {HarnessRunOptions} from './peer-runtime-types';
 
@@ -58,7 +59,7 @@ export class WorkItems {
     if(!run.plan?.steps.length||new RunPolicy(this.store).incomplete(run.botId,run.id))throw Error('请先完成计划中的步骤并保存执行证据');
     if(this.store.data.processes?.some(p=>p.botId===run.botId&&item.runIds.includes(p.runId)&&p.purpose==='task'&&['starting','running','unknown'].includes(p.status)))throw Error('后台任务尚未核对完成，请先检查进程状态和结果');
     const evidence=args.evidenceIds;if(!Array.isArray(evidence)||!evidence.length||evidence.length>10||evidence.some(id=>typeof id!=='string'||!this.evidence(item).some(e=>e.id===id)))throw Error('完成目标需要引用本目标内实际成功执行的证据');
-    if(this.store.data.runs.filter(r=>item.runIds.includes(r.id)).some(r=>r.executions?.some(e=>['failed','unknown'].includes(e.status)&&!e.resolution)))throw Error('还有未解决或结果未知的执行，请先核对');
+    if(new ExecutionLedger(this.store).blocking(run.botId,run.id).length)throw Error('还有未解决或结果未知的执行，请先核对');
     item.status='completed';item.summary=clean(args.summary,'完成依据',3000);item.evidenceIds=evidence;return this.save(item);
   }
   evidence(item:WorkItem){return this.store.data.runs.filter(r=>r.botId===item.botId&&item.runIds.includes(r.id)).flatMap(r=>r.executions||[]).filter(e=>e.status==='succeeded'&&!/^(task_|plan_|goal_|execution_)/.test(e.tool));}

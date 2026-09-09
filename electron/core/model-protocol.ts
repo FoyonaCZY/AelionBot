@@ -71,7 +71,8 @@ export class StreamAccumulator {
    if(item.type==='response.output_text.delta')this.text(item.delta);
    if(item.type==='response.completed'||item.type==='response.incomplete'){
     const r=item.response;this.output=r.output||[];this.finishReason=item.type==='response.completed'?'stop':r.incomplete_details?.reason==='max_output_tokens'?'length':'incomplete';this.ended=true;
-    this.content=this.output.filter(i=>i.type==='message').flatMap(i=>i.content||[]).filter(i=>i.type==='output_text').map(i=>i.text).join('')||this.content;
+    const completedText=this.output.filter(i=>i.type==='message').flatMap(i=>i.content||[]).filter(i=>i.type==='output_text').map(i=>i.text).join('');
+    if(!this.content&&completedText)this.text(completedText);else this.content=completedText||this.content;
     for(const i of this.output)if(i.type==='function_call')this.calls.set(this.calls.size,rawCall(i.name,i.arguments,i.call_id||''));
     this.usage=modelUsage('responses',r.usage,this.usage);
    }return;

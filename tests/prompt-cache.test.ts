@@ -81,8 +81,8 @@ test('real context assembly keeps changing task state after unchanged history',a
  const system:WireMessage={role:'system',content:'Fixed rules'},reference:WireMessage={role:'system',content:'Current project and memory'},history:WireMessage[]=[{role:'user',content:'hi'}];
  const prepare=async(id:string,items:WireMessage[])=>{store.data.runs.push({id,botId:bot.id,status:'running',startedAt:new Date().toISOString(),modelCalls:0,toolCalls:0});store.message(bot.id,'user','hi',{runId:id});return engine.prepare({botId:bot.id,runId:id,system,prefixContext:[reference],dynamicContext:[{role:'system',content:'Current time: '+id}],history:items,tools:[],signal:signal()});};
  const first=await prepare('r1',history),nextHistory:WireMessage[]=[...history,{role:'assistant',content:'hello'},{role:'user',content:'hi'}],second=await prepare('r2',nextHistory);
- assert.deepEqual(first.messages.slice(0,3),second.messages.slice(0,3));assert.deepEqual(second.messages.slice(2,5),nextHistory);
- assert.ok(second.messages.slice(5).some(m=>m.content?.includes('r2')));assert.ok(!second.messages.slice(0,5).some(m=>m.content?.includes('r2')));
+ assert.deepEqual(first.messages,second.messages.slice(0,first.messages.length));assert.deepEqual(second.messages.slice(first.messages.length,first.messages.length+2),nextHistory.slice(1));
+ assert.ok(second.messages.slice(first.messages.length+2).some(m=>m.content?.includes('r2')));assert.ok(!second.messages.slice(0,first.messages.length).some(m=>m.content?.includes('r2')));
  assert.deepEqual(history,[{role:'user',content:'hi'}]);
 });
 

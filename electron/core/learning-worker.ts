@@ -66,7 +66,7 @@ export class LearningWorker {
     for(let iteration=0;iteration<16;iteration++){
       if(signal.aborted)throw new Error('后台复盘已让出执行');if(expectedRevision!==this.storage.revision(job.botId))throw new Error('知识已更新，旧复盘不再写入');
       const estimated=estimateRequest(history,tools).tokens;if(estimated>budget.input||spent+estimated>Math.min(100000,budget.capacity*4))throw new Error('本次后台复盘达到预算，已有更新保留');
-      const result=await this.model.complete(history,tools,signal,()=>{},{botId:job.botId,runId:job.runId,purpose:'background_review',maxOutputTokens:budget.output,timeoutMs:90000});spent+=result.usage?.inputTokens||estimated;this.context.observe(job.botId,job.runId,'background_review',result,estimated);
+      const result=await this.model.complete(history,tools,signal,()=>{},{botId:job.botId,runId:job.runId,purpose:'background_review',maxOutputTokens:budget.output,timeoutMs:90000});spent+=result.usage?.inputTokens||estimated;this.context.observe(job.botId,job.runId,'background_review',result,estimated,1);
       this.storage.reviewMessage(job.id,job.botId,'assistant',redactHost(JSON.stringify({content:result.content,calls:result.calls}),this.secrets()));
       history.push({role:'assistant',native:result.native,content:result.content||null,...(result.calls.length?{tool_calls:result.calls}:{})});if(!result.calls.length)return;
       for(const call of result.calls){let output:unknown;

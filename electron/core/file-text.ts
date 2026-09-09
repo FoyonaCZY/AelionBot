@@ -3,8 +3,8 @@ import {isUtf8} from 'node:buffer';
 
 export const TEXT_FILE_LIMIT=2*1024*1024;
 export const READ_PAGE_FIELDS={offset:{type:'integer',minimum:0,description:'字符偏移。按行读取时省略或传 0；非零 offset 不能与行号参数同时使用。'},startLine:{type:'integer',minimum:1,description:'按行读取的起始行，从 1 开始。'},lineCount:{type:'integer',minimum:1,maximum:2000},maxChars:{type:'integer',minimum:1,maximum:32000},withLineNumbers:{type:'boolean'}};
-export class FileToolError extends Error {constructor(readonly code:string,message:string){super(message);this.name='FileToolError';}}
-export function toolFailure(error:unknown){const code=(error as {code?:unknown})?.code;return {error:error instanceof Error?error.message:String(error),...(typeof code==='string'&&/^[A-Z][A-Z0-9_]{0,63}$/.test(code)?{errorCode:code}:{})};}
+export class FileToolError extends Error {constructor(readonly code:string,message:string,readonly details?:Record<string,unknown>){super(message);this.name='FileToolError';}}
+export function toolFailure(error:unknown){const code=(error as {code?:unknown})?.code;return {error:error instanceof Error?error.message:String(error),...(typeof code==='string'&&/^[A-Z][A-Z0-9_]{0,63}$/.test(code)?{errorCode:code}:{}),...(error instanceof FileToolError&&error.details?{details:error.details}:{})};}
 export function boundedInteger(value:unknown,fallback:number,min:number,max:number,name:string){if(value===undefined)return fallback;if(typeof value!=='number'||!Number.isSafeInteger(value)||value<min||value>max)throw new FileToolError('INVALID_ARGUMENT',`${name} 必须是 ${min}–${max} 范围内的整数`);return value;}
 export function decodeText(bytes:Buffer){
   if(bytes.length>TEXT_FILE_LIMIT)throw new FileToolError('FILE_TOO_LARGE','文本文件超过 2 MB，请缩小读取目标或使用命令按需处理');

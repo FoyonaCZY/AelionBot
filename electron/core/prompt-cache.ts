@@ -16,6 +16,13 @@ function toolSchemas(tools:unknown){
 // Retain hashes and sizes only: no prompt text, credentials, image data or tool output.
 export class PromptCacheDiagnostics {
  private previous=new Map<string,Fingerprint>();
+ private completed=new Map<string,{config:string;tools:string;system:string;messages:string[];count:number}>();
+ success(scope:string,body:Record<string,any>){
+  const {input,messages,contents,tools,system,systemInstruction,...config}=body,items=input??messages??contents??[];
+  if(!Array.isArray(items))return;
+  this.completed.delete(scope);this.completed.set(scope,{config:hash(config),tools:hash(tools),system:hash(system??systemInstruction),messages:items.slice(0,MAX_MESSAGES).map(hash),count:items.length});
+  if(this.completed.size>MAX_SCOPES)this.completed.delete(this.completed.keys().next().value!);
+ }
  record(scope:string,body:Record<string,any>):RequestCacheDiagnostics{
   const {input,messages,contents,tools,system,systemInstruction,...config}=body;
   const payload=input??messages??contents??[],history=Array.isArray(payload)?payload:[payload],wire=Buffer.from(JSON.stringify(history));
@@ -27,7 +34,10 @@ export class PromptCacheDiagnostics {
   if(previous){while(sameMessages<Math.min(previous.messages.length,current.messages.length)&&previous.messages[sameMessages]===current.messages[sameMessages])sameMessages++;while(blocks<Math.min(previous.blocks.length,current.blocks.length)&&previous.blocks[blocks]===current.blocks[blocks])blocks++;}
   const difference=!previous?'first-request':previous.config!==current.config?'request-options':previous.tools!==current.tools?'tools':previous.system!==current.system?'system':sameMessages<Math.min(previous.messages.length,current.messages.length)?'message':current.inputHash!==previous.inputHash&&sameMessages===MAX_MESSAGES?'input-beyond-scan':previous.messageCount!==current.messageCount?'message-count':current.inputHash!==previous.inputHash?'message':'none';
   const names=Object.keys(current.toolSchemas),priorNames=Object.keys(previous?.toolSchemas||{});
-  return {version:1,scopeFingerprint:hash(scope),optionsFingerprint:current.config,toolsFingerprint:current.tools,inputFingerprint:current.inputHash,inputBytes:wire.length,inputMessages:history.length,compared:Boolean(previous),firstDifference:difference,...(difference==='message'?{firstDifferentMessage:sameMessages,firstDifferentRole:history[sameMessages]?.role||history[sameMessages]?.type}:{}),toolCount:names.length,...(previous?{toolsAdded:names.filter(name=>!Object.hasOwn(previous.toolSchemas,name)),toolsRemoved:priorNames.filter(name=>!Object.hasOwn(current.toolSchemas,name)),toolsChanged:names.filter(name=>Object.hasOwn(previous.toolSchemas,name)&&previous.toolSchemas[name]!==current.toolSchemas[name])}:{}),matchingPrefixMessages:sameMessages,matchingInputPrefixBytes:previous?Math.min(blocks*CHUNK,current.bytes,previous.bytes):0,prefixScanTruncated:wire.length>CHUNK*MAX_CHUNKS||history.length>MAX_MESSAGES,promptCacheKeySent:typeof body.prompt_cache_key==='string'};
+  const completed=this.completed.get(scope);let successfulPrefixMessages=0;
+  if(completed&&completed.config===current.config&&completed.tools===current.tools&&completed.system===current.system)while(successfulPrefixMessages<Math.min(completed.messages.length,current.messages.length)&&completed.messages[successfulPrefixMessages]===current.messages[successfulPrefixMessages])successfulPrefixMessages++;
+  const continuation=completed?{successfulPrefixMessages,strictContinuation:completed.count<=MAX_MESSAGES&&successfulPrefixMessages===completed.count&&current.messageCount>=completed.count}:{};
+  return {version:1,...continuation,scopeFingerprint:hash(scope),optionsFingerprint:current.config,toolsFingerprint:current.tools,inputFingerprint:current.inputHash,inputBytes:wire.length,inputMessages:history.length,compared:Boolean(previous),firstDifference:difference,...(difference==='message'?{firstDifferentMessage:sameMessages,firstDifferentRole:history[sameMessages]?.role||history[sameMessages]?.type}:{}),toolCount:names.length,...(previous?{toolsAdded:names.filter(name=>!Object.hasOwn(previous.toolSchemas,name)),toolsRemoved:priorNames.filter(name=>!Object.hasOwn(current.toolSchemas,name)),toolsChanged:names.filter(name=>Object.hasOwn(previous.toolSchemas,name)&&previous.toolSchemas[name]!==current.toolSchemas[name])}:{}),matchingPrefixMessages:sameMessages,matchingInputPrefixBytes:previous?Math.min(blocks*CHUNK,current.bytes,previous.bytes):0,prefixScanTruncated:wire.length>CHUNK*MAX_CHUNKS||history.length>MAX_MESSAGES,promptCacheKeySent:typeof body.prompt_cache_key==='string'};
  }
 }
 

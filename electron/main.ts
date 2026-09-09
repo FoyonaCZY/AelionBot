@@ -306,7 +306,7 @@ async function initialize(){
   });
   handle('app:open-data',()=>shell.openPath(dataDir));
   const shutdown=new Shutdown({
-    stop:()=>{vm.beginShutdown();if(timer)clearInterval(timer);for(const close of [()=>appUpdates?.dispose(),()=>scheduler?.dispose(),()=>greetings?.dispose(),()=>{for(const bot of store.data.bots)harness.cancel(bot.id);},()=>providers.dispose(),()=>chatPins?.dispose(),()=>peerChats?.dispose(),()=>groupChats?.dispose(),()=>interactions.dispose(),()=>host.dispose()])try{close();}catch(error){diagnostics?.record('app.shutdown-error',error);}},
+    stop:()=>{vm.beginShutdown();if(timer)clearInterval(timer);for(const close of [()=>appUpdates?.dispose(),()=>scheduler?.dispose(),()=>greetings?.dispose(),()=>{for(const bot of store.data.bots)harness.cancel(bot.id);},()=>providers.dispose(),()=>model?.dispose(),()=>chatPins?.dispose(),()=>peerChats?.dispose(),()=>groupChats?.dispose(),()=>interactions.dispose(),()=>host.dispose()])try{close();}catch(error){diagnostics?.record('app.shutdown-error',error);}},
     closeWork:()=>[harness.closeProcesses(),cognition.close(),integrations.close()],
     closeVm:()=>vm.shutdownForExit(),closeState:()=>{vm.dispose();store.close();},
     report:error=>diagnostics?.record('app.shutdown-error',error),exit:()=>{diagnostics?.dispose();app.exit(0);}

@@ -21,6 +21,8 @@ export class CognitiveStore {
       CREATE TABLE IF NOT EXISTS history(id TEXT PRIMARY KEY,bot_id TEXT NOT NULL,run_id TEXT,seq INTEGER NOT NULL,role TEXT NOT NULL,tool TEXT,status TEXT,content TEXT NOT NULL,stamp TEXT NOT NULL);
       CREATE VIRTUAL TABLE IF NOT EXISTS history_fts USING fts5(id UNINDEXED,bot_id UNINDEXED,text,tokenize='trigram');
       CREATE TABLE IF NOT EXISTS context_heads(bot_id TEXT PRIMARY KEY,revision INTEGER NOT NULL,through_seq INTEGER NOT NULL,summary TEXT NOT NULL,anchors TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS context_pruning(bot_id TEXT NOT NULL,scope TEXT NOT NULL,source TEXT NOT NULL,content TEXT NOT NULL,PRIMARY KEY(bot_id,scope,source));
+      CREATE TABLE IF NOT EXISTS context_state(bot_id TEXT NOT NULL,scope TEXT NOT NULL,kind TEXT NOT NULL,value TEXT NOT NULL,PRIMARY KEY(bot_id,scope,kind));
       CREATE TABLE IF NOT EXISTS context_epochs(id TEXT PRIMARY KEY,bot_id TEXT NOT NULL,run_id TEXT NOT NULL,from_seq INTEGER NOT NULL,through_seq INTEGER NOT NULL,summary TEXT NOT NULL,anchors TEXT NOT NULL,source_hash TEXT NOT NULL,stats TEXT NOT NULL,created_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS context_attempts(id TEXT PRIMARY KEY,bot_id TEXT NOT NULL,run_id TEXT NOT NULL,response TEXT NOT NULL,issue TEXT,created_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS memory_facts(id TEXT PRIMARY KEY,bot_id TEXT NOT NULL,target TEXT NOT NULL,content TEXT NOT NULL,source_refs TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
@@ -36,7 +38,26 @@ export class CognitiveStore {
     this.syncHistory();
   }
   get(key:string){return (this.db.prepare('SELECT value FROM meta WHERE key=?').get(key) as any)?.value as string|undefined;}
+  contextState(botId:string,scope:string,kind:string,value?:string):string|undefined{
+    // A prepared group request may finish after its short-lived reader closes.
+    // Reopen only this table connection, never run initialization/job recovery.
+    const db=this.db.isOpen?this.db:new DatabaseSync(join(this.store.dir,'cognition.sqlite'));
+    try{
+      if(db!==this.db)db.exec('PRAGMA busy_timeout=5000');
+      if(value!==undefined){db.prepare('INSERT INTO context_state VALUES(?,?,?,?) ON CONFLICT(bot_id,scope,kind) DO UPDATE SET value=excluded.value WHERE value<>excluded.value').run(botId,scope,kind,value);return value;}
+      return (db.prepare('SELECT value FROM context_state WHERE bot_id=? AND scope=? AND kind=?').get(botId,scope,kind) as any)?.value;
+    }finally{if(db!==this.db)db.close();}
+  }
   set(key:string,value:string){this.db.prepare('INSERT INTO meta VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(key,value);}
+  readContextPruning(botId:string,scope:string){return new Map((this.db.prepare('SELECT source,content FROM context_pruning WHERE bot_id=? AND scope=?').all(botId,scope) as Array<{source:string;content:string}>).map(row=>[row.source,row.content]));}
+  writeContextPruning(botId:string,scope:string,entries:Map<string,string>){
+    this.db.exec('BEGIN');try{
+      const previous=this.readContextPruning(botId,scope),remove=this.db.prepare('DELETE FROM context_pruning WHERE bot_id=? AND scope=? AND source=?'),save=this.db.prepare('INSERT INTO context_pruning VALUES(?,?,?,?) ON CONFLICT(bot_id,scope,source) DO UPDATE SET content=excluded.content');
+      for(const key of previous.keys())if(!entries.has(key))remove.run(botId,scope,key);
+      for(const [key,value] of entries)if(previous.get(key)!==value)save.run(botId,scope,key,value);
+      this.db.exec('COMMIT');
+    }catch(error){this.db.exec('ROLLBACK');throw error;}
+  }
   revision(botId:string){return Number(this.get(`knowledge-revision:${botId}`)||0);}
   bump(botId:string){const revision=this.revision(botId)+1;this.set(`knowledge-revision:${botId}`,String(revision));return revision;}
   syncHistory(botId?:string){
@@ -74,6 +95,6 @@ export class CognitiveStore {
   jobStatus(id:string,status:string,result='',increment=false){this.db.prepare('UPDATE review_jobs SET status=?,result=?,updated_at=?,attempts=attempts+? WHERE id=?').run(status,result,new Date().toISOString(),increment?1:0,id);}
   reviewMessage(jobId:string,botId:string,role:string,content:string,tool?:string){this.db.prepare('INSERT INTO review_messages(job_id,bot_id,role,tool,content,created_at) VALUES(?,?,?,?,?,?)').run(jobId,botId,role,tool||null,content,new Date().toISOString());}
   usage(botId:string,runId:string,task:string,model:string,input:number|undefined,output:number|undefined,estimated:number){this.db.prepare('INSERT INTO model_usage VALUES(?,?,?,?,?,?,?,?,?)').run(randomUUID(),runId,botId,task,model,input??null,output??null,estimated,new Date().toISOString());}
-  clearBot(botId:string){this.db.exec('BEGIN');try{this.db.prepare('DELETE FROM context_heads WHERE substr(bot_id,1,?)=?').run(botId.length+1,botId+':');for(const table of ['history','history_fts','context_heads','context_epochs','context_attempts','memory_facts','memory_tombstones','knowledge_events','review_jobs','review_messages','model_usage'])this.db.prepare(`DELETE FROM ${table} WHERE bot_id=?`).run(botId);this.db.exec('COMMIT');}catch(error){this.db.exec('ROLLBACK');throw error;}}
+  clearBot(botId:string){this.db.exec('BEGIN');try{this.db.prepare('DELETE FROM context_heads WHERE substr(bot_id,1,?)=?').run(botId.length+1,botId+':');for(const table of ['history','history_fts','context_state','context_pruning','context_heads','context_epochs','context_attempts','memory_facts','memory_tombstones','knowledge_events','review_jobs','review_messages','model_usage'])this.db.prepare(`DELETE FROM ${table} WHERE bot_id=?`).run(botId);this.db.exec('COMMIT');}catch(error){this.db.exec('ROLLBACK');throw error;}}
   close(){if(this.db.isOpen)this.db.close();}
 }

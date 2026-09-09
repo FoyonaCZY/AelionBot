@@ -52,7 +52,7 @@ test('attachment-only messages invoke the Bot once with real content, without du
 
 test('multiple attached pictures remain visible alongside the latest computer observations and count toward the budget',t=>{
   const fx=fixture(t),files=fx.attachments.importFiles({kind:'bot',id:fx.a.id},[1,2,3].map(n=>({name:`图片${n}.png`,bytes:png})));fx.store.message(fx.a.id,'user','比较三张图片',{attachments:files});const input=fx.attachments.wire(fx.a.id,'比较三张图片',files),messages:WireMessage[]=[{role:'user',...input},...[1,2,3].map(n=>({role:'user' as const,content:'电脑观察',images:[{id:`screen-${n}`,width:640,height:480}]}))];
-  const requests=imageContext(messages,id=>`image:${id}`),images=requests.flatMap(message=>Array.isArray(message.content)?message.content.filter(item=>item.type==='image_url'):[]);assert.equal(images.length,5);assert.ok(!JSON.stringify(requests).includes('image:screen-1'));assert.ok(JSON.stringify(requests).includes(`image:${files[0].image!.id}`));assert.equal(estimateRequest(messages,[]).imageTokens,5*1024);
+  const requests=imageContext(messages,id=>`image:${id}`),images=requests.flatMap(message=>Array.isArray(message.content)?message.content.filter(item=>item.type==='image_url'):[]);assert.equal(images.length,6);assert.ok(JSON.stringify(requests).includes('image:screen-1'));assert.ok(JSON.stringify(requests).includes(`image:${files[0].image!.id}`));assert.equal(estimateRequest(messages,[]).imageTokens,6*1024);
 });
 
 test('file count, byte size, missing IDs and altered storage are rejected before use',t=>{

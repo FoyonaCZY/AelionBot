@@ -1,6 +1,8 @@
 import {DEFAULT_RUNTIME,reportedTotal,type RuntimeSettings,type TaskPlan} from '../../src/runtime-types';
 import type {Store} from './store';
 import {ExecutionLedger} from './execution-ledger';
+import {FileToolError} from './file-text';
+import {isDeepStrictEqual} from 'node:util';
 export function runtimeSettings(value:unknown):RuntimeSettings{
  if(!value||typeof value!=='object'||Array.isArray(value))throw Error('运行设置无效');
  // Older profiles contain this retired setting. It no longer triggers model requests.
@@ -26,8 +28,11 @@ export class RunPolicy {
  read(botId:string,runId:string){return this.run(botId,runId).plan||{revision:0,goal:'',steps:[]};}
  update(botId:string,runId:string,args:Record<string,unknown>){
   const run=this.run(botId,runId),prior=this.read(botId,runId);
-  if(args.revision!==prior.revision)throw Error('任务清单已变化，请重新读取');
   const goal=String(args.goal||'').trim(),steps=args.steps as TaskPlan['steps'];
+  if(args.revision!==prior.revision){
+   if(args.revision===prior.revision-1&&goal===prior.goal&&isDeepStrictEqual(steps,prior.steps))return prior;
+   throw new FileToolError('PLAN_REVISION_CONFLICT','任务清单已变化；请使用 details.currentPlan 的 revision 合并本次修改。task_update 与 plan_update 更新同一个清单，不要对同一版本重复调用。',{currentPlan:structuredClone(prior)});
+  }
   if(!goal||goal.length>1200||!Array.isArray(steps)||!steps.length||steps.length>30)throw Error('任务清单需要目标及 1–30 个步骤');
   const ledger=new ExecutionLedger(this.store),ids=new Set<string>();
   const work=this.store.data.workItems?.find(item=>item.id===run.workItemId&&item.botId===botId);

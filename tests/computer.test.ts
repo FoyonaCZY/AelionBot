@@ -36,11 +36,11 @@ test('independent desktops retain their own observations, input routing and manu
   await computer.execute('b',{action:'screenshot'},signal);assert.equal(computer.stateFor('b').ownerBotId,'b');
   computer.setManual('a',false);await assert.rejects(()=>computer.execute('a',{action:'key',key:'ENTER',observationId:first.screenshot.id},signal),/先截取/);
 });
-test('model receives actual images for only the latest two observations without changing saved history',()=>{
+test('protocol conversion preserves earlier observations when another image is appended',()=>{
   const messages:WireMessage[]=['one','two','three'].map(id=>({role:'user',content:'observation',images:[{id,width:1280,height:800}]}));
   const before=JSON.stringify(messages);const loaded:string[]=[];
   const request=imageContext(messages,id=>{loaded.push(id);return `data:image/png;base64,${id}`;});
-  assert.deepEqual(loaded,['two','three']);assert.equal(request[0].content,'observation');
+  assert.deepEqual(loaded,['one','two','three']);assert.match(JSON.stringify(request[0]),/image_url/);
   assert.match(JSON.stringify(request[2]),/image_url/);assert.equal(JSON.stringify(messages),before);
 });
 

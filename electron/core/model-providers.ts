@@ -9,13 +9,14 @@ import type {ModelParameters} from '../../src/model-types';
 import {reasoningEffort as cleanReasoning} from '../../src/reasoning';
 
 export function modelParameters(input:ModelParameters):ModelParameters{
- const {protocol,temperature,reasoningEffort,thinkingBudget,fallbackModel}=input;
+ const {protocol,responsesTransport,temperature,reasoningEffort,thinkingBudget,fallbackModel}=input;
+ if(responsesTransport!==undefined&&!['auto','http','websocket'].includes(responsesTransport))throw Error('Responses 连接方式无效');
  if(protocol!==undefined&&!['chat','responses','anthropic','gemini'].includes(protocol))throw Error('模型协议无效');
  if(temperature!==undefined&&(!Number.isFinite(temperature)||temperature<0||temperature>2))throw Error('温度应为 0–2');
  cleanReasoning(reasoningEffort);
  if(thinkingBudget!==undefined&&(!Number.isInteger(thinkingBudget)||thinkingBudget<1024||thinkingBudget>64000))throw Error('思考预算应为 1024–64000');
  if(fallbackModel!==undefined&&(typeof fallbackModel!=='string'||fallbackModel.length>256||/[\u0000-\u001f]/.test(fallbackModel)))throw Error('备用模型无效');
- return {protocol,temperature,reasoningEffort,thinkingBudget,fallbackModel:fallbackModel?.trim()||undefined};
+ return {protocol,responsesTransport,temperature,reasoningEffort,thinkingBudget,fallbackModel:fallbackModel?.trim()||undefined};
 }
 
 export interface CredentialCodec {encrypt:(value:string)=>string;decrypt:(value:string)=>string;}
