@@ -8,6 +8,7 @@ import {redactHost} from './host';
 import {estimateRequest} from './context-budget';
 import {PromptCacheDiagnostics,promptCacheKey,rejectsPromptCacheKey} from './prompt-cache';
 import type {RequestCacheDiagnostics} from '../../src/runtime-types';
+import {stableToolDefinitions,transportErrorCodes} from './request-snapshot';
 export interface ToolDefinition {type:'function';function:{name:string;description:string;parameters:Record<string,unknown>};}
 export interface Completion {content:string;calls:ToolCall[];finishReason:string;usage?:ModelUsage;native?:NativeAssistant;}
 export interface CompletionOptions {botId?:string;runId?:string;cacheScope?:string;purpose?:string;maxOutputTokens?:number;timeoutMs?:number;retries?:number;onReset?:()=>void;}
@@ -26,13 +27,13 @@ export class ModelClient {
   let cfg=this.getConfig(options.botId);if(cfg.issue)throw Error(cfg.issue);if(!cfg.model.trim())throw Error('请先为这个 Bot 选择 Provider 和模型');
   cfg={...cfg,baseUrl:validateModelEndpoint(cfg.baseUrl)};const key=this.getKey(options.botId),settings=this.settings();
   if(!key&&!['localhost','127.0.0.1','[::1]'].includes(new URL(cfg.baseUrl).hostname))throw Error('请先在设置中填写 API Key');
-  messages=[...messages];const ceiling=Math.max(256,Math.min(settings.maxOutputTokens,cfg.contextTokens,options.maxOutputTokens||65536)),requested=options.maxOutputTokens||Math.min(4096,ceiling);let output=Math.min(ceiling,Math.max(256,requested));
+  messages=structuredClone(messages);tools=stableToolDefinitions(tools);const ceiling=Math.max(256,Math.min(settings.maxOutputTokens,cfg.contextTokens,options.maxOutputTokens||65536)),requested=options.maxOutputTokens||Math.min(4096,ceiling);let output=Math.min(ceiling,Math.max(256,requested));
   const retries=options.retries??settings.modelRetries;let emitted=false,fallback=false;
   for(let attempt=0;;attempt++){
    signal.throwIfAborted();const start=Date.now(),timeout=AbortSignal.timeout(options.timeoutMs||settings.requestTimeoutMs),requestSignal=AbortSignal.any([signal,timeout]);let accumulator:StreamAccumulator|undefined,requestCache:RequestCacheDiagnostics|undefined;
    try{
-    const featureKey=nativeKey(cfg),scope=options.cacheScope||options.botId,cacheKey=scope?promptCacheKey(featureKey,scope,options.purpose||'foreground'):undefined;
-    const send=()=>{const request=protocolRequest(cfg,messages,tools,output,key,this.resolveImage,!this.noUsage.has(featureKey),cfg.protocol==='responses'&&!this.noCacheKey.has(featureKey)?cacheKey:undefined);requestCache=this.cacheDiagnostics.record(cacheKey||promptCacheKey(featureKey,'unscoped',options.purpose||'foreground'),request.body);requestCache.cacheKeyRejected=this.noCacheKey.has(featureKey);return fetch(request.url,{method:'POST',redirect:'error',headers:request.headers,body:JSON.stringify(request.body),signal:requestSignal});};
+    const featureKey=`${cfg.protocol||'chat'}:${nativeKey(cfg)}`,scope=options.cacheScope||options.botId,cacheKey=scope?promptCacheKey(featureKey,scope,options.purpose||'foreground'):undefined;
+    const send=()=>{const request=protocolRequest(cfg,messages,tools,output,key,this.resolveImage,!this.noUsage.has(featureKey),cfg.protocol==='responses'&&!this.noCacheKey.has(featureKey)?cacheKey:undefined,cacheKey);requestCache=this.cacheDiagnostics.record(cacheKey||promptCacheKey(featureKey,'unscoped',options.purpose||'foreground'),request.body);requestCache.cacheKeyRejected=this.noCacheKey.has(featureKey);requestCache.sessionAffinitySent=Boolean(cacheKey);return fetch(request.url,{method:'POST',redirect:'error',headers:request.headers,body:JSON.stringify(request.body),signal:requestSignal});};
     let response=await send();
     if([400,422].includes(response.status)&&cfg.protocol==='responses'&&cacheKey&&!this.noCacheKey.has(featureKey)&&rejectsPromptCacheKey(await response.clone().text())){await response.body?.cancel();if(this.noCacheKey.size>=128)this.noCacheKey.clear();this.noCacheKey.add(featureKey);response=await send();}
     if(response.status===400&&!this.noUsage.has(featureKey)&&(cfg.protocol||'chat')==='chat'){const body=await response.clone().text();if(/stream_options|include_usage/i.test(body)&&/unknown|unsupported|not supported|unrecognized|extra/i.test(body)){await response.body?.cancel();this.noUsage.add(featureKey);response=await send();}}
@@ -55,7 +56,7 @@ export class ModelClient {
     if(result.usage)result.usage={...result.usage,latencyMs:Date.now()-start,attempts:attempt+1};
     this.observe({id:randomUUID(),botId:options.botId,runId:options.runId,purpose:options.purpose||'foreground',model:cfg.model,providerId:cfg.providerId,providerName:cfg.providerName,time:new Date().toISOString(),usage:result.usage,requestCache,estimatedTokens:estimateRequest(messages,tools).tokens+Math.ceil(JSON.stringify(result.calls).length/3)+Math.ceil(result.content.length/3)});return result;
    }catch(error){
-    const safe=redactHost((error as Error)?.message||String(error),[key]);this.observe({id:randomUUID(),botId:options.botId,runId:options.runId,purpose:options.purpose||'foreground',model:cfg.model,providerId:cfg.providerId,providerName:cfg.providerName,time:new Date().toISOString(),usage:accumulator?.usage,requestCache,error:safe});
+    const safe=redactHost((error as Error)?.message||String(error),[key]),transportCodes=transportErrorCodes(error);this.observe({id:randomUUID(),botId:options.botId,runId:options.runId,purpose:options.purpose||'foreground',model:cfg.model,providerId:cfg.providerId,providerName:cfg.providerName,time:new Date().toISOString(),usage:accumulator?.usage,requestCache,...(transportCodes.length?{transportErrorCodes:transportCodes}:{}),error:safe});
     signal.throwIfAborted();if(error instanceof ContextOverflowError)throw error;
     const retryable=error instanceof RequestError?error.retryable:error instanceof TypeError||timeout.aborted;
     if(!retryable||emitted&&!options.onReset)throw Error(safe);

@@ -1,4 +1,4 @@
-import type {ModelClient} from './model';
+import {assistantMessage,type ModelClient} from './model';
 import type {Store} from './store';
 import {randomUUID} from 'node:crypto';
 import {ReplyStreams} from './reply-streams';
@@ -41,14 +41,14 @@ export class BotGreetings {
       const result=await this.model.complete([
         {role:'system',content:instruction},
         {role:'user',content:JSON.stringify(identity)}
-      ],[],controller.signal,delta=>{if(accepting&&!controller.signal.aborted&&this.eligible(botId))preview.update(delta);},{botId,maxOutputTokens:1024,timeoutMs:45000});
+      ],[],controller.signal,delta=>{if(accepting&&!controller.signal.aborted&&this.eligible(botId))preview.update(delta);},{botId,purpose:'greeting',maxOutputTokens:1024,timeoutMs:45000});
       accepting=false;preview.close(false);
       if(controller.signal.aborted||!this.eligible(botId))return;
       const current=this.store.bot(botId);
       if(current.name!==identity.name||current.role!==identity.role)return;
       const content=result.content.trim();
       if(!content||result.calls.length)throw new Error('模型未返回有效开场白');
-      this.store.data.conversations[botId].push({role:'assistant',content});
+      this.store.data.conversations[botId].push(assistantMessage({...result,content}));
       this.store.message(botId,'assistant',content,{id,status:'done'});
     }catch(error){
       if(controller.signal.aborted||!this.eligible(botId))return;

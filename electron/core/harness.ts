@@ -1,3 +1,4 @@
+import {TemporarilyUnavailableTool,reactionRestriction,reactionRestrictionContext} from './tool-availability';
 import {botIdentity} from '../../src/bot-colors';
 import {isGroupWorkTool} from '../../src/group-types';
 import {platformName,shellName} from './host-platform';
@@ -328,10 +329,10 @@ export class Harness {
         let finalContext=[system,reference,...(!cognition&&this.store.data.summaries[contextKey]?[{role:'assistant' as const,content:`历史参考摘要（原文保留在应用记录）：\n${this.store.data.summaries[contextKey]}`}]:[]),...context,turnContext];
         if(!cognition&&!groupKey&&Buffer.byteLength(JSON.stringify(finalContext),'utf8')/3>this.store.modelFor(botId).contextTokens*0.9)throw new Error('本次上下文达到安全预算，请拆分任务；原始记录已保留');
         const memoryDelegation=this.cognition?delegatedMemory(this.store,bot.id,run.id):undefined;
-        const baseTools=options.peerOrigin?.kind==='peer_summary'?[]:privateSessionId&&options.peerOrigin?TOOLS.filter(t=>privateTools.has(t.function.name)&&(!t.function.name.startsWith('bot')||this.peers)):TOOLS.filter(t=>(!t.function.name.startsWith('scheduled_')||this.scheduler)&&t.function.name!=='start_main_task'&&(!(t.function.name.startsWith('bot_')||t.function.name==='bots_list')||this.peers)&&(t.function.name!=='memory'||!userMemoryRoute||userMemoryRoute.targetBotIds.includes(botId)&&Boolean(userMemoryRoute.actionsByBot[botId]?.length))&&(!t.function.name.startsWith('history_')||this.cognition)&&(!t.function.name.startsWith('host_')||this.host&&this.interactions)&&(t.function.name!=='request_user_control'||this.computer&&this.interactions)&&(t.function.name!=='computer'||this.computer)&&(!t.function.name.startsWith('mcp_')||this.integrations)&&(!['skill_file_read','skill_materialize','skill_patch','skill_file_write','skill_manage'].includes(t.function.name)||this.integrations)&&(t.function.name!=='read_result'||cognition||history.some(m=>m.role==='tool'&&m.content?.includes('"truncated":true'))));
-        const availableTools=baseTools.filter(t=>(work.forRun(run)?.status!=='planning'||PLANNING_TOOLS.has(t.function.name))&&(!work.forRun(run)||!['chat_pin','group_pin'].includes(t.function.name))&&(t.function.name!=='chat_pin'||!options.groupOrigin&&!options.peerOrigin&&!duplicateReaction)&&(!/^groups?_/.test(t.function.name)||this.groups)&&(!options.groupOrigin||!['memory','skill_save','skill_patch','skill_file_write','skill_manage','bot_delegate_task','delegation_receipt','bot_send_message','start_main_task','group_send_message'].includes(t.function.name)));
+        const baseTools=options.peerOrigin?.kind==='peer_summary'?[]:privateSessionId&&options.peerOrigin?TOOLS.filter(t=>privateTools.has(t.function.name)&&(!t.function.name.startsWith('bot')||this.peers)):TOOLS.filter(t=>(!t.function.name.startsWith('scheduled_')||this.scheduler)&&t.function.name!=='start_main_task'&&(!(t.function.name.startsWith('bot_')||t.function.name==='bots_list')||this.peers)&&(t.function.name!=='memory'||!userMemoryRoute||userMemoryRoute.targetBotIds.includes(botId)&&Boolean(userMemoryRoute.actionsByBot[botId]?.length))&&(!t.function.name.startsWith('history_')||this.cognition)&&(!t.function.name.startsWith('host_')||this.host&&this.interactions)&&(t.function.name!=='request_user_control'||this.computer&&this.interactions)&&(t.function.name!=='computer'||this.computer)&&(!t.function.name.startsWith('mcp_')||this.integrations)&&(!['skill_file_read','skill_materialize','skill_patch','skill_file_write','skill_manage'].includes(t.function.name)||this.integrations));
+        const availableTools=baseTools.filter(t=>(work.forRun(run)?.status!=='planning'||PLANNING_TOOLS.has(t.function.name))&&(t.function.name!=='chat_pin'||!options.groupOrigin&&!options.peerOrigin)&&(!/^groups?_/.test(t.function.name)||this.groups)&&(!options.groupOrigin||!['memory','skill_save','skill_patch','skill_file_write','skill_manage','bot_delegate_task','delegation_receipt','bot_send_message','start_main_task','group_send_message'].includes(t.function.name)));
         if(work.forRun(run)?.status==='planning'){const index=availableTools.findIndex(tool=>tool.function.name==='tools_batch');if(index>=0){const batch=structuredClone(availableTools[index]);(batch.function.parameters as any).properties.steps.items.properties.tool.enum=[...READ_TOOLS].filter(name=>PLANNING_TOOLS.has(name));availableTools[index]=batch;}}
-        const taskFrame=[new RunPolicy(this.store).frame(botId,run.id),work.frame(run)].filter(Boolean).join('\n');
+        const taskFrame=[new RunPolicy(this.store).frame(botId,run.id),work.frame(run),reactionRestrictionContext(Boolean(work.forRun(run)),duplicateReaction)].filter(Boolean).join('\n');
         const contextInput={botId,runId:run.id,system,prefixContext:[reference],dynamicContext:[turnContext],history,tools:availableTools,signal:inferenceSignal,pendingFailures,taskFrame};
         let prepared=cognition?await abortable(inferenceSignal,()=>cognition!.context.prepare(contextInput)):undefined;if(prepared)finalContext=prepared.messages;
         const groupInput=groupKey?{...contextInput,key:groupKey}:undefined;
@@ -415,6 +416,7 @@ export class Harness {
             if(!TOOLS.some(tool=>tool.function.name===call.function.name))throw new Error('未注册工具');
             if(!availableTools.some(tool=>tool.function.name===call.function.name))throw new Error('当前任务不可用的工具');
             validateToolArguments(availableTools.find(tool=>tool.function.name===call.function.name)!,args);
+            const restriction=reactionRestriction(call.function.name,Boolean(work.forRun(run)),duplicateReaction);if(restriction)throw new TemporarilyUnavailableTool(restriction);
             dispatched=true;output=await this.executeTool(bot,args,call.function.name,controller.signal,run.id,options);
             if(['chat_pin','group_pin'].includes(call.function.name)&&typeof (output as any)?.pinned==='boolean'){
               if(call.function.name==='chat_pin'&&requiresReactionReply&&(output as any).alreadyApplied){duplicateReaction=true;output={...(output as object),next:'这个表态已经存在，尚未回应本次新发言。请用简短文字回应用户。'};}else pinned=true;
@@ -422,7 +424,7 @@ export class Harness {
             if(call.function.name==='memory'&&memoryDelegation&&((output as any)?.saved===true||(output as any)?.duplicate===true))memoryConfirmed=true;
             const exitCode=(output as {exitCode?:number})?.exitCode;
             display.status=controller.signal.aborted?'cancelled':typeof exitCode==='number'&&exitCode!==0||(output as {isError?:boolean})?.isError===true?'failed':'done';
-          }catch(error){if(error instanceof InteractionDenied){denied=error;controller.abort(error);display.status='cancelled';output={error:error.message,denied:true,executed:false};}else{output={...toolFailure(error),...((error as any).outcomeUnknown?{outcomeUnknown:true}:{}),...(controller.signal.aborted?{cancelled:true}:{})};display.status=controller.signal.aborted?'cancelled':'failed';}}
+          }catch(error){if(error instanceof TemporarilyUnavailableTool){dispatched=false;display.status='cancelled';output={error:error.message,errorCode:error.code,executed:false,temporarilyUnavailable:true};}else if(error instanceof InteractionDenied){denied=error;controller.abort(error);display.status='cancelled';output={error:error.message,denied:true,executed:false};}else{output={...toolFailure(error),...((error as any).outcomeUnknown?{outcomeUnknown:true}:{}),...(controller.signal.aborted?{cancelled:true}:{})};display.status=controller.signal.aborted?'cancelled':'failed';}}
           display.activity=describeTool(call.function.name,displayInput,output);
           const unknown=dispatched&&!denied&&(display.status==='cancelled'||Boolean((output as any)?.timedOut)||(output as any)?.outcomeUnknown===true);
           this.ledger.finish(execution,unknown?'unknown':display.status==='done'?'succeeded':display.status==='cancelled'?'cancelled':'failed',output,resultId);
@@ -476,6 +478,9 @@ export class Harness {
     }
   }
   private async executeTool(bot:Bot,args:Record<string,unknown>,name:string,signal:AbortSignal,runId:string,options:HarnessRunOptions={}):Promise<unknown>{
+    const activeRun=this.store.data.runs.find(run=>run.id===runId&&run.botId===bot.id),activeWork=activeRun&&new WorkItems(this.store).forRun(activeRun);
+    if(activeWork?.status==='planning'&&!PLANNING_TOOLS.has(name))throw new TemporarilyUnavailableTool('计划尚未获得用户确认，只能读取资料和完善计划。');
+    const restriction=reactionRestriction(name,Boolean(activeWork));if(restriction)throw new TemporarilyUnavailableTool(restriction);
     if(name==='python_session'){
       if(args.action==='start')return this.pythonSessions.start(bot.id,runId,signal);
       const id=requiredText(args,'id',100);

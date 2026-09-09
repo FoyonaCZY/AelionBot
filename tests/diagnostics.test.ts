@@ -60,9 +60,10 @@ test('issue links stay on GitHub, prefill a safe compact draft, and include the 
 
 test('export includes cache fingerprints but never raw request bodies',async t=>{
  const f=fixture(t),tracker=new PromptCacheDiagnostics();
+ f.state.modelUsage![0].transportErrorCodes=['UND_ERR_SOCKET'];
  f.state.modelUsage![0].requestCache=tracker.record('test-scope',{model:'fixture',input:[{role:'user',content:f.chat}],tools:[{name:'test',description:f.args}]});
  const preview=await f.service.prepare(),files=unzipSync(f.service.archive(preview.id).bytes),text=strFromU8(files['diagnostics.json']),report=JSON.parse(text);
- assert.equal(report.modelUsage[0].requestCache.inputMessages,1);assert.equal(report.modelUsage[0].requestCache.firstDifference,'first-request');
+ assert.equal(report.modelUsage[0].requestCache.inputMessages,1);assert.equal(report.modelUsage[0].requestCache.firstDifference,'first-request');assert.deepEqual(report.modelUsage[0].transportErrorCodes,['UND_ERR_SOCKET']);
  assert.doesNotMatch(text,/PRIVATE CHAT|PRIVATE TOOL/);
 });
 

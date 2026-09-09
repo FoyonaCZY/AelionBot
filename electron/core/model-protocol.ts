@@ -4,24 +4,26 @@ import type {ModelProtocol,NativeAssistant} from '../../src/model-types';
 import type {Completion,ToolDefinition} from './model';
 import {visibleImages} from '../../src/model-images';
 import {modelUsage} from './model-usage';
+import {anthropicHistoryEndpoints} from './anthropic-cache';
 
 export const nativeKey=(cfg:ModelConfig)=>`${cfg.providerId||''}:${cfg.baseUrl.replace(/\/$/,'')}:${cfg.model}`;
 const rawCall=(name:string,args:unknown,id?:string):ToolCall=>({id:id??randomUUID(),type:'function',function:{name,arguments:typeof args==='string'?args:JSON.stringify(args||{})}});
-export function protocolRequest(cfg:ModelConfig,messages:WireMessage[],tools:ToolDefinition[],output:number,key:string,resolveImage:(id:string)=>string,usage=true,cacheKey?:string){
+export function protocolRequest(cfg:ModelConfig,messages:WireMessage[],tools:ToolDefinition[],output:number,key:string,resolveImage:(id:string)=>string,usage=true,cacheKey?:string,affinityKey?:string){
  const protocol=cfg.protocol||'chat',base=cfg.baseUrl.replace(/\/$/,''),nk=nativeKey(cfg),visible=new Set(visibleImages(messages).map(i=>i.id));
  const images=(message:WireMessage)=>(message.images||[]).filter(i=>visible.has(i.id)).map(i=>resolveImage(i.id));
  const native=(m:WireMessage)=>m.native?.protocol===protocol&&m.native.key===nk?m.native.data:undefined;
  const headers:Record<string,string>={'Content-Type':'application/json'};
+ if(affinityKey){headers['x-session-affinity']=affinityKey;headers['x-session-id']=affinityKey;}
  const temperature=cfg.temperature===undefined?{}:{temperature:cfg.temperature};
  if(protocol==='chat'){
   if(key)headers.Authorization=`Bearer ${key}`;
-  const wire=messages.map(m=>{const urls=images(m);return {role:m.role,content:urls.length?[{type:'text',text:m.content||'图像资料'},...urls.map(url=>({type:'image_url',image_url:{url,detail:'high'}}))]:m.content,...(m.tool_calls?{tool_calls:m.tool_calls}:{}),...(m.tool_call_id?{tool_call_id:m.tool_call_id}:{}),...(m.role==='assistant'?native(m)||{}:{})};});
+  const wire=messages.map(m=>{const urls=images(m);return {role:m.role,content:urls.length?[{type:'text',text:m.content||'图像资料'},...urls.map(url=>({type:'image_url',image_url:{url,detail:'high'}}))]:m.content,...(m.tool_calls?{tool_calls:structuredClone(m.tool_calls)}:{}),...(m.tool_call_id?{tool_call_id:m.tool_call_id}:{}),...(m.role==='assistant'?structuredClone(native(m)||{}):{})};});
   return {url:base+'/chat/completions',headers,body:{model:cfg.model,messages:wire,stream:true,...(usage?{stream_options:{include_usage:true}}:{}),...(/^(gpt-[56]|o[134])/.test(cfg.model)?{max_completion_tokens:output}:{max_tokens:output}),...temperature,...(cfg.reasoningEffort?{reasoning_effort:cfg.reasoningEffort}:{}),...(tools.length?{tools,tool_choice:'auto',parallel_tool_calls:true}:{})}};
  }
  if(protocol==='responses'){
   if(key)headers.Authorization=`Bearer ${key}`;
   const input:any[]=[];
-  for(const m of messages){const preserved=native(m);if(m.role==='assistant'&&Array.isArray(preserved)){input.push(...preserved);continue;}
+  for(const m of messages){const preserved=native(m);if(m.role==='assistant'&&Array.isArray(preserved)){input.push(...structuredClone(preserved));continue;}
    if(m.role==='tool'){input.push({type:'function_call_output',call_id:m.tool_call_id,output:m.content||''});continue;}
    if(m.content||m.images?.length)input.push({role:m.role,content:[{type:m.role==='assistant'?'output_text':'input_text',text:m.content||'图像资料'},...images(m).map(url=>({type:'input_image',image_url:url,detail:'high'}))]});
    for(const call of m.tool_calls||[])input.push({type:'function_call',call_id:call.id,name:call.function.name,arguments:call.function.arguments});
@@ -29,21 +31,22 @@ export function protocolRequest(cfg:ModelConfig,messages:WireMessage[],tools:Too
   return {url:base+'/responses',headers,body:{model:cfg.model,input,stream:true,store:false,include:['reasoning.encrypted_content'],...(cacheKey?{prompt_cache_key:cacheKey}:{}),max_output_tokens:output,...temperature,...(cfg.reasoningEffort?{reasoning:{effort:cfg.reasoningEffort}}:{}),...(tools.length?{tools:tools.map(t=>({type:'function',...t.function,strict:false})),parallel_tool_calls:true}:{})}};
  }
  const system:string[]=[],wire:any[]=[],cacheCandidates:any[]=[];
- const cacheEnd=()=>{if(protocol!=='anthropic')return;const content=wire.at(-1)?.content,last=content?.at(-1);if(last&&['text','image','tool_result'].includes(last.type))cacheCandidates.push(last);};
+ const cacheEndpoints=protocol==='anthropic'?anthropicHistoryEndpoints(messages,native):new Set<number>();
+ const cacheEnd=(index:number)=>{if(!cacheEndpoints.has(index))return;const content=wire.at(-1)?.content,last=content?.at(-1);if(last&&['text','image','tool_result'].includes(last.type))cacheCandidates.push(last);};
  const push=(role:string,parts:any[])=>{if(!parts.length)return;if(wire.at(-1)?.role===role)wire.at(-1)[protocol==='gemini'?'parts':'content'].push(...parts);else wire.push({role,[protocol==='gemini'?'parts':'content']:parts});};
  const callNames=new Map(messages.flatMap(m=>(m.tool_calls||[]).map(c=>[c.id,c.function.name] as const)));
  const providerCallIds=new Set(messages.flatMap(m=>{const kept=native(m);return Array.isArray(kept)?kept.flatMap(p=>p.functionCall?.id?[p.functionCall.id]:[]):(m.tool_calls||[]).map(c=>c.id);}));
- for(const m of messages){
+ for(const [index,m] of messages.entries()){
   // Only leading system messages are lifted; later control messages retain their chronology.
   if(m.role==='system'&&!wire.length){if(m.content)system.push(m.content);continue;}
-  const preserved=native(m);if(m.role==='assistant'&&Array.isArray(preserved)){push(protocol==='gemini'?'model':'assistant',structuredClone(preserved));cacheEnd();continue;}
+  const preserved=native(m);if(m.role==='assistant'&&Array.isArray(preserved)){push(protocol==='gemini'?'model':'assistant',structuredClone(preserved));cacheEnd(index);continue;}
   const role=m.role==='assistant'?(protocol==='gemini'?'model':'assistant'):'user';let parts:any[]=[];
   if(m.role==='tool')parts=protocol==='gemini'?[{functionResponse:{...(providerCallIds.has(m.tool_call_id)?{id:m.tool_call_id}:{}),name:callNames.get(m.tool_call_id!)||'unknown',response:{output:m.content||''}}}]:[{type:'tool_result',tool_use_id:m.tool_call_id,content:m.content||''}];
   else {
    if(m.content)parts.push(protocol==='gemini'?{text:m.content}:{type:'text',text:m.content});
    for(const url of images(m)){const match=/^data:([^;]+);base64,([\s\S]+)$/.exec(url);if(!match)throw Error('原生模型图像需要本地 base64 数据');parts.push(protocol==='gemini'?{inlineData:{mimeType:match[1],data:match[2]}}:{type:'image',source:{type:'base64',media_type:match[1],data:match[2]}});}
    for(const call of m.tool_calls||[])parts.push(protocol==='gemini'?{functionCall:{id:call.id,name:call.function.name,args:JSON.parse(call.function.arguments)}}:{type:'tool_use',id:call.id,name:call.function.name,input:JSON.parse(call.function.arguments)});
-  }push(role,parts);if(m.role!=='system')cacheEnd();
+  }push(role,parts);cacheEnd(index);
  }
  if(protocol==='anthropic'){
   if(key)headers['x-api-key']=key;headers['anthropic-version']='2023-06-01';

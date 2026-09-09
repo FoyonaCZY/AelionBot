@@ -99,10 +99,10 @@ test('new emoji utterances cannot silently complete; a stale silence choice is c
 
 test('an already present Bot pin cannot masquerade as a new response',async t=>{
   const {store,bot}=fixture(t),target=store.message(bot.id,'assistant','方案已整理。',{status:'done'});target.pins=[{emoji:'👍',actor:{id:bot.id,name:bot.name,kind:'bot'},time:new Date().toISOString()}];let calls=0;
-  const model={complete:async(_messages:any[],tools:any[])=>{calls++;if(calls===1)return {content:'',calls:[{id:randomUUID(),type:'function',function:{name:'chat_pin',arguments:JSON.stringify({messageId:target.id,emoji:'👍'})}}],finishReason:'tool_calls'};assert.ok(!tools.some(tool=>tool.function.name==='chat_pin'));return {content:'你想再看看哪一部分？',calls:[],finishReason:'stop'};}} as unknown as ModelClient;
+  const model={complete:async(_messages:any[],tools:any[])=>{calls++;if(calls===1)return {content:'',calls:[{id:randomUUID(),type:'function',function:{name:'chat_pin',arguments:JSON.stringify({messageId:target.id,emoji:'👍'})}}],finishReason:'tool_calls'};assert.ok(tools.some(tool=>tool.function.name==='chat_pin'));assert.ok(_messages.some(message=>message.role==='system'&&message.content?.includes('本轮已有相同表态')));if(calls===2)return {content:'',calls:[{id:randomUUID(),type:'function',function:{name:'chat_pin',arguments:JSON.stringify({messageId:target.id,emoji:'👍'})}}],finishReason:'tool_calls'};return {content:'你想再看看哪一部分？',calls:[],finishReason:'stop'};}} as unknown as ModelClient;
   const event=pinChat(store,bot.id,{kind:'user',id:'user',name:'你'},{messageId:target.id,emoji:'👀'}),harness=new Harness(store,{} as VmController,model,()=>{});
   await harness.run(bot.id,'用户新增 👀 表态',{reactionMessageId:event.eventId});
-  assert.equal(calls,2);assert.equal(target.pins.length,2);assert.ok(store.data.messages.some(m=>m.content==='你想再看看哪一部分？'));
+  assert.equal(calls,3);assert.equal(target.pins.length,2);assert.ok(store.data.messages.some(m=>m.content==='你想再看看哪一部分？'));
 });
 
 test('persistent silence surfaces a failure instead of a successful empty response',async t=>{

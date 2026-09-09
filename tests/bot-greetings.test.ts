@@ -27,6 +27,12 @@ test('creating a Bot persists its data without inventing an assistant message',t
   assert.deepEqual(reopened.data.conversations[bot.id],[]);
 });
 
+test('greeting usage has its own purpose and retains native reasoning for later requests',async t=>{
+ const native={protocol:'chat' as const,key:'provider:model',data:{reasoning_content:'opaque reasoning'}};
+ const f=fixture(t,async(_messages,_tools,_signal,_onText,options)=>{assert.equal(options?.purpose,'greeting');return {...answer('你好。'),native};});
+ await f.greetings.greet(f.bot.id);assert.deepEqual(f.store.data.conversations[f.bot.id][0].native,native);assert.equal(f.store.data.messages[0].content,'你好。');assert.ok(!f.store.data.messages[0].content.includes('opaque'));
+});
+
 test('the configured ModelClient generates the first message from Bot identity without tools or a VM',async t=>{
   let requests=0,body:any;
   const server=createServer(async(req,res)=>{
@@ -45,7 +51,7 @@ test('the configured ModelClient generates the first message from Bot identity w
   assert.deepEqual(JSON.parse(body.messages[1].content),{name:'代码达人',role:'编写代码与测试'});
   assert.equal(f.store.data.messages[0].content,'我是代码达人，把你想实现的功能告诉我吧。');
   assert.equal(f.store.data.messages[0].role,'assistant');
-  assert.deepEqual(f.store.data.conversations[f.bot.id],[{role:'assistant',content:f.store.data.messages[0].content}]);
+  assert.deepEqual(f.store.data.conversations[f.bot.id].map(({role,content})=>({role,content})),[{role:'assistant',content:f.store.data.messages[0].content}]);
   assert.equal(f.store.data.runs.length,0);assert.deepEqual(f.greetings.botIds,[]);
   assert.equal(new Store(f.dir).data.messages[0].content,f.store.data.messages[0].content);
 });
