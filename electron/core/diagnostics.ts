@@ -68,7 +68,7 @@ export class Diagnostics {
     const report=clean({
       schemaVersion:1,id,createdAt,environment:this.options.environment,
       counts:{bots:state.bots.length,messages:state.messages.length,runs:state.runs.length,attachments:state.messages.reduce((count,message)=>count+(message.attachments?.length||0),0),groups:state.groups?.rooms.length||0,skills:state.skills.length,scheduledTasks:state.scheduledTasks?.length||0},
-      runtime:state.runtime?pick(state.runtime,['maxTurns','maxMinutes','maxTokens','modelRetries','requestTimeoutMs','maxOutputTokens','parallelReads','progressSeconds','fileCheckpoints']):undefined,
+      runtime:state.runtime?pick(state.runtime,['maxTurns','maxMinutes','maxTokens','modelRetries','requestTimeoutMs','maxOutputTokens','parallelReads','fileCheckpoints']):undefined,
       model:model(state.model),providers:state.providers?.map(provider=>({...pick(provider,['protocol','hasKey','modelsCheckedAt','modelsError']),modelCount:provider.models.length})),
       vm:pick(state.vm,['status','detail','lastError','imageVersion','desktopReady','appsReady','maintenance','needsReboot','diskBytes','progress']),
       desktops:Object.entries(state.computer.desktops).map(([id,desktop])=>({bot:botLabel(id),...pick(desktop,['status','manualControl','error'])})),

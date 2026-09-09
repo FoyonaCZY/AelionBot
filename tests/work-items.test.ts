@@ -19,7 +19,7 @@ import type {VmController} from '../electron/core/vm';
 
 function fixture(t:test.TestContext){
   const parent=realpathSync.native(tmpdir()),dir=realpathSync.native(mkdtempSync(join(parent,'aelion-work-items-'))),store=new Store(dir),bot=store.data.bots[0];
-  store.data.model.model='test';store.data.runtime={maxTurns:12,maxMinutes:10,maxTokens:20000,modelRetries:0,requestTimeoutMs:1000,maxOutputTokens:1000,parallelReads:1,progressSeconds:60,fileCheckpoints:false};
+  store.data.model.model='test';store.data.runtime={maxTurns:12,maxMinutes:10,maxTokens:20000,modelRetries:0,requestTimeoutMs:1000,maxOutputTokens:1000,parallelReads:1,fileCheckpoints:false};
   const interactions=new Interactions(()=>{}),host=new HostComputer({dataDir:dir,projectDir:dir,homeDir:dir},interactions);
   const cleanup:Array<()=>void>=[];
   t.after(()=>{for(const dispose of cleanup)dispose();host.dispose();interactions.dispose();assert.equal(dirname(resolve(dir)),parent);assert.ok(basename(dir).startsWith('aelion-work-items-'));rmSync(dir,{recursive:true,force:true});});

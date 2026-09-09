@@ -2,9 +2,11 @@ import {DEFAULT_RUNTIME,reportedTotal,type RuntimeSettings,type TaskPlan} from '
 import type {Store} from './store';
 import {ExecutionLedger} from './execution-ledger';
 export function runtimeSettings(value:unknown):RuntimeSettings{
- const input=value as Partial<RuntimeSettings>;if(!input||typeof input!=='object'||Array.isArray(input))throw Error('运行设置无效');
+ if(!value||typeof value!=='object'||Array.isArray(value))throw Error('运行设置无效');
+ // Older profiles contain this retired setting. It no longer triggers model requests.
+ const {progressSeconds:legacyProgressSeconds,...input}=value as Partial<RuntimeSettings>&{progressSeconds?:unknown};
  const result={...DEFAULT_RUNTIME,...input};
- const ranges={maxTurns:[0,10000],maxMinutes:[0,1440],maxTokens:[0,10000000],modelRetries:[0,5],requestTimeoutMs:[1000,600000],maxOutputTokens:[256,65536],parallelReads:[1,8],progressSeconds:[15,600]} as const;
+ const ranges={maxTurns:[0,10000],maxMinutes:[0,1440],maxTokens:[0,10000000],modelRetries:[0,5],requestTimeoutMs:[1000,600000],maxOutputTokens:[256,65536],parallelReads:[1,8]} as const;
  for(const [key,[min,max]] of Object.entries(ranges))if(!Number.isInteger(result[key as keyof typeof ranges])||Number(result[key as keyof typeof ranges])<min||Number(result[key as keyof typeof ranges])>max)throw Error(`运行设置 ${key} 超出范围`);
  if(typeof result.fileCheckpoints!=='boolean'||Object.keys(input).some(key=>!(key in DEFAULT_RUNTIME)))throw Error('运行设置无效');return result;
 }

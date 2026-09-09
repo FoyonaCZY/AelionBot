@@ -45,10 +45,10 @@ test('a new message cancels a pending VM takeover without taking control back fr
   queue.send({botId:bot.id,message:'先回答我的问题'});await until(()=>!harness.busy&&!queue.hasPending(bot.id));assert.equal(interactions.snapshot().length,0);assert.equal(computer.stateFor(bot.id).manualControl,true);assert.ok(store.data.messages.some(m=>m.content==='收到新的问题。'));
 });
 
-test('a failed progress summary does not stop the actual work',async t=>{
-  let actions=0;const vm={execute:async()=>{if((actions+1)%3===0)fx.store.data.runs.at(-1)!.lastProgressAt=new Date(Date.now()-61000).toISOString();return {stdout:`step ${++actions}`,stderr:'',exitCode:0,durationMs:1};}} as unknown as VmController;
-  const fx=fixture(t,messages=>{if(messages[0].content?.includes('简短汇报工作进度'))throw Error('fixture summary unavailable');return actions<4?tool('computer_execute',{command:'next-step'}):answer('已执行完毕');},vm);
-  fx.queue.send({botId:fx.bot.id,message:'执行四个操作'});await until(fx.idle);assert.equal(actions,4);assert.equal(fx.store.data.runs[0].status,'completed');assert.ok(fx.store.data.messages.some(m=>m.content==='已执行完毕'));
+test('elapsed time and legacy progress markers never cause an extra model request',async t=>{
+  let actions=0,requests=0;const vm={execute:async()=>{if((actions+1)%3===0)fx.store.data.runs.at(-1)!.lastProgressAt=new Date(Date.now()-61000).toISOString();return {stdout:`step ${++actions}`,stderr:'',exitCode:0,durationMs:1};}} as unknown as VmController;
+  const fx=fixture(t,messages=>{requests++;assert.ok(!JSON.stringify(messages).includes('现在只向用户简短汇报'));return actions<4?tool('computer_execute',{command:'next-step'}):answer('已执行完毕');},vm);
+  fx.queue.send({botId:fx.bot.id,message:'执行四个操作'});await until(fx.idle);assert.equal(actions,4);assert.equal(requests,5);assert.equal(fx.store.data.runs[0].status,'completed');assert.ok(fx.store.data.messages.some(m=>m.content==='已执行完毕'));
 });
 test('a new user message aborts the old request immediately and stale completion cannot publish',async t=>{
   let calls=0,oldSignal:AbortSignal|undefined,late:(value:Completion)=>void=()=>{};
@@ -77,15 +77,11 @@ test('a new input withdraws an obsolete permission instead of executing it',asyn
   const fx=fixture(t,messages=>[...messages].reverse().find(message=>message.role==='user')?.content==='不用写了'?answer('收到，不再写入。'):tool('host_file_write',{path:join(fx.dir,'obsolete.txt'),content:'旧内容',reason:'旧请求'}));
   fx.queue.send({botId:fx.bot.id,message:'写入文件'});await until(()=>fx.interactions.snapshot().length===1);fx.queue.send({botId:fx.bot.id,message:'不用写了'});await until(fx.idle);assert.equal(fx.interactions.snapshot().length,0);assert.equal(existsSync(join(fx.dir,'obsolete.txt')),false);
 });
-test('new work after each reporting interval produces visible progress without ending the task',async t=>{
-  let summaries=0,actions=0;const vm={execute:async()=>{if((actions+1)%3===0)fx.store.data.runs.at(-1)!.lastProgressAt=new Date(Date.now()-61000).toISOString();return {stdout:`已执行 ${++actions}`,stderr:'',exitCode:0,durationMs:1};}} as unknown as VmController;
-  const fx=fixture(t,(messages,tools)=>{if(messages[0].content?.includes('简短汇报工作进度')){summaries++;assert.equal(tools.length,0);assert.ok(messages[1].content?.includes('done'));return answer(`已完成第 ${actions} 个操作，接下来继续核对。`);}return actions<7?tool('computer_execute',{command:'next-step'}):answer('所有工作已完成。');},vm);
-  fx.queue.send({botId:fx.bot.id,message:'完成七个操作并核对'});await until(fx.idle);const updates=fx.store.data.messages.filter(m=>m.audience==='user'&&m.presentation==='progress');assert.equal(summaries,2);assert.equal(updates.length,2);assert.ok(conversationTimeline(fx.store.data.messages).filter(item=>item.kind==='message').some(item=>item.id===updates[0].id));assert.equal(fx.store.data.runs[0].status,'completed');
-});
-test('superseding a pending progress generation prevents that old update from being published',async t=>{
-  let actions=0,summarySignal:AbortSignal|undefined,late:(value:Completion)=>void=()=>{};const vm={execute:async()=>{if((actions+1)%3===0)fx.store.data.runs.at(-1)!.lastProgressAt=new Date(Date.now()-61000).toISOString();return {stdout:`step ${++actions}`,stderr:'',exitCode:0,durationMs:1};}} as unknown as VmController;
-  const fx=fixture(t,(messages,_tools,signal)=>{if(messages[0].content?.includes('简短汇报工作进度')){summarySignal=signal;return new Promise(resolve=>{late=resolve;});}if(messages.some(m=>m.role==='user'&&m.content==='回答新的问题'))return answer('新问题的答案');return tool('computer_execute',{command:'work'});},vm);
-  fx.queue.send({botId:fx.bot.id,message:'先做工作'});await until(()=>Boolean(summarySignal));fx.queue.send({botId:fx.bot.id,message:'回答新的问题'});assert.equal(summarySignal?.aborted,true);await until(fx.idle);late(answer('过时进度'));await delay(30);assert.ok(!fx.store.data.messages.some(m=>m.content==='过时进度'));assert.equal(actions,3);
+test('model-authored progress stays visible without a separate summary request',async t=>{
+  let actions=0,requests=0;const vm={execute:async()=>({stdout:'done '+ ++actions,stderr:'',exitCode:0,durationMs:1})} as unknown as VmController;
+  const fx=fixture(t,()=>{requests++;return actions<7?{...tool('computer_execute',{command:'next-step'}),content:actions===3?'已核对前三项，继续检查。':''}:answer('所有工作已完成。');},vm);
+  fx.queue.send({botId:fx.bot.id,message:'完成七个操作并核对'});await until(fx.idle);assert.equal(requests,8);assert.equal(actions,7);
+  const updates=fx.store.data.messages.filter(m=>m.presentation==='progress'&&m.content==='已核对前三项，继续检查。');assert.equal(updates.length,1);assert.ok(conversationTimeline(fx.store.data.messages).some(item=>item.kind==='message'&&item.id===updates[0].id));assert.equal(fx.store.data.runs[0].status,'completed');
 });
 
 test('a new input preserves progress already spoken before an in-flight operation',async t=>{

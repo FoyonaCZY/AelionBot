@@ -10,7 +10,6 @@ import {readPipeline} from '../electron/core/tool-pipeline';
 import {FileCheckpoints} from '../electron/core/file-checkpoints';
 import {Interactions} from '../electron/core/interactions';
 import {DEFAULT_RUNTIME} from '../src/runtime-types';
-import {progressDue} from '../electron/core/work-progress';
 import {RunPolicy} from '../electron/core/runtime-policy';
 import {Harness} from '../electron/core/harness';
 import type {ModelClient} from '../electron/core/model';
@@ -41,11 +40,6 @@ test('file rollback preserves later user edits and still requires host approval'
  const dir=fixture(t),store=new Store(dir);store.data.runtime={...DEFAULT_RUNTIME,fileCheckpoints:true};const bot=store.data.bots[0],interactions=new Interactions(()=>{}),checkpoints=new FileCheckpoints(store,{} as VmController,interactions),path=join(dir,'proof.txt');
  writeFileSync(path,'before');const record=checkpoints.hostBefore(bot.id,'r',path)!;writeFileSync(path,'after');checkpoints.hostAfter(record,path);writeFileSync(path,'user edit');await assert.rejects(checkpoints.restore(bot.id,record.id,new AbortController().signal,'r2'),/被修改/);assert.equal(readFileSync(path,'utf8'),'user edit');
  writeFileSync(path,'after');const restoring=checkpoints.restore(bot.id,record.id,new AbortController().signal,'r2');assert.equal(readFileSync(path,'utf8'),'after');interactions.approve(interactions.snapshot()[0].id,true);await restoring;assert.equal(readFileSync(path,'utf8'),'before');interactions.dispose();
-});
-test('progress requires elapsed time and new results; budgets remain user-configurable',t=>{
- const store=new Store(fixture(t)),run={id:'r',botId:store.data.bots[0].id,status:'running' as const,startedAt:new Date().toISOString(),modelCalls:0,toolCalls:0};store.data.runs.push(run);
- const steps=Array.from({length:3},(_,i)=>({id:String(i),botId:run.botId,role:'tool' as const,content:'{"result":{"stdout":"verified"}}',time:run.startedAt,status:'done' as const,tool:'file_read'}));
- assert.equal(progressDue(run,steps,60).due,false);assert.equal(progressDue(run,steps,60,Date.now()+61000).due,true);store.data.runtime={...DEFAULT_RUNTIME,maxTurns:3};assert.throws(()=>new RunPolicy(store).check(run.botId,run.id,3),/轮执行预算/);
 });
 test('a long task can finish beyond the old 30-round limit',async t=>{
  const store=new Store(fixture(t));let steps=0;

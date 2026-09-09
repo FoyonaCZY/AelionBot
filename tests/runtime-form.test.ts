@@ -13,9 +13,15 @@ test('display seconds round-trip the existing millisecond timeout without losing
 test('blank or invalid limits cannot be submitted while zero retains its unlimited meaning',()=>{
   const blank=runtimeDraft(DEFAULT_RUNTIME);blank.numbers.maxMinutes='';assert.equal(runtimeDraftValues(blank),undefined);
   const zero=runtimeDraft(DEFAULT_RUNTIME);zero.numbers.maxTurns='0';zero.numbers.maxMinutes='0';zero.numbers.maxTokens='0';assert.deepEqual(runtimeSettings(runtimeDraftValues(zero)),DEFAULT_RUNTIME);
-  for(const [key,value] of [['modelRetries','6'],['parallelReads','1.5'],['progressSeconds','0'],['requestTimeoutMs','0.5'],['requestTimeoutMs','180.0005']] as const){const draft=runtimeDraft(DEFAULT_RUNTIME);draft.numbers[key]=value;assert.equal(runtimeDraftValues(draft),undefined);}
+  for(const [key,value] of [['modelRetries','6'],['parallelReads','1.5'],['requestTimeoutMs','0.5'],['requestTimeoutMs','180.0005']] as const){const draft=runtimeDraft(DEFAULT_RUNTIME);draft.numbers[key]=value;assert.equal(runtimeDraftValues(draft),undefined);}
 });
 test('edited settings keep the backend contract and checkpoint toggle',()=>{
   const draft=runtimeDraft(DEFAULT_RUNTIME);draft.numbers.requestTimeoutMs='45';draft.numbers.modelRetries='3';draft.fileCheckpoints=true;
   const result=runtimeDraftValues(draft)!;assert.equal(result.requestTimeoutMs,45000);assert.equal(result.fileCheckpoints,true);assert.equal(result.modelRetries,3);assert.deepEqual(runtimeSettings(result),result);
+});
+
+test('retired progress settings load without exposing or resaving a reporting interval',()=>{
+ const settings=runtimeSettings({...DEFAULT_RUNTIME,progressSeconds:60});
+ assert.deepEqual(settings,DEFAULT_RUNTIME);assert.ok(!('progressSeconds' in runtimeDraft(settings).numbers));
+ assert.deepEqual(runtimeDraftValues(runtimeDraft(settings)),DEFAULT_RUNTIME);
 });

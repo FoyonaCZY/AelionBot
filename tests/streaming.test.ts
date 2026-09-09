@@ -102,9 +102,9 @@ test('the first greeting streams without persisting a partial welcome and keeps 
   text('我是你的伙伴。');finish.resolve(answer('你好，我是你的伙伴。'));await pending;assert.equal(greetings.streams.snapshot().length,0);assert.equal(f.store.data.messages.length,1);assert.equal(f.store.data.messages[0].id,id);text('迟到片段');assert.equal(greetings.streams.snapshot().length,0);
 });
 
-test('progress explanations stream only as previews until their model request finishes',async t=>{
-  const finish=deferred<Completion>();let steps=0;
-  const f=fixture(t,async(messages,_tools,_signal,onText)=>{if(messages[0].content?.includes('现在只向用户简短汇报')){onText?.('三步检查已完成');return finish.promise;}if(steps===2)f.store.data.runs.at(-1)!.lastProgressAt=new Date(Date.now()-61000).toISOString();return steps++<3?tool('computer_execute',{command:'check'}):answer('任务完成');},{execute:async()=>({stdout:'ok',stderr:'',exitCode:0,durationMs:1})} as unknown as VmController);
-  const pending=f.harness.run(f.bot.id,'完成三个检查');await until(()=>f.harness.streams.snapshot().some(reply=>reply.purpose==='progress'));const preview=f.harness.streams.snapshot()[0];assert.equal(preview.main,true);assert.ok(!f.store.data.messages.some(message=>message.audience==='user'));
-  finish.resolve(answer('三步检查已完成，接下来整理结果。'));await pending;assert.equal(f.harness.streams.snapshot().length,0);assert.equal(f.store.data.messages.filter(message=>message.id===preview.id&&message.audience==='user').length,1);
+test('model-authored intermediate messages stream and persist without helper requests',async t=>{
+  const finish=deferred<Completion>();let requests=0;
+  const f=fixture(t,async(_messages,_tools,_signal,onText)=>{requests++;if(requests===4){onText?.('三步检查已完成');return finish.promise;}return requests<4?tool('computer_execute',{command:'check'}):answer('任务完成');},{execute:async()=>({stdout:'ok',stderr:'',exitCode:0,durationMs:1})} as unknown as VmController);
+  const pending=f.harness.run(f.bot.id,'完成检查');await until(()=>f.harness.streams.snapshot().some(reply=>reply.content.includes('三步检查已完成')));const preview=f.harness.streams.snapshot()[0];assert.equal(preview.main,true);assert.ok(!f.store.data.messages.some(message=>message.status==='done'&&message.content==='三步检查已完成'));
+  finish.resolve({...tool('computer_execute',{command:'final-check'}),content:'三步检查已完成，继续核对最后一项。'});await pending;assert.equal(requests,5);assert.equal(f.harness.streams.snapshot().length,0);assert.equal(f.store.data.messages.filter(message=>message.id===preview.id&&message.presentation==='progress').length,1);
 });

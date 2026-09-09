@@ -13,6 +13,8 @@ New turns append history without moving newly generated task IDs or timestamps i
 
 Both the cognitive context engine and the plain-history fallback use this order. Group contexts use the same engine. Task-state and runtime-context tokens remain included in capacity checks.
 
+Continuing after a network failure does not force compression. The current capacity checks still apply, and an explicit provider context-overflow response can force a recovery compression. Model-authored intermediate messages remain part of normal task execution; no separate progress-summary requests are scheduled. The retired `progressSeconds` setting is ignored when reading older profiles and is no longer offered in settings.
+
 ## Protocol handling
 
 - Responses requests use a hashed `prompt_cache_key` scoped by provider/model, conversation and request purpose. A new run ID does not create a new key. Main conversations, private sessions and groups remain separate.

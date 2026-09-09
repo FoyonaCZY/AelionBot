@@ -1,4 +1,5 @@
 import {botIdentity} from '../../src/bot-colors';
+import {isGroupWorkTool} from '../../src/group-types';
 import {platformName,shellName} from './host-platform';
 import { randomUUID } from 'node:crypto';
 import {ExecutionLedger} from './execution-ledger';
@@ -34,13 +35,11 @@ import {groupReplyContent} from '../../src/message-envelope';
 import {ContextCapacityError} from './context-error';
 import {contextModelKey,isContextCapacityFailure} from '../../src/context-issue';
 import {resumableRun} from './resume-run';
-import {isGroupWorkTool} from '../../src/group-types';
 import type {GroupGateway} from './group-runtime-types';
 import {groupMainContext,groupWorkContext} from './group-context';
 import {groupHistory,prepareGroupContext} from './group-history';
 import {pinChat} from './chat-pins';
 import {chatInputText,validateChatInput} from './chat-input';
-import {describeProgress,PROGRESS_STEPS,progressDue} from './work-progress';
 import {ReplyStreams,type StreamTarget} from './reply-streams';
 import {skillCatalog,SKILLS_LIST_TOOL} from './skill-catalog';
 import {searchSkills} from './skill-library';
@@ -229,7 +228,7 @@ export class Harness {
     let cognition=privateSessionId||groupKey?undefined:this.cognition,contextKey=groupKey||(privateSessionId?`peer:${privateSessionId}`:botId);
     const carry=resumed||this.store.data.runs.find(run=>run.id===(options.groupTaskFrom||options.supersedesRunId)&&run.botId===botId);
     const selectedWorkspace=options.workspaceDir!==undefined?options.workspaceDir:inputs.length&&inputs.at(-1)?.workspaceDir!==undefined?inputs.at(-1)!.workspaceDir:conversationWorkspace(this.store,options.groupOrigin?{kind:'group',id:options.groupOrigin.groupId}:{kind:'bot',id:botId});
-    const run:RunRecord={workspaceDir:selectedWorkspace||this.host?.workspace(botId),...(options.groupTaskFrom&&carry?.attachments?{attachments:carry.attachments}:{}),progressSteps:carry?.progressSteps||0,id:randomUUID(),botId,status:'running' as const,startedAt:new Date().toISOString(),modelCalls:0,toolCalls:0,...(options.peerOrigin?{peerOrigin:options.peerOrigin}:{}),...(options.groupOrigin?{groupOrigin:options.groupOrigin}:{}),...(options.supersedesRunId?{supersedesRunId:options.supersedesRunId}:{})};
+    const run:RunRecord={workspaceDir:selectedWorkspace||this.host?.workspace(botId),...(options.groupTaskFrom&&carry?.attachments?{attachments:carry.attachments}:{}),id:randomUUID(),botId,status:'running' as const,startedAt:new Date().toISOString(),modelCalls:0,toolCalls:0,...(options.peerOrigin?{peerOrigin:options.peerOrigin}:{}),...(options.groupOrigin?{groupOrigin:options.groupOrigin}:{}),...(options.supersedesRunId?{supersedesRunId:options.supersedesRunId}:{})};
     const maxMinutes=new RunPolicy(this.store).settings().maxMinutes;
     const budgetTimer=maxMinutes>0?setTimeout(()=>controller.abort(new Error('达到本次执行时间预算，已停止并保留执行记录')),maxMinutes*60000):undefined;budgetTimer?.unref();
     const groupRuntime:ActiveRuntime={runId:run.id,updated:false};this.runtimes.set(botId,groupRuntime);
@@ -333,7 +332,7 @@ export class Harness {
         const availableTools=baseTools.filter(t=>(work.forRun(run)?.status!=='planning'||PLANNING_TOOLS.has(t.function.name))&&(!work.forRun(run)||!['chat_pin','group_pin'].includes(t.function.name))&&(t.function.name!=='chat_pin'||!options.groupOrigin&&!options.peerOrigin&&!duplicateReaction)&&(!/^groups?_/.test(t.function.name)||this.groups)&&(!options.groupOrigin||!['memory','skill_save','skill_patch','skill_file_write','skill_manage','bot_delegate_task','delegation_receipt','bot_send_message','start_main_task','group_send_message'].includes(t.function.name)));
         if(work.forRun(run)?.status==='planning'){const index=availableTools.findIndex(tool=>tool.function.name==='tools_batch');if(index>=0){const batch=structuredClone(availableTools[index]);(batch.function.parameters as any).properties.steps.items.properties.tool.enum=[...READ_TOOLS].filter(name=>PLANNING_TOOLS.has(name));availableTools[index]=batch;}}
         const taskFrame=[new RunPolicy(this.store).frame(botId,run.id),work.frame(run)].filter(Boolean).join('\n');
-        const contextInput={botId,runId:run.id,system,prefixContext:[reference],dynamicContext:[turnContext],history,tools:availableTools,signal:inferenceSignal,pendingFailures,taskFrame,force:Boolean(resumed&&iteration===0)};
+        const contextInput={botId,runId:run.id,system,prefixContext:[reference],dynamicContext:[turnContext],history,tools:availableTools,signal:inferenceSignal,pendingFailures,taskFrame};
         let prepared=cognition?await abortable(inferenceSignal,()=>cognition!.context.prepare(contextInput)):undefined;if(prepared)finalContext=prepared.messages;
         const groupInput=groupKey?{...contextInput,key:groupKey}:undefined;
         let groupPrepared=groupInput?await abortable(inferenceSignal,()=>prepareGroupContext(this.store,this.model,groupInput,this.cognition?.context)):undefined;if(groupPrepared)finalContext=groupPrepared.messages;
@@ -366,6 +365,7 @@ export class Harness {
         const standaloneReaction=result.calls.length>0&&result.calls.every(call=>isReactionTool(call.function.name))&&reactionOnlyRun(this.store,run);
         run.modelCalls++;visible.content=silentReaction||standaloneReaction?'':result.content;visible.status='done';visible.presentation=result.calls.length?'progress':'answer';
         if((!groupKey||result.calls.length)&&!silentReaction)history.push({role:'assistant',native:result.native,content:groupKey||standaloneReaction?null:result.content||null,...(result.calls.length?{tool_calls:result.calls}:{})});this.store.save();if(result.calls.length)this.changed();
+        if(options.groupOrigin&&result.calls.length&&readableContent(visible.content)){this.groups?.publishProgress(botId,run.id,readableContent(visible.content));visible.audience='user';this.store.save();this.changed();}
         if(!result.calls.length){
           const delegation=run.peerOrigin?.kind==='peer_task'?this.store.data.peerExchanges.find(e=>e.id===(run.peerOrigin!.sessionId||run.peerOrigin!.exchangeId)&&e.toBotId===botId&&e.task):undefined;
           if(delegation&&delegation.receipt?.runId!==run.id){visible.content='';visible.presentation='progress';history.push({role:'system',content:'当前委托还没有执行回执。请先调用 delegation_receipt，逐项说明验收结果并引用实际证据；遇到阻碍则记录 blocked。委托内容：'+JSON.stringify(delegation.task)});visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});continue;}
@@ -427,7 +427,7 @@ export class Harness {
           const unknown=dispatched&&!denied&&(display.status==='cancelled'||Boolean((output as any)?.timedOut)||(output as any)?.outcomeUnknown===true);
           this.ledger.finish(execution,unknown?'unknown':display.status==='done'?'succeeded':display.status==='cancelled'?'cancelled':'failed',output,resultId);
           pendingFailures.clear();for(const [id,failure] of this.ledger.failureMap(botId,run.id))pendingFailures.set(id,failure);
-          run.toolCalls++;if(isGroupWorkTool(call.function.name))run.progressSteps=(run.progressSteps||0)+1;
+          run.toolCalls++;
           const text=JSON.stringify(output);const resultsDir=join(this.store.dir,'results');mkdirSync(resultsDir,{recursive:true});writeFileSync(join(resultsDir,`${resultId}.json`),text);
           const response=text.length>7000?JSON.stringify({executionId:execution.id,truncated:true,resultId,preview:text.slice(0,6000)}):JSON.stringify({executionId:execution.id,resultId,result:output});
           display.content=response;history.push({role:'tool',tool_call_id:call.id,content:response});
@@ -457,20 +457,6 @@ export class Harness {
         history.push(...observations);this.store.save();
         if(pinned&&standaloneReaction&&!pendingFailures.size){visible.content='';const record=this.store.data.runs.find(item=>item.id===run.id)!;record.status='completed';record.endedAt=new Date().toISOString();this.store.save();this.changed();return;}
         if(pinned&&!standaloneReaction)history.push({role:'system',content:'表情已经添加，当前工作尚未因此完成。继续处理用户的任务，核对已有工具结果后给出最终答复，不要重复已经执行的操作。'});
-        const recentSteps=this.store.runMessages(run.id).filter(message=>message.role==='tool'&&isGroupWorkTool(message.tool)).slice(-PROGRESS_STEPS),report=progressDue(run,recentSteps,new RunPolicy(this.store).settings().progressSeconds);
-        if(report.due){
-          checkpoint();groupRuntime.inference=new AbortController();const progressSignal=AbortSignal.any([controller.signal,groupRuntime.inference.signal]);
-          const progressTarget=this.streamTarget(botId,run.id,randomUUID(),new Date().toISOString(),'progress'),progressPreview=this.streams.begin(progressTarget,this.streamMembers(progressTarget.groupId));let acceptingProgress=true;
-          try{
-            run.modelCalls++;const steps=this.store.runMessages(run.id).filter(message=>message.role==='tool'&&isGroupWorkTool(message.tool)).slice(-PROGRESS_STEPS),task=options.groupOrigin?this.store.data.groupRounds.find(round=>round.id===options.groupOrigin!.rootId)?.request||input:userSource?.content||input;
-            const progress=await abortable(progressSignal,()=>describeProgress(this.model,bot,task,steps,progressSignal,observations.at(-1),delta=>{if(acceptingProgress&&!progressSignal.aborted&&!groupRuntime.updated)progressPreview.update(delta);}));acceptingProgress=false;progressPreview.close(false);checkpoint();
-            if(progress){
-              if(options.groupOrigin)this.groups?.publishProgress(botId,run.id,progress);else history.push({role:'assistant',content:progress});
-              this.store.message(botId,'assistant',progress,{id:progressTarget.id,runId:run.id,status:'done',presentation:'progress',audience:'user'});this.changed();
-            }
-          }catch(error){if(groupRuntime.updated||controller.signal.aborted)throw error;this.store.journal('progress.unavailable',{runId:run.id,error:(error as Error).message.slice(0,300)});}
-          finally{acceptingProgress=false;progressPreview.close(false);groupRuntime.inference=undefined;run.progressSteps=0;run.lastProgressAt=new Date().toISOString();run.lastProgressDigest=report.digest;this.store.save();this.changed();}
-        }
         visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});this.changed();
       }
     }catch(error){
