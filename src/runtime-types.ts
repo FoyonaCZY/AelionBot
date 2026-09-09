@@ -3,5 +3,6 @@ export const DEFAULT_RUNTIME:RuntimeSettings={maxTurns:0,maxMinutes:0,maxTokens:
 export interface TaskStep {id:string;title:string;acceptance:string;status:'pending'|'working'|'done'|'skipped';evidenceIds:string[];note?:string;}
 export interface TaskPlan {revision:number;goal:string;steps:TaskStep[];}
 export interface ModelUsage {version?:2;inputTokens?:number;outputTokens?:number;totalTokens?:number;cachedTokens?:number;cacheWriteTokens?:number;reasoningTokens?:number;latencyMs?:number;attempts?:number;}
-export interface UsageRecord {estimatedTokens?:number;id:string;botId?:string;runId?:string;purpose:string;model:string;providerId?:string;providerName?:string;time:string;usage?:ModelUsage;error?:string;}
+export interface RequestCacheDiagnostics {version:1;scopeFingerprint:string;optionsFingerprint:string;toolsFingerprint:string;inputFingerprint:string;inputBytes:number;inputMessages:number;compared:boolean;firstDifference:string;firstDifferentMessage?:number;matchingPrefixMessages:number;matchingInputPrefixBytes:number;prefixScanTruncated:boolean;promptCacheKeySent:boolean;cacheKeyRejected?:boolean;}
+export interface UsageRecord {estimatedTokens?:number;id:string;botId?:string;runId?:string;purpose:string;model:string;providerId?:string;providerName?:string;time:string;usage?:ModelUsage;requestCache?:RequestCacheDiagnostics;error?:string;}
 export function reportedTotal(usage?:ModelUsage){return usage?.totalTokens??(usage?.inputTokens!==undefined&&usage.outputTokens!==undefined?usage.inputTokens+usage.outputTokens:undefined);}

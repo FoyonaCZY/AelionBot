@@ -21,7 +21,7 @@ async function until(predicate:()=>boolean){for(let i=0;i<400;i++){if(predicate(
 function fixture(t:test.TestContext,complete:(botId:string,messages:WireMessage[],tools:ToolDefinition[],signal:AbortSignal)=>Promise<Completion>|Completion){
   const dir=mkdtempSync(join(tmpdir(),'aelion-peer-test-')),store=new Store(dir),a=store.data.bots[0],b=store.createBot('数据伙伴','分析数据'),c=store.createBot('检查伙伴','核对结果'),busy=new Set<string>();let peers:PeerChats|undefined;
   const interactions=new Interactions(()=>peers?.wake()),host=new HostComputer({dataDir:dir,homeDir:dir,projectDir:dir},interactions);
-  const model={complete:async(messages:WireMessage[],tools:ToolDefinition[],signal:AbortSignal)=>{const system=messages[0].content||'',id=/\/work\/([a-f0-9-]+)/.exec(system)?.[1];assert.ok(id);return complete(id,messages,tools,signal);}} as unknown as ModelClient;
+  const model={complete:async(messages:WireMessage[],tools:ToolDefinition[],signal:AbortSignal)=>{const system=messages.filter(message=>message.role==='system').map(message=>message.content||'').join('\n'),id=/\/work\/([a-f0-9-]+)/.exec(system)?.[1];assert.ok(id);return complete(id,messages,tools,signal);}} as unknown as ModelClient;
   const harness=new Harness(store,{} as VmController,model,()=>peers?.wake(),undefined,undefined,undefined,host,interactions);
   peers=new PeerChats(store,{isRunning:id=>busy.has(id)||harness.isRunning(id),run:(id,input,options)=>harness.run(id,input,options),cancel:id=>harness.cancel(id)},()=>{});harness.setPeerGateway(peers);peers.start();
   t.after(async()=>{peers!.dispose();for(const bot of store.data.bots)harness.cancel(bot.id);await until(()=>!harness.busy);host.dispose();interactions.dispose();await delay(20);assert.equal(dirname(resolve(dir)),resolve(tmpdir()));assert.ok(basename(dir).startsWith('aelion-peer-test-'));rmSync(dir,{recursive:true,force:true});});
@@ -30,9 +30,9 @@ function fixture(t:test.TestContext,complete:(botId:string,messages:WireMessage[
 
 test('private dialogue stays isolated and only the sender final summary is published for the user',async t=>{
   let rootCalls=0,recipientCalls=0,relayCalls=0;const fx=fixture(t,(id,messages,tools)=>{
-    const context=messages[0].content||'';
+    const context=messages.filter(message=>message.role==='system').map(message=>message.content||'').join('\n');
     if(id===fx.b.id){recipientCalls++;assert.ok(!context.includes('另一项任务的秘密'));assert.ok(!tools.some(tool=>tool.function.name==='memory'));return answer('目前空闲，上一项是数据核对。');}
-    if(context.includes('这是先前联络的实际回信')){relayCalls++;assert.equal(tools.length,0);assert.match(messages.at(-1)!.content||'',/目前空闲/);return answer('数据伙伴目前空闲，上一项是数据核对。');}
+    if(context.includes('这是先前联络的实际回信')){relayCalls++;assert.equal(tools.length,0);assert.ok(messages.some(message=>message.role!=='system'&&message.content?.includes('目前空闲')));return answer('数据伙伴目前空闲，上一项是数据核对。');}
     return rootCalls++===0?tool('bot_send_message',{botId:fx.b.id,message:'你现在在忙什么？'}):answer('已联系数据伙伴，正在等回复。');
   });
   fx.store.data.conversations[fx.a.id].push({role:'user',content:'另一项任务的秘密'});fx.busy.add(fx.b.id);
@@ -66,7 +66,7 @@ test('legacy Bot dialogue stays private while the genuine final reply to the use
 
 test('a recipient can ask a third Bot and finish the original private request after the child reply',async t=>{
   let root=0,receiver=0;const fx=fixture(t,(id,messages)=>{
-    const system=messages[0].content||'';
+    const system=messages.filter(message=>message.role==='system').map(message=>message.content||'').join('\n');
     if(id===fx.c.id)return answer('核对结果是 7。');
     if(id===fx.b.id){if(system.includes('这是先前联络的实际回信'))return answer('已与检查伙伴核对，结果是 7。');return receiver++===0?tool('bot_send_message',{botId:fx.c.id,message:'请核对结果'}):answer('正在等检查伙伴核对。');}
     if(system.includes('这是先前联络的实际回信'))return answer('最终核对结果为 7。');
@@ -78,7 +78,7 @@ test('a recipient can ask a third Bot and finish the original private request af
 });
 
 test('a received reply missing its user summary regenerates only the text summary after upgrade',async t=>{
-  let rootCalls=0,recipientCalls=0,summaryCalls=0;const fx=fixture(t,(id,messages)=>{if(id===fx.b.id){recipientCalls++;return answer('对方已完成核对。');}if(messages[0].content?.includes('这是先前联络的实际回信')){summaryCalls++;return answer('给用户的核对总结。');}return rootCalls++===0?tool('bot_send_message',{botId:fx.b.id,message:'请核对'}):answer('已发送。');});
+  let rootCalls=0,recipientCalls=0,summaryCalls=0;const fx=fixture(t,(id,messages)=>{if(id===fx.b.id){recipientCalls++;return answer('对方已完成核对。');}if(messages.filter(message=>message.role==='system').map(message=>message.content||'').join('\n').includes('这是先前联络的实际回信')){summaryCalls++;return answer('给用户的核对总结。');}return rootCalls++===0?tool('bot_send_message',{botId:fx.b.id,message:'请核对'}):answer('已发送。');});
   await fx.harness.run(fx.a.id,'请协作核对');await until(()=>fx.store.data.peerExchanges[0]?.status==='completed');fx.peers.dispose();
   const exchange=fx.store.data.peerExchanges[0],summary=fx.store.data.messages.find(message=>message.id===exchange.userSummaryMessageId)!;fx.store.data.messages=fx.store.data.messages.filter(message=>message.id!==summary.id);fx.store.data.runs=fx.store.data.runs.filter(run=>run.id!==summary.runId);fx.store.data.conversations[fx.a.id]=fx.store.data.conversations[fx.a.id].filter(message=>message.content!==summary.content);delete exchange.userSummaryMessageId;fx.store.save();
   const upgraded=new PeerChats(fx.store,{isRunning:id=>fx.harness.isRunning(id),run:(id,input,options)=>fx.harness.run(id,input,options),cancel:id=>fx.harness.cancel(id)},()=>{});upgraded.start();await until(()=>exchange.status==='completed');upgraded.dispose();
@@ -88,7 +88,7 @@ test('a received reply missing its user summary regenerates only the text summar
 test('cancelling a private request withdraws the recipient host permission without executing it',async t=>{
   let root=0,relays=0;const fx=fixture(t,(id,messages)=>{
     if(id===fx.b.id)return tool('host_file_write',{path:join(fx.dir,'not-approved.txt'),content:'no',reason:'协作写入测试'});
-    if(messages[0].content?.includes('这是先前联络的实际回信')){relays++;return answer('不应收到此答复');}
+    if(messages.filter(message=>message.role==='system').map(message=>message.content||'').join('\n').includes('这是先前联络的实际回信')){relays++;return answer('不应收到此答复');}
     return root++===0?tool('bot_send_message',{botId:fx.b.id,message:'请保存测试文件'}):answer('等待对方处理。');
   });
   await fx.harness.run(fx.a.id,'请数据伙伴保存文件');await until(()=>fx.interactions.snapshot().length===1);assert.equal(fx.interactions.snapshot()[0].botId,fx.b.id);
@@ -109,7 +109,7 @@ test('the recipient chooses a main task, uses its own context and writes only af
       if(!result)return tool('host_file_write',{path:join(fx.dir,'delegated.txt'),content:'由数据伙伴完成',reason:'完成受托任务'});
       assert.equal(JSON.parse(result.content!).result.written,true);return answer('已经保存 delegated.txt。');
     }
-    if(messages[0].content?.includes('这是先前联络的实际回信'))return answer('数据伙伴已完成文件保存。');
+    if(messages.filter(message=>message.role==='system').map(message=>message.content||'').join('\n').includes('这是先前联络的实际回信'))return answer('数据伙伴已完成文件保存。');
     return root++===0?tool('bot_send_message',{botId:fx.b.id,message:'请保存 delegated.txt'}):answer('已转交。');
   });
   fx.store.data.conversations[fx.a.id].push({role:'user',content:'发件方的无关记录'});fx.store.data.conversations[fx.b.id].push({role:'user',content:'收件方自己的主会话'});
@@ -130,7 +130,7 @@ test('a child reply resumes an accepted task in the recipient main conversation'
     if(id===fx.b.id){
       if(tools.some(item=>item.function.name==='start_main_task'))return tool('start_main_task',{});
       assert.ok(messages.some(message=>message.content==='我的主会话上下文'));
-      if(messages[0].content?.includes('这是先前联络的实际回信')){assert.ok(messages.some(message=>message.tool_calls?.some(call=>call.function.name==='bot_send_message')));return tool('host_file_write',{path:join(fx.dir,'nested.txt'),content:'7',reason:'保存核验结果'});}
+      if(messages.filter(message=>message.role==='system').map(message=>message.content||'').join('\n').includes('这是先前联络的实际回信')){assert.ok(messages.some(message=>message.tool_calls?.some(call=>call.function.name==='bot_send_message')));return tool('host_file_write',{path:join(fx.dir,'nested.txt'),content:'7',reason:'保存核验结果'});}
       if(!forwarded){forwarded=true;return tool('bot_send_message',{botId:fx.c.id,message:'请核对结果'});}
       return answer('正在等检查伙伴。');
     }
@@ -149,7 +149,7 @@ test('reopening preserves the private transcript and does not replay unfinished 
 });
 
 test('mention IDs bind same-name Bots and stale or forged spans cannot start a run',async t=>{
-  let called=0;const fx=fixture(t,(_id,messages)=>{called++;assert.match(messages[0].content||'',new RegExp(fx.c.id));return answer('收到。');});fx.b.name=fx.c.name='同名';
+  let called=0;const fx=fixture(t,(_id,messages)=>{called++;assert.match(messages.filter(message=>message.role==='system').map(message=>message.content||'').join('\n'),new RegExp(fx.c.id));return answer('收到。');});fx.b.name=fx.c.name='同名';
   await fx.harness.run(fx.a.id,'问 @同名',{mentions:[{id:fx.c.id,name:'同名',color:'#fff',start:2,end:5}]});assert.equal(called,1);assert.equal(fx.store.data.messages.find(message=>message.role==='user')!.mentions![0].color,fx.c.color);
   await assert.rejects(()=>fx.harness.run(fx.a.id,'问 @同名',{mentions:[{id:fx.b.id,name:'别的名字',color:'#fff',start:2,end:5}]}),/提及/);assert.equal(called,1);
 });

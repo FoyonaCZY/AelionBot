@@ -79,7 +79,7 @@ test('a reaction after superseding an unfinished task still requires the task re
 
 test('a user emoji on the Bot greeting can receive a visible Bot pin without any user text message',async t=>{
   const {store,bot,beforeCleanup}=fixture(t),target=store.message(bot.id,'assistant','你好，我是产品经理。',{status:'done'});let calls=0;
-  const model={complete:async(messages:any[])=>{calls++;assert.ok(messages[0].content.includes('与文字发言一样需要自然回应'));assert.ok(messages[0].content.includes('"canPin":true'));return {content:'',calls:[{id:randomUUID(),type:'function',function:{name:'chat_pin',arguments:JSON.stringify({messageId:target.id,emoji:'❤️'})}}],finishReason:'tool_calls'};}} as unknown as ModelClient;
+  const model={complete:async(messages:any[])=>{calls++;assert.ok(messages.filter(message=>message.role==='system').map(message=>message.content||'').join('\n').includes('与文字发言一样需要自然回应'));assert.ok(messages.filter(message=>message.role==='system').map(message=>message.content||'').join('\n').includes('"canPin":true'));return {content:'',calls:[{id:randomUUID(),type:'function',function:{name:'chat_pin',arguments:JSON.stringify({messageId:target.id,emoji:'❤️'})}}],finishReason:'tool_calls'};}} as unknown as ModelClient;
   const harness=new Harness(store,{} as VmController,model,()=>{}),queue=new ChatPinQueue(store,{isRunning:id=>harness.isRunning(id),run:(...args)=>harness.run(...args)},()=>{});beforeCleanup(async()=>{queue.dispose();await wait(()=>!(queue as any).workers.size);});
   queue.pin({botId:bot.id,messageId:target.id,emoji:'👍'});await wait(()=>calls===1&&!harness.busy);
   assert.deepEqual(target.pins?.map(pin=>[pin.actor.id,pin.emoji]),[['user','👍'],[bot.id,'❤️']]);assert.equal(store.data.runs.at(-1)?.status,'completed');
@@ -91,7 +91,7 @@ test('a user emoji on the Bot greeting can receive a visible Bot pin without any
 
 test('new emoji utterances cannot silently complete; a stale silence choice is corrected into a real reply',async t=>{
   const {store,bot}=fixture(t),target=store.message(bot.id,'assistant','你好，我是产品经理。',{status:'done'});let calls=0;
-  const model={complete:async(messages:any[])=>{calls++;if(calls===1)return {content:'[表情静默]',calls:[],finishReason:'stop'};assert.ok(messages.at(-1).content.includes('需要得到回应'));return {content:'是这段介绍不合你的期待吗？你希望我怎么调整？',calls:[],finishReason:'stop'};}} as unknown as ModelClient;
+  const model={complete:async(messages:any[])=>{calls++;if(calls===1)return {content:'[表情静默]',calls:[],finishReason:'stop'};assert.ok(messages.some(message=>message.role==='system'&&message.content?.includes('需要得到回应')));return {content:'是这段介绍不合你的期待吗？你希望我怎么调整？',calls:[],finishReason:'stop'};}} as unknown as ModelClient;
   const event=pinChat(store,bot.id,{kind:'user',id:'user',name:'你'},{messageId:target.id,emoji:'👎'}),harness=new Harness(store,{} as VmController,model,()=>{});
   await harness.run(bot.id,'用户新增 👎 表态',{reactionMessageId:event.eventId});
   assert.equal(calls,2);assert.equal(store.data.runs.at(-1)?.status,'completed');assert.ok(store.data.messages.some(m=>m.role==='assistant'&&m.content.includes('怎么调整')));assert.ok(!JSON.stringify(store.data.conversations[bot.id]).includes('[表情静默]'));

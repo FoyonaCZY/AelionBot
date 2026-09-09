@@ -5,6 +5,7 @@ export interface UsageTotals {
   totalTokens:number;inputTokens:number;outputTokens:number;cachedTokens:number;cacheWriteTokens:number;reasoningTokens:number;
   inputReports:number;outputReports:number;cacheReports:number;cacheWriteReports:number;reasoningReports:number;cacheInputTokens:number;
 }
+export function cacheHitRatio(value:Pick<UsageTotals,'cachedTokens'|'inputTokens'>){return value.inputTokens>0?value.cachedTokens/value.inputTokens:0;}
 export interface UsageBucket extends UsageTotals {key:string;}
 export interface UsageGroup extends UsageTotals {key:string;name:string;providerId?:string;model?:string;}
 export interface UsageReport {

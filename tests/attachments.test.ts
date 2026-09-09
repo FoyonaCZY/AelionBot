@@ -47,7 +47,7 @@ test('attachments preserve original bytes and names, and drafts cannot be read b
 });
 
 test('attachment-only messages invoke the Bot once with real content, without duplicate user messages',async t=>{
-  const fx=fixture(t,(_run,messages)=>{assert.match(messages.at(-1)?.content||'',/咖啡,42/);assert.match(messages.at(-1)?.content||'',/附件/);return answer('文件里咖啡对应的数值是 42。');});const [file]=fx.attachments.importFiles({kind:'bot',id:fx.a.id},[{name:'数据.csv',bytes:document}]);fx.queue.send({botId:fx.a.id,message:'',attachmentIds:[file.id]});await until(fx.idle);assert.equal(fx.store.data.messages.filter(message=>message.role==='user').length,1);assert.equal(fx.store.data.messages.find(message=>message.role==='user')?.attachments?.[0].id,file.id);assert.equal(fx.store.data.runs[0].status,'completed');
+  const fx=fixture(t,(_run,messages)=>{assert.match([...messages].reverse().find(message=>message.role==='user')?.content||'',/咖啡,42/);assert.match([...messages].reverse().find(message=>message.role==='user')?.content||'',/附件/);return answer('文件里咖啡对应的数值是 42。');});const [file]=fx.attachments.importFiles({kind:'bot',id:fx.a.id},[{name:'数据.csv',bytes:document}]);fx.queue.send({botId:fx.a.id,message:'',attachmentIds:[file.id]});await until(fx.idle);assert.equal(fx.store.data.messages.filter(message=>message.role==='user').length,1);assert.equal(fx.store.data.messages.find(message=>message.role==='user')?.attachments?.[0].id,file.id);assert.equal(fx.store.data.runs[0].status,'completed');
 });
 
 test('multiple attached pictures remain visible alongside the latest computer observations and count toward the budget',t=>{
@@ -66,7 +66,7 @@ test('copying a received file to the Bot computer sends the original binary byte
 
 test('Bot private messages can send files and return them to the user with a real final reply',async t=>{
   const fx=fixture(t,(run,messages)=>{
-    if(run.botId===fx.a.id){if(run.peerOrigin?.kind==='peer_summary'){assert.match(messages.at(-1)?.content||'',/报告.csv/);return answer('文件伙伴已经核对报告。');}return messages.some(message=>message.role==='tool')?answer('已发给文件伙伴。'):tool('bot_send_message',{botId:fx.b.id,message:'核对这份报告并返回文件',attachments:[{path:'报告.csv'}]});}
+    if(run.botId===fx.a.id){if(run.peerOrigin?.kind==='peer_summary'){assert.match([...messages].reverse().find(message=>message.role==='user')?.content||'',/报告.csv/);return answer('文件伙伴已经核对报告。');}return messages.some(message=>message.role==='tool')?answer('已发给文件伙伴。'):tool('bot_send_message',{botId:fx.b.id,message:'核对这份报告并返回文件',attachments:[{path:'报告.csv'}]});}
     if(run.peerOrigin?.kind==='peer_request')return tool('start_main_task',{});
     const file=fx.store.data.peerThreads[0].messages[0].attachments![0];if(!fx.store.data.runs.find(item=>item.id===run.id)?.attachments?.length)return tool('message_attach',{attachments:[{attachmentId:file.id}]});return answer('已核对，数值为 42。');
   });fx.peers.start();fx.queue.send({botId:fx.a.id,message:'请文件伙伴核对报告，并把文件给我'});await until(fx.idle);

@@ -7,7 +7,7 @@ import {modelUsage} from './model-usage';
 
 export const nativeKey=(cfg:ModelConfig)=>`${cfg.providerId||''}:${cfg.baseUrl.replace(/\/$/,'')}:${cfg.model}`;
 const rawCall=(name:string,args:unknown,id?:string):ToolCall=>({id:id??randomUUID(),type:'function',function:{name,arguments:typeof args==='string'?args:JSON.stringify(args||{})}});
-export function protocolRequest(cfg:ModelConfig,messages:WireMessage[],tools:ToolDefinition[],output:number,key:string,resolveImage:(id:string)=>string,usage=true){
+export function protocolRequest(cfg:ModelConfig,messages:WireMessage[],tools:ToolDefinition[],output:number,key:string,resolveImage:(id:string)=>string,usage=true,cacheKey?:string){
  const protocol=cfg.protocol||'chat',base=cfg.baseUrl.replace(/\/$/,''),nk=nativeKey(cfg),visible=new Set(visibleImages(messages).map(i=>i.id));
  const images=(message:WireMessage)=>(message.images||[]).filter(i=>visible.has(i.id)).map(i=>resolveImage(i.id));
  const native=(m:WireMessage)=>m.native?.protocol===protocol&&m.native.key===nk?m.native.data:undefined;
@@ -26,27 +26,31 @@ export function protocolRequest(cfg:ModelConfig,messages:WireMessage[],tools:Too
    if(m.content||m.images?.length)input.push({role:m.role,content:[{type:m.role==='assistant'?'output_text':'input_text',text:m.content||'图像资料'},...images(m).map(url=>({type:'input_image',image_url:url,detail:'high'}))]});
    for(const call of m.tool_calls||[])input.push({type:'function_call',call_id:call.id,name:call.function.name,arguments:call.function.arguments});
   }
-  return {url:base+'/responses',headers,body:{model:cfg.model,input,stream:true,store:false,include:['reasoning.encrypted_content'],max_output_tokens:output,...temperature,...(cfg.reasoningEffort?{reasoning:{effort:cfg.reasoningEffort}}:{}),...(tools.length?{tools:tools.map(t=>({type:'function',...t.function,strict:false})),parallel_tool_calls:true}:{})}};
+  return {url:base+'/responses',headers,body:{model:cfg.model,input,stream:true,store:false,include:['reasoning.encrypted_content'],...(cacheKey?{prompt_cache_key:cacheKey}:{}),max_output_tokens:output,...temperature,...(cfg.reasoningEffort?{reasoning:{effort:cfg.reasoningEffort}}:{}),...(tools.length?{tools:tools.map(t=>({type:'function',...t.function,strict:false})),parallel_tool_calls:true}:{})}};
  }
- const system:string[]=[],wire:any[]=[];
+ const system:string[]=[],wire:any[]=[],cacheCandidates:any[]=[];
+ const cacheEnd=()=>{if(protocol!=='anthropic')return;const content=wire.at(-1)?.content,last=content?.at(-1);if(last&&['text','image','tool_result'].includes(last.type))cacheCandidates.push(last);};
  const push=(role:string,parts:any[])=>{if(!parts.length)return;if(wire.at(-1)?.role===role)wire.at(-1)[protocol==='gemini'?'parts':'content'].push(...parts);else wire.push({role,[protocol==='gemini'?'parts':'content']:parts});};
  const callNames=new Map(messages.flatMap(m=>(m.tool_calls||[]).map(c=>[c.id,c.function.name] as const)));
  const providerCallIds=new Set(messages.flatMap(m=>{const kept=native(m);return Array.isArray(kept)?kept.flatMap(p=>p.functionCall?.id?[p.functionCall.id]:[]):(m.tool_calls||[]).map(c=>c.id);}));
  for(const m of messages){
   // Only leading system messages are lifted; later control messages retain their chronology.
   if(m.role==='system'&&!wire.length){if(m.content)system.push(m.content);continue;}
-  const preserved=native(m);if(m.role==='assistant'&&Array.isArray(preserved)){push(protocol==='gemini'?'model':'assistant',structuredClone(preserved));continue;}
+  const preserved=native(m);if(m.role==='assistant'&&Array.isArray(preserved)){push(protocol==='gemini'?'model':'assistant',structuredClone(preserved));cacheEnd();continue;}
   const role=m.role==='assistant'?(protocol==='gemini'?'model':'assistant'):'user';let parts:any[]=[];
   if(m.role==='tool')parts=protocol==='gemini'?[{functionResponse:{...(providerCallIds.has(m.tool_call_id)?{id:m.tool_call_id}:{}),name:callNames.get(m.tool_call_id!)||'unknown',response:{output:m.content||''}}}]:[{type:'tool_result',tool_use_id:m.tool_call_id,content:m.content||''}];
   else {
    if(m.content)parts.push(protocol==='gemini'?{text:m.content}:{type:'text',text:m.content});
    for(const url of images(m)){const match=/^data:([^;]+);base64,([\s\S]+)$/.exec(url);if(!match)throw Error('原生模型图像需要本地 base64 数据');parts.push(protocol==='gemini'?{inlineData:{mimeType:match[1],data:match[2]}}:{type:'image',source:{type:'base64',media_type:match[1],data:match[2]}});}
    for(const call of m.tool_calls||[])parts.push(protocol==='gemini'?{functionCall:{id:call.id,name:call.function.name,args:JSON.parse(call.function.arguments)}}:{type:'tool_use',id:call.id,name:call.function.name,input:JSON.parse(call.function.arguments)});
-  }push(role,parts);
+  }push(role,parts);if(m.role!=='system')cacheEnd();
  }
  if(protocol==='anthropic'){
   if(key)headers['x-api-key']=key;headers['anthropic-version']='2023-06-01';
-  return {url:base+'/messages',headers,body:{model:cfg.model,system:system.length?[{type:'text',text:system.join('\n\n'),cache_control:{type:'ephemeral'}}]:undefined,messages:wire,stream:true,max_tokens:output,...temperature,...(cfg.thinkingBudget&&output>1024?{thinking:{type:'enabled',budget_tokens:Math.min(cfg.thinkingBudget,output-1)}}:{}),...(tools.length?{tools:tools.map(t=>({name:t.function.name,description:t.function.description,input_schema:t.function.parameters}))}:{})}};
+  for(const message of wire)for(const part of message.content)delete part.cache_control;
+  const systemParts=system.map((text,index)=>({type:'text',text,...(index===0||index===system.length-1?{cache_control:{type:'ephemeral'}}:{})}));
+  for(const part of [...new Set(cacheCandidates)].slice(-2))part.cache_control={type:'ephemeral'};
+  return {url:base+'/messages',headers,body:{model:cfg.model,system:systemParts.length?systemParts:undefined,messages:wire,stream:true,max_tokens:output,...temperature,...(cfg.thinkingBudget&&output>1024?{thinking:{type:'enabled',budget_tokens:Math.min(cfg.thinkingBudget,output-1)}}:{}),...(tools.length?{tools:tools.map(t=>({name:t.function.name,description:t.function.description,input_schema:t.function.parameters}))}:{})}};
  }
  if(key)headers['x-goog-api-key']=key;
  return {url:`${base}/models/${encodeURIComponent(cfg.model.replace(/^models\//,''))}:streamGenerateContent?alt=sse`,headers,body:{systemInstruction:system.length?{parts:[{text:system.join('\n\n')}]}:undefined,contents:wire,generationConfig:{maxOutputTokens:output,...temperature,...(cfg.thinkingBudget!==undefined?{thinkingConfig:{thinkingBudget:cfg.thinkingBudget}}:{})},...(tools.length?{tools:[{functionDeclarations:tools.map(t=>({name:t.function.name,description:t.function.description,parametersJsonSchema:t.function.parameters}))}]}:{})}};

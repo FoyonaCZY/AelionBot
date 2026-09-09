@@ -4,6 +4,7 @@ import {usageReport} from '../electron/core/usage-report';
 import {modelUsage} from '../electron/core/model-usage';
 import {StreamAccumulator} from '../electron/core/model-protocol';
 import type {UsageRecord} from '../src/runtime-types';
+import {cacheHitRatio} from '../src/usage-types';
 
 test('all protocols retain cache read/write, actual totals and unknown values',()=>{
   const response=modelUsage('responses',{input_tokens:1000,output_tokens:50,total_tokens:1050,input_tokens_details:{cached_tokens:800,cache_write_tokens:100},output_tokens_details:{reasoning_tokens:20}})!;
@@ -43,13 +44,22 @@ test('full-history reporting uses local inclusive dates, fills gaps and avoids c
   assert.equal(report.byProvider[0].name,'Alpha');assert.equal(report.totals.cacheInputTokens,131*100);
 });
 
-test('provider/model/purpose filters preserve identity and exclude unknown cache counters from hit rates',()=>{
+test('provider/model/purpose filters preserve identity and count missing cache details as misses',()=>{
   const records=[row('1','2026-02-01T12:00:00'),row('2','2026-02-01T12:00:00',{providerId:'b',providerName:'Removed provider',purpose:'permission_review',usage:{version:2,inputTokens:900,outputTokens:100,cachedTokens:0}}),row('3','2026-02-01T12:00:00',{usage:{inputTokens:500,outputTokens:20,cachedTokens:0}}),row('4','2026-02-01T12:00:00',{usage:undefined,error:'connection failed',estimatedTokens:100000})];
   const all=usageReport(records,[{id:'a',name:'Alpha'}],query);
-  assert.equal(all.byModel.length,2);assert.equal(all.totals.cacheReports,2);assert.equal(all.totals.cacheInputTokens,1000);assert.equal(all.totals.missingUsage,1);assert.equal(all.totals.totalTokens,1640);assert.equal(all.totals.failedRequests,1);
+  assert.equal(all.byModel.length,2);assert.equal(all.totals.cacheReports,2);assert.equal(all.totals.cacheInputTokens,1500);assert.equal(all.totals.missingUsage,1);assert.equal(all.totals.totalTokens,1640);assert.equal(all.totals.failedRequests,1);
+  assert.equal(cacheHitRatio(all.totals),80/1500);
   assert.equal(all.byProvider.find(row=>row.providerId==='b')?.name,'Removed provider');
   const filtered=usageReport(records,[],{...query,providerId:'b',model:'shared-model',purpose:'permission_review'});assert.equal(filtered.totals.requests,1);assert.equal(filtered.totals.cachedTokens,0);assert.equal(filtered.totals.totalTokens,1000);
   const empty=usageReport(records,[],{...query,model:'unknown-model'});assert.equal(empty.totals.requests,0);assert.equal(empty.buckets.length,3);
+});
+
+test('GLM example divides cached tokens by all input and missing cache reports display zero',()=>{
+  const records=[137,16473,17091,17676,17875].map((inputTokens,index)=>row(String(index),'2026-02-01T12:00:00',{usage:{version:2,inputTokens,outputTokens:1,...(index===4?{cachedTokens:10240}:{})}}));
+  const report=usageReport(records,[],query);
+  for(const totals of [report.totals,report.byModel[0],report.byProvider[0],report.buckets[0]]){assert.equal(totals.inputTokens,69252);assert.equal(totals.cachedTokens,10240);assert.equal((cacheHitRatio(totals)*100).toFixed(1),'14.8');}
+  const missing=usageReport(records.slice(0,4),[],query);assert.equal(cacheHitRatio(missing.totals),0);assert.equal(missing.totals.cachedTokens,0);
+  assert.equal(cacheHitRatio(usageReport([],[],query).totals),0);
 });
 
 test('usage ranges validate real dates and aggregate hour/month boundaries',()=>{

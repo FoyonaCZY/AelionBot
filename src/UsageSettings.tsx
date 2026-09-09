@@ -1,18 +1,18 @@
 import {useEffect,useState} from 'react';
 import {Select} from './Select';
 import type {Snapshot} from './shared';
-import type {UsageBucket,UsageGroup,UsageQuery,UsageReport,UsageTotals} from './usage-types';
+import {cacheHitRatio,type UsageBucket,type UsageGroup,type UsageQuery,type UsageReport,type UsageTotals} from './usage-types';
 import './usage-settings.css';
 
 const day=(value:Date)=>`${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,'0')}-${String(value.getDate()).padStart(2,'0')}`;
 function range(days:number){const to=new Date(),from=new Date(to);from.setDate(from.getDate()-days+1);return {from:day(from),to:day(to)};}
 const number=(value:number)=>value.toLocaleString('zh-CN');
 const compact=(value:number)=>new Intl.NumberFormat('zh-CN',{notation:'compact',maximumFractionDigits:1}).format(value);
-const percent=(value:UsageTotals)=>value.cacheReports&&value.cacheInputTokens?`${(value.cachedTokens/value.cacheInputTokens*100).toFixed(1)}%`:'—';
+const percent=(value:UsageTotals)=>`${(cacheHitRatio(value)*100).toFixed(1)}%`;
 const purposes:Record<string,string>={foreground:'任务执行',permission_review:'权限审核',background_review:'后台整理',progress:'进度说明',greeting:'问候'};
 type Metric='totalTokens'|'inputTokens'|'outputTokens'|'cachedTokens';
 const metricNames:Record<Metric,string>={totalTokens:'总 tokens',inputTokens:'输入 tokens',outputTokens:'输出 tokens',cachedTokens:'缓存读取 tokens'};
-function metricValue(row:UsageTotals,metric:Metric){const reports=metric==='totalTokens'?row.reportedRequests:metric==='inputTokens'?row.inputReports:metric==='outputTokens'?row.outputReports:row.cacheReports;return !row.requests||reports?row[metric]:undefined;}
+function metricValue(row:UsageTotals,metric:Metric){if(metric==='cachedTokens')return row.cachedTokens;const reports=metric==='totalTokens'?row.reportedRequests:metric==='inputTokens'?row.inputReports:metric==='outputTokens'?row.outputReports:row.cacheReports;return !row.requests||reports?row[metric]:undefined;}
 
 function UsageTimeline({buckets,metric}:{buckets:UsageBucket[];metric:Metric}){
   const [selected,setSelected]=useState<number>();
@@ -59,16 +59,15 @@ export function UsageSettings({state}:{state:Snapshot}){
     <div className="usage-toolbar"><span>{totals?`${number(totals.requests)} 次请求${totals.failedRequests?` · ${number(totals.failedRequests)} 次失败`:''}`:'正在读取记录…'}</span><div><button type="button" className="text-button" onClick={reset}>重置筛选</button><button type="button" className="text-button" onClick={()=>setRefresh(value=>value+1)}>刷新</button></div></div>
     {error?<div className="usage-query-error" role="alert">{error}</div>:!totals?<div className="usage-loading" role="status">正在统计用量…</div>:<>
       <div className="usage-metrics">
-        <div><span>总 tokens</span><strong title={number(totals.totalTokens)}>{totals.reportedRequests||!totals.requests?compact(totals.totalTokens):'—'}</strong><small>{totals.missingUsage?`${totals.missingUsage} 次未返回完整用量`:'服务端报告的用量'}</small></div>
-        <div><span>输入</span><strong title={number(totals.inputTokens)}>{totals.inputReports||!totals.requests?compact(totals.inputTokens):'—'}</strong><small>{totals.cacheWriteReports?`缓存写入 ${compact(totals.cacheWriteTokens)}`:'包含已缓存的输入'}</small></div>
-        <div><span>输出</span><strong title={number(totals.outputTokens)}>{totals.outputReports||!totals.requests?compact(totals.outputTokens):'—'}</strong><small>{totals.reasoningReports?`其中推理 ${compact(totals.reasoningTokens)}`:'包含已报告的推理用量'}</small></div>
-        <div><span>缓存命中率</span><strong>{percent(totals)}</strong><small>{totals.cacheReports?`读取 ${compact(totals.cachedTokens)} tokens`:'未返回缓存明细'}</small></div>
+        <div><span>总 tokens</span><strong title={number(totals.totalTokens)}>{totals.reportedRequests||!totals.requests?compact(totals.totalTokens):'—'}</strong></div>
+        <div><span>输入</span><strong title={number(totals.inputTokens)}>{totals.inputReports||!totals.requests?compact(totals.inputTokens):'—'}</strong></div>
+        <div><span>输出</span><strong title={number(totals.outputTokens)}>{totals.outputReports||!totals.requests?compact(totals.outputTokens):'—'}</strong></div>
+        <div><span>缓存命中率</span><strong>{percent(totals)}</strong></div>
       </div>
       {!totals.requests?<div className="usage-empty"><svg width="42" height="42" viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M7 31h26M11 26V17m9 9V8m9 18V12" stroke="#aaa3bc" strokeWidth="2.5" strokeLinecap="round"/></svg><strong>这段时间还没有用量记录</strong><span>调整筛选，或与 Bot 聊天后再来查看。</span></div>:<>
         <section className="usage-chart-card"><div className="usage-chart-heading"><h3>用量趋势</h3><div><Select aria-label="用量图表指标" value={metric} onChange={event=>setMetric(event.target.value as Metric)}>{Object.entries(metricNames).map(([value,label])=><option key={value} value={value}>{label}</option>)}</Select><Select aria-label="用量时间粒度" value={query.granularity} onChange={event=>update({granularity:event.target.value as UsageQuery['granularity']})}><option value="hour" disabled={(new Date(query.to).getTime()-new Date(query.from).getTime())>30*86400000}>按小时</option><option value="day">按天</option><option value="month">按月</option></Select></div></div><UsageTimeline buckets={report!.buckets} metric={metric}/></section>
         <div className="usage-breakdowns"><Breakdown title="按 Provider" groups={report!.byProvider} onChoose={row=>update({providerId:row.providerId,model:undefined})}/><Breakdown title="按模型" model groups={report!.byModel} onChoose={row=>update({providerId:row.providerId,model:row.model})}/></div>
-        <div className="usage-table-wrap"><table className="usage-table"><caption>模型明细</caption><thead><tr><th>模型 / Provider</th><th>请求</th><th>输入</th><th>输出</th><th>缓存读取</th><th>命中率</th></tr></thead><tbody>{report!.byModel.map(row=><tr key={row.key}><td><strong>{row.model}</strong><small>{row.name}</small></td><td>{number(row.requests)}</td><td>{row.inputReports?number(row.inputTokens):'—'}</td><td>{row.outputReports?number(row.outputTokens):'—'}</td><td>{row.cacheReports?number(row.cachedTokens):'—'}</td><td>{percent(row)}</td></tr>)}</tbody></table></div>
-        <p className="usage-footnote">时间按 {report!.timeZone} 展示。{totals.cacheReports<totals.requests?`缓存命中率基于 ${totals.cacheReports} 次有缓存明细的请求。早期或未返回的明细不计入比例。`:'缓存命中率为缓存读取 tokens 占对应输入 tokens 的比例。'}{totals.missingUsage>0?' 未返回的完整用量不计入总量。':''}</p>
+        <div className="usage-table-wrap"><table className="usage-table"><caption>模型明细</caption><thead><tr><th>模型 / Provider</th><th>请求</th><th>输入</th><th>输出</th><th>缓存读取</th><th>命中率</th></tr></thead><tbody>{report!.byModel.map(row=><tr key={row.key}><td><strong>{row.model}</strong><small>{row.name}</small></td><td>{number(row.requests)}</td><td>{row.inputReports?number(row.inputTokens):'—'}</td><td>{row.outputReports?number(row.outputTokens):'—'}</td><td>{number(row.cachedTokens)}</td><td>{percent(row)}</td></tr>)}</tbody></table></div>
       </>}
     </>}
   </div>;

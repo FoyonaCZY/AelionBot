@@ -38,7 +38,7 @@ export function rememberPublished(store:Store,message:GroupMessage){
 }
 
 // All scopes share token calibration, atomic epochs, summary repair and tool-pair protection.
-export async function prepareGroupContext(store:Store,model:ModelClient,input:{botId?:string;key:string;runId:string;system:WireMessage;history:WireMessage[];tools:ToolDefinition[];signal:AbortSignal;force?:boolean;pendingFailures?:Map<string,string>;taskFrame?:string},engine?:ContextEngine){
+export async function prepareGroupContext(store:Store,model:ModelClient,input:{botId?:string;key:string;runId:string;system:WireMessage;prefixContext?:WireMessage[];dynamicContext?:WireMessage[];history:WireMessage[];tools:ToolDefinition[];signal:AbortSignal;force?:boolean;pendingFailures?:Map<string,string>;taskFrame?:string},engine?:ContextEngine){
  const botId=input.botId||store.data.runs.find(run=>run.id===input.runId)?.botId||store.data.bots.find(bot=>input.key.endsWith(':'+bot.id))?.id;if(!botId)throw Error('群任务不存在');
  const owned=engine?undefined:new CognitiveStore(store),context=engine||new ContextEngine(owned!,model,()=>{});
  try{

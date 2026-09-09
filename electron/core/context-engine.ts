@@ -6,7 +6,7 @@ import {contextModelKey} from '../../src/context-issue';
 import {contextBudget,estimateRequest,exchanges,excerpt,pruneToolOutputs,serializeForSummary,sourceHash,tailBoundary,textTokens} from './context-budget';
 
 export interface ContextStats {estimatedTokens:number;inputBudget:number;toolTokens:number;imageTokens:number;epoch:number;compactions:number;prunedOutputs:number;lastIssue?:string;}
-export interface ContextInput {botId:string;runId:string;system:WireMessage;history:WireMessage[];tools:ToolDefinition[];signal:AbortSignal;pendingFailures?:Map<string,string>;force?:boolean;scopeKey?:string;legacyHead?:{through:number;summary:string};taskFrame?:string;}
+export interface ContextInput {botId:string;runId:string;system:WireMessage;prefixContext?:WireMessage[];dynamicContext?:WireMessage[];history:WireMessage[];tools:ToolDefinition[];signal:AbortSignal;pendingFailures?:Map<string,string>;force?:boolean;scopeKey?:string;legacyHead?:{through:number;summary:string};taskFrame?:string;}
 const keys=['constraints','done','pending','decisions','failures','next'] as const;
 export function parseContextSummary(text:string,maxTokens:number){
   const content=text.trim().replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'');let summary:any;
@@ -62,7 +62,8 @@ export class ContextEngine {
     if(!head.revision&&input.legacyHead?.through)head={...head,...input.legacyHead};
     if(head.through>input.history.length)throw new Error('上下文记录与原始历史不一致，请先恢复历史数据');
     let latestInput=-1;for(let index=input.history.length-1;index>=0;index--)if(input.history[index].role==='user'){latestInput=index;break;}
-    const build=(state:ContextHead,history:WireMessage[])=>[input.system,this.taskFrame(input),...(!input.scopeKey&&input.taskFrame?[{role:'system' as const,content:input.taskFrame}]:[]),...(state.summary?[{role:'assistant' as const,content:`历史压缩摘要（仅供回查参考）：\n${state.summary}\n精确记录锚点：${JSON.stringify(state.anchors)}`}]:[]),...this.loadedSkills(input,state),...(latestInput>=0&&latestInput<state.through?[input.history[latestInput]]:[]),...history];
+    const controls=()=>[this.taskFrame(input),...(input.dynamicContext||[]),...(!input.scopeKey&&input.taskFrame?[{role:'system' as const,content:input.taskFrame}]:[])];
+    const build=(state:ContextHead,history:WireMessage[])=>[input.system,...(input.prefixContext||[]),...(state.summary?[{role:'assistant' as const,content:`历史压缩摘要（仅供回查参考）：\n${state.summary}\n精确记录锚点：${JSON.stringify(state.anchors)}`}]:[]),...this.loadedSkills(input,state),...(latestInput>=0&&latestInput<state.through?[input.history[latestInput]]:[]),...history,...controls()];
     let view=input.history.slice(head.through),request=build(head,view),estimate=estimateRequest(request,input.tools,calibration);
     const saveStats=()=>{const stats={estimatedTokens:estimate.tokens,inputBudget:budget.input,toolTokens:estimate.toolTokens,imageTokens:estimate.imageTokens,epoch:head.revision,compactions,prunedOutputs:prunedCount,...(lastIssue?{lastIssue}:{})};this.states.set(input.botId,stats);this.changed();return stats;};
     if(estimate.tokens>budget.trigger||input.force){
@@ -71,7 +72,7 @@ export class ContextEngine {
     // The newest completed exchange can itself exceed the window. Its original
     // result is already archived, so keep its reference and a digest as well.
     if(estimate.tokens>budget.input){const reduced=pruneToolOutputs(view,view.length,true);view=reduced.messages;prunedCount+=reduced.pruned;request=build(head,view);estimate=estimateRequest(request,input.tools,calibration);}
-    const mandatory=estimateRequest([input.system,this.taskFrame(input),...(!input.scopeKey&&input.taskFrame?[{role:'system' as const,content:input.taskFrame}]:[])],input.tools,calibration);
+    const mandatory=estimateRequest([input.system,...(input.prefixContext||[]),...controls()],input.tools,calibration);
     if(mandatory.tokens>budget.input){saveStats();throw new ContextCapacityError({capacity,estimatedTokens:estimate.tokens,inputBudget:budget.input,modelKey:contextModelKey(this.storage.store.modelFor(botId)),reason:'当前任务要求与必要工具信息本身超过窗口，不能通过删除历史要求来缩减。'});}
     while((estimate.tokens>budget.trigger||input.force&&compactions===0)&&compactions<8){
       if(input.signal.aborted)throw input.signal.reason?.name==='AbortError'?new Error('任务已取消'):input.signal.reason;
@@ -91,7 +92,7 @@ export class ContextEngine {
       const summaryEstimate=estimateRequest(summaryRequest,[],calibration).tokens;
       if(summaryEstimate>budget.input){lastIssue='摘要输入超过安全预算';break;}
       try{
-        const result=await this.model.complete(summaryRequest,[],input.signal,()=>{},{botId,runId:input.runId,purpose:'compaction',maxOutputTokens:budget.output});
+        const result=await this.model.complete(summaryRequest,[],input.signal,()=>{},{botId,runId:input.runId,cacheScope:stateKey,purpose:'compaction',maxOutputTokens:budget.output});
         const run=this.storage.store.data.runs.find(run=>run.id===input.runId);if(run)run.modelCalls++;
         this.observe(input.botId,input.runId,'compaction',result,summaryEstimate);
         if(input.signal.aborted)throw input.signal.reason?.name==='AbortError'?new Error('任务已取消'):input.signal.reason;
@@ -102,7 +103,7 @@ export class ContextEngine {
           this.storage.contextAttempt(input.botId,input.runId,result.content,(validationError as Error).message);
           const repairRequest:WireMessage[]=[summarySystem,{role:'user',content:JSON.stringify({task:'只修复下面已有摘要的结构并压短，不补充新事实；缺失的数组使用 []。',issue:(validationError as Error).message,targetTokens:budget.summary,candidate:result.content})}];
           const repairEstimate=estimateRequest(repairRequest,[],calibration).tokens;if(repairEstimate>budget.input)throw validationError;
-          const repaired=await this.model.complete(repairRequest,[],input.signal,()=>{},{botId,runId:input.runId,purpose:'compaction',maxOutputTokens:budget.output});if(run)run.modelCalls++;this.observe(input.botId,input.runId,'compaction_repair',repaired,repairEstimate);if(input.signal.aborted)throw input.signal.reason?.name==='AbortError'?new Error('任务已取消'):input.signal.reason;if(repaired.calls.length)throw new Error('摘要修复尝试调用工具');
+          const repaired=await this.model.complete(repairRequest,[],input.signal,()=>{},{botId,runId:input.runId,cacheScope:stateKey,purpose:'compaction',maxOutputTokens:budget.output});if(run)run.modelCalls++;this.observe(input.botId,input.runId,'compaction_repair',repaired,repairEstimate);if(input.signal.aborted)throw input.signal.reason?.name==='AbortError'?new Error('任务已取消'):input.signal.reason;if(repaired.calls.length)throw new Error('摘要修复尝试调用工具');
           try{summary=parseContextSummary(repaired.content,budget.summary);this.storage.contextAttempt(input.botId,input.runId,repaired.content);}catch(error){this.storage.contextAttempt(input.botId,input.runId,repaired.content,(error as Error).message);throw error;}
         }
         const anchors=this.anchors(input,through);

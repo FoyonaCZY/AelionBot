@@ -110,7 +110,7 @@ test('a catalog entry alone does not authorize overwriting an unread skill',asyn
 test('foreground Agents also see their skill inventory before deciding to save',async t=>{
   const f=fixture(t);f.store.data.model.model='fixture';
   f.skills.save(f.bot.id,'资料归档','按主题整理资料','FULL_BODY_NOT_IN_FOREGROUND_CATALOG');let inspected=false;
-  const model={complete:async(messages:WireMessage[])=>{const system=messages[0].content!;assert.match(system,/资料归档/);assert.match(system,/按主题整理资料/);assert.ok(!system.includes('FULL_BODY_NOT_IN_FOREGROUND_CATALOG'));inspected=true;return done('已有资料归档流程，无需重复保存。');}} as unknown as ModelClient;
+  const model={complete:async(messages:WireMessage[])=>{const system=messages.filter(message=>message.role==='system').map(message=>message.content||'').join('\n');assert.match(system,/资料归档/);assert.match(system,/按主题整理资料/);assert.ok(!system.includes('FULL_BODY_NOT_IN_FOREGROUND_CATALOG'));inspected=true;return done('已有资料归档流程，无需重复保存。');}} as unknown as ModelClient;
   const harness=new Harness(f.store,{} as VmController,model,()=>{},undefined,undefined,{skills:f.skills} as Integrations);
   try{await harness.run(f.bot.id,'检查有没有可复用的流程');assert.equal(inspected,true);}finally{harness.streams.dispose();}
 });

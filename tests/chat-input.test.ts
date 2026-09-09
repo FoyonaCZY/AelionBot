@@ -37,7 +37,7 @@ test('stopping cancels queued input and restarting never replays it',async t=>{
 test('a new message cancels a pending VM takeover without taking control back from the user',async t=>{
   const dir=mkdtempSync(join(tmpdir(),'aelion-input-takeover-')),store=new Store(dir),bot=store.data.bots[0];store.data.model.model='fixture';store.data.model.contextTokens=64000;
   let queue:ChatPinQueue;const interactions=new Interactions(()=>queue?.wake()),vm={state:{status:'ready'}} as unknown as VmController,computer=new ComputerController(vm,dir,()=>{});
-  const model={complete:async(messages:WireMessage[])=>messages.at(-1)?.content==='先回答我的问题'?answer('收到新的问题。'):tool('request_user_control',{reason:'登录账号'})} as unknown as ModelClient;
+  const model={complete:async(messages:WireMessage[])=>[...messages].reverse().find(message=>message.role==='user')?.content==='先回答我的问题'?answer('收到新的问题。'):tool('request_user_control',{reason:'登录账号'})} as unknown as ModelClient;
   const harness=new Harness(store,vm,model,()=>queue?.wake(),computer,undefined,undefined,undefined,interactions);
   queue=new ChatPinQueue(store,{isRunning:id=>harness.isRunning(id),run:(...args)=>harness.run(...args),refresh:id=>harness.refreshInput(id)},()=>{});
   t.after(async()=>{queue.dispose();harness.cancel(bot.id);await until(()=>!harness.busy&&!queue.hasPending(bot.id));interactions.dispose();assert.equal(dirname(resolve(dir)),resolve(tmpdir()));rmSync(dir,{recursive:true,force:true});});
@@ -74,7 +74,7 @@ test('an in-flight operation completes once and the new request sees its recorde
   fx.queue.send({botId:fx.bot.id,message:'创建一次'});await until(()=>actions===1);fx.queue.send({botId:fx.bot.id,message:'只汇报结果'});assert.equal(actions,1);finish({stdout:'created-once',stderr:'',exitCode:0,durationMs:1});await until(fx.idle);assert.equal(actions,1);assert.ok(fx.store.data.messages.some(m=>m.content==='已核对执行结果。'));
 });
 test('a new input withdraws an obsolete permission instead of executing it',async t=>{
-  const fx=fixture(t,messages=>messages.at(-1)?.content==='不用写了'?answer('收到，不再写入。'):tool('host_file_write',{path:join(fx.dir,'obsolete.txt'),content:'旧内容',reason:'旧请求'}));
+  const fx=fixture(t,messages=>[...messages].reverse().find(message=>message.role==='user')?.content==='不用写了'?answer('收到，不再写入。'):tool('host_file_write',{path:join(fx.dir,'obsolete.txt'),content:'旧内容',reason:'旧请求'}));
   fx.queue.send({botId:fx.bot.id,message:'写入文件'});await until(()=>fx.interactions.snapshot().length===1);fx.queue.send({botId:fx.bot.id,message:'不用写了'});await until(fx.idle);assert.equal(fx.interactions.snapshot().length,0);assert.equal(existsSync(join(fx.dir,'obsolete.txt')),false);
 });
 test('new work after each reporting interval produces visible progress without ending the task',async t=>{

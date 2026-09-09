@@ -7,6 +7,7 @@ import {unzipSync,strFromU8} from 'fflate';
 import {Diagnostics,diagnosticTail} from '../electron/core/diagnostics';
 import {diagnosticRedactor} from '../electron/core/diagnostic-redaction';
 import {DEFAULT_RUNTIME} from '../src/runtime-types';
+import {PromptCacheDiagnostics} from '../electron/core/prompt-cache';
 import type {Snapshot} from '../src/shared';
 
 function fixture(t:test.TestContext){
@@ -55,6 +56,14 @@ test('issue links stay on GitHub, prefill a safe compact draft, and include the 
  const f=fixture(t);f.state.runs[0].error+='\n```\n@someone https://private.invalid/secret';f.state.model.model='很长的模型名称'.repeat(1000);
  const preview=await f.service.prepare(),url=new URL(f.service.issueUrl(preview.id,'example/AelionBot'));assert.equal(url.origin,'https://github.com');assert.equal(url.pathname,'/example/AelionBot/issues/new');assert.ok(url.href.length<=7500);assert.match(url.searchParams.get('body')!,/复现步骤/);assert.ok(url.searchParams.get('body')!.includes(preview.fileName));assert.ok(!url.searchParams.get('body')!.includes(f.secret));assert.ok(!url.searchParams.get('body')!.includes('@someone'));
  assert.throws(()=>f.service.issueUrl(preview.id,'evil.invalid/repo?redirect=other'),/仓库/);
+});
+
+test('export includes cache fingerprints but never raw request bodies',async t=>{
+ const f=fixture(t),tracker=new PromptCacheDiagnostics();
+ f.state.modelUsage![0].requestCache=tracker.record('test-scope',{model:'fixture',input:[{role:'user',content:f.chat}],tools:[{name:'test',description:f.args}]});
+ const preview=await f.service.prepare(),files=unzipSync(f.service.archive(preview.id).bytes),text=strFromU8(files['diagnostics.json']),report=JSON.parse(text);
+ assert.equal(report.modelUsage[0].requestCache.inputMessages,1);assert.equal(report.modelUsage[0].requestCache.firstDifference,'first-request');
+ assert.doesNotMatch(text,/PRIVATE CHAT|PRIVATE TOOL/);
 });
 
 test('preview and export use the same report, concurrent preparation coalesces, and stale tickets expire',async t=>{

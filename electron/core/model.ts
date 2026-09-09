@@ -6,9 +6,11 @@ import type {NativeAssistant} from '../../src/model-types';
 import {nativeKey,protocolRequest,StreamAccumulator} from './model-protocol';
 import {redactHost} from './host';
 import {estimateRequest} from './context-budget';
+import {PromptCacheDiagnostics,promptCacheKey,rejectsPromptCacheKey} from './prompt-cache';
+import type {RequestCacheDiagnostics} from '../../src/runtime-types';
 export interface ToolDefinition {type:'function';function:{name:string;description:string;parameters:Record<string,unknown>};}
 export interface Completion {content:string;calls:ToolCall[];finishReason:string;usage?:ModelUsage;native?:NativeAssistant;}
-export interface CompletionOptions {botId?:string;runId?:string;purpose?:string;maxOutputTokens?:number;timeoutMs?:number;retries?:number;onReset?:()=>void;}
+export interface CompletionOptions {botId?:string;runId?:string;cacheScope?:string;purpose?:string;maxOutputTokens?:number;timeoutMs?:number;retries?:number;onReset?:()=>void;}
 export class ContextOverflowError extends Error {constructor(){super('模型报告上下文容量不足，需要压缩后继续');this.name='ContextOverflowError';}}
 class RequestError extends Error {constructor(message:string,readonly retryable=false,readonly retryAfterMs=0,readonly truncated=false){super(message);}}
 export function validateModelEndpoint(value:string){const url=new URL(value);if(url.username||url.password||url.search||url.hash)throw Error('API 地址不能包含凭据、查询参数或片段');if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(url.hostname)))throw Error('API 必须使用 HTTPS，本地模型可使用 localhost HTTP');return url.toString().replace(/\/$/,'');}
@@ -17,6 +19,8 @@ export function assistantMessage(result:Completion):WireMessage{return {role:'as
 export async function backoff(ms:number,signal:AbortSignal){signal.throwIfAborted();await new Promise<void>((resolve,reject)=>{const cleanup=()=>signal.removeEventListener('abort',abort);const timer=setTimeout(()=>{cleanup();resolve();},ms);const abort=()=>{clearTimeout(timer);cleanup();reject(signal.reason);};signal.addEventListener('abort',abort,{once:true});});}
 export class ModelClient {
  private noUsage=new Set<string>();
+ private noCacheKey=new Set<string>();
+ private cacheDiagnostics=new PromptCacheDiagnostics();
  constructor(private getConfig:(botId?:string)=>ModelConfig,private getKey:(botId?:string)=>string,private resolveImage:(id:string)=>string=()=>{throw Error('屏幕图像解析器未配置');},private settings:()=>RuntimeSettings=()=>DEFAULT_RUNTIME,private observe:(record:UsageRecord)=>void=()=>{}){}
  async complete(messages:WireMessage[],tools:ToolDefinition[],signal:AbortSignal,onText:(text:string)=>void=()=>{},options:CompletionOptions={}):Promise<Completion>{
   let cfg=this.getConfig(options.botId);if(cfg.issue)throw Error(cfg.issue);if(!cfg.model.trim())throw Error('请先为这个 Bot 选择 Provider 和模型');
@@ -25,10 +29,12 @@ export class ModelClient {
   messages=[...messages];const ceiling=Math.max(256,Math.min(settings.maxOutputTokens,cfg.contextTokens,options.maxOutputTokens||65536)),requested=options.maxOutputTokens||Math.min(4096,ceiling);let output=Math.min(ceiling,Math.max(256,requested));
   const retries=options.retries??settings.modelRetries;let emitted=false,fallback=false;
   for(let attempt=0;;attempt++){
-   signal.throwIfAborted();const start=Date.now(),timeout=AbortSignal.timeout(options.timeoutMs||settings.requestTimeoutMs),requestSignal=AbortSignal.any([signal,timeout]);let accumulator:StreamAccumulator|undefined;
+   signal.throwIfAborted();const start=Date.now(),timeout=AbortSignal.timeout(options.timeoutMs||settings.requestTimeoutMs),requestSignal=AbortSignal.any([signal,timeout]);let accumulator:StreamAccumulator|undefined,requestCache:RequestCacheDiagnostics|undefined;
    try{
-    const featureKey=nativeKey(cfg),send=()=>{const request=protocolRequest(cfg,messages,tools,output,key,this.resolveImage,!this.noUsage.has(featureKey));return fetch(request.url,{method:'POST',redirect:'error',headers:request.headers,body:JSON.stringify(request.body),signal:requestSignal});};
+    const featureKey=nativeKey(cfg),scope=options.cacheScope||options.botId,cacheKey=scope?promptCacheKey(featureKey,scope,options.purpose||'foreground'):undefined;
+    const send=()=>{const request=protocolRequest(cfg,messages,tools,output,key,this.resolveImage,!this.noUsage.has(featureKey),cfg.protocol==='responses'&&!this.noCacheKey.has(featureKey)?cacheKey:undefined);requestCache=this.cacheDiagnostics.record(cacheKey||promptCacheKey(featureKey,'unscoped',options.purpose||'foreground'),request.body);requestCache.cacheKeyRejected=this.noCacheKey.has(featureKey);return fetch(request.url,{method:'POST',redirect:'error',headers:request.headers,body:JSON.stringify(request.body),signal:requestSignal});};
     let response=await send();
+    if([400,422].includes(response.status)&&cfg.protocol==='responses'&&cacheKey&&!this.noCacheKey.has(featureKey)&&rejectsPromptCacheKey(await response.clone().text())){await response.body?.cancel();if(this.noCacheKey.size>=128)this.noCacheKey.clear();this.noCacheKey.add(featureKey);response=await send();}
     if(response.status===400&&!this.noUsage.has(featureKey)&&(cfg.protocol||'chat')==='chat'){const body=await response.clone().text();if(/stream_options|include_usage/i.test(body)&&/unknown|unsupported|not supported|unrecognized|extra/i.test(body)){await response.body?.cancel();this.noUsage.add(featureKey);response=await send();}}
     if(!response.ok){const body=(await response.text()).slice(0,1200);if([400,413].includes(response.status)&&/context[_ ]?(length|window)|maximum.*tokens|too many.*tokens|prompt.*too long/i.test(body))throw new ContextOverflowError();const retry=response.headers.get('retry-after'),after=retry?Number.isFinite(Number(retry))?Number(retry)*1000:Date.parse(retry)-Date.now():0;throw new RequestError(`模型请求失败 HTTP ${response.status}: ${redactHost(body,[key])}`,[408,409,429].includes(response.status)||response.status>=500,Math.min(30000,Math.max(0,after||0)));}
     if(!response.body)throw new RequestError('模型返回空响应',true);
@@ -47,9 +53,9 @@ export class ModelClient {
     for(const call of result.calls){if(!call.id||!call.function.name)throw new RequestError('模型工具调用缺少 ID 或名称');try{const args=JSON.parse(call.function.arguments);if(!args||typeof args!=='object'||Array.isArray(args))throw Error();}catch{throw new RequestError('模型工具参数不是完整 JSON 对象，未执行');}}
     if(new Set(result.calls.map(c=>c.id)).size!==result.calls.length)throw new RequestError('模型返回重复的工具调用 ID，未执行');
     if(result.usage)result.usage={...result.usage,latencyMs:Date.now()-start,attempts:attempt+1};
-    this.observe({id:randomUUID(),botId:options.botId,runId:options.runId,purpose:options.purpose||'foreground',model:cfg.model,providerId:cfg.providerId,providerName:cfg.providerName,time:new Date().toISOString(),usage:result.usage,estimatedTokens:estimateRequest(messages,tools).tokens+Math.ceil(JSON.stringify(result.calls).length/3)+Math.ceil(result.content.length/3)});return result;
+    this.observe({id:randomUUID(),botId:options.botId,runId:options.runId,purpose:options.purpose||'foreground',model:cfg.model,providerId:cfg.providerId,providerName:cfg.providerName,time:new Date().toISOString(),usage:result.usage,requestCache,estimatedTokens:estimateRequest(messages,tools).tokens+Math.ceil(JSON.stringify(result.calls).length/3)+Math.ceil(result.content.length/3)});return result;
    }catch(error){
-    const safe=redactHost((error as Error)?.message||String(error),[key]);this.observe({id:randomUUID(),botId:options.botId,runId:options.runId,purpose:options.purpose||'foreground',model:cfg.model,providerId:cfg.providerId,providerName:cfg.providerName,time:new Date().toISOString(),usage:accumulator?.usage,error:safe});
+    const safe=redactHost((error as Error)?.message||String(error),[key]);this.observe({id:randomUUID(),botId:options.botId,runId:options.runId,purpose:options.purpose||'foreground',model:cfg.model,providerId:cfg.providerId,providerName:cfg.providerName,time:new Date().toISOString(),usage:accumulator?.usage,requestCache,error:safe});
     signal.throwIfAborted();if(error instanceof ContextOverflowError)throw error;
     const retryable=error instanceof RequestError?error.retryable:error instanceof TypeError||timeout.aborted;
     if(!retryable||emitted&&!options.onReset)throw Error(safe);

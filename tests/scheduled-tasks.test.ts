@@ -91,7 +91,7 @@ test('a Bot can manage only its current conversation tasks and identical group c
 
 test('a scheduled direct task goes through the real chat queue and tools, replies once, and completes its one-shot plan',async t=>{
   const f=fixture(t);let executions=0;
-  const model={complete:async(messages:WireMessage[],tools:ToolDefinition[])=>{assert.ok(tools.some(tool=>tool.function.name==='scheduled_task_create'));assert.match(messages[0].content||'',/不要重新创建同一计划/);return executions?answer('定时核对已完成'):call('computer_execute',{command:'check-work'});}} as unknown as ModelClient;
+  const model={complete:async(messages:WireMessage[],tools:ToolDefinition[])=>{assert.ok(tools.some(tool=>tool.function.name==='scheduled_task_create'));assert.match(messages.filter(message=>message.role==='system').map(message=>message.content||'').join('\n'),/不要重新创建同一计划/);return executions?answer('定时核对已完成'):call('computer_execute',{command:'check-work'});}} as unknown as ModelClient;
   const vm={execute:async()=>{executions++;return {stdout:'verified',stderr:'',exitCode:0,durationMs:1};}} as unknown as VmController;
   const harness=new Harness(f.store,vm,model,()=>{}),queue=new ChatPinQueue(f.store,{isRunning:id=>harness.isRunning(id),run:(...args)=>harness.run(...args)},()=>{}),scheduler=new TaskScheduler(f.store,{ready:()=>!harness.busy&&!queue.hasPending(f.bot.id),send:(target,prompt,trigger)=>queue.schedule(target.id,prompt,trigger)},()=>{},()=>f.now);harness.setTaskScheduler(scheduler);
   f.cleanup.push(async()=>{scheduler.dispose();queue.dispose();harness.cancel(f.bot.id);await until(()=>!harness.busy);await delay(20);});
@@ -103,7 +103,7 @@ test('a scheduled direct task goes through the real chat queue and tools, replie
 test('model-created schedules in a group broadcast to its members and publish their actual tool results in that group',async t=>{
   const f=fixture(t),executed=new Set<string>();let creating=true;let scheduler:TaskScheduler;
   const model={complete:async(messages:WireMessage[],tools:ToolDefinition[])=>{
-    const id=/\/work\/([a-f0-9-]+)/.exec(messages[0].content||'')?.[1]!,run=f.store.data.runs.find(run=>run.botId===id&&run.status==='running')!;
+    const id=/\/work\/([a-f0-9-]+)/.exec(messages.filter(message=>message.role==='system').map(message=>message.content||'').join('\n'))?.[1]!,run=f.store.data.runs.find(run=>run.botId===id&&run.status==='running')!;
     if(creating){if(id!==f.bot.id)return answer('[群聊静默]');if(!f.store.data.scheduledTasks.length)return call('scheduled_task_create',{title:'群定时核对',prompt:'请各自核对工作成果',schedule:{kind:'once',at:new Date(f.now+1000).toISOString(),timeZone:zone}});return answer('群定时任务已创建');}
     if(!executed.has(id)){assert.ok(tools.some(tool=>tool.function.name==='computer_execute'));executed.add(id);return call('computer_execute',{command:'verify-'+id});}
     return answer(run.toolCalls?'已核对 '+id:'[群聊静默]');

@@ -12,10 +12,10 @@ function add(total:UsageTotals,record:UsageRecord){
   total.requests++;if(record.error)total.failedRequests++;
   const usage=record.usage,sum=reportedTotal(usage);
   if(valid(sum)){total.reportedRequests++;total.totalTokens+=sum;}else total.missingUsage++;
-  if(valid(usage?.inputTokens)){total.inputTokens+=usage.inputTokens;total.inputReports++;}
+  if(valid(usage?.inputTokens)){total.inputTokens+=usage.inputTokens;total.cacheInputTokens+=usage.inputTokens;total.inputReports++;}
   if(valid(usage?.outputTokens)){total.outputTokens+=usage.outputTokens;total.outputReports++;}
-  // Old releases defaulted an absent cache field to zero. Its meaning cannot be reconstructed.
-  if(valid(usage?.cachedTokens)&&(usage.version===2||usage.cachedTokens>0)&&valid(usage.inputTokens)&&usage.cachedTokens<=usage.inputTokens){total.cachedTokens+=usage.cachedTokens;total.cacheInputTokens+=usage.inputTokens;total.cacheReports++;}
+  // Missing cache counters contribute zero; all reported input tokens remain in the denominator.
+  if(valid(usage?.cachedTokens)&&(usage.version===2||usage.cachedTokens>0)&&valid(usage.inputTokens)&&usage.cachedTokens<=usage.inputTokens){total.cachedTokens+=usage.cachedTokens;total.cacheReports++;}
   if(valid(usage?.cacheWriteTokens)){total.cacheWriteTokens+=usage.cacheWriteTokens;total.cacheWriteReports++;}
   if(valid(usage?.reasoningTokens)&&(usage.version===2||usage.reasoningTokens>0)){total.reasoningTokens+=usage.reasoningTokens;total.reasoningReports++;}
 }
