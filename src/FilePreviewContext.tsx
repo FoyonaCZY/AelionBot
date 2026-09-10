@@ -4,6 +4,7 @@ import {FilePreview} from './FilePreview';
 
 export interface PreviewItem{
   id:string;name:string;size:number;
+  workspace?:{botId:string;path:string};
   load:()=>Promise<ArtifactPreview>;
   save:()=>Promise<unknown>;
   openInComputer?:()=>Promise<unknown>;

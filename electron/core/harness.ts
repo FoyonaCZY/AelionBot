@@ -1,4 +1,5 @@
 import {userProfilePrompt} from '../../src/user-profile';
+import {QUESTION_ANSWER_PREFIX,questionAnswerText,questionAnswerData} from '../../src/question-answers';
 import {TemporarilyUnavailableTool,reactionRestriction,reactionRestrictionContext} from './tool-availability';
 import {botIdentity} from '../../src/bot-colors';
 import {isGroupWorkTool} from '../../src/group-types';
@@ -332,7 +333,7 @@ export class Harness {
       // A child reply resumes the same main-conversation task with its real execution history.
       if(options.peerOrigin?.kind==='peer_result'&&options.peerOrigin.sessionId&&this.store.data.runs.some(previous=>previous.id!==run.id&&previous.botId===botId&&previous.peerOrigin?.kind==='peer_task'&&(previous.peerOrigin.sessionId||previous.peerOrigin.exchangeId)===options.peerOrigin!.sessionId))enterMainTask();
       for(let iteration=0;;iteration++){
-        for(const reply of this.interactions?.consumeAnswers(botId,run.id)||[]){const content='用户对会话内问题的回答：'+JSON.stringify(reply);history.push({role:'user',content});this.store.message(botId,'user',content,{runId:run.id});}
+        for(const reply of this.interactions?.consumeAnswers(botId,run.id)||[]){const content=QUESTION_ANSWER_PREFIX+JSON.stringify(reply);history.push({role:'user',content});this.store.message(botId,'user',questionAnswerText(reply)??content,{runId:run.id,questionAnswer:questionAnswerData(reply)});}
         new RunPolicy(this.store).check(botId,run.id,iteration);
         checkpoint();
         if(controller.signal.aborted)throw new Error('任务已取消');
@@ -360,8 +361,8 @@ export class Harness {
           const target=this.streamTarget(botId,run.id,message.id,message.time);let preview=this.streams.begin(target,this.streamMembers(target.groupId));
           try{return await abortable(inferenceSignal,()=>this.model.complete(messages,modelTools,inferenceSignal,delta=>{
             if(!accepting||inferenceSignal.aborted||controller.signal.aborted||groupRuntime.updated)return;
-            message.content+=delta;if(!pendingFailures.size&&(!memoryDelegation||memoryConfirmed))preview.update(delta);
-          },{botId,runId:run.id,cacheScope:contextKey,contextStats:groupPrepared?.stats||prepared?.stats,requiredImageIds:[...requiredImageIds],maxOutputTokens,onReset:()=>{message.content='' ;preview.close(false);preview=this.streams.begin(target,this.streamMembers(target.groupId));}}));}finally{accepting=false;preview.close(false);}
+            message.content+=delta;if(!pendingFailures.size&&(!memoryDelegation||memoryConfirmed)&&run.modelRequest&&readableContent(message.content)){const changed=run.modelRequest.phase!=='streaming';run.modelRequest={...run.modelRequest,phase:'streaming',updatedAt:new Date().toISOString()};if(changed)this.changed();}if(!pendingFailures.size&&(!memoryDelegation||memoryConfirmed))preview.update(delta);
+          },{onStatus:status=>{if(accepting&&!inferenceSignal.aborted){run.modelRequest=status;this.changed();}},botId,runId:run.id,cacheScope:contextKey,contextStats:groupPrepared?.stats||prepared?.stats,requiredImageIds:[...requiredImageIds],maxOutputTokens,onReset:()=>{message.content='' ;preview.close(false);preview=this.streams.begin(target,this.streamMembers(target.groupId));}}));}finally{accepting=false;delete run.modelRequest;preview.close(false);this.changed();}
         };
         let result:Completion;
         try{result=await complete(finalContext,groupPrepared?.maxOutputTokens||prepared?.maxOutputTokens);}

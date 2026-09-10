@@ -1,3 +1,4 @@
+import type {ModelRequestStatus} from '../src/model-request-status';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer,type RequestListener} from 'node:http';
@@ -7,10 +8,19 @@ import {DEFAULT_RUNTIME} from '../src/runtime-types';
 import type {ModelConfig} from '../src/shared';
 async function server(t:test.TestContext,handler:RequestListener){const s=createServer(handler);await new Promise<void>(r=>s.listen(0,'127.0.0.1',r));t.after(()=>{s.closeAllConnections();s.close();});return `http://127.0.0.1:${(s.address() as any).port}/v1`;}
 const cfg:ModelConfig={baseUrl:'http://localhost:1/v1',model:'test',hasKey:false,contextTokens:32000};
+
+test('requests use the full configured output allowance immediately and honor explicit smaller limits',async t=>{
+ const limits:number[]=[];const baseUrl=await server(t,async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;limits.push(JSON.parse(body).max_tokens);res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({choices:[{message:{content:'ok'},finish_reason:'stop'}]}));});
+ const model=new ModelClient(()=>({...cfg,baseUrl,contextTokens:128000}),()=> '');t.after(()=>model.dispose());
+ await model.complete([{role:'user',content:'long document'}],[],new AbortController().signal);
+ await model.complete([],[],new AbortController().signal,undefined,{maxOutputTokens:1024});
+ const configured=new ModelClient(()=>({...cfg,baseUrl,contextTokens:128000}),()=> '',undefined,()=>({...DEFAULT_RUNTIME,maxOutputTokens:8192}));t.after(()=>configured.dispose());await configured.complete([],[],new AbortController().signal);
+ assert.deepEqual(limits,[65536,1024,8192]);
+});
 test('429 retries are bounded; failed partial previews reset before retry and only complete calls escape',async t=>{
- let count=0,resets=0,visible='';const baseUrl=await server(t,async(req,res)=>{for await(const _ of req){}count++;if(count===1){res.writeHead(429,{'retry-after':'0.001'});res.end('busy');return;}res.writeHead(200,{'content-type':'text/event-stream'});res.write('data: '+JSON.stringify({choices:[{delta:{content:count===2?'partial':'finished'}}]})+'\n\n');if(count===3)res.write('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n');res.end();});
- const model=new ModelClient(()=>({...cfg,baseUrl}),()=> '');const result=await model.complete([{role:'user',content:'test'}],[],new AbortController().signal,t=>visible+=t,{onReset:()=>{resets++;visible='';}});
- assert.equal(count,3);assert.equal(resets,1);assert.equal(visible,'finished');assert.equal(result.content,'finished');
+ let count=0,resets=0,visible='';const statuses:ModelRequestStatus[]=[];const baseUrl=await server(t,async(req,res)=>{for await(const _ of req){}count++;if(count===1){res.writeHead(429,{'retry-after':'0.001'});res.end('busy');return;}res.writeHead(200,{'content-type':'text/event-stream'});res.write('data: '+JSON.stringify({choices:[{delta:{content:count===2?'partial':'finished'}}]})+'\n\n');if(count===3)res.write('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n');res.end();});
+ const model=new ModelClient(()=>({...cfg,baseUrl}),()=> '');const result=await model.complete([{role:'user',content:'test'}],[],new AbortController().signal,t=>visible+=t,{onStatus:status=>statuses.push(status),onReset:()=>{resets++;visible='';}});
+ assert.equal(count,3);assert.equal(resets,1);assert.equal(visible,'finished');assert.equal(result.content,'finished');assert.deepEqual(statuses.map(s=>s.phase),['waiting','retrying','waiting','retrying','waiting']);assert.equal(statuses[1].reason,'rate_limit');assert.equal(statuses[1].attempt,1);assert.doesNotMatch(JSON.stringify(statuses),/busy|partial|finished/);
 });
 test('authentication failures are not retried and cancellation interrupts backoff',async t=>{
  let count=0;const baseUrl=await server(t,async(req,res)=>{for await(const _ of req){}count++;res.writeHead(count===1?401:429,{'retry-after':'30'});res.end('denied');});

@@ -1,6 +1,6 @@
 {
   "name": "aelion-bot",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "private": true,
   "description": "Local AI teammates with a managed Linux computer",
   "type": "module",

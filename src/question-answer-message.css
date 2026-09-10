@@ -1,0 +1,19 @@
+/* A submitted answer keeps its question context without becoming a narrow text column. */
+:root .message-row.user .bubble.question-answer-bubble{
+  width:390px;max-width:100%;min-width:0;padding:17px 19px 18px;
+  border-radius:17px 17px 6px 17px;white-space:normal;
+}
+.question-answer-message{min-width:0;text-align:left}
+.question-answer-message>header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 13px;color:var(--text-secondary);font-size:var(--text-caption);font-weight:var(--weight-body);line-height:1.5}
+.question-answer-message>header>span:last-child{font-variant-numeric:tabular-nums;color:var(--text-muted)}
+.question-answer-message dl{display:block;margin:0;font-size:var(--text-body)}
+.question-answer-pair{display:grid;grid-template-columns:minmax(0,105px) minmax(0,1fr);gap:17px;align-items:baseline;padding:13px 0}
+.question-answer-pair:first-child{padding-top:0}.question-answer-pair:last-child{padding-bottom:0}
+.question-answer-pair+.question-answer-pair{border-top:1px solid light-dark(#d9cee5,#62516f)}
+.question-answer-pair dt{margin:0;font-size:var(--text-caption);line-height:1.8;font-weight:var(--weight-body);color:var(--text-secondary);overflow-wrap:anywhere}
+.question-answer-pair dd{margin:0;text-align:left;font-size:var(--text-body);line-height:var(--message-leading,1.8);font-weight:var(--weight-body);color:var(--text-ink);white-space:pre-wrap;overflow-wrap:anywhere;min-width:0}
+.question-answer-bubble .message-quote{margin-bottom:15px}
+@container conversation (max-width:430px){
+  :root .message-row.user .bubble.question-answer-bubble{width:100%;padding:15px 16px}
+  .question-answer-pair{grid-template-columns:minmax(0,1fr);gap:4px;padding:12px 0}
+}

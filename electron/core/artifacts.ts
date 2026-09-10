@@ -4,6 +4,9 @@ import type { Artifact, ArtifactPreview } from '../../src/shared';
 import { Store } from './store';
 import {officeExtensions,officePreview,OFFICE_PREVIEW_LIMIT} from './office-preview';
 import { VmController, shQuote } from './vm';
+import {WORKSPACE_DIRECTORY_SCRIPT} from './workspace-directory';
+import type {WorkspaceDirectory} from '../../src/workspace-files';
+import {sourceTextFile} from '../../src/source-language';
 
 export function artifactPath(value:string){
   if(!value||value.length>500||value.startsWith('/')||value.includes('\\')||/^[a-z][a-z0-9+.-]*:/i.test(value)||value.split('/').includes('..')||value.includes('\0'))throw new Error('文件必须位于当前 Bot 工作目录');
@@ -11,6 +14,12 @@ export function artifactPath(value:string){
 }
 export class ArtifactService {
   constructor(private store:Store,private vm:VmController){}
+  async directory(botId:string,path=''):Promise<WorkspaceDirectory>{
+    this.store.bot(botId);if(path)path=artifactPath(path);
+    const result=await this.vm.executePython(WORKSPACE_DIRECTORY_SCRIPT,Buffer.from(JSON.stringify({path})),botId,undefined,600_000);
+    if(result.exitCode!==0)throw new Error('无法读取目录，请确认工作电脑已启动且目录仍然存在。');
+    return JSON.parse(result.stdout);
+  }
   importKnown(botId:string,files:Array<{name:string;path:string;size:number;modifiedAt:string}>){
     let added=0;
     for(const file of files){
@@ -64,7 +73,7 @@ print(json.dumps(files,ensure_ascii=False))`;
     const extension=extname(artifactPath(path)).toLowerCase();
     if(officeExtensions.has(extension))return officePreview(this.vm,botId,extension,await this.read(botId,path,OFFICE_PREVIEW_LIMIT));
     const imageTypes:Record<string,string>={'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif','.svg':'image/svg+xml','.bmp':'image/bmp','.avif':'image/avif'};
-    const isText=['.md','.txt','.csv','.tsv','.json','.py','.js','.ts','.tsx','.jsx','.css','.html','.htm','.yml','.yaml','.xml','.log','.sh','.sql'].includes(extension);
+    const isText=!imageTypes[extension]&&sourceTextFile(path);
     if(!isText&&!imageTypes[extension]&&extension!=='.pdf')return {kind:'unsupported'};
     const bytes=await this.read(botId,path,isText?2*1024*1024:15*1024*1024);
     if(imageTypes[extension])return {kind:'image',dataUrl:`data:${imageTypes[extension]};base64,${bytes.toString('base64')}`};

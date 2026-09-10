@@ -3,7 +3,7 @@ import {formatConversationTime} from './conversation-time';
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {AttachmentList} from './Attachments';
 import {BotWorkingStatus} from './BotWorkingStatus';
-import {liveBotStep} from './activity';
+import {liveBotProgress as liveBotStep} from './live-bot-progress';
 import Markdown from './MessageMarkdown';
 import type {Bot,ChatMessage,RunRecord,StreamingReply as Reply} from './shared';
 import type {BotIdentity,PeerChatPage,PeerExchangeView,PeerMessage,PeerView} from './peer-types';

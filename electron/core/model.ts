@@ -1,3 +1,4 @@
+import type {ModelRequestStatus} from '../../src/model-request-status';
 import {randomUUID} from 'node:crypto';
 import {visibleImages} from '../../src/model-images';
 import type {ModelConfig,ToolCall,WireMessage} from '../../src/shared';
@@ -5,7 +6,7 @@ import {DEFAULT_RUNTIME,type RuntimeSettings,type ModelUsage,type UsageRecord,ty
 import type {NativeAssistant} from '../../src/model-types';
 import {nativeKey,protocolRequest,StreamAccumulator} from './model-protocol';
 import {redactHost} from './host';
-import {estimateRequest} from './context-budget';
+import {contextBudget,estimateRequest} from './context-budget';
 import {PromptCacheDiagnostics,promptCacheKey,rejectsPromptCacheKey} from './prompt-cache';
 import type {RequestCacheDiagnostics} from '../../src/runtime-types';
 import {stableToolDefinitions,transportErrorCodes} from './request-snapshot';
@@ -13,7 +14,7 @@ import {imageInputRejected,omitHistoricalImages,ModelImageUnsupportedError} from
 import {ResponsesTransport,websocketEnabled,type TransportStats} from './responses-transport';
 export interface ToolDefinition {type:'function';function:{name:string;description:string;parameters:Record<string,unknown>};}
 export interface Completion {inputImagesOmitted?:boolean;content:string;calls:ToolCall[];finishReason:string;usage?:ModelUsage;native?:NativeAssistant;}
-export interface CompletionOptions {requiredImageIds?:string[];contextStats?:ContextUsage;botId?:string;runId?:string;cacheScope?:string;purpose?:string;maxOutputTokens?:number;timeoutMs?:number;retries?:number;onReset?:()=>void;}
+export interface CompletionOptions {onStatus?:(status:ModelRequestStatus)=>void;requiredImageIds?:string[];contextStats?:ContextUsage;botId?:string;runId?:string;cacheScope?:string;purpose?:string;maxOutputTokens?:number;timeoutMs?:number;retries?:number;onReset?:()=>void;}
 export class ContextOverflowError extends Error {constructor(){super('模型报告上下文容量不足，需要压缩后继续');this.name='ContextOverflowError';}}
 class RequestError extends Error {constructor(message:string,readonly retryable=false,readonly retryAfterMs=0,readonly truncated=false){super(message);}}
 export function validateModelEndpoint(value:string){const url=new URL(value);if(url.username||url.password||url.search||url.hash)throw Error('API 地址不能包含凭据、查询参数或片段');if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(url.hostname)))throw Error('API 必须使用 HTTPS，本地模型可使用 localhost HTTP');return url.toString().replace(/\/$/,'');}
@@ -34,13 +35,15 @@ export class ModelClient {
   if(!key&&!['localhost','127.0.0.1','[::1]'].includes(new URL(cfg.baseUrl).hostname))throw Error('请先在设置中填写 API Key');
   const contextStats=options.contextStats?{estimatedTokens:options.contextStats.estimatedTokens,calibration:options.contextStats.calibration,prunedOutputs:options.contextStats.prunedOutputs,epoch:options.contextStats.epoch,estimateSource:options.contextStats.estimateSource,contextChanges:options.contextStats.contextChanges?.slice(),archivedImages:options.contextStats.archivedImages}:undefined;
   const images=new Map<string,string>(),resolveImage=(id:string)=>{let value=images.get(id);if(value===undefined){value=this.resolveImage(id);images.set(id,value);}return value;};
-  messages=structuredClone(messages);tools=stableToolDefinitions(tools);const ceiling=Math.max(256,Math.min(settings.maxOutputTokens,cfg.contextTokens,options.maxOutputTokens||65536)),requested=options.maxOutputTokens||Math.min(4096,ceiling);let output=Math.min(ceiling,Math.max(256,requested));
+  messages=structuredClone(messages);tools=stableToolDefinitions(tools);const availableOutput=Math.floor(cfg.contextTokens-(options.contextStats?.estimatedTokens??estimateRequest(messages,tools).tokens)-contextBudget(cfg.contextTokens).safety),ceiling=Math.max(256,Math.min(settings.maxOutputTokens,availableOutput,options.maxOutputTokens||65536));let output=ceiling;
   const requiredImages=new Set(options.requiredImageIds??visibleImages(messages).map(image=>image.id));let imagesOmitted=false;
   const visionKey=()=>JSON.stringify([cfg.protocol||'chat',nativeKey(cfg),cfg.supportsImages]);
   if(cfg.supportsImages===false||(this.noImages.get(visionKey())||0)>Date.now()){const next=omitHistoricalImages(messages,requiredImages,cfg);imagesOmitted=next.some((message,index)=>message!==messages[index]);messages=next;}
-  const retries=options.retries??settings.modelRetries;let emitted=false,fallback=false;
+  const retries=options.retries??settings.modelRetries;let emitted=false,fallback=false;let retryReason:ModelRequestStatus['reason'];
+  const notify=(status:ModelRequestStatus)=>{try{options.onStatus?.(status);}catch{/* Observing transport state must not alter a request. */}};
   for(let attempt=0;;attempt++){
    signal.throwIfAborted();const start=Date.now(),timeout=AbortSignal.timeout(options.timeoutMs||settings.requestTimeoutMs),requestSignal=AbortSignal.any([signal,timeout]);let accumulator:StreamAccumulator|undefined,requestCache:RequestCacheDiagnostics|undefined;
+   notify({phase:'waiting',startedAt:new Date(start).toISOString(),updatedAt:new Date(start).toISOString(),attempt:Math.max(0,attempt),maxRetries:retries,reason:retryReason});
    try{
     const featureKey=`${cfg.protocol||'chat'}:${nativeKey(cfg)}`,scope=options.cacheScope||options.botId,cacheKey=scope?promptCacheKey(featureKey,scope,options.purpose||'foreground'):undefined;
     const send=async()=>{const request=protocolRequest(cfg,messages,tools,output,key,resolveImage,!this.noUsage.has(featureKey),cfg.protocol==='responses'&&!this.noCacheKey.has(featureKey)?cacheKey:undefined,cacheKey);requestCache=this.cacheDiagnostics.record(cacheKey||promptCacheKey(featureKey,'unscoped',options.purpose||'foreground'),request.body);requestCache.imageCount=visibleImages(messages).length;requestCache.toolHistoryRepairs=request.historyRepairs;requestCache.cacheKeyRejected=this.noCacheKey.has(featureKey);requestCache.sessionAffinitySent=Boolean(cacheKey);const transport:TransportStats=Object.assign(requestCache,{transport:'http' as const,incremental:false,sentInputItems:(request.body as any).input?.length||0});const stream=websocketEnabled(cfg)?await this.responses.request(cacheKey||featureKey,request,requestSignal,transport):undefined;Object.assign(requestCache,transport);return stream||fetch(request.url,{method:'POST',redirect:'error',headers:request.headers,body:JSON.stringify(request.body),signal:requestSignal});};
@@ -78,6 +81,8 @@ export class ModelClient {
     if(!retryable||emitted&&!options.onReset)throw Error(safe);
     if(attempt>=retries){if(!fallback&&cfg.fallbackModel?.trim()&&cfg.fallbackModel!==cfg.model){cfg={...cfg,model:cfg.fallbackModel};fallback=true;attempt=-1;}else throw Error(safe);}
     if(emitted){options.onReset?.();emitted=false;}if(error instanceof RequestError&&error.truncated){if(output>=ceiling)messages.push({role:'system',content:'上次响应超出输出预算，没有执行该响应中的调用。请缩短回复或拆分工具参数，返回完整 JSON，保留已经完成的工具结果。'});else output=Math.min(ceiling,output*2);}
+    retryReason=attempt<0?'fallback':timeout.aborted?'timeout':/HTTP 429/.test(safe)?'rate_limit':'connection';
+    notify({phase:'retrying',startedAt:new Date().toISOString(),updatedAt:new Date().toISOString(),attempt:Math.max(0,attempt+1),maxRetries:retries,reason:retryReason});
     await backoff(error instanceof RequestError&&error.retryAfterMs?error.retryAfterMs:Math.min(10000,500*2**Math.max(0,attempt)),signal);
    }
   }

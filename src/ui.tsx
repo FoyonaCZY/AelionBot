@@ -13,6 +13,8 @@ import RFB from '@novnc/novnc';
 import type {Bot,BotMention,ChatMessage} from './shared';
 import {mentionMarkdown,validMentions} from './mentions';
 import {readableContent} from './activity';
+import {legacyQuestionAnswerData,readableQuestionAnswer} from './question-answers';
+import {QuestionAnswerMessage} from './QuestionAnswerMessage';
 import {MessageActions} from './MessagePins';
 import type {BotActivity} from './bot-activity';
 import './avatar.css';
@@ -106,8 +108,9 @@ export function Message({message,allowPins=true,onReply}:{message:ChatMessage;al
   if(message.role==='event')return <div className="event-message">{message.content}</div>;
   if(message.role==='tool')return null;
   if(!message.content&&!message.attachments?.length&&message.status!=='running')return null;
-  const content=message.role==='assistant'?(message.content.startsWith('执行检查发现未解决')?'发现校验问题，继续检查并修正。':readableContent(message.content)):message.content;
-  return <><MessageTime id={message.id} time={message.time}/><div className={`message-row ${message.role}`} data-message-id={message.id}><MessageActions messageId={message.id} content={content||attachmentSummary(message.attachments)} pins={message.pins} onReply={onReply&&!['running','cancelled'].includes(message.status||'done')&&(content||message.attachments?.length)?()=>onReply(message):undefined} bubbleClassName={`bubble ${message.status==='failed'?'failed':''}`} onPin={allowPins&&(content||message.attachments?.length)&&(!message.status||message.status==='done')?input=>window.aelion.pinChat({...input,botId:message.botId}):undefined}>{message.reply&&<MessageQuote reply={message.reply}/>}{content?(message.role==='assistant'?<div className="markdown"><MentionContent content={content} mentions={message.mentions} markdown/></div>:<MentionContent content={content} mentions={message.mentions}/>):message.attachments?.length?null:<span className="typing"><i/><i/><i/></span>}<AttachmentList files={message.attachments}/></MessageActions></div></>;
+  const answer=message.role==='user'?(message.questionAnswer||legacyQuestionAnswerData(message.content)):undefined;
+  const content=message.role==='assistant'?(message.content.startsWith('执行检查发现未解决')?'发现校验问题，继续检查并修正。':readableContent(message.content)):readableQuestionAnswer(message.content);
+  return <><MessageTime id={message.id} time={message.time}/><div className={`message-row ${message.role}`} data-message-id={message.id}><MessageActions messageId={message.id} content={content||attachmentSummary(message.attachments)} pins={message.pins} onReply={onReply&&!['running','cancelled'].includes(message.status||'done')&&(content||message.attachments?.length)?()=>onReply({...message,content}):undefined} bubbleClassName={`bubble ${answer?'question-answer-bubble':''} ${message.status==='failed'?'failed':''}`} onPin={allowPins&&(content||message.attachments?.length)&&(!message.status||message.status==='done')?input=>window.aelion.pinChat({...input,botId:message.botId}):undefined}>{message.reply&&<MessageQuote reply={message.reply}/>}{answer?<QuestionAnswerMessage answer={answer}/>:content?(message.role==='assistant'?<div className="markdown"><MentionContent content={content} mentions={message.mentions} markdown/></div>:<MentionContent content={content} mentions={message.mentions}/>):message.attachments?.length?null:<span className="typing"><i/><i/><i/></span>}<AttachmentList files={message.attachments}/></MessageActions></div></>;
 }
 
 export interface FileItem {name:string;path:string;size:number;}

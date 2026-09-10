@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { AelionAPI, AppEvent } from '../src/shared';
 const api:AelionAPI={
+  listWorkspaceDirectory:input=>ipcRenderer.invoke('files:directory',input),
   saveAppearanceSettings:settings=>ipcRenderer.invoke('appearance:save',settings),
   queryUsage:input=>ipcRenderer.invoke('usage:query',input),
   prepareDiagnostics:()=>ipcRenderer.invoke('diagnostics:prepare'),

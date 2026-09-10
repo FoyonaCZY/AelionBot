@@ -31,6 +31,14 @@ test('context budget accounts for text, tool definitions and actual image observ
   const messages:WireMessage[]=[{role:'user',content:'请核对中文报表与 API identifiers。'}];const plain=estimateRequest(messages,[]),withTools=estimateRequest(messages,TOOLS),withImage=estimateRequest([{...messages[0],images:[{id:'screen',width:1280,height:720}]}],TOOLS);
   assert.ok(textTokens('中文报表')>0);assert.ok(withTools.tokens>plain.tokens);assert.ok(withImage.tokens>withTools.tokens);assert.ok(withImage.imageTokens>=1024);const budget=contextBudget(32000);assert.equal(budget.input+budget.output+budget.safety,32000);
 });
+test('foreground output can exceed the compaction reserve without shrinking history or exceeding the window',async t=>{
+ const f=fixture(t);f.store.data.model.contextTokens=128000;const engine=new ContextEngine(f.storage,{complete:async()=>{throw Error('Should not compact');}} as unknown as ModelClient,()=>{});
+ const input={botId:f.bot.id,runId:'output-test',system:{role:'system' as const,content:'Help the user'},history:[{role:'user' as const,content:'Write a long document'}],tools:[],signal:new AbortController().signal};
+ const roomy=await engine.prepare(input);assert.equal(roomy.maxOutputTokens,65536);
+ f.store.data.model.contextTokens=8000;const small=await engine.prepare(input);assert.ok(small.maxOutputTokens>4096);assert.ok(small.maxOutputTokens+small.stats.estimatedTokens+contextBudget(8000).safety<=8000);
+ f.store.data.runtime={maxTurns:0,maxMinutes:0,maxTokens:0,modelRetries:2,requestTimeoutMs:180000,maxOutputTokens:1024,parallelReads:4,fileCheckpoints:false};const custom=await engine.prepare(input);assert.equal(custom.maxOutputTokens,1024);
+});
+
 test('tail retention never splits a tool call/result pair or compresses an incomplete exchange',()=>{
   const messages:WireMessage[]=[{role:'user',content:'开始'}];for(let i=0;i<10;i++)messages.push({role:'assistant',content:null,tool_calls:[{id:`id-${i}`,type:'function',function:{name:'file_read',arguments:'{}'}}]},{role:'tool',tool_call_id:`id-${i}`,content:'result '.repeat(120)});
   const cut=tailBoundary(messages,0,300);assert.equal(messages[cut].role,'assistant');assert.ok(exchanges(messages).every(group=>group.complete));

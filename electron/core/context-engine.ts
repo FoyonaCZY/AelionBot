@@ -1,4 +1,5 @@
 import {readCalibration,observeCalibration} from './token-calibration';
+import {runtimeSettings} from './runtime-policy';
 import {ContextPruning} from './context-pruning';
 import {nativeKey} from './model-protocol';
 import {ContextView} from './context-view';
@@ -133,7 +134,8 @@ export class ContextEngine {
     const stats=saveStats();
     if(estimate.tokens>budget.input)throw new ContextCapacityError({capacity,estimatedTokens:estimate.tokens,inputBudget:budget.input,modelKey:contextModelKey(this.storage.store.modelFor(botId)),reason:lastIssue});
     input.signal.throwIfAborted();pruning.persist(original,view);transcript.persist();
-    return {messages:request,stats,maxOutputTokens:budget.output,head,calibrationEstimate:estimateRequest(request,input.tools,calibration).tokens,recordUsage:(result:Completion)=>meter.record(request,input.tools,result)};
+    const maxOutputTokens=Math.min(runtimeSettings(this.storage.store.data.runtime||{}).maxOutputTokens,Math.max(256,Math.floor(capacity-estimate.tokens-budget.safety)));
+    return {messages:request,stats,maxOutputTokens,head,calibrationEstimate:estimateRequest(request,input.tools,calibration).tokens,recordUsage:(result:Completion)=>meter.record(request,input.tools,result)};
   }
 }
 function messageTokensFor(message:WireMessage){return textTokens(message.content||'')+8;}

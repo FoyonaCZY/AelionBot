@@ -1,4 +1,5 @@
 import type {ChatMessage,RunRecord} from './shared';
+import {readableQuestionAnswer} from './question-answers';
 import {isContextCapacityFailure} from './context-issue';
 
 const operations:Record<string,{label:string;active:string;icon:string}>={
@@ -120,6 +121,7 @@ export function liveBotStep(messages:ChatMessage[],run?:RunRecord,waiting?:'host
 }
 
 export function readableContent(content:string){
+  const answer=readableQuestionAnswer(content);if(answer!==content)return answer;
   // Some compatible model providers put tagged reasoning in the content stream.
   return content.replace(/<(think|thinking|analysis)>[\s\S]*?<\/\1>/gi,'').replace(/<(think|thinking|analysis)>[\s\S]*$/gi,'').replace(/<\/(think|thinking|analysis)>/gi,'').trim();
 }

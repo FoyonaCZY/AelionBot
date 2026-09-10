@@ -307,6 +307,7 @@ async function initialize(){
   handle('vm:terminal',(command)=>{if(typeof command!=='string')throw new Error('无效命令');return vm.execute(command,'manual');});
   handle('files:list',async(botId)=>{const id=String(botId);const files=await artifacts.list(id);if(artifacts.importKnown(id,files))changed();return files;});
   handle('files:preview',async(input)=>artifacts.preview(String(input?.botId),String(input?.path)));
+  handle('files:directory',input=>{if(typeof input?.botId!=='string'||input.path!==undefined&&typeof input.path!=='string')throw Error('无效目录请求');return artifacts.directory(input.botId,input.path||'');});
   handle('files:open',async(input)=>{const bot=store.bot(String(input?.botId));if(computer.stateFor(bot.id).ownerBotId)throw new Error('Bot 正在操作桌面，请先接管电脑');await computer.ensure(bot.id);return artifacts.open(bot.id,String(input?.path));});
   handle('computer:screenshot',(id)=>{if(![...store.data.messages,...store.data.peerMessages,...store.data.groupRunMessages].some(message=>message.screenshotId===id))throw new Error('截图不存在');return computer.image(String(id));});
   handle('computer:ensure',id=>computer.ensure(store.bot(String(id)).id));

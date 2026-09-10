@@ -1,0 +1,16 @@
+.workspace-file-tree{min-width:0;font-family:var(--font-ui);color:light-dark(#51485c,#d0c9d9)}
+.workspace-file-tree>header{display:flex;align-items:center;justify-content:space-between;padding:9px 11px 14px;font-size:var(--text-caption);color:light-dark(#85768f,#9f93ac)}
+.workspace-file-tree>header button{display:grid;place-items:center;width:26px;height:26px;border-radius:6px;color:inherit}
+.workspace-file-tree>header button:hover{background:light-dark(#ede7f4,#35303c)}
+.wft-list{list-style:none;margin:0;padding:0}
+.wft-entry{display:flex;align-items:center;gap:7px;width:100%;min-height:35px;padding:7px 10px;border:0;border-radius:6px;background:transparent;text-align:left;color:inherit;font-size:var(--text-caption);font-weight:var(--weight-body)}
+.wft-entry>span:last-child{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.wft-entry>svg{flex-shrink:0;color:light-dark(#97869f,#aaa0b4)}
+.wft-entry:hover{background:light-dark(#f2edf7,#302b37)}.wft-entry.is-current{background:light-dark(#eae2f3,#44354f);color:light-dark(#644d77,#e6d7f2)}
+.wft-chevron{display:grid;place-items:center;flex-shrink:0;width:11px;color:light-dark(#9d92a5,#b1a5bf)}.wft-chevron.is-open{transform:rotate(90deg)}
+.wft-state{padding:10px 15px;font-size:var(--text-caption);line-height:1.7;color:light-dark(#8e8199,#b6a9c4);overflow-wrap:anywhere}.wft-state button{margin-left:9px;color:inherit;text-decoration:underline}
+.modal.file-browser-modal{width:650px;max-height:calc(100dvh - 60px)}.file-browser-modal .workspace-file-tree{min-height:220px}
+.fp-workspace{display:flex;flex:1;min-height:0;min-width:0;position:relative}
+.fp-workspace>.fp-content{min-width:0;flex:1}
+.fp-directory{width:240px;flex-shrink:0;border-right:1px solid #ffffff12;background:#242329;min-height:0;overflow:auto;padding:103px 8px 18px;scrollbar-width:thin;scrollbar-color:#504855 transparent}
+.fp-session-file{display:block;width:100%;padding:9px 10px;text-align:left;font-size:var(--text-caption);color:#bfb7c9;border-radius:6px;overflow-wrap:anywhere}.fp-session-file[aria-current=page]{background:#403448;color:#e3d8ed}
+@media(max-width:700px){.fp-directory{position:absolute;inset:0 auto 0 0;width:min(280px,88%);z-index:8;padding-top:96px;box-shadow:8px 0 30px #0003}.modal.file-browser-modal{width:100%}}
