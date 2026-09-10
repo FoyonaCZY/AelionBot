@@ -1,5 +1,5 @@
 import type {AttachmentScope} from '../../src/attachment-types';
-import type {HostPermissionMode} from '../../src/permission-types';
+import {DEFAULT_HOST_PERMISSION_MODE,type HostPermissionMode} from '../../src/permission-types';
 import {workspaceKey} from '../../src/work-types';
 import type {ModelConfig,WireMessage} from '../../src/shared';
 import type {Store} from './store';
@@ -22,11 +22,11 @@ export class HostApprovals implements HostApprovalPolicy {
   constructor(private store:Store,private commands:CommandPermissions,private reviewer:PermissionReviewer,private options:{homeDir:string;platform?:NodeJS.Platform;defaultModel:()=>ModelConfig}){}
   scopeFor(request:HostPermissionRequest):AttachmentScope{return {kind:'bot',id:request.botId};}
   modes(){return Object.fromEntries(Object.entries(this.store.data.hostPermissionModes||{}).filter(([key,mode])=>key.startsWith('bot:')&&['ask','auto','full'].includes(mode)));}
-  modeFor(request:HostPermissionRequest):HostPermissionMode{const mode=this.store.data.hostPermissionModes?.[workspaceKey(this.scopeFor(request))];return mode==='auto'||mode==='full'?mode:'ask';}
+  modeFor(request:HostPermissionRequest):HostPermissionMode{const mode=this.store.data.hostPermissionModes?.[workspaceKey(this.scopeFor(request))]??DEFAULT_HOST_PERMISSION_MODE;return mode==='auto'||mode==='full'?mode:'ask';}
   set(scope:AttachmentScope,mode:HostPermissionMode){
     if(scope?.kind!=='bot')throw Error('请在 Bot 主会话设置本机权限');
     assertWorkspaceScope(this.store,scope);if(!['ask','auto','full'].includes(mode))throw Error('无效权限模式');
-    const key=workspaceKey(scope),previous=this.store.data.hostPermissionModes?.[key]||'ask';if(previous===mode)return false;
+    const key=workspaceKey(scope),previous=this.store.data.hostPermissionModes?.[key]??DEFAULT_HOST_PERMISSION_MODE;if(previous===mode)return false;
     this.store.replaceData({...this.store.data,hostPermissionModes:{...this.store.data.hostPermissionModes,[key]:mode}});try{this.store.journal('permissions.mode',{scope,previous,mode,actor:'user'});}catch{}return true;
   }
   context(request:HostPermissionRequest):ApprovalContext{

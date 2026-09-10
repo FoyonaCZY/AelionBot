@@ -1,4 +1,5 @@
 export type HostPermissionMode='ask'|'auto'|'full';
+export const DEFAULT_HOST_PERMISSION_MODE:HostPermissionMode='auto';
 export const HOST_PERMISSION_MODES=[
   {id:'ask' as const,label:'每次询问',description:'本机操作每次都需要你允许'},
   {id:'auto' as const,label:'自动审批',description:'普通项目读写直接放行，敏感或越界操作由默认模型审核'},

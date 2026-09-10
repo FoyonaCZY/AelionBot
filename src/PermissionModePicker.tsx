@@ -1,11 +1,11 @@
 import {useState} from 'react';
 import type {AttachmentScope} from './attachment-types';
-import {HOST_PERMISSION_MODES,type HostPermissionMode} from './permission-types';
+import {DEFAULT_HOST_PERMISSION_MODE,HOST_PERMISSION_MODES,type HostPermissionMode} from './permission-types';
 import {Select} from './Select';
 import {Icon} from './ui';
 import './permission-modes.css';
 
-export function PermissionModePicker({scope,mode='ask'}:{scope:AttachmentScope;mode?:HostPermissionMode}){
+export function PermissionModePicker({scope,mode=DEFAULT_HOST_PERMISSION_MODE}:{scope:AttachmentScope;mode?:HostPermissionMode}){
   const [pending,setPending]=useState(false),[error,setError]=useState('');
   const current=HOST_PERMISSION_MODES.find(item=>item.id===mode)||HOST_PERMISSION_MODES[0];
   const change=async(next:HostPermissionMode)=>{setPending(true);setError('');try{await window.aelion.setHostPermissionMode({scope,mode:next});}catch(error){setError((error as Error).message.replace(/^Error invoking remote method '[^']+': Error: /,''));}finally{setPending(false);}};

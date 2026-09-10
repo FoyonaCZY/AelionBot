@@ -1,6 +1,6 @@
 # 复用已有技能与 MCP
 
-AelionBot 0.3 启动时自动扫描已有 Agent 的目录和配置文件。原文件保留在原处；在设置中可以查看来源、重新扫描和添加自选位置。
+AelionBot 自动从 `.agents/skills` 发现共享技能，并扫描兼容的 MCP 配置文件。原文件保留在原处；在设置中可以查看来源、重新扫描和添加自选位置。
 
 ## 技能目录
 
@@ -30,13 +30,11 @@ description: 检查 CSV 数据并核对汇总结果。
 | 范围 | 兼容位置 |
 |---|---|
 | 用户共享 | `~/.agents/skills` |
-| Claude / Cursor | `~/.claude/skills`、`~/.cursor/skills` |
-| Codex | `~/.codex/skills`、`$CODEX_HOME/skills`，包括 `.system` |
-| Hermes | `$HERMES_HOME/skills`、`~/.hermes/skills`、`%LOCALAPPDATA%/hermes/skills` |
-| OpenCode | `~/.config/opencode/skills`、`$XDG_CONFIG_HOME/opencode/skills` |
-| 项目 | 项目及仓库内祖先目录下的 `.agents/skills`、`.claude/skills`、`.codex/skills`、`.cursor/skills`、`.opencode/skills` |
-| Aelion 共享补充 | `~/.aelion/skills` |
+| 项目共享 | 项目及仓库内祖先目录下的 `.agents/skills` |
+| Aelion 内置 | `<数据目录>/skills/builtin` |
 | Aelion 私有 | `<数据目录>/bots/<botId>/skills/<技能名>/SKILL.md` |
+
+共享技能只自动发现 `.agents/skills`，不再扫描其他 Agent 的私有技能目录或它们的环境变量指定位置。手动添加的自选目录仍按用户配置加载。
 
 项目位置默认为客户端启动目录，可通过 `AELION_PROJECT_DIR` 指定。`AELION_CONFIG_HOME` 可覆盖 `~/.aelion`。环境变量取自客户端启动环境。
 

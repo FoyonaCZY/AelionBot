@@ -38,13 +38,13 @@ function fixture(t:test.TestContext,reviewer:PermissionReviewer=async()=>({decis
 const command=(cwd:string):HostPermissionDetails=>({operation:'command',command:'npm run build',cwd,reason:'验证项目构建'});
 
 test('every-time mode ignores saved command grants and requires a decision for every request',async t=>{
-  const f=fixture(t),details=command(f.project);f.rules.allow(details);
+  const f=fixture(t),details=command(f.project);f.mode('ask');f.rules.allow(details);
   for(let i=0;i<2;i++){const pending=f.permission(details);assert.equal(f.interactions.snapshot().length,1);const request=f.interactions.snapshot()[0] as HostPermissionRequest;assert.equal(request.approval?.mode,'ask');assert.equal(request.details.commandPattern,undefined);assert.throws(()=>f.interactions.approveAlways(request.id),/每次询问/);f.interactions.applyCommandRules();assert.equal(f.interactions.snapshot().length,1);f.interactions.approve(request.id,true);await pending;}
   assert.equal(f.reviews(),0);
 });
 
-test('automatic mode directly reads ordinary project files without a prompt or model call',async t=>{
-  const f=fixture(t);f.mode('auto');writeFileSync(join(f.project,'README.md'),'project readme');
+test('default automatic mode directly reads ordinary project files without a prompt or model call',async t=>{
+  const f=fixture(t);writeFileSync(join(f.project,'README.md'),'project readme');
   const result=await f.host.readFile(f.bot.id,f.run.id,{path:'README.md',reason:'查看项目说明'},f.controller.signal,f.project);
   assert.equal(result.content,'project readme');assert.equal(f.interactions.snapshot().length,0);assert.equal(f.reviews(),0);assert.equal(f.records.at(-1)?.decision,'auto-low-risk');
 });
@@ -122,13 +122,16 @@ test('full access performs host writes immediately but does not dismiss VM takeo
 
 test('manual command rules apply in auto only, and changing modes persists independently per scope',async t=>{
   const f=fixture(t);f.rules.allow(command(f.project));f.mode('auto');await f.permission(command(f.project));assert.equal(f.reviews(),0);assert.equal(f.records.at(-1)?.decision,'auto-rule');
-  const other=f.store.createBot('另一位','测试');assert.equal(f.service.modeFor({botId:other.id,runId:'none'} as HostPermissionRequest),'ask');
+  const other=f.store.createBot('另一位','测试');assert.equal(f.service.modeFor({botId:other.id,runId:'none'} as HostPermissionRequest),'auto');
+  f.service.set({kind:'bot',id:other.id},'ask');
   const restored=new Store(f.dir),service=new HostApprovals(restored,f.rules,async()=>({decision:'ask',reason:'test'}),{homeDir:f.root,defaultModel:()=>f.config});assert.equal(service.modeFor({botId:f.bot.id,runId:f.run.id} as HostPermissionRequest),'auto');assert.throws(()=>f.service.set({kind:'bot',id:f.bot.id},'invalid' as any),/无效/);assert.throws(()=>f.service.set({kind:'group',id:'missing'},'full'),/主会话/);
+  assert.equal(service.modeFor({botId:other.id,runId:'none'} as HostPermissionRequest),'ask');restored.close();
 });
 
 test('group-origin work always follows the Bot main-conversation mode and has no separate setting',async t=>{
   const f=fixture(t),id=randomUUID();f.store.data.groups.push({id,name:'工作群',members:[{...f.bot,joinedAt:f.run.startedAt}],createdBy:{kind:'user',id:'user',name:'你'},createdAt:f.run.startedAt,updatedAt:f.run.startedAt,lastReadSeq:0,messages:[]});f.run.groupOrigin={groupId:id,rootId:'root',deliveryId:'delivery'};
   f.store.data.hostPermissionModes={['group:'+id]:'full'};
+  f.mode('ask');
   const pending=f.permission(command(f.project));assert.equal((f.interactions.snapshot()[0] as HostPermissionRequest).approval?.mode,'ask');assert.throws(()=>f.service.set({kind:'group',id},'full'),/主会话/);
   f.mode('full');await pending;assert.equal(f.reviews(),0);assert.equal(f.service.modes()['group:'+id],undefined);
 });

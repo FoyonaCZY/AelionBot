@@ -25,18 +25,12 @@ export function parseConfig(path:string,format?:SourceDescriptor['format']):Reco
 export function sourceView(source:SourceDescriptor,count=0,issue?:string):IntegrationSource{return {id:hashId(`${source.kind}:${canonical(source.path)}:${source.label}`),label:source.label,path:source.path,kind:source.kind,scope:source.scope,exists:existsSync(source.path),count,...(issue?{issue}:{})};}
 function projectAncestors(projectDir:string){const roots=[resolve(projectDir)];let current=roots[0];while(!existsSync(join(current,'.git'))){const parent=dirname(current);if(parent===current)break;current=parent;roots.push(current);if(roots.length>16)break;}return existsSync(join(current,'.git'))?roots:[resolve(projectDir)];}
 export function skillSources(options:IntegrationPaths):SourceDescriptor[]{
-  const {homeDir,projectDir,dataDir,configDir,env}=options;const sources:SourceDescriptor[]=[];
+  const {homeDir,projectDir,dataDir}=options;const sources:SourceDescriptor[]=[];
   const add=(label:string,path:string,scope:SourceDescriptor['scope'])=>sources.push({label,path,kind:'skills',scope});
   add('Aelion 内置',join(dataDir,'skills','builtin'),'builtin');
   add('Aelion 私有',join(dataDir,'bots'),'private');
-  for(const root of projectAncestors(projectDir))for(const [dir,label] of [['.agents','共享'],['.claude','Claude'],['.codex','Codex'],['.cursor','Cursor'],['.opencode','OpenCode']])add(`${label} · 项目${root===resolve(projectDir)?'':` · ${basename(root)}`}`,join(root,dir,'skills'),'project');
-  for(const [dir,label] of [['.agents','共享技能'],['.claude','Claude'],['.cursor','Cursor'],['.codex','Codex 兼容'],['.config/opencode','OpenCode'],['.hermes','Hermes']])add(label,join(homeDir,dir,'skills'),'user');
-  if(env.CODEX_HOME)add('Codex 自定义',join(env.CODEX_HOME,'skills'),'user');
-  add('Codex 内置',join(env.CODEX_HOME||join(homeDir,'.codex'),'skills','.system'),'user');
-  if(env.HERMES_HOME)add('Hermes 自定义',join(env.HERMES_HOME,'skills'),'user');
-  add('Hermes Desktop',join(env.LOCALAPPDATA||join(homeDir,'AppData','Local'),'hermes','skills'),'user');
-  if(env.XDG_CONFIG_HOME)add('OpenCode 自定义',join(env.XDG_CONFIG_HOME,'opencode','skills'),'user');
-  add('Aelion 共享',join(configDir,'skills'),'user');
+  for(const root of projectAncestors(projectDir))add(`共享 · 项目${root===resolve(projectDir)?'':` · ${basename(root)}`}`,join(root,'.agents','skills'),'project');
+  add('共享技能',join(homeDir,'.agents','skills'),'user');
   for(const path of options.extraSkillDirs||[])add('自选技能目录',path,'user');
   const seen=new Set<string>();return sources.filter(source=>{const key=canonical(source.path);if(seen.has(key))return false;seen.add(key);return true;});
 }

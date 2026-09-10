@@ -43,10 +43,10 @@ test('deleting a Bot with private skills cannot break scheduled cleanup or later
   assert.deepEqual(library.list(third.id).map(skill=>skill.id),sharedIds);
   assert.equal(store.data.scheduledTasks.length,0);assert.equal(snapshots,4);
 });
-test('standard skills discover across agents, preserve variants, and keep private file storage authoritative',t=>{
+test('shared skills preserve variants and keep private file storage authoritative',t=>{
   const paths=fixture(t);const shared=join(paths.homeDir,'.agents','skills','shared-one','SKILL.md');file(shared,skill('shared-one','Shared procedure'));
-  file(join(paths.homeDir,'.claude','skills','group','duplicate','SKILL.md'),skill('duplicate','Claude variant'));
-  file(join(paths.homeDir,'.cursor','skills','duplicate','SKILL.md'),skill('duplicate','Cursor variant'));
+  file(join(paths.homeDir,'.agents','skills','group','duplicate','SKILL.md'),skill('duplicate','User variant'));
+  file(join(paths.projectDir,'.agents','skills','duplicate','SKILL.md'),skill('duplicate','Project variant'));
   const original=readFileSync(shared);const store=new Store(paths.dataDir),bot=store.data.bots[0],other=store.createBot('other','scope');
   store.data.skills.push({id:'legacy-private',name:'中文流程',description:'Legacy private workflow',body:'Keep this private',botId:bot.id});store.save();
   const library=new SkillLibrary(store,paths);
@@ -58,6 +58,21 @@ test('standard skills discover across agents, preserve variants, and keep privat
   const saved=library.save(bot.id,'新技能','New skill','New content');assert.equal(library.read(bot.id,saved.id).body,'New content');unlinkSync(saved.path);library.refresh();assert.throws(()=>library.read(bot.id,saved.id));
   assert.deepEqual(readFileSync(shared),original);assert.ok(store.data.skillFilesMigrated);
 });
+test('automatic skill discovery uses shared directories and ignores other Agent homes on refresh',t=>{
+  const paths=fixture(t),repo=paths.projectDir;mkdirSync(join(repo,'.git'));paths.projectDir=join(repo,'packages','app');mkdirSync(paths.projectDir,{recursive:true});
+  paths.env={CODEX_HOME:join(paths.homeDir,'custom-codex'),HERMES_HOME:join(paths.homeDir,'custom-hermes'),XDG_CONFIG_HOME:join(paths.homeDir,'xdg'),LOCALAPPDATA:join(paths.homeDir,'local')};
+  const shared=[join(paths.homeDir,'.agents','skills'),join(repo,'.agents','skills'),join(paths.projectDir,'.agents','skills')];
+  shared.forEach((root,i)=>file(join(root,'shared-'+i,'SKILL.md'),skill('shared-'+i,'Shared workflow')));
+  const excluded=[...['.claude','.codex','.cursor','.opencode','.hermes'].flatMap(dir=>[join(paths.homeDir,dir,'skills'),join(repo,dir,'skills'),join(paths.projectDir,dir,'skills')]),join(paths.homeDir,'.codex','skills','.system'),join(paths.homeDir,'.config','opencode','skills'),join(paths.env.CODEX_HOME!,'skills'),join(paths.env.HERMES_HOME!,'skills'),join(paths.env.XDG_CONFIG_HOME!,'opencode','skills'),join(paths.env.LOCALAPPDATA!,'hermes','skills'),join(paths.configDir,'skills')];
+  excluded.forEach((root,i)=>file(join(root,'excluded-'+i,'SKILL.md'),skill('excluded-'+i,'Private Agent workflow')));
+  const store=new Store(paths.dataDir);t.after(()=>store.close());const library=new SkillLibrary(store,paths),bot=store.data.bots[0];
+  const visible=()=>library.list(bot.id).filter(item=>item.source?.scope==='user'||item.source?.scope==='project');
+  assert.deepEqual(visible().map(item=>item.name).sort(),['shared-0','shared-1','shared-2']);
+  const sharedSkill=visible().find(item=>item.name==='shared-0')!;unlinkSync(sharedSkill.source!.path);library.refresh();
+  assert.deepEqual(visible().map(item=>item.name).sort(),['shared-1','shared-2']);assert.throws(()=>library.read(bot.id,sharedSkill.id));
+  assert.ok(library.sources.filter(source=>source.scope==='user'||source.scope==='project').every(source=>basename(source.path)==='skills'&&basename(dirname(source.path))==='.agents'));
+});
+
 test('skill references and bundles cannot escape through links or traversal',t=>{
   const paths=fixture(t),root=join(paths.homeDir,'.agents','skills','portable');file(join(root,'SKILL.md'),skill('portable','Read references/readme.md'));
   file(join(root,'references','readme.md'),'reference marker');const outside=join(paths.homeDir,'outside');file(join(outside,'secret.txt'),'not part of the skill');
