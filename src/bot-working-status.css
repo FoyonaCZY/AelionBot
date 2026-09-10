@@ -1,11 +1,11 @@
 .bot-working-status{display:flex;align-items:center;gap:12px;min-height:68px;margin:10px 0 14px;padding:8px 4px;max-width:100%}
 .bot-working-avatar{display:grid;place-items:center;flex-shrink:0;width:52px;height:50px}
 .bot-working-avatar>.avatar{overflow:visible}
-.bot-working-copy{min-width:0;font-size:13px;line-height:1.75;color:#74707e}
+.bot-working-copy{min-width:0;font-size:calc(13px * var(--appearance-text-scale,1));line-height:1.75;color:light-dark(#74707e,#c8c5cb)}
 .bot-working-copy>div{display:flex;flex-direction:column;min-width:0;gap:2px}
-.bot-working-name{display:block;font-size:11px;color:#a29baa;margin-bottom:2px}
+.bot-working-name{display:block;font-size:calc(12px * var(--appearance-text-scale,1));color:light-dark(#a29baa,#b8b5bb);margin-bottom:2px}
 .bot-working-label{display:block;animation:working-label-in .18s ease-out}
-.bot-working-detail{font-size:11px;color:#a19aa9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:360px}
+.bot-working-detail{font-size:calc(12px * var(--appearance-text-scale,1));color:light-dark(#a19aa9,#b8b5bb);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:360px}
 .bot-working-avatar .avatar-halo{display:none}
 .bot-working-status[data-phase=working] .avatar-body{animation:working-bot-bounce 1.65s ease-in-out infinite}
 .bot-working-status[data-phase=working] .avatar-gaze{animation:working-bot-look 3.3s ease-in-out infinite}

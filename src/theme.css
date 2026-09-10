@@ -1,0 +1,46 @@
+:root{
+  --appearance-line:light-dark(#e9e3ef,#403947);
+  --appearance-fill:light-dark(#f8f6fb,#29262f);
+  --text-code:13px;
+  --message-leading:1.8;
+}
+/* Theme belongs to the application chrome, never to document canvases or images. */
+:root[data-theme=dark]{background:#202024;color:#eeebf1}
+:root[data-theme=dark] body{background:#202024}
+:root[data-theme=dark] :is(.sidebar,.settings-sidebar){background:#25232a}
+:root[data-theme=dark] :is(.conversation,.messages,.peer-chat-body,.composer-wrap,.computer-panel){background:#202024}
+:root[data-theme=dark] :is(.bubble,.group-message-bubble,.peer-bubble){background:#302c37;color:#eee8f2}
+:root[data-theme=dark] :is(.message-row.user .bubble,.from-user .group-message-bubble,.peer-message.user .peer-bubble){background:#44374f;color:#f0e8f7}
+:root[data-theme=dark] :is(.bot-item.selected,.search){background:#35303c}
+:root[data-theme=dark] .settings-modal{--settings-fill:#2c2832;--settings-line:#443c4d}
+:root[data-theme=dark] .modal-backdrop{background:#0008}
+:root[data-theme=dark] :is(.learning-switch,.runtime-switch){background:#49434f}
+:root[data-theme=dark] :is(.learning-switch.enabled,.runtime-switch[aria-checked=true]){background:#a58abe}
+:root[data-theme=dark] :is(.learning-switch i,.runtime-switch>span){background:#f2edf7}
+:root[data-theme=dark] :is(.setup-mascot-floor,.computer-rest-visual>.computer-rest-scene){opacity:.65}
+:root[data-theme=dark] .runtime-actions{background:#202024}
+:root[data-theme=dark] .settings-modal .runtime-save:disabled{background:#343039;color:#9c91a6}
+:root[data-theme=dark] .appearance-control :is(input,.aelion-select){color:var(--text-ink);background:var(--appearance-fill);border-color:var(--appearance-line)}
+:root[data-theme=dark] .appearance-theme-swatch{color-scheme:light}
+:root[data-theme=dark] .appearance-themes>button{color:var(--text-secondary)}
+:root[data-theme=dark] .appearance-themes>button[aria-pressed=true]{color:var(--text-ink)}
+:root[data-theme=dark] .computer-rest-scene :is([fill='#f2eff7'],[fill='#faf8fd']){fill:#393140;stroke:#65556f}
+:root[data-theme=dark] .computer-rest-scene :is([fill='#eeebf2'],[fill='#e4dfec'],[fill='#d9d2e4']){fill:#51465a}
+/* Keep the preview's document paper and syntax viewer independent of the UI theme. */
+:root .fp-layer{color-scheme:dark}
+:root :is(.fp-paper,.fp-csv){color-scheme:light}
+
+/* Native window zoom can make a desktop viewport narrow. Keep chat and settings usable. */
+@media(max-width:900px){
+  .app-shell{grid-template-columns:190px minmax(0,1fr)}
+  .app-shell>.details{display:none}
+  .chat-header{padding-left:16px;padding-right:16px}
+  .messages{padding-left:18px;padding-right:18px}
+}
+@media(max-width:620px){
+  .app-shell{grid-template-columns:68px minmax(0,1fr)}
+  .sidebar-top{padding:12px 15px;justify-content:center}.sidebar-top .brand,.sidebar .search,.sidebar .bot-copy,.sidebar .group-row-copy{display:none}
+  .sidebar .bot-item{justify-content:center;padding:12px 2px}.sidebar .bot-list{padding:0 6px}
+  .sidebar .sidebar-bottom{padding:8px}.sidebar .sidebar-link{font-size:0;justify-content:center;padding:10px}.sidebar .sidebar-link svg{width:20px;height:20px}
+  .composer-wrap{padding-left:12px;padding-right:12px}.chat-header{gap:8px}.header-actions{gap:2px}.bot-model-button{max-width:100px}
+}

@@ -3,4 +3,8 @@ import {createRoot} from 'react-dom/client';
 import App from './App';
 import './style.css';
 import './settings.css';
+import './typography.css';
+import './theme.css';
+import {initializeAppearance} from './use-appearance';
+initializeAppearance();
 createRoot(document.getElementById('root')!).render(<App/>);

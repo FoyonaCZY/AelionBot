@@ -20,6 +20,10 @@ import './message-surfaces.css';
 
 export function Icon({name,size=20}:{name:string;size?:number}){
   const shapes:Record<string,React.ReactNode>={
+    user:<><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/></>,
+    layers:<><path d="m12 3 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 16l9 5 9-5"/></>,
+    sliders:<><path d="M3 6h4m4 0h10M3 12h10m4 0h4M3 18h4m4 0h10"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="9" cy="18" r="2"/></>,
+    appearance:<><circle cx="12" cy="12" r="9"/><path d="M12 3v18M12 6h5m-5 4h8m-8 4h8m-8 4h5"/></>,
     chart:<><path d="M4 4v16h16M8 16v-5m5 5V6m5 10V9"/></>,
     clock:<><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
     shield:<><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="m8 12 3 3 5-6"/></>,
@@ -63,7 +67,7 @@ export function Vnc({url,control=false}:{url?:string;control?:boolean}){
     let active=true;
     let frameTimer:ReturnType<typeof setInterval>|undefined;
     try{
-      const client=new RFB(host.current,url,{shared:true});rfb.current=client;client.background='#f5f4f8';client.scaleViewport=true;client.resizeSession=false;client.viewOnly=!control;
+      const client=new RFB(host.current,url,{shared:true});rfb.current=client;client.background='transparent';client.scaleViewport=true;client.resizeSession=false;client.viewOnly=!control;
       client.addEventListener('connect',()=>{
         if(!active)return;
         const begin=Date.now();

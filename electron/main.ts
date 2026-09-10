@@ -1,8 +1,9 @@
-import {normalizeUserProfile} from '../src/user-profile';
+import {normalizeAppearance,type AppearanceSettings} from '../src/appearance';
 import {createMacUpdater,macAutomaticUpdates} from './core/mac-updater';
 import {hostEnvironment} from './core/host-platform';
 import {RunPolicy,runtimeSettings} from './core/runtime-policy';
-import { app, BrowserWindow, ipcMain, safeStorage, dialog, shell, Menu, nativeImage, net } from 'electron';
+import {normalizeUserProfile} from '../src/user-profile';
+import { app, BrowserWindow, ipcMain, safeStorage, dialog, shell, Menu, nativeImage, nativeTheme, net } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { join, resolve, dirname } from 'node:path';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -78,7 +79,7 @@ else {
   app.on('second-instance',()=>{window?.show();window?.focus();});
   app.whenReady().then(initialize).catch(error=>{diagnostics?.record('app.startup-error',error);console.error(error);dialog.showErrorBox('AelionBot 启动失败',String(error.message));app.exit(1);});
 }
-function snapshot():Snapshot{return {userProfile:store.data.userProfile,platform:process.platform,workItems:store.data.workItems,conversationWorkspaces:store.data.conversationWorkspaces,updates:appUpdates?.snapshot(),scheduledTasks:store.data.scheduledTasks,bots:store.data.bots,messages:store.data.messages,runs:store.data.runs,model:providers.config(),providers:providers.list(),defaultModel:store.data.defaultModel,botModels:Object.fromEntries(store.data.bots.map(bot=>[bot.id,providers.config(bot.id)])),vm:vm.state,skills:integrations?integrations.skills.all():store.data.skills,artifacts:store.data.artifacts,computer:computer.state,dataDir:store.dir,integrations:integrations?.snapshot(),interactions:interactions?.snapshot()||[],cognition:cognition?.view(),peers:peerChats?.snapshot(),groups:groupChats?.snapshot(),greetingBotIds:greetings?.botIds||[],streamingReplies:[...(harness?.streams.snapshot()||[]),...(greetings?.streams.snapshot()||[])],runtime:store?new RunPolicy(store).settings():undefined,modelUsage:store?.data.modelUsage?.slice(-100),commandPermissions:commandPermissions?.list()||[],hostPermissionModes:hostApprovals?.modes(),hostWorkspace:host?.workspaceSettings()};}
+function snapshot():Snapshot{return {appearance:normalizeAppearance(store?.data.appearance),userProfile:store.data.userProfile,platform:process.platform,workItems:store.data.workItems,conversationWorkspaces:store.data.conversationWorkspaces,updates:appUpdates?.snapshot(),scheduledTasks:store.data.scheduledTasks,bots:store.data.bots,messages:store.data.messages,runs:store.data.runs,model:providers.config(),providers:providers.list(),defaultModel:store.data.defaultModel,botModels:Object.fromEntries(store.data.bots.map(bot=>[bot.id,providers.config(bot.id)])),vm:vm.state,skills:integrations?integrations.skills.all():store.data.skills,artifacts:store.data.artifacts,computer:computer.state,dataDir:store.dir,integrations:integrations?.snapshot(),interactions:interactions?.snapshot()||[],cognition:cognition?.view(),peers:peerChats?.snapshot(),groups:groupChats?.snapshot(),greetingBotIds:greetings?.botIds||[],streamingReplies:[...(harness?.streams.snapshot()||[]),...(greetings?.streams.snapshot()||[])],runtime:store?new RunPolicy(store).settings():undefined,modelUsage:store?.data.modelUsage?.slice(-100),commandPermissions:commandPermissions?.list()||[],hostPermissionModes:hostApprovals?.modes(),hostWorkspace:host?.workspaceSettings()};}
 function changed(){if(exiting)return;if(window&&!window.isDestroyed())window.webContents.send('app:event',{type:'state',snapshot:snapshot()});chatPins?.wake();peerChats?.wake();groupChats?.wake();}
 function handle(channel:string,callback:(...args:any[])=>unknown){
   ipcMain.handle(channel,async(event,...args)=>{
@@ -159,6 +160,7 @@ async function initialize(){
     recoverInstall:async()=>{updatePreparing=false;if(pendingLaunch){const resume=pendingLaunch.resumeComputer;saveUpdateLaunchContext(profileDir,{...pendingLaunch,resumeComputer:false});pendingLaunch=undefined;if(resume)await vm.start().catch(()=>{});}changed();cognition.learning.schedule();}
   },changed);
   cognition.start();
+  nativeTheme.themeSource=normalizeAppearance(store.data.appearance).theme;
   window=new BrowserWindow({width:1420,height:920,minWidth:980,minHeight:650,title:'AelionBot',icon:join(app.getAppPath(),'assets',process.platform==='win32'?'icon.ico':'icon.png'),backgroundColor:'#ffffff',show:false,titleBarStyle:process.platform==='darwin'?'hiddenInset':'hidden',...(process.platform==='darwin'?{trafficLightPosition:{x:18,y:18}}:{titleBarOverlay:{color:'#f7f7f7',symbolColor:'#555555',height:38}}),webPreferences:{preload:join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true}});
   installComputerView(window);
   window.on('unresponsive',()=>diagnostics?.record('renderer.unresponsive','页面未响应'));
@@ -169,15 +171,24 @@ async function initialize(){
   window.webContents.on('will-navigate',(event,url)=>{if(url!==window?.webContents.getURL())event.preventDefault();});
   // Keep display zoom available even with the application menu disabled.
   const contents=window.webContents;
+  let appearanceDimmed=false;
+  const appearanceChrome=()=>{if(!window||window.isDestroyed())return;const dark=nativeTheme.shouldUseDarkColors;window.setBackgroundColor(dark?'#202024':'#ffffff');if(process.platform!=='darwin'&&!appearanceDimmed)window.setTitleBarOverlay({color:dark?'#25232a':'#f7f7f7',symbolColor:dark?'#eeeaf2':'#555555',height:38});};
+  const applyNativeAppearance=(value:AppearanceSettings)=>{nativeTheme.themeSource=value.theme;contents.setZoomFactor(value.zoom/100);appearanceChrome();};
+  const saveAppearance=(value:unknown)=>{const previous=store.data.appearance,next=normalizeAppearance(value);store.data.appearance=next;try{store.save();}catch(error){store.data.appearance=previous;throw error;}applyNativeAppearance(next);changed();};
+  contents.on('did-finish-load',()=>applyNativeAppearance(normalizeAppearance(store.data.appearance)));
+  nativeTheme.on('updated',appearanceChrome);
+  window.once('closed',()=>nativeTheme.removeListener('updated',appearanceChrome));
+  applyNativeAppearance(normalizeAppearance(store.data.appearance));
+  handle('appearance:save',saveAppearance);
   contents.on('before-input-event',(event,input)=>{
-    if(input.type!=='keyDown'||!input.control||input.alt||input.meta||input.isComposing)return;
+    if(input.type!=='keyDown'||!(process.platform==='darwin'?input.meta:input.control)||input.alt||input.isComposing)return;
     const zoomIn=input.key==='+'||input.key==='='||input.code==='NumpadAdd';
     const zoomOut=input.key==='-'||input.key==='_'||input.code==='NumpadSubtract';
     const reset=!input.shift&&(input.key==='0'||input.code==='Numpad0');
     if(!zoomIn&&!zoomOut&&!reset)return;
     event.preventDefault();
     const percent=reset?100:Math.round(contents.getZoomFactor()*100)+(zoomIn?10:-10);
-    contents.setZoomFactor(Math.max(50,Math.min(200,percent))/100);
+    saveAppearance({...normalizeAppearance(store.data.appearance),zoom:Math.max(50,Math.min(200,percent))});
   });
   handle('profile:save',value=>{store.data.userProfile=normalizeUserProfile(value);store.save();greetings?.cancelAll();changed();void greetings?.greetEmpty();});
   handle('runtime:save',value=>{store.data.runtime=runtimeSettings(value);store.save();changed();});
@@ -202,7 +213,7 @@ async function initialize(){
   handle('tasks:delete',id=>scheduler!.remove(String(id)));
   handle('tasks:run',id=>scheduler!.runNow(String(id)));
   handle('interaction:respond',async input=>{if(input?.action==='takeover'){const request=interactions.get(String(input.id));if(request.kind==='vm_takeover')await computer.ensure(request.botId);}return respondToInteraction(interactions,computer,input);});
-  handle('window:dimmed',(enabled,color)=>{if(typeof enabled!=='boolean'||color!==undefined&&(typeof color!=='string'||!/^#[a-f0-9]{6}$/i.test(color)))throw new Error('无效窗口状态');const background=color||(enabled?'#b9b9b9':'#f7f7f7'),brightness=[1,3,5].reduce((sum,index)=>sum+parseInt(background.slice(index,index+2),16),0)/3;if(process.platform!=='darwin')window?.setTitleBarOverlay({color:background,symbolColor:brightness<128?'#f2f2f2':'#555555',height:38});});
+  handle('window:dimmed',(enabled,color)=>{if(typeof enabled!=='boolean'||color!==undefined&&(typeof color!=='string'||!/^#[a-f0-9]{6}$/i.test(color)))throw new Error('无效窗口状态');appearanceDimmed=enabled;const background=color||(enabled?(nativeTheme.shouldUseDarkColors?'#161418':'#b9b9b9'):(nativeTheme.shouldUseDarkColors?'#25232a':'#f7f7f7')),brightness=[1,3,5].reduce((sum,index)=>sum+parseInt(background.slice(index,index+2),16),0)/3;if(process.platform!=='darwin')window?.setTitleBarOverlay({color:background,symbolColor:brightness<128?'#f2f2f2':'#555555',height:38});});
   handle('permissions:mode',input=>{if(hostApprovals.set(input?.scope,input?.mode))interactions.refreshHostPolicy();changed();});
   handle('permissions:command-enabled',input=>{if(typeof input?.id!=='string'||typeof input.enabled!=='boolean')throw new Error('无效命令权限参数');commandPermissions.setEnabled(input.id,input.enabled);interactions.applyCommandRules();changed();});
   handle('permissions:command-remove',id=>{if(typeof id!=='string')throw new Error('无效命令模式');commandPermissions.remove(id);changed();});

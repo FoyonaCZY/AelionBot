@@ -1,0 +1,64 @@
+/* UI typography only. Embedded documents and PDF text layers retain their fonts. */
+:root{font-family:var(--font-ui);font-size:var(--text-control);font-weight:var(--weight-body);font-synthesis:none;color:var(--text-ink)}
+:root button,:root input,:root textarea,:root select{font-family:var(--font-ui)}
+:root button{font-weight:var(--weight-label)}
+:root input,:root textarea,:root select{font-weight:var(--weight-body)}
+:root strong,:root b{font-weight:var(--weight-label)}
+:root :is(h1,h2,h3,h4,h5,h6){font-weight:var(--weight-heading)}
+:root :is(.message-emoji-quick button,.message-emoji-grid button,.message-emoji-categories button,.pin-chip>span){font-family:'Segoe UI Emoji','Apple Color Emoji',sans-serif}
+:root :is(.primary-button,.secondary-button,.setup-actions button,.scheduled-editor-actions button,.runtime-save){font-size:var(--text-control);font-weight:var(--weight-label)}
+
+:root body :is(.bubble,.group-message-bubble,.peer-bubble){font-family:var(--font-ui);font-size:var(--text-body);font-weight:var(--weight-body);line-height:var(--message-leading,1.8);color:var(--text-ink)}
+:root :is(.bubble,.group-message-bubble,.peer-bubble).markdown,
+:root :is(.bubble,.group-message-bubble,.peer-bubble) .markdown{--message-ink:var(--text-ink);--message-muted:var(--text-secondary);line-height:var(--message-leading,1.8)}
+:root .markdown strong{font-weight:var(--weight-label)}
+:root .markdown :is(h1,h2,h3,h4,h5,h6){font-weight:var(--weight-heading);letter-spacing:0;line-height:1.5}
+:root :is(.bubble,.group-message-bubble,.peer-bubble) :is(h1,h2,h3){letter-spacing:0}
+:root :is(.bubble,.group-message-bubble,.peer-bubble) blockquote{color:var(--text-secondary)}
+:root .markdown :not(pre)>code{font-family:var(--font-code);font-size:var(--text-code,13px);font-weight:var(--weight-body)}
+:root .message-code-block pre.message-code-scroll code{font-family:var(--font-code);font-size:var(--text-code,13px);font-weight:var(--weight-body);line-height:var(--message-leading,1.8);font-variant-ligatures:none}
+:root :is(.message-code-language,.message-code-copy){font-family:var(--font-ui);font-size:var(--text-caption);font-weight:var(--weight-body)}
+:root :is(.composer textarea,.composer-editor,.group-composer textarea,.peer-composer textarea){font-size:var(--text-control);font-weight:var(--weight-body);line-height:1.7;color:var(--text-ink)}
+:root :is(.composer textarea,.group-composer textarea,.peer-composer textarea)::placeholder{color:var(--text-muted)}
+:root :is(.bot-line strong,.group-row strong){font-size:var(--text-control);font-weight:var(--weight-label);color:var(--text-ink)}
+:root :is(.bot-heading strong,.group-heading strong,.peer-chat-header strong){font-size:calc(16px * var(--appearance-text-scale,1));font-weight:var(--weight-label)}
+:root :is(.bot-preview,.connection-status,.composer-hint,.group-message-author,.peer-message-author,.message-quote-copy,.bot-model-button){font-size:var(--text-caption);font-weight:var(--weight-body);color:var(--text-secondary)}
+:root :is(.bot-line small,.conversation-time,.day-separator,.message-time,.group-message-author time){font-size:var(--text-caption);font-weight:var(--weight-body);color:var(--text-muted);font-variant-numeric:tabular-nums}
+
+:root .settings-modal{color:var(--text-ink)}
+:root .settings-modal .settings-heading h2{font-size:var(--text-title);font-weight:var(--weight-heading);color:var(--text-ink);letter-spacing:0;line-height:1.4}
+:root .settings-modal .settings-sidebar button{font-size:var(--text-control);font-weight:var(--weight-body);color:var(--text-secondary)}
+:root .settings-modal .settings-sidebar button.active{font-weight:var(--weight-label)}
+:root .settings-modal .settings-section>h3{font-size:var(--text-control);font-weight:var(--weight-label);color:var(--text-secondary)}
+:root .settings-modal .settings-row{font-size:var(--text-control);font-weight:var(--weight-body);color:var(--text-ink)}
+:root .settings-modal .settings-row :is(input,.aelion-select,.aelion-combobox-input){font-size:var(--text-control);font-weight:var(--weight-body);color:var(--text-ink)}
+:root .settings-modal :is(.primary-button,.secondary-button){font-size:var(--text-control);font-weight:var(--weight-label)}
+:root .settings-modal :is(.settings-note,.settings-path-field,.provider-info span,.provider-model-count,.command-rule-directory,.settings-specs dd){font-size:var(--text-caption);font-weight:var(--weight-body);color:var(--text-secondary)}
+:root .runtime-intro{font-size:var(--text-code,13px);color:var(--text-secondary)}
+:root .settings-modal .runtime-field-copy{font-size:var(--text-control);font-weight:var(--weight-body);color:var(--text-ink)}
+:root .runtime-field-copy small{font-size:var(--text-caption);font-weight:var(--weight-body);color:var(--text-secondary)}
+:root .runtime-field-copy small.is-invalid{color:light-dark(#9b5d4e,#d9bab3)}
+:root .settings-modal .runtime-number input{font-size:var(--text-control);font-weight:var(--weight-body)}
+:root :is(.file-tile-name,.attachment-chip strong,.provider-info strong){font-size:var(--text-control);font-weight:var(--weight-label)}
+:root .file-tile{--file-title:var(--text-ink);--file-muted:var(--text-secondary)}
+:root .file-tile-meta{font-size:var(--text-caption);font-weight:var(--weight-body)}
+:root :is(.conversation-request h2,.question-card h2){font-size:calc(16px * var(--appearance-text-scale,1));font-weight:var(--weight-label);color:var(--text-ink)}
+:root :is(.permission-reason,.question-card p){font-size:var(--text-control);font-weight:var(--weight-body);color:var(--text-secondary)}
+:root :is(.permission-scope code,.permission-content pre,.permission-pattern code,.command-rule-pattern){font-family:var(--font-code);font-size:var(--text-code,13px);font-weight:var(--weight-body)}
+:root .permission-actions{flex-wrap:wrap}
+:root .companion-surface .companion-button{font-size:var(--text-control);font-weight:var(--weight-label);min-height:36px}
+:root :is(.scheduled-panel h2,.scheduled-open strong,.settings-empty-state strong){font-size:var(--text-control);font-weight:var(--weight-label);color:var(--text-ink)}
+:root :is(.scheduled-frequency,.scheduled-next,.scheduled-empty strong,.scheduled-empty p,.request-status,.companion-status,.bot-working-label){font-size:var(--text-caption);font-weight:var(--weight-body);color:var(--text-secondary)}
+:root :is(.setup-intro h3,.scheduled-editor-heading h2){font-weight:var(--weight-heading);letter-spacing:0}
+:root .scheduled-editor h2{font-size:calc(18px * var(--appearance-text-scale,1));font-weight:var(--weight-heading)}
+:root .scheduled-editor label{font-size:var(--text-control);color:var(--text-secondary)}
+:root .scheduled-editor :is(input:not([type=checkbox]),textarea,.aelion-select,.aelion-combobox-input){font-size:var(--text-control)}
+:root .scheduled-timing h3{font-size:var(--text-control);font-weight:var(--weight-label)}
+:root .setup-intro p{font-size:var(--text-code,13px);color:var(--text-secondary)}
+:root :is(.setup-footnote,.setup-current-label,.computer-rest-title){font-size:var(--text-caption);color:var(--text-secondary)}
+:root :is(.usage-metrics strong,.usage-table){font-variant-numeric:tabular-nums}
+:root .usage-metrics strong{font-weight:var(--weight-label)}
+:root :is(.fp-layer,.fp-title h2,.fp-tools,.fp-toolbar){font-family:var(--font-ui)}
+:root .fp-source{font-family:var(--font-code);font-size:var(--text-code,13px);font-weight:var(--weight-body)}
+:root :is(.permission-mode,.scheduled-row-footer){min-width:0}
+@media(max-width:1150px){:root .settings-modal .runtime-columns,:root .settings-modal .runtime-group-wide .runtime-group-fields{gap:24px}}

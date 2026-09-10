@@ -1,6 +1,6 @@
 import type {CommandPermissionRule} from './shared';
 import {Icon} from './ui';
-import {SettingsSection} from './SettingsWindow';
+import {SettingsEmpty,SettingsSection} from './SettingsWindow';
 
 export function CommandPermissionsSettings({rules,busy,act}:{rules:CommandPermissionRule[];busy:boolean;act:(operation:()=>Promise<unknown>)=>Promise<void>}){
   return <SettingsSection title="自动审批中的命令规则">
@@ -14,6 +14,6 @@ export function CommandPermissionsSettings({rules,busy,act}:{rules:CommandPermis
         <button role="switch" aria-label={`允许命令模式 ${rule.pattern}`} aria-checked={rule.enabled} title={rule.enabled?'停用此模式':'启用此模式'} className={`learning-switch ${rule.enabled?'enabled':''}`} disabled={busy} onClick={()=>act(()=>window.aelion.setCommandPermissionEnabled({id:rule.id,enabled:!rule.enabled}))}><i/></button>
         <button className="icon-button command-rule-delete" aria-label={`删除命令模式 ${rule.pattern}`} title="删除模式" disabled={busy} onClick={()=>act(()=>window.aelion.removeCommandPermission(rule.id))}><Icon name="trash" size={18}/></button>
       </div>
-    </article>)}</div>:<div className="settings-empty">暂无始终允许的命令模式</div>}
+    </article>)}</div>:<SettingsEmpty icon="shield" title="还没有长期授权" description="在权限请求中选择“始终允许”后，可以在这里管理。"/>}
   </SettingsSection>;
 }

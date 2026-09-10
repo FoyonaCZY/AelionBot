@@ -1,3 +1,5 @@
+import {AppearanceSettings} from './AppearanceSettings';
+import {useAppearance} from './use-appearance';
 import {ConversationTimeProvider} from './ConversationTime';
 import {messageReply} from './message-replies';
 import {Select} from './Select';
@@ -15,7 +17,7 @@ import {BotWorkingStatus} from './BotWorkingStatus';
 import {liveBotStep} from './activity';
 import {conversationTimeline,friendlyError,readableContent} from './activity';
 import {SkillsSettings,McpSettings} from './integration-ui';
-import {SettingsWindow,SettingsSection,type SettingsTab} from './SettingsWindow';
+import {SettingsWindow,SettingsSection,SettingsEmpty,type SettingsTab} from './SettingsWindow';
 import {CommandPermissionsSettings} from './CommandPermissionsSettings';
 import {HostWorkspaceSettings} from './HostWorkspaceSettings';
 import {UserProfileSettings} from './UserProfileSettings';
@@ -50,6 +52,7 @@ function AppContent(){
   const showPreview=useFilePreview()!;
   useWindowDimming();
   const [state,setState]=useState<Snapshot>(),[selected,setSelected]=useState(''),[query,setQuery]=useState(''),[drafts,setDrafts]=useState<Record<string,ComposerDraft>>({});
+  const appearance=useAppearance(state?.appearance);
   const avatarActivities=useMemo(()=>state?botActivities(state):{},[state]);
   const [peerPanel,setPeerPanel]=useState<PeerPanel>();
   const [selectedGroup,setSelectedGroup]=useState(''),[groupEditor,setGroupEditor]=useState<string>(),[newMenu,setNewMenu]=useState(false);
@@ -216,11 +219,12 @@ function AppContent(){
       </form>}
       {modal==='delete-bot'&&deletingBot&&<div className="delete-bot-confirmation"><p>删除“{deletingBot.name}”及其对话和记忆？工作文件和私聊记录会保留。</p><div className="dialog-actions"><button className="secondary-button" autoFocus disabled={busy} onClick={()=>setModal(null)}>取消</button><button className="danger-button" disabled={busy} onClick={()=>void removeBot()}>{busy?'正在删除…':'删除 Bot'}</button></div></div>}
       {modal==='settings'&&<SettingsWindow tab={settingsTab} onTabChange={setSettingsTab} onClose={()=>void act(closeModal)}>
+        {settingsTab==='appearance'&&<AppearanceSettings {...appearance}/>}
         {settingsTab==='profile'&&<UserProfileSettings profile={state.userProfile} onNotify={setToast}/>}
         {settingsTab==='runtime'&&<RuntimeSettings settings={state.runtime} onNotify={setToast}/>}
         {settingsTab==='model'&&<ModelSettings state={state} onNotify={setToast}/>}
         {settingsTab==='usage'&&<UsageSettings state={state}/>}
-        {settingsTab==='skills'&&(scopeBot?<>{scopePicker}<SkillsSettings botId={scopeBot.id} skills={state.skills.filter(skill=>!skill.botId||skill.botId===scopeBot.id)} integrations={state.integrations} busy={busy||anyRunning} act={act}/></>:<div className="settings-empty">先创建一个 Bot</div>)}
+        {settingsTab==='skills'&&(scopeBot?<>{scopePicker}<SkillsSettings botId={scopeBot.id} skills={state.skills.filter(skill=>!skill.botId||skill.botId===scopeBot.id)} integrations={state.integrations} busy={busy||anyRunning} act={act}/></>:<SettingsEmpty title="先认识一位伙伴" description="创建 Bot 后，为它挑选合适的技能。"/>)}
         {settingsTab==='mcp'&&<McpSettings integrations={state.integrations} busy={busy||anyRunning} act={act}/>}
         {settingsTab==='memory'&&<>
           {scopePicker}
@@ -229,7 +233,7 @@ function AppContent(){
             <button role="switch" aria-label="后台整理经验" aria-checked={state.cognition.learning.enabled} className={state.cognition.learning.enabled?'learning-switch enabled':'learning-switch'} disabled={busy} onClick={()=>act(()=>window.aelion.setBackgroundLearning(!state.cognition!.learning.enabled))}><i/></button>
           </div></SettingsSection>}
           <SettingsSection title="已有记忆">
-            {scopeBot?.memories.length?<div className="settings-card">{scopeBot.memories.map((value,i)=><div className="memory-card" key={i}>{value}</div>)}</div>:<div className="settings-empty">暂无记忆</div>}
+            {scopeBot?.memories.length?<div className="settings-card">{scopeBot.memories.map((value,i)=><div className="memory-card" key={i}>{value}</div>)}</div>:<SettingsEmpty icon="memory" title="还没有记忆" description="相处越久，伙伴就越了解你。"/>}
             {state.cognition?.bots.find(item=>item.botId===scopeBot?.id)?.lastLearning&&<p className="settings-note">最近一次知识更新：{new Date(state.cognition.bots.find(item=>item.botId===scopeBot?.id)!.lastLearning!.time).toLocaleString('zh-CN')}</p>}
           </SettingsSection>
         </>}

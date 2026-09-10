@@ -1,41 +1,41 @@
 /* Keep conversation surfaces separate from document and attachment previews. */
 .messages,.peer-chat-body{
-  background:#fff;
+  background:light-dark(#fff,#201e24);
   container:conversation / inline-size;
 }
-.composer-wrap{background:#fff}
+.composer-wrap{background:light-dark(#fff,#201e24)}
 
 :root :is(.bubble,.group-message-bubble,.peer-bubble).markdown,
 :root :is(.bubble,.group-message-bubble,.peer-bubble) .markdown{
-  --message-line:#e2dee8;
-  --message-surface:#faf9fc;
-  --message-ink:#393342;
-  --message-muted:#7c7287;
-  --message-link:#755491;
-  --message-link-line:#c6b5d6;
-  --message-inline:#ffffffb3;
-  --code-comment:#79717f;
+  --message-line:light-dark(#e2dee8,#3e3945);
+  --message-surface:light-dark(#faf9fc,#211f25);
+  --message-ink:light-dark(#393342,#dddae0);
+  --message-muted:light-dark(#7c7287,#c6c3c9);
+  --message-link:light-dark(#755491,#c3b2d1);
+  --message-link-line:light-dark(#c6b5d6,#3e3945);
+  --message-inline:light-dark(#ffffffb3,#201e24b3);
+  --code-comment:light-dark(#79717f,#c7c4ca);
 }
-:root :is(.bubble,.group-message-bubble,.peer-bubble) :is(h1,h2,h3){font-weight:600;letter-spacing:-.01em}
+:root :is(.bubble,.group-message-bubble,.peer-bubble) :is(h1,h2,h3){font-weight:var(--weight-heading);letter-spacing:-.01em}
 :root :is(.bubble,.group-message-bubble,.peer-bubble) h2{font-size:1.15em}
 :root :is(.bubble,.group-message-bubble,.peer-bubble) h3{font-size:1.04em}
-:root :is(.bubble,.group-message-bubble,.peer-bubble) blockquote{border-color:#c5bacf;color:#817289}
-:root :is(.bubble,.group-message-bubble,.peer-bubble) .message-code-block{border-color:#e0dbe6;box-shadow:none}
-:root :is(.bubble,.group-message-bubble,.peer-bubble) .message-code-header{min-height:35px;padding-left:14px;border-bottom-color:#e9e4ee}
+:root :is(.bubble,.group-message-bubble,.peer-bubble) blockquote{border-color:light-dark(#c5bacf,#3e3945);color:light-dark(#817289,#c5c2c8)}
+:root :is(.bubble,.group-message-bubble,.peer-bubble) .message-code-block{border-color:light-dark(#e0dbe6,#3e3945);box-shadow:none}
+:root :is(.bubble,.group-message-bubble,.peer-bubble) .message-code-header{min-height:35px;padding-left:14px;border-bottom-color:light-dark(#e9e4ee,#3e3945)}
 :root :is(.bubble,.group-message-bubble,.peer-bubble) pre.message-code-scroll{padding:12px 14px 15px}
 
 :root :is(.message-row,.group-message,.peer-message) .file-tile{
-  --file-surface:#faf9fc;
-  --file-border:#e0dce7;
-  --file-title:#4a4053;
-  --file-muted:#85768f;
+  --file-surface:light-dark(#faf9fc,#211f25);
+  --file-border:light-dark(#e0dce7,#3e3945);
+  --file-title:light-dark(#4a4053,#d8d5db);
+  --file-muted:light-dark(#85768f,#c3c0c6);
   border-radius:10px;
   box-shadow:none;
 }
 :root :is(.message-row,.group-message,.peer-message) .file-tile:has(button:not(:disabled):hover,button:focus-visible){
-  background:#fff;border-color:#cec3d9;box-shadow:none;
+  background:light-dark(#fff,#201e24);border-color:light-dark(#cec3d9,#3e3945);box-shadow:none;
 }
-:root :is(.message-row,.group-message,.peer-message) .bot-mention{background:#ffffff77;color:#786183}
+:root :is(.message-row,.group-message,.peer-message) .bot-mention{background:light-dark(#ffffff77,#201e2477);color:light-dark(#786183,#c4b9ca)}
 
 /* The conversation can be narrow even in a wide window with side panels. */
 @container conversation (max-width:560px){

@@ -1,31 +1,31 @@
 .companion-surface{
-  --companion-ink:#303036;
-  --companion-muted:#797981;
-  --companion-line:#e8e8ec;
-  background:#fff;
+  --companion-ink:light-dark(#303036,#e0dde3);
+  --companion-muted:light-dark(#797981,#c5c2c8);
+  --companion-line:light-dark(#e8e8ec,#3e3945);
+  background:light-dark(#fff,#201e24);
   border:1px solid var(--companion-line);
   border-radius:20px 20px 20px 8px;
   color:var(--companion-ink);
   box-shadow:0 2px 8px #24242b04;
   animation:companion-arrive .24s cubic-bezier(.2,.8,.2,1) both;
 }
-.companion-badge{position:relative;display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border-radius:16px 20px 15px 19px;background:#eee7fc;isolation:isolate}
-.companion-badge-symbol{position:absolute;display:grid;place-items:center;right:-2px;bottom:-1px;width:19px;height:19px;border:2px solid #fff;border-radius:7px;background:#f0eafa;color:#8568bf}
+.companion-badge{position:relative;display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border-radius:16px 20px 15px 19px;background:light-dark(#eee7fc,#222026);isolation:isolate}
+.companion-badge-symbol{position:absolute;display:grid;place-items:center;right:-2px;bottom:-1px;width:19px;height:19px;border:2px solid light-dark(#fff,#3e3945);border-radius:7px;background:light-dark(#f0eafa,#222026);color:light-dark(#8568bf,#bdafda)}
 .companion-badge .avatar[data-activity=waiting] .avatar-body{animation:companion-waiting 5.5s ease-in-out infinite}
 .companion-badge .avatar[data-activity=waiting] .avatar-eye{animation:avatar-blink 7.6s ease-in-out infinite}
-.companion-goal{background:#eaeafc}.companion-goal .companion-badge-symbol{background:#eeedfc;color:#7b71c7}
-.companion-permission .companion-badge-symbol{background:#fff2dc;color:#b38740}
-.companion-takeover .companion-badge-symbol{background:#e9f3f6;color:#5b94a5}
-.companion-status{display:inline-flex;align-items:center;gap:6px;max-width:100%;font-size:11px;font-weight:500;line-height:1.5;color:var(--companion-muted);white-space:nowrap}
-.companion-status::before{content:"";width:4px;height:4px;border-radius:50%;background:#c4bccf;flex-shrink:0}
-.companion-surface .companion-button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:6px 12px;border:1px solid #e4e4e8;border-radius:8px;background:#fff;color:#63636b;font-size:12px;font-weight:500;line-height:1.5;white-space:nowrap;transition:background .15s,border-color .15s}
-.companion-surface .companion-button:not(:disabled):hover{background:#f6f6f8;border-color:#d8d8de;color:#33333b}
-.companion-surface .companion-primary{background:#34313b;border-color:#34313b;color:#fff;box-shadow:none}
-.companion-surface .companion-primary:not(:disabled):hover{background:#49454f;border-color:#49454f;color:#fff}
-.companion-surface .companion-button:not(:disabled):active{background:#eae9ed}
-.companion-surface .companion-primary:not(:disabled):active{background:#25222d}
-.companion-surface .companion-quiet{border-color:transparent;background:transparent;box-shadow:none;color:#75757d}
-.companion-surface button:focus-visible{outline:2px solid #aa90e8;outline-offset:2px}
+.companion-goal{background:light-dark(#eaeafc,#222026)}.companion-goal .companion-badge-symbol{background:light-dark(#eeedfc,#222026);color:light-dark(#7b71c7,#b7b2dd)}
+.companion-permission .companion-badge-symbol{background:light-dark(#fff2dc,#232127);color:light-dark(#b38740,#ddc7a3)}
+.companion-takeover .companion-badge-symbol{background:light-dark(#e9f3f6,#232127);color:light-dark(#5b94a5,#acc9d1)}
+.companion-status{display:inline-flex;align-items:center;gap:6px;max-width:100%;font-size:calc(12px * var(--appearance-text-scale,1));font-weight:var(--weight-body);line-height:1.5;color:var(--companion-muted);white-space:nowrap}
+.companion-status::before{content:"";width:4px;height:4px;border-radius:50%;background:light-dark(#c4bccf,#b9b5be);flex-shrink:0}
+.companion-surface .companion-button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:6px 12px;border:1px solid light-dark(#e4e4e8,#3e3945);border-radius:8px;background:light-dark(#fff,#201e24);color:light-dark(#63636b,#cdcad0);font-size:calc(12px * var(--appearance-text-scale,1));font-weight:var(--weight-label);line-height:1.5;white-space:nowrap;transition:background .15s,border-color .15s}
+.companion-surface .companion-button:not(:disabled):hover{background:light-dark(#f6f6f8,#211f25);border-color:light-dark(#d8d8de,#3e3945);color:light-dark(#33333b,#dedbe1)}
+.companion-surface .companion-primary{background:light-dark(#34313b,#e0dbe6);border-color:light-dark(#34313b,#3e3945);color:light-dark(#fff,#231f29);box-shadow:none}
+.companion-surface .companion-primary:not(:disabled):hover{background:light-dark(#49454f,#e0dbe6);border-color:light-dark(#49454f,#3e3945);color:light-dark(#fff,#231f29)}
+.companion-surface .companion-button:not(:disabled):active{background:light-dark(#eae9ed,#232127)}
+.companion-surface .companion-primary:not(:disabled):active{background:light-dark(#25222d,#e0dbe6)}
+.companion-surface .companion-quiet{border-color:transparent;background:transparent;box-shadow:none;color:light-dark(#75757d,#c7c4ca)}
+.companion-surface button:focus-visible{outline:2px solid light-dark(#aa90e8,#3e3945);outline-offset:2px}
 .companion-surface button:disabled{cursor:not-allowed;opacity:.45;box-shadow:none}
 @keyframes companion-arrive{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 @keyframes companion-status-pulse{50%{box-shadow:0 0 0 3px #9679d918}}

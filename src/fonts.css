@@ -1,0 +1,19 @@
+/* Bundled by Vite: no network request or installed font is required. */
+@import '@fontsource-variable/inter/wght.css';
+@import '@fontsource-variable/noto-sans-sc/wght.css';
+@import '@fontsource-variable/jetbrains-mono/wght.css';
+
+:root{
+  --font-ui:'Inter Variable','Noto Sans SC Variable','Segoe UI','Microsoft YaHei UI',sans-serif;
+  --font-code:'JetBrains Mono Variable','Noto Sans SC Variable',Consolas,monospace;
+  --text-body:15px;
+  --text-control:14px;
+  --text-caption:12px;
+  --text-title:22px;
+  --weight-body:400;
+  --weight-label:500;
+  --weight-heading:600;
+  --text-ink:light-dark(#29282c,#e3e0e6);
+  --text-secondary:light-dark(#64616b,#cecbd1);
+  --text-muted:light-dark(#797480,#c6c3c9);
+}

@@ -1,5 +1,5 @@
 .streaming-reply{min-width:0}
-.streaming-label{margin-left:10px;color:#9aa0a8;font-size:11px;font-weight:500}
+.streaming-label{margin-left:10px;color:light-dark(#9aa0a8,#b9b6bc);font-size:calc(12px * var(--appearance-text-scale,1));font-weight:var(--weight-body)}
 .streaming-text>:last-child:not(.message-code-block):not(.markdown-table-scroll)::after{content:'';display:inline-block;width:5px;height:14px;margin-left:5px;border-radius:2px;background:currentColor;vertical-align:-2px;opacity:.55;animation:reply-caret 1s ease-in-out infinite}
 @keyframes reply-caret{50%{opacity:.12}}
 @media(prefers-reduced-motion:reduce){.streaming-text>:last-child::after{animation:none}}

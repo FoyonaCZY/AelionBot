@@ -1,35 +1,35 @@
 /* Compact reactions overlap the bubble edge, with a flat canvas-colored cutout. */
 .message-pins{position:relative;z-index:1;display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:-5px 10px 0;max-width:calc(100% - 20px)}
-.pin-chip{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:2px 9px;border:0;border-radius:999px;background:#dcecff;box-shadow:0 0 0 2px #fbfafc;min-width:36px;min-height:24px;line-height:1;transition:background .15s;animation:pin-appear .16s ease-out}
-.pin-chip>span{display:block;font-family:"Segoe UI Emoji","Apple Color Emoji",sans-serif;font-size:16px;line-height:20px;font-weight:400}
-.pin-chip small{font-size:11px;font-weight:550;font-variant-numeric:tabular-nums;color:#587694}
-.pin-chip.own{background:#cfe5ff}.pin-chip.own small{color:#466887}
-.pin-chip:hover{background:#cce3ff}.pin-chip.own:hover{background:#c2ddfc}
-.pin-chip:focus-visible{outline:2px solid #8db9e8;outline-offset:3px}
+.pin-chip{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:2px 9px;border:0;border-radius:999px;background:light-dark(#dcecff,#232127);box-shadow:0 0 0 2px #fbfafc;min-width:36px;min-height:24px;line-height:1;transition:background .15s;animation:pin-appear .16s ease-out}
+.pin-chip>span{display:block;font-family:"Segoe UI Emoji","Apple Color Emoji",sans-serif;font-size:16px;line-height:20px;font-weight:var(--weight-body)}
+.pin-chip small{font-size:12px;font-weight:var(--weight-body);font-variant-numeric:tabular-nums;color:light-dark(#587694,#b3c2d1)}
+.pin-chip.own{background:light-dark(#cfe5ff,#242228)}.pin-chip.own small{color:light-dark(#466887,#b2c3d2)}
+.pin-chip:hover{background:light-dark(#cce3ff,#242228)}.pin-chip.own:hover{background:light-dark(#c2ddfc,#252329)}
+.pin-chip:focus-visible{outline:2px solid light-dark(#8db9e8,#3e3945);outline-offset:3px}
 .group-message.from-user .message-pins{justify-content:flex-end}
 @keyframes pin-appear{from{opacity:.4;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
-.pin-error{display:block;color:#a85b4c;font-size:11px;max-width:320px;line-height:1.6;margin:6px 4px 0}
+.pin-error{display:block;color:light-dark(#a85b4c,#deb8b0);font-size:calc(12px * var(--appearance-text-scale,1));max-width:320px;line-height:1.6;margin:6px 4px 0}
 .message-row.user .message-pins{justify-content:flex-end}.message-row.user .message-time{margin-top:2px}
-.message-context-target{outline:none}.message-context-target:focus-visible{outline:2px solid #c9ced5;outline-offset:3px}
-.message-context-menu{position:fixed;z-index:140;width:min(326px,calc(100vw - 16px));max-height:calc(100vh - 52px);overflow:auto;padding:8px;background:#fff;border:1px solid #e4dfeb;border-radius:12px;box-shadow:0 8px 28px #30233e12;color:#25282d;-webkit-app-region:no-drag;scrollbar-width:thin}
+.message-context-target{outline:none}.message-context-target:focus-visible{outline:2px solid light-dark(#c9ced5,#3e3945);outline-offset:3px}
+.message-context-menu{position:fixed;z-index:140;width:min(326px,calc(100vw - 16px));max-height:calc(100vh - 52px);overflow:auto;padding:8px;background:light-dark(#fff,#201e24);border:1px solid light-dark(#e4dfeb,#3e3945);border-radius:12px;box-shadow:0 8px 28px #30233e12;color:light-dark(#25282d,#e3e0e6);-webkit-app-region:no-drag;scrollbar-width:thin}
 .message-emoji-quick{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;padding:2px 1px 4px}
 .message-emoji-quick button,.message-emoji-grid button{display:flex;align-items:center;justify-content:center;min-width:0;height:42px;border-radius:9px;font-family:"Segoe UI Emoji","Apple Color Emoji",sans-serif;font-size:25px;padding:0}
-.message-context-menu button:hover,.message-context-menu button[aria-checked=true],.message-context-menu button[aria-pressed=true],.message-context-menu button[aria-expanded=true]{background:#f0ebf7}
-.message-context-menu button:focus-visible{outline:2px solid #c2b0d7;outline-offset:-2px;background:#f3f4f5}
-.message-emoji-quick .message-emoji-more{color:#888e96}
-.message-emoji-picker{border-top:1px solid #f0f1f3;padding-top:9px}
-.message-emoji-search{display:flex;align-items:center;gap:7px;margin:0 3px 7px;padding:0 9px;height:35px;background:#f6f3f9;border:1px solid #eee9f3;border-radius:9px;color:#8c929a}
-.message-emoji-search input{width:100%;min-width:0;padding:0;border:0;background:transparent;outline:none!important;box-shadow:none!important;font:inherit;font-size:12px;color:#34383e}
-.message-emoji-search input::placeholder{color:#989da5}
+.message-context-menu button:hover,.message-context-menu button[aria-checked=true],.message-context-menu button[aria-pressed=true],.message-context-menu button[aria-expanded=true]{background:light-dark(#f0ebf7,#222026)}
+.message-context-menu button:focus-visible{outline:2px solid light-dark(#c2b0d7,#3e3945);outline-offset:-2px;background:light-dark(#f3f4f5,#222026)}
+.message-emoji-quick .message-emoji-more{color:light-dark(#888e96,#bfbcc2)}
+.message-emoji-picker{border-top:1px solid light-dark(#f0f1f3,#3e3945);padding-top:9px}
+.message-emoji-search{display:flex;align-items:center;gap:7px;margin:0 3px 7px;padding:0 9px;height:35px;background:light-dark(#f6f3f9,#211f25);border:1px solid light-dark(#eee9f3,#3e3945);border-radius:9px;color:light-dark(#8c929a,#bebbc1)}
+.message-emoji-search input{width:100%;min-width:0;padding:0;border:0;background:transparent;outline:none!important;box-shadow:none!important;font:inherit;font-size:12px;color:light-dark(#34383e,#dedbe1)}
+.message-emoji-search input::placeholder{color:light-dark(#989da5,#b9b6bc)}
 .message-emoji-categories{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:2px;padding:0 2px}
-.message-emoji-categories button{height:33px;min-width:0;border-radius:8px;padding:0;font-family:"Segoe UI Emoji","Apple Color Emoji",sans-serif;font-size:19px;color:#737b84}
-.message-emoji-label{font-size:11px;color:#9298a0;padding:9px 8px 4px}
+.message-emoji-categories button{height:33px;min-width:0;border-radius:8px;padding:0;font-family:"Segoe UI Emoji","Apple Color Emoji",sans-serif;font-size:19px;color:light-dark(#737b84,#c6c3c9)}
+.message-emoji-label{font-size:11px;color:light-dark(#9298a0,#bbb8be);padding:9px 8px 4px}
 .message-emoji-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));align-content:start;gap:2px;height:238px;max-height:max(42px,calc(100vh - 274px));overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:3px 2px}
 .message-emoji-grid button{height:38px;font-size:24px;flex-shrink:0}
 .message-emoji-grid.is-empty{display:flex;align-items:center;justify-content:center}
-.message-emoji-empty{font-size:12px;color:#989da5}
-.message-menu-separator{height:1px;background:#eceef0;margin:3px 5px 5px}
-.message-menu-action{display:flex;align-items:center;gap:11px;width:100%;padding:11px 12px;min-height:41px;border-radius:9px;text-align:left;font-size:13px}
+.message-emoji-empty{font-size:12px;color:light-dark(#989da5,#b9b6bc)}
+.message-menu-separator{height:1px;background:light-dark(#eceef0,#232127);margin:3px 5px 5px}
+.message-menu-action{display:flex;align-items:center;gap:11px;width:100%;padding:11px 12px;min-height:41px;border-radius:9px;text-align:left;font-size:calc(13px * var(--appearance-text-scale,1))}
 @media(max-height:420px){.message-emoji-quick button,.message-emoji-grid button{height:34px;font-size:22px}.message-menu-action{padding-top:8px;padding-bottom:8px;min-height:34px}}
 
 @media(prefers-reduced-motion:reduce){.pin-chip{animation:none;transition:none}}

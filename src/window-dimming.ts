@@ -15,7 +15,7 @@ export function useWindowDimming(){
       }
       const hex='#'+color.map(value=>Math.round(Math.max(0,Math.min(255,value))).toString(16).padStart(2,'0')).join(''),key=dimmed+hex;if(previous===key)return;previous=key;void window.aelion.setWindowDimmed?.(dimmed,hex).catch(()=>{});
     };
-    const observer=new MutationObserver(sync);observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['aria-modal','class','style']});window.addEventListener('resize',sync);document.addEventListener('transitionend',sync,true);document.addEventListener('animationend',sync,true);sync();
-    return()=>{observer.disconnect();window.removeEventListener('resize',sync);document.removeEventListener('transitionend',sync,true);document.removeEventListener('animationend',sync,true);void window.aelion.setWindowDimmed?.(false).catch(()=>{});};
+    const observer=new MutationObserver(sync);observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['aria-modal','class','style']});window.addEventListener('resize',sync);window.addEventListener('aelion-appearance-change',sync);document.addEventListener('transitionend',sync,true);document.addEventListener('animationend',sync,true);sync();
+    return()=>{observer.disconnect();window.removeEventListener('resize',sync);window.removeEventListener('aelion-appearance-change',sync);document.removeEventListener('transitionend',sync,true);document.removeEventListener('animationend',sync,true);void window.aelion.setWindowDimmed?.(false).catch(()=>{});};
   },[]);
 }
