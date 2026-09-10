@@ -24,5 +24,8 @@ AelionBot 的构建和运行依赖以下上游项目；第三方组件的许可�
 | Hermes Agent | Harness 设计参考 | `docs/design/hermes-reference-manifest.json` 记录参考版本与来源；本项目实现自己的精简循环，未声称是 Hermes 官方发行版 |
 | Hermes / Codex / OpenCode / Pi / OpenHands SDK | 0.4 上下文、历史及自动沉淀的源码对照 | 固定提交、文件 hash 和采用机制见 `docs/design/harness-reference-manifest-v04.json` 与 `Harness-Implementation-v04.md`；没有运行上游 Agent |
 | js-tiktoken | 0.4 BPE token 预算估计 | 固定版本 `1.0.21`，许可文本随 npm 运行依赖保留；非匹配模型仍需 usage 校准 |
+| node-pty | 本机交互终端与 Windows ConPTY | 固定版本 `1.1.0`；[上游项目](https://github.com/microsoft/node-pty)，MIT 许可见 `docs/licenses/node-pty.txt`；原生组件及附带许可随运行依赖保留 |
+| quickjs-emscripten / QuickJS | 独立 JavaScript 工具编排运行时 | 固定版本 `0.32.0`；[上游项目](https://github.com/justjake/quickjs-emscripten)，许可见 `docs/licenses/quickjs-emscripten.txt` 与 `docs/licenses/quickjs-runtime.txt` |
+| linkedom | 无页面脚本执行的 HTML/XML 解析 | 固定版本 `0.18.13`；[上游项目](https://github.com/WebReflection/linkedom)，ISC 许可见 `docs/licenses/linkedom.txt` |
 
 首次启动安装的 Linux 内核、XFCE、Chromium、Python、Git 等由 Debian 软件源提供，对应信息保留在 guest 的 `/usr/share/doc` 和包管理数据库中。

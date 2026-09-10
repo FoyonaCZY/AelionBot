@@ -8,7 +8,7 @@ export class ContextMeter {
  private anchor?:Anchor;
  private identity:string;
  constructor(private storage:CognitiveStore,private botId:string,private scope:string,private config:ModelConfig,tools:ToolDefinition[]){
-  this.identity=sourceHash([{role:'system',content:JSON.stringify([config.providerId,config.baseUrl,config.protocol,config.model,config.reasoningEffort,config.thinkingBudget,tools])}]);
+  this.identity=sourceHash([{role:'system',content:JSON.stringify([config.providerId,config.baseUrl,config.protocol,config.model,config.reasoningEffort,config.thinkingBudget,config.supportsImages,tools])}]);
   try{const state=JSON.parse(storage.contextState(botId,scope,'meter')||'null');if(state?.version===1&&state.identity===this.identity)this.anchor=state;}catch{}
  }
  estimate(messages:WireMessage[],tools:ToolDefinition[],calibration:number){
@@ -21,7 +21,7 @@ export class ContextMeter {
   return {...base,estimateSource:'tokenizer' as const};
  }
  record(messages:WireMessage[],tools:ToolDefinition[],result:Completion){
-  const tokens=result.usage?.inputTokens;if(!Number.isSafeInteger(tokens)||tokens!<=0||result.native&&(result.native.protocol!==(this.config.protocol||'chat')||result.native.key!==nativeKey(this.config)))return;
+  if(result.inputImagesOmitted)return;const tokens=result.usage?.inputTokens;if(!Number.isSafeInteger(tokens)||tokens!<=0||result.native&&(result.native.protocol!==(this.config.protocol||'chat')||result.native.key!==nativeKey(this.config)))return;
   const anchor:Anchor={version:1,identity:this.identity,messages:messages.map(message=>sourceHash([message])),tokens:tokens!,estimate:estimateRequest(messages,tools,1).tokens};
   this.storage.contextState(this.botId,this.scope,'meter',JSON.stringify(anchor));this.anchor=anchor;
  }

@@ -10,6 +10,19 @@ const operations:Record<string,{label:string;active:string;icon:string}>={
   process_status:{label:'检查后台任务',active:'正在检查后台任务',icon:'clock'},
   process_wait:{label:'等待后台任务',active:'正在等待后台任务',icon:'clock'},
   process_stop:{label:'停止后台任务',active:'正在停止后台任务',icon:'terminal'},
+  terminal_start:{label:'启动终端',active:'正在启动终端',icon:'terminal'},
+  terminal_input:{label:'输入终端内容',active:'正在操作终端',icon:'terminal'},
+  terminal_read:{label:'读取终端输出',active:'正在读取终端输出',icon:'terminal'},
+  terminal_stop:{label:'停止终端',active:'正在停止终端',icon:'terminal'},
+  apply_patch:{label:'应用文件补丁',active:'正在修改文件',icon:'file'},
+  code_exec:{label:'运行工具编排',active:'正在运行工具',icon:'terminal'},
+  request_user_input:{label:'向你提问',active:'等待你的回答',icon:'message'},
+  user_input_wait:{label:'等待回答',active:'等待你的回答',icon:'message'},
+  view_image:{label:'查看图片',active:'正在查看图片',icon:'file'},
+  tool_search:{label:'查找工具',active:'正在查找工具',icon:'search'},
+  web_search:{label:'搜索网页',active:'正在搜索网页',icon:'globe'},
+  web_read:{label:'阅读网页',active:'正在阅读网页',icon:'globe'},
+  mcp_list_resource_templates:{label:'查找资源模板',active:'正在查找资源模板',icon:'search'},
   python_session:{label:'处理 Python 数据',active:'正在处理 Python 数据',icon:'terminal'},
   checkpoint_list:{label:'查看文件版本',active:'正在查看文件版本',icon:'file'},
   checkpoint_restore:{label:'恢复文件版本',active:'正在恢复文件版本',icon:'file'},
@@ -94,13 +107,13 @@ export function toolResult(message:ChatMessage):unknown{
 export function toolDisplay(message:ChatMessage){return message.activity||describeTool(message.tool||'',{},toolResult(message));}
 
 export interface LiveBotStep {phase:'thinking'|'working'|'waiting';label:string;detail?:string;}
-export function liveBotStep(messages:ChatMessage[],run?:RunRecord,waiting?:'host_permission'|'vm_takeover',reviewing=false):LiveBotStep|undefined{
+export function liveBotStep(messages:ChatMessage[],run?:RunRecord,waiting?:'host_permission'|'vm_takeover'|'user_input',reviewing=false):LiveBotStep|undefined{
   if(!run||run.status!=='running')return;
   if(reviewing)return {phase:'thinking',label:'正在确认操作权限'};
-  if(waiting)return {phase:'waiting',label:waiting==='host_permission'?'等待你的操作许可':'等待你处理工作电脑'};
+  if(waiting)return {phase:'waiting',label:waiting==='host_permission'?'等待你的操作许可':waiting==='user_input'?'等待你的回答':'等待你处理工作电脑'};
   const current=[...messages].reverse().find(message=>message.runId===run.id&&message.role==='tool'&&message.status==='running');
   const execution=[...(run.executions||[])].reverse().find(item=>item.status==='running');
-  if(current?.tool==='tools_batch'&&execution&&execution.tool!=='tools_batch')return {phase:'working',label:toolOperation(execution.tool).active};
+  if(['tools_batch','code_exec'].includes(current?.tool||'')&&execution&&execution.tool!=='tools_batch')return {phase:'working',label:toolOperation(execution.tool).active};
   if(current){const display=toolDisplay(current);return {phase:'working',label:/^(正在|等待)/.test(display.label)?display.label:`正在${display.label}`,detail:display.detail};}
   if(execution)return {phase:'working',label:toolOperation(execution.tool).active};
   return {phase:'thinking',label:'正在思考'};
@@ -113,6 +126,8 @@ export function readableContent(content:string){
 
 export interface Notice {title:string;description:string;settings?:'model'|'computer'|'mcp';context?:boolean;}
 export function friendlyError(raw:string):Notice{
+  if(/不支持图片输入|no endpoints found that support image input|(?:image|vision).{0,40}(?:not supported|unsupported)|does not support.{0,20}image/i.test(raw))return {title:'当前模型无法读取图片',description:'请为这个 Bot 选择支持图片的模型。附件和原始对话已保留；新的纯文字消息可以继续处理。',settings:'model'};
+  if(/tool_calls.*must be followed|insufficient tool messages|tool_call_id|工具历史/i.test(raw))return {title:'工具调用记录需要恢复',description:'此前的工具调用与结果未正确配对。工作记录已保留，继续时会修复消息顺序并核对实际结果。'};
   if(/HTTP\s*(401|403)\b|unauthorized|invalid.api.key|身份验证|凭据无效/i.test(raw))return {title:'模型连接需要检查',description:'请确认 API Key 和模型访问权限，再继续这项工作。',settings:'model'};
   if(/HTTP\s*429\b|rate.limit|too.many.requests|额度|限流/i.test(raw))return {title:'模型暂时达到使用限制',description:'可以稍后继续，或在设置中更换可用模型。',settings:'model'};
   if(/HTTP\s*5\d\d\b|service.temporarily.unavailable/i.test(raw))return {title:'模型服务暂时不可用',description:'已有工作记录保留，可以稍后继续。'};

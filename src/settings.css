@@ -147,3 +147,5 @@
   .settings-modal .integration-search{flex-basis:100%}
   .settings-modal .settings-computer-title{flex-wrap:wrap}
 }
+.profile-background{display:flex;flex-direction:column;gap:10px;padding:16px 0;font-size:13px}
+.profile-background textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:120px;padding:12px;border:1px solid var(--line,#e5e1eb);border-radius:10px;background:var(--surface,#fff);color:inherit;font:inherit;line-height:1.65;outline:none}

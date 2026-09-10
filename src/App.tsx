@@ -18,6 +18,7 @@ import {SkillsSettings,McpSettings} from './integration-ui';
 import {SettingsWindow,SettingsSection,type SettingsTab} from './SettingsWindow';
 import {CommandPermissionsSettings} from './CommandPermissionsSettings';
 import {HostWorkspaceSettings} from './HostWorkspaceSettings';
+import {UserProfileSettings} from './UserProfileSettings';
 import {ModelSettings} from './ModelSettings';
 import {AboutSettings} from './AboutSettings';
 import {SidebarUpdate} from './SidebarUpdate';
@@ -215,6 +216,7 @@ function AppContent(){
       </form>}
       {modal==='delete-bot'&&deletingBot&&<div className="delete-bot-confirmation"><p>删除“{deletingBot.name}”及其对话和记忆？工作文件和私聊记录会保留。</p><div className="dialog-actions"><button className="secondary-button" autoFocus disabled={busy} onClick={()=>setModal(null)}>取消</button><button className="danger-button" disabled={busy} onClick={()=>void removeBot()}>{busy?'正在删除…':'删除 Bot'}</button></div></div>}
       {modal==='settings'&&<SettingsWindow tab={settingsTab} onTabChange={setSettingsTab} onClose={()=>void act(closeModal)}>
+        {settingsTab==='profile'&&<UserProfileSettings profile={state.userProfile} onNotify={setToast}/>}
         {settingsTab==='runtime'&&<RuntimeSettings settings={state.runtime} onNotify={setToast}/>}
         {settingsTab==='model'&&<ModelSettings state={state} onNotify={setToast}/>}
         {settingsTab==='usage'&&<UsageSettings state={state}/>}

@@ -17,7 +17,7 @@ export class FileCheckpoints {
   if(bytes){const file=this.backup(record);mkdirSync(dirname(file),{recursive:true});writeFileSync(file,bytes,{mode:0o600,flag:'wx'});}this.store.data.fileCheckpoints!.push(record);this.store.save();return record;
  }
  hostBefore(botId:string,runId:string,path:string){if(!new RunPolicy(this.store).settings().fileCheckpoints)return;if(!isAbsolute(path)||existsSync(path)&&realpathSync.native(path)!==path)throw Error('检查点文件路径已变化');if(existsSync(path)&&(!statSync(path).isFile()||statSync(path).size>2*1024*1024))throw Error('文件超过检查点大小限制');return this.capture(botId,runId,'host',path,existsSync(path)?readFileSync(path):null);}
- hostAfter(record:unknown,path:string,expected?:string){if(!record)return;const item=record as FileCheckpoint;if(item.path!==path)throw Error('检查点目标不一致');item.afterHash=expected===undefined?(existsSync(path)?hash(readFileSync(path)):null):hash(Buffer.from(expected,'utf8'));this.store.save();}
+ hostAfter(record:unknown,path:string,expected?:string|null){if(!record)return;const item=record as FileCheckpoint;if(item.path!==path)throw Error('检查点目标不一致');item.afterHash=expected===null?null:expected===undefined?(existsSync(path)?hash(readFileSync(path)):null):hash(Buffer.from(expected,'utf8'));this.store.save();}
  private async vmRead(botId:string,path:string,signal:AbortSignal){
   if(!safeId(botId))throw Error('无效 Bot');const payload=Buffer.from(JSON.stringify({path})).toString('base64');
   const result=await this.vm.execute(`python3 -c ${shQuote(`import pathlib,base64,json; a=json.loads(base64.b64decode('${payload}')); root=pathlib.Path.cwd().resolve(); p=(root/a['path']).resolve(); assert p.is_relative_to(root), 'path escapes workspace'; assert not p.exists() or p.is_file() and p.stat().st_size<=2097152, 'checkpoint size limit'; print(json.dumps({'path':str(p),'content':base64.b64encode(p.read_bytes()).decode() if p.exists() else None}))`)}`,botId,signal,3*1024*1024);
@@ -25,6 +25,7 @@ export class FileCheckpoints {
  }
  async vmBefore(botId:string,runId:string,path:string,signal:AbortSignal){if(!new RunPolicy(this.store).settings().fileCheckpoints)return;const read=await this.vmRead(botId,path,signal);return this.capture(botId,runId,'vm',read.path,read.bytes);}
  async vmAfter(record:FileCheckpoint|undefined,signal:AbortSignal,expected?:string){if(!record)return;const current=await this.vmRead(record.botId,record.path,signal);record.afterHash=expected===undefined?(current.bytes?hash(current.bytes):null):hash(Buffer.from(expected,'utf8'));this.store.save();if(expected!==undefined&&(!current.bytes||hash(current.bytes)!==record.afterHash))throw Error('文件在写入后发生变化，检查点不会覆盖之后的修改');}
+ vmReceipt(record:FileCheckpoint,sha256:string|null){if(record.location!=='vm'||sha256!==null&&!/^[a-f0-9]{64}$/.test(sha256))throw Error('检查点写入回执无效');record.afterHash=sha256;this.store.save();}
  list(botId:string){return this.store.data.fileCheckpoints!.filter(c=>c.botId===botId).slice(-100);}
  async restore(botId:string,id:string,signal:AbortSignal,runId:string){
   const record=this.store.data.fileCheckpoints!.find(c=>c.botId===botId&&c.id===id);if(!record||!/^[a-f0-9-]{36}$/.test(id))throw Error('检查点不存在或无权访问');if(record.restoredAt||record.afterHash===undefined)throw Error('检查点未封存或已经恢复，请先核对实际文件');

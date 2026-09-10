@@ -10,6 +10,7 @@ import type {ModelClient,ToolDefinition} from './model';
 import {contextBudget,estimateRequest,exchanges,pruneToolOutputs,serializeForSummary,sourceHash,tailBoundary,textTokens} from './context-budget';
 import {parseContextSummary} from './context-engine';
 import {groupReplyContent} from '../../src/message-envelope';
+import {hasPendingHistoryCalls} from './tool-history';
 
 export const groupContextKey=(groupId:string,botId:string)=>`group:${groupId}:${botId}`;
 function published(store:Store,message:GroupMessage,botId:string):WireMessage{
@@ -34,7 +35,7 @@ export function groupHistory(store:Store,groupId:string,botId:string){
 export function rememberPublished(store:Store,message:GroupMessage){
   if(message.sender.kind!=='bot'||message.kind==='reaction')return;
   const history=store.data.groupContexts[groupContextKey(message.groupId,message.sender.id)];
-  if(history&&!history.some(item=>item.groupMessageId===message.id))history.push(published(store,message,message.sender.id));
+  if(history&&!hasPendingHistoryCalls(history)&&!history.some(item=>item.groupMessageId===message.id))history.push(published(store,message,message.sender.id));
 }
 
 // All scopes share token calibration, atomic epochs, summary repair and tool-pair protection.

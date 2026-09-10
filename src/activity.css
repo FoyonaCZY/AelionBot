@@ -15,3 +15,6 @@
 .run-notice-actions button+button{color:#a2998f}
 .run-stopped{display:flex;gap:12px;align-items:center;color:#969da6;margin:0 0 15px;font-size:12px;line-height:1.8}
 .run-stopped p{margin:0}
+.run-error-details{margin-top:12px;font-size:12px;color:#726a62}
+.run-error-details summary{cursor:pointer;width:max-content;padding:3px 0}
+.run-error-details pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;padding:12px;background:#fff;border:1px solid #e9e4dc;border-radius:8px;font-size:11px;line-height:1.6;user-select:text}

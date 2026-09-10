@@ -4,7 +4,7 @@ import type {MessagePin,PinEvent} from './reactions';
 import type {BotIdentity,BotMention} from './peer-types';
 import type {ScheduledTrigger} from './scheduled-types';
 export const GROUP_LIMITS={bots:8,repetitions:3,groupsPerTask:2} as const;
-const conversationTools=new Set(['plan_update','goal_set','goal_read','goal_update','task_read','task_update','execution_list','execution_resolve','attachment_read','read_result','scheduled_tasks_list','scheduled_task_create','scheduled_task_update','scheduled_task_delete','groups_list','group_read','group_create','group_invite','group_send_message','bots_list','bot_read_messages','bot_send_message','history_search','history_read','group_pin','chat_pin']);
+const conversationTools=new Set(['code_exec','request_user_input','user_input_wait','view_image','tool_search','web_search','web_read','mcp_list_resource_templates','terminal_read','plan_update','goal_set','goal_read','goal_update','task_read','task_update','execution_list','execution_resolve','attachment_read','read_result','scheduled_tasks_list','scheduled_task_create','scheduled_task_update','scheduled_task_delete','groups_list','group_read','group_create','group_invite','group_send_message','bots_list','bot_read_messages','bot_send_message','history_search','history_read','group_pin','chat_pin']);
 export const isGroupWorkTool=(name:string|undefined)=>Boolean(name&&!conversationTools.has(name));
 export type GroupSender={kind:'user';id:'user';name:string}|({kind:'bot'}&BotIdentity)|{kind:'system';id:'system';name:string};
 export interface GroupMember extends BotIdentity {joinedAt:string;leftAt?:string;}

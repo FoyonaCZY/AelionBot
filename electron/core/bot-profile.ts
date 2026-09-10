@@ -10,7 +10,7 @@ export function updateBotProfile(store:Store,providers:ModelProviders,input:BotU
   const palette=input.color!==undefined||input.avatarStyle!==undefined?normalizeBotPalette({color:input.color===undefined?bot.color:input.color,avatarStyle:input.avatarStyle===undefined?bot.avatarStyle:input.avatarStyle}):undefined;
   const model=input.model===undefined?bot.model:providers.selection(input.model);
   const reasoningEffort=input.reasoningEffort===undefined?bot.reasoningEffort:cleanReasoning(input.reasoningEffort);
-  const modelChanged=bot.model?.providerId!==model?.providerId||bot.model?.model!==model?.model||bot.model?.contextTokens!==model?.contextTokens||reasoningEffort!==bot.reasoningEffort;
+  const modelChanged=bot.model?.supportsImages!==model?.supportsImages||bot.model?.providerId!==model?.providerId||bot.model?.model!==model?.model||bot.model?.contextTokens!==model?.contextTokens||reasoningEffort!==bot.reasoningEffort;
   if(modelChanged)beforeModelChange(bot.id);
   const next={...store.data,bots:store.data.bots.map(item=>item.id===bot.id?{...item,name:input.name.trim(),role:input.role,model,reasoningEffort,...(palette?{color:palette.color,avatarStyle:palette.avatarStyle}:{})}:item)};
   // A rejected model change must not leave a partially updated profile.

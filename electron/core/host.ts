@@ -1,10 +1,10 @@
 import {spawn} from 'node:child_process';
 import {createHash,randomUUID} from 'node:crypto';
-import {existsSync,mkdirSync,readFileSync,readdirSync,realpathSync,statSync,writeFileSync,renameSync,unlinkSync,linkSync,chmodSync,copyFileSync,constants} from 'node:fs';
+import {existsSync,mkdirSync,readFileSync,readdirSync,realpathSync,statSync,writeFileSync,renameSync,unlinkSync,linkSync,chmodSync,copyFileSync,constants,openSync,readSync,closeSync,fstatSync} from 'node:fs';
 import {dirname,isAbsolute,join,resolve} from 'node:path';
 import {Interactions} from './interactions';
 import {atomicJson} from './store';
-import type {HostWorkspaceSettings} from '../../src/shared';
+import type {HostWorkspaceSettings,ScreenReference} from '../../src/shared';
 import {hostEnvironment,hostShell,shellName,stopHostProcess} from './host-platform';
 import {boundedInteger,decodeText,editText,expectedHash,filesystemError,FileToolError,textPage,TEXT_FILE_LIMIT} from './file-text';
 import {redactHost} from './host-redaction';
@@ -13,7 +13,7 @@ import type {FileSearchRequest} from './file-search-types';
 import {BoundedOutput} from './bounded-output';
 export {redactHost} from './host-redaction';
 
-export interface HostOptions {beforeWrite?:(botId:string,runId:string,path:string)=>unknown;afterWrite?:(record:unknown,path:string,expected?:string)=>void;dataDir:string;projectDir:string;homeDir:string;runtimeDir?:string;env?:NodeJS.ProcessEnv;secrets?:()=>string[];}
+export interface HostOptions {imagePreview?:(bytes:Buffer,id:string)=>ScreenReference|undefined;beforeWrite?:(botId:string,runId:string,path:string)=>unknown;afterWrite?:(record:unknown,path:string,expected?:string|null)=>void;dataDir:string;projectDir:string;homeDir:string;runtimeDir?:string;env?:NodeJS.ProcessEnv;secrets?:()=>string[];}
 const forbidden=/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\u202a-\u202e\u2066-\u2069]/;
 function text(value:unknown,name:string,max:number){if(typeof value!=='string'||!value.trim()||value.length>max||forbidden.test(value))throw new Error(`无效参数：${name}`);return value;}
 function aborted(signal:AbortSignal){if(signal.aborted)throw new Error('任务已取消，未执行本机操作');}
@@ -88,6 +88,17 @@ export class HostComputer {
       const decoded=decodeText(readFileSync(path)),safe=this.redact(decoded.text,true);
       return {path,location:'host',...textPage(safe,range),redacted:safe!==decoded.text,sha256:decoded.sha256,bytes:decoded.bytes,bom:decoded.bom};
     }catch(error){throw filesystemError(error,path);}
+  }
+  async viewImage(botId:string,runId:string,args:Record<string,unknown>,signal:AbortSignal,workspace?:string){
+    const path=this.canonical(this.resolveFilePath(args.path,workspace)),reason=text(args.reason,'reason',1000),stamp=this.stamp(path);
+    if(!this.options.imagePreview)throw new FileToolError('IMAGE_UNAVAILABLE','图像预览服务尚未就绪');
+    await this.interactions.permission(botId,runId,{operation:'read_file',reason,path,tool:'view_image'},signal);aborted(signal);
+    if(this.canonical(path)!==path||this.stamp(path)!==stamp)throw new FileToolError('FILE_CHANGED','图像在确认期间发生变化，请重新读取');
+    const info=statSync(path);if(!info.isFile()||info.size>10*1024*1024)throw new FileToolError('IMAGE_TOO_LARGE','图片必须是 10 MB 以内的普通文件');
+    const fd=openSync(path,'r');let bytes:Buffer;
+    try{const opened=fstatSync(fd);if(!opened.isFile()||opened.size>10*1024*1024)throw new FileToolError('IMAGE_TOO_LARGE','图片超过 10 MB');const buffer=Buffer.alloc(Math.min(opened.size+1,10*1024*1024+1));let total=0;while(total<buffer.length){const size=readSync(fd,buffer,total,buffer.length-total,null);if(!size)break;total+=size;}if(total>opened.size)throw new FileToolError('FILE_CHANGED','图片在读取期间发生变化');bytes=buffer.subarray(0,total);}finally{closeSync(fd);}
+    aborted(signal);const image=this.options.imagePreview(bytes,randomUUID());if(!image)throw new FileToolError('IMAGE_UNSUPPORTED','无法解析图片，请使用 PNG、JPEG、WebP 等常见图片格式');
+    return {path,location:'host',images:[image],bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')};
   }
   async writeFile(botId:string,runId:string,args:Record<string,unknown>,signal:AbortSignal,workspace?:string){
     const path=this.canonical(this.resolveFilePath(args.path,workspace)),reason=text(args.reason,'reason',1000);

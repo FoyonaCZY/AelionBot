@@ -1,8 +1,9 @@
 import {useEffect,useRef,type ReactNode} from 'react';
 import {Icon} from './ui';
 
-export type SettingsTab='runtime'|'model'|'usage'|'skills'|'mcp'|'memory'|'computer'|'permissions'|'about';
+export type SettingsTab='profile'|'runtime'|'model'|'usage'|'skills'|'mcp'|'memory'|'computer'|'permissions'|'about';
 const pages:ReadonlyArray<{id:SettingsTab;label:string;icon:string}>=[
+  {id:'profile',label:'个人资料',icon:'bot'},
   {id:'model',label:'模型',icon:'settings'},
   {id:'usage',label:'用量',icon:'chart'},
   {id:'skills',label:'技能',icon:'book'},

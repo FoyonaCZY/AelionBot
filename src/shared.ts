@@ -12,8 +12,8 @@ import type {DiagnosticPreview} from './diagnostic-types';
 import type {ScheduledTask,ScheduledTaskInput,ScheduledTaskUpdate,ScheduledTrigger} from './scheduled-types';
 import type {ToolExecution} from './execution-types';
 export type {BotMention,PeerChatPage,PeerNotice,PeerRunOrigin,PeerView} from './peer-types';
-export interface ModelSelection {providerId:string;model:string;contextTokens:number;reasoningEffort?:string;}
-export interface ProviderModel {id:string;}
+export interface ModelSelection {providerId:string;model:string;contextTokens:number;reasoningEffort?:string;supportsImages?:boolean;}
+export interface ProviderModel {id:string;supportsImages?:boolean;}
 export interface ModelProvider extends ModelParameters {id:string;name:string;baseUrl:string;hasKey:boolean;models:ProviderModel[];modelsUpdatedAt?:string;modelsCheckedAt?:string;modelsError?:string;}
 export interface ProviderInput extends ModelParameters {id?:string;name:string;baseUrl:string;apiKey?:string|null;}
 export interface Bot { id: string; name: string; role: string; color: string; avatarStyle?:import('./bot-colors').BotAvatarStyle; createdAt: string; memories: string[]; model?:ModelSelection; reasoningEffort?:string; }
@@ -26,7 +26,7 @@ export interface Artifact { id: string; botId: string; runId: string; path: stri
 export interface ArtifactPreview { kind: 'text' | 'markdown' | 'html' | 'image' | 'pdf' | 'unsupported'; content?: string; dataUrl?: string; truncated?: boolean; }
 export interface ChatMessage { reply?:MessageReply; workspaceDir?:string|null; executionId?:string;executionTarget?:string;executionResolved?:boolean; scheduled?:ScheduledTrigger; attachments?:Attachment[]; inputState?:'queued'|'handled'|'cancelled'|'interrupted'; pins?:MessagePin[];reaction?:PinEvent; id: string; botId: string; role: 'user' | 'assistant' | 'tool' | 'event'; content: string; time: string; status?: 'running' | 'done' | 'failed' | 'cancelled'; tool?: string; runId?: string; screenshotId?: string; activity?: {label:string;detail?:string}; presentation?: 'progress'|'answer'|'error'; mentions?:BotMention[];peer?:PeerNotice;groupLink?:GroupLink;groupTaskSource?:{groupId:string;name:string;messageId?:string;continuation?:boolean};audience?:'user';peerSummaryFor?:string;peerContextPublished?:boolean;taskSource?:{botId:string;name:string;exchangeId:string;continuation?:boolean}; }
 export interface RunRecord {resumedFromRunId?:string;contextIssue?:import('./context-issue').ContextIssue; lastProgressAt?:string;lastProgressDigest?:string; workItemId?:string;workspaceDir?:string; plan?:TaskPlan; executions?:ToolExecution[]; attachments?:Attachment[]; inputUpdated?:boolean;supersedesRunId?:string;progressSteps?:number; groupReplyMessageId?:string; id: string; botId: string; status: 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted'; startedAt: string; endedAt?: string; error?: string; modelCalls: number; toolCalls: number; peerOrigin?:PeerRunOrigin;groupOrigin?:GroupRunOrigin;groupTask?:boolean;groupUpdated?:boolean; }
-export interface ModelConfig extends ModelParameters { baseUrl: string; model: string; hasKey: boolean; contextTokens: number; providerId?:string;providerName?:string;issue?:string; }
+export interface ModelConfig extends ModelParameters { supportsImages?:boolean;baseUrl: string; model: string; hasKey: boolean; contextTokens: number; providerId?:string;providerName?:string;issue?:string; }
 export interface SkillSource { label: string; path: string; scope: 'user'|'project'|'private'|'builtin'; readonly: boolean; }
 export interface Skill {hash?:string;archived?:boolean;pinned?:boolean;readCount?:number;lastReadAt?:string; id: string; name: string; description: string; body: string; botId?: string; source?: SkillSource; compatibility?: string; availableFiles?: string[]; vmPath?: string; }
 export interface IntegrationSource { id: string; label: string; path: string; kind: 'skills'|'mcp'; scope: 'user'|'project'|'private'|'builtin'; exists: boolean; count: number; issue?: string; }
@@ -39,14 +39,16 @@ export interface ComputerState { desktops:Record<string,ComputerDesktopState>; }
 export interface CommandPattern {kind:'prefix'|'exact';pattern:string;}
 export interface CommandPermissionRule extends CommandPattern {id:string;cwd:string;enabled:boolean;createdAt:string;}
 export interface HostWorkspaceSettings {workspaceDir:string;defaultWorkspaceDir:string;}
-export interface HostPermissionDetails { permissionScope?:'host'|'remote'; operation:'command'|'read_file'|'write_file'|'mcp'; reason:string; command?:string; cwd?:string; path?:string; content?:string; overwrite?:boolean; server?:string; tool?:string; arguments?:Record<string,unknown>; commandPattern?:CommandPattern; }
-export type InteractionRequest = {id:string;botId:string;runId:string;createdAt:string} & ({kind:'host_permission';details:HostPermissionDetails;approval?:HostApprovalView}|{kind:'vm_takeover';reason:string;phase:'waiting'|'controlling'});
-export type InteractionAction='allow'|'allow-always'|'deny'|'takeover'|'resume'|'cancel';
+export interface HostPermissionDetails { permissionScope?:'host'|'remote'; operation:'command'|'read_file'|'write_file'|'delete_file'|'mcp'; reason:string; command?:string; cwd?:string; path?:string; content?:string; overwrite?:boolean; server?:string; tool?:string; arguments?:Record<string,unknown>; commandPattern?:CommandPattern; }
+export interface UserQuestion {id:string;title:string;options?:string[];}
+export type InteractionRequest = {id:string;botId:string;runId:string;createdAt:string} & ({kind:'host_permission';details:HostPermissionDetails;approval?:HostApprovalView}|{kind:'vm_takeover';reason:string;phase:'waiting'|'controlling'}|{kind:'user_input';questions:UserQuestion[];phase:'waiting'});
+export type InteractionAction='allow'|'allow-always'|'deny'|'takeover'|'resume'|'cancel'|'answer';
 export interface CognitionView {learning:{enabled:boolean;runningBotId?:string;queued:number};bots:Array<{botId:string;memoryRevision:number;context?:{estimatedTokens:number;inputBudget:number;toolTokens:number;imageTokens:number;epoch:number;compactions:number;prunedOutputs:number;lastIssue?:string};lastLearning?:{kind:string;action:string;time:string}}>}
-export interface Snapshot {hostPermissionModes?:Record<string,HostPermissionMode>;platform?:string; workItems?:WorkItem[];conversationWorkspaces?:Record<string,string>; runtime?:RuntimeSettings;modelUsage?:UsageRecord[];updates?:UpdateState; scheduledTasks?:ScheduledTask[]; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; model: ModelConfig; providers?:ModelProvider[];defaultModel?:ModelSelection;botModels?:Record<string,ModelConfig>; streamingReplies?:StreamingReply[]; vm: VmState; skills: Skill[]; artifacts: Artifact[]; computer: ComputerState; dataDir: string; integrations?:IntegrationsView; interactions?:InteractionRequest[]; cognition?:CognitionView; peers?:PeerView;groups?:GroupsView; greetingBotIds?:string[]; commandPermissions?:CommandPermissionRule[]; hostWorkspace?:HostWorkspaceSettings; }
+export interface Snapshot {userProfile?:import("./user-profile").UserProfile;hostPermissionModes?:Record<string,HostPermissionMode>;platform?:string; workItems?:WorkItem[];conversationWorkspaces?:Record<string,string>; runtime?:RuntimeSettings;modelUsage?:UsageRecord[];updates?:UpdateState; scheduledTasks?:ScheduledTask[]; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; model: ModelConfig; providers?:ModelProvider[];defaultModel?:ModelSelection;botModels?:Record<string,ModelConfig>; streamingReplies?:StreamingReply[]; vm: VmState; skills: Skill[]; artifacts: Artifact[]; computer: ComputerState; dataDir: string; integrations?:IntegrationsView; interactions?:InteractionRequest[]; cognition?:CognitionView; peers?:PeerView;groups?:GroupsView; greetingBotIds?:string[]; commandPermissions?:CommandPermissionRule[]; hostWorkspace?:HostWorkspaceSettings; }
 export interface AppEvent { type: 'state'; snapshot: Snapshot; }
 export interface CommandResult { stdout: string; stderr: string; exitCode: number; durationMs: number; }
 export interface AelionAPI {
+  saveUserProfile(profile:import("./user-profile").UserProfile):Promise<void>;
   prepareDiagnostics():Promise<DiagnosticPreview>;
   exportDiagnostics(id:string):Promise<string|null>;
   openDiagnosticIssue(id:string):Promise<void>;
@@ -112,7 +114,7 @@ export interface AelionAPI {
   setComputerControl(input:{botId:string;enabled:boolean}): Promise<void>;
   setComputerFullscreen(enabled: boolean): Promise<void>;
   setWindowDimmed(enabled:boolean,color?:string):Promise<void>;
-  respondInteraction(input:{id:string;action:InteractionAction}):Promise<void>;
+  respondInteraction(input:{id:string;action:InteractionAction;answers?:Record<string,string>}):Promise<void>;
   setCommandPermissionEnabled(input:{id:string;enabled:boolean}):Promise<void>;
   removeCommandPermission(id:string):Promise<void>;
   saveHostWorkspace(path:string):Promise<void>;

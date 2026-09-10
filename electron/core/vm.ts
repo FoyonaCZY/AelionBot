@@ -10,6 +10,7 @@ import ssh2 from 'ssh2';
 import { WebSocketServer } from 'ws';
 import {vmPlatform,vmMachineArgs,qemuBinary,qemuFirmware,qemuDataDir,type GuestArch} from './vm-platform';
 import type { CommandResult, VmState } from '../../src/shared';
+import type {TerminalDriver} from './terminal-sessions';
 import { atomicJson } from './store';
 import { DESKTOP_SCRIPT, WORKSTATION_VERSION, SESSION_LAUNCHER } from './desktop-profile';
 import { BOT_DESKTOP_SCRIPT,BOT_DESKTOP_VERSION } from './bot-desktop-profile';
@@ -303,6 +304,24 @@ export class VmController extends EventEmitter {
     if(!command.trim()||command.length>32000)throw new Error('命令为空或过长');
     this.activeExecutions++;
     try{return await this.execRaw(`mkdir -p ${shQuote(`/work/${botId}`)} && cd ${shQuote(`/work/${botId}`)} && AELION_BOT_ID=${shQuote(botId)} timeout -s TERM 120 sh -lc ${shQuote(command)}`,'aelion',130000,signal,outputLimit);}finally{this.activeExecutions--;}
+  }
+  async openTerminal(botId:string,command:string,cwd:string,signal:AbortSignal,pty?:{cols:number;rows:number}):Promise<TerminalDriver>{
+    if(!/^[a-zA-Z0-9_-]{1,80}$/.test(botId)||!this.record?.sshPort||this.operation||this.stateValue.status!=='ready')throw Error('工作电脑尚未就绪');
+    const record=this.record;signal.throwIfAborted();
+    return new Promise((resolve,reject)=>{
+      const client=new Client(),events=new EventEmitter();let channel:import('ssh2').ClientChannel|undefined,opened=false,closed=false;
+      const close=(code=-1)=>{if(closed)return;closed=true;clearTimeout(timer);signal.removeEventListener('abort',abort);if(opened){this.activeExecutions--;events.emit('exit',code);}client.end();};
+      const fail=(error:Error)=>{if(!opened)reject(error);close();};
+      const abort=()=>{channel?.signal('KILL');channel?.close();fail(Error('终端连接已取消'));};
+      const timer=setTimeout(()=>fail(Error('终端 SSH 连接超时')),10000);signal.addEventListener('abort',abort,{once:true});
+      client.on('error',fail);client.on('close',()=>close());
+      client.on('ready',()=>client.exec(`mkdir -p ${shQuote(`/work/${botId}`)} && cd ${shQuote(cwd)} && exec /bin/bash -lc ${shQuote(command)}`,pty?{pty:{term:'xterm-256color',cols:pty.cols,rows:pty.rows}}:{},(error,stream)=>{
+        if(error){fail(error);return;}if(closed){stream.close();return;}channel=stream;opened=true;this.activeExecutions++;clearTimeout(timer);signal.removeEventListener('abort',abort);
+        stream.on('data',(bytes:Buffer)=>events.emit('data',bytes.toString('utf8')));stream.stderr.on('data',(bytes:Buffer)=>events.emit('data',bytes.toString('utf8')));stream.on('close',(code:number)=>close(typeof code==='number'?code:-1));
+        resolve({write:text=>stream.write(text),resize:(cols,rows)=>stream.setWindow(rows,cols,0,0),onData:fn=>events.on('data',fn),onExit:fn=>events.on('exit',fn),kill:()=>{try{stream.signal('KILL');}finally{stream.close();client.end();}}});
+      }));
+      client.connect({host:'127.0.0.1',port:record.sshPort,username:'aelion',privateKey:readFileSync(join(this.dir,'client.key')),readyTimeout:10000,hostHash:'sha256',hostVerifier:(hash:string)=>hash===record.hostKeyHash});
+    });
   }
   async executePython(code:string,input:Buffer,botId:string,signal?:AbortSignal,outputLimit=2_000_000):Promise<CommandResult>{
     if(!/^[a-zA-Z0-9_-]{1,80}$/.test(botId))throw new Error('无效工作区');

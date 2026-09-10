@@ -1,3 +1,4 @@
+import {userProfilePrompt} from '../../src/user-profile';
 import {assistantMessage,type ModelClient} from './model';
 import type {Store} from './store';
 import {randomUUID} from 'node:crypto';
@@ -37,15 +38,15 @@ export class BotGreetings {
     const id=randomUUID(),preview=this.streams.begin({id,botId,main:true,time:new Date().toISOString(),purpose:'greeting'});let accepting=true;
     try{
       if(controller.signal.aborted)return;
-      const bot=this.store.bot(botId),identity={name:bot.name,role:bot.role};
+      const bot=this.store.bot(botId),identity={name:bot.name,role:bot.role},profile=userProfilePrompt(this.store.data.userProfile);
       const result=await this.model.complete([
-        {role:'system',content:instruction},
+        {role:'system',content:instruction+(profile?'\n'+profile:'')},
         {role:'user',content:JSON.stringify(identity)}
       ],[],controller.signal,delta=>{if(accepting&&!controller.signal.aborted&&this.eligible(botId))preview.update(delta);},{botId,purpose:'greeting',maxOutputTokens:1024,timeoutMs:45000});
       accepting=false;preview.close(false);
       if(controller.signal.aborted||!this.eligible(botId))return;
       const current=this.store.bot(botId);
-      if(current.name!==identity.name||current.role!==identity.role)return;
+      if(current.name!==identity.name||current.role!==identity.role||userProfilePrompt(this.store.data.userProfile)!==profile)return;
       const content=result.content.trim();
       if(!content||result.calls.length)throw new Error('模型未返回有效开场白');
       this.store.data.conversations[botId].push(assistantMessage({...result,content}));

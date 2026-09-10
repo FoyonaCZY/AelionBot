@@ -44,3 +44,9 @@
 .bot-working.needs-user{background:#d99b3a}
 @media(max-width:600px){.conversation-request{padding:13px}.conversation-request>header{gap:9px}.conversation-request .request-status{font-size:10px}.permission-scope>div{flex-wrap:wrap;gap:3px 10px}.permission-scope code{flex:1 1 150px}.interaction-notification{right:16px}}
 @media(max-height:560px){.conversation:has(.with-request) .messages{padding-top:0;padding-bottom:0}.composer-wrap.with-request{max-height:calc(100dvh - 78px);padding-top:6px;padding-bottom:8px}.conversation-request{padding:11px;max-height:50dvh;margin-bottom:8px}.conversation-request>header{margin-bottom:9px}.conversation-request .companion-badge{width:36px;height:36px;flex-basis:36px}.conversation-request .companion-badge>.avatar{width:30px;height:30px}.conversation-request>footer{margin-top:9px;padding-top:8px}.conversation-request .companion-button{padding:6px 10px;min-height:29px;font-size:10px}.with-request .composer{padding:7px 9px}.with-request .composer textarea{height:32px;min-height:32px;max-height:72px}.with-request .composer-bottom{margin-top:0}}
+.question-card fieldset{border:0;margin:0 0 16px;padding:0;min-width:0}
+.question-card legend{font-weight:500;margin-bottom:10px;white-space:pre-wrap}
+.question-option{display:flex;gap:9px;align-items:flex-start;padding:6px 0;cursor:pointer}
+.question-option input{margin-top:4px;accent-color:var(--accent,#8570bd)}
+.question-card textarea{width:100%;box-sizing:border-box;margin-top:8px;padding:10px 12px;border:1px solid var(--line,#e6e3eb);border-radius:10px;background:var(--surface,#fff);color:inherit;font:inherit;resize:vertical;outline:none;min-height:64px}
+.conversation-request.question-card{max-height:min(560px,55dvh)}

@@ -94,10 +94,11 @@ export class McpRuntime {
     })();
     this.pending.set(config.id,promise);return promise;
   }
-  async listTools(id:string,query=''){
+  async listTools(id:string,query='',offset=0,limit=100){
+    if(!Number.isInteger(offset)||offset<0||!Number.isInteger(limit)||limit<1||limit>1000)throw Error('工具分页参数无效');
     const config=this.find(id),connection=await this.connect(config.id);const wanted=query.toLowerCase();
     const tools=connection.tools.filter(tool=>!wanted||`${tool.name} ${tool.description||''}`.toLowerCase().includes(wanted));
-    return {server:config.id,name:config.name,location:publicEndpoint(config),total:tools.length,tools:tools.slice(0,100)};
+    const end=Math.min(tools.length,offset+limit);return {server:config.id,name:config.name,location:publicEndpoint(config),total:tools.length,tools:tools.slice(offset,end),nextOffset:end,eof:end>=tools.length};
   }
   async inspectCall(id:string,name:string,args:Record<string,unknown>,requireLocalApproval=false):Promise<{fingerprint:string;permission?:HostPermissionDetails}>{
     const config=this.find(id),connection=await this.connect(config.id),tool=connection.tools.find(tool=>tool.name===name);
@@ -126,7 +127,8 @@ export class McpRuntime {
     }catch(error){throw Object.assign(new Error(signal.aborted?'MCP 操作已取消；已发生的操作不会回滚':'MCP 工具调用失败或结果超限；操作可能已经发生，请先核对结果再决定是否重试'),{outcomeUnknown:true});}
   }
   private async safeRequest(config:McpConfig,operation:()=>Promise<unknown>){try{const result=await operation();if(JSON.stringify(result).length>16*1024*1024)throw new Error('Result limit');return redactMcp(result,config);}catch{throw new Error('MCP 资源或模板请求失败，请检查服务状态和参数');}}
-  async listResources(id:string){const config=this.find(id),connection=await this.connect(config.id);if(!connection.client.getServerCapabilities()?.resources)return {resources:[]};return this.safeRequest(config,()=>connection.client.listResources({}, {timeout:config.toolTimeout}));}
+  async listResources(id:string,cursor?:string){const config=this.find(id),connection=await this.connect(config.id);if(!connection.client.getServerCapabilities()?.resources)return {resources:[]};return this.safeRequest(config,()=>connection.client.listResources(cursor?{cursor}:{}, {timeout:config.toolTimeout}));}
+  async listResourceTemplates(id:string,cursor?:string){const config=this.find(id),connection=await this.connect(config.id);if(!connection.client.getServerCapabilities()?.resources)return {resourceTemplates:[]};return this.safeRequest(config,()=>connection.client.listResourceTemplates(cursor?{cursor}:{},{timeout:config.toolTimeout}));}
   async readResource(id:string,uri:string,signal:AbortSignal){const config=this.find(id),connection=await this.connect(config.id);return this.safeRequest(config,()=>connection.client.readResource({uri},{signal,timeout:config.toolTimeout}));}
   async listPrompts(id:string){const config=this.find(id),connection=await this.connect(config.id);if(!connection.client.getServerCapabilities()?.prompts)return {prompts:[]};return this.safeRequest(config,()=>connection.client.listPrompts({}, {timeout:config.toolTimeout}));}
   async getPrompt(id:string,name:string,args:Record<string,string>,signal:AbortSignal){const config=this.find(id),connection=await this.connect(config.id);return this.safeRequest(config,()=>connection.client.getPrompt({name,arguments:args},{signal,timeout:config.toolTimeout}));}

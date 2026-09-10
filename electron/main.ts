@@ -1,3 +1,4 @@
+import {normalizeUserProfile} from '../src/user-profile';
 import {createMacUpdater,macAutomaticUpdates} from './core/mac-updater';
 import {hostEnvironment} from './core/host-platform';
 import {RunPolicy,runtimeSettings} from './core/runtime-policy';
@@ -77,7 +78,7 @@ else {
   app.on('second-instance',()=>{window?.show();window?.focus();});
   app.whenReady().then(initialize).catch(error=>{diagnostics?.record('app.startup-error',error);console.error(error);dialog.showErrorBox('AelionBot 启动失败',String(error.message));app.exit(1);});
 }
-function snapshot():Snapshot{return {platform:process.platform,workItems:store.data.workItems,conversationWorkspaces:store.data.conversationWorkspaces,updates:appUpdates?.snapshot(),scheduledTasks:store.data.scheduledTasks,bots:store.data.bots,messages:store.data.messages,runs:store.data.runs,model:providers.config(),providers:providers.list(),defaultModel:store.data.defaultModel,botModels:Object.fromEntries(store.data.bots.map(bot=>[bot.id,providers.config(bot.id)])),vm:vm.state,skills:integrations?integrations.skills.all():store.data.skills,artifacts:store.data.artifacts,computer:computer.state,dataDir:store.dir,integrations:integrations?.snapshot(),interactions:interactions?.snapshot()||[],cognition:cognition?.view(),peers:peerChats?.snapshot(),groups:groupChats?.snapshot(),greetingBotIds:greetings?.botIds||[],streamingReplies:[...(harness?.streams.snapshot()||[]),...(greetings?.streams.snapshot()||[])],runtime:store?new RunPolicy(store).settings():undefined,modelUsage:store?.data.modelUsage?.slice(-100),commandPermissions:commandPermissions?.list()||[],hostPermissionModes:hostApprovals?.modes(),hostWorkspace:host?.workspaceSettings()};}
+function snapshot():Snapshot{return {userProfile:store.data.userProfile,platform:process.platform,workItems:store.data.workItems,conversationWorkspaces:store.data.conversationWorkspaces,updates:appUpdates?.snapshot(),scheduledTasks:store.data.scheduledTasks,bots:store.data.bots,messages:store.data.messages,runs:store.data.runs,model:providers.config(),providers:providers.list(),defaultModel:store.data.defaultModel,botModels:Object.fromEntries(store.data.bots.map(bot=>[bot.id,providers.config(bot.id)])),vm:vm.state,skills:integrations?integrations.skills.all():store.data.skills,artifacts:store.data.artifacts,computer:computer.state,dataDir:store.dir,integrations:integrations?.snapshot(),interactions:interactions?.snapshot()||[],cognition:cognition?.view(),peers:peerChats?.snapshot(),groups:groupChats?.snapshot(),greetingBotIds:greetings?.botIds||[],streamingReplies:[...(harness?.streams.snapshot()||[]),...(greetings?.streams.snapshot()||[])],runtime:store?new RunPolicy(store).settings():undefined,modelUsage:store?.data.modelUsage?.slice(-100),commandPermissions:commandPermissions?.list()||[],hostPermissionModes:hostApprovals?.modes(),hostWorkspace:host?.workspaceSettings()};}
 function changed(){if(exiting)return;if(window&&!window.isDestroyed())window.webContents.send('app:event',{type:'state',snapshot:snapshot()});chatPins?.wake();peerChats?.wake();groupChats?.wake();}
 function handle(channel:string,callback:(...args:any[])=>unknown){
   ipcMain.handle(channel,async(event,...args)=>{
@@ -106,12 +107,13 @@ async function initialize(){
   interactions=new Interactions(()=>{changed();if(window&&!window.isDestroyed()&&!window.isFocused()&&interactions.snapshot().some(request=>request.kind==='host_permission'?request.approval?.phase!=='reviewing':request.phase==='waiting'))window.flashFrame(true);},(request,decision,ruleId)=>store.journal('interaction.decision',{id:request.id,botId:request.botId,runId:request.runId,kind:request.kind,decision,...(request.kind==='host_permission'&&request.approval?{approval:request.approval}:{}),...(ruleId?{ruleId}:{}),time:new Date().toISOString()}),commandPermissions);
   vm=new VmController({dataDir,wallpaperPath:join(app.getAppPath(),'assets','wallpaper-light.png'),runtimeDir:app.isPackaged?join(process.resourcesPath,'qemu'):resolve('runtime/qemu'),cacheDir:app.isPackaged?join(dataDir,'downloads'):resolve('runtime/downloads'),downloadFetch:(url,options)=>net.fetch(url,options)});
   computer=new ComputerController(vm,dataDir,changed);artifacts=new ArtifactService(store,vm);
-  attachments=new Attachments(store,vm,artifacts,(bytes,id)=>{const image=nativeImage.createFromBuffer(bytes);if(image.isEmpty())return;const {width,height}=image.getSize();if(width*height>64*1024*1024)return;const scale=Math.min(1,2048/width,2048/height),preview=scale<1?image.resize({width:Math.max(1,Math.round(width*scale)),height:Math.max(1,Math.round(height*scale)),quality:'best'}):image;writeFileSync(join(computer.imageDir,id+'.png'),preview.toPNG());return {id,...preview.getSize()};});
+  const imagePreview=(bytes:Buffer,id:string)=>{const image=nativeImage.createFromBuffer(bytes);if(image.isEmpty())return;const {width,height}=image.getSize();if(width*height>64*1024*1024)return;const scale=Math.min(1,2048/width,2048/height),preview=scale<1?image.resize({width:Math.max(1,Math.round(width*scale)),height:Math.max(1,Math.round(height*scale)),quality:'best'}):image;writeFileSync(join(computer.imageDir,id+'.png'),preview.toPNG());return {id,...preview.getSize()};};
+  attachments=new Attachments(store,vm,artifacts,imagePreview);
   const homeDir=app.getPath('home');
   const configDir=resolve(process.env.AELION_CONFIG_HOME||savedLaunch?.configDir||join(homeDir,'.aelion'));
   diagnostics=new Diagnostics({dataDir,snapshot,paths:()=>[dataDir,profileDir,homeDir,projectDir,configDir,app.getAppPath(),...Object.values(store.data.conversationWorkspaces||{})],secrets:()=>{let keys:string[]=[];try{keys=providers.secrets();}catch{}return [...keys,...Object.entries(process.env).filter(([name])=>/TOKEN|SECRET|PASSWORD|PASSWD|KEY|CREDENTIAL|AUTH/i.test(name)).map(([,value])=>value||'')];},environment:{appVersion:app.getVersion(),platform:process.platform,arch:process.arch,osRelease:osRelease(),electron:process.versions.electron,chrome:process.versions.chrome,node:process.versions.node,packaged:app.isPackaged,cpuCount:availableParallelism(),memoryGiB:Math.round(totalmem()/1024**3)}});
   diagnostics.record('app.started',`AelionBot ${app.getVersion()} (${process.platform} ${process.arch})`);
-  host=new HostComputer({dataDir,homeDir,projectDir,runtimeDir:__dirname,env:{...process.env},secrets:()=>providers.secrets()},interactions);
+  host=new HostComputer({imagePreview,dataDir,homeDir,projectDir,runtimeDir:__dirname,env:{...process.env},secrets:()=>providers.secrets()},interactions);
   integrations=new Integrations(store,{homeDir,projectDir,dataDir,configDir,env:{...process.env}},changed,(data,mime)=>{
     if(!['image/png','image/jpeg','image/webp'].includes(mime)||typeof data!=='string'||data.length>12*1024*1024)throw new Error('MCP 图像类型或大小不受支持');
     const img=nativeImage.createFromDataURL(`data:${mime};base64,${data}`);const size=img.getSize();
@@ -177,6 +179,7 @@ async function initialize(){
     const percent=reset?100:Math.round(contents.getZoomFactor()*100)+(zoomIn?10:-10);
     contents.setZoomFactor(Math.max(50,Math.min(200,percent))/100);
   });
+  handle('profile:save',value=>{store.data.userProfile=normalizeUserProfile(value);store.save();greetings?.cancelAll();changed();void greetings?.greetEmpty();});
   handle('runtime:save',value=>{store.data.runtime=runtimeSettings(value);store.save();changed();});
   handle('app:snapshot',snapshot);
   handle('usage:query',input=>usageReport(store.data.modelUsage||[],providers.list(),input));
@@ -306,7 +309,7 @@ async function initialize(){
   });
   handle('app:open-data',()=>shell.openPath(dataDir));
   const shutdown=new Shutdown({
-    stop:()=>{vm.beginShutdown();if(timer)clearInterval(timer);for(const close of [()=>appUpdates?.dispose(),()=>scheduler?.dispose(),()=>greetings?.dispose(),()=>{for(const bot of store.data.bots)harness.cancel(bot.id);},()=>providers.dispose(),()=>model?.dispose(),()=>chatPins?.dispose(),()=>peerChats?.dispose(),()=>groupChats?.dispose(),()=>interactions.dispose(),()=>host.dispose()])try{close();}catch(error){diagnostics?.record('app.shutdown-error',error);}},
+    stop:()=>{vm.beginShutdown();if(timer)clearInterval(timer);for(const close of [()=>appUpdates?.dispose(),()=>scheduler?.dispose(),()=>greetings?.dispose(),()=>{for(const bot of store.data.bots)harness.cancel(bot.id);},()=>providers.dispose(),()=>model?.dispose(),()=>harness.disposeTools(),()=>chatPins?.dispose(),()=>peerChats?.dispose(),()=>groupChats?.dispose(),()=>interactions.dispose(),()=>host.dispose()])try{close();}catch(error){diagnostics?.record('app.shutdown-error',error);}},
     closeWork:()=>[harness.closeProcesses(),cognition.close(),integrations.close()],
     closeVm:()=>vm.shutdownForExit(),closeState:()=>{vm.dispose();store.close();},
     report:error=>diagnostics?.record('app.shutdown-error',error),exit:()=>{diagnostics?.dispose();app.exit(0);}

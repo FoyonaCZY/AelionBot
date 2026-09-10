@@ -6,6 +6,7 @@ import {Store,atomicJson,type StoredProvider} from './store';
 import {validateModelEndpoint} from './model';
 import {redactHost} from './host';
 import type {ModelParameters} from '../../src/model-types';
+import {imageCapability} from './model-vision';
 import {reasoningEffort as cleanReasoning} from '../../src/reasoning';
 
 export function modelParameters(input:ModelParameters):ModelParameters{
@@ -65,7 +66,7 @@ export class ModelProviders {
     if(!value||typeof value!=='object')throw new Error('请选择 Provider 和模型');
     const input=value as ModelSelection,providerId=text(input.providerId,'Provider',80),model=text(input.model,'模型名称',256),contextTokens=input.contextTokens;
     this.provider(providerId);if(!Number.isInteger(contextTokens)||contextTokens<8000||contextTokens>1000000)throw new Error('上下文容量应为 8000–1000000');
-    const effort=cleanReasoning(input.reasoningEffort);return {providerId,model,contextTokens,...(effort?{reasoningEffort:effort}:{})};
+    if(input.supportsImages!==undefined&&typeof input.supportsImages!=='boolean')throw Error('图片输入设置无效');const effort=cleanReasoning(input.reasoningEffort);return {providerId,model,contextTokens,...(input.supportsImages!==undefined?{supportsImages:input.supportsImages}:{}),...(effort?{reasoningEffort:effort}:{})};
   }
   setDefault(value:unknown){this.commit({defaultModel:this.selection(value)});}
   setBot(botId:string,value:unknown){this.store.bot(botId);const selection=this.selection(value);this.commit({bots:this.store.data.bots.map(bot=>bot.id===botId?{...bot,model:selection}:bot)});}
@@ -113,7 +114,7 @@ export class ModelProviders {
         }body={data:all};
         if(body.data.length>5000)throw new Error('模型列表超过 5000 项');
         const secrets=this.secrets(),ids=new Set<string>();for(const item of body.data){if(typeof item?.id!=='string')throw new Error('模型列表缺少模型 ID');const id=text(item.id,'模型 ID',256);if(secrets.some(secret=>id.includes(secret)))throw new Error('模型列表包含凭据信息');ids.add(id);}
-        models=[...ids].sort((a,b)=>a.localeCompare(b)).map(id=>({id}));
+        models=[...ids].sort((a,b)=>a.localeCompare(b)).map(id=>{const capability=imageCapability(body.data.find((item:any)=>item.id===id));return {id,...(capability!==undefined?{supportsImages:capability}:{})};});
       }catch(caught){error=redactHost((caught as Error).message,this.secrets()).slice(0,400);}
       const current=this.store.data.providers?.find(provider=>provider.id===id);
       if(!current)throw new Error('Provider 已删除');

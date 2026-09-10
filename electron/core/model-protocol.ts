@@ -5,10 +5,14 @@ import type {Completion,ToolDefinition} from './model';
 import {visibleImages} from '../../src/model-images';
 import {modelUsage} from './model-usage';
 import {anthropicHistoryEndpoints} from './anthropic-cache';
+import {repairToolHistory} from './tool-history';
 
 export const nativeKey=(cfg:ModelConfig)=>`${cfg.providerId||''}:${cfg.baseUrl.replace(/\/$/,'')}:${cfg.model}`;
 const rawCall=(name:string,args:unknown,id?:string):ToolCall=>({id:id??randomUUID(),type:'function',function:{name,arguments:typeof args==='string'?args:JSON.stringify(args||{})}});
-export function protocolRequest(cfg:ModelConfig,messages:WireMessage[],tools:ToolDefinition[],output:number,key:string,resolveImage:(id:string)=>string,usage=true,cacheKey?:string,affinityKey?:string){
+export function protocolRequest(cfg:ModelConfig,messages:WireMessage[],tools:ToolDefinition[],output:number,key:string,resolveImage:(id:string)=>string,usage=true,cacheKey?:string,affinityKey?:string,allowPendingTail=false){
+ const repaired=repairToolHistory(messages,allowPendingTail);return {...buildProtocolRequest(cfg,repaired.messages,tools,output,key,resolveImage,usage,cacheKey,affinityKey),historyRepairs:repaired.repairs};
+}
+function buildProtocolRequest(cfg:ModelConfig,messages:WireMessage[],tools:ToolDefinition[],output:number,key:string,resolveImage:(id:string)=>string,usage=true,cacheKey?:string,affinityKey?:string){
  const protocol=cfg.protocol||'chat',base=cfg.baseUrl.replace(/\/$/,''),nk=nativeKey(cfg),visible=new Set(visibleImages(messages).map(i=>i.id));
  const images=(message:WireMessage)=>(message.images||[]).filter(i=>visible.has(i.id)).map(i=>resolveImage(i.id));
  const native=(m:WireMessage)=>m.native?.protocol===protocol&&m.native.key===nk?m.native.data:undefined;

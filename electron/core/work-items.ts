@@ -7,7 +7,7 @@ import {ExecutionLedger} from './execution-ledger';
 import type {Store} from './store';
 import type {HarnessRunOptions} from './peer-runtime-types';
 
-export const PLANNING_TOOLS=new Set(['task_read','task_update','plan_update','goal_read','execution_list','execution_resolve','tools_batch','host_file_read','host_list_directory','host_find_files','host_search_files','file_read','attachment_read','history_search','history_read','skills_list','skill_read','skill_file_read','read_result']);
+export const PLANNING_TOOLS=new Set(['code_exec','view_image','tool_search','web_search','web_read','request_user_input','user_input_wait','task_read','task_update','plan_update','goal_read','execution_list','execution_resolve','tools_batch','host_file_read','host_list_directory','host_find_files','host_search_files','file_read','attachment_read','history_search','history_read','skills_list','skill_read','skill_file_read','read_result']);
 const terminal=new Set(['completed','cancelled']);
 const clean=(value:unknown,label:string,max=1200)=>{if(typeof value!=='string'||!value.trim()||value.length>max)throw Error(`${label}为空或过长`);return value.trim();};
 

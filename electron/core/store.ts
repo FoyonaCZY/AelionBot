@@ -1,3 +1,5 @@
+import {repairToolHistory} from './tool-history';
+import {createHash} from 'node:crypto';
 import type {PythonSession} from './python-sessions';
 import type {FileCheckpoint} from './file-checkpoints';
 import type {BackgroundProcess} from '../../src/process-types';
@@ -16,7 +18,7 @@ import {BOT_COLORS,normalizeBotPalette,type BotAvatarStyle} from '../../src/bot-
 
 import type {StoredAttachment} from '../../src/attachment-types';
 export interface StoredProvider extends Omit<ModelProvider,'hasKey'> {encryptedKey?:string;}
-interface Persisted {hostPermissionModes?:Record<string,import("../../src/permission-types").HostPermissionMode>;pythonSessions?:PythonSession[];fileCheckpoints?:FileCheckpoint[];processes?:BackgroundProcess[];workItems?:import("../../src/work-types").WorkItem[];conversationWorkspaces?:Record<string,string>;runtime?:RuntimeSettings;unlimitedTokenBudgetMigrated?:boolean;modelUsage?:UsageRecord[];scheduledTasks:ScheduledTask[];attachments:StoredAttachment[]; version: 1; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; conversations: Record<string, WireMessage[]>; summaries: Record<string, string>; contextOffsets:Record<string,number>; model: Omit<ModelConfig, 'hasKey'> & { encryptedKey?: string }; providers?:StoredProvider[];defaultModel?:ModelSelection; skills: Skill[]; artifacts: Artifact[]; skillFilesMigrated?: boolean; peerThreads:PeerThread[];peerExchanges:PeerExchange[];peerContexts:Record<string,WireMessage[]>;peerMessages:ChatMessage[];groups:GroupRoom[];groupRounds:GroupRound[];groupDeliveries:GroupDelivery[];groupContexts:Record<string,WireMessage[]>;groupRunMessages:ChatMessage[]; }
+interface Persisted {userProfile?:import("../../src/user-profile").UserProfile;historyVersions?:Record<string,number>;hostPermissionModes?:Record<string,import("../../src/permission-types").HostPermissionMode>;pythonSessions?:PythonSession[];fileCheckpoints?:FileCheckpoint[];processes?:BackgroundProcess[];workItems?:import("../../src/work-types").WorkItem[];conversationWorkspaces?:Record<string,string>;runtime?:RuntimeSettings;unlimitedTokenBudgetMigrated?:boolean;modelUsage?:UsageRecord[];scheduledTasks:ScheduledTask[];attachments:StoredAttachment[]; version: 1; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; conversations: Record<string, WireMessage[]>; summaries: Record<string, string>; contextOffsets:Record<string,number>; model: Omit<ModelConfig, 'hasKey'> & { encryptedKey?: string }; providers?:StoredProvider[];defaultModel?:ModelSelection; skills: Skill[]; artifacts: Artifact[]; skillFilesMigrated?: boolean; peerThreads:PeerThread[];peerExchanges:PeerExchange[];peerContexts:Record<string,WireMessage[]>;peerMessages:ChatMessage[];groups:GroupRoom[];groupRounds:GroupRound[];groupDeliveries:GroupDelivery[];groupContexts:Record<string,WireMessage[]>;groupRunMessages:ChatMessage[]; }
 export function atomicJson(path: string, value: unknown) {
   const temp = `${path}.${process.pid}.tmp`;
   const fd = openSync(temp, 'w', 0o600);
@@ -57,21 +59,15 @@ export class Store {
     for(const run of this.data.runs)for(const execution of run.executions||[])if(execution.status==='running'){execution.status='unknown';execution.endedAt=new Date().toISOString();execution.error='应用中断，操作结果未知。继续前先核对实际状态。';}
     for (const run of this.data.runs) if (run.status === 'running') { run.status = 'interrupted'; run.endedAt = new Date().toISOString(); run.error = '应用中断。请检查已执行的操作后继续，系统不会自动重复工具调用。'; }
     for (const message of [...this.data.messages,...this.data.peerMessages,...this.data.groupRunMessages]) if (message.status === 'running') message.status = 'failed';
-    for(const [botId,history] of [...Object.entries(this.data.conversations),...Object.entries(this.data.peerContexts),...Object.entries(this.data.groupContexts)]){
-      for(let i=0;i<history.length;i++){
-        const calls=history[i].tool_calls||[];if(!calls.length)continue;
-        let at=i+1;while(at<history.length&&history[at].role==='tool')at++;
-        const answered=new Set(history.slice(i+1,at).map(m=>m.tool_call_id));
-        for(const call of calls)if(!answered.has(call.id)){
-          history.splice(at,0,{role:'tool',tool_call_id:call.id,content:'{"status":"unknown","error":"应用在操作期间中断。不要直接重复有副作用的调用，先核对实际结果。"}'});
-          if(at<(this.data.contextOffsets[botId]||0))this.data.contextOffsets[botId]++;
-          at++;answered.add(call.id);
-        }
-      }
-    }
+    for(const [key,history] of [...Object.entries(this.data.conversations),...Object.entries(this.data.peerContexts).map(([id,history])=>['peer:'+id,history] as const),...Object.entries(this.data.groupContexts)])this.repairHistory(history,key);
     this.exposeGroupTasks();
     if (isNew) this.createBot('工作伙伴', '帮助我处理办公资料与代码工作，直接执行并验证成果，使用中文回复。');
     this.save();
+  }
+  repairHistory(history:WireMessage[],key:string){
+    const repaired=repairToolHistory(history);if(!repaired.repairs)return false;
+    const folder=join(this.dir,'history-recovery-backups');mkdirSync(folder,{recursive:true});const file=join(folder,createHash('sha256').update(key).digest('hex')+'.json');if(!existsSync(file))atomicJson(file,{history});
+    history.splice(0,history.length,...repaired.messages);(this.data.historyVersions||={})[key]=(this.data.historyVersions?.[key]||0)+1;this.data.contextOffsets[key]=0;delete this.data.summaries[key];return true;
   }
   save() {if(this.database)this.database.write(this.data);else atomicJson(this.file,this.data);}
   replaceData(next:Persisted){const previous=this.data;this.data=next;try{this.save();}catch(error){this.data=previous;throw error;}}
@@ -241,7 +237,7 @@ export class Store {
     const selection=this.modelSelection(botId);
     if(!selection)return {baseUrl:'',model:'',hasKey:false,contextTokens:32000};
     const provider=this.data.providers.find(provider=>provider.id===selection.providerId);
-    return {...selection,protocol:provider?.protocol,responsesTransport:provider?.responsesTransport,temperature:provider?.temperature,reasoningEffort:botId?this.bot(botId).reasoningEffort:selection.reasoningEffort,thinkingBudget:provider?.thinkingBudget,fallbackModel:provider?.fallbackModel,baseUrl:provider?.baseUrl||'',hasKey:Boolean(provider?.encryptedKey),providerName:provider?.name,...(!provider?{issue:'所选 Provider 不存在，请重新选择模型'}:{})};
+    return {...selection,supportsImages:selection.supportsImages??provider?.models.find(model=>model.id===selection.model)?.supportsImages,protocol:provider?.protocol,responsesTransport:provider?.responsesTransport,temperature:provider?.temperature,reasoningEffort:botId?this.bot(botId).reasoningEffort:selection.reasoningEffort,thinkingBudget:provider?.thinkingBudget,fallbackModel:provider?.fallbackModel,baseUrl:provider?.baseUrl||'',hasKey:Boolean(provider?.encryptedKey),providerName:provider?.name,...(!provider?{issue:'所选 Provider 不存在，请重新选择模型'}:{})};
   }
   publicModel(hasKey: boolean): ModelConfig { return {...this.modelFor(),hasKey}; }
 }
