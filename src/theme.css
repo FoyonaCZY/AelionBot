@@ -1,11 +1,14 @@
 :root{
+  /* Declare both schemes in CSS so production light-dark() lowering has a scope.
+     Setting colorScheme only from JavaScript leaves generated color variables unset. */
+  color-scheme:light;
   --appearance-line:light-dark(#e9e3ef,#403947);
   --appearance-fill:light-dark(#f8f6fb,#29262f);
   --text-code:13px;
   --message-leading:1.8;
 }
 /* Theme belongs to the application chrome, never to document canvases or images. */
-:root[data-theme=dark]{background:#202024;color:#eeebf1}
+:root[data-theme=dark]{color-scheme:dark;background:#202024;color:#eeebf1}
 :root[data-theme=dark] body{background:#202024}
 :root[data-theme=dark] :is(.sidebar,.settings-sidebar){background:#25232a}
 :root[data-theme=dark] :is(.conversation,.messages,.peer-chat-body,.composer-wrap,.computer-panel){background:#202024}
