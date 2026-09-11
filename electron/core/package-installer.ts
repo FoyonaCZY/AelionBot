@@ -1,7 +1,7 @@
 // Uses APT's existing proxy settings and signed repositories. Mirror overrides
 // are local to these installation commands; system sources/proxy files stay intact.
 export const PACKAGE_INSTALLER=String.raw`#!/usr/bin/python3
-import json,os,pathlib,queue,re,signal,subprocess,sys,threading,time
+import json,os,pathlib,re,signal,subprocess,sys,tempfile,time
 
 SOURCES=[('current',None),('tuna','https://mirrors.tuna.tsinghua.edu.cn'),('ustc','https://mirrors.ustc.edu.cn'),('debian','https://deb.debian.org')]
 STAGES={'desktop','office','browser','runtime'}
@@ -64,22 +64,28 @@ class Installer:
     def run(self,args,phase,limit,idle=None):
         self.emit(phase,force=True)
         env=os.environ.copy();env.update(DEBIAN_FRONTEND='noninteractive',LC_ALL='C')
-        child=subprocess.Popen(args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,env=env,text=True,encoding='utf-8',errors='replace',bufsize=1,start_new_session=True)
-        lines=queue.Queue(maxsize=256)
-        def read():
-            try:
-                for line in child.stdout: lines.put(line)
-            finally: lines.put(None)
-        threading.Thread(target=read,daemon=True).start()
+        # Maintainer scripts need a stable writable stdout throughout apt/dpkg.
+        # Use separate file descriptions so monitoring never moves the writer.
+        output=tempfile.NamedTemporaryFile(prefix='aelion-apt-',suffix='.log',delete=False)
+        child=None;reader=None
+        try:
+            child=subprocess.Popen(args,stdout=output,stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,env=env,start_new_session=True)
+            reader=open(output.name,'r',encoding='utf-8',errors='replace')
+        except BaseException:
+            if child is not None: self.stop(child)
+            output.close();os.unlink(output.name);raise
         begin=last_activity=time.monotonic();last_bytes=self.cache_bytes();percent=None;package=None;ended=False
         try:
             while not ended:
                 now=time.monotonic()
                 if limit and now-begin>limit or idle and now-last_activity>idle:
-                    self.stop(child);self.emit('retrying',error='download-timeout' if idle else 'command-timeout',force=True);return 124
-                try: line=lines.get(timeout=.5)
-                except queue.Empty: line=''
-                if line is None: ended=True;continue
+                    self.stop(child);self.emit('retrying',error='download-timeout' if phase=='downloading' else 'command-timeout',force=True);return 124
+                line=reader.readline()
+                if not line:
+                    if child.poll() is not None:
+                        line=reader.readline()
+                        if not line: ended=True;continue
+                    else: time.sleep(.1)
                 if line:
                     print(line.rstrip(),flush=True)
                     item=progress_line(line)
@@ -93,7 +99,7 @@ class Installer:
                 self.emit(phase,percent,package)
             return child.wait(timeout=5)
         finally:
-            self.stop(child);child.stdout.close()
+            self.stop(child);reader.close();output.close();os.unlink(output.name)
     def install(self,stage,packages):
         if stage not in STAGES or not packages or any(not re.fullmatch(r'[a-z0-9][a-z0-9+.:_-]{0,119}',p) for p in packages): raise ValueError('Invalid package installation request')
         self.stage=stage;(self.state/'desktop-stage').write_text(stage)

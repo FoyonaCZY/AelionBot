@@ -53,6 +53,7 @@ test('package configuration continues while active and stops when output stalls'
 import tempfile,pathlib
 with tempfile.TemporaryDirectory() as root:
  installer=ns['Installer'](root,root,codename='bookworm')
+ assert installer.run([sys.executable,'-u','-c','import os,stat; assert stat.S_ISREG(os.fstat(1).st_mode); print("regular stdout"); print("error stream",file=__import__("sys").stderr)'],'installing',0,2)==0
  assert installer.run([sys.executable,'-u','-c','import time\nfor i in range(8):\n print("Configuring package", i, flush=True); time.sleep(.2)'],'installing',0,1)==0
  assert installer.run([sys.executable,'-u','-c','import time; print("Configuration started", flush=True); time.sleep(10)'],'installing',0,.5)==124
 `));
