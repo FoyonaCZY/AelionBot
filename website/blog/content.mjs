@@ -74,4 +74,4 @@ export function renderMarkdown(body){
   return {html:md.render(body),toc};
 }
 
-export function formatDate(date){return new Date(`${date}T00:00:00Z`).toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',timeZone:'UTC'});}
+export function formatDate(date){return new Date(`${date}T00:00:00Z`).toLocaleDateString('en',{year:'numeric',month:'long',day:'numeric',timeZone:'UTC'});}

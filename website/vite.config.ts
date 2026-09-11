@@ -9,5 +9,5 @@ export default defineConfig({
   base:'/',
   plugins:[blogPages(root)],
   server:{host:'127.0.0.1',port:4173,strictPort:true,fs:{allow:[fileURLToPath(new URL('..',import.meta.url))]}},
-  build:{outDir:'dist',emptyOutDir:true,manifest:true,rollupOptions:{input:{home:fileURLToPath(new URL('./index.html',import.meta.url)),blog:fileURLToPath(new URL('./blog.html',import.meta.url))}}},
+  build:{outDir:'dist',emptyOutDir:true,assetsInlineLimit:0,manifest:true,rollupOptions:{input:{home:fileURLToPath(new URL('./index.html',import.meta.url)),blog:fileURLToPath(new URL('./blog.html',import.meta.url))}}},
 });

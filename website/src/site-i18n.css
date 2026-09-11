@@ -1,0 +1,21 @@
+.site-language-switcher{appearance:auto;max-width:120px;border:1px solid #dfdbe5;border-radius:999px;background:#ffffffaa;color:#595260;padding:7px 10px;font:inherit;font-size:12px;cursor:pointer;color-scheme:light}
+.site-language-switcher:focus-visible{outline:2px solid #a28bda;outline-offset:3px}
+.product-site:not([data-scrolled=true]) .site-language-switcher{border-color:#ffffff40;background:#ffffff12;color:#eae8f2}
+@media(max-width:720px){.site-language-switcher{padding:6px 7px;font-size:10px}.product-site:not([data-scrolled=true]) .site-language-switcher{color:#eae8f2}}
+.site-language-switcher option{color:#292632;background:#fff}
+.product-site .product-stage{max-width:1120px}
+.product-site .product-device{border:0;box-shadow:none;border-radius:0;transform:none;background:transparent}
+.studio-section{padding-block:110px}
+.studio-section .section-heading>p:last-child{max-width:580px;margin-inline:auto}
+.studio-tabs{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin:32px 0 24px}
+.studio-tabs button{border:1px solid #e5e3eb;border-radius:999px;background:transparent;font-size:13px;padding:12px 22px;color:#78717f}
+.studio-tabs button[aria-pressed=true]{background:#292630;border-color:#292630;color:#fff}
+.studio-visual{position:relative;width:100%;display:block;padding:0;border:0;background:none;border-radius:24px}
+.studio-expand{position:absolute;right:4%;bottom:7%;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;border:1px solid #dedde5;background:#fffffff0;color:#777180}
+html[lang=en] .hero-copy h1{letter-spacing:-.055em}
+html[lang=en] .making-copy h2{font-size:clamp(50px,5.4vw,76px)}
+.gallery-artwork{overflow:auto;border-block:1px solid #efedf3;overscroll-behavior:contain}
+.gallery-artwork img{width:100%;max-height:calc(100dvh - 205px);object-fit:contain}
+.gallery-pan-hint{display:none}
+@media(max-width:720px){html[lang=en] .making-copy h2>br:nth-of-type(2){display:block}.gallery-artwork{max-height:60dvh}.gallery-artwork img{width:800px;min-width:800px;max-width:none;max-height:none}.gallery-pan-hint{display:block;text-align:center;font-size:11px;color:#8b8494;padding-top:10px}}
+@media(max-width:720px){.studio-section{padding-block:75px}.studio-tabs button{font-size:11px;padding:10px 15px}.studio-expand{width:30px;height:30px}.product-site .nav-shell{gap:9px}.product-site .brand-link img{width:110px}.product-site .nav-download{display:none}.product-site .product-stage{margin-inline:-12px}html[lang=en] .making-copy h2{font-size:48px}}

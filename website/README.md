@@ -14,7 +14,11 @@ npm run site:build
 npm run site:preview
 ```
 
-静态构建输出到 `website/dist/`。官网使用 `docs/assets/` 中的 Logo 与 `docs/assets/product/` 中新截取的产品画面，版本号取自根目录 `package.json`。截图来自真实应用组件，采用示例任务；Bot 主视觉和成果插画由网页直接绘制，配色、场景与滚动动效遵循系统的减少动态效果设置。下载、代码与反馈入口指向项目的 GitHub 页面。
+静态构建输出到 `website/dist/`，版本号取自根目录 `package.json`。首页及博客界面默认英文，可切换简体、繁体中文；语言会保存在本机，`?lang=en` / `?lang=zh-CN` / `?lang=zh-TW` 链接优先于保存的选择。博客正文保留作者撰写的语言。
+
+README 英文入口为根目录 `README.md`，中文为 `README.zh-CN.md`。两者与官网共用 `docs/assets/product/` 的矢量功能示意图，图中文字有对应语言版本，放大仍清晰。图片是示意而非真实截图；旧 PNG 不再用于首页和 README。修改示意内容后运行 `node website/scripts/product-visuals.mjs` 重建 SVG。每组图片约 3 KB，构建时单独输出并按内容哈希缓存。
+
+Bot 主视觉和成果插画由网页直接绘制，滚动动效遵循系统的减少动态效果设置。下载、代码与反馈入口指向项目的 GitHub 页面。
 
 ## 写技术博客
 
