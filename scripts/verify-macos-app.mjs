@@ -12,7 +12,7 @@ try{
  const page=await app.firstWindow();await page.locator('.app-shell').waitFor({timeout:30000});
  const snapshot=await page.evaluate(()=>window.aelion.snapshot());if(snapshot.platform!=='darwin'||snapshot.updates?.manualInstall!==true&&!process.env.CSC_LINK&&!process.env.CSC_NAME)throw Error('Mac platform/update state was not detected');
  const terminal=await app.evaluate(async({app})=>{
-  const {createRequire}=await import('node:module'),{join}=await import('node:path');const load=createRequire(join(app.getAppPath(),'dist-electron','terminal-loader.cjs'));
+  const runtimeRequire=process.mainModule.require.bind(process.mainModule),{createRequire}=runtimeRequire('node:module'),{join}=runtimeRequire('node:path');const load=createRequire(join(app.getAppPath(),'dist-electron','terminal-loader.cjs'));
   const pty=load(load.resolve('node-pty').replace('app.asar/','app.asar.unpacked/'));
   return new Promise((resolve,reject)=>{let output='';const child=pty.spawn('/bin/sh',['-c','printf AELION_PACKAGED_PTY_OK'],{cwd:app.getPath('temp'),env:{...process.env},name:'xterm-256color'});const timer=setTimeout(()=>{child.kill();reject(Error('Packaged PTY timed out'));},10000);child.onData(text=>output+=text);child.onExit(event=>{clearTimeout(timer);if(event.exitCode!==0||!output.includes('AELION_PACKAGED_PTY_OK'))reject(Error('Packaged PTY failed'));else resolve(true);});});
  });if(!terminal)throw Error('Packaged terminal verification failed');
