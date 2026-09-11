@@ -75,7 +75,7 @@ class Installer:
         try:
             while not ended:
                 now=time.monotonic()
-                if now-begin>limit or idle and now-last_activity>idle:
+                if limit and now-begin>limit or idle and now-last_activity>idle:
                     self.stop(child);self.emit('retrying',error='download-timeout' if idle else 'command-timeout',force=True);return 124
                 try: line=lines.get(timeout=.5)
                 except queue.Empty: line=''
@@ -86,8 +86,8 @@ class Installer:
                     if item:
                         if percent is None or item[0]>percent: last_activity=now
                         percent,package=item
-                    elif phase=='updating': last_activity=now
-                if idle:
+                    elif phase in ('updating','installing'): last_activity=now
+                if idle and phase=='downloading':
                     size=self.cache_bytes()
                     if size!=last_bytes: last_activity=now;last_bytes=size
                 self.emit(phase,percent,package)
@@ -113,7 +113,9 @@ class Installer:
             if self.run(download,'downloading',900,60)!=0:
                 saved={};continue
             install=[self.apt,*options,'--no-download','--fix-broken','--no-remove','-y','--no-install-recommends','install',*packages]
-            if self.run(install,'installing',900)!=0:
+            # Slow emulated guests can spend more than 15 minutes configuring
+            # packages while making progress. Bound inactivity, not total work.
+            if self.run(install,'installing',0,900)!=0:
                 self.emit('failed',error='package-configure',force=True);raise RuntimeError('Package configuration failed; downloaded files were retained')
             self.emit('complete',percent=100,force=True);return
         self.emit('failed',error='sources-unavailable',force=True);raise RuntimeError('Package sources unavailable; retry to reuse already downloaded files')

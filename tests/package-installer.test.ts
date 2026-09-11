@@ -49,6 +49,14 @@ with tempfile.TemporaryDirectory() as root:
  assert json.loads((pathlib.Path(root)/'desktop-progress.json').read_text())['error']=='package-configure'
 `));
 
+test('package configuration continues while active and stops when output stalls',{skip:probe.status!==0},()=>run(String.raw`
+import tempfile,pathlib
+with tempfile.TemporaryDirectory() as root:
+ installer=ns['Installer'](root,root,codename='bookworm')
+ assert installer.run([sys.executable,'-u','-c','import time\nfor i in range(8):\n print("Configuring package", i, flush=True); time.sleep(.2)'],'installing',0,1)==0
+ assert installer.run([sys.executable,'-u','-c','import time; print("Configuration started", flush=True); time.sleep(10)'],'installing',0,.5)==124
+`));
+
 test('real subprocess progress is captured and stalled downloads are terminated',{skip:probe.status!==0},()=>run(String.raw`
 import tempfile,pathlib,time
 with tempfile.TemporaryDirectory() as root:
