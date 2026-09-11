@@ -44,7 +44,7 @@ test('QMP power commands verify UUID on their own connection and tolerate quit c
   identity='foreign';commands.length=0;await assert.rejects(vm.qmp('quit'),/身份不匹配/);assert.deepEqual(commands,['qmp_capabilities','query-uuid']);vm.dispose();
 });
 test('beginning exit prevents a pending startup from launching QEMU and clears dead VM PIDs',async t=>{
-  const f=fixture(t),vm=new VmController({dataDir:f.root,runtimeDir:f.root,cacheDir:f.root});writeFileSync(vm.executable,'not executable');
+  const f=fixture(t),vm=new VmController({dataDir:f.root,runtimeDir:f.root,cacheDir:f.root});mkdirSync(dirname(vm.executable),{recursive:true});writeFileSync(vm.executable,'not executable');
   let release!:()=>void,entered!:()=>void;const enteredPromise=new Promise<void>(resolve=>entered=resolve),held=new Promise<void>(resolve=>release=resolve);
   (vm as any).refresh=async()=>vm.state;(vm as any).seed=async()=>{entered();await held;};const start=vm.start();await enteredPromise;vm.beginShutdown();await vm.shutdownForExit();release();await assert.rejects(start,/正在退出/);assert.equal(JSON.parse(readFileSync(join(f.dir,'machine.json'),'utf8')).pid,undefined);await assert.rejects(vm.start(),/正在退出/);vm.dispose();
 });

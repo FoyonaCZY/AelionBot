@@ -1,11 +1,12 @@
 {
   "name": "aelion-bot",
-  "version": "0.19.1",
+  "version": "0.19.2",
   "private": true,
   "description": "Local AI teammates with a managed Linux computer",
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {
+    "postinstall": "node scripts/prepare-native-tools.mjs",
     "dev": "node scripts/dev.mjs",
     "site:dev": "vite --config website/vite.config.ts",
     "site:build": "tsc --noEmit -p website/tsconfig.json && node website/scripts/build.mjs",
