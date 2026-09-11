@@ -51,6 +51,13 @@ function fixture(t:test.TestContext,complete:(run:RunRecord,messages:WireMessage
   return {store,groups,harness,a,b,c,busy,dir,interactions,settled};
 }
 
+test('real group dispatch keeps mixed-language conversation without language rules',async t=>{
+ const captured:Array<{text:string;botEvent:boolean}>=[];let replied=false;
+ const fx=fixture(t,(run,messages)=>{const context=messages.filter(m=>m.role==='system').map(m=>m.content||'').join('\n');if(!context.includes('Build an awesome project.'))return silent();const history=publishedMessages(messages);captured.push({text:context,botEvent:history.some(m=>m.sender.kind==='bot'&&m.content==='我建议做音乐项目。')});if(run.botId===fx.a.id&&!replied){replied=true;return answer('我建议做音乐项目。');}return silent();});
+ fx.store.data.language='en';const room=fx.groups.create({name:'Team',botIds:[fx.a.id,fx.b.id]});await until(fx.settled);fx.groups.send({id:room.id,message:'Build an awesome project.'});await until(fx.settled);
+ assert.ok(captured.length>=2);assert.ok(captured.some(item=>item.botEvent));for(const item of captured){assert.doesNotMatch(item.text,/Response language policy|current interface language|latestHumanMessage/);assert.doesNotMatch(item.text,/这是群聊|群聊发言规则|系统发布的 event/);}
+});
+
 test('work progress is visible in the group and own main chat, broadcasts to others without interrupting itself',async t=>{
   let actions=0;const recipients=new Set<string>(),vm={execute:async()=>({stdout:`完成步骤 ${++actions}`,stderr:'',exitCode:0,durationMs:1})} as unknown as VmController;
   const fx=fixture(t,(run,messages,tools)=>{

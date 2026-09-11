@@ -8,4 +8,5 @@ import './theme.css';
 import {initializeAppearance} from './use-appearance';
 import {initializeI18n} from './i18n';
 initializeAppearance();
-void initializeI18n().catch(error=>console.error('Failed to initialize response language',error)).finally(()=>createRoot(document.getElementById('root')!).render(<App/>));
+initializeI18n();
+createRoot(document.getElementById('root')!).render(<App/>);

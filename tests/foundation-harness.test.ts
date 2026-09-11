@@ -18,8 +18,8 @@ function fixture(t:test.TestContext,complete:(messages:WireMessage[],index:numbe
  const model={complete:async(messages:WireMessage[])=>complete(messages,++calls)} as unknown as ModelClient,harness=new Harness(store,{} as any,model,()=>{},undefined,undefined,undefined,host,interactions);
  t.after(()=>{harness.disposeTools();host.dispose();interactions.dispose();store.close();assert.equal(dirname(resolve(dir)),parent);rmSync(dir,{recursive:true,force:true});});return {dir,store,host,interactions,harness,bot:store.data.bots[0]};
 }
-test('foreground requests receive the current language without overriding the latest human instruction',async t=>{
- const f=fixture(t,messages=>{const systems=messages.filter(message=>message.role==='system').map(message=>message.content||'').join('\n');assert.match(systems,/use English, the current interface language/);assert.match(systems,/Follow the user's explicit language instruction first/);assert.doesNotMatch(systems,/使用中文、简洁且准确/);return {content:'Hello!',calls:[],finishReason:'stop'};});f.store.data.language='en';await f.harness.run(f.bot.id,'Please greet me in English');assert.equal(f.store.data.runs[0].status,'completed',f.store.data.runs[0].error||'');
+test('foreground requests impose no reply language despite legacy stored settings',async t=>{
+ const f=fixture(t,messages=>{const systems=messages.filter(message=>message.role==='system').map(message=>message.content||'').join('\n');assert.doesNotMatch(systems,/Response language policy|current interface language|latestHumanMessage/);assert.doesNotMatch(systems,/使用中文、简洁且准确/);return {content:'Hello!',calls:[],finishReason:'stop'};});f.store.data.language='en';await f.harness.run(f.bot.id,'Please greet me in English');assert.equal(f.store.data.runs[0].status,'completed',f.store.data.runs[0].error||'');
 });
 
 test('small-window Bots discover omitted tools and invoke them through code with real execution evidence',async t=>{

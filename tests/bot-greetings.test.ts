@@ -19,12 +19,12 @@ function fixture(t:test.TestContext,complete:ModelClient['complete'],configured=
 }
 function deferred(){let resolve!:(value:Completion)=>void;const promise=new Promise<Completion>(done=>resolve=done);return{promise,resolve};}
 
-test('greetings use the saved interface language without a hard-coded Chinese instruction',async t=>{
-  const f=fixture(t,async messages=>{const prompt=messages[0].content!;assert.match(prompt,/use English, the current interface language/);assert.doesNotMatch(prompt,/用自然的中文/);return answer('Hello!');});f.store.data.language='en';await f.greetings.greet(f.bot.id);assert.equal(f.store.data.messages[0].content,'Hello!');
+test('greetings impose no reply language despite legacy stored preferences',async t=>{
+  const f=fixture(t,async messages=>{const prompt=messages[0].content!;assert.doesNotMatch(prompt,/Response language policy|interface language/);assert.doesNotMatch(prompt,/用自然的中文/);return answer('Hello!');});f.store.data.language='en';await f.greetings.greet(f.bot.id);assert.equal(f.store.data.messages[0].content,'Hello!');
 });
 
-test('a greeting generated under an old language is discarded',async t=>{
-  const pending=deferred(),f=fixture(t,async()=>pending.promise);f.store.data.language='zh-CN';const work=f.greetings.greet(f.bot.id);f.store.data.language='en';pending.resolve(answer('过时的中文开场白'));await work;assert.equal(f.store.data.messages.length,0);
+test('changing interface language does not discard a pending greeting',async t=>{
+  const pending=deferred(),f=fixture(t,async()=>pending.promise);f.store.data.language='zh-CN';const work=f.greetings.greet(f.bot.id);f.store.data.language='en';pending.resolve(answer('Hello!'));await work;assert.equal(f.store.data.messages[0].content,'Hello!');
 });
 
 test('creating a Bot persists its data without inventing an assistant message',t=>{

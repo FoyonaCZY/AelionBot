@@ -1,7 +1,7 @@
 import {createContext,useCallback,useContext,useEffect,useMemo,useState,type ReactNode} from 'react';
 
-import {validLanguage,type Language} from './reply-language';
-export type {Language} from './reply-language';
+import {validLanguage,type Language} from './interface-language';
+export type {Language} from './interface-language';
 export const LANGUAGE_STORAGE_KEY='aelion-language';
 
 export const languageOptions:ReadonlyArray<{value:Language;label:string}>=[
@@ -70,6 +70,10 @@ Object.assign(zhTW,{"标题":"標題","说明":"說明","回显内容":"回顯�
 Object.assign(en,{"标题":"Title","说明":"Description","回显内容":"Echo","验证标记":"Verification marker","运行系统":"Operating system","运行平台":"Platform","来源":"Source","结果":"Result","合计":"Total","团队汇总":"Team summary","团队":"Team","金额":"Amount","数量":"Count","地址":"Address","资源地址":"Resource URI","是否成功":"Succeeded","是否通过":"Passed","测试":"Tests","通过":"Passed","失败":"Failed","错误":"Errors","提示":"Notice","耗时（毫秒）":"Duration (ms)","大小":"Size","字节数":"Bytes","记录":"Records","数据":"Data","内容":"Content","日期":"Date","编号":"ID","数字":"Number","整数":"Integer","是 / 否":"Yes / no","列表":"List","对象":"Object","空值":"Empty","任意值":"Any value","脚本":"Scripts","参考资料":"References","素材":"Assets","说明文件":"Documentation"});
 Object.assign(zhTW,{"是":"是","否":"否"});Object.assign(en,{"是":"Yes","否":"No"});
 Object.assign(zhTW,{"Aelion MCP 配置 · mcpServers":"Aelion MCP 設定 · mcpServers"});Object.assign(en,{"Aelion MCP 配置 · mcpServers":"Aelion MCP configuration · mcpServers"});
+Object.assign(zhTW,{'群名称无效':'群組名稱無效','请选择 1–8 位 Bot':'請選擇 1–8 位 Bot','请选择 2–8 位 Bot':'請選擇 2–8 位 Bot','群聊 ID无效':'群組聊天 ID 無效','群聊不存在或已删除':'群組聊天不存在或已刪除'});
+Object.assign(en,{'群名称无效':'Invalid group name','请选择 1–8 位 Bot':'Choose 1–8 Bots','请选择 2–8 位 Bot':'Choose 2–8 Bots','群聊 ID无效':'Invalid group chat ID','群聊不存在或已删除':'Group chat not found or already deleted'});
+Object.assign(zhTW,{'纯色':'純色','渐变':'漸層','拼色':'拼色','拼色方式':'拼色方式','斜向':'斜向','纵向':'縱向'});
+Object.assign(en,{'纯色':'Solid','渐变':'Gradient','拼色':'Split','拼色方式':'Split style','斜向':'Diagonal','纵向':'Vertical'});
 let activeLanguage:Language='zh-CN';
 
 export function readLanguage():Language{
@@ -81,7 +85,7 @@ export function applyLanguage(language:Language){
   if(typeof document!=='undefined')document.documentElement.lang=language;
   if(typeof window!=='undefined')window.dispatchEvent(new Event('aelion-language-change'));
 }
-export async function initializeI18n(){const language=readLanguage();applyLanguage(language);await window.aelion.syncLanguage(language);}
+export function initializeI18n(){applyLanguage(readLanguage());}
 export function currentLanguage():Language{return activeLanguage;}
 
 export function translateFor(language:Language,source:string,values:Record<string,string|number>= {}):string{
@@ -96,7 +100,7 @@ const I18nContext=createContext<I18nContextValue>({language:'zh-CN',setLanguage:
 export function I18nProvider({children}:{children:ReactNode}){
   const [language,setLanguageState]=useState<Language>(readLanguage);
   useEffect(()=>{applyLanguage(language);},[language]);
-  const setLanguage=useCallback((next:Language)=>{setLanguageState(next);applyLanguage(next);try{localStorage.setItem(LANGUAGE_STORAGE_KEY,next);}catch{}void window.aelion.syncLanguage(next).catch(error=>console.error('Failed to sync response language',error));},[]);
+  const setLanguage=useCallback((next:Language)=>{setLanguageState(next);applyLanguage(next);try{localStorage.setItem(LANGUAGE_STORAGE_KEY,next);}catch{}},[]);
   const value=useMemo(()=>({language,setLanguage,t:translate}),[language,setLanguage]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
