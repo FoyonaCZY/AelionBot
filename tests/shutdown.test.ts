@@ -32,7 +32,7 @@ test('foreign UUIDs never receive shutdown commands or OS termination',async()=>
 
 function fixture(t:test.TestContext){
   const parent=realpathSync.native(tmpdir()),root=mkdtempSync(join(parent,'aelion-shutdown-')),dir=join(root,'vm');mkdirSync(dir);const id=randomUUID();
-  const record={id,pid:undefined as number|undefined,qmpPort:0,sshPort:0,vncPort:0,seedPort:0,seedToken:'fixture',hostKeyHash:'fixture',preparedAt:new Date().toISOString()};
+  const record={arch:process.arch,id,pid:undefined as number|undefined,qmpPort:0,sshPort:0,vncPort:0,seedPort:0,seedToken:'fixture',hostKeyHash:'fixture',preparedAt:new Date().toISOString()};
   const save=()=>writeFileSync(join(dir,'machine.json'),JSON.stringify(record));save();
   t.after(()=>{assert.equal(dirname(resolve(root)),parent);rmSync(root,{recursive:true,force:true});});return {root,dir,id,record,save};
 }
