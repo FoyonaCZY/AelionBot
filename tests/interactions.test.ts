@@ -16,14 +16,14 @@ import type {ToolCall,WireMessage} from '../src/shared';
 function fixture(t:test.TestContext){const root=mkdtempSync(join(tmpdir(),'aelion-human-test-')),store=new Store(root),interactions=new Interactions(()=>{});t.after(()=>{interactions.dispose();assert.equal(dirname(resolve(root)),resolve(tmpdir()));assert.ok(basename(root).startsWith('aelion-human-test-'));rmSync(root,{recursive:true,force:true});});return {root,store,interactions};}
 async function until(condition:()=>boolean){for(let i=0;i<200;i++){if(condition())return;await new Promise(resolve=>setTimeout(resolve,10));}throw new Error('Timed out waiting for interaction');}
 
-test('refusing a host operation stops the run, skips later calls and keeps tool-call history complete',async t=>{
+test('refusing a host operation skips later calls, returns the denial to the model and keeps tool-call history complete',async t=>{
   const {root,store,interactions}=fixture(t),bot=store.data.bots[0],host=new HostComputer({dataDir:root,homeDir:root,projectDir:root},interactions);
   const files=[join(root,'one.txt'),join(root,'two.txt')];let modelCalls=0;
   const calls:ToolCall[]=files.map((path,index)=>({id:`call-${index}`,type:'function',function:{name:'host_file_write',arguments:JSON.stringify({path,content:'must not be written',reason:'测试'})}}));
-  const model={complete:async()=>{modelCalls++;return {content:'准备保存',finishReason:'tool_calls',calls};}} as unknown as ModelClient;
+  const model={complete:async(messages:WireMessage[])=>{modelCalls++;if(messages.some(message=>message.role==='tool'&&(message.content||'').includes('"denied":true')))return {content:'拒绝已记录，未写入文件。',finishReason:'stop',calls:[]};return {content:'准备保存',finishReason:'tool_calls',calls};}} as unknown as ModelClient;
   const run=new Harness(store,{} as VmController,model,()=>{},undefined,undefined,undefined,host,interactions).run(bot.id,'保存文件');
   await until(()=>interactions.snapshot().length===1);assert.ok(files.every(file=>!existsSync(file)));interactions.approve(interactions.snapshot()[0].id,false);await run;
-  assert.equal(modelCalls,1);assert.ok(files.every(file=>!existsSync(file)));assert.equal(store.data.runs[0].status,'cancelled');assert.match(store.data.runs[0].error||'',/拒绝/);
+  assert.equal(modelCalls,2);assert.ok(files.every(file=>!existsSync(file)));assert.equal(store.data.runs[0].status,'completed');assert.ok(store.data.messages.some(message=>message.operationDenial));
   const answered=store.data.conversations[bot.id].filter(message=>message.role==='tool').map(message=>message.tool_call_id);assert.deepEqual(answered,['call-0','call-1']);assert.equal(interactions.snapshot().length,0);
 });
 
@@ -46,11 +46,11 @@ test('registered skill reads are available without host permission',async t=>{
 });
 
 test('MCP mutations still wait for approval and refusal prevents dispatch',async t=>{
-  const {store,interactions}=fixture(t);let dispatched=0;
+  const {store,interactions}=fixture(t);let dispatched=0,modelCalls=0;
   const mcp={inspectCall:async()=>({fingerprint:'fixture',permission:{operation:'mcp',server:'remote',tool:'write',reason:'写入资源'}}),call:async()=>{dispatched++;return {};}};
-  const model={complete:async()=>({content:'',finishReason:'tool_calls',calls:[{id:'write',type:'function',function:{name:'mcp_call',arguments:JSON.stringify({server:'remote',name:'write',arguments:{value:'fixture'}})}}]})} as unknown as ModelClient;
+  const model={complete:async(messages:WireMessage[])=>{modelCalls++;if(messages.some(message=>message.role==='tool'&&(message.content||'').includes('"denied":true')))return {content:'远程写入已被拒绝。',finishReason:'stop',calls:[]};return {content:'',finishReason:'tool_calls',calls:[{id:'write',type:'function',function:{name:'mcp_call',arguments:JSON.stringify({server:'remote',name:'write',arguments:{value:'fixture'}})}}]};}} as unknown as ModelClient;
   const pending=new Harness(store,{} as VmController,model,()=>{},undefined,undefined,{mcp} as unknown as Integrations,undefined,interactions).run(store.data.bots[0].id,'更新资源');
-  await until(()=>interactions.snapshot().length===1);assert.equal(dispatched,0);interactions.approve(interactions.snapshot()[0].id,false);await pending;assert.equal(dispatched,0);assert.equal(store.data.runs[0].status,'cancelled');
+  await until(()=>interactions.snapshot().length===1);assert.equal(dispatched,0);interactions.approve(interactions.snapshot()[0].id,false);await pending;assert.equal(dispatched,0);assert.equal(modelCalls,2);assert.equal(store.data.runs[0].status,'completed');
 });
 
 test('VM assistance pauses through takeover and resumes only with a fresh observed screenshot',async t=>{

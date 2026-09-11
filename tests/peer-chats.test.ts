@@ -96,8 +96,8 @@ test('cancelling a private request withdraws the recipient host permission witho
 });
 
 test('human refusal in a recipient task is not retried or automatically handed to another Bot',async t=>{
-  let root=0,receiver=0;const fx=fixture(t,id=>id===fx.b.id?(receiver++,tool('host_file_read',{path:join(fx.dir,'state.json'),reason:'协作读取测试'})):root++===0?tool('bot_send_message',{botId:fx.b.id,message:'请读取文件'}):answer('正在等待。'));
-  await fx.harness.run(fx.a.id,'请数据伙伴读取文件');await until(()=>fx.interactions.snapshot().length===1);const beforeRefusal=receiver;assert.equal(fx.store.data.runs.find(run=>run.botId===fx.b.id)?.peerOrigin?.kind,'peer_task');fx.interactions.approve(fx.interactions.snapshot()[0].id,false);await until(()=>!peerPending(fx.store.data.peerExchanges[0].status));assert.equal(receiver,beforeRefusal);assert.equal(root,2);assert.equal(fx.store.data.peerExchanges.length,1);assert.equal(fx.store.data.peerExchanges[0].status,'cancelled');assert.match(fx.store.data.peerExchanges[0].error||'',/拒绝/);
+  let root=0,receiver=0;const fx=fixture(t,(id,messages)=>id===fx.b.id?(messages.some(message=>message.role==='tool'&&(message.content||'').includes('"denied":true'))?answer('读取被拒绝，无法继续。'):(receiver++,tool('host_file_read',{path:join(fx.dir,'state.json'),reason:'协作读取测试'}))):root++===0?tool('bot_send_message',{botId:fx.b.id,message:'请读取文件'}):answer('正在等待。'));
+  await fx.harness.run(fx.a.id,'请数据伙伴读取文件');await until(()=>fx.interactions.snapshot().length===1);const beforeRefusal=receiver;assert.equal(fx.store.data.runs.find(run=>run.botId===fx.b.id)?.peerOrigin?.kind,'peer_task');fx.interactions.approve(fx.interactions.snapshot()[0].id,false);await until(()=>!peerPending(fx.store.data.peerExchanges[0].status));assert.equal(receiver,beforeRefusal);assert.equal(fx.store.data.peerExchanges.length,1);assert.equal(fx.store.data.peerExchanges[0].status,'completed');assert.equal(fx.store.data.runs.filter(run=>run.botId===fx.c.id).length,0);
 });
 
 test('the recipient chooses a main task, uses its own context and writes only after its own approval',async t=>{
@@ -128,6 +128,7 @@ test('a child reply resumes an accepted task in the recipient main conversation'
   let root=0,forwarded=false;const fx=fixture(t,(id,messages,tools)=>{
     if(id===fx.c.id)return answer('核验码为 7。');
     if(id===fx.b.id){
+      if(messages.some(message=>message.role==='tool'&&(message.content||'').includes('"denied":true')))return answer('保存被拒绝，核验结果未写入。');
       if(tools.some(item=>item.function.name==='start_main_task'))return tool('start_main_task',{});
       assert.ok(messages.some(message=>message.content==='我的主会话上下文'));
       if(messages.filter(message=>message.role==='system').map(message=>message.content||'').join('\n').includes('这是先前联络的实际回信')){assert.ok(messages.some(message=>message.tool_calls?.some(call=>call.function.name==='bot_send_message')));return tool('host_file_write',{path:join(fx.dir,'nested.txt'),content:'7',reason:'保存核验结果'});}

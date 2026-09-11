@@ -119,14 +119,14 @@ test('model-created schedules in a group broadcast to its members and publish th
   const page=groups.read({id:room.id});assert.equal(page.messages.filter(message=>message.scheduled).length,1);assert.ok(page.messages.some(message=>message.sender.kind==='bot'&&message.content.startsWith('已核对')));
 });
 
-test('scheduled host operations still wait for approval, and a refusal pauses a one-shot task without writing or retrying',async t=>{
+test('scheduled host operations still wait for approval, and a refusal does not write or retry the same save',async t=>{
   const f=fixture(t),path=join(f.dir,'must-not-write.txt'),interactions=new Interactions(()=>{}),host=new HostComputer({dataDir:f.dir,homeDir:f.dir,projectDir:f.dir},interactions);let calls=0;
-  const model={complete:async()=>{calls++;return call('host_file_write',{path,content:'not authorized',reason:'定时保存'});}} as unknown as ModelClient;
+  const model={complete:async(messages:WireMessage[])=>{calls++;if(messages.some(message=>message.role==='tool'&&(message.content||'').includes('"denied":true')))return answer('定时保存已被拒绝，未写入文件。');return call('host_file_write',{path,content:'not authorized',reason:'定时保存'});}} as unknown as ModelClient;
   const harness=new Harness(f.store,{} as VmController,model,()=>{},undefined,undefined,undefined,host,interactions),queue=new ChatPinQueue(f.store,{isRunning:id=>harness.isRunning(id),run:(...args)=>harness.run(...args)},()=>{}),scheduler=new TaskScheduler(f.store,{ready:()=>!harness.busy,send:(target,prompt,trigger)=>queue.schedule(target.id,prompt,trigger)},()=>{},()=>f.now);harness.setTaskScheduler(scheduler);
   f.cleanup.push(async()=>{scheduler.dispose();queue.dispose();harness.cancel(f.bot.id);await until(()=>!harness.busy);host.dispose();interactions.dispose();await delay(20);});
   scheduler.create({target:f.target,title:'定时保存',prompt:'保存文件',schedule:{kind:'once',at:new Date(f.now+1000).toISOString(),timeZone:zone}});f.now+=2000;scheduler.tick();await until(()=>interactions.snapshot().length===1);assert.equal(existsSync(path),false);
   scheduler.tick();assert.equal(scheduler.list()[0].lastRun?.status,'running');interactions.approve(interactions.snapshot()[0].id,false);await until(()=>!harness.busy&&!queue.hasPending(f.bot.id));scheduler.tick();scheduler.tick();
-  assert.equal(existsSync(path),false);assert.equal(calls,1);assert.equal(scheduler.list()[0].status,'paused');assert.equal(scheduler.list()[0].lastRun?.status,'cancelled');
+  assert.equal(existsSync(path),false);assert.equal(calls,2);assert.equal(scheduler.list()[0].status,'completed');assert.equal(scheduler.list()[0].lastRun?.status,'completed');
 });
 
 test('human input takes priority while scheduled tasks remain separate queued runs',async t=>{
