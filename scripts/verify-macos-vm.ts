@@ -38,6 +38,8 @@ try{
  await step('verify Writer document editing',async()=>{
   const text=`Aelion ${arch} desktop verification`,signal=AbortSignal.timeout(120000);
   console.log('Writer: capture and focus document');
+  const tips=await vm.executeDesktop('xdotool search --onlyvisible --name "^(每日贴士|[Tt]ip of the [Dd]ay)"','mac-smoke',signal);
+  if(tips.exitCode===0){const id=tips.stdout.trim().split('\n')[0];if(!/^\d+$/.test(id))throw Error('Invalid Writer tip window');const focus=await vm.executeDesktop('xdotool windowactivate --sync '+id,'mac-smoke',signal);if(focus.exitCode!==0)throw Error('Cannot focus Writer tip');const observed=await computer.execute('mac-smoke',{action:'screenshot'},signal);await computer.execute('mac-smoke',{action:'key',key:'ENTER',observationId:observed.screenshot.id},signal);await windowVisible('libreoffice-writer');console.log('Writer: dismissed the first-run tip dialog');}
   let screen=await computer.execute('mac-smoke',{action:'screenshot'},signal);
   screen=await computer.execute('mac-smoke',{action:'key',key:'ESC',observationId:screen.screenshot.id},signal);
   console.log('Writer: type verification text');
