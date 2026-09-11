@@ -17,6 +17,8 @@ test('Mac desktop release matches the Windows packaging path by default',()=>{
  assert.equal(step('Install Mac build runtime')?.if,"${{ runner.os == 'macOS' && steps.runtime.outputs.cache-hit != 'true' }}");
  assert.equal(step('Prepare bundled runtime')?.if,"${{ steps.runtime.outputs.cache-hit != 'true' }}");
  assert.equal(step('Verify bundled runtime')?.run,'node scripts/verify-bundled-runtime.mjs');
+ assert.equal((step('Install dependencies') as Record<string,unknown>)['timeout-minutes'],8);
+ assert.match(step('Install dependencies')?.run||'',/--foreground-scripts/);
  const cache=steps.find(item=>item.id==='runtime');
  assert.match(String(cache?.uses||''),/actions\/cache/);
  assert.ok((cache as {with:{key:string}}).with.key.includes('runner.os'));
