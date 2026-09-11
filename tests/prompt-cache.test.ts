@@ -92,7 +92,7 @@ test('same-Bot runs keep the system prefix stable while current time and reactio
  await harness.run(store.data.bots[0].id,'hi');await harness.run(store.data.bots[0].id,'hi');
  assert.equal(captured.length,2);assert.deepEqual(captured[0].slice(0,2),captured[1].slice(0,2));
  assert.ok(!captured[0][0].content?.includes('当前时间：'));assert.ok(captured[1].at(-1)?.content?.includes('当前时间：'));
- assert.ok(captured[1].at(-1)?.content?.includes('可回应的消息：'));assert.notEqual(captured[0].at(-1)?.content,captured[1].at(-1)?.content);
+ assert.ok(captured[1].at(-1)?.content?.includes('Messages available for reactions: '));assert.notEqual(captured[0].at(-1)?.content,captured[1].at(-1)?.content);
 });
 
 test('Anthropic breakpoints cover stable sections and history without mutating replayed reasoning',()=>{
