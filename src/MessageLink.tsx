@@ -1,8 +1,10 @@
 import {useState,type ComponentProps,type MouseEvent} from 'react';
 import type {ExtraProps} from 'react-markdown';
 import {externalWebUrl} from './external-links';
+import {useI18n} from './i18n';
 
 export function MessageLink({href,children,node,onClick,onAuxClick,...props}:ComponentProps<'a'>&ExtraProps){
+  const {t}=useI18n();
   const [failedUrl,setFailedUrl]=useState<string>();
   const url=externalWebUrl(href);
   const open=async(event:MouseEvent<HTMLAnchorElement>)=>{
@@ -16,5 +18,5 @@ export function MessageLink({href,children,node,onClick,onAuxClick,...props}:Com
   return <><a {...props} href={url} title={props.title||url} target="_blank" rel="noopener noreferrer"
     onClick={event=>{onClick?.(event);if(event.button===0)void open(event);}}
     onAuxClick={event=>{onAuxClick?.(event);if(event.button===1)void open(event);}}>{children}</a>
-    {failedUrl===url&&<span className="message-link-error" role="alert">无法打开浏览器，请复制链接后打开。</span>}</>;
+    {failedUrl===url&&<span className="message-link-error" role="alert">{t('无法打开浏览器，请复制链接后打开。')}</span>}</>;
 }

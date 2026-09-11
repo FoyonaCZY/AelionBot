@@ -1,4 +1,5 @@
 import './file-cards.css';
+import {useI18n} from './i18n';
 
 type FileKind='document'|'slides'|'sheet'|'pdf'|'code'|'image'|'archive'|'audio'|'video'|'file';
 const formats:Record<string,[FileKind,string]>={
@@ -39,10 +40,11 @@ export function FileTypeBadge({name,mime}:{name:string;mime?:string}){
 }
 
 export function FileInfo({name,size,mime,compact=false}:{name:string;size:number;mime?:string;compact?:boolean}){
+  const {t}=useI18n();
   const {label,suffix}=appearance(name,mime);
   return <span className="file-tile-copy">
     <strong className="file-tile-name" title={name}><span>{suffix?name.slice(0,-suffix.length):name}</span>{suffix&&<span className="file-tile-extension">{suffix}</span>}</strong>
-    {!compact&&<small className="file-tile-meta"><span>{label}</span><span aria-hidden="true">·</span><span>{fileSize(size)}</span></small>}
+    {!compact&&<small className="file-tile-meta"><span>{t(label)}</span><span aria-hidden="true">·</span><span>{fileSize(size)}</span></small>}
   </span>;
 }
 

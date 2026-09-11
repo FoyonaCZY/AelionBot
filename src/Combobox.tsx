@@ -1,4 +1,5 @@
 import {useEffect,useId,useLayoutEffect,useRef,useState,type InputHTMLAttributes} from 'react';
+import {useI18n} from './i18n';
 import './select.css';
 
 type Props=Omit<InputHTMLAttributes<HTMLInputElement>,'value'|'defaultValue'|'onChange'|'list'|'type'> & {
@@ -6,7 +7,9 @@ type Props=Omit<InputHTMLAttributes<HTMLInputElement>,'value'|'defaultValue'|'on
 };
 
 export function Combobox({value,options,onChange,emptyMessage='也可以直接输入其他值',disabled,className='',onKeyDown,onBlur,...props}:Props){
+  const {t}=useI18n();
   const id=useId(),input=useRef<HTMLInputElement>(null),root=useRef<HTMLSpanElement>(null),list=useRef<HTMLSpanElement>(null);
+  const empty=emptyMessage==='也可以直接输入其他值'?t('也可以直接输入其他值'):emptyMessage;
   const [open,setOpen]=useState(false),[filter,setFilter]=useState(false),[active,setActive]=useState(0);
   const matches=options.filter(option=>!filter||option.toLocaleLowerCase().includes(value.toLocaleLowerCase()));
   const index=matches.length?Math.min(active,matches.length-1):-1;
@@ -45,8 +48,8 @@ export function Combobox({value,options,onChange,emptyMessage='也可以直接�
         onKeyDown?.(event);
       }}/>
     <span className="aelion-combobox-arrow" aria-hidden="true" onPointerDown={event=>{event.preventDefault();if(disabled)return;input.current?.focus({preventScroll:true});if(open)setOpen(false);else show();}} onClick={event=>event.preventDefault()}/>
-    {open&&<span ref={list} id={id} popover="manual" role="listbox" aria-label={props['aria-label']||'选项'} className="aelion-combobox-list">
-      {matches.length?matches.map((option,i)=><span key={option} id={`${id}-${i}`} data-index={i} role="option" aria-selected={option===value} className={`aelion-combobox-option ${i===index?'is-active':''}`} onPointerDown={event=>event.preventDefault()} onMouseMove={()=>setActive(i)} onClick={event=>{event.preventDefault();choose(option);}}>{option}{option===value&&<span className="aelion-option-check" aria-hidden="true"/>}</span>):<span className="aelion-combobox-empty">{emptyMessage}</span>}
+    {open&&<span ref={list} id={id} popover="manual" role="listbox" aria-label={props['aria-label']||t('选项')} className="aelion-combobox-list">
+      {matches.length?matches.map((option,i)=><span key={option} id={`${id}-${i}`} data-index={i} role="option" aria-selected={option===value} className={`aelion-combobox-option ${i===index?'is-active':''}`} onPointerDown={event=>event.preventDefault()} onMouseMove={()=>setActive(i)} onClick={event=>{event.preventDefault();choose(option);}}>{option}{option===value&&<span className="aelion-option-check" aria-hidden="true"/>}</span>):<span className="aelion-combobox-empty">{empty}</span>}
     </span>}
   </span>;
 }

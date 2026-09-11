@@ -17,6 +17,7 @@ import {legacyQuestionAnswerData,readableQuestionAnswer} from './question-answer
 import {QuestionAnswerMessage} from './QuestionAnswerMessage';
 import {MessageActions} from './MessagePins';
 import type {BotActivity} from './bot-activity';
+import {currentLanguage,translate,useI18n} from './i18n';
 import './avatar.css';
 import './message-surfaces.css';
 
@@ -54,13 +55,14 @@ export function Avatar({bot,size=44,activity='idle'}:{bot:Pick<Bot,'name'|'color
   const id=useId(),palette=useContext(BotAvatarContext).get(bot.id||'')||bot;
   const markup=botAvatarContent(palette,id),content=useMemo(()=>({__html:markup}),[markup]);
   let phase=0;for(const letter of bot.id||bot.name)phase=(phase*31+letter.charCodeAt(0))>>>0;
-  const label={idle:'',thinking:'正在思考',working:'正在工作',waiting:'等待你处理'}[activity];
+  const label=translate({idle:'',thinking:'正在思考',working:'正在工作',waiting:'等待你处理'}[activity]);
   return <svg width={size} height={size} viewBox="0 0 60 60" className="avatar" role="img" data-activity={activity} style={{'--avatar-motion-delay':`-${phase%2400}ms`} as React.CSSProperties} aria-label={label?`${bot.name}，${label}`:bot.name} dangerouslySetInnerHTML={content}/>;
 }
-export const time=(value:string)=>new Date(value).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
+export const time=(value:string)=>new Date(value).toLocaleTimeString(currentLanguage(),{hour:'2-digit',minute:'2-digit'});
 export const bytes=(size:number)=>size<1024?`${size} B`:size<1048576?`${Math.round(size/102.4)/10} KB`:`${Math.round(size/104857.6)/10} MB`;
 
 export function Vnc({url,control=false}:{url?:string;control?:boolean}){
+  const {t}=useI18n();
   const host=useRef<HTMLDivElement>(null),rfb=useRef<any>(null);const [connected,setConnected]=useState(false),[retry,setRetry]=useState(0),[failed,setFailed]=useState(false);
   const coldRetries=useRef(0);
   useEffect(()=>{coldRetries.current=0;},[url]);
@@ -88,13 +90,14 @@ export function Vnc({url,control=false}:{url?:string;control?:boolean}){
     }catch{clearInterval(frameTimer);setFailed(true);}
   },[url,retry]);
   useEffect(()=>{if(rfb.current)rfb.current.viewOnly=!control;},[control]);
-  return <div className="vnc-shell"><div ref={host} className="vnc-surface"/>{!connected&&<div className="vnc-overlay"><Icon name="computer" size={34}/><span>{!url?'正在等待工作电脑桌面':failed?'画面尚未恢复':'正在连接电脑画面'}</span>{url&&failed&&<button onClick={event=>{event.stopPropagation();coldRetries.current=0;setRetry(value=>value+1);}}>重新连接</button>}</div>}</div>;
+  return <div className="vnc-shell"><div ref={host} className="vnc-surface"/>{!connected&&<div className="vnc-overlay"><Icon name="computer" size={34}/><span>{!url?t('正在等待工作电脑桌面'):failed?t('画面尚未恢复'):t('正在连接电脑画面')}</span>{url&&failed&&<button onClick={event=>{event.stopPropagation();coldRetries.current=0;setRetry(value=>value+1);}}>{t('重新连接')}</button>}</div>}</div>;
 }
 
 export function ScreenImage({id,onOpen}:{id:string;onOpen:(url:string)=>void}){
+  const {t}=useI18n();
   const [url,setUrl]=useState(''),[error,setError]=useState('');
   useEffect(()=>{let active=true;window.aelion.screenshot(id).then(value=>{if(active)setUrl(value);}).catch(error=>{if(active)setError(error.message);});return()=>{active=false;};},[id]);
-  return url?<button className="screen-evidence" onClick={()=>onOpen(url)} aria-label="查看操作截图"><img src={url} alt="Bot 操作后的工作电脑截图"/></button>:<p className="subtle">{error||'加载截图…'}</p>;
+  return url?<button className="screen-evidence" onClick={()=>onOpen(url)} aria-label={t('查看操作截图')}><img src={url} alt={t('Bot 操作后的工作电脑截图')}/></button>:<p className="subtle">{error||t('加载截图…')}</p>;
 }
 export function MentionTag({mention}:{mention:BotMention}){return <span className="bot-mention" data-bot-id={mention.id} title={`${mention.name} · ${mention.id.slice(0,8)}`}><Avatar bot={mention} size={16}/>@{mention.name}</span>;}
 export function MentionContent({content,mentions=[],markdown=false}:{content:string;mentions?:BotMention[];markdown?:boolean}){
@@ -103,17 +106,19 @@ export function MentionContent({content,mentions=[],markdown=false}:{content:str
   const parts:React.ReactNode[]=[];let at=0;for(const mention of validMentions(content,mentions)){parts.push(content.slice(at,mention.start),<MentionTag key={`${mention.id}-${mention.start}`} mention={mention}/>);at=mention.end;}parts.push(content.slice(at));return <>{parts}</>;
 }
 export function Message({message,allowPins=true,onReply}:{message:ChatMessage;allowPins?:boolean;onReply?:(message:ChatMessage)=>void}){
-  if(message.scheduled)return <><MessageTime id={message.id} time={message.time}/><div className="scheduled-trigger" data-message-id={message.id}><div><Icon name="clock" size={15}/><span>定时任务 · {message.scheduled.title}</span></div><p>{message.content}</p></div></>;
+  const {t}=useI18n();
+  if(message.scheduled)return <><MessageTime id={message.id} time={message.time}/><div className="scheduled-trigger" data-message-id={message.id}><div><Icon name="clock" size={15}/><span>{t('定时任务')} · {message.scheduled.title}</span></div><p>{message.content}</p></div></>;
   if(message.reaction)return null;
   if(message.role==='event')return <div className="event-message">{message.content}</div>;
   if(message.role==='tool')return null;
   if(!message.content&&!message.attachments?.length&&message.status!=='running')return null;
   const answer=message.role==='user'?(message.questionAnswer||legacyQuestionAnswerData(message.content)):undefined;
-  const content=message.role==='assistant'?(message.content.startsWith('执行检查发现未解决')?'发现校验问题，继续检查并修正。':readableContent(message.content)):readableQuestionAnswer(message.content);
+  const content=message.role==='assistant'?(message.content.startsWith('执行检查发现未解决')?t('发现校验问题，继续检查并修正。'):readableContent(message.content)):readableQuestionAnswer(message.content);
   return <><MessageTime id={message.id} time={message.time}/><div className={`message-row ${message.role}`} data-message-id={message.id}><MessageActions messageId={message.id} content={content||attachmentSummary(message.attachments)} pins={message.pins} onReply={onReply&&!['running','cancelled'].includes(message.status||'done')&&(content||message.attachments?.length)?()=>onReply({...message,content}):undefined} bubbleClassName={`bubble ${answer?'question-answer-bubble':''} ${message.status==='failed'?'failed':''}`} onPin={allowPins&&(content||message.attachments?.length)&&(!message.status||message.status==='done')?input=>window.aelion.pinChat({...input,botId:message.botId}):undefined}>{message.reply&&<MessageQuote reply={message.reply}/>}{answer?<QuestionAnswerMessage answer={answer}/>:content?(message.role==='assistant'?<div className="markdown"><MentionContent content={content} mentions={message.mentions} markdown/></div>:<MentionContent content={content} mentions={message.mentions}/>):message.attachments?.length?null:<span className="typing"><i/><i/><i/></span>}<AttachmentList files={message.attachments}/></MessageActions></div></>;
 }
 
 export interface FileItem {name:string;path:string;size:number;}
 export function FileCard({file,onOpen,onSave,disabled=false}:{file:FileItem;onOpen:()=>void;onSave:()=>void;disabled?:boolean}){
-  return <article className="artifact-card file-tile"><button type="button" className="artifact-open file-tile-open" onClick={onOpen} disabled={disabled} title={`预览 ${file.name}`} aria-label={`打开 ${file.name}`}><FileTypeBadge name={file.name}/><FileInfo name={file.name} size={file.size}/></button><button type="button" className="artifact-save" title="保存到本地" aria-label={`保存 ${file.name}`} disabled={disabled} onClick={onSave}><Icon name="download" size={16}/></button></article>;
+  const {t}=useI18n();
+  return <article className="artifact-card file-tile"><button type="button" className="artifact-open file-tile-open" onClick={onOpen} disabled={disabled} title={t('预览 {name}',{name:file.name})} aria-label={t('打开 {name}',{name:file.name})}><FileTypeBadge name={file.name}/><FileInfo name={file.name} size={file.size}/></button><button type="button" className="artifact-save" title={t('保存到本地')} aria-label={t('保存 {name}',{name:file.name})} disabled={disabled} onClick={onSave}><Icon name="download" size={16}/></button></article>;
 }

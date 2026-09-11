@@ -1,6 +1,7 @@
 import type {ChatMessage,RunRecord} from './shared';
 import {readableQuestionAnswer} from './question-answers';
 import {isContextCapacityFailure} from './context-issue';
+import {currentLanguage,translate} from './i18n';
 
 const operations:Record<string,{label:string;active:string;icon:string}>={
   execution_list:{label:'核对执行记录',active:'正在核对执行记录',icon:'check'},
@@ -82,7 +83,7 @@ const operations:Record<string,{label:string;active:string;icon:string}>={
   mcp_get_prompt:{label:'读取提示模板',active:'正在读取提示模板',icon:'book'},
   read_result:{label:'核对执行结果',active:'正在核对执行结果',icon:'check'}
 };
-export const toolOperation=(name?:string)=>operations[name||'']||{label:'执行操作',active:'正在处理',icon:'terminal'};
+export const toolOperation=(name?:string)=>{const operation=operations[name||'']||{label:'执行操作',active:'正在处理',icon:'terminal'};return {...operation,label:translate(operation.label),active:translate(operation.active)};};
 
 // Store only short display metadata, never commands, code, credentials or full arguments.
 export function describeTool(name:string,input:Record<string,unknown>={},output?:unknown):NonNullable<ChatMessage['activity']>{
@@ -95,9 +96,9 @@ export function describeTool(name:string,input:Record<string,unknown>={},output?
   if(name==='bot_send_message')detail=text((result.recipient as Record<string,unknown>|undefined)?.name);
   if(name==='computer'){
     const actions:Record<string,string>={screenshot:'查看电脑画面',click:'点击界面',double_click:'打开项目',move:'移动指针',drag:'拖动界面',scroll:'滚动页面',key:'按下快捷键',type:'输入文字',open_app:'打开应用'};
-    label=actions[text(input.action||result.action)]||label;
+    const action=actions[text(input.action||result.action)];label=action?translate(action):label;
     const apps:Record<string,string>={browser:'浏览器',files:'文件管理器',editor:'文本编辑器',writer:'文档',calc:'表格',terminal:'终端'};
-    detail=apps[text(input.app)]||'';
+    const app=apps[text(input.app)];detail=app?translate(app):'';
   }
   return {label,...(detail?{detail}:{})};
 }
@@ -105,19 +106,19 @@ export function describeTool(name:string,input:Record<string,unknown>={},output?
 export function toolResult(message:ChatMessage):unknown{
   try{const parsed=JSON.parse(message.content);return parsed.truncated?{preview:parsed.preview,truncated:true}:Object.hasOwn(parsed,'result')?parsed.result:parsed;}catch{return undefined;}
 }
-export function toolDisplay(message:ChatMessage){return message.activity||describeTool(message.tool||'',{},toolResult(message));}
+export function toolDisplay(message:ChatMessage){return message.activity?{...message.activity,label:translate(message.activity.label),...(message.activity.detail?{detail:translate(message.activity.detail)}:{})}:describeTool(message.tool||'',{},toolResult(message));}
 
 export interface LiveBotStep {phase:'thinking'|'working'|'waiting';label:string;detail?:string;}
 export function liveBotStep(messages:ChatMessage[],run?:RunRecord,waiting?:'host_permission'|'vm_takeover'|'user_input',reviewing=false):LiveBotStep|undefined{
   if(!run||run.status!=='running')return;
-  if(reviewing)return {phase:'thinking',label:'正在确认操作权限'};
-  if(waiting)return {phase:'waiting',label:waiting==='host_permission'?'等待你的操作许可':waiting==='user_input'?'等待你的回答':'等待你处理工作电脑'};
+  if(reviewing)return {phase:'thinking',label:translate('正在确认操作权限')};
+  if(waiting)return {phase:'waiting',label:translate(waiting==='host_permission'?'等待你的操作许可':waiting==='user_input'?'等待你的回答':'等待你处理工作电脑')};
   const current=[...messages].reverse().find(message=>message.runId===run.id&&message.role==='tool'&&message.status==='running');
   const execution=[...(run.executions||[])].reverse().find(item=>item.status==='running');
   if(['tools_batch','code_exec'].includes(current?.tool||'')&&execution&&execution.tool!=='tools_batch')return {phase:'working',label:toolOperation(execution.tool).active};
-  if(current){const display=toolDisplay(current);return {phase:'working',label:/^(正在|等待)/.test(display.label)?display.label:`正在${display.label}`,detail:display.detail};}
+  if(current){const display=toolDisplay(current),label=currentLanguage()==='en'?display.label:/^(正在|等待)/.test(display.label)?display.label:`正在${display.label}`;return {phase:'working',label,detail:display.detail};}
   if(execution)return {phase:'working',label:toolOperation(execution.tool).active};
-  return {phase:'thinking',label:'正在思考'};
+  return {phase:'thinking',label:translate('正在思考')};
 }
 
 export function readableContent(content:string){
@@ -127,20 +128,21 @@ export function readableContent(content:string){
 }
 
 export interface Notice {title:string;description:string;settings?:'model'|'computer'|'mcp';context?:boolean;}
+const localizedNotice=(title:string,description:string,extra:Partial<Notice>={})=>({title:translate(title),description:translate(description),...extra});
 export function friendlyError(raw:string):Notice{
-  if(/不支持图片输入|no endpoints found that support image input|(?:image|vision).{0,40}(?:not supported|unsupported)|does not support.{0,20}image/i.test(raw))return {title:'当前模型无法读取图片',description:'请为这个 Bot 选择支持图片的模型。附件和原始对话已保留；新的纯文字消息可以继续处理。',settings:'model'};
-  if(/tool_calls.*must be followed|insufficient tool messages|tool_call_id|工具历史/i.test(raw))return {title:'工具调用记录需要恢复',description:'此前的工具调用与结果未正确配对。工作记录已保留，继续时会修复消息顺序并核对实际结果。'};
-  if(/HTTP\s*(401|403)\b|unauthorized|invalid.api.key|身份验证|凭据无效/i.test(raw))return {title:'模型连接需要检查',description:'请确认 API Key 和模型访问权限，再继续这项工作。',settings:'model'};
-  if(/HTTP\s*429\b|rate.limit|too.many.requests|额度|限流/i.test(raw))return {title:'模型暂时达到使用限制',description:'可以稍后继续，或在设置中更换可用模型。',settings:'model'};
-  if(/HTTP\s*5\d\d\b|service.temporarily.unavailable/i.test(raw))return {title:'模型服务暂时不可用',description:'已有工作记录保留，可以稍后继续。'};
-  if(isContextCapacityFailure(raw))return {title:'上下文空间不足',description:'工作记录已保留。请调整模型上下文容量或缩小任务输入后继续。',settings:'model',context:true};
-  if(/执行上限|执行.*预算|30 轮/i.test(raw))return {title:'已达到本轮执行预算',description:'已有结果已保留，可以继续处理剩余部分。'};
-  if(/工作电脑.*(就绪|启动|准备)|VM.*(ready|running)|SSH|ECONNREFUSED.*127\.0\.0\.1/i.test(raw))return {title:'工作电脑连接中断',description:'请检查工作电脑状态，恢复连接后继续。',settings:'computer'};
-  if(/MCP.*未启用|MCP.*授权/i.test(raw))return {title:'外部工具需要设置',description:'请在设置的 MCP 页面检查服务状态，再继续工作。',settings:'mcp'};
-  if(/timeout|timed.out|超时/i.test(raw))return {title:'等待响应超时',description:'当前工作已暂停，继续前会先核对已有结果。'};
-  if(/fetch failed|network|ECONN|ENOTFOUND|网络/i.test(raw))return {title:'连接暂时中断',description:'请检查网络或服务状态，恢复后可以继续。'};
-  if(/KeyError|AssertionError|SyntaxError|Traceback|exitCode|执行.*错误|工具.*失败|操作.*失败/i.test(raw))return {title:'执行遇到问题',description:'这项工作尚未完成，可以继续检查并修正。'};
-  return {title:'这次工作未能完成',description:'工作记录已保留，可以查看详情后继续。'};
+  if(/不支持图片输入|no endpoints found that support image input|(?:image|vision).{0,40}(?:not supported|unsupported)|does not support.{0,20}image/i.test(raw))return localizedNotice('当前模型无法读取图片','请为这个 Bot 选择支持图片的模型。附件和原始对话已保留；新的纯文字消息可以继续处理。',{settings:'model'});
+  if(/tool_calls.*must be followed|insufficient tool messages|tool_call_id|工具历史/i.test(raw))return localizedNotice('工具调用记录需要恢复','此前的工具调用与结果未正确配对。工作记录已保留，继续时会修复消息顺序并核对实际结果。');
+  if(/HTTP\s*(401|403)\b|unauthorized|invalid.api.key|身份验证|凭据无效/i.test(raw))return localizedNotice('模型连接需要检查','请确认 API Key 和模型访问权限，再继续这项工作。',{settings:'model'});
+  if(/HTTP\s*429\b|rate.limit|too.many.requests|额度|限流/i.test(raw))return localizedNotice('模型暂时达到使用限制','可以稍后继续，或在设置中更换可用模型。',{settings:'model'});
+  if(/HTTP\s*5\d\d\b|service.temporarily.unavailable/i.test(raw))return localizedNotice('模型服务暂时不可用','已有工作记录保留，可以稍后继续。');
+  if(isContextCapacityFailure(raw))return localizedNotice('上下文空间不足','工作记录已保留。请调整模型上下文容量或缩小任务输入后继续。',{settings:'model',context:true});
+  if(/执行上限|执行.*预算|30 轮/i.test(raw))return localizedNotice('已达到本轮执行预算','已有结果已保留，可以继续处理剩余部分。');
+  if(/工作电脑.*(就绪|启动|准备)|VM.*(ready|running)|SSH|ECONNREFUSED.*127\.0\.0\.1/i.test(raw))return localizedNotice('工作电脑连接中断','请检查工作电脑状态，恢复连接后继续。',{settings:'computer'});
+  if(/MCP.*未启用|MCP.*授权/i.test(raw))return localizedNotice('外部工具需要设置','请在设置的 MCP 页面检查服务状态，再继续工作。',{settings:'mcp'});
+  if(/timeout|timed.out|超时/i.test(raw))return localizedNotice('等待响应超时','当前工作已暂停，继续前会先核对已有结果。');
+  if(/fetch failed|network|ECONN|ENOTFOUND|网络/i.test(raw))return localizedNotice('连接暂时中断','请检查网络或服务状态，恢复后可以继续。');
+  if(/KeyError|AssertionError|SyntaxError|Traceback|exitCode|执行.*错误|工具.*失败|操作.*失败/i.test(raw))return localizedNotice('执行遇到问题','这项工作尚未完成，可以继续检查并修正。');
+  return localizedNotice('这次工作未能完成','工作记录已保留，可以查看详情后继续。');
 }
 
 export type TimelineItem={kind:'message';id:string;message:ChatMessage}|{kind:'run';id:string;segmentId:string;isLast:boolean;messages:ChatMessage[]};
@@ -181,8 +183,8 @@ export function technicalOutput(message:ChatMessage){
   const result=toolResult(message);
   if(result&&typeof result==='object'&&!Array.isArray(result)){
     const value=result as Record<string,unknown>;
-    if('stdout' in value||'stderr' in value)return [value.stdout,value.stderr,typeof value.exitCode==='number'?`退出码 ${value.exitCode}`:''].filter(Boolean).join('\n\n');
-    if(value.truncated)return `以下为部分输出：\n${value.preview||''}`;
+    if('stdout' in value||'stderr' in value)return [value.stdout,value.stderr,typeof value.exitCode==='number'?translate('退出码 {code}',{code:value.exitCode}):''].filter(Boolean).join('\n\n');
+    if(value.truncated)return `${translate('以下为部分输出：')}\n${value.preview||''}`;
   }
   return result===undefined?message.content:JSON.stringify(result,null,2);
 }

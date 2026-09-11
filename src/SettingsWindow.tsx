@@ -1,5 +1,6 @@
 import {useEffect,useRef,type ReactNode} from 'react';
 import {Avatar,Icon} from './ui';
+import {useI18n} from './i18n';
 
 export type SettingsTab='appearance'|'profile'|'runtime'|'model'|'usage'|'skills'|'mcp'|'memory'|'computer'|'permissions'|'about';
 const pages:ReadonlyArray<{id:SettingsTab;label:string;icon:string}>=[
@@ -18,15 +19,16 @@ const pages:ReadonlyArray<{id:SettingsTab;label:string;icon:string}>=[
 
 export function SettingsWindow({tab,onTabChange,onClose,children}:{tab:SettingsTab;onTabChange:(tab:SettingsTab)=>void;onClose:()=>void;children:ReactNode}){
   const content=useRef<HTMLDivElement>(null);
+  const {t}=useI18n();
   useEffect(()=>{if(content.current)content.current.scrollTop=0;},[tab]);
   return <>
-    <nav className="settings-sidebar" aria-label="设置分类">
-      <div className="settings-brand"><Avatar bot={{name:'AelionBot',color:'#a18ac2'}} size={29}/><span>偏好设置</span></div>
-      {pages.map(page=><button key={page.id} title={page.label} className={tab===page.id?'active':''} aria-current={tab===page.id?'page':undefined} onClick={()=>onTabChange(page.id)}><Icon name={page.icon} size={18}/><span>{page.label}</span>{tab===page.id&&<i aria-hidden="true"/>}</button>)}
+    <nav className="settings-sidebar" aria-label={t('设置分类')}>
+      <div className="settings-brand"><Avatar bot={{name:'AelionBot',color:'#a18ac2'}} size={29}/><span>{t('偏好设置')}</span></div>
+      {pages.map(page=><button key={page.id} title={t(page.label)} className={tab===page.id?'active':''} aria-current={tab===page.id?'page':undefined} onClick={()=>onTabChange(page.id)}><Icon name={page.icon} size={18}/><span>{t(page.label)}</span>{tab===page.id&&<i aria-hidden="true"/>}</button>)}
     </nav>
     <div className="settings-pane">
-      <header className="settings-heading"><h2>{pages.find(page=>page.id===tab)?.label}</h2></header>
-      <button className="settings-close icon-button" aria-label="关闭对话框" onClick={onClose}><Icon name="close" size={21}/></button>
+      <header className="settings-heading"><h2>{t(pages.find(page=>page.id===tab)?.label||'偏好设置')}</h2></header>
+      <button className="settings-close icon-button" aria-label={t('关闭对话框')} onClick={onClose}><Icon name="close" size={21}/></button>
       <div className={`settings-body settings-page-${tab}`} ref={content}>{children}</div>
     </div>
   </>;

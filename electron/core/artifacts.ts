@@ -7,6 +7,12 @@ import { VmController, shQuote } from './vm';
 import {WORKSPACE_DIRECTORY_SCRIPT} from './workspace-directory';
 import type {WorkspaceDirectory} from '../../src/workspace-files';
 import {sourceTextFile} from '../../src/source-language';
+import type {TextEdit} from '../../src/editable-text';
+import {editableText,editedBytes} from './preview-editing';
+import {readVmBytes,VM_WRITE} from './vm-files';
+import {vmPython} from './vm-python';
+import {decodeText} from './file-text';
+import {FileCheckpoints} from './file-checkpoints';
 
 export function artifactPath(value:string){
   if(!value||value.length>500||value.startsWith('/')||value.includes('\\')||/^[a-z][a-z0-9+.-]*:/i.test(value)||value.split('/').includes('..')||value.includes('\0'))throw new Error('文件必须位于当前 Bot 工作目录');
@@ -14,6 +20,21 @@ export function artifactPath(value:string){
 }
 export class ArtifactService {
   constructor(private store:Store,private vm:VmController){}
+  async readEditable(botId:string,path:string){
+    this.store.bot(botId);path=artifactPath(path);if(!sourceTextFile(path))throw Error('此格式暂不支持文本编辑');
+    const source=await readVmBytes(this.vm,botId,path,new AbortController().signal);
+    return editableText(source.bytes,source.path);
+  }
+  async saveEditable(botId:string,path:string,edit:TextEdit){
+    this.store.bot(botId);path=artifactPath(path);if(!sourceTextFile(path)||typeof edit?.revision!=='string'||!/^[a-f0-9]{64}$/.test(edit.revision))throw Error('无效的文本保存请求');
+    const signal=new AbortController().signal,source=await readVmBytes(this.vm,botId,path,signal);
+    if(editableText(source.bytes,source.path).revision!==edit.revision)throw Error('文件已被其他操作修改，未覆盖原文件。请保留草稿或重新加载后再编辑。');
+    const bytes=editedBytes(edit.content,source.bytes),checkpoints=new FileCheckpoints(this.store,this.vm),checkpoint=await checkpoints.vmBefore(botId,'preview-edit-'+randomUUID(),source.path,signal);
+    const result=await vmPython(this.vm,botId,{path,expectedPath:source.path,expectedSha256:decodeText(source.bytes).sha256,content:bytes.toString('utf8')},VM_WRITE,signal);
+    if(result.exitCode!==0){if(/FILE_CHANGED|PATH_CHANGED/.test(result.stderr))throw Error('文件在保存前发生变化，未覆盖原文件。请保留草稿或重新加载后再编辑。');throw Error('保存失败，请确认工作电脑连接正常且文件可写。');}
+    const receipt=JSON.parse(result.stdout);if(checkpoint)checkpoints.vmReceipt(checkpoint,receipt.sha256);
+    return editableText(bytes,source.path);
+  }
   async directory(botId:string,path=''):Promise<WorkspaceDirectory>{
     this.store.bot(botId);if(path)path=artifactPath(path);
     const result=await this.vm.executePython(WORKSPACE_DIRECTORY_SCRIPT,Buffer.from(JSON.stringify({path})),botId,undefined,600_000);

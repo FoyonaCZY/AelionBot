@@ -6,5 +6,7 @@ import './settings.css';
 import './typography.css';
 import './theme.css';
 import {initializeAppearance} from './use-appearance';
+import {initializeI18n} from './i18n';
 initializeAppearance();
+initializeI18n();
 createRoot(document.getElementById('root')!).render(<App/>);

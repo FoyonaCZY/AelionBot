@@ -1,4 +1,5 @@
 import {readableContent} from './activity';
+import {currentLanguage,translate} from './i18n';
 export interface TimedMessage {id:string;time:string;content?:string;role?:string;kind?:string;status?:string;reaction?:unknown;attachments?:unknown[];}
 const dateKey=(date:Date)=>`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 export function conversationTimeLabels(messages:readonly TimedMessage[],now=new Date()){
@@ -16,6 +17,6 @@ export function formatConversationTime(value:string,now=new Date()){
   const clock=`${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
   if(dateKey(date)===dateKey(now))return clock;
   const yesterday=new Date(now.getFullYear(),now.getMonth(),now.getDate()-1);
-  if(dateKey(date)===dateKey(yesterday))return `昨天 ${clock}`;
-  return `${date.getFullYear()===now.getFullYear()?'':date.getFullYear()+'年'}${date.getMonth()+1}月${date.getDate()}日 ${clock}`;
+  if(dateKey(date)===dateKey(yesterday))return translate('昨天 {time}',{time:clock});
+  return new Intl.DateTimeFormat(currentLanguage(),{year:date.getFullYear()===now.getFullYear()?undefined:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(date);
 }

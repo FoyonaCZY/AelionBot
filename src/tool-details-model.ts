@@ -1,4 +1,5 @@
 import {friendlyError} from './activity';
+import {translate} from './i18n';
 
 export const objectValue=(value:unknown):Record<string,unknown>=>value!==null&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:{};
 export const textValue=(value:unknown)=>typeof value==='string'?value:'';
@@ -10,17 +11,17 @@ export function parsedText(text:string):unknown{
 }
 export function cleanConsole(text:string){return text.replace(/\u001b\[[0-9;]*[A-Za-z]/g,'').replace(/\r\n/g,'\n').trim();}
 const labels:Record<string,string>={name:'名称',title:'标题',description:'说明',echo:'回显内容',marker:'验证标记',system:'运行系统',platform:'运行平台',source:'来源',result:'结果',message:'说明',status:'状态',total:'合计',byTeam:'团队汇总',team:'团队',amount:'金额',count:'数量',path:'文件路径',url:'地址',uri:'资源地址',success:'是否成功',verified:'是否通过',tests:'测试',passed:'通过',failed:'失败',errors:'错误',warnings:'提示',durationMs:'耗时（毫秒）',size:'大小',bytes:'字节数',rows:'记录',data:'数据',value:'内容',date:'日期',id:'编号'};
-export function fieldLabel(key:string){return labels[key]||key.replace(/_/g,' ').replace(/([a-z])([A-Z])/g,'$1 $2');}
-export function scalarText(value:unknown){if(value===null||value===undefined)return '—';if(typeof value==='boolean')return value?'是':'否';return String(value);}
+export function fieldLabel(key:string){return translate(labels[key]||key.replace(/_/g,' ').replace(/([a-z])([A-Z])/g,'$1 $2'));}
+export function scalarText(value:unknown){if(value===null||value===undefined)return '—';if(typeof value==='boolean')return value?translate('是'):translate('否');return String(value);}
 export function parameterRows(schema:unknown){
   const root=objectValue(schema),required=new Set(arrayValue(root.required));
   const types:Record<string,string>={string:'文本',number:'数字',integer:'整数',boolean:'是 / 否',array:'列表',object:'对象',null:'空值'};
-  return Object.entries(objectValue(root.properties)).map(([name,value])=>{const item=objectValue(value);const kinds=Array.isArray(item.type)?item.type:[item.type];return {name,description:textValue(item.description),required:required.has(name),type:kinds.filter(type=>typeof type==='string').map(type=>types[String(type)]||String(type)).join(' / ')||'任意值',choices:arrayValue(item.enum).map(scalarText)};});
+  return Object.entries(objectValue(root.properties)).map(([name,value])=>{const item=objectValue(value);const kinds=Array.isArray(item.type)?item.type:[item.type];return {name,description:textValue(item.description),required:required.has(name),type:kinds.filter(type=>typeof type==='string').map(type=>translate(types[String(type)]||String(type))).join(' / ')||translate('任意值'),choices:arrayValue(item.enum).map(scalarText)};});
 }
 export function fileGroups(files:unknown){
   const groups=new Map<string,Array<{name:string;path:string}>>();
   for(const value of arrayValue(files)){if(typeof value!=='string')continue;const path=value.replace(/\\/g,'/'),dir=path.includes('/')?path.slice(0,path.lastIndexOf('/')):'';const label=dir==='scripts'?'脚本':dir==='references'?'参考资料':dir==='assets'?'素材':dir||'说明文件';const items=groups.get(label)||[];items.push({name:fileName(path),path});groups.set(label,items);}
-  return [...groups].map(([label,files])=>({label,files}));
+  return [...groups].map(([label,files])=>({label:translate(label),files}));
 }
 export interface ErrorExplanation {title:string;message:string;code?:string;location?:string;}
 export function errorExplanation(raw:string):ErrorExplanation{

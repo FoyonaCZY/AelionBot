@@ -21,6 +21,7 @@ import php from 'highlight.js/lib/languages/php';
 import ini from 'highlight.js/lib/languages/ini';
 import markdown from 'highlight.js/lib/languages/markdown';
 import dockerfile from 'highlight.js/lib/languages/dockerfile';
+import {translate} from './i18n';
 import makefile from 'highlight.js/lib/languages/makefile';
 
 for(const [name,grammar] of Object.entries({bash,css,diff,javascript,json,powershell,python,sql,typescript,xml,yaml,c,cpp,csharp,go,java,rust,ruby,php,ini,markdown,dockerfile,makefile}))hljs.registerLanguage(name,grammar);
@@ -29,7 +30,7 @@ hljs.registerAliases(['tsx'],{languageName:'typescript'});
 
 export function highlightMessageCode(code:string,language='',maxCharacters=30_000):{label:string;html?:string}{
   const name=language.toLowerCase(),grammar=hljs.getLanguage(name);
-  const label=grammar?.name||language||'纯文本';
+  const label=grammar?.name||language||translate('纯文本');
   // Avoid guessing languages or repeatedly parsing very large streaming blocks.
   if(!grammar||code.length>Math.min(maxCharacters,120_000))return {label};
   try{return {label,html:hljs.highlight(code,{language:name,ignoreIllegals:true}).value};}

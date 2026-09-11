@@ -1,5 +1,6 @@
 import type {DelegationContract,DelegationReceipt} from '../electron/core/delegation';
 import type {Attachment} from './attachment-types';
+import {translate} from './i18n';
 export interface BotIdentity {id:string;name:string;color:string;avatarStyle?:import('./bot-colors').BotAvatarStyle;}
 export interface BotMention extends BotIdentity {start:number;end:number;}
 export type PeerStatus='queued'|'working'|'waiting'|'reply_queued'|'relaying'|'completed'|'cancelled'|'failed'|'interrupted';
@@ -17,4 +18,4 @@ export interface PeerRunOrigin {kind:'peer_request'|'peer_result'|'peer_summary'
 export const isPrivatePeerOrigin=(origin?:PeerRunOrigin)=>Boolean(origin&&origin.kind!=='peer_task');
 export interface PeerNotice {exchangeId:string;direction:'sent'|'received'|'failed';}
 export const peerPending=(status:PeerStatus)=>!['completed','cancelled','failed','interrupted'].includes(status);
-export function peerStatusLabel(status:PeerStatus){return ({queued:'等待处理',working:'等待回复',waiting:'等待回复',reply_queued:'等待整理',relaying:'正在整理回复',completed:'已回复',cancelled:'已取消',failed:'未能完成',interrupted:'已中断'} as const)[status];}
+export function peerStatusLabel(status:PeerStatus){return translate(({queued:'等待处理',working:'等待回复',waiting:'等待回复',reply_queued:'等待整理',relaying:'正在整理回复',completed:'已回复',cancelled:'已取消',failed:'未能完成',interrupted:'已中断'} as const)[status]);}

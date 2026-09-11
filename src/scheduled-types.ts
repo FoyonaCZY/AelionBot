@@ -1,3 +1,5 @@
+import {currentLanguage,translate} from './i18n';
+
 export type TaskTarget={kind:'bot'|'group';id:string};
 export type TaskSchedule=({kind:'once';at:string}|{kind:'daily';time:string}|{kind:'weekly';time:string;weekdays:number[]}|{kind:'interval';minutes:number})&{timeZone:string};
 export type ScheduledTaskStatus='enabled'|'paused'|'completed';
@@ -36,9 +38,9 @@ export function nextTaskTime(schedule:TaskSchedule,after:number,previous?:number
   throw new Error('无法计算下次运行时间');
 }
 export function scheduleLabel(schedule:TaskSchedule){
-  if(schedule.kind==='once')return new Date(schedule.at).toLocaleString('zh-CN',{timeZone:schedule.timeZone,month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
-  if(schedule.kind==='interval')return `每 ${schedule.minutes%60===0?schedule.minutes/60+' 小时':schedule.minutes+' 分钟'}`;
-  if(schedule.kind==='daily')return `每天 ${schedule.time}`;
+  if(schedule.kind==='once')return new Date(schedule.at).toLocaleString(currentLanguage(),{timeZone:schedule.timeZone,month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+  if(schedule.kind==='interval')return translate('每 {value}',{value:schedule.minutes%60===0?translate('{count} 小时',{count:schedule.minutes/60}):translate('{count} 分钟',{count:schedule.minutes})});
+  if(schedule.kind==='daily')return translate('每天 {time}',{time:schedule.time});
   const days=[...schedule.weekdays].sort((a,b)=>(a||7)-(b||7));
-  return `${days.join(',')==='1,2,3,4,5'?'工作日':days.map(day=>'周'+'日一二三四五六'[day]).join('、')} ${schedule.time}`;
+  return translate('{days} {time}',{days:days.join(',')==='1,2,3,4,5'?translate('工作日'):days.map(day=>translate('周{day}',{day:translate('日一二三四五六'[day])})).join(translate('、')),time:schedule.time});
 }

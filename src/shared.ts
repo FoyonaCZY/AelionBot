@@ -48,6 +48,11 @@ export interface Snapshot {appearance?:import("./appearance").AppearanceSettings
 export interface AppEvent { type: 'state'; snapshot: Snapshot; }
 export interface CommandResult { stdout: string; stderr: string; exitCode: number; durationMs: number; }
 export interface AelionAPI {
+  readEditableFile(input:{botId:string;path:string}):Promise<import('./editable-text').EditableText>;
+  saveEditableFile(input:{botId:string;path:string;edit:import('./editable-text').TextEdit}):Promise<import('./editable-text').EditableText>;
+  readEditableAttachment(id:string):Promise<import('./editable-text').EditableText>;
+  exportEditedText(input:{name:string;content:string}):Promise<string|null>;
+  setPreviewDirty(dirty:boolean):Promise<void>;
   saveAppearanceSettings(settings:import("./appearance").AppearanceSettings):Promise<void>;
   saveUserProfile(profile:import("./user-profile").UserProfile):Promise<void>;
   prepareDiagnostics():Promise<DiagnosticPreview>;

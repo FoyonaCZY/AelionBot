@@ -1,3 +1,5 @@
+import {editableText,editedBytes} from './core/preview-editing';
+import {sourceTextFile} from '../src/source-language';
 import {normalizeAppearance,type AppearanceSettings} from '../src/appearance';
 import {createMacUpdater,macAutomaticUpdates} from './core/mac-updater';
 import {hostEnvironment} from './core/host-platform';
@@ -5,7 +7,7 @@ import {RunPolicy,runtimeSettings} from './core/runtime-policy';
 import {normalizeUserProfile} from '../src/user-profile';
 import { app, BrowserWindow, ipcMain, safeStorage, dialog, shell, Menu, nativeImage, nativeTheme, net } from 'electron';
 import { randomUUID } from 'node:crypto';
-import { join, resolve, dirname } from 'node:path';
+import { join, resolve, dirname, basename } from 'node:path';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { Store } from './core/store';
 import {updateBotProfile} from './core/bot-profile';
@@ -48,6 +50,7 @@ import {reasoningEffort as cleanReasoning} from '../src/reasoning';
 import {Shutdown} from './core/shutdown';
 
 let window:BrowserWindow|undefined;
+let previewDirty=false,previewWrites=0;
 let vm:VmController;
 let store:Store;
 let harness:Harness;
@@ -143,6 +146,7 @@ async function initialize(){
   },changed);harness.setTaskScheduler(scheduler);
   let pendingLaunch:UpdateLaunchContext|undefined;
   const updateBlocked=()=>{
+    if(previewDirty||previewWrites)return '请先保存预览中的修改，再更新应用。';
     if(updatePreparing)return '正在准备安装更新。';
     if(harness.busy||groupChats?.busy||store.data.peerExchanges.some(exchange=>peerPending(exchange.status))||greetings?.botIds.length||store.data.bots.some(bot=>chatPins?.hasPending(bot.id))||store.data.groupDeliveries.some(delivery=>groupPending(delivery.status)))return '请先结束当前 Bot 任务，再重启更新。';
     if(interactions.snapshot().length||Object.values(computer.state.desktops).some(desktop=>desktop.manualControl))return '请先交还工作电脑并结束待处理操作。';
@@ -162,6 +166,14 @@ async function initialize(){
   cognition.start();
   nativeTheme.themeSource=normalizeAppearance(store.data.appearance).theme;
   window=new BrowserWindow({width:1420,height:920,minWidth:980,minHeight:650,title:'AelionBot',icon:join(app.getAppPath(),'assets',process.platform==='win32'?'icon.ico':'icon.png'),backgroundColor:'#ffffff',show:false,titleBarStyle:process.platform==='darwin'?'hiddenInset':'hidden',...(process.platform==='darwin'?{trafficLightPosition:{x:18,y:18}}:{titleBarOverlay:{color:'#f7f7f7',symbolColor:'#555555',height:38}}),webPreferences:{preload:join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true}});
+  const canDiscardPreview=()=>{
+    if(previewWrites){dialog.showMessageBoxSync(window!,{type:'info',message:'文件正在保存，请稍后再关闭',buttons:['继续等待']});return false;}
+    if(!previewDirty)return true;
+    const choice=dialog.showMessageBoxSync(window!,{type:'question',message:'预览中有未保存的修改',detail:'放弃后将丢失未保存的内容。',buttons:['继续编辑','放弃修改并关闭'],defaultId:0,cancelId:0,noLink:true});
+    if(choice!==1)return false;previewDirty=false;return true;
+  };
+  window.on('close',event=>{if(!canDiscardPreview())event.preventDefault();});
+  window.webContents.on('will-prevent-unload',event=>{if(canDiscardPreview())event.preventDefault();});
   installComputerView(window);
   window.on('unresponsive',()=>diagnostics?.record('renderer.unresponsive','页面未响应'));
   window.webContents.on('render-process-gone',(_event,details)=>diagnostics?.record('renderer.gone',`${details.reason}; exitCode=${details.exitCode}`));
@@ -307,6 +319,12 @@ async function initialize(){
   handle('vm:terminal',(command)=>{if(typeof command!=='string')throw new Error('无效命令');return vm.execute(command,'manual');});
   handle('files:list',async(botId)=>{const id=String(botId);const files=await artifacts.list(id);if(artifacts.importKnown(id,files))changed();return files;});
   handle('files:preview',async(input)=>artifacts.preview(String(input?.botId),String(input?.path)));
+  handle('files:edit-dirty',dirty=>{if(typeof dirty!=='boolean')throw Error('无效编辑状态');previewDirty=dirty;});
+  handle('files:edit-read',input=>artifacts.readEditable(String(input?.botId),String(input?.path)));
+  handle('files:edit-save',async input=>{previewWrites++;try{return await artifacts.saveEditable(String(input?.botId),String(input?.path),input?.edit);}finally{previewWrites--;}});
+  handle('attachments:edit-read',id=>{const file=attachments.metadata(id);if(!sourceTextFile(file.name))throw Error('此附件不支持文本编辑');return editableText(attachments.bytes(id),'attachment:'+id);});
+  handle('files:edit-export',async input=>{if(typeof input?.name!=='string'||input.name.length>256||!sourceTextFile(input.name))throw Error('无效文件名称');const bytes=editedBytes(input.content);previewWrites++;try{const target=await dialog.showSaveDialog(window!,{title:'保存编辑后的文件',defaultPath:basename(input.name)});if(target.canceled||!target.filePath)return null;await writeFile(target.filePath,bytes);return target.filePath;}finally{previewWrites--;}});
+
   handle('files:directory',input=>{if(typeof input?.botId!=='string'||input.path!==undefined&&typeof input.path!=='string')throw Error('无效目录请求');return artifacts.directory(input.botId,input.path||'');});
   handle('files:open',async(input)=>{const bot=store.bot(String(input?.botId));if(computer.stateFor(bot.id).ownerBotId)throw new Error('Bot 正在操作桌面，请先接管电脑');await computer.ensure(bot.id);return artifacts.open(bot.id,String(input?.path));});
   handle('computer:screenshot',(id)=>{if(![...store.data.messages,...store.data.peerMessages,...store.data.groupRunMessages].some(message=>message.screenshotId===id))throw new Error('截图不存在');return computer.image(String(id));});
@@ -326,7 +344,7 @@ async function initialize(){
     closeVm:()=>vm.shutdownForExit(),closeState:()=>{vm.dispose();store.close();},
     report:error=>diagnostics?.record('app.shutdown-error',error),exit:()=>{diagnostics?.dispose();app.exit(0);}
   });
-  app.on('before-quit',event=>{event.preventDefault();if(exiting)return;exiting=true;void shutdown.run();});
+  app.on('before-quit',event=>{event.preventDefault();if(exiting||!canDiscardPreview())return;exiting=true;void shutdown.run();});
   app.on('window-all-closed',()=>app.quit());
   vm.on('state',changed);
   const dev=process.env.AELION_DEV_URL;

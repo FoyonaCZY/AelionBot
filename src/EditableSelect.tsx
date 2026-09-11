@@ -1,8 +1,10 @@
 import {useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
+import {useI18n} from './i18n';
 import './editable-select.css';
 
 export function EditableSelect({value,onChange,options,label,placeholder,disabled=false,maxLength=256}:{value:string;onChange:(value:string)=>void;options:string[];label:string;placeholder?:string;disabled?:boolean;maxLength?:number}){
+  const {t}=useI18n();
   const id=useId(),root=useRef<HTMLDivElement>(null),field=useRef<HTMLInputElement>(null),[open,setOpen]=useState(false),[active,setActive]=useState(-1),[all,setAll]=useState(false),[position,setPosition]=useState({left:0,top:0,width:0,maxHeight:240});
   const choices=[...new Set(options)].filter(option=>all||option.toLowerCase().includes(value.toLowerCase())).slice(0,100);
   useEffect(()=>{setActive(-1);},[value]);
@@ -23,7 +25,7 @@ export function EditableSelect({value,onChange,options,label,placeholder,disable
         if(event.key==='Enter'&&open){event.preventDefault();event.stopPropagation();if(active>=0&&choices[active])choose(choices[active]);else setOpen(false);}
         if(event.key==='Tab')setOpen(false);
       }}/>
-    <button type="button" tabIndex={-1} disabled={disabled} aria-label={`选择${label}`} onMouseDown={event=>event.preventDefault()} onClick={()=>{setAll(true);setOpen(value=>!value);field.current?.focus();}}><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 6 4 4 4-4" stroke="currentColor" strokeWidth="1.5"/></svg></button>
-    {open&&choices.length>0&&createPortal(<div id={id} role="listbox" aria-label={`${label}建议`} className="editable-select-options" style={position} onMouseDown={event=>event.preventDefault()}>{choices.map((choice,index)=><div key={choice} id={`${id}-${index}`} role="option" aria-selected={choice===value} className={index===active?'active':''} onMouseEnter={()=>setActive(index)} onClick={()=>choose(choice)}>{choice}</div>)}</div>,document.body)}
+    <button type="button" tabIndex={-1} disabled={disabled} aria-label={t('选择{label}',{label})} onMouseDown={event=>event.preventDefault()} onClick={()=>{setAll(true);setOpen(value=>!value);field.current?.focus();}}><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 6 4 4 4-4" stroke="currentColor" strokeWidth="1.5"/></svg></button>
+    {open&&choices.length>0&&createPortal(<div id={id} role="listbox" aria-label={t('{label}建议',{label})} className="editable-select-options" style={position} onMouseDown={event=>event.preventDefault()}>{choices.map((choice,index)=><div key={choice} id={`${id}-${index}`} role="option" aria-selected={choice===value} className={index===active?'active':''} onMouseEnter={()=>setActive(index)} onClick={()=>choose(choice)}>{choice}</div>)}</div>,document.body)}
   </div>;
 }

@@ -17,6 +17,7 @@ AelionBot 的构建和运行依赖以下上游项目；第三方组件的许可�
 | remark-gfm、fflate | Markdown 表格和目录 ZIP 附件 | 确切版本见 `package-lock.json`，许可文本随 npm 运行依赖保留 |
 | PDF.js | PDF 与演示文稿预览 | 固定版本见 `package-lock.json`；[上游项目](https://github.com/mozilla/pdf.js)，Apache-2.0 许可保留在 `docs/licenses/pdfjs-dist.txt` |
 | highlight.js | 消息代码块语法高亮 | 固定版本见 `package-lock.json`；[上游项目](https://github.com/highlightjs/highlight.js)，BSD 3-Clause 许可保留在 `docs/licenses/highlight.js.txt` |
+| CodeMirror / Lezer | 预览页文本编辑、行号、高亮、撤销与键盘操作 | 固定版本见 `package-lock.json`；MIT 许可见 `docs/licenses/codemirror.txt`、`docs/licenses/lezer-highlight.txt` |
 | Inter、Noto Sans SC、JetBrains Mono | 随客户端打包的界面、中文与代码字体，离线加载 | `@fontsource-variable` 固定版本见 `package-lock.json`；SIL OFL 1.1 许可见 `docs/licenses/inter.txt`、`docs/licenses/noto-sans-sc.txt`、`docs/licenses/jetbrains-mono.txt` |
 | ignore | 本机文件检索的 gitignore 规则解析 | 固定版本见 `package-lock.json`；[上游项目](https://github.com/kaelzhang/node-ignore)，MIT 许可保留在 `docs/licenses/ignore.txt` |
 | Model Context Protocol TypeScript SDK | 0.3 MCP 客户端，stdio / Streamable HTTP / SSE | [官方 SDK](https://github.com/modelcontextprotocol/typescript-sdk)；`@modelcontextprotocol/sdk@1.30.0` |
