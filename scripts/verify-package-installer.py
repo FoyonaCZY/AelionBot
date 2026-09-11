@@ -20,7 +20,7 @@ before={str(path):path.read_bytes() for path in pathlib.Path('/etc/apt').rglob('
 namespace['SOURCES']=[('current',None),('debian','https://deb.debian.org')]
 with tempfile.TemporaryDirectory(prefix='aelion-apt-smoke-') as root:
     installer=namespace['Installer'](root,codename='bookworm')
-    installer.install('office',['hello'])
+    installer.install('office',['hello','fontconfig','libgstreamer1.0-0'])
     assert json.loads((pathlib.Path(root)/'apt-source.json').read_text())['name']=='debian'
     assert json.loads((pathlib.Path(root)/'desktop-progress.json').read_text())['phase']=='complete'
     subprocess.run(['hello','--version'],check=True)
