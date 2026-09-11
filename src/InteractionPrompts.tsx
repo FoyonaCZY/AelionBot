@@ -36,7 +36,7 @@ function PermissionCard({request,count}:{request:Permission;count:number}){
     {error&&<p className="permission-error" role="alert">{error}</p>}</div>
     <footer>
       <div className="permission-actions">
-        <button type="button" className="companion-button permission-deny-button" disabled={pending} onClick={()=>void decide('deny')}>{t('拒绝并停止')}</button>
+        <button type="button" className="companion-button permission-deny-button" disabled={pending} onClick={()=>void decide('deny')}>{t('拒绝本次')}</button>
         {details.commandPattern&&<button type="button" className="companion-button permission-always-button" disabled={!ready||pending} aria-label={t('始终允许 {pattern}',{pattern:details.commandPattern.pattern})} aria-describedby={`interaction-${request.id}-always-scope`} onClick={event=>{if(event.isTrusted&&event.detail<2)void decide('allow-always');}}>{t('始终允许')}</button>}
         <button type="button" className="companion-button companion-primary" disabled={!ready||pending} onClick={event=>{if(event.isTrusted&&event.detail<2)void decide('allow');}}>{pending?t('正在处理…'):t('允许本次')}</button>
       </div>

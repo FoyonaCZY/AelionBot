@@ -5,6 +5,7 @@ import {friendlyError,readableContent,runPresentation} from './activity';
 import {Icon,Message} from './ui';
 import {useI18n} from './i18n';
 import './activity.css';
+import {OperationDenial} from './OperationDenial';
 
 export function RunMessage({messages,isLast=true,run,stream,latest,canContinue,onContinue,onSettings,onReply,model}:{messages:ChatMessage[];allMessages?:ChatMessage[];isLast?:boolean;run?:RunRecord;stream?:Reply;latest:boolean;canContinue:boolean;waiting?:'host_permission'|'vm_takeover'|'user_input';reviewing?:boolean;onContinue:()=>void;onSettings:(tab:'model'|'computer'|'mcp')=>void;onScreen?:(url:string)=>void;onReply?:(message:ChatMessage)=>void;model?:ModelConfig}){
   const {t}=useI18n();
@@ -16,9 +17,11 @@ export function RunMessage({messages,isLast=true,run,stream,latest,canContinue,o
   // history rows. conversationTimeline already places other progress between runs.
   const notes=messages.filter(message=>(message.presentation==='progress'||view.status==='completed'||!isLast)&&message.role==='assistant'&&!message.reaction&&message.presentation!=='error'&&!['running','cancelled'].includes(message.status||'done')&&(!isLast||message.id!==view.final?.id)&&Boolean(readableContent(message.content)||message.attachments?.length)&&!(view.error&&message.content.includes(view.error)));
   const showError=failed&&latest,showStopped=cancelled&&latest&&!run?.groupUpdated&&!run?.inputUpdated;
-  if(!notes.length&&!showError&&!showStopped&&!(stream&&running)&&!(isLast&&view.final))return null;
+  const denials=messages.filter(message=>message.operationDenial);
+  if(!notes.length&&!denials.length&&!showError&&!showStopped&&!(stream&&running)&&!(isLast&&view.final))return null;
   return <div className="run-message" data-run-id={run?.id||messages[0]?.runId} data-run-segment={messages[0]?.id} data-run-terminal={isLast}>
     {notes.map(message=><Message key={message.id} message={message} allowPins={!run?.groupOrigin} onReply={onReply}/>)}
+    {denials.map(message=><OperationDenial key={message.id} denial={message.operationDenial!}/>)}
     {showError&&<div className="run-notice" role="status"><span className="run-notice-icon"><Icon name="alert" size={18}/></span><div><strong>{notice.title}</strong><p>{description}</p>{(canContinue||notice.settings)&&<div className="run-notice-actions">{canContinue&&!contextBlocked&&<button onClick={onContinue}>{notice.context?t('整理记录并继续'):t('继续处理')}<Icon name="arrow" size={13}/></button>}{notice.settings&&<button onClick={()=>onSettings(notice.settings!)}>{t('检查设置')}</button>}</div>}<details className="run-error-details"><summary>{t('查看详情')}</summary>{run&&<p>{t('任务 {id} · {count} 个工具步骤',{id:run.id,count:run.toolCalls})}</p>}<pre>{view.error.slice(0,12000)}</pre></details></div></div>}
     {showStopped&&<div className="run-stopped"><p>{view.error?.startsWith('用户拒绝')||view.error?.startsWith('用户取消')?view.error:t('已停止，完成的操作和文件仍然保留。')}</p>{canContinue&&<button onClick={onContinue}>{t('继续处理')}<Icon name="arrow" size={13}/></button>}</div>}
     {stream&&running&&<StreamingReply reply={stream}/>}

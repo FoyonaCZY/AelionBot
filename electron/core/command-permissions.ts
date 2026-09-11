@@ -14,20 +14,26 @@ const hash=(command:string)=>createHash('sha256').update(command.trim()).digest(
 const cwdKey=hostPathKey;
 
 // This deliberately accepts only a small, literal subset of PowerShell.
-// Anything involving shell syntax is eligible for an exact rule, never a prefix rule.
+// Shell expressions require exact rules; punctuation inside literal arguments
+// (for example a quoted rg regex) is data rather than shell syntax.
 function tokens(command:string,platform=process.platform):Token[]|undefined{
-  if(platform!=='win32'&&/[\\!~]/.test(command))return;
-  if(/[\r\n\u0085\u2028\u2029;$`|&<>(){}\[\]@,#\u0000-\u0008\u000b-\u001f\u007f\u202a-\u202e\u2066-\u2069]/.test(command))return;
+  if(/[\r\n\u0085\u2028\u2029\u0000-\u0008\u000b-\u001f\u007f\u202a-\u202e\u2066-\u2069]/.test(command))return;
   const result:Token[]=[];let value='',quote='',bare=true,started=false;
   const flush=()=>{if(started)result.push({value,bare});value='';bare=true;started=false;};
   for(let index=0;index<command.length;index++){
     const char=command[index];
     if(quote){
-      if(char===quote){if(command[index+1]===quote){value+=quote;index++;}else quote='';}
-      else value+=char;
+      if(char===quote){
+        if(platform==='win32'&&command[index+1]===quote){if(quote==='"')return;value+=quote;index++;}else quote='';
+      }else{
+        if(quote==='"'&&(/[$`]/.test(char)||platform!=='win32'&&/[\\!]/.test(char)))return;
+        // Windows native argument passing may reinterpret embedded quotes.
+        if(platform==='win32'&&char==='"')return;
+        value+=char;
+      }
     }else if(char==='"'||char==="'"){quote=char;bare=false;started=true;}
     else if(char===' '||char==='\t')flush();
-    else {if(/\s/.test(char))return;value+=char;started=true;}
+    else {if(/\s|[;$`|&<>(){}\[\]@,#]/.test(char)||platform!=='win32'&&/[\\!~]/.test(char))return;value+=char;started=true;}
   }
   if(quote)return;flush();
   if(result.some(token=>token.value==='--%'||/^--pre(?:=|$)/i.test(token.value)))return;

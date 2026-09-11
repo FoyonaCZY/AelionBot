@@ -56,6 +56,18 @@ test('only the same desktop is locked by an in-flight action and a VM restart in
   vm.emit('state',{status:'stopped'});assert.equal(Object.keys(computer.state.desktops).length,0);
   await assert.rejects(()=>computer.execute('second',{action:'key',key:'ENTER',observationId:second.screenshot.id},signal),/先截取/);
 });
+test('open_app can launch Impress as well as Writer and Calc',async t=>{
+  const dir=mkdtempSync(join(tmpdir(),'aelion-computer-office-'));t.after(()=>{assert.equal(dirname(resolve(dir)),resolve(tmpdir()));rmSync(dir,{recursive:true,force:true});});
+  const events:string[]=[];
+  const vm={state:{status:'ready',desktopReady:true,appsReady:true},ensureBotDesktop:async()=>({vncUrl:'ws://local/bot'}),executeDesktop:async(command:string)=>{events.push(command);return {exitCode:0,stdout:'',stderr:''};},desktopScreenshot:async()=>{const png=Buffer.alloc(32);Buffer.from('89504e470d0a1a0a','hex').copy(png);png.writeUInt32BE(1280,16);png.writeUInt32BE(800,20);return png;}} as unknown as VmController;
+  const computer=new ComputerController(vm,dir,()=>{}),signal=new AbortController().signal;
+  await computer.execute('bot',{action:'open_app',app:'impress'},signal);
+  await computer.execute('bot',{action:'open_app',app:'writer'},signal);
+  await computer.execute('bot',{action:'open_app',app:'calc'},signal);
+  assert.ok(events.some(command=>command.includes("libreoffice' '--impress'")||command.includes('libreoffice --impress')));
+  assert.ok(events.some(command=>command.includes('--writer')));
+  assert.ok(events.some(command=>command.includes('--calc')));
+});
 test('artifact preview/export reject host paths and traversal',()=>{
   assert.equal(artifactPath('Downloads/report.pdf'),'Downloads/report.pdf');
   for(const value of ['/etc/passwd','../secret','a/../../secret','C:\\data','file:///etc/passwd','a\0b'])assert.throws(()=>artifactPath(value));

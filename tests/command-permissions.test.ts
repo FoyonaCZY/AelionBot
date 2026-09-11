@@ -26,6 +26,22 @@ test('suggested patterns retain the relevant executable and subcommand',t=>{
   for(const command of ['git','git -C C:\\repo status','gh api repos/example/repo','python -c "print(1)"','custom-tool --check','Get-Content file.txt | Select-Object -First 3'])assert.equal(rules.suggest(details(command))?.kind,'exact');
 });
 
+test('quoted regex punctuation is literal data and receives a scoped rg prefix',t=>{
+  const {rules,file}=fixture(t),command=String.raw`rg -n "HelloClient\(|SetHelloProbe|HelloProbe" --glob "*.go"`;
+  assert.deepEqual(rules.suggest(details(command)),{kind:'prefix',pattern:'rg *'});rules.allow(details(command));
+  assert.ok(rules.match(details(String.raw`rg -n "Other\(|Next[0-9]{2}" --glob "*.ts"`)));
+  assert.ok(new CommandPermissions(file,undefined,'win32').match(details(command)));
+  assert.equal(rules.match(details(command,'C:\\projects\\other')),undefined);
+  for(const unsafe of [command+' | whoami',command+'; whoami',String.raw`rg "$(whoami)" .`,String.raw`rg "$env:SECRET" .`,String.raw`rg "safe" --pre helper`,String.raw`rg "safe" --pr"e" helper`,String.raw`rg 'safe' '--pr"e' helper`])assert.equal(rules.match(details(unsafe)),undefined,unsafe);
+});
+
+test('POSIX quoted regexes remain literal but substitutions and quote-spliced preprocessor flags do not match',t=>{
+  const {file}=fixture(t),rules=new CommandPermissions(file,undefined,'darwin'),input=(command:string)=>details(command,'/projects/sample');
+  rules.allow(input(String.raw`rg 'Hello\(|Other[0-9]{2}' .`));assert.equal(rules.list()[0].kind,'prefix');
+  assert.ok(rules.match(input('rg "first|second" .')));
+  for(const unsafe of [String.raw`rg "$(id)" .`,String.raw`rg 'safe' | sh`,String.raw`rg needle '--p''re' helper`,String.raw`rg needle --pr"e" helper`,String.raw`rg needle --pre=helper`])assert.equal(rules.match(input(unsafe)),undefined,unsafe);
+});
+
 test('prefix matching uses token boundaries and the approved working directory',t=>{
   const {rules}=fixture(t);rules.allow(details('git status --short'));
   for(const command of ['git status','git   status --porcelain','GIT\tstatus --short'])assert.ok(rules.match(details(command,'c:/projects/sample/')));

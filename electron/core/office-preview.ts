@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import type {VmController} from './vm';
 import type {ArtifactPreview} from '../../src/shared';
 
-export const officeExtensions=new Set(['.ppt','.pptx','.odp','.doc','.docx','.odt']);
+export const officeExtensions=new Set(['.ppt','.pptx','.odp','.doc','.docx','.odt','.xls','.xlsx','.ods']);
 export const OFFICE_PREVIEW_LIMIT=8*1024*1024;
 // Separate profiles keep previews away from the user's open LibreOffice session.
 // Conversion uses a temporary copy, blocks document macros and cleans up afterward.

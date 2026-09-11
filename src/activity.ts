@@ -97,7 +97,7 @@ export function describeTool(name:string,input:Record<string,unknown>={},output?
   if(name==='computer'){
     const actions:Record<string,string>={screenshot:'查看电脑画面',click:'点击界面',double_click:'打开项目',move:'移动指针',drag:'拖动界面',scroll:'滚动页面',key:'按下快捷键',type:'输入文字',open_app:'打开应用'};
     const action=actions[text(input.action||result.action)];label=action?translate(action):label;
-    const apps:Record<string,string>={browser:'浏览器',files:'文件管理器',editor:'文本编辑器',writer:'文档',calc:'表格',terminal:'终端'};
+    const apps:Record<string,string>={browser:'浏览器',files:'文件管理器',editor:'文本编辑器',writer:'文档',calc:'表格',impress:'演示',terminal:'终端'};
     const app=apps[text(input.app)];detail=app?translate(app):'';
   }
   return {label,...(detail?{detail}:{})};
@@ -106,7 +106,8 @@ export function describeTool(name:string,input:Record<string,unknown>={},output?
 export function toolResult(message:ChatMessage):unknown{
   try{const parsed=JSON.parse(message.content);return parsed.truncated?{preview:parsed.preview,truncated:true}:Object.hasOwn(parsed,'result')?parsed.result:parsed;}catch{return undefined;}
 }
-export function toolDisplay(message:ChatMessage){return message.activity?{...message.activity,label:translate(message.activity.label),...(message.activity.detail?{detail:translate(message.activity.detail)}:{})}:describeTool(message.tool||'',{},toolResult(message));}
+const activityDetail=(value:string)=>{const line=value.match(/^(.*) · 第 (\d+) 行起$/);return line?`${line[1]} · ${translate('第 {line} 行起',{line:line[2]})}`:translate(value);};
+export function toolDisplay(message:ChatMessage){return message.activity?{...message.activity,label:translate(message.activity.label),...(message.activity.detail?{detail:activityDetail(message.activity.detail)}:{})}:describeTool(message.tool||'',{},toolResult(message));}
 
 export interface LiveBotStep {phase:'thinking'|'working'|'waiting';label:string;detail?:string;}
 export function liveBotStep(messages:ChatMessage[],run?:RunRecord,waiting?:'host_permission'|'vm_takeover'|'user_input',reviewing=false):LiveBotStep|undefined{

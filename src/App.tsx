@@ -28,7 +28,7 @@ import {AboutSettings} from './AboutSettings';
 import {SidebarUpdate} from './SidebarUpdate';
 import {ComputerSetup,ComputerStatus} from './ComputerSetup';
 import {ComputerPanel} from './ComputerPanel';
-import {computerDesktopReady,shouldOfferComputerSetup} from './computer-setup-state';
+import {computerDesktopReady,computerSetupDismissalKey,shouldOfferComputerSetup} from './computer-setup-state';
 import {ScheduledTasks} from './ScheduledTasks';
 import {ModelSelectionFields,validModelSelection} from './ModelSelectionFields';
 import {StreamingReply} from './StreamingReply';
@@ -103,7 +103,7 @@ function AppContent(){
   const scopeBot=state?.bots.find(item=>item.id===scope)||bot;
   const act=async(operation:()=>Promise<unknown>)=>{setBusy(true);try{await operation();}catch(error){setToast(errorText(error));}finally{setBusy(false);}};
   const computerAction=async(operation:()=>Promise<unknown>)=>{if(controlBusy.current)return;controlBusy.current=true;setControlPending(true);try{await operation();}catch(error){setToast(errorText(error));}finally{controlBusy.current=false;setControlPending(false);}};
-  const closeModal=async()=>{if(modal==='computer'&&controlled&&desktopBot)await window.aelion.setComputerControl({botId:desktopBot.id,enabled:false});if(modal==='computer-setup'&&state)try{localStorage.setItem(`aelion-computer-setup:${state.dataDir}`,'dismissed');}catch{}setModal(null);};
+  const closeModal=async()=>{if(modal==='computer'&&controlled&&desktopBot)await window.aelion.setComputerControl({botId:desktopBot.id,enabled:false});if(modal==='computer-setup'&&state)try{localStorage.setItem(computerSetupDismissalKey(state.dataDir,state.vm),'dismissed');}catch{}setModal(null);};
   const startTakeover=(request:Extract<InteractionRequest,{kind:'vm_takeover'}>)=>computerAction(async()=>{await closeModal();await window.aelion.respondInteraction({id:request.id,action:'takeover'});setPeerPanel(undefined);setSelected(request.botId);setComputerBotId(request.botId);setModal('computer');});
   const viewInteraction=(request:InteractionRequest)=>void computerAction(async()=>{await closeModal();setPeerPanel(undefined);setQuery('');setSelected(request.botId);setSelectedGroup(state?.runs.find(run=>run.id===request.runId)?.groupOrigin?.groupId||'');setFiles([]);setBotMenu(undefined);setViewingRequest(request.id);});
   const openGroup=(id:string)=>void computerAction(async()=>{await closeModal();setPeerPanel(undefined);setGroupEditor(undefined);setNewMenu(false);setBotMenu(undefined);setSelectedGroup(id);});
@@ -118,10 +118,13 @@ function AppContent(){
   },[]);
   useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(''),6000);return()=>clearTimeout(timer);},[toast]);
   useEffect(()=>{
-    if(!state||modal||peerPanel||groupEditor||taskModalOpen||setupPrompted.current===state.dataDir)return;
-    setupPrompted.current=state.dataDir;let dismissed=false;try{dismissed=localStorage.getItem(`aelion-computer-setup:${state.dataDir}`)==='dismissed';}catch{}
-    if(shouldOfferComputerSetup(state.vm,dismissed))setModal('computer-setup');
-  },[state?.dataDir,state?.vm.status,modal,peerPanel,groupEditor,taskModalOpen]);
+    if(!state||modal||peerPanel||groupEditor||taskModalOpen)return;
+    const offer=computerSetupDismissalKey(state.dataDir,state.vm);
+    if(setupPrompted.current===offer)return;
+    let dismissed=false;try{dismissed=localStorage.getItem(offer)==='dismissed';}catch{}
+    if(!shouldOfferComputerSetup(state.vm,dismissed))return;
+    setupPrompted.current=offer;setModal('computer-setup');
+  },[state?.dataDir,state?.vm.status,state?.vm.appsReady,modal,peerPanel,groupEditor,taskModalOpen]);
   useEffect(()=>{
     if(!state||state.bots.some(item=>item.id===selected))return;
     const next=state.bots[0]?.id||'';selectedRef.current=next;setSelected(next);setFiles([]);

@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {mkdtempSync,mkdirSync,writeFileSync,rmSync,realpathSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {dirname,join,resolve} from 'node:path';
 import type {VmState} from '../src/shared';
-import {computerDesktopReady,computerSetupActions,computerSetupState,shouldOfferComputerSetup} from '../src/computer-setup-state';
+import {WORKSTATION_VERSION} from '../src/shared';
+import {computerDesktopReady,computerSetupActionLabel,computerSetupActions,computerSetupDismissalKey,computerSetupState,shouldOfferComputerSetup} from '../src/computer-setup-state';
+import {VmController} from '../electron/core/vm';
 import {workstationProgress} from '../electron/core/workstation-progress';
 
 const vm=(patch:Partial<VmState>={}):VmState=>({status:'unprepared',detail:'',imageVersion:'fixture',...patch});
@@ -9,6 +14,30 @@ test('first launch offers setup, but dismissal and an existing computer do not r
   assert.equal(shouldOfferComputerSetup(vm(),false),true);
   assert.equal(shouldOfferComputerSetup(vm(),true),false);
   for(const status of ['preparing','starting','ready','stopped','error'] as const)assert.equal(shouldOfferComputerSetup(vm({status}),false),false);
+  assert.doesNotMatch(computerSetupDismissalKey('/data',vm()),/:ws-/);
+});
+test('saved guests without the current workstation version look outdated before they start',t=>{
+  const parent=realpathSync.native(tmpdir()),root=mkdtempSync(join(parent,'aelion-ws-'));mkdirSync(join(root,'vm'));
+  t.after(()=>{assert.equal(dirname(resolve(root)),parent);rmSync(root,{recursive:true,force:true});});
+  const record={id:'guest',sshPort:0,qmpPort:0,vncPort:0,seedPort:0,seedToken:'token',hostKeyHash:'hash',preparedAt:new Date().toISOString()};
+  writeFileSync(join(root,'vm','machine.json'),JSON.stringify(record));
+  const stale=new VmController({dataDir:root,runtimeDir:root,cacheDir:root});t.after(()=>stale.dispose());
+  assert.equal(stale.state.status,'stopped');assert.equal(stale.state.appsReady,false);assert.equal(shouldOfferComputerSetup(stale.state,false),true);
+  writeFileSync(join(root,'vm','machine.json'),JSON.stringify({...record,workstationVersion:WORKSTATION_VERSION}));
+  const current=new VmController({dataDir:root,runtimeDir:root,cacheDir:root});t.after(()=>current.dispose());
+  assert.equal(current.state.appsReady,true);assert.equal(shouldOfferComputerSetup(current.state,false),false);
+});
+test('an existing computer missing the current workstation apps reuses the setup dialog',()=>{
+  const outdated=vm({status:'stopped',appsReady:false});
+  assert.equal(shouldOfferComputerSetup(outdated,false),true);
+  assert.equal(shouldOfferComputerSetup(outdated,true),false);
+  assert.equal(shouldOfferComputerSetup(vm({status:'stopped',appsReady:true}),false),false);
+  assert.equal(computerSetupState(outdated).kind,'upgrade');
+  assert.deepEqual(computerSetupActions(outdated),['start','repair-tools']);
+  assert.equal(computerSetupActionLabel(outdated),'更新工作环境');
+  assert.equal(computerSetupDismissalKey('/data',outdated),`aelion-computer-setup:/data:ws-${WORKSTATION_VERSION}`);
+  assert.equal(shouldOfferComputerSetup(vm({status:'ready',appsReady:false}),false),true);
+  assert.equal(computerSetupState(vm({status:'ready',appsReady:false})).kind,'incomplete');
 });
 test('SSH readiness during first installation never starts the Bot desktop too early',()=>{
   const state=vm({status:'ready',maintenance:true,appsReady:false});

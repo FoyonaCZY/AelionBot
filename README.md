@@ -9,7 +9,7 @@
   <p>Your AI partners for the things you want to get done.</p>
   <p>
     <a href="https://aelion.chat/?lang=en"><strong>Explore the website ↗</strong></a> &nbsp; · &nbsp;
-    <a href="https://github.com/FoyonaCZY/AelionBot/releases/latest"><strong>Download for Windows</strong></a> &nbsp; · &nbsp;
+    <a href="https://github.com/FoyonaCZY/AelionBot/releases/latest"><strong>Download for Windows and macOS</strong></a> &nbsp; · &nbsp;
     <a href="https://aelion.chat/blog/?lang=en">Blog</a>
   </p>
   <img src="docs/assets/product/companions.svg" alt="Three AelionBot partners in blue, violet, and mint" width="100%">
@@ -65,7 +65,7 @@ You also set the boundaries: which materials to share, which actions to allow, a
 
 Light or dark. English, Simplified Chinese, or Traditional Chinese. Adjust the type, text size, and display scale until your workspace feels comfortable.
 
-1. **[Download AelionBot](https://github.com/FoyonaCZY/AelionBot/releases/latest).** The current release is available for Windows.
+1. **[Download AelionBot](https://github.com/FoyonaCZY/AelionBot/releases/latest).** The current release is available for Windows and macOS.
 2. **Connect your AI service.** Follow the in-app setup; usage charges depend on the service you choose.
 3. **Meet your first partner.** Give it a role and start with one small task.
 

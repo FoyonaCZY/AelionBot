@@ -12,7 +12,7 @@ import {vmPlatform,vmMachineArgs,qemuBinary,qemuFirmware,qemuDataDir,type GuestA
 import type { CommandResult, VmState } from '../../src/shared';
 import type {TerminalDriver} from './terminal-sessions';
 import { atomicJson } from './store';
-import { DESKTOP_SCRIPT, WORKSTATION_VERSION, SESSION_LAUNCHER } from './desktop-profile';
+import { DESKTOP_SCRIPT, WORKSTATION_VERSION, SESSION_LAUNCHER, GUEST_IMAGE_SEAL_SCRIPT } from './desktop-profile';
 import { BOT_DESKTOP_SCRIPT,BOT_DESKTOP_VERSION } from './bot-desktop-profile';
 import { WALLPAPER_INSTALL_SCRIPT } from './desktop-wallpaper';
 import { DESKTOP_APPEARANCE_VERSION } from './desktop-appearance';
@@ -30,7 +30,7 @@ export function processAlive(pid?: number) { if (!pid) return false; try { proce
 async function freePort(): Promise<number> {
   return new Promise((ok, fail) => { const server=createTcpServer(); server.once('error',fail); server.listen(0,'127.0.0.1',()=>{const address=server.address(); const port=typeof address==='object'&&address?address.port:0;server.close(()=>ok(port));}); });
 }
-interface VmRecord {arch?:GuestArch;id: string; pid?: number; initialized?:boolean; sshPort: number; qmpPort: number; vncPort: number; seedPort: number; seedToken: string; hostKeyHash: string; preparedAt: string; }
+interface VmRecord {arch?:GuestArch;id: string; pid?: number; initialized?:boolean; workstationVersion?:string; sshPort: number; qmpPort: number; vncPort: number; seedPort: number; seedToken: string; hostKeyHash: string; preparedAt: string; }
 export interface VmOptions { dataDir: string; runtimeDir: string; cacheDir: string; wallpaperPath?:string; memoryMiB?: number;cpuCount?:number;platform?:NodeJS.Platform;arch?:GuestArch;accelerator?:'tcg'|'hvf'|'whpx';startupTimeoutMs?:number;skipDesktop?:boolean;downloadFetch?:ResourceFetch; }
 
 const INIT_SCRIPT = `#!/bin/sh
@@ -73,7 +73,7 @@ export class VmController extends EventEmitter {
     super(); this.dir=join(options.dataDir,'vm');mkdirSync(this.dir,{recursive:true});
     this.platform=vmPlatform(options.platform,options.arch);this.executable=qemuBinary(options.runtimeDir,this.platform.executable);
     if(existsSync(join(this.dir,'machine.json'))) this.record=JSON.parse(readFileSync(join(this.dir,'machine.json'),'utf8'));
-    this.stateValue={status:this.record?'stopped':'unprepared',detail:this.record?'工作电脑已准备':'首次使用前需要准备工作电脑',imageVersion:this.platform.image.version};
+    this.stateValue={status:this.record?'stopped':'unprepared',detail:this.record?'工作电脑已准备':'首次使用前需要准备工作电脑',imageVersion:this.platform.image.version,appsReady:this.record?this.record.workstationVersion===WORKSTATION_VERSION:undefined};
   }
   get state() { return {...this.stateValue}; }
   private update(patch: Partial<VmState>) { const changed=Object.entries(patch).some(([key,value])=>this.stateValue[key as keyof VmState]!==value);this.stateValue={...this.stateValue,...patch};if(changed)this.emit('state',this.state); }
@@ -235,7 +235,13 @@ export class VmController extends EventEmitter {
         const desktop=result.stdout.includes('DESKTOP');
         const lock=await this.execRaw('flock -n /var/lib/aelion/desktop.lock -c true','root',4000);
         const maintenance=lock.exitCode!==0;this.update({installation:maintenance?installationProgress(result.stdout):undefined});
-        if(result.stdout.includes('READY')){if(!this.record.initialized){this.record.initialized=true;this.persist();}const appsReady=result.stdout.includes('APPS'),needsReboot=result.stdout.includes('NEEDS_REBOOT');this.update({status:'ready',detail:maintenance?workstationProgress(result.stdout):needsReboot?'应用已安装，请重启工作电脑完成初始化':desktop&&appsReady?'工作电脑已就绪':desktop?'桌面在线，应用环境需要准备':'正在准备桌面',pid:this.record.pid,sshPort:this.record.sshPort,desktopReady:desktop,appsReady,maintenance,needsReboot,lastError:result.stdout.includes('TOOL_ERROR')?workstationFailure(result.stdout):undefined});}
+        if(result.stdout.includes('READY')){
+          const appsReady=result.stdout.includes('APPS'),needsReboot=result.stdout.includes('NEEDS_REBOOT');let save=false;
+          if(!this.record.initialized){this.record.initialized=true;save=true;}
+          if(appsReady&&this.record.workstationVersion!==WORKSTATION_VERSION){this.record.workstationVersion=WORKSTATION_VERSION;save=true;}
+          if(save)this.persist();
+          this.update({status:'ready',detail:maintenance?workstationProgress(result.stdout):needsReboot?'应用已安装，请重启工作电脑完成初始化':desktop&&appsReady?'工作电脑已就绪':desktop?'桌面在线，应用环境需要准备':'正在准备桌面',pid:this.record.pid,sshPort:this.record.sshPort,desktopReady:desktop,appsReady,maintenance,needsReboot,lastError:result.stdout.includes('TOOL_ERROR')?workstationFailure(result.stdout):undefined});
+        }
         else await this.seed();
         if(!this.closing)await this.ensureWallpaper();
         if(!this.closing)await this.bridge();
@@ -416,6 +422,12 @@ print(json.dumps({'path':str(target),'size':len(blob),'sha256':a['sha256']},ensu
     await this.execRaw(`python3 -c ${shQuote("import os,sys; p='/usr/local/sbin/aelion-desktop.new'; open(p,'wb').write(sys.stdin.buffer.read()); os.chmod(p,0o755); os.replace(p,'/usr/local/sbin/aelion-desktop')")}`,'root',10000,undefined,2048,Buffer.from(DESKTOP_SCRIPT));
     await this.execRaw('nohup /usr/local/sbin/aelion-desktop > /var/log/aelion-desktop.log 2>&1 </dev/null &','root',5000);
     this.update({detail:'已启动工具环境修复，工作文件保留'});
+  });}
+  async sealProvisionedGuest(){return this.exclusive(async()=>{
+    if(this.stateValue.status!=='ready'||!this.stateValue.appsReady)throw new Error('请先准备好工作电脑应用');
+    const result=await this.execRaw(GUEST_IMAGE_SEAL_SCRIPT,'root',120000);
+    if(result.exitCode!==0)throw new Error(result.stderr||'预装镜像收尾失败');
+    return result;
   });}
   async stop(){return this.exclusive(async()=>{
     if(this.activeExecutions)throw new Error('仍有命令正在运行，请先停止任务');

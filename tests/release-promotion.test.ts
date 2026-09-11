@@ -9,7 +9,7 @@ const source=workflow.jobs.source.steps.find((s:any)=>s.id==='source').run.split
 function fixture(){
  const common=['Audit source','Typecheck','Test'];
  return {run:{status:'completed',conclusion:'success',path:'.github/workflows/release.yml',event:'workflow_dispatch',head_repository:{full_name:'example/AelionBot'},head_sha:'a'.repeat(40)},
-  jobs:{jobs:['windows-x64','macos-arm64','macos-x64'].map(name=>({name,conclusion:'success',steps:[...common,...(name==='windows-x64'?['Build and verify Windows installer']:['Build and verify Mac installers','Verify packaged Mac app','Verify Mac Linux desktop and persistence'])].map(name=>({name,conclusion:'success'}))}))},
+  jobs:{jobs:['windows-x64','macos-arm64','macos-x64'].map(name=>({name,conclusion:'success',steps:[...common,...(name==='windows-x64'?['Build and verify Windows installer']:['Build and verify Mac installers','Verify packaged Mac app'])].map(name=>({name,conclusion:'success'}))}))},
   artifacts:{artifacts:['AelionBot-windows-x64','AelionBot-macos-arm64','AelionBot-macos-x64'].map(name=>({name,expired:false,size_in_bytes:100}))}};
 }
 function validate(data:ReturnType<typeof fixture>,id='1234',platforms='all'){
@@ -30,7 +30,7 @@ test('Windows-only promotion requires Windows tests and assets without requiring
  data.jobs.jobs[0].steps.find(step=>step.name==='Test')!.conclusion='skipped';assert.throws(()=>validate(data,'1234','windows'),/Required checks/);
  assert.throws(()=>validate(fixture(),'1234','invalid'),/Invalid release platforms/);
 });
-test('release promotion rejects unfinished builds, foreign code and missing VM verification',()=>{
+test('release promotion rejects unfinished builds, foreign code and missing Mac app verification',()=>{
  for(const patch of [{status:'in_progress'},{conclusion:'failure'},{event:'pull_request'},{path:'other.yml'},{head_repository:{full_name:'other/repository'}},{head_sha:'invalid'}]){
   const data=fixture();Object.assign(data.run,patch);assert.throws(()=>validate(data),/successful release build/);
  }

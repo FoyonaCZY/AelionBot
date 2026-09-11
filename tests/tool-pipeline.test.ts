@@ -68,9 +68,9 @@ for(const mode of ['auto','full'] as const)test(`real host batch reads inherit $
  const run=f.store.data.runs[0];assert.equal(run.status,'completed');assert.equal(f.interactions.snapshot().length,0);assert.equal(f.reviews(),0);assert.equal(run.executions?.filter(entry=>entry.tool==='host_file_read'&&entry.status==='succeeded').length,3);
  for(const entry of run.executions||[])assert.ok(JSON.parse(readFileSync(join(f.store.dir,'results',entry.resultId+'.json'),'utf8')));
 });
-test('denying one host batch approval cancels the run and withdraws other pending approvals',async t=>{
+test('denying one host batch approval withdraws the batch but resumes the model',async t=>{
  const f=fixture(t,'ask'),pending=f.harness.run(f.store.data.bots[0].id,'阅读本机项目文件',{workspaceDir:f.project});for(let i=0;i<30&&f.interactions.snapshot().length<3;i++)await flush();assert.equal(f.interactions.snapshot().length,3);
- f.interactions.approve(f.interactions.snapshot()[0].id,false);await pending;const run=f.store.data.runs[0];assert.equal(run.status,'cancelled');assert.equal(f.interactions.snapshot().length,0);assert.equal(f.modelCalls(),1);
+ f.interactions.approve(f.interactions.snapshot()[0].id,false);await pending;const run=f.store.data.runs[0];assert.equal(run.status,'completed');assert.equal(f.interactions.snapshot().length,0);assert.equal(f.modelCalls(),2);assert.ok(f.store.data.messages.some(message=>message.operationDenial?.path?.endsWith('README.md')));
  assert.ok(run.executions?.filter(entry=>entry.tool==='host_file_read').every(entry=>entry.status==='cancelled'));
  for(const entry of run.executions||[])if(entry.resultId)assert.ok(JSON.parse(readFileSync(join(f.store.dir,'results',entry.resultId+'.json'),'utf8')));
 });

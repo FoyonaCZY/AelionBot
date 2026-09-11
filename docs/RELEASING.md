@@ -36,7 +36,7 @@ git push origin main
 git push origin v0.4.1
 ```
 
-GitHub Actions 会检查源码、运行测试、构建安装包，先上传到草稿 Release，再将完整 Release 公开。标签必须与 `package.json` 版本一致。已公开的版本不会被该流程覆盖，需要使用新版本号。
+GitHub Actions 会检查源码、运行测试、构建 Windows 与 macOS 安装包，先上传到草稿 Release，再将完整 Release 公开。Mac 任务与 Windows 一样只做打包和安装包校验：托管 Mac runner 没有嵌套虚拟化，不能在 CI 里用 TCG 安装 Linux 桌面。完整 guest 冒烟需要本机 HVF，或在手动运行工作流时打开 `vm_smoke`（托管 runner 上会因缺少 HVF 立即失败）。标签必须与 `package.json` 版本一致。已公开的版本不会被该流程覆盖，需要使用新版本号。
 
 普通代码推送只更新源码，不发布安装包。也可手动运行 workflow 验证构建，或将本地生成的三个文件上传到对应 Release。不要只上传源码 ZIP，也不要漏掉 `latest.yml`。
 

@@ -1,8 +1,19 @@
 import {BOT_DESKTOP_SCRIPT,BOT_DESKTOP_VERSION} from './bot-desktop-profile';
 import {PACKAGE_INSTALLER_BOOTSTRAP} from './package-installer';
 import {DESKTOP_APPEARANCE_SCRIPT} from './desktop-appearance';
-export const WORKSTATION_VERSION = '4';
+import {WORKSTATION_VERSION} from '../../src/shared';
+export {WORKSTATION_VERSION};
+export const PROVISIONED_WORKSTATION_PATH = '/var/lib/aelion/provisioned-workstation';
 const preferChromium=process.platform==='darwin';
+export const GUEST_IMAGE_SEAL_SCRIPT = String.raw`#!/bin/sh
+set -eu
+printf '`+WORKSTATION_VERSION+String.raw`' > /var/lib/aelion/provisioned-workstation
+rm -f /var/lib/aelion/desktop-ready /var/lib/aelion/desktop.lock /var/lib/aelion/desktop-error /var/lib/aelion/desktop-needs-reboot /var/lib/aelion/work-ready /var/lib/aelion/workstation-version /var/lib/aelion/desktop-progress.json /var/lib/aelion/desktop-stage /var/lib/aelion/apt-source.json
+cloud-init clean --logs --machine-id
+rm -rf /home/aelion/.ssh /root/.ssh
+truncate -s 0 /var/log/aelion-desktop.log 2>/dev/null || true
+sync
+`;
 
 // Lightweight light fallback while the bundled wallpaper is being transferred.
 const wallpaper = `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1200" viewBox="0 0 1920 1200"><defs><linearGradient id="a" x2="1" y2="1"><stop stop-color="#ece7f6"/><stop offset="1" stop-color="#b9cbe7"/></linearGradient><linearGradient id="b" x2="1" y2="1"><stop stop-color="#ded7f0"/><stop offset="1" stop-color="#eef2ee"/></linearGradient></defs><rect width="1920" height="1200" fill="#f5f4f2"/><path d="M630 1200C930 850 660 270 1280 0H1920V1200Z" fill="url(#a)"/><path d="M1050 1200C820 640 1700 630 1610 0H1920V1200Z" fill="url(#b)"/></svg>`;
@@ -37,6 +48,9 @@ env.setdefault('DISPLAY', ':0')
 env.setdefault('XAUTHORITY', '/home/aelion/.Xauthority')
 env.setdefault('XDG_RUNTIME_DIR', '/run/user/1000')
 env.setdefault('XDG_CURRENT_DESKTOP', 'XFCE')
+env.setdefault('GTK_IM_MODULE', 'ibus')
+env.setdefault('QT_IM_MODULE', 'ibus')
+env.setdefault('XMODIFIERS', '@im=ibus')
 env['LANG'] = 'zh_CN.UTF-8'
 if len(sys.argv) < 2: sys.exit('An application is required')
 os.execvpe(sys.argv[1], sys.argv[1:], env)
@@ -76,6 +90,22 @@ if editors:
     for mime in ['text/plain','text/markdown','application/json','text/x-python']:
         run('xdg-mime','default',editors[0].name,mime)
 run('xdg-settings','set','default-web-browser','aelion-browser.desktop')
+for mime,app in [
+    ('application/vnd.openxmlformats-officedocument.wordprocessingml.document','libreoffice-writer.desktop'),
+    ('application/msword','libreoffice-writer.desktop'),
+    ('application/vnd.oasis.opendocument.text','libreoffice-writer.desktop'),
+    ('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','libreoffice-calc.desktop'),
+    ('application/vnd.ms-excel','libreoffice-calc.desktop'),
+    ('application/vnd.oasis.opendocument.spreadsheet','libreoffice-calc.desktop'),
+    ('application/vnd.openxmlformats-officedocument.presentationml.presentation','libreoffice-impress.desktop'),
+    ('application/vnd.ms-powerpoint','libreoffice-impress.desktop'),
+    ('application/vnd.oasis.opendocument.presentation','libreoffice-impress.desktop'),
+]:
+    run('xdg-mime','default',app,mime)
+pdf=[path.name for path in pathlib.Path('/usr/share/applications').glob('*evince*.desktop')]
+if pdf: run('xdg-mime','default',pdf[0],'application/pdf')
+run('gsettings','set','org.freedesktop.ibus.general','preload-engines',"['libpinyin']")
+run('gsettings','set','org.freedesktop.ibus.general.hotkey','triggers',"['<Control>space']")
 run('xset','s','off'); run('xset','-dpms'); run('xset','s','noblank')
 run('xfdesktop','--reload')
 if '--arrange' in run('xfdesktop','--help').stdout: run('xfdesktop','--arrange')
@@ -98,6 +128,9 @@ const files:Record<string,string>={
   '/home/aelion/Desktop/Work.desktop':launcher('工作文件','/usr/local/bin/aelion-session thunar /work','folder-documents'),
   '/home/aelion/Desktop/Writer.desktop':launcher('文档','/usr/local/bin/aelion-session libreoffice --writer','libreoffice-writer'),
   '/home/aelion/Desktop/Calc.desktop':launcher('表格','/usr/local/bin/aelion-session libreoffice --calc','libreoffice-calc'),
+  '/home/aelion/Desktop/Impress.desktop':launcher('演示','/usr/local/bin/aelion-session libreoffice --impress','libreoffice-impress'),
+  '/etc/X11/Xsession.d/90aelion-im':'export GTK_IM_MODULE=ibus\nexport QT_IM_MODULE=ibus\nexport XMODIFIERS=@im=ibus\n',
+  '/etc/xdg/autostart/aelion-ibus.desktop':launcher('IBus','ibus-daemon --xim --replace --daemonize','ibus'),
   '/etc/xdg/autostart/aelion-style.desktop':launcher('Aelion desktop','/usr/local/bin/aelion-session /usr/local/bin/aelion-style','preferences-desktop-theme')
 };
 const assets=Buffer.from(JSON.stringify(files)).toString('base64');
@@ -113,14 +146,27 @@ trap 'echo "Desktop preparation failed at $(date -Iseconds), stage $(cat /var/li
 printf system > /var/lib/aelion/desktop-stage
 timeout 600 dpkg --configure -a || echo 'Pending package dependencies will be repaired by APT'
 `+PACKAGE_INSTALLER_BOOTSTRAP+String.raw`
-printf desktop > /var/lib/aelion/desktop-stage
 arch=$(dpkg --print-architecture)
 case "$arch" in amd64|arm64) ;; *) echo "Unsupported guest architecture: $arch" >&2; exit 1 ;; esac
-/usr/local/sbin/aelion-packages desktop "linux-image-$arch" git python3-venv ca-certificates curl locales xserver-xorg-core xserver-xorg-video-all xserver-xorg-input-libinput x11-xserver-utils xinit xfce4-session xfce4-settings xfwm4 xfdesktop4 xfce4-panel xfce4-appfinder xfce4-terminal dbus-x11 dbus-user-session lightdm lightdm-gtk-greeter thunar thunar-archive-plugin gvfs gvfs-backends xdg-utils mousepad ristretto evince xclip xdotool arc-theme adwaita-icon-theme fonts-noto-core fonts-noto-cjk librsvg2-bin librsvg2-common tigervnc-standalone-server python3-pil xauth x11-utils
-/usr/local/sbin/aelion-packages office libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-gtk3 libreoffice-l10n-zh-cn
+provisioned=$(cat /var/lib/aelion/provisioned-workstation 2>/dev/null || true)
+kernel=$(find /boot -maxdepth 1 -name "vmlinuz-*-$arch" ! -name '*cloud*' | sort -V | tail -n 1 | sed 's|.*/vmlinuz-||')
+has_browser=0
+if [ "$arch" = arm64 ] || [ '`+(preferChromium?'1':'0')+String.raw`' = 1 ]; then
+  if command -v chromium >/dev/null; then has_browser=1; fi
+elif command -v google-chrome-stable >/dev/null || command -v chromium >/dev/null; then
+  has_browser=1
+fi
+if [ "$provisioned" = '`+WORKSTATION_VERSION+String.raw`' ] && [ -n "$kernel" ] && [ "$has_browser" = 1 ] && command -v thunar >/dev/null && command -v libreoffice >/dev/null && command -v xclip >/dev/null && command -v xdotool >/dev/null && command -v unzip >/dev/null && command -v pdftotext >/dev/null && command -v ibus >/dev/null; then
+  printf provisioned > /var/lib/aelion/desktop-stage
+  echo "Guest image already contains workstation $provisioned packages"
+else
+printf desktop > /var/lib/aelion/desktop-stage
+/usr/local/sbin/aelion-packages desktop "linux-image-$arch" git python3-venv ca-certificates curl locales xserver-xorg-core xserver-xorg-video-all xserver-xorg-input-libinput x11-xserver-utils xinit xfce4-session xfce4-settings xfwm4 xfdesktop4 xfce4-panel xfce4-appfinder xfce4-terminal dbus-x11 dbus-user-session lightdm lightdm-gtk-greeter thunar thunar-archive-plugin gvfs gvfs-backends xdg-utils mousepad ristretto evince xclip xdotool arc-theme adwaita-icon-theme fonts-noto-core fonts-noto-cjk fonts-liberation fonts-crosextra-carlito fonts-crosextra-caladea librsvg2-bin librsvg2-common tigervnc-standalone-server python3-pil xauth x11-utils zip unzip xarchiver ibus ibus-gtk3 ibus-libpinyin libglib2.0-bin
+/usr/local/sbin/aelion-packages office libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-gtk3 libreoffice-l10n-zh-cn python3-pip python3-openpyxl python3-pypdf poppler-utils hunspell-en-us
 if [ "$arch" = arm64 ] || [ '`+(preferChromium?'1':'0')+String.raw`' = 1 ] || ! command -v google-chrome-stable >/dev/null 2>&1; then
   printf browser > /var/lib/aelion/desktop-stage
-  /usr/local/sbin/aelion-packages browser chromium
+  /usr/local/sbin/aelion-packages browser chromium chromium-l10n
+fi
 fi
 printf finishing > /var/lib/aelion/desktop-stage
 sed -i 's/^# *zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/' /etc/locale.gen

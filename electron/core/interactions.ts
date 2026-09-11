@@ -6,7 +6,7 @@ import type {HostApprovalPolicy} from './host-approval-types';
 import {abortable} from './abortable';
 
 export class InteractionDenied extends Error {
-  constructor(message='用户拒绝了本机操作，任务已停止'){super(message);this.name='InteractionDenied';}
+  constructor(message='用户拒绝了本次操作',readonly details?:HostPermissionDetails,readonly source:'user'|'model'='user',readonly stopTask=false){super(message);this.name='InteractionDenied';}
 }
 type Pending={request:InteractionRequest;resolve:()=>void;reject:(error:Error)=>void;cleanup:()=>void;review?:AbortController;revision:number};
 type QuestionRecord={request:Extract<InteractionRequest,{kind:'user_input'}>;completion:Promise<void>;answers?:Record<string,string>;cancelled?:boolean;consumed?:boolean};
@@ -84,7 +84,7 @@ export class Interactions {
   approve(id:string,allow:boolean){
     const request=this.get(id);if(request.kind!=='host_permission')throw new Error('请求类型不匹配');
     if(allow&&request.approval?.phase==='reviewing')throw new Error('自动审核尚未结束');
-    this.finish(id,allow?undefined:new InteractionDenied(),allow?'allowed':'denied');
+    this.finish(id,allow?undefined:new InteractionDenied('用户拒绝了本次操作',request.details),allow?'allowed':'denied');
   }
   approveAlways(id:string){
     const request=this.get(id);
@@ -112,7 +112,7 @@ export class Interactions {
       if(policy.modeFor(item.request)!=='auto'){this.refreshHostPolicy();return;}
       item.request.approval={mode:'auto',phase:'waiting',...result};
       if(result.decision==='allow')this.finish(id,undefined,'auto-model');
-      else if(result.decision==='deny')this.finish(id,new InteractionDenied(`自动审核未放行，任务已停止：${result.reason}`),'auto-model-deny');
+      else if(result.decision==='deny')this.finish(id,new InteractionDenied(`自动审核未放行：${result.reason}`,item.request.details,'model'),'auto-model-deny');
       else{try{this.record?.(structuredClone(item.request),'auto-model-'+result.decision);}catch{}this.changed();}
     }).catch(()=>{
       const item=this.pending.get(id);if(!item||item!==pending||item.revision!==revision||controller.signal.aborted||item.request.kind!=='host_permission')return;
@@ -143,7 +143,7 @@ export class Interactions {
     const item=this.get(id);if(item.kind!=='vm_takeover'||item.phase!=='controlling')throw new Error('请先接管并完成操作，再交还继续');
     this.finish(id,undefined,'resumed');
   }
-  cancelTakeover(id:string){if(this.get(id).kind!=='vm_takeover')throw new Error('请求类型不匹配');this.finish(id,new InteractionDenied('用户取消了人工接管，任务已停止'),'denied');}
+  cancelTakeover(id:string){if(this.get(id).kind!=='vm_takeover')throw new Error('请求类型不匹配');this.finish(id,new InteractionDenied('用户取消了人工接管，任务已停止',undefined,'user',true),'denied');}
   private finish(id:string,error:Error|undefined,decision:string,ruleId?:string){
     const item=this.pending.get(id);if(!item)return;
     this.pending.delete(id);item.review?.abort();item.cleanup();

@@ -8,6 +8,7 @@ if(process.platform!=='darwin')throw Error('This smoke test requires macOS');
 const arch=process.arch,out=resolve('output'),data=resolve('.local',`mac-vm-${arch}`);mkdirSync(out,{recursive:true});
 const resources=arch==='x64'?{memoryMiB:4096,cpuCount:4}:{memoryMiB:3072,cpuCount:2};
 const accelerator=ciVmAccelerator(resolve('runtime/qemu'));
+if(accelerator!=='hvf'&&process.env.AELION_ALLOW_TCG_SMOKE!=='1')throw Error('Mac guest desktop smoke requires HVF. GitHub hosted Mac runners block nested virtualization, so QEMU falls back to TCG and the first package install takes 40+ minutes. Leave the release workflow vm_smoke input off, or set AELION_ALLOW_TCG_SMOKE=1 to force TCG.');
 const vm=new VmController({dataDir:data,runtimeDir:resolve('runtime/qemu'),cacheDir:resolve('runtime/downloads'),...resources,accelerator,startupTimeoutMs:600000}),computer=new ComputerController(vm,data,()=>{});
 const proof:{arch:string;accelerator:string;steps:unknown[];preparation?:unknown[];passed?:boolean;error?:string}={arch,accelerator,...resources,steps:[]};
 const save=()=>writeFileSync(join(out,`mac-${arch}-vm-smoke.json`),JSON.stringify(proof,null,2));

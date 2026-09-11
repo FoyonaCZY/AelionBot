@@ -74,6 +74,14 @@ Object.assign(zhTW,{'群名称无效':'群組名稱無效','请选择 1–8 位 
 Object.assign(en,{'群名称无效':'Invalid group name','请选择 1–8 位 Bot':'Choose 1–8 Bots','请选择 2–8 位 Bot':'Choose 2–8 Bots','群聊 ID无效':'Invalid group chat ID','群聊不存在或已删除':'Group chat not found or already deleted'});
 Object.assign(zhTW,{'纯色':'純色','渐变':'漸層','拼色':'拼色','拼色方式':'拼色方式','斜向':'斜向','纵向':'縱向'});
 Object.assign(en,{'纯色':'Solid','渐变':'Gradient','拼色':'Split','拼色方式':'Split style','斜向':'Diagonal','纵向':'Vertical'});
+Object.assign(zhTW,{'正在回应':'正在回應','正在审核本次操作的范围，审核结束后会更新状态。':'正在審核這次操作的範圍，審核結束後會更新狀態。'});
+Object.assign(en,{'正在回应':'Responding','正在审核本次操作的范围，审核结束后会更新状态。':'Reviewing the scope of this action; the status will update when the review is complete.'});
+Object.assign(zhTW,{'第 {line} 行起':'第 {line} 行起','查看电脑画面':'查看電腦畫面','点击界面':'點擊介面','打开项目':'開啟專案','移动指针':'移動指標','拖动界面':'拖曳介面','滚动页面':'捲動頁面','按下快捷键':'按下快速鍵','输入文字':'輸入文字','打开应用':'開啟應用程式','文本编辑器':'文字編輯器','终端':'終端'});
+Object.assign(en,{'第 {line} 行起':'from line {line}','查看电脑画面':'View computer screen','点击界面':'Click interface','打开项目':'Open project','移动指针':'Move pointer','拖动界面':'Drag interface','滚动页面':'Scroll page','按下快捷键':'Press shortcut','输入文字':'Type text','打开应用':'Open app','文本编辑器':'Text editor','终端':'Terminal'});
+Object.assign(zhTW,{'表格':'表格','文档':'文件','演示':'簡報','浏览器':'瀏覽器','文件管理器':'檔案管理員','更新工作环境':'更新工作環境','更新桌面':'更新桌面','给桌面补上新工具':'幫桌面補上新工具','文件还在。更新后可以使用压缩包、表格脚本和演示文稿。':'檔案還在。更新後可以使用壓縮檔、表格指令碼和簡報。','已有文件还在。更新后可以使用压缩包、表格脚本和演示文稿。':'既有檔案還在。更新後可以使用壓縮檔、表格指令碼和簡報。','通常几分钟，需要联网':'通常幾分鐘，需要連網','通常几分钟 · 需要联网':'通常幾分鐘 · 需要連網'});
+Object.assign(en,{'表格':'Table','文档':'Document','演示':'Presentation','浏览器':'Browser','文件管理器':'File manager','更新工作环境':'Update the work environment','更新桌面':'Update desktop','给桌面补上新工具':'Add the new desktop tools','文件还在。更新后可以使用压缩包、表格脚本和演示文稿。':'Your files are still there. After updating, archives, spreadsheet scripts, and presentations will be available.','已有文件还在。更新后可以使用压缩包、表格脚本和演示文稿。':'Your existing files are still there. After updating, archives, spreadsheet scripts, and presentations will be available.','通常几分钟，需要联网':'Usually a few minutes; internet required','通常几分钟 · 需要联网':'Usually a few minutes · internet required'});
+Object.assign(zhTW,{'拒绝本次':'拒絕本次','操作已拒绝':'操作已拒絕','自动审核未放行':'自動審核未放行','读取文件':'讀取檔案','写入文件':'寫入檔案','删除文件':'刪除檔案'});
+Object.assign(en,{'拒绝本次':'Deny this operation','操作已拒绝':'Operation denied','自动审核未放行':'Automatic review denied this operation','读取文件':'Read file','写入文件':'Write file','删除文件':'Delete file'});
 let activeLanguage:Language='zh-CN';
 
 export function readLanguage():Language{

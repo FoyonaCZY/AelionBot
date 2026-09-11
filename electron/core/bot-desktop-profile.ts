@@ -1,8 +1,8 @@
-export const BOT_DESKTOP_VERSION='5';
+export const BOT_DESKTOP_VERSION='6';
 
 // One X server and D-Bus session per Bot. Reattaching never changes another desktop.
 export const BOT_DESKTOP_SCRIPT=String.raw`#!/usr/bin/python3
-import fcntl, json, os, pathlib, re, secrets, signal, socket, subprocess, sys, time
+import fcntl, json, os, pathlib, re, secrets, shutil, signal, socket, subprocess, sys, time
 
 ROOT=pathlib.Path('/home/aelion/.aelion-desktops')
 BOOT=pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()
@@ -35,7 +35,7 @@ def environment(bot,data):
     env=os.environ.copy()
     for key in ['DISPLAY','XAUTHORITY','DBUS_SESSION_BUS_ADDRESS','SESSION_MANAGER','WAYLAND_DISPLAY','XDG_SESSION_ID']:
         env.pop(key,None)
-    env.update(HOME=str(work),DISPLAY=':'+str(data['display']),XAUTHORITY=data['authority'],XDG_RUNTIME_DIR=data['runtime'],XDG_CONFIG_HOME=str(work/'.config'),XDG_CACHE_HOME=str(work/'.cache'),XDG_DATA_HOME=str(work/'.local/share'),XDG_CURRENT_DESKTOP='XFCE',DESKTOP_SESSION='xfce',LANG='zh_CN.UTF-8',AELION_BOT_ID=bot,AELION_DESKTOP_CONTEXT=bot)
+    env.update(HOME=str(work),DISPLAY=':'+str(data['display']),XAUTHORITY=data['authority'],XDG_RUNTIME_DIR=data['runtime'],XDG_CONFIG_HOME=str(work/'.config'),XDG_CACHE_HOME=str(work/'.cache'),XDG_DATA_HOME=str(work/'.local/share'),XDG_CURRENT_DESKTOP='XFCE',DESKTOP_SESSION='xfce',LANG='zh_CN.UTF-8',GTK_IM_MODULE='ibus',QT_IM_MODULE='ibus',XMODIFIERS='@im=ibus',AELION_BOT_ID=bot,AELION_DESKTOP_CONTEXT=bot)
     try: env['DBUS_SESSION_BUS_ADDRESS']=json.loads((ROOT/(bot+'.env.json')).read_text())['DBUS_SESSION_BUS_ADDRESS']
     except (OSError,ValueError,KeyError): pass
     return env
@@ -103,7 +103,7 @@ def ensure(bot):
         for folder in ['Desktop','Downloads','Documents','.config','.cache','.local/share']:(work/folder).mkdir(parents=True,exist_ok=True)
         dirs=work/'.config/user-dirs.dirs'
         if not dirs.exists(): dirs.write_text('XDG_DESKTOP_DIR="$HOME/Desktop"\nXDG_DOWNLOAD_DIR="$HOME/Downloads"\nXDG_DOCUMENTS_DIR="$HOME/Documents"\n')
-        for name,command,icon in [('Work','thunar '+str(work),'folder-documents'),('Browser','/usr/local/bin/aelion-browser --no-first-run --no-default-browser-check','web-browser'),('Writer','libreoffice --writer','libreoffice-writer'),('Calc','libreoffice --calc','libreoffice-calc')]:
+        for name,command,icon in [('Work','thunar '+str(work),'folder-documents'),('Browser','/usr/local/bin/aelion-browser --no-first-run --no-default-browser-check','web-browser'),('Writer','libreoffice --writer','libreoffice-writer'),('Calc','libreoffice --calc','libreoffice-calc'),('Impress','libreoffice --impress','libreoffice-impress')]:
             shortcut=work/'Desktop'/(name+'.desktop')
             if not shortcut.exists(): shortcut.write_text('[Desktop Entry]\nType=Application\nName='+name+'\nExec='+command+'\nIcon='+icon+'\nTerminal=false\n');shortcut.chmod(0o755)
         log=(session/'desktop.log').open('ab')
@@ -126,6 +126,8 @@ def main():
     mode,bot=sys.argv[1:3];workspace(bot)
     if mode=='run':
         write(ROOT/(bot+'.env.json'),{'DBUS_SESSION_BUS_ADDRESS':os.environ['DBUS_SESSION_BUS_ADDRESS']})
+        if shutil.which('ibus-daemon'):
+            subprocess.Popen(['ibus-daemon','--xim','--daemonize','--replace'],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         session=subprocess.Popen(['xfce4-session'])
         # xfdesktop loads its initial background after the window manager comes up.
         subprocess.Popen(['sh','-c','sleep 3; /usr/local/bin/aelion-style'],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)

@@ -9,7 +9,7 @@
   <p>你的 AI 工作伙伴，陪你把想做的事往前推一步。</p>
   <p>
     <a href="https://aelion.chat/?lang=zh-CN"><strong>逛逛官网 ↗</strong></a> &nbsp; · &nbsp;
-    <a href="https://github.com/FoyonaCZY/AelionBot/releases/latest"><strong>下载 Windows 版</strong></a> &nbsp; · &nbsp;
+    <a href="https://github.com/FoyonaCZY/AelionBot/releases/latest"><strong>下载 Windows 与 macOS 版</strong></a> &nbsp; · &nbsp;
     <a href="https://aelion.chat/blog/?lang=zh-CN">博客</a>
   </p>
   <img src="docs/assets/product/companions.svg" alt="蓝、紫、绿三位 AelionBot 伙伴" width="100%">
@@ -65,7 +65,7 @@
 
 浅色或暗色，英文、简体中文或繁体中文。字体、文字大小、显示比例，都可以按习惯调整。
 
-1. **[下载 AelionBot](https://github.com/FoyonaCZY/AelionBot/releases/latest)。** 当前版本提供 Windows 版。
+1. **[下载 AelionBot](https://github.com/FoyonaCZY/AelionBot/releases/latest)。** 当前版本提供 Windows 与 macOS 版。
 2. **连接你想用的 AI 服务。** 按应用内引导完成设置，使用费用按所选服务计算。
 3. **认识第一位伙伴。** 给它安排一个职责，先从一件小事开始。
 

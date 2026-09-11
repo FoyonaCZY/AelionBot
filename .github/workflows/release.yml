@@ -10,9 +10,9 @@ on:
         options: [all, windows]
         default: all
       vm_smoke:
-        description: Run the complete Mac guest desktop smoke test
+        description: Run the Mac guest desktop smoke test (requires HVF; hosted GitHub Mac runners use TCG and will fail fast)
         type: boolean
-        default: true
+        default: false
 permissions:
   contents: read
 jobs:
@@ -33,7 +33,9 @@ jobs:
       matrix:
         include: ${{ fromJSON(inputs.platforms == 'windows' && '[{"name":"windows-x64","os":"windows-latest","arch":"x64"}]' || '[{"name":"windows-x64","os":"windows-latest","arch":"x64"},{"name":"macos-arm64","os":"macos-15","arch":"arm64"},{"name":"macos-x64","os":"macos-15-intel","arch":"x64"}]') }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 75
+    timeout-minutes: ${{ inputs.vm_smoke && 75 || 30 }}
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -64,19 +66,22 @@ jobs:
           AELION_TEST_PYTHON: ${{ steps.python.outputs.python-path }}
         run: npm test
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: runner.os == 'Windows'
+        id: runtime
         with:
           path: |
             runtime/qemu
             runtime/downloads
-          key: qemu-windows-${{ hashFiles('scripts/prepare-runtime.mjs', 'scripts/runtime-archiver.mjs') }}
+          key: qemu-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('scripts/prepare-runtime.mjs', 'scripts/prepare-macos-runtime.mjs', 'scripts/runtime-archiver.mjs') }}
       - name: Install Mac build runtime
-        if: runner.os == 'macOS'
+        if: ${{ runner.os == 'macOS' && steps.runtime.outputs.cache-hit != 'true' }}
         env:
           HOMEBREW_NO_AUTO_UPDATE: '1'
         run: brew install qemu
       - name: Prepare bundled runtime
+        if: ${{ steps.runtime.outputs.cache-hit != 'true' }}
         run: npm run vm:prepare-runtime
+      - name: Verify bundled runtime
+        run: node scripts/verify-bundled-runtime.mjs
       - name: Build and verify Windows installer
         if: runner.os == 'Windows'
         run: npm run package:release
@@ -93,7 +98,7 @@ jobs:
         if: runner.os == 'macOS'
         run: node scripts/verify-macos-app.mjs
       - name: Verify Mac Linux desktop and persistence
-        if: runner.os == 'macOS' && (github.event_name == 'push' || inputs.vm_smoke)
+        if: runner.os == 'macOS' && inputs.vm_smoke
         run: node --import tsx scripts/verify-macos-vm.ts
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

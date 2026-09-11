@@ -18,7 +18,13 @@ await build({targets:Platform.MAC.createTarget(['dmg','zip'],arch==='arm64'?Arch
 const app=join(output,arch==='arm64'?'mac-arm64':'mac','AelionBot.app');if(!existsSync(app))throw Error('Packaged app missing');
 execFileSync('/usr/bin/codesign',['--verify','--deep','--strict',app],{stdio:'inherit'});
 execFileSync('/usr/bin/lipo',[join(app,'Contents','MacOS','AelionBot'),'-verify_arch',arch==='arm64'?'arm64':'x86_64'],{stdio:'inherit'});
-const emulator=join(app,'Contents','Resources','qemu','bin',`qemu-system-${arch==='arm64'?'aarch64':'x86_64'}`);execFileSync(emulator,['--version'],{stdio:'inherit'});
+const runtime=join(app,'Contents','Resources','qemu'),emulator=join(runtime,'bin',`qemu-system-${arch==='arm64'?'aarch64':'x86_64'}`);
+const qemuEnv={...process.env,QEMU_MODULE_DIR:join(runtime,'lib','qemu')};delete qemuEnv.DYLD_LIBRARY_PATH;delete qemuEnv.DYLD_FALLBACK_LIBRARY_PATH;delete qemuEnv.DYLD_INSERT_LIBRARIES;
+execFileSync(emulator,['--version'],{stdio:'inherit',env:qemuEnv});
+const accel=execFileSync(emulator,['-accel','help'],{encoding:'utf8',env:qemuEnv});
+if(!accel.includes('hvf'))throw Error('Packaged QEMU HVF support missing');
+const entitlements=execFileSync('/usr/bin/codesign',['--display','--entitlements',':-',emulator],{encoding:'utf8',stdio:['ignore','pipe','pipe']});
+if(!/<key>com\.apple\.security\.hypervisor<\/key>\s*<true\s*\/>/.test(entitlements))throw Error('Packaged QEMU hypervisor entitlement missing');
 const manifest=join(output,'latest-mac.yml');if(!existsSync(manifest))throw Error('Mac update manifest missing');const info=parse(readFileSync(manifest,'utf8'));if(info.version!==pkg.version)throw Error('Mac update version mismatch');
 for(const file of info.files||[]){const name=decodeURIComponent(file.url);if(basename(name)!==name||!name.startsWith(`AelionBot-${pkg.version}-mac-${arch}.`))throw Error('Unexpected Mac update asset');const hash=createHash('sha512');for await(const chunk of createReadStream(join(output,name)))hash.update(chunk);if(hash.digest('base64')!==file.sha512)throw Error('Mac update checksum mismatch');}
 for(const extension of ['dmg','zip'])if(!existsSync(join(output,`AelionBot-${pkg.version}-mac-${arch}.${extension}`)))throw Error('Mac installer asset missing');

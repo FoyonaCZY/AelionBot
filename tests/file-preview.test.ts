@@ -41,7 +41,7 @@ test('office preview rejects unavailable runtime, excess size and unsafe extensi
   let calls=0;const vm={state:{status:'stopped'},executePython:async()=>{calls++;}} as unknown as VmController;
   await assert.rejects(officePreview(vm,'bot','.pptx',Buffer.from('offline')),/启动工作电脑/);
   await assert.rejects(officePreview(vm,'bot','.pptx',Buffer.alloc(OFFICE_PREVIEW_LIMIT+1)),/8 MB/);
-  assert.throws(()=>officePreviewScript(".pptx';print('bad')"),/不支持/);assert.equal(calls,0);
+  assert.throws(()=>officePreviewScript(".pptx';print('bad')"),/不支持/);assert.match(officePreviewScript('.xlsx'),/document\.xlsx/);assert.equal(calls,0);
 });
 test('image preview uses original bytes rather than a resized model screenshot',t=>{
   const dir=mkdtempSync(join(tmpdir(),'aelion-preview-image-'));t.after(()=>{assert.equal(dirname(resolve(dir)),resolve(tmpdir()));rmSync(dir,{recursive:true,force:true});});
