@@ -27,7 +27,9 @@ export class TerminalSessions {
    await this.interactions.permission(botId,runId,{operation:'command',reason:args.reason,command:args.command,cwd,tool:'terminal_start',arguments:{tty}},signal);signal.throwIfAborted();if(realpathSync.native(cwd)!==cwd)throw Error('目录在审批期间发生变化');
    const env=hostEnvironment(this.host.options.env||process.env),shell=hostShell(args.command,env),shellArgs=shell.args.filter(arg=>arg!=='-NonInteractive');
    if(tty){
-    const load=createRequire(join(this.runtimeDir,'terminal-loader.cjs')),file=load.resolve('node-pty').replace(/app\.asar([\\/])/,'app.asar.unpacked$1'),pty=load(file) as typeof import('node-pty');
+    // node-pty rewrites its Mac spawn-helper path itself. Loading its JS from
+    // app.asar.unpacked on Mac would rewrite that path a second time.
+    const load=createRequire(join(this.runtimeDir,'terminal-loader.cjs')),resolved=load.resolve('node-pty'),file=process.platform==='win32'?resolved.replace(/app\.asar([\\/])/,'app.asar.unpacked$1'):resolved,pty=load(file) as typeof import('node-pty');
     const child=pty.spawn(shell.executable,shellArgs,{name:'xterm-256color',cwd,cols,rows,env:Object.fromEntries(Object.entries(env).filter((entry):entry is [string,string]=>typeof entry[1]==='string')),useConpty:true});
     // node-pty 1.1.0 leaves its ConPTY reader worker alive on natural exit.
     // Release owned handles directly: public kill() enumerates an already exited
