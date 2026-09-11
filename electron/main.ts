@@ -1,3 +1,4 @@
+import {validLanguage} from '../src/reply-language';
 import {editableText,editedBytes} from './core/preview-editing';
 import {sourceTextFile} from '../src/source-language';
 import {normalizeAppearance,type AppearanceSettings} from '../src/appearance';
@@ -202,6 +203,7 @@ async function initialize(){
     const percent=reset?100:Math.round(contents.getZoomFactor()*100)+(zoomIn?10:-10);
     saveAppearance({...normalizeAppearance(store.data.appearance),zoom:Math.max(50,Math.min(200,percent))});
   });
+  handle('language:sync',value=>{if(!validLanguage(value))throw Error('Invalid language');if(store.data.language!==value){store.data.language=value;store.save();greetings?.cancelAll();changed();}void greetings?.greetEmpty();});
   handle('profile:save',value=>{store.data.userProfile=normalizeUserProfile(value);store.save();greetings?.cancelAll();changed();void greetings?.greetEmpty();});
   handle('runtime:save',value=>{store.data.runtime=runtimeSettings(value);store.save();changed();});
   handle('app:snapshot',snapshot);
@@ -351,7 +353,7 @@ async function initialize(){
   if(dev){if(new URL(dev).hostname!=='127.0.0.1')throw new Error('开发服务器必须在本机');await window.loadURL(dev);}else await window.loadFile(join(__dirname,'../dist/index.html'));
   window.show();
   appUpdates.startAutomaticChecks();
-  void greetings.greetEmpty();
+  if(store.data.language)void greetings.greetEmpty();
   await vm.refresh();
   if(exiting)return;
   if(launchContext?.resumeComputer&&resolve(launchContext.dataDir).toLowerCase()===dataDir.toLowerCase()){saveUpdateLaunchContext(profileDir,{...launchContext,resumeComputer:false});await vm.start().catch(()=>{});}

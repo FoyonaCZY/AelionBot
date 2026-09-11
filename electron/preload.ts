@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { AelionAPI, AppEvent } from '../src/shared';
 const api:AelionAPI={
+  syncLanguage:language=>ipcRenderer.invoke('language:sync',language),
   readEditableFile:input=>ipcRenderer.invoke('files:edit-read',input),
   saveEditableFile:input=>ipcRenderer.invoke('files:edit-save',input),
   readEditableAttachment:id=>ipcRenderer.invoke('attachments:edit-read',id),

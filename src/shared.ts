@@ -48,6 +48,7 @@ export interface Snapshot {appearance?:import("./appearance").AppearanceSettings
 export interface AppEvent { type: 'state'; snapshot: Snapshot; }
 export interface CommandResult { stdout: string; stderr: string; exitCode: number; durationMs: number; }
 export interface AelionAPI {
+  syncLanguage(language:import("./reply-language").Language):Promise<void>;
   readEditableFile(input:{botId:string;path:string}):Promise<import('./editable-text').EditableText>;
   saveEditableFile(input:{botId:string;path:string;edit:import('./editable-text').TextEdit}):Promise<import('./editable-text').EditableText>;
   readEditableAttachment(id:string):Promise<import('./editable-text').EditableText>;

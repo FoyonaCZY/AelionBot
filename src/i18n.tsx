@@ -1,6 +1,7 @@
 import {createContext,useCallback,useContext,useEffect,useMemo,useState,type ReactNode} from 'react';
 
-export type Language='zh-CN'|'zh-TW'|'en';
+import {validLanguage,type Language} from './reply-language';
+export type {Language} from './reply-language';
 export const LANGUAGE_STORAGE_KEY='aelion-language';
 
 export const languageOptions:ReadonlyArray<{value:Language;label:string}>=[
@@ -71,7 +72,6 @@ Object.assign(zhTW,{"是":"是","否":"否"});Object.assign(en,{"是":"Yes","否
 Object.assign(zhTW,{"Aelion MCP 配置 · mcpServers":"Aelion MCP 設定 · mcpServers"});Object.assign(en,{"Aelion MCP 配置 · mcpServers":"Aelion MCP configuration · mcpServers"});
 let activeLanguage:Language='zh-CN';
 
-function validLanguage(value:unknown):value is Language{return value==='zh-CN'||value==='zh-TW'||value==='en';}
 export function readLanguage():Language{
   if(typeof window==='undefined')return 'zh-CN';
   try{const value=localStorage.getItem(LANGUAGE_STORAGE_KEY);return validLanguage(value)?value:'zh-CN';}catch{return 'zh-CN';}
@@ -81,7 +81,7 @@ export function applyLanguage(language:Language){
   if(typeof document!=='undefined')document.documentElement.lang=language;
   if(typeof window!=='undefined')window.dispatchEvent(new Event('aelion-language-change'));
 }
-export function initializeI18n(){applyLanguage(readLanguage());}
+export async function initializeI18n(){const language=readLanguage();applyLanguage(language);await window.aelion.syncLanguage(language);}
 export function currentLanguage():Language{return activeLanguage;}
 
 export function translateFor(language:Language,source:string,values:Record<string,string|number>= {}):string{
@@ -96,7 +96,7 @@ const I18nContext=createContext<I18nContextValue>({language:'zh-CN',setLanguage:
 export function I18nProvider({children}:{children:ReactNode}){
   const [language,setLanguageState]=useState<Language>(readLanguage);
   useEffect(()=>{applyLanguage(language);},[language]);
-  const setLanguage=useCallback((next:Language)=>{setLanguageState(next);applyLanguage(next);try{localStorage.setItem(LANGUAGE_STORAGE_KEY,next);}catch{}},[]);
+  const setLanguage=useCallback((next:Language)=>{setLanguageState(next);applyLanguage(next);try{localStorage.setItem(LANGUAGE_STORAGE_KEY,next);}catch{}void window.aelion.syncLanguage(next).catch(error=>console.error('Failed to sync response language',error));},[]);
   const value=useMemo(()=>({language,setLanguage,t:translate}),[language,setLanguage]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
