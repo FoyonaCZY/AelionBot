@@ -163,6 +163,7 @@ else
 printf desktop > /var/lib/aelion/desktop-stage
 /usr/local/sbin/aelion-packages desktop "linux-image-$arch" git python3-venv ca-certificates curl locales xserver-xorg-core xserver-xorg-video-all xserver-xorg-input-libinput x11-xserver-utils xinit xfce4-session xfce4-settings xfwm4 xfdesktop4 xfce4-panel xfce4-appfinder xfce4-terminal dbus-x11 dbus-user-session lightdm lightdm-gtk-greeter thunar thunar-archive-plugin gvfs gvfs-backends xdg-utils mousepad ristretto evince xclip xdotool arc-theme adwaita-icon-theme fonts-noto-core fonts-noto-cjk fonts-liberation fonts-crosextra-carlito fonts-crosextra-caladea librsvg2-bin librsvg2-common tigervnc-standalone-server python3-pil xauth x11-utils zip unzip xarchiver ibus ibus-gtk3 ibus-libpinyin libglib2.0-bin
 /usr/local/sbin/aelion-packages office libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-gtk3 libreoffice-l10n-zh-cn python3-pip python3-openpyxl python3-pypdf poppler-utils hunspell-en-us
+python3 -c 'import pptx' 2>/dev/null || python3 -m pip install --break-system-packages --disable-pip-version-check --no-cache-dir 'python-pptx==1.0.2'
 if [ "$arch" = arm64 ] || [ '`+(preferChromium?'1':'0')+String.raw`' = 1 ] || ! command -v google-chrome-stable >/dev/null 2>&1; then
   printf browser > /var/lib/aelion/desktop-stage
   /usr/local/sbin/aelion-packages browser chromium chromium-l10n

@@ -9,10 +9,16 @@ export interface ComputerInput {
   action: ComputerAction; observationId?: string; x?: number; y?: number; toX?: number; toY?: number;
   button?: 'left'|'middle'|'right'; direction?: 'up'|'down'|'left'|'right'; amount?: number;
   key?: string; text?: string; pasteKey?: 'CTRL+V'|'CTRL+SHIFT+V'; milliseconds?: number;
-  app?: 'browser'|'files'|'editor'|'writer'|'calc'|'impress'|'terminal'; url?: string;
+  app?: 'browser'|'files'|'editor'|'writer'|'calc'|'impress'|'terminal'; url?: string; path?: string;
 }
 export interface ComputerResult { screenshot: ScreenReference; action: ComputerAction; message: string; }
 const sleep=(ms:number)=>new Promise<void>(resolve=>setTimeout(resolve,ms));
+function workFile(botId:string,value:string){
+  const prefix=`/work/${botId}/`;
+  const relative=value.startsWith(prefix)?value.slice(prefix.length):value;
+  if(!relative||relative.length>500||relative.startsWith('/')||relative.includes('\\')||/^[a-z][a-z0-9+.-]*:/i.test(relative)||relative.split('/').includes('..')||relative.includes('\0'))throw new Error('文件必须位于当前 Bot 工作目录');
+  return prefix+relative;
+}
 export function absolutePoint(x:number,y:number,width:number,height:number){
   if(!Number.isFinite(x)||!Number.isFinite(y)||x<0||y<0||x>=width||y>=height)throw new Error('坐标超出截图范围，请根据最新截图的像素尺寸操作');
   return [{type:'abs',data:{axis:'x',value:Math.round(x/(width-1)*32767)}},{type:'abs',data:{axis:'y',value:Math.round(y/(height-1)*32767)}}];
@@ -76,11 +82,13 @@ export class ComputerController {
     if(desktop.acting)throw new Error('前一次电脑操作尚未结束');
     desktop.view.ownerBotId=botId;desktop.acting=true;this.changed();
   }
-  async openApp(botId:string,app:NonNullable<ComputerInput['app']>,url?:string){
+  async openApp(botId:string,app:NonNullable<ComputerInput['app']>,url?:string,path?:string){
     if(this.vm.state.status!=='ready'||!this.vm.state.appsReady||this.vm.state.maintenance)throw new Error('工作电脑应用尚未就绪或正在维护');
+    const file=path?workFile(botId,path):undefined;
+    if(file&&!['files','editor','writer','calc','impress'].includes(app))throw new Error('只有文件管理器和办公应用可以打开工作区文件');
     const applications:Record<string,string[]>={
       browser:['aelion-browser',`--user-data-dir=/work/${botId}/.browser-profile`,'--no-first-run','--no-default-browser-check',url||'file:///usr/local/share/aelion/start.html'],
-      files:['thunar',`/work/${botId}`],editor:['mousepad'],writer:['libreoffice','--writer'],calc:['libreoffice','--calc'],impress:['libreoffice','--impress'],terminal:['xfce4-terminal',`--working-directory=/work/${botId}`]
+      files:['thunar',file||`/work/${botId}`],editor:file?['mousepad',file]:['mousepad'],writer:file?['libreoffice','--writer',file]:['libreoffice','--writer'],calc:file?['libreoffice','--calc',file]:['libreoffice','--calc'],impress:file?['libreoffice','--impress',file]:['libreoffice','--impress'],terminal:['xfce4-terminal',`--working-directory=/work/${botId}`]
     };
     const args=applications[app];if(!Array.isArray(args))throw new Error('未知桌面应用');
     if(url){const parsed=new URL(url);if(!['https:','http:'].includes(parsed.protocol)||parsed.username||parsed.password)throw new Error('浏览器地址必须为 HTTP 或 HTTPS 网页');}
@@ -122,7 +130,7 @@ export class ComputerController {
         await this.keys(botId,input.pasteKey==='CTRL+SHIFT+V'?'CTRL+SHIFT+V':'CTRL+V');
       }else if(input.action==='open_app'){
         if(!this.vm.state.appsReady)throw new Error('桌面应用尚未准备完成，请在电脑设置中修复环境');
-        await this.openApp(botId,input.app!,input.url);
+        await this.openApp(botId,input.app!,input.url,input.path);
       }else if(!['screenshot','wait','move'].includes(input.action))throw new Error('未知电脑操作');
       const settle=input.action==='wait'?Math.min(2000,Math.max(100,input.milliseconds||700)):input.action==='open_app'?1000:200;
       await sleep(settle);if(signal.aborted)throw new Error('任务已取消');

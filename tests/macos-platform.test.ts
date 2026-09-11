@@ -32,7 +32,7 @@ test('Mac virtual machines choose native images, hardware accelerator and ARM fi
  const arm=vmPlatform('darwin','arm64'),intel=vmPlatform('darwin','x64');assert.equal(arm.accelerator,'hvf');assert.ok(arm.image.filename.includes('arm64'));assert.ok(intel.image.filename.includes('amd64'));
  const args=vmMachineArgs(arm,runtime,join(runtime,'vars.fd'));assert.ok(args.includes('host'));assert.ok(args.includes('virt'));assert.ok(args.some(a=>a.includes('edk2-aarch64-code.fd')));assert.ok(!args.includes('whpx'));assert.ok(!args.includes('q35'));
  assert.ok(vmMachineArgs(arm,runtime,join(runtime,'vars.fd'),'tcg').includes('cortex-a72'));assert.ok(DESKTOP_SCRIPT.includes('linux-image-$arch'));assert.match(DESKTOP_SCRIPT,/\/usr\/local\/sbin\/aelion-packages browser chromium\b/);assert.match(DESKTOP_SCRIPT,/provisioned-workstation/);
- assert.match(DESKTOP_SCRIPT,/\bzip unzip xarchiver\b/);assert.match(DESKTOP_SCRIPT,/\bpython3-openpyxl python3-pypdf poppler-utils\b/);assert.match(DESKTOP_SCRIPT,/\bibus-libpinyin\b/);
+ assert.match(DESKTOP_SCRIPT,/\bzip unzip xarchiver\b/);assert.match(DESKTOP_SCRIPT,/\bpython3-openpyxl python3-pypdf poppler-utils\b/);assert.match(DESKTOP_SCRIPT,/python-pptx==1\.0\.2/);assert.match(DESKTOP_SCRIPT,/\bibus-libpinyin\b/);
  const packed=DESKTOP_SCRIPT.match(/files=json\.loads\(base64\.b64decode\('([A-Za-z0-9+/=]+)'\)\)/)?.[1];assert.ok(packed);
  const profile=JSON.parse(Buffer.from(packed,'base64').toString());assert.match(profile['/home/aelion/Desktop/Impress.desktop'],/libreoffice --impress/);
 });

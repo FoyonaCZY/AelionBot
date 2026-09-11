@@ -32,7 +32,7 @@ export interface Skill {hash?:string;archived?:boolean;pinned?:boolean;readCount
 export interface IntegrationSource { id: string; label: string; path: string; kind: 'skills'|'mcp'; scope: 'user'|'project'|'private'|'builtin'; exists: boolean; count: number; issue?: string; }
 export interface McpServerView { id: string; name: string; source: SkillSource; transport: 'stdio'|'http'|'sse'|'unsupported'; endpoint: string; enabled: boolean; status: 'disabled'|'available'|'connecting'|'connected'|'error'|'needs-config'; issue?: string; toolCount?: number; }
 export interface IntegrationsView { sharedSkillDir: string; privateSkillDir: string; mcpFile: string; projectDir: string; sources: IntegrationSource[]; servers: McpServerView[]; scannedAt: string; }
-export const WORKSTATION_VERSION='5';
+export const WORKSTATION_VERSION='6';
 export interface InstallationProgress {stage:string;phase:string;percent?:number;source?:string;package?:string;updatedAt:number;error?:string;}
 export interface VmState { status: 'unprepared' | 'preparing' | 'stopped' | 'starting' | 'ready' | 'stopping' | 'error'; detail: string; progress?: number; installation?:InstallationProgress;pid?: number; sshPort?: number; imageVersion: string; desktopReady?: boolean; appsReady?: boolean; maintenance?: boolean; needsReboot?: boolean; lastError?: string; diskBytes?: number; vncUrl?: string; }
 export interface ComputerDesktopState {botId:string;status:'idle'|'starting'|'ready'|'error';ownerBotId?:string;manualControl:boolean;vncUrl?:string;error?:string;}

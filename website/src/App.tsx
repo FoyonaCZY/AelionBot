@@ -6,17 +6,34 @@ import {readSiteLanguage,rememberSiteLanguage} from './locale.mjs';
 import {version} from '../../package.json';
 import {BotSculpture,tones,type BotTone} from './BotSculpture';
 import {siteCopy,siteExamples,siteLanguages,siteQuestions,type SiteLanguage} from './site-i18n';
+import {detectDownloadPlatform,downloadHref,downloadIcon,navigatorHints,readBrowserDownloadHints,recommendDownload} from './download-platform.mjs';
 import {resetSurface,trackSurface,useMotionPreference,useSiteMotion} from './useSiteMotion';
 import site from '../site.json';
 import './site-i18n.css';
 
-const download=`${site.repository}/releases/latest`;
-const macGuide=`${site.repository}/blob/main/docs/releases/v0.6.0.md`;
-
-type IconName='arrow'|'down'|'plus'|'close'|'menu'|'expand'|'file'|'check'|'windows';
+type IconName='arrow'|'down'|'plus'|'close'|'menu'|'expand'|'file'|'check'|'windows'|'mac';
 function Icon({name,size=20}:{name:IconName;size?:number}){
-  const paths:Record<IconName,ReactNode>={arrow:<path d="M4 12h15m-6-6 6 6-6 6"/>,down:<path d="M12 4v15m-6-6 6 6 6-6"/>,plus:<path d="M5 12h14M12 5v14"/>,close:<path d="m6 6 12 12M18 6 6 18"/>,menu:<path d="M4 8h16M4 16h16"/>,expand:<path d="M4 9V4h5m6 0h5v5M4 15v5h5m6 0h5v-5"/>,file:<><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6"/><path d="M8 13h8M8 17h5"/></>,check:<path d="m5 12 4 4L19 6"/>,windows:<path d="m3 5 8-1v7H3zm10-1 8-1v8h-8zM3 13h8v7l-8-1zm10 0h8v8l-8-1z" fill="currentColor" stroke="none"/>};
+  const paths:Record<IconName,ReactNode>={arrow:<path d="M4 12h15m-6-6 6 6-6 6"/>,down:<path d="M12 4v15m-6-6 6 6 6-6"/>,plus:<path d="M5 12h14M12 5v14"/>,close:<path d="m6 6 12 12M18 6 6 18"/>,menu:<path d="M4 8h16M4 16h16"/>,expand:<path d="M4 9V4h5m6 0h5v5M4 15v5h5m6 0h5v-5"/>,file:<><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6"/><path d="M8 13h8M8 17h5"/></>,check:<path d="m5 12 4 4L19 6"/>,windows:<path d="m3 5 8-1v7H3zm10-1 8-1v8h-8zM3 13h8v7l-8-1zm10 0h8v8l-8-1z" fill="currentColor" stroke="none"/>,mac:<><path d="M6 5h12a1 1 0 0 1 1 1v8H5V6a1 1 0 0 1 1-1z"/><path d="M3 17h18"/></>};
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
+}
+
+function downloadLabel(copy:typeof siteCopy['zh-CN'],id:string){
+  return id==='windows-x64'?copy.downloadWindows:id==='mac-arm64'?copy.downloadMacArm:id==='mac-x64'?copy.downloadMacIntel:copy.downloadAll;
+}
+function downloadShort(copy:typeof siteCopy['zh-CN'],id:string){
+  return id==='windows-x64'?copy.downloadWindowsShort:id==='mac-arm64'?copy.downloadMacArmShort:copy.downloadMacIntelShort;
+}
+
+function DownloadPanel({copy}:{copy:typeof siteCopy['zh-CN']}){
+  const [platform,setPlatform]=useState(()=>detectDownloadPlatform(navigatorHints()));
+  useEffect(()=>{let live=true;readBrowserDownloadHints().then(hints=>{if(live)setPlatform(detectDownloadPlatform(hints));});return()=>{live=false;};},[]);
+  const {primary,alternatives}=recommendDownload(platform);
+  const hint=platform.os==='ios'||platform.os==='android'?copy.downloadMobileHint:platform.os==='linux'?copy.downloadLinuxHint:'';
+  return <>
+    <a className="button button-primary" href={downloadHref(primary,site.repository,version)} target="_blank" rel="noopener noreferrer"><Icon name={downloadIcon(primary) as IconName} size={18}/>{downloadLabel(copy,primary)}<Icon name="arrow" size={18}/></a>
+    {hint?<p className="download-hint">{hint}</p>:null}
+    <p className="download-meta"><span>v{version}</span>{alternatives.map((id:string)=><a key={id} href={downloadHref(id,site.repository,version)} target="_blank" rel="noopener noreferrer">{downloadShort(copy,id)}</a>)}</p>
+  </>;
 }
 
 function WorkOfArt({copy}:{copy:typeof siteCopy['zh-CN']}){
@@ -93,7 +110,7 @@ export default function App(){
 
       <section className="questions-section section-shell" id="questions"><h2 data-reveal>{copy.questionsTitle}</h2><div className="question-list">{questions.map(item=><details className="question-item" key={item.question}><summary>{item.question}<Icon name="plus" size={18}/></summary><p>{item.answer}</p></details>)}</div></section>
 
-      <section className="download-section" id="download" data-motion-region><div className="download-glow" aria-hidden="true"/><BotSculpture className="download-bot"/><div data-reveal><p className="section-kicker">{copy.downloadKicker}</p><h2>{copy.downloadTitle[0]}<br/>{copy.downloadTitle[1]}</h2><a className="button button-primary" href={download} target="_blank" rel="noopener noreferrer"><Icon name="windows" size={18}/>{copy.downloadWindows}<Icon name="arrow" size={18}/></a><p className="download-meta">v{version}<span>·</span><a href={macGuide} target="_blank" rel="noopener noreferrer">{copy.macPreview}</a></p></div></section>
+      <section className="download-section" id="download" data-motion-region><div className="download-glow" aria-hidden="true"/><BotSculpture className="download-bot"/><div className="download-cta" data-reveal><p className="section-kicker">{copy.downloadKicker}</p><h2>{copy.downloadTitle[0]}<br/>{copy.downloadTitle[1]}</h2><DownloadPanel copy={copy}/></div></section>
     </main>
     <footer className="site-footer"><div className="section-shell footer-inner"><a href="#" aria-label={copy.home}><img src={logoLight} width="136" height="39" alt="AelionBot"/></a><p>{copy.footerTagline}</p><nav aria-label={copy.footerNav}><a href={`/blog/?lang=${language}`}>{copy.blog}</a><a href={site.repository} target="_blank" rel="noopener noreferrer">GitHub</a><a href={`${site.repository}/releases`} target="_blank" rel="noopener noreferrer">{language==='en'?'Releases':language==='zh-TW'?'版本更新':'版本更新'}</a><a href={`${site.repository}/issues`} target="_blank" rel="noopener noreferrer">{language==='en'?'Feedback':language==='zh-TW'?'回報建議':'反馈建议'}</a></nav><span>© {new Date().getFullYear()} AelionBot</span></div></footer>
     <dialog ref={gallery} className="screenshot-dialog" aria-labelledby="gallery-title" onClose={()=>setShot(null)} onClick={event=>{if(event.target===event.currentTarget)setShot(null);}} onKeyDown={event=>{if(event.key==='ArrowLeft'){event.preventDefault();changeShot(-1);}else if(event.key==='ArrowRight'){event.preventDefault();changeShot(1);}}}>

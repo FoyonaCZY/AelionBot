@@ -64,7 +64,11 @@ test('open_app can launch Impress as well as Writer and Calc',async t=>{
   await computer.execute('bot',{action:'open_app',app:'impress'},signal);
   await computer.execute('bot',{action:'open_app',app:'writer'},signal);
   await computer.execute('bot',{action:'open_app',app:'calc'},signal);
+  await computer.execute('bot',{action:'open_app',app:'impress',path:'human_ai_beautiful.pptx'},signal);
+  await assert.rejects(()=>computer.execute('bot',{action:'open_app',app:'impress',path:'../secret.pptx'},signal),/工作目录/);
+  await assert.rejects(()=>computer.execute('bot',{action:'open_app',app:'browser',path:'notes.txt'},signal),/办公应用/);
   assert.ok(events.some(command=>command.includes("libreoffice' '--impress'")||command.includes('libreoffice --impress')));
+  assert.ok(events.some(command=>command.includes('human_ai_beautiful.pptx')));
   assert.ok(events.some(command=>command.includes('--writer')));
   assert.ok(events.some(command=>command.includes('--calc')));
 });
