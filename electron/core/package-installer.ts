@@ -69,7 +69,16 @@ class Installer:
         output=tempfile.NamedTemporaryFile(prefix='aelion-apt-',suffix='.log',delete=False)
         child=None;reader=None
         try:
-            child=subprocess.Popen(args,stdout=output,stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,env=env,start_new_session=True)
+            inherited=()
+            if 'APT::Status-Fd=1' in args:
+                # APT closes its status descriptor in maintainer scripts.
+                # It must never share FD 1 with their ordinary stdout.
+                status_fd=os.dup(output.fileno());inherited=(status_fd,)
+                args=['APT::Status-Fd='+str(status_fd) if arg=='APT::Status-Fd=1' else arg for arg in args]
+            try:
+                child=subprocess.Popen(args,stdout=output,stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,env=env,start_new_session=True,**({'pass_fds':inherited} if inherited else {}))
+            finally:
+                for fd in inherited: os.close(fd)
             reader=open(output.name,'r',encoding='utf-8',errors='replace')
         except BaseException:
             if child is not None: self.stop(child)
