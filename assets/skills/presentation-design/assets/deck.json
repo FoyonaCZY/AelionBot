@@ -1,0 +1,30 @@
+{
+  "title": "Replace with your story",
+  "slides": [
+    {
+      "title": "The main takeaway",
+      "body": [
+        "Replace with the evidence behind the takeaway.",
+        "Replace with its practical implication."
+      ],
+      "notes": "Replace with sources and speaking notes."
+    },
+    {
+      "title": "Two supporting perspectives",
+      "columns": [
+        {
+          "heading": "Evidence",
+          "body": [
+            "Replace with a verified observation."
+          ]
+        },
+        {
+          "heading": "Decision",
+          "body": [
+            "Replace with the action it supports."
+          ]
+        }
+      ]
+    }
+  ]
+}

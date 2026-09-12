@@ -58,7 +58,7 @@ export class SkillLibrary {
             const oldId=owned&&typeof parsed.metadata['aelion-id']==='string'?parsed.metadata['aelion-id']:undefined;
             const id=oldId&&/^[a-zA-Z0-9_-]{1,100}$/.test(oldId)?oldId:`skill-${hashId(key)}`;
             const displayName=owned&&typeof parsed.metadata['aelion-display-name']==='string'?parsed.metadata['aelion-display-name']:parsed.name;
-            const summary:Skill={id,name:displayName,description:parsed.description,body:'',...(botId?{botId}:{}),source:{label:source.label,path:file,scope:source.scope,readonly:!owned},compatibility:parsed.compatibility};
+            const summary:Skill={id,name:displayName,description:parsed.description,body:'',...(botId?{botId}:{}),source:{label:source.label,path:file,scope:source.scope,readonly:source.readonly??!owned},compatibility:parsed.compatibility};
             // The source directory, never frontmatter supplied by another agent, determines visibility.
             if(entries.some(entry=>entry.summary.id===id))summary.id=`skill-${hashId(key)}`;
             entries.push({summary,file,root:real});count++;
@@ -96,13 +96,13 @@ export class SkillLibrary {
     return searchSkills(this.list(botId),query,limit,offset);
   }
   externalPath(botId:string,id:string,resource?:string,bundle=false){
-    const entry=this.find(botId,id);if(!entry.summary.source?.readonly)return undefined;
+    const entry=this.find(botId,id);if(!entry.summary.source?.readonly||entry.summary.source.scope==='builtin')return undefined;
     const target=bundle?entry.root:resource===undefined?entry.file:resolve(entry.root,resource);
     if(!isWithin(entry.root,target))throw new Error('技能资源超出了目录');
     const actual=realpathSync.native(target);if(!isWithin(entry.root,actual))throw new Error('技能资源链接超出了目录');return actual;
   }
-  private find(botId:string,id:string){
-    this.store.bot(botId);const visible=this.entries.filter(entry=>!entry.summary.botId||entry.summary.botId===botId);
+  private find(botId:string|undefined,id:string){
+    if(botId!==undefined)this.store.bot(botId);const visible=this.entries.filter(entry=>!entry.summary.botId||entry.summary.botId===botId);
     const exact=visible.find(entry=>entry.summary.id===id);if(exact)return exact;
     const named=visible.filter(entry=>entry.summary.name===id);if(named.length>1)throw new Error('存在同名技能，请使用 skills_list 返回的来源 ID');if(!named.length)throw new Error('技能不存在或无权访问');return named[0];
   }
@@ -123,12 +123,12 @@ export class SkillLibrary {
     };
     visit(entry.root,0);return files;
   }
-  read(botId:string,id:string):Skill{
+  read(botId:string|undefined,id:string):Skill{
     const entry=this.find(botId,id);if(!isWithin(entry.root,realpathSync.native(entry.file)))throw new Error('技能文件链接超出了技能目录');
     if(statSync(entry.file).size>256*1024)throw new Error('SKILL.md 超过 256 KB');
     const parsed=parseSkill(readFileSync(entry.file,'utf8'),basename(entry.root));
     let files:string[]=[];try{files=this.fileList(entry).map(file=>file.path);}catch{/* Large packages remain readable; explicit materialization reports its limits. */}
-    return {...entry.summary,...this.metadata(botId)[entry.summary.id],body:parsed.body,compatibility:parsed.compatibility,availableFiles:files,hash:this.fingerprint(botId,entry.summary.id)};
+    return {...entry.summary,...(botId?this.metadata(botId)[entry.summary.id]:{}),body:parsed.body,compatibility:parsed.compatibility,availableFiles:files,hash:this.fingerprint(botId,entry.summary.id)};
   }
   readFile(botId:string,id:string,path:string){
     const entry=this.find(botId,id);
@@ -137,7 +137,7 @@ export class SkillLibrary {
     if(statSync(file).size>256*1024)throw new Error('资源过大，可将技能包同步到工作电脑后处理');const content=readFileSync(file,'utf8');return {path,content,hash:hashId(content)};
   }
   bundle(botId:string,id:string){const entry=this.find(botId,id);return {id:hashId(canonical(entry.root)),folder:basename(entry.root),files:this.fileList(entry,true)};}
-  fingerprint(botId:string,id:string){const entry=this.find(botId,id);return hashId(readFileSync(entry.file,'utf8'));}
+  fingerprint(botId:string|undefined,id:string){const entry=this.find(botId,id);return hashId(readFileSync(entry.file,'utf8'));}
   revisions(botId:string,id:string){const entry=this.find(botId,id);if(entry.summary.botId!==botId)return [];const path=join(this.paths.dataDir,'bots',botId,'skill-history',entry.summary.id,'revisions.json');try{return JSON.parse(readFileSync(path,'utf8')) as Array<{revision:number;hash:string;createdAt:string;sourceRunId?:string;origin:string;file:string}>;}catch{return [];}}
   autoManaged(botId:string,id:string){return this.revisions(botId,id).find(item=>item.revision>0)?.origin==='background_review';}
   save(botId:string,name:string,description:string,body:string,provenance:{sourceRunId?:string;origin?:string;expectedHash?:string;sourceRefs?:string[]}={}){

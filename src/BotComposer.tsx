@@ -2,6 +2,8 @@ import type {MessageReply} from './message-replies';
 import {MessageQuote} from './MessageQuote';
 import {useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
 import type {Bot,BotMention} from './shared';
+import {ContextUsageIndicator} from './ContextUsageIndicator';
+import type {ContextOverview} from './context-overview';
 import {PermissionModePicker} from './PermissionModePicker';
 import type {HostPermissionMode} from './permission-types';
 import {ComposerTools} from './ComposerTools';
@@ -48,7 +50,7 @@ function chip(mention:BotMention){
   const node=document.createElement('span');node.className='bot-mention';node.contentEditable='false';node.dataset.botId=mention.id;node.dataset.botName=mention.name;node.dataset.botColor=mention.color;
   const face=document.createElement('span');face.className='mention-avatar';face.setAttribute('aria-hidden','true');const name=document.createElement('span');name.textContent=`@${mention.name}`;node.append(face,name);paintChip(node,mention);return node;
 }
-export function BotComposer({bot,bots,draft=empty,running,onChange,onSend,onStop,attachmentScope,workspaceDir,permissionMode}:{bot:Pick<Bot,'id'|'name'>;bots:Bot[];draft?:ComposerDraft;running:boolean;attachmentScope?:AttachmentScope;workspaceDir?:string;permissionMode?:HostPermissionMode;onChange:(draft:ComposerDraft)=>void;onSend:()=>void;onStop:()=>void}){
+export function BotComposer({bot,bots,draft=empty,running,onChange,onSend,onStop,attachmentScope,workspaceDir,permissionMode,contextOverview,contextCapacity}:{contextOverview?:ContextOverview;contextCapacity?:number;bot:Pick<Bot,'id'|'name'>;bots:Bot[];draft?:ComposerDraft;running:boolean;attachmentScope?:AttachmentScope;workspaceDir?:string;permissionMode?:HostPermissionMode;onChange:(draft:ComposerDraft)=>void;onSend:()=>void;onStop:()=>void}){
   const {t}=useI18n();
   const editor=useRef<HTMLDivElement>(null),list=useRef<HTMLDivElement>(null),last=useRef(''),composing=useRef(false),sendRef=useRef(onSend);sendRef.current=onSend;
   const draftRef=useRef(draft),changeRef=useRef(onChange),uploadCount=useRef(0),uploadChain=useRef(Promise.resolve());draftRef.current=draft;changeRef.current=onChange;
@@ -129,6 +131,6 @@ export function BotComposer({bot,bots,draft=empty,running,onChange,onSend,onStop
         if(query){if(event.key==='Escape'){event.preventDefault();event.stopPropagation();setQuery(undefined);return;}if(options.length&&(event.key==='ArrowDown'||event.key==='ArrowUp')){event.preventDefault();setActive(value=>(value+(event.key==='ArrowDown'?1:-1)+options.length)%options.length);return;}if(options.length&&(event.key==='Enter'||event.key==='Tab')){event.preventDefault();choose(options[Math.min(active,options.length-1)]);return;}}
         if(event.key==='Enter'){event.preventDefault();if(event.shiftKey)insert('\n');else if(hasContent&&!uploadCount.current&&!(workCommand(draft.text)&&!workCommand(draft.text)!.objective))sendRef.current();}
       }} onKeyUp={event=>{if(['ArrowLeft','ArrowRight','Home','End','@','＠'].includes(event.key))refresh();}}/>
-    <div className="composer-bottom"><ComposerTools scope={scope} workspaceDir={workspaceDir} onFolderPicked={()=>editor.current?.focus({preventScroll:true})} onAttach={()=>ingest(async()=>{const files=await window.aelion.pickAttachments(scope);editor.current?.focus({preventScroll:true});return files;})} onCommand={chooseCommand}/>{scope.kind==='bot'&&<PermissionModePicker scope={scope} mode={permissionMode}/>}{running&&hasContent&&<button className="icon-button" aria-label={t('停止任务')} onClick={onStop}><span className="stop-square"/></button>}{running&&!hasContent?<button className="send-button" aria-label={t('停止任务')} onClick={onStop}><span className="stop-square"/></button>:<button className="send-button" aria-label={t('发送消息')} disabled={!hasContent||uploading>0||Boolean(workCommand(draft.text)&&!workCommand(draft.text)!.objective)} onClick={()=>sendRef.current()}><Icon name="send"/></button>}</div>
+    <div className="composer-bottom"><ComposerTools scope={scope} workspaceDir={workspaceDir} onFolderPicked={()=>editor.current?.focus({preventScroll:true})} onAttach={()=>ingest(async()=>{const files=await window.aelion.pickAttachments(scope);editor.current?.focus({preventScroll:true});return files;})} onCommand={chooseCommand}/>{scope.kind==='bot'&&<><ContextUsageIndicator overview={contextOverview} capacity={contextCapacity}/><PermissionModePicker scope={scope} mode={permissionMode}/></>}{running&&hasContent&&<button className="icon-button" aria-label={t('停止任务')} onClick={onStop}><span className="stop-square"/></button>}{running&&!hasContent?<button className="send-button" aria-label={t('停止任务')} onClick={onStop}><span className="stop-square"/></button>:<button className="send-button" aria-label={t('发送消息')} disabled={!hasContent||uploading>0||Boolean(workCommand(draft.text)&&!workCommand(draft.text)!.objective)} onClick={()=>sendRef.current()}><Icon name="send"/></button>}</div>
   </div>;
 }

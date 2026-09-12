@@ -1,6 +1,6 @@
 {
   "name": "aelion-bot",
-  "version": "0.20.1",
+  "version": "0.21.0",
   "private": true,
   "description": "Local AI teammates with a managed Linux computer",
   "type": "module",
@@ -36,6 +36,9 @@
       "dist-electron/**",
       "assets/icon.*",
       "assets/wallpaper-light.png",
+      "assets/skills/**",
+      "!assets/skills/**/__pycache__/**",
+      "!assets/skills/**/*.pyc",
       "package.json",
       "docs/THIRD-PARTY-NOTICES.md",
       "docs/licenses/**"
@@ -84,6 +87,7 @@
       "artifactName": "AelionBot-Setup-${version}-${arch}.${ext}"
     },
     "asarUnpack": [
+      "assets/skills/**",
       "node_modules/node-pty/**"
     ]
   },

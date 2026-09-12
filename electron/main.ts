@@ -118,7 +118,8 @@ async function initialize(){
   diagnostics=new Diagnostics({dataDir,snapshot,paths:()=>[dataDir,profileDir,homeDir,projectDir,configDir,app.getAppPath(),...Object.values(store.data.conversationWorkspaces||{})],secrets:()=>{let keys:string[]=[];try{keys=providers.secrets();}catch{}return [...keys,...Object.entries(process.env).filter(([name])=>/TOKEN|SECRET|PASSWORD|PASSWD|KEY|CREDENTIAL|AUTH/i.test(name)).map(([,value])=>value||'')];},environment:{appVersion:app.getVersion(),platform:process.platform,arch:process.arch,osRelease:osRelease(),electron:process.versions.electron,chrome:process.versions.chrome,node:process.versions.node,packaged:app.isPackaged,cpuCount:availableParallelism(),memoryGiB:Math.round(totalmem()/1024**3)}});
   diagnostics.record('app.started',`AelionBot ${app.getVersion()} (${process.platform} ${process.arch})`);
   host=new HostComputer({imagePreview,dataDir,homeDir,projectDir,runtimeDir:__dirname,env:{...process.env},secrets:()=>providers.secrets()},interactions);
-  integrations=new Integrations(store,{homeDir,projectDir,dataDir,configDir,env:{...process.env}},changed,(data,mime)=>{
+  const bundledSkillDir=join(app.isPackaged?join(process.resourcesPath,'app.asar.unpacked'):app.getAppPath(),'assets','skills');
+  integrations=new Integrations(store,{homeDir,projectDir,dataDir,configDir,bundledSkillDir,env:{...process.env}},changed,(data,mime)=>{
     if(!['image/png','image/jpeg','image/webp'].includes(mime)||typeof data!=='string'||data.length>12*1024*1024)throw new Error('MCP 图像类型或大小不受支持');
     const img=nativeImage.createFromDataURL(`data:${mime};base64,${data}`);const size=img.getSize();
     if(img.isEmpty()||size.width*size.height>16*1024*1024)throw new Error('MCP 图像不可读或过大');
@@ -250,7 +251,7 @@ async function initialize(){
   handle('host:workspace-pick',async()=>{const selected=await dialog.showOpenDialog(window!,{title:'选择本机默认工作目录',defaultPath:host.workspaceSettings().workspaceDir,properties:['openDirectory']});return selected.canceled?null:selected.filePaths[0]||null;});
   handle('integrations:refresh',async()=>{if(harness.busy)throw new Error('请等待当前任务结束后重新扫描');await integrations.refresh();});
   handle('skills:manage',input=>{if(harness.busy)throw Error('请等待当前任务结束');const result=integrations.skills.manage(String(input?.botId),String(input?.id),String(input?.action),input?.revision);changed();return result;});
-  handle('skills:read',input=>integrations.skills.read(String(input?.botId),String(input?.id)));
+  handle('skills:read',input=>integrations.skills.read(input?.botId===undefined?undefined:String(input.botId),String(input?.id)));
   handle('integrations:open-path',async input=>{const target=integrations.path(input||{});const result=await shell.openPath(target);if(result)throw new Error(result);});
   handle('integrations:add-source',async kind=>{
     if(!['skills','mcp'].includes(kind))throw new Error('未知配置类型');if(harness.busy)throw new Error('请等待当前任务结束');

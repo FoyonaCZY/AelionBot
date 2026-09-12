@@ -6,8 +6,8 @@ import {parseDocument} from 'yaml';
 import {parse as parseJsonc,type ParseError} from 'jsonc-parser';
 import type {IntegrationSource} from '../../src/shared';
 
-export interface IntegrationPaths {homeDir:string;projectDir:string;dataDir:string;configDir:string;env:Record<string,string|undefined>;extraSkillDirs?:string[];extraMcpFiles?:string[];}
-export interface SourceDescriptor {label:string;path:string;kind:'skills'|'mcp';scope:'user'|'project'|'private'|'builtin';native?:boolean;projectDir?:string;format?:'json'|'toml'|'yaml'|'claude';}
+export interface IntegrationPaths {homeDir:string;projectDir:string;dataDir:string;configDir:string;env:Record<string,string|undefined>;bundledSkillDir?:string;extraSkillDirs?:string[];extraMcpFiles?:string[];}
+export interface SourceDescriptor {label:string;path:string;kind:'skills'|'mcp';scope:'user'|'project'|'private'|'builtin';readonly?:boolean;native?:boolean;projectDir?:string;format?:'json'|'toml'|'yaml'|'claude';}
 export const hashId=(value:string)=>createHash('sha256').update(value).digest('hex').slice(0,20);
 export function canonical(path:string){const absolute=resolve(path);let real=absolute;try{real=realpathSync.native(absolute);}catch{}return process.platform==='win32'?real.toLowerCase():real;}
 export function isWithin(root:string,path:string){const rel=relative(root,path);return !isAbsolute(rel)&&rel!=='..'&&!rel.startsWith(`..${sep}`);}
@@ -27,6 +27,7 @@ function projectAncestors(projectDir:string){const roots=[resolve(projectDir)];l
 export function skillSources(options:IntegrationPaths):SourceDescriptor[]{
   const {homeDir,projectDir,dataDir}=options;const sources:SourceDescriptor[]=[];
   const add=(label:string,path:string,scope:SourceDescriptor['scope'])=>sources.push({label,path,kind:'skills',scope});
+  if(options.bundledSkillDir)sources.push({label:'Aelion 预装',path:options.bundledSkillDir,kind:'skills',scope:'builtin',readonly:true});
   add('Aelion 内置',join(dataDir,'skills','builtin'),'builtin');
   add('Aelion 私有',join(dataDir,'bots'),'private');
   for(const root of projectAncestors(projectDir))add(`共享 · 项目${root===resolve(projectDir)?'':` · ${basename(root)}`}`,join(root,'.agents','skills'),'project');

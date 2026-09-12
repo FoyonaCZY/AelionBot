@@ -88,6 +88,7 @@ function AppContent(){
   const runMessages=new Map<string,typeof messages>();for(const message of messages)if(message.runId){const list=runMessages.get(message.runId)||[];list.push(message);runMessages.set(message.runId,list);}
   const timeline=conversationTimeline(messages);
   const liveReplies=(state?.streamingReplies||[]).filter(reply=>reply.main&&reply.botId===bot?.id),liveSignature=liveReplies.map(reply=>reply.id+':'+reply.content).join('|');
+  const lastContext=state?.runs.filter(run=>run.botId===bot?.id&&!isPrivatePeerOrigin(run.peerOrigin)&&(!run.groupOrigin||run.groupTask)&&run.contextOverview).at(-1)?.contextOverview;
   const latestRun=state?.runs.filter(run=>run.botId===bot?.id&&!isPrivatePeerOrigin(run.peerOrigin)&&(!run.groupOrigin||run.groupTask)).at(-1);
   const running=Boolean(state?.runs.some(run=>run.botId===bot?.id&&run.status==='running')||currentModel?.model&&state!.messages.some(message=>message.botId===bot?.id&&message.inputState==='queued'));
   const anyRunning=state?.runs.some(run=>run.status==='running')||false;
@@ -197,7 +198,7 @@ function AppContent(){
       <div className={`composer-wrap ${waiting?'with-request':''}`}>
         <ConversationInteractions requests={requests.filter(request=>!state.runs.find(run=>run.id===request.runId)?.groupOrigin||state.runs.find(run=>run.id===request.runId)?.groupTask)} botId={bot.id} onTakeover={startTakeover}/>
         <WorkItemsPanel items={state.workItems} scope={{kind:'bot',id:bot.id}} bots={state.bots}/>
-        <BotComposer permissionMode={state.hostPermissionModes?.[workspaceKey({kind:'bot',id:bot.id})]} workspaceDir={state.conversationWorkspaces?.[workspaceKey({kind:'bot',id:bot.id})]} key={bot.id} bot={bot} bots={state.bots} draft={draft} running={running} onChange={draft=>setDrafts(value=>({...value,[bot.id]:draft}))} onSend={()=>void send()} onStop={()=>void window.aelion.cancel(bot.id)}/>
+        <BotComposer contextOverview={lastContext?.model===currentModel?.model&&lastContext?.providerId===currentModel?.providerId&&lastContext?.capacity===currentModel?.contextTokens?lastContext:undefined} contextCapacity={currentModel?.contextTokens} permissionMode={state.hostPermissionModes?.[workspaceKey({kind:'bot',id:bot.id})]} workspaceDir={state.conversationWorkspaces?.[workspaceKey({kind:'bot',id:bot.id})]} key={bot.id} bot={bot} bots={state.bots} draft={draft} running={running} onChange={draft=>setDrafts(value=>({...value,[bot.id]:draft}))} onSend={()=>void send()} onStop={()=>void window.aelion.cancel(bot.id)}/>
       </div>
       </>:<div className="empty-workspace"><Icon name="bot" size={38}/><h2>{t('还没有 Bot')}</h2><button className="primary-button" onClick={openNewBot}>{t('创建 Bot')}</button></div>}
     </main>
@@ -231,7 +232,7 @@ function AppContent(){
         {settingsTab==='runtime'&&<RuntimeSettings settings={state.runtime} onNotify={setToast}/>}
         {settingsTab==='model'&&<ModelSettings state={state} onNotify={setToast}/>}
         {settingsTab==='usage'&&<UsageSettings state={state}/>}
-        {settingsTab==='skills'&&(scopeBot?<>{scopePicker}<SkillsSettings botId={scopeBot.id} skills={state.skills.filter(skill=>!skill.botId||skill.botId===scopeBot.id)} integrations={state.integrations} busy={busy||anyRunning} act={act}/></>:<SettingsEmpty title={t('先认识一位伙伴')} description={t('创建 Bot 后，为它挑选合适的技能。')}/>)}
+        {settingsTab==='skills'&&<>{scopeBot&&scopePicker}<SkillsSettings botId={scopeBot?.id} skills={state.skills.filter(skill=>!skill.botId||skill.botId===scopeBot?.id)} integrations={state.integrations} busy={busy||anyRunning} act={act}/></>}
         {settingsTab==='mcp'&&<McpSettings integrations={state.integrations} busy={busy||anyRunning} act={act}/>}
         {settingsTab==='memory'&&<>
           {scopePicker}

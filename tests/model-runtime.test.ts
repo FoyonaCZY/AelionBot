@@ -48,3 +48,12 @@ test('Gemini preserves thoughtSignature with the exact function-call part',()=>{
  const result=parser.result(),body=protocolRequest(config,[assistantMessage(result),{role:'tool',tool_call_id:'g1',content:'ok'}],[],4096,'',()=> '').body as any;
  assert.equal(body.contents[0].parts[0].thoughtSignature,'opaque');assert.equal(body.contents[1].parts[0].functionResponse.name,'read');
 });
+
+
+test('request context telemetry arrives before the response and cannot break inference',async t=>{
+ let reported=false;let observed:import("../src/context-overview").ContextOverview|undefined;
+ const baseUrl=await server(t,async(req,res)=>{for await(const _ of req){}assert.ok(reported);res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({choices:[{message:{content:'ok'},finish_reason:'stop'}]}));});
+ const model=new ModelClient(()=>({...cfg,baseUrl}),()=> '');t.after(()=>model.dispose());
+ const result=await model.complete([{role:'user',content:'Current request'}],[],new AbortController().signal,undefined,{onContext:overview=>{reported=true;observed=overview;throw Error('UI observer failure');}});
+ assert.equal(result.content,'ok');assert.equal(observed?.capacity,32000);assert.ok(observed!.parts.conversation>0);
+});

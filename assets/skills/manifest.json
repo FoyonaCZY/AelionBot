@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "bundleVersion": 1,
+  "skills": [
+    {
+      "id": "aelion-pdf-workbench",
+      "directory": "pdf-workbench",
+      "sources": [
+        {
+          "repo": "openai/skills",
+          "commit": "49f948faa9258a0c61caceaf225e179651397431",
+          "path": "skills/.curated/pdf/SKILL.md",
+          "url": "https://raw.githubusercontent.com/openai/skills/49f948faa9258a0c61caceaf225e179651397431/skills/.curated/pdf/SKILL.md",
+          "sha256": "d108cf2b36355ab37eb5962933f4d09785ec002f3105c506129320209306b9d2",
+          "license": "Apache-2.0",
+          "licenseFile": "licenses/openai-skills.txt",
+          "licenseUrl": "https://raw.githubusercontent.com/openai/skills/49f948faa9258a0c61caceaf225e179651397431/skills/.curated/pdf/LICENSE.txt",
+          "licenseSha256": "4dd13869245e356246a5b770723247bbb80a8f07a181d1d3d873a1734297cdb9"
+        }
+      ]
+    },
+    {
+      "id": "aelion-document-writing",
+      "directory": "document-writing",
+      "sources": [
+        {
+          "repo": "openai/role-specific-plugins",
+          "commit": "fe5608d2512a7d6a7b9821ce8a88c48464ecd6e4",
+          "path": "plugins/data-analytics/skills/build-report/SKILL.md",
+          "url": "https://raw.githubusercontent.com/openai/role-specific-plugins/fe5608d2512a7d6a7b9821ce8a88c48464ecd6e4/plugins/data-analytics/skills/build-report/SKILL.md",
+          "sha256": "0a845e0bd7d16afee75f841cf6934fb798515518645c7ef5ae03bf402421b302",
+          "license": "MIT",
+          "licenseFile": "licenses/openai-role-specific-plugins.txt",
+          "licenseUrl": "https://raw.githubusercontent.com/openai/role-specific-plugins/fe5608d2512a7d6a7b9821ce8a88c48464ecd6e4/LICENSE",
+          "licenseSha256": "7de1e115d165f176e68f962acdb809b5ab8d8ae78d3981e0701392b2ac50c713"
+        }
+      ]
+    },
+    {
+      "id": "aelion-spreadsheet-workbench",
+      "directory": "spreadsheet-workbench",
+      "sources": [
+        {
+          "repo": "openai/role-specific-plugins",
+          "commit": "fe5608d2512a7d6a7b9821ce8a88c48464ecd6e4",
+          "path": "plugins/data-analytics/skills/validate-data/SKILL.md",
+          "url": "https://raw.githubusercontent.com/openai/role-specific-plugins/fe5608d2512a7d6a7b9821ce8a88c48464ecd6e4/plugins/data-analytics/skills/validate-data/SKILL.md",
+          "sha256": "7aa5c77b22b9e5bf1b054e4ab6320a12dfd5342aa6cb18f8e497b46c713be20e",
+          "license": "MIT",
+          "licenseFile": "licenses/openai-role-specific-plugins.txt",
+          "licenseUrl": "https://raw.githubusercontent.com/openai/role-specific-plugins/fe5608d2512a7d6a7b9821ce8a88c48464ecd6e4/LICENSE",
+          "licenseSha256": "7de1e115d165f176e68f962acdb809b5ab8d8ae78d3981e0701392b2ac50c713"
+        }
+      ]
+    },
+    {
+      "id": "aelion-presentation-design",
+      "directory": "presentation-design",
+      "sources": [
+        {
+          "repo": "openai/role-specific-plugins",
+          "commit": "fe5608d2512a7d6a7b9821ce8a88c48464ecd6e4",
+          "path": "plugins/data-analytics/skills/build-report/SKILL.md",
+          "url": "https://raw.githubusercontent.com/openai/role-specific-plugins/fe5608d2512a7d6a7b9821ce8a88c48464ecd6e4/plugins/data-analytics/skills/build-report/SKILL.md",
+          "sha256": "0a845e0bd7d16afee75f841cf6934fb798515518645c7ef5ae03bf402421b302",
+          "license": "MIT",
+          "licenseFile": "licenses/openai-role-specific-plugins.txt",
+          "licenseUrl": "https://raw.githubusercontent.com/openai/role-specific-plugins/fe5608d2512a7d6a7b9821ce8a88c48464ecd6e4/LICENSE",
+          "licenseSha256": "7de1e115d165f176e68f962acdb809b5ab8d8ae78d3981e0701392b2ac50c713"
+        }
+      ]
+    },
+    {
+      "id": "aelion-web-research",
+      "directory": "web-research",
+      "sources": [
+        {
+          "repo": "K-Dense-AI/scientific-agent-skills",
+          "commit": "c1ed16d97dd61ff50a3bd46dd353e4a55fd77f34",
+          "path": "skills/literature-review/SKILL.md",
+          "url": "https://raw.githubusercontent.com/K-Dense-AI/scientific-agent-skills/c1ed16d97dd61ff50a3bd46dd353e4a55fd77f34/skills/literature-review/SKILL.md",
+          "sha256": "950a6d0863ef657523813b985fe86599ac6bb99b695eee5953612d7e20c78011",
+          "license": "MIT",
+          "licenseFile": "licenses/K-Dense-AI-scientific-agent-skills.txt",
+          "licenseUrl": "https://raw.githubusercontent.com/K-Dense-AI/scientific-agent-skills/c1ed16d97dd61ff50a3bd46dd353e4a55fd77f34/LICENSE.md",
+          "licenseSha256": "09b02a3c9df3053c55531d503357a9c7cde275970e6c3ceaa1ddf5f0e90b40c1"
+        }
+      ]
+    },
+    {
+      "id": "aelion-data-analysis",
+      "directory": "data-analysis",
+      "sources": [
+        {
+          "repo": "openai/role-specific-plugins",
+          "commit": "fe5608d2512a7d6a7b9821ce8a88c48464ecd6e4",
+          "path": "plugins/data-analytics/skills/visualize-data/SKILL.md",
+          "url": "https://raw.githubusercontent.com/openai/role-specific-plugins/fe5608d2512a7d6a7b9821ce8a88c48464ecd6e4/plugins/data-analytics/skills/visualize-data/SKILL.md",
+          "sha256": "64cab579df43bf6c9e5910269a1378639cb2e959d82b12f111e16d76fbbeed52",
+          "license": "MIT",
+          "licenseFile": "licenses/openai-role-specific-plugins.txt",
+          "licenseUrl": "https://raw.githubusercontent.com/openai/role-specific-plugins/fe5608d2512a7d6a7b9821ce8a88c48464ecd6e4/LICENSE",
+          "licenseSha256": "7de1e115d165f176e68f962acdb809b5ab8d8ae78d3981e0701392b2ac50c713"
+        },
+        {
+          "repo": "openai/role-specific-plugins",
+          "commit": "fe5608d2512a7d6a7b9821ce8a88c48464ecd6e4",
+          "path": "plugins/data-analytics/skills/validate-data/SKILL.md",
+          "url": "https://raw.githubusercontent.com/openai/role-specific-plugins/fe5608d2512a7d6a7b9821ce8a88c48464ecd6e4/plugins/data-analytics/skills/validate-data/SKILL.md",
+          "sha256": "7aa5c77b22b9e5bf1b054e4ab6320a12dfd5342aa6cb18f8e497b46c713be20e",
+          "license": "MIT",
+          "licenseFile": "licenses/openai-role-specific-plugins.txt",
+          "licenseUrl": "https://raw.githubusercontent.com/openai/role-specific-plugins/fe5608d2512a7d6a7b9821ce8a88c48464ecd6e4/LICENSE",
+          "licenseSha256": "7de1e115d165f176e68f962acdb809b5ab8d8ae78d3981e0701392b2ac50c713"
+        }
+      ]
+    },
+    {
+      "id": "aelion-code-development",
+      "directory": "code-development",
+      "sources": [
+        {
+          "repo": "obra/superpowers",
+          "commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+          "path": "skills/systematic-debugging/SKILL.md",
+          "url": "https://raw.githubusercontent.com/obra/superpowers/b36e0829c6d0140e93cfef2ca599b1b07d4a7797/skills/systematic-debugging/SKILL.md",
+          "sha256": "808fc5717aa88ad65efff312b11c186294d3e6ee301afb584e2f86599b137787",
+          "license": "MIT",
+          "licenseFile": "licenses/obra-superpowers.txt",
+          "licenseUrl": "https://raw.githubusercontent.com/obra/superpowers/b36e0829c6d0140e93cfef2ca599b1b07d4a7797/LICENSE",
+          "licenseSha256": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400"
+        },
+        {
+          "repo": "obra/superpowers",
+          "commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+          "path": "skills/verification-before-completion/SKILL.md",
+          "url": "https://raw.githubusercontent.com/obra/superpowers/b36e0829c6d0140e93cfef2ca599b1b07d4a7797/skills/verification-before-completion/SKILL.md",
+          "sha256": "2befe7fc55bcadaa3d97dd9e8efeb633d2561c0ebe74c5a8b17c4d9e7e4520b3",
+          "license": "MIT",
+          "licenseFile": "licenses/obra-superpowers.txt",
+          "licenseUrl": "https://raw.githubusercontent.com/obra/superpowers/b36e0829c6d0140e93cfef2ca599b1b07d4a7797/LICENSE",
+          "licenseSha256": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400"
+        }
+      ]
+    },
+    {
+      "id": "aelion-web-ui-design",
+      "directory": "web-ui-design",
+      "sources": [
+        {
+          "repo": "anthropics/skills",
+          "commit": "34040c9c568585f6929bedeaad110ad08f079624",
+          "path": "skills/frontend-design/SKILL.md",
+          "url": "https://raw.githubusercontent.com/anthropics/skills/34040c9c568585f6929bedeaad110ad08f079624/skills/frontend-design/SKILL.md",
+          "sha256": "d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3",
+          "license": "Apache-2.0",
+          "licenseFile": "licenses/anthropics-skills.txt",
+          "licenseUrl": "https://raw.githubusercontent.com/anthropics/skills/34040c9c568585f6929bedeaad110ad08f079624/skills/frontend-design/LICENSE.txt",
+          "licenseSha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+        }
+      ]
+    }
+  ]
+}

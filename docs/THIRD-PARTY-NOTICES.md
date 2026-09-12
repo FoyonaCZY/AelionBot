@@ -31,3 +31,9 @@ AelionBot 的构建和运行依赖以下上游项目；第三方组件的许可�
 | linkedom | 无页面脚本执行的 HTML/XML 解析 | 固定版本 `0.18.13`；[上游项目](https://github.com/WebReflection/linkedom)，ISC 许可见 `docs/licenses/linkedom.txt` |
 
 首次启动安装的 Linux 内核、XFCE、Chromium、Python、Git 等由 Debian 软件源提供，对应信息保留在 guest 的 `/usr/share/doc` 和包管理数据库中。
+
+## 预装技能
+
+八个预装技能的固定上游版本、原文件 SHA-256、许可证与适配记录见 `assets/skills/manifest.json`。来源包括 OpenAI skills（Apache-2.0）、OpenAI role-specific-plugins（MIT）、Anthropic frontend-design（Apache-2.0）、obra/superpowers（MIT）和 K-Dense literature-review（MIT）。每个技能均随附完整上游许可及 `NOTICE.md`；新增辅助脚本和模板的许可见各目录 `AELION-LICENSE.txt`。
+
+Word、表格、演示文稿的 LibreOffice 适配与辅助脚本为本项目编写；没有分发 Anthropic 非开放许可的 DOCX、PPTX、XLSX 技能。
