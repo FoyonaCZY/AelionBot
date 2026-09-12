@@ -71,7 +71,9 @@ test('every bundled source retains pinned provenance and full license; helpers s
     for(const source of skill.sources){
       assert.match(source.commit,/^[a-f0-9]{40}$/);assert.match(source.sha256,/^[a-f0-9]{64}$/);
       assert.ok(['MIT','Apache-2.0'].includes(source.license));
-      assert.equal(createHash('sha256').update(readFileSync(join(dir,source.licenseFile))).digest('hex'),source.licenseSha256);
+      const license=readFileSync(join(dir,source.licenseFile));
+      assert.ok(!license.includes(0x0d),source.licenseFile);
+      assert.equal(createHash('sha256').update(license).digest('hex'),source.licenseSha256,source.licenseFile);
     }
   }
   const config=JSON.parse(readFileSync(resolve('package.json'),'utf8')).build;
