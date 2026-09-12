@@ -30,3 +30,9 @@ export function readableQuestionAnswer(content:string):string{
   if(!content.startsWith(QUESTION_ANSWER_PREFIX))return content;
   try{return questionAnswerText(JSON.parse(content.slice(QUESTION_ANSWER_PREFIX.length)))??content;}catch{return content;}
 }
+export function questionToolMessage<T extends {id:string;botId:string;role:string;tool?:string;content:string}>(messages:T[],botId:string,requestId:string){
+  return [...messages].reverse().find(message=>{
+    if(message.botId!==botId||message.role!=='tool'||!['request_user_input','user_input_wait'].includes(message.tool||''))return false;
+    try{const body=JSON.parse(message.content);return body.result?.id===requestId||body.id===requestId;}catch{return false;}
+  });
+}

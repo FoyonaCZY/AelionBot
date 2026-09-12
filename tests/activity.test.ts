@@ -45,6 +45,17 @@ test('completed progress stays between chronological tool segments and the final
   const view=runPresentation(messages.slice(1),run('completed'));assert.equal(view.final?.id,'final');assert.deepEqual(view.tools.map(item=>item.id),['read','write']);assert.deepEqual(view.notes.map(item=>item.id),['plan']);
 });
 
+test('a mid-run question answer stays after the question and before later tool work',()=>{
+  const messages=[
+    message('user','user','先做哪一项？'),
+    message('ask','assistant','请先选定一项',{presentation:'progress'}),
+    message('question','tool',JSON.stringify({result:{id:'q1',status:'waiting'}}),{tool:'request_user_input'}),
+    message('answer','user','全部',{questionAnswer:{requestId:'q1',items:[{id:'choice',title:'先做哪一项？',answer:'全部'}]}}),
+    message('search','tool','{}',{tool:'host_search_files',status:'running'}),
+  ];
+  assert.deepEqual(conversationTimeline(messages).map(item=>item.kind==='message'?item.id:item.segmentId),['user','ask','question','answer','search']);
+});
+
 test('private-chat notices stay clickable between stable run segments without duplicating content',()=>{
   const messages=[message('user','user','请联络'),message('send','tool','{}',{tool:'bot_send_message'}),message('notice','event','已发送给 B',{runId:undefined,peer:{exchangeId:'exchange',direction:'sent'}}),message('final','assistant','等对方回复。',{presentation:'answer'})];
   const timeline=conversationTimeline(messages),runs=timeline.filter(item=>item.kind==='run');assert.equal(runs.length,2);assert.equal(runs[1].messages.at(-1)?.id,'final');assert.deepEqual(runs.map(item=>[item.segmentId,item.isLast]),[['send',false],['final',true]]);assert.ok(timeline.some(item=>item.kind==='message'&&item.message.peer?.exchangeId==='exchange'));assert.deepEqual(timeline.flatMap(item=>item.kind==='message'?[item.message.id]:item.messages.map(message=>message.id)),messages.map(message=>message.id));

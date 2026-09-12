@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {contextOverview} from '../electron/core/context-overview';
+import {foldContextParts} from '../src/context-overview';
 import {estimateRequest} from '../electron/core/context-budget';
 import {protocolRequest} from '../electron/core/model-protocol';
 import type {ToolDefinition} from '../electron/core/model';
@@ -23,7 +24,8 @@ test('context categories account for prepared input once and never change reques
  assert.equal(result.tokens,estimateRequest(messages,tools).tokens);
  assert.equal(Object.values(result.parts).reduce((a,b)=>a+b,0),result.tokens);
  for(const value of Object.values(result.parts))assert.ok(value>0);
- assert.equal(result.parts.images,1024);
+ assert.ok(result.parts.conversation>=1024);
+ assert.equal(result.parts.conversation,foldContextParts({...result.parts,results:40,images:80}).conversation-120);
  assert.deepEqual(messages,before);
  assert.deepEqual(protocolRequest(model,messages,tools,2048,'',()=> 'data:image/png;base64,AA==').body,wire);
  assert.ok(!JSON.stringify(result).includes('Prepare a report'));
@@ -37,5 +39,5 @@ test('usage anchors preserve an additive breakdown and invalid anchors use token
 test('empty schemas, quoted skill markers and mixed batch outputs are not mislabeled',()=>{
  const request:WireMessage[]=[{role:'user',content:'当前可用技能清单：quoted text'}, {role:'assistant',content:'已使用技能的参考快照（不增加权限）：PDF details'}, {role:'tool',tool_call_id:'batch',content:'Mixed result'}];
  const result=contextOverview(request,[],model);
- assert.equal(result.parts.mcp,0);assert.ok(result.parts.conversation>0);assert.ok(result.parts.skills>0);assert.ok(result.parts.results>0);assert.equal(result.parts.images,0);
+ assert.equal(result.parts.mcp,0);assert.ok(result.parts.conversation>0);assert.ok(result.parts.skills>0);assert.equal('results' in result.parts,false);assert.equal('images' in result.parts,false);
 });

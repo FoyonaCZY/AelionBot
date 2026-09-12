@@ -6,7 +6,7 @@ import type {ToolDefinition} from './model';
 function toolPart(name:string):ContextPart{
   if(name.startsWith('mcp_'))return 'mcp';
   if(/^(skill_|skills_)/.test(name))return 'skills';
-  return 'results';
+  return 'conversation';
 }
 /** Numeric telemetry only: does not alter the request, retain prompt text, or enter the model context. */
 export function contextOverview(messages:WireMessage[],tools:ToolDefinition[],model:Pick<ModelConfig,'model'|'providerId'|'contextTokens'>,anchor?:{estimatedTokens:number;estimateSource?:'tokenizer'|'usage-anchor'}):ContextOverview{
@@ -24,7 +24,7 @@ export function contextOverview(messages:WireMessage[],tools:ToolDefinition[],mo
   const builtin=tools.filter(tool=>!tool.function.name.startsWith('mcp_')).reduce((sum,tool)=>sum+textTokens(JSON.stringify(tool)),0);
   parts.mcp+=Math.round(schemaTokens*mcp/Math.max(1,mcp+builtin));
   parts.tools+=schemaTokens-Math.round(schemaTokens*mcp/Math.max(1,mcp+builtin));
-  const estimate=estimateRequest(messages,tools);parts.images=estimate.imageTokens;
+  const estimate=estimateRequest(messages,tools);parts.conversation+=estimate.imageTokens;
   const total=anchor&&Number.isFinite(anchor.estimatedTokens)&&anchor.estimatedTokens>0?Math.ceil(anchor.estimatedTokens):estimate.tokens;
   const raw=CONTEXT_PARTS.reduce((sum,key)=>sum+parts[key],0);
   // Proportional calibration keeps displayed categories additive, including usage-anchor estimates.

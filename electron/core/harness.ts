@@ -1,6 +1,6 @@
 import {operationDenial,DENIAL_GUIDANCE} from './operation-denial';
 import {userProfilePrompt} from '../../src/user-profile';
-import {QUESTION_ANSWER_PREFIX,questionAnswerText,questionAnswerData} from '../../src/question-answers';
+import {QUESTION_ANSWER_PREFIX,questionAnswerText,questionAnswerData,questionToolMessage} from '../../src/question-answers';
 import {TemporarilyUnavailableTool,reactionRestriction,reactionRestrictionContext} from './tool-availability';
 import {botIdentity} from '../../src/bot-colors';
 import {isGroupWorkTool} from '../../src/group-types';
@@ -332,7 +332,7 @@ export class Harness {
       // A child reply resumes the same main-conversation task with its real execution history.
       if(options.peerOrigin?.kind==='peer_result'&&options.peerOrigin.sessionId&&this.store.data.runs.some(previous=>previous.id!==run.id&&previous.botId===botId&&previous.peerOrigin?.kind==='peer_task'&&(previous.peerOrigin.sessionId||previous.peerOrigin.exchangeId)===options.peerOrigin!.sessionId))enterMainTask();
       for(let iteration=0;;iteration++){
-        for(const reply of this.interactions?.consumeAnswers(botId,run.id)||[]){const content=QUESTION_ANSWER_PREFIX+JSON.stringify(reply);history.push({role:'user',content});this.store.message(botId,'user',questionAnswerText(reply)??content,{runId:run.id,questionAnswer:questionAnswerData(reply)});}
+        for(const reply of this.interactions?.consumeAnswers(botId,run.id)||[]){const content=QUESTION_ANSWER_PREFIX+JSON.stringify(reply);history.push({role:'user',content});const after=questionToolMessage(this.store.runMessages(run.id),botId,reply.id);this.store.message(botId,'user',questionAnswerText(reply)??content,{runId:run.id,questionAnswer:questionAnswerData(reply),afterId:after?.id});}
         new RunPolicy(this.store).check(botId,run.id,iteration);
         checkpoint();
         if(controller.signal.aborted)throw new Error('任务已取消');

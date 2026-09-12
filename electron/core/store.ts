@@ -226,11 +226,19 @@ export class Store {
     this.save();
     return bot;
   }
-  message(botId: string, role: ChatMessage['role'], content: string, extra: Partial<ChatMessage> = {}) {
-    const item: ChatMessage = { id: randomUUID(), botId, role, content, time: new Date().toISOString(), ...extra };
-    const privateRun=extra.runId&&this.data.runs.some(run=>run.id===extra.runId&&isPrivatePeerOrigin(run.peerOrigin));
-    const groupRun=extra.runId&&this.data.runs.some(run=>run.id===extra.runId&&run.groupOrigin&&!run.groupTask);
-    (groupRun?this.data.groupRunMessages:privateRun?this.data.peerMessages:this.data.messages).push(item); this.save(); return item;
+  message(botId: string, role: ChatMessage['role'], content: string, extra: Partial<ChatMessage> & {afterId?: string} = {}) {
+    const {afterId,...fields}=extra;
+    const item: ChatMessage = { id: randomUUID(), botId, role, content, time: new Date().toISOString(), ...fields };
+    const privateRun=fields.runId&&this.data.runs.some(run=>run.id===fields.runId&&isPrivatePeerOrigin(run.peerOrigin));
+    const groupRun=fields.runId&&this.data.runs.some(run=>run.id===fields.runId&&run.groupOrigin&&!run.groupTask);
+    const list=groupRun?this.data.groupRunMessages:privateRun?this.data.peerMessages:this.data.messages;
+    const index=afterId?list.findIndex(message=>message.id===afterId):-1;
+    if(index>=0){
+      const start=Date.parse(list[index].time),next=list[index+1],end=next?Date.parse(next.time):Number.NaN;
+      item.time=new Date(Number.isFinite(end)&&end>start?start+Math.max(1,Math.floor((end-start)/2)):start+1).toISOString();
+      list.splice(index+1,0,item);
+    }else list.push(item);
+    this.save(); return item;
   }
   modelSelection(botId?:string){const selected=botId?this.bot(botId).model||this.data.defaultModel:this.data.defaultModel;return selected?{...selected}:undefined;}
   modelFor(botId?:string):ModelConfig {

@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {QUESTION_ANSWER_PREFIX,questionAnswerData,legacyQuestionAnswerData,questionAnswerText,readableQuestionAnswer} from '../src/question-answers';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {Store} from '../electron/core/store';
+import {QUESTION_ANSWER_PREFIX,questionAnswerData,legacyQuestionAnswerData,questionAnswerText,questionToolMessage,readableQuestionAnswer} from '../src/question-answers';
 import {readableContent} from '../src/activity';
 
 const answer={id:'question-fixture',status:'answered',questions:[{id:'next',title:'现在要哪一步？',options:['重建','暂停']}],answers:{next:'Rust 迁移先停，仓库保持现状'}};
@@ -33,4 +37,20 @@ test('answer structure preserves multiple lines and literal markup without mutat
   assert.deepEqual(data.items.map(item=>item.id),['a','b']);
   assert.equal(data.items[1].answer,value.answers.b);assert.deepEqual(value,original);
   assert.equal(questionAnswerData({...value,answers:{a:'Windows'}}),undefined);
+});
+
+test('a submitted answer is stored after the question, not after later tool work',()=>{
+  const dir=mkdtempSync(join(tmpdir(),'aelion-question-place-'));
+  try{
+    const store=new Store(dir),bot=store.data.bots[0],runId='run-1';
+    store.data.runs.push({id:runId,botId:bot.id,status:'running',startedAt:new Date().toISOString(),modelCalls:1,toolCalls:1});
+    store.message(bot.id,'user','先做哪一项？');
+    const question=store.message(bot.id,'tool',JSON.stringify({result:{id:answer.id,status:'waiting'}}),{tool:'request_user_input',runId,status:'done'});
+    store.message(bot.id,'tool','{}',{tool:'host_search_files',runId,status:'done'});
+    const placed=questionToolMessage(store.data.messages,bot.id,answer.id);
+    assert.equal(placed?.id,question.id);
+    const reply=store.message(bot.id,'user','全部',{runId,questionAnswer:questionAnswerData({...answer,answers:{next:'全部'}}),afterId:placed?.id});
+    assert.deepEqual(store.data.messages.map(message=>message.id).slice(-3),[question.id,reply.id,store.data.messages.at(-1)!.id]);
+    assert.equal(store.data.messages.at(-1)?.tool,'host_search_files');
+  }finally{rmSync(dir,{recursive:true,force:true});}
 });
