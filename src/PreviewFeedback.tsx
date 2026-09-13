@@ -19,13 +19,14 @@ export function PreviewFeedback({scope,item,panel,unsaved,onBusy}:{scope:Attachm
   lock.current=true;setPending(true);onBusy(true);setStatus('');setFailed(false);const layer=host.closest<HTMLElement>('.fp-layer');
   try{
    if(!window.aelion.sendPreviewFeedback)throw Error(label('此版本暂不支持截图反馈，请更新应用。','Update the app to use screenshot feedback.','此版本尚不支援截圖回饋，請更新應用程式。'));
-   if(!layer||!layer.classList.contains('is-expanded'))throw Error(label('请在全屏预览中发送。','Send feedback from the full preview.','請在全螢幕預覽中傳送。'));
+   if(!layer||!host.isConnected)throw Error(label('预览已关闭，请重新打开后发送。','The preview is closed. Reopen it to send feedback.','預覽已關閉，請重新開啟後傳送。'));
    layer.dataset.feedbackCapture='true';await paint();
-   const content=host.querySelector<HTMLElement>('.fp-content'),area=content?.querySelector<HTMLElement>('.fp-pdf-viewport')||content;
+   const content=host.querySelector<HTMLElement>('.fp-content'),area=content?.querySelector<HTMLElement>('.web-preview-slot')||content?.querySelector<HTMLElement>('.fp-pdf-viewport')||content;
    if(!area||!area.isConnected)throw Error('预览内容已关闭');const bounds=area.getBoundingClientRect(),x=Math.max(0,bounds.left),y=Math.max(0,bounds.top),width=Math.min(innerWidth,bounds.right)-x,height=Math.min(innerHeight,bounds.bottom)-y;
    if(width<1||height<1)throw Error('预览区域不可见');
    const page=Number(content?.querySelector<HTMLElement>('[data-preview-page]')?.dataset.previewPage)||undefined;
-   const file={name:item.name,...(item.id.startsWith('attachment:')?{attachmentId:item.id.slice('attachment:'.length)}:{}),...(item.workspace?{path:'/work/'+item.workspace.botId+'/'+item.workspace.path.replace(/^\/+/, '')}:{}),...(page?{page}:{}),...(unsaved?{unsaved:true}:{})};
+   const url=content?.querySelector<HTMLElement>('[data-preview-url]')?.dataset.previewUrl;
+   const file={name:item.name,...(url?{url}:{}),...(item.id.startsWith('attachment:')?{attachmentId:item.id.slice('attachment:'.length)}:{}),...(item.workspace?{path:'/work/'+item.workspace.botId+'/'+item.workspace.path.replace(/^\/+/, '')}:{}),...(page?{page}:{}),...(unsaved?{unsaved:true}:{})};
    const partial={scope,text,file,language,rect:{x,y,width,height},viewport:{width:innerWidth,height:innerHeight}};
    const key=JSON.stringify({...partial,scroll:[area.scrollLeft,area.scrollTop]});if(attempt.current?.key!==key)attempt.current={key,id:crypto.randomUUID()};
    const request:PreviewFeedbackInput={requestId:attempt.current.id,...partial};

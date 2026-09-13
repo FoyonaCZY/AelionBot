@@ -23,7 +23,7 @@ export interface ScreenReference { id: string; width: number; height: number; at
 export interface WireMessage { native?:NativeAssistant; role: 'system' | 'user' | 'assistant' | 'tool'; content: string | null; tool_calls?: ToolCall[]; tool_call_id?: string; images?: ScreenReference[]; groupMessageId?:string; }
 export interface StreamingReply {id:string;botId:string;runId?:string;content:string;time:string;main:boolean;groupId?:string;peerThreadId?:string;purpose?:'reply'|'progress'|'greeting';mentions?:BotMention[];}
 export interface Artifact { id: string; botId: string; runId: string; path: string; name: string; size: number; modifiedAt: string; }
-export interface ArtifactPreview { kind: 'text' | 'markdown' | 'html' | 'image' | 'pdf' | 'unsupported'; content?: string; dataUrl?: string; truncated?: boolean; }
+export interface ArtifactPreview { kind: 'text' | 'markdown' | 'html' | 'image' | 'pdf' | 'web' | 'unsupported'; web?:import('./web-preview').WebPreviewSource; content?: string; dataUrl?: string; truncated?: boolean; }
 export interface ChatMessage {previewPrompt?:string;operationDenial?:import("./operation-denial").OperationDenial; questionAnswer?:import("./question-answers").QuestionAnswerData; reply?:MessageReply; workspaceDir?:string|null; executionId?:string;executionTarget?:string;executionResolved?:boolean; scheduled?:ScheduledTrigger; attachments?:Attachment[]; inputState?:'queued'|'handled'|'cancelled'|'interrupted'; pins?:MessagePin[];reaction?:PinEvent; id: string; botId: string; role: 'user' | 'assistant' | 'tool' | 'event'; content: string; time: string; status?: 'running' | 'done' | 'failed' | 'cancelled'; tool?: string; runId?: string; screenshotId?: string; activity?: {label:string;detail?:string}; presentation?: 'progress'|'answer'|'error'; mentions?:BotMention[];peer?:PeerNotice;groupLink?:GroupLink;groupTaskSource?:{groupId:string;name:string;messageId?:string;continuation?:boolean};audience?:'user';peerSummaryFor?:string;peerContextPublished?:boolean;taskSource?:{botId:string;name:string;exchangeId:string;continuation?:boolean}; }
 export interface RunRecord {contextOverview?:import("./context-overview").ContextOverview;modelRequest?:import("./model-request-status").ModelRequestStatus;resumedFromRunId?:string;contextIssue?:import('./context-issue').ContextIssue; lastProgressAt?:string;lastProgressDigest?:string; workItemId?:string;workspaceDir?:string; plan?:TaskPlan; executions?:ToolExecution[]; attachments?:Attachment[]; inputUpdated?:boolean;supersedesRunId?:string;progressSteps?:number; groupReplyMessageId?:string; id: string; botId: string; status: 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted'; startedAt: string; endedAt?: string; error?: string; modelCalls: number; toolCalls: number; peerOrigin?:PeerRunOrigin;groupOrigin?:GroupRunOrigin;groupTask?:boolean;groupUpdated?:boolean; }
 export interface ModelConfig extends ModelParameters { supportsImages?:boolean;baseUrl: string; model: string; hasKey: boolean; contextTokens: number; providerId?:string;providerName?:string;issue?:string; }
@@ -49,6 +49,12 @@ export interface Snapshot {previewRequests?:import("./agent-preview").AgentPrevi
 export interface AppEvent { type: 'state'; snapshot: Snapshot; }
 export interface CommandResult { stdout: string; stderr: string; exitCode: number; durationMs: number; }
 export interface AelionAPI {
+  openWebPreview(input:{id:string;source:import('./web-preview').WebPreviewSource}):Promise<import('./web-preview').WebPreviewState>;
+  layoutWebPreview(input:{id:string;rect:{x:number;y:number;width:number;height:number};visible:boolean}):Promise<void>;
+  webPreviewAction(input:{id:string;action:'back'|'forward'|'reload'|'navigate';url?:string}):Promise<import('./web-preview').WebPreviewState>;
+  closeWebPreview(id:string):Promise<void>;
+  onWebPreview(callback:(state:import('./web-preview').WebPreviewState)=>void):()=>void;
+  onWebPreviewEscape(callback:(id:string)=>void):()=>void;
   sendPreviewFeedback(input:import("./preview-feedback").PreviewFeedbackInput):Promise<{sent:true;attachmentId:string}>;
   setSkillEnabled(input:{id:string;enabled:boolean}):Promise<void>;
   saveVmStorageSettings(value:import("./vm-storage").VmStorageSettings):Promise<void>;

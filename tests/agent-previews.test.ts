@@ -79,3 +79,11 @@ test('model tool dispatch reaches the preview queue and returns a real tool rece
  const harness=new Harness(f.store,{state:{status:'stopped'}} as VmController,model,()=>{},undefined,undefined,undefined,undefined,undefined,undefined,f.attachments);harness.setPreviewGateway(f.previews);
  t.after(()=>harness.disposeTools());await harness.run(f.bot.id,'Show the result');assert.equal(receipt,true);assert.equal(f.previews.snapshot().length,1);assert.equal(f.store.data.runs.at(-1)?.status,'completed');
 });
+
+test('URL previews route VM services to their Bot and reject ambiguous or mixed targets',async t=>{
+ const f=fixture(t);
+ await f.previews.open(f.bot.id,f.run.id,{url:'http://localhost:5173/app?q=1',location:'vm',reason:'Show frontend'},signal());
+ assert.deepEqual(f.previews.snapshot()[0].target,{kind:'url',url:'http://localhost:5173/app?q=1',location:'vm'});assert.equal(f.reads.length,0);
+ for(const input of [{url:'http://localhost:5173'},{url:'http://localhost:22',location:'vm'},{url:'https://example.com',location:'vm'},{url:'file:///etc/passwd'},{url:'https://example.com',path:'a.html',location:'host'}])await assert.rejects(f.previews.open(f.bot.id,f.run.id,{reason:'Show',...input},signal()));
+ await f.previews.open(f.bot.id,f.run.id,{url:'https://example.com/demo',reason:'Show website'},signal());assert.equal(f.previews.snapshot()[0].target.kind,'url');
+});

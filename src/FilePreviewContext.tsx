@@ -5,9 +5,9 @@ import {FilePreview} from './FilePreview';
 
 export interface PreviewItem{
   id:string;name:string;size:number;
-  workspace?:{botId:string;path:string};
+  workspace?:{botId:string;path:string};directoryBotId?:string;
   load:()=>Promise<ArtifactPreview>;
-  save:()=>Promise<unknown>;
+  save?:()=>Promise<unknown>;
   openInComputer?:()=>Promise<unknown>;
   editor?:{read:()=>Promise<import('./editable-text').EditableText>;write?:(edit:import('./editable-text').TextEdit)=>Promise<import('./editable-text').EditableText>};
 }

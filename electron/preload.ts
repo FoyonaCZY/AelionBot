@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { AelionAPI, AppEvent } from '../src/shared';
 const api:AelionAPI={
+  openWebPreview:input=>ipcRenderer.invoke('web-preview:open',input),layoutWebPreview:input=>ipcRenderer.invoke('web-preview:layout',input),webPreviewAction:input=>ipcRenderer.invoke('web-preview:action',input),closeWebPreview:id=>ipcRenderer.invoke('web-preview:close',id),
+  onWebPreview:callback=>{const handler=(_event:unknown,state:import('../src/web-preview').WebPreviewState)=>callback(state);ipcRenderer.on('web-preview:event',handler);return()=>ipcRenderer.removeListener('web-preview:event',handler);},
+  onWebPreviewEscape:callback=>{const handler=(_event:unknown,id:string)=>callback(id);ipcRenderer.on('web-preview:escape',handler);return()=>ipcRenderer.removeListener('web-preview:escape',handler);},
   sendPreviewFeedback:input=>ipcRenderer.invoke('preview:feedback',input),
   setSkillEnabled:input=>ipcRenderer.invoke('skills:enabled',input),
   saveVmStorageSettings:value=>ipcRenderer.invoke('vm:storage-save',value),

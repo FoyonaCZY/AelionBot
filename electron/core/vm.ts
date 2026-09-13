@@ -1,3 +1,4 @@
+import {PreviewTunnel,VM_LISTENER_OWNER} from './preview-tunnel';
 import {VmStorage} from './vm-storage';
 import {storagePressure} from '../../src/vm-storage';
 import {VmHealthChannel,VM_HEALTH_SCRIPT} from './vm-health';
@@ -62,6 +63,7 @@ export class VmController extends EventEmitter {
   private record?: VmRecord;
   private stateValue: VmState;
   private operation = false;
+  private previewTunnels=new Set<()=>void>();
   private activeExecutions = 0;
   private closing=false;
   private shutdownTask?:Promise<void>;
@@ -188,7 +190,7 @@ export class VmController extends EventEmitter {
     })();this.vncBridgeTask=pending;
     try{await pending;}catch(error){if(this.vncBridge===server){server.close();this.vncBridge=undefined;}throw error;}finally{if(this.vncBridgeTask===pending)this.vncBridgeTask=undefined;}
   }
-  private closeServers() { if(this.budgetTimer)clearInterval(this.budgetTimer);this.budgetTimer=undefined; this.health?.close();this.storagePolicy=undefined;this.storageRetryAt=0; this.seedServer?.close();this.seedServer=undefined;for(const client of this.vncBridge?.clients||[])client.terminate();this.vncBridge?.close();this.vncBridge=undefined;this.vncBridgeTask=undefined;this.desktopPorts.clear();this.desktopRuntime=undefined;this.wallpaperTask=undefined;this.wallpaperRetryAt=0;this.update({vncUrl:undefined}); }
+  private closeServers() { for(const close of this.previewTunnels)close();this.previewTunnels.clear(); if(this.budgetTimer)clearInterval(this.budgetTimer);this.budgetTimer=undefined; this.health?.close();this.storagePolicy=undefined;this.storageRetryAt=0; this.seedServer?.close();this.seedServer=undefined;for(const client of this.vncBridge?.clients||[])client.terminate();this.vncBridge?.close();this.vncBridge=undefined;this.vncBridgeTask=undefined;this.desktopPorts.clear();this.desktopRuntime=undefined;this.wallpaperTask=undefined;this.wallpaperRetryAt=0;this.update({vncUrl:undefined}); }
   async start() { this.assertOpen();if(!this.record) await this.prepare();return this.exclusive(async()=>{
     this.checkArchitecture();
     if(process.platform==='darwin'&&process.arch==='x64'){let translated=false;try{translated=execFileSync('/usr/sbin/sysctl',['-in','sysctl.proc_translated'],{encoding:'utf8',stdio:['ignore','pipe','ignore']}).trim()==='1';}catch{}if(translated)throw Error('当前运行的是 Intel 安装包，请为这台 Apple Silicon Mac 下载 ARM64 安装包');}
@@ -378,6 +380,20 @@ export class VmController extends EventEmitter {
       }));
       client.connect({host:'127.0.0.1',port:this.record!.sshPort,username,privateKey:readFileSync(join(this.dir,'client.key')),readyTimeout:Math.min(timeoutMs,10000),hostHash:'sha256',hostVerifier:(hash:string)=>hash===this.record!.hostKeyHash});
     });
+  }
+  async forwardPreviewPort(botId:string,port:number){
+    if(!/^[a-zA-Z0-9_-]{1,80}$/.test(botId)||!Number.isInteger(port)||port<1024||port>65535)throw Error('无效端口');
+    if(this.stateValue.status!=='ready'||this.operation||!this.record?.sshPort)throw Error('请先启动工作电脑');
+    if(this.previewTunnels.size>=8)throw Error('预览端口数量已达上限');
+    const verified=await this.execRaw('python3 -c '+shQuote(VM_LISTENER_OWNER)+' '+shQuote(botId)+' '+port,'root',10000);if(verified.exitCode!==0)throw Error(verified.stderr||'无法验证服务端口');const owner=JSON.parse(verified.stdout);if(!['127.0.0.1','::1'].includes(owner.host))throw Error('无效转发目标');
+    const record=this.record,client=new Client();let closed=false;let tunnel:PreviewTunnel|undefined;
+    const close=()=>{if(closed)return;closed=true;tunnel?.close();client.end();this.previewTunnels.delete(close);};this.previewTunnels.add(close);
+    client.on('error',close);client.on('close',close);
+    try{await new Promise<void>((ok,fail)=>{client.once('ready',ok);client.once('error',fail);client.once('close',()=>fail(Error('转发连接已关闭')));client.connect({host:'127.0.0.1',port:record.sshPort,username:'aelion',privateKey:readFileSync(join(this.dir,'client.key')),readyTimeout:10000,keepaliveInterval:10000,hostHash:'sha256',hostVerifier:(hash:string)=>hash===record.hostKeyHash});});
+      if(closed)throw Error('转发连接已关闭');
+      tunnel=new PreviewTunnel(target=>new Promise((ok,fail)=>client.forwardOut('127.0.0.1',0,owner.host,target,(error,channel)=>error?fail(error):ok(channel))),port);
+      const localPort=await tunnel.start();return {localPort,close};
+    }catch(error){close();throw error;}
   }
   async execute(command:string,botId:string,signal?:AbortSignal,outputLimit=2_000_000):Promise<CommandResult>{
     if(!/^[a-zA-Z0-9_-]{1,80}$/.test(botId))throw new Error('无效工作区');

@@ -1,3 +1,4 @@
+import {webPreviewUrl,vmPreviewPort} from '../../src/web-preview';
 import {randomUUID} from 'node:crypto';
 import {basename,extname} from 'node:path';
 import type {AgentPreviewRequest} from '../../src/agent-preview';
@@ -18,12 +19,16 @@ export class AgentPreviews {
     this.store.bot(botId);signal.throwIfAborted();
     const run=this.store.data.runs.find(run=>run.id===runId&&run.botId===botId&&run.status==='running');
     if(!run)throw Error('当前任务已结束，不能发起预览');
-    if(Boolean(args.path)===Boolean(args.attachmentId))throw Error('请只填写 path 或 attachmentId');
+    if([args.path,args.attachmentId,args.url].filter(Boolean).length!==1)throw Error('请只填写 path、attachmentId 或 url');
     if(args.placement!==undefined&&!['side','full'].includes(String(args.placement)))throw Error('placement 必须是 side 或 full');
     const scope:AgentPreviewRequest['scope']=run.groupOrigin&&!run.groupTask?{kind:'group',id:run.groupOrigin.groupId}:{kind:'bot',id:botId};
     if(scope.kind==='group'&&!this.store.data.groups.some(group=>group.id===scope.id&&group.members.some(member=>member.id===botId&&!member.leftAt)))throw Error('Bot 已不在此群聊中');
     let target:AgentPreviewRequest['target'],name:string,size:number;
-    if(args.attachmentId){
+    if(args.url){
+      const url=webPreviewUrl(args.url);if(args.location!==undefined&&!['host','vm'].includes(String(args.location)))throw Error('无效网页位置');
+      if(args.location==='vm')vmPreviewPort(args.url);else if(['localhost','127.0.0.1','[::1]','0.0.0.0'].includes(url.hostname)&&args.location!=='host')throw Error('本地网页请明确填写 location: vm 或 host');
+      target={kind:'url',url:url.href,location:args.location==='vm'?'vm':'host'};name=(url.host+url.pathname).slice(0,240);size=0;
+    }else if(args.attachmentId){
       if(args.location!==undefined)throw Error('已有附件不需要 location');
       const [file]=this.attachments.forBot(botId,[args.attachmentId]);
       if(!supported(file.name))throw Error('此格式暂不支持预览，请用 message_attach 发送原文件');

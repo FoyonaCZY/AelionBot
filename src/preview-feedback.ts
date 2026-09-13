@@ -1,7 +1,8 @@
+import {feedbackWebUrl} from './web-preview';
 import type {AttachmentScope} from './attachment-types';
 export interface PreviewFeedbackInput {
  requestId:string;scope:AttachmentScope;text:string;language?:'en'|'zh-CN'|'zh-TW';
- file:{name:string;path?:string;attachmentId?:string;page?:number;unsaved?:boolean};
+ file:{name:string;url?:string;path?:string;attachmentId?:string;page?:number;unsaved?:boolean};
  rect:{x:number;y:number;width:number;height:number};viewport:{width:number;height:number};
 }
 export function feedbackCaptureRect(rect:PreviewFeedbackInput['rect'],viewport:PreviewFeedbackInput['viewport'],image:{width:number;height:number}){
@@ -13,10 +14,10 @@ export function feedbackCaptureRect(rect:PreviewFeedbackInput['rect'],viewport:P
  if(width<1||height<1)throw Error('预览区域不可见');return {x,y,width,height};
 }
 export function previewFeedbackMessage(input:Pick<PreviewFeedbackInput,'text'|'file'|'language'>){
- if(typeof input.text!=='string'||!input.text.trim()||input.text.length>12000||!input.file||typeof input.file.name!=='string'||!input.file.name.trim()||input.file.name.length>300||input.file.path!==undefined&&(typeof input.file.path!=='string'||input.file.path.length>1500)||input.file.attachmentId!==undefined&&(typeof input.file.attachmentId!=='string'||input.file.attachmentId.length>100)||input.file.page!==undefined&&(!Number.isInteger(input.file.page)||input.file.page<1||input.file.page>100000))throw Error('修改意见或文件信息无效');
+ if(typeof input.text!=='string'||!input.text.trim()||input.text.length>12000||!input.file||typeof input.file.name!=='string'||!input.file.name.trim()||input.file.name.length>300||input.file.path!==undefined&&(typeof input.file.path!=='string'||input.file.path.length>1500)||input.file.attachmentId!==undefined&&(typeof input.file.attachmentId!=='string'||input.file.attachmentId.length>100)||input.file.url!==undefined&&(typeof input.file.url!=='string'||input.file.url.length>4096)||input.file.page!==undefined&&(!Number.isInteger(input.file.page)||input.file.page<1||input.file.page>100000))throw Error('修改意见或文件信息无效');
  const clean=(text:string)=>text.replace(/[\r\n\u0000-\u001f]/g,' ');
  const en=input.language==='en',tw=input.language==='zh-TW';
- return (en?'Preview: ':tw?'預覽：':'预览：')+clean(input.file.name)+(input.file.page?(en?' · Page ':' · 第 ')+input.file.page+(en?'':' 页'):'')+'\n'+input.text.trim()+'\n'+(input.file.path?'\n'+(en?'File: ':'文件：')+clean(input.file.path):'')+(input.file.attachmentId?'\n'+(en?'Source attachment: ':tw?'原附件：':'原附件：')+clean(input.file.attachmentId):'')+'\n'+(en?'Screenshot: visible area only.':tw?'截圖僅包含目前可見範圍。':'截图仅包含当前可见范围。')+(input.file.unsaved?(en?' Includes unsaved edits.':tw?'畫面含未儲存的修改。':'画面含未保存的修改。'):'');
+ return (en?'Preview: ':tw?'預覽：':'预览：')+clean(input.file.name)+(input.file.page?(en?' · Page ':' · 第 ')+input.file.page+(en?'':' 页'):'')+'\n'+input.text.trim()+'\n'+(input.file.path?'\n'+(en?'File: ':'文件：')+clean(input.file.path):'')+(input.file.url?'\nURL: '+clean(feedbackWebUrl(input.file.url)):'')+(input.file.attachmentId?'\n'+(en?'Source attachment: ':tw?'原附件：':'原附件：')+clean(input.file.attachmentId):'')+'\n'+(en?'Screenshot: visible area only.':tw?'截圖僅包含目前可見範圍。':'截图仅包含当前可见范围。')+(input.file.unsaved?(en?' Includes unsaved edits.':tw?'畫面含未儲存的修改。':'画面含未保存的修改。'):'');
 }
 
 /** Presentation only: keep the original message content available to the Agent. */

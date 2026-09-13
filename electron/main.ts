@@ -1,3 +1,5 @@
+import {WebPreviewBrowser} from './web-preview';
+import {protocol} from 'electron';
 import {PreviewFeedbackService} from './core/preview-feedback';
 import {feedbackCaptureRect} from '../src/preview-feedback';
 import {VideoInspector} from './video-inspector';
@@ -76,6 +78,8 @@ let groupChats:GroupChats|undefined;
 let chatPins:ChatPinQueue|undefined;
 let scheduler:TaskScheduler|undefined;
 let greetings:BotGreetings|undefined;
+protocol.registerSchemesAsPrivileged([{scheme:'aelion-preview',privileges:{standard:true,secure:true,supportFetchAPI:true,corsEnabled:true}}]);
+let webPreview:WebPreviewBrowser|undefined;
 let appUpdates:AppUpdates|undefined;
 let diagnostics:Diagnostics|undefined;
 let agentPreviews:AgentPreviews|undefined;
@@ -191,6 +195,11 @@ async function initialize(){
   window.on('close',event=>{if(!canDiscardPreview())event.preventDefault();});
   window.webContents.on('will-prevent-unload',event=>{if(canDiscardPreview())event.preventDefault();});
   installComputerView(window);
+  webPreview=new WebPreviewBrowser(window,vm,artifacts,attachments);
+  handle('web-preview:open',input=>webPreview!.open(String(input?.id),input?.source));
+  handle('web-preview:layout',input=>webPreview!.bounds(String(input?.id),input?.rect,input?.visible===true));
+  handle('web-preview:action',input=>webPreview!.action(String(input?.id),String(input?.action),input?.url));
+  handle('web-preview:close',id=>webPreview!.close(String(id)));
   window.on('unresponsive',()=>diagnostics?.record('renderer.unresponsive','页面未响应'));
   window.webContents.on('render-process-gone',(_event,details)=>diagnostics?.record('renderer.gone',`${details.reason}; exitCode=${details.exitCode}`));
   window.webContents.on('did-fail-load',(_event,code,description)=>diagnostics?.record('renderer.load',`${code}: ${description}`));
@@ -307,6 +316,7 @@ async function initialize(){
     capture:async input=>{
       if(!window||window.isDestroyed()||window.isMinimized()||!window.isVisible())throw Error('请保持预览窗口可见后再发送');
       feedbackCaptureRect(input.rect,input.viewport,input.viewport);
+      const webCapture=await webPreview?.capture(input.rect);if(webCapture)return webCapture;
       let timer:ReturnType<typeof setTimeout>|undefined;const capture=await Promise.race([window.webContents.capturePage(undefined,{stayHidden:true}),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(Error('预览截图超时，请重试')),10000);})]).finally(()=>{if(timer)clearTimeout(timer);});if(capture.isEmpty())throw Error('未能截取预览画面，请重试');
       let cropped=capture.crop(feedbackCaptureRect(input.rect,input.viewport,capture.getSize()));const size=cropped.getSize();if(Math.max(size.width,size.height)>2560)cropped=cropped.resize(size.width>=size.height?{width:2560,quality:'best'}:{height:2560,quality:'best'});
       return cropped.toPNG();
@@ -384,7 +394,7 @@ async function initialize(){
   });
   handle('app:open-data',()=>shell.openPath(dataDir));
   const shutdown=new Shutdown({
-    stop:()=>{vm.beginShutdown();if(timer)clearInterval(timer);for(const close of [()=>appUpdates?.dispose(),()=>scheduler?.dispose(),()=>greetings?.dispose(),()=>{for(const bot of store.data.bots)harness.cancel(bot.id);},()=>providers.dispose(),()=>model?.dispose(),()=>harness.disposeTools(),()=>videoInspector?.dispose(),()=>chatPins?.dispose(),()=>peerChats?.dispose(),()=>groupChats?.dispose(),()=>interactions.dispose(),()=>host.dispose()])try{close();}catch(error){diagnostics?.record('app.shutdown-error',error);}},
+    stop:()=>{vm.beginShutdown();if(timer)clearInterval(timer);for(const close of [()=>appUpdates?.dispose(),()=>scheduler?.dispose(),()=>greetings?.dispose(),()=>{for(const bot of store.data.bots)harness.cancel(bot.id);},()=>providers.dispose(),()=>model?.dispose(),()=>harness.disposeTools(),()=>videoInspector?.dispose(),()=>webPreview?.close(),()=>chatPins?.dispose(),()=>peerChats?.dispose(),()=>groupChats?.dispose(),()=>interactions.dispose(),()=>host.dispose()])try{close();}catch(error){diagnostics?.record('app.shutdown-error',error);}},
     closeWork:()=>[harness.closeProcesses(),cognition.close(),integrations.close()],
     closeVm:()=>vm.shutdownForExit(),closeState:()=>{vm.dispose();store.close();},
     report:error=>diagnostics?.record('app.shutdown-error',error),exit:()=>{diagnostics?.dispose();app.exit(0);}
