@@ -33,7 +33,8 @@ test('Mac virtual machines choose native images, hardware accelerator and ARM fi
  const args=vmMachineArgs(arm,runtime,join(runtime,'vars.fd'));assert.ok(args.includes('host'));assert.ok(args.includes('virt'));assert.ok(args.some(a=>a.includes('edk2-aarch64-code.fd')));assert.ok(!args.includes('whpx'));assert.ok(!args.includes('q35'));
  assert.ok(vmMachineArgs(arm,runtime,join(runtime,'vars.fd'),'tcg').includes('cortex-a72'));assert.ok(DESKTOP_SCRIPT.includes('linux-image-$arch'));assert.match(DESKTOP_SCRIPT,/\/usr\/local\/sbin\/aelion-packages browser chromium\b/);assert.match(DESKTOP_SCRIPT,/provisioned-workstation/);
  assert.match(DESKTOP_SCRIPT,/\bzip unzip xarchiver\b/);assert.match(DESKTOP_SCRIPT,/\bpython3-openpyxl python3-pypdf poppler-utils\b/);assert.match(DESKTOP_SCRIPT,/python-pptx==1\.0\.2/);assert.match(DESKTOP_SCRIPT,/\bibus-libpinyin\b/);
- const packed=DESKTOP_SCRIPT.match(/files=json\.loads\(base64\.b64decode\('([A-Za-z0-9+/=]+)'\)\)/)?.[1];assert.ok(packed);
+ assert.match(DESKTOP_SCRIPT,/AELION_STORAGE_POLICY_READY/);
+ const packed=[...DESKTOP_SCRIPT.matchAll(/files=json\.loads\(base64\.b64decode\('([A-Za-z0-9+/=]+)'\)\)/g)].map(match=>match[1]).find(payload=>{try{return '/home/aelion/Desktop/Impress.desktop' in JSON.parse(Buffer.from(payload,'base64').toString());}catch{return false;}});assert.ok(packed);
  const profile=JSON.parse(Buffer.from(packed,'base64').toString());assert.match(profile['/home/aelion/Desktop/Impress.desktop'],/libreoffice --impress/);
 });
 test('POSIX execution awaits permission and keeps nonzero exit codes and Unicode',{skip:process.platform==='win32'},async t=>{

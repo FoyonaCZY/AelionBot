@@ -132,6 +132,10 @@ class Installer:
             # packages while making progress. Bound inactivity, not total work.
             if self.run(install,'installing',0,900)!=0:
                 self.emit('failed',error='package-configure',force=True);raise RuntimeError('Package configuration failed; downloaded files were retained')
+            # Installation succeeded. APT takes its own archive lock; failed
+            # downloads/configuration above retain their files for retry.
+            if self.run([self.apt,'-o','DPkg::Lock::Timeout=0','clean'],'cleaning',60)!=0:
+                print('Cache cleanup deferred; installation remains complete',flush=True)
             self.emit('complete',percent=100,force=True);return
         self.emit('failed',error='sources-unavailable',force=True);raise RuntimeError('Package sources unavailable; retry to reuse already downloaded files')
 

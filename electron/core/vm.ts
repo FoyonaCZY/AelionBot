@@ -1,3 +1,7 @@
+import {VmStorage} from './vm-storage';
+import {storagePressure} from '../../src/vm-storage';
+import {VmHealthChannel,VM_HEALTH_SCRIPT} from './vm-health';
+import {STORAGE_POLICY_BOOTSTRAP} from './storage-policy';
 import { EventEmitter } from 'node:events';
 import { createServer, type Server as HttpServer } from 'node:http';
 import { createConnection, createServer as createTcpServer } from 'node:net';
@@ -31,7 +35,7 @@ async function freePort(): Promise<number> {
   return new Promise((ok, fail) => { const server=createTcpServer(); server.once('error',fail); server.listen(0,'127.0.0.1',()=>{const address=server.address(); const port=typeof address==='object'&&address?address.port:0;server.close(()=>ok(port));}); });
 }
 interface VmRecord {arch?:GuestArch;id: string; pid?: number; initialized?:boolean; workstationVersion?:string; sshPort: number; qmpPort: number; vncPort: number; seedPort: number; seedToken: string; hostKeyHash: string; preparedAt: string; }
-export interface VmOptions { dataDir: string; runtimeDir: string; cacheDir: string; wallpaperPath?:string; memoryMiB?: number;cpuCount?:number;platform?:NodeJS.Platform;arch?:GuestArch;accelerator?:'tcg'|'hvf'|'whpx';startupTimeoutMs?:number;skipDesktop?:boolean;downloadFetch?:ResourceFetch; }
+export interface VmOptions { appVersion?:string; dataDir: string; runtimeDir: string; cacheDir: string; wallpaperPath?:string; memoryMiB?: number;cpuCount?:number;platform?:NodeJS.Platform;arch?:GuestArch;accelerator?:'tcg'|'hvf'|'whpx';startupTimeoutMs?:number;skipDesktop?:boolean;downloadFetch?:ResourceFetch; }
 
 const INIT_SCRIPT = `#!/bin/sh
 set -eu
@@ -69,11 +73,19 @@ export class VmController extends EventEmitter {
   private desktopRuntime?:Promise<void>;
   private wallpaperTask?:Promise<void>;
   private wallpaperRetryAt=0;
+  private health=new VmHealthChannel();
+  private storagePolicy?:Promise<void>;
+  private storageRetryAt=0;
+  readonly storage:VmStorage;
+  private budgetTimer?:ReturnType<typeof setInterval>;
+  private checkingBudget=false;
+  private budgetSuspended=false;
   constructor(readonly options: VmOptions) {
     super(); this.dir=join(options.dataDir,'vm');mkdirSync(this.dir,{recursive:true});
     this.platform=vmPlatform(options.platform,options.arch);this.executable=qemuBinary(options.runtimeDir,this.platform.executable);
     if(existsSync(join(this.dir,'machine.json'))) this.record=JSON.parse(readFileSync(join(this.dir,'machine.json'),'utf8'));
-    this.stateValue={status:this.record?'stopped':'unprepared',detail:this.record?'工作电脑已准备':'首次使用前需要准备工作电脑',imageVersion:this.platform.image.version,appsReady:this.record?this.record.workstationVersion===WORKSTATION_VERSION:undefined};
+    this.storage=VmStorage.forQemu(this.dir,options.appVersion||'dev',qemuBinary(options.runtimeDir,this.platform.imageTool));
+    this.stateValue={storage:this.storage.snapshot(),status:this.record?'stopped':'unprepared',detail:this.record?'工作电脑已准备':'首次使用前需要准备工作电脑',imageVersion:this.platform.image.version,appsReady:this.record?this.record.workstationVersion===WORKSTATION_VERSION:undefined};
   }
   get state() { return {...this.stateValue}; }
   private update(patch: Partial<VmState>) { const changed=Object.entries(patch).some(([key,value])=>this.stateValue[key as keyof VmState]!==value);this.stateValue={...this.stateValue,...patch};if(changed)this.emit('state',this.state); }
@@ -164,14 +176,18 @@ export class VmController extends EventEmitter {
     await new Promise<void>((ok,fail)=>{this.vncBridge!.once('listening',ok);this.vncBridge!.once('error',fail);});
     const address=this.vncBridge.address();if(address&&typeof address==='object')this.update({vncUrl:`ws://127.0.0.1:${address.port}/${this.vncToken}`});
   }
-  private closeServers() { this.seedServer?.close();this.seedServer=undefined;for(const client of this.vncBridge?.clients||[])client.terminate();this.vncBridge?.close();this.vncBridge=undefined;this.desktopPorts.clear();this.desktopRuntime=undefined;this.wallpaperTask=undefined;this.wallpaperRetryAt=0;this.update({vncUrl:undefined}); }
+  private closeServers() { if(this.budgetTimer)clearInterval(this.budgetTimer);this.budgetTimer=undefined; this.health?.close();this.storagePolicy=undefined;this.storageRetryAt=0; this.seedServer?.close();this.seedServer=undefined;for(const client of this.vncBridge?.clients||[])client.terminate();this.vncBridge?.close();this.vncBridge=undefined;this.desktopPorts.clear();this.desktopRuntime=undefined;this.wallpaperTask=undefined;this.wallpaperRetryAt=0;this.update({vncUrl:undefined}); }
   async start() { this.assertOpen();if(!this.record) await this.prepare();return this.exclusive(async()=>{
     this.checkArchitecture();
     if(process.platform==='darwin'&&process.arch==='x64'){let translated=false;try{translated=execFileSync('/usr/sbin/sysctl',['-in','sysctl.proc_translated'],{encoding:'utf8',stdio:['ignore','pipe','ignore']}).trim()==='1';}catch{}if(translated)throw Error('当前运行的是 Intel 安装包，请为这台 Apple Silicon Mac 下载 ARM64 安装包');}
     await this.refresh();if(this.stateValue.status==='ready')return;
     if(processAlive(this.record?.pid))throw new Error('检测到工作 VM 进程仍存在，暂不启动第二个实例；请检查日志。');
     if(!existsSync(this.executable))throw new Error('QEMU 运行时缺失');
-    this.closeServers();await this.seed();
+    this.closeServers();this.storage.recover();
+    if(this.options.appVersion&&this.record?.initialized&&this.storage.pending)await this.reclaimOffline(true);
+    this.storage.recover();
+    if(storagePressure(this.storage.snapshot().usageBytes,this.storage.snapshot().settings)==='pause')throw Error('VM 空间接近上限，请先回收空间或提高上限');
+    this.storage.setPaused(false);await this.seed();
     this.assertOpen();
     const r=this.record!;r.sshPort=await freePort();r.qmpPort=await freePort();r.vncPort=await freePort();
     const qpath=(value:string)=>value.replaceAll(',',',,');
@@ -186,7 +202,7 @@ export class VmController extends EventEmitter {
     const log=openSync(join(this.dir,'qemu.log'),'a');
     const env={...process.env};if(process.platform==='darwin'){env.QEMU_MODULE_DIR=join(this.options.runtimeDir,'lib','qemu');delete env.DYLD_LIBRARY_PATH;delete env.DYLD_FALLBACK_LIBRARY_PATH;delete env.DYLD_INSERT_LIBRARIES;}
     const child=spawn(this.executable,args,{cwd:this.options.runtimeDir,env,windowsHide:true,detached:true,stdio:['ignore',log,log]});closeSync(log);
-    this.child=child;r.pid=child.pid;
+    this.child=child;r.pid=child.pid;this.watchStorage();
     child.once('exit',()=>{if(this.child===child)this.child=undefined;});
     await new Promise<void>((ok,fail)=>{child.once('spawn',ok);child.once('error',fail);});
     child.unref();this.persist();this.assertOpen();
@@ -224,17 +240,20 @@ export class VmController extends EventEmitter {
   async refresh() {
     if(this.closing)return this.state;
     if(!this.record)return this.state;
-    this.update({diskBytes:statSync(join(this.dir,'system.qcow2')).size+statSync(join(this.dir,'work.qcow2')).size});
-    if(!processAlive(this.record.pid)){if(this.record.pid){this.record.pid=undefined;this.persist();}if(!this.operation)this.update({status:'stopped',detail:'工作电脑已关闭，工作文件已保留',pid:undefined,vncUrl:undefined});return this.state;}
+    this.publishStorage();
+    if(!processAlive(this.record.pid)){this.health.close();if(this.record.pid){this.record.pid=undefined;this.persist();}if(!this.operation)this.update({status:'stopped',detail:'工作电脑已关闭，工作文件已保留',pid:undefined,vncUrl:undefined});return this.state;}
+    this.watchStorage();
+    if(this.storage.paused){this.update({status:'error',detail:'空间接近上限，工作电脑已保护性暂停；请回收空间或提高上限'});return this.state;}
     let identityVerified=false;
     try{
       const identity=await this.qmp('query-uuid');if(identity.UUID!==this.record.id)throw new Error('VM 身份校验失败');identityVerified=true;
       const status=await this.qmp('query-status');
       if(status.running){
-        const result=await this.execRaw(`test -f /var/lib/aelion/work-ready && printf READY; systemctl is-active --quiet lightdm && pgrep -u aelion -x xfce4-session >/dev/null && printf DESKTOP; test -f /var/lib/aelion/desktop-error && printf TOOL_ERROR; test -f /var/lib/aelion/desktop-needs-reboot && printf NEEDS_REBOOT; test "$(cat /var/lib/aelion/workstation-version 2>/dev/null)" = '${WORKSTATION_VERSION}' && test -x /usr/local/bin/aelion-browser && test -x /usr/bin/thunar && test -x /usr/local/bin/aelion-session && printf APPS; printf '\\nSTAGE:'; cat /var/lib/aelion/desktop-stage 2>/dev/null; printf '\\nINSTALL_PROGRESS:'; cat /var/lib/aelion/desktop-progress.json 2>/dev/null; printf '\\n'`,'aelion',4000);
-        const desktop=result.stdout.includes('DESKTOP');
-        const lock=await this.execRaw('flock -n /var/lib/aelion/desktop.lock -c true','root',4000);
-        const maintenance=lock.exitCode!==0;this.update({installation:maintenance?installationProgress(result.stdout):undefined});
+        const r=this.record!;
+        const result=await this.health.read(r.id+':'+r.pid+':'+r.sshPort+':'+r.hostKeyHash,{host:'127.0.0.1',port:r.sshPort,username:'root',privateKey:readFileSync(join(this.dir,'client.key')),readyTimeout:10000,hostHash:'sha256',hostVerifier:(hash:string)=>hash===r.hostKeyHash},'python3 -u -c '+shQuote(VM_HEALTH_SCRIPT));
+        const desktop=result.stdout.includes('DESKTOP'),maintenance=result.stdout.includes('MAINTENANCE');
+        if(result.stdout.split(/\s+/).includes('VERSION:'+WORKSTATION_VERSION))result.stdout+=' APPS';
+        this.update({installation:maintenance?installationProgress(result.stdout):undefined});
         if(result.stdout.includes('READY')){
           const appsReady=result.stdout.includes('APPS'),needsReboot=result.stdout.includes('NEEDS_REBOOT');let save=false;
           if(!this.record.initialized){this.record.initialized=true;save=true;}
@@ -243,6 +262,7 @@ export class VmController extends EventEmitter {
           this.update({status:'ready',detail:maintenance?workstationProgress(result.stdout):needsReboot?'应用已安装，请重启工作电脑完成初始化':desktop&&appsReady?'工作电脑已就绪':desktop?'桌面在线，应用环境需要准备':'正在准备桌面',pid:this.record.pid,sshPort:this.record.sshPort,desktopReady:desktop,appsReady,maintenance,needsReboot,lastError:result.stdout.includes('TOOL_ERROR')?workstationFailure(result.stdout):undefined});
         }
         else await this.seed();
+        if(!this.closing)await this.ensureStoragePolicy();
         if(!this.closing)await this.ensureWallpaper();
         if(!this.closing)await this.bridge();
       }
@@ -256,6 +276,49 @@ export class VmController extends EventEmitter {
       this.update({status:'error',detail:'VM 进程存在，连接尚未恢复',lastError:(error as Error).message,pid:this.record.pid});
     }}
     return this.state;
+  }
+  private publishStorage(){const storage=this.storage.snapshot();if(JSON.stringify(storage)!==JSON.stringify(this.stateValue.storage))this.update({storage,diskBytes:storage.usageBytes});}
+  private watchStorage(){if(this.budgetTimer)return;this.budgetTimer=setInterval(()=>{void this.checkStorageBudget();},500);this.budgetTimer.unref();}
+  private async checkStorageBudget(){
+    if(this.checkingBudget||this.closing||!processAlive(this.record?.pid)||this.storage.reclaiming||this.budgetSuspended)return;
+    this.checkingBudget=true;
+    try{this.publishStorage();const storage=this.storage.snapshot();if(storage.paused||storagePressure(storage.usageBytes,storage.settings)!=='pause')return;
+      const identity=await this.qmp('query-uuid');if(identity.UUID!==this.record!.id)throw Error('VM 身份不匹配');if(this.closing||this.budgetSuspended)return;await this.qmp('stop');this.storage.setPaused(true);this.health.close();this.publishStorage();this.update({status:'error',detail:'空间接近上限，工作电脑已保护性暂停；请回收空间或提高上限'});
+    }catch(error){this.update({lastError:'空间保护检查失败：'+(error as Error).message});}finally{this.checkingBudget=false;}
+  }
+  async saveStorageSettings(value:unknown){
+    if(this.storage.reclaiming)throw Error('请等待空间回收结束');this.storage.setSettings(value);const state=this.storage.snapshot();
+    if(state.paused&&storagePressure(state.usageBytes,state.settings)!=='pause'){
+      if(processAlive(this.record?.pid)){const identity=await this.qmp('query-uuid');if(identity.UUID!==this.record!.id)throw Error('VM 身份不匹配');await this.qmp('cont');}
+      this.storage.setPaused(false);
+    }
+    this.publishStorage();await this.checkStorageBudget();
+  }
+  private async reclaimOffline(bestEffort=false){
+    this.update({maintenance:true,detail:'正在校验并回收 VM 空间'});
+    const work=this.storage.reclaim(()=>{if(processAlive(this.record?.pid))throw Error('工作电脑仍在运行，不能回收镜像');});this.publishStorage();
+    try{await work;}catch(error){if(!bestEffort)throw error;this.update({lastError:'空间回收已延后：'+(error as Error).message});}
+    finally{this.update({maintenance:false});this.publishStorage();}
+  }
+  async reclaimStorage(targetVersion?:string){
+    if(this.operation||this.activeExecutions||this.checkingBudget)throw Error('请先结束正在执行的任务或维护');
+    return this.exclusive(async()=>{this.budgetSuspended=true;this.update({maintenance:true,detail:'正在清理缓存并准备回收空间'});
+    try{
+      if(processAlive(this.record?.pid)){
+        if(this.storage.paused){const identity=await this.qmp('query-uuid');if(identity.UUID!==this.record!.id)throw Error('VM 身份不匹配');await this.qmp('cont');this.storage.setPaused(false);}
+        const policy=await this.execRaw(STORAGE_POLICY_BOOTSTRAP,'root',30000);if(policy.exitCode!==0)throw Error(policy.stderr||'无法准备空间回收');
+        const cleaned=await this.execRaw('/usr/local/sbin/aelion-storage-maintenance','root',300000);if(cleaned.exitCode!==0)throw Error(cleaned.stderr||'空间维护失败');
+        const receipt=JSON.parse(cleaned.stdout);if(receipt.cache?.skipped==='installer-busy'||receipt.cache?.skipped==='installation-not-complete')throw Error('安装尚未结束，请稍后回收空间');
+        await this.stopInternal();
+      }
+      await this.reclaimOffline();if(targetVersion)this.storage.markVersion(targetVersion);this.storage.setPaused(false);this.update({status:this.record?'stopped':'unprepared',detail:'空间回收完成，可以启动工作电脑'});this.publishStorage();
+    }finally{this.budgetSuspended=false;this.update({maintenance:false});}});
+  }
+  private async ensureStoragePolicy(){
+    if(this.closing||this.stateValue.status!=='ready'||!this.stateValue.appsReady||this.stateValue.maintenance||Date.now()<this.storageRetryAt)return;
+    if(this.storagePolicy)return this.storagePolicy;
+    const pending=this.execRaw(STORAGE_POLICY_BOOTSTRAP,'root',30000).then(result=>{if(result.exitCode!==0)throw Error(result.stderr||'空间维护配置失败');}).catch(error=>{if(this.storagePolicy===pending){this.storagePolicy=undefined;this.storageRetryAt=Date.now()+60000;}console.warn('空间维护配置稍后重试：',(error as Error).message);});
+    this.storagePolicy=pending;await pending;
   }
   private async ensureWallpaper(){
     if(!this.options.wallpaperPath||this.closing||this.stateValue.status!=='ready'||!this.stateValue.appsReady||this.stateValue.maintenance||Date.now()<this.wallpaperRetryAt)return;
@@ -429,10 +492,12 @@ print(json.dumps({'path':str(target),'size':len(blob),'sha256':a['sha256']},ensu
     if(result.exitCode!==0)throw new Error(result.stderr||'预装镜像收尾失败');
     return result;
   });}
-  async stop(){return this.exclusive(async()=>{
+  async stop(){return this.exclusive(async()=>{const suspended=this.budgetSuspended;this.budgetSuspended=true;try{await this.stopInternal();}finally{this.budgetSuspended=suspended;}});}
+  private async stopInternal(){
     if(this.activeExecutions)throw new Error('仍有命令正在运行，请先停止任务');
     if(!processAlive(this.record?.pid)){this.closeServers();this.update({status:this.record?'stopped':'unprepared',detail:'工作电脑已关闭'});return;}
     const identity=await this.qmp('query-uuid');if(identity.UUID!==this.record!.id)throw new Error('拒绝关闭身份不匹配的进程');
+    if(this.storage.paused){await this.qmp('cont');this.storage.setPaused(false);}
     const maintenance=await this.execRaw('flock -n /var/lib/aelion/desktop.lock -c true','root',5000);
     if(maintenance.exitCode!==0)throw new Error('桌面工具正在准备，请等待维护任务完成后再关闭或重启。');
     this.update({status:'stopping',detail:'正在安全关闭工作电脑'});await this.qmp('system_powerdown');
@@ -440,13 +505,14 @@ print(json.dumps({'path':str(target),'size':len(blob),'sha256':a['sha256']},ensu
     while(processAlive(this.record?.pid)&&Date.now()<until)await sleep(500);
     if(processAlive(this.record?.pid))throw new Error('关机尚未完成，实例仍在运行；没有强制终止。');
     this.record!.pid=undefined;this.persist();this.closeServers();this.update({status:'stopped',detail:'工作电脑已关闭，工作文件已保留',pid:undefined,vncUrl:undefined});
-  });}
+  }
   async restart(){await this.stop();await this.start();}
   beginShutdown(){this.closing=true;}
   shutdownForExit(){this.beginShutdown();return this.shutdownTask??=this.finishShutdown();}
   private async finishShutdown(){
     const target=this.record&&this.record.pid?{id:this.record.id,pid:this.record.pid}:undefined;
-    try{if(target)await shutdownOwnedVm(target,{alive:processAlive,qmp:command=>this.qmp(command),force:async()=>{
+    try{if(target&&this.storage?.paused){const identity=await this.qmp('query-uuid');if(identity.UUID!==target.id)throw Error('VM 身份不匹配');await this.qmp('cont');this.storage.setPaused(false);}
+      if(target)await shutdownOwnedVm(target,{alive:processAlive,qmp:command=>this.qmp(command),force:async()=>{
       if(process.platform==='win32')return stopOwnedQemuWindows({...target,executable:this.executable,systemDisk:join(this.dir,'system.qcow2'),workDisk:join(this.dir,'work.qcow2')});
       const child=this.child;if(child?.pid===target.pid&&child.exitCode===null){child.kill('SIGTERM');return true;}return false;
     }});

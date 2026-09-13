@@ -21,14 +21,14 @@ with tempfile.TemporaryDirectory() as root:
    assert not any('Proxy=' in arg for arg in args)
    return 100 if self.source=='current' else 0
  calls=[];installer=Fake(str(state),str(cache),codename='bookworm');installer.install('office',['libreoffice-writer'])
- assert [(source,phase) for source,phase,args in calls]==[('current','updating'),('tuna','updating'),('tuna','downloading'),('tuna','installing')]
- assert '--download-only' in calls[-2][2] and '--no-download' in calls[-1][2]
- assert '--no-remove' in calls[-1][2] and 'APT::Update::Error-Mode=any' in calls[0][2]
+ assert [(source,phase) for source,phase,args in calls]==[('current','updating'),('tuna','updating'),('tuna','downloading'),('tuna','installing'),('tuna','cleaning')]
+ assert '--download-only' in calls[-3][2] and '--no-download' in calls[-2][2]
+ assert '--no-remove' in calls[-2][2] and 'APT::Update::Error-Mode=any' in calls[0][2]
  assert 'signed-by=/usr/share/keyrings/debian-archive-keyring.gpg' in (state/'sources-tuna.list').read_text()
  assert 'bookworm-security' in (state/'sources-tuna.list').read_text()
  assert (cache/'kept.deb').read_bytes()==b'cached'
  assert json.loads((state/'desktop-progress.json').read_text())['phase']=='complete'
- calls.clear();installer.install('browser',['chromium']);assert [(s,p) for s,p,a in calls]==[('tuna','downloading'),('tuna','installing')]
+ calls.clear();installer.install('browser',['chromium']);assert [(s,p) for s,p,a in calls]==[('tuna','downloading'),('tuna','installing'),('tuna','cleaning')]
 `));
 
 test('source exhaustion is bounded and configuration failures do not blindly rotate mirrors',{skip:probe.status!==0},()=>run(String.raw`

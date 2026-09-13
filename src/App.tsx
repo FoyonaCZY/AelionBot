@@ -1,3 +1,4 @@
+import {VmStorageSettings} from './VmStorageSettings';
 import {useAgentPreview} from './use-agent-preview';
 import {WorkspaceFileTree} from './WorkspaceFileTree';
 import {ArtifactList} from './ArtifactList';
@@ -248,6 +249,7 @@ function AppContent(){
           </SettingsSection>
         </>}
         {settingsTab==='computer'&&<>
+          <VmStorageSettings vm={state.vm} busy={anyRunning||busy}/>
           {state.hostWorkspace&&<HostWorkspaceSettings settings={state.hostWorkspace} busy={busy||anyRunning} act={act} onSaved={()=>setToast(t('本机工作目录已保存'))}/>}
           <SettingsSection title={t('工作电脑')}>
             {desktopAvailable?<div className="settings-computer-title"><Icon name="computer" size={34}/><div><strong>{t('Linux 工作电脑')}</strong><p>{state.vm.detail}</p></div></div>:<ComputerStatus vm={state.vm} onOpen={()=>setModal('computer-setup')}/>}

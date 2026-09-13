@@ -1,3 +1,4 @@
+import {STORAGE_POLICY_BOOTSTRAP} from './storage-policy';
 import {BOT_DESKTOP_SCRIPT,BOT_DESKTOP_VERSION} from './bot-desktop-profile';
 import {PACKAGE_INSTALLER_BOOTSTRAP} from './package-installer';
 import {DESKTOP_APPEARANCE_SCRIPT} from './desktop-appearance';
@@ -145,7 +146,7 @@ rm -f /var/lib/aelion/desktop-error
 trap 'echo "Desktop preparation failed at $(date -Iseconds), stage $(cat /var/lib/aelion/desktop-stage 2>/dev/null)" > /var/lib/aelion/desktop-error' EXIT
 printf system > /var/lib/aelion/desktop-stage
 timeout 600 dpkg --configure -a || echo 'Pending package dependencies will be repaired by APT'
-`+PACKAGE_INSTALLER_BOOTSTRAP+String.raw`
+`+STORAGE_POLICY_BOOTSTRAP+PACKAGE_INSTALLER_BOOTSTRAP+String.raw`
 arch=$(dpkg --print-architecture)
 case "$arch" in amd64|arm64) ;; *) echo "Unsupported guest architecture: $arch" >&2; exit 1 ;; esac
 provisioned=$(cat /var/lib/aelion/provisioned-workstation 2>/dev/null || true)

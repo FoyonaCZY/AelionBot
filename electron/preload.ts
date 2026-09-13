@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { AelionAPI, AppEvent } from '../src/shared';
 const api:AelionAPI={
+  saveVmStorageSettings:value=>ipcRenderer.invoke('vm:storage-save',value),
+  reclaimVmStorage:()=>ipcRenderer.invoke('vm:storage-reclaim'),
   acknowledgePreview:id=>ipcRenderer.invoke('preview:acknowledge',id),
   readEditableFile:input=>ipcRenderer.invoke('files:edit-read',input),
   saveEditableFile:input=>ipcRenderer.invoke('files:edit-save',input),

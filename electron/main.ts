@@ -111,7 +111,7 @@ async function initialize(){
   providers=new ModelProviders(store,{encrypt:value=>{if(!safeStorage.isEncryptionAvailable())throw new Error('系统加密存储不可用，尚未保存 API Key');return safeStorage.encryptString(value).toString('base64');},decrypt:value=>safeStorage.decryptString(Buffer.from(value,'base64'))},changed);
   commandPermissions=new CommandPermissions(join(dataDir,'command-permissions.json'),value=>host?.redact(value)??redactHost(value));
   interactions=new Interactions(()=>{changed();if(window&&!window.isDestroyed()&&!window.isFocused()&&interactions.snapshot().some(request=>request.kind==='host_permission'?request.approval?.phase!=='reviewing':request.phase==='waiting'))window.flashFrame(true);},(request,decision,ruleId)=>store.journal('interaction.decision',{id:request.id,botId:request.botId,runId:request.runId,kind:request.kind,decision,...(request.kind==='host_permission'&&request.approval?{approval:request.approval}:{}),...(ruleId?{ruleId}:{}),time:new Date().toISOString()}),commandPermissions);
-  vm=new VmController({dataDir,wallpaperPath:join(app.getAppPath(),'assets','wallpaper-light.png'),runtimeDir:app.isPackaged?join(process.resourcesPath,'qemu'):resolve('runtime/qemu'),cacheDir:app.isPackaged?join(dataDir,'downloads'):resolve('runtime/downloads'),downloadFetch:(url,options)=>net.fetch(url,options)});
+  vm=new VmController({dataDir,appVersion:app.getVersion(),wallpaperPath:join(app.getAppPath(),'assets','wallpaper-light.png'),runtimeDir:app.isPackaged?join(process.resourcesPath,'qemu'):resolve('runtime/qemu'),cacheDir:app.isPackaged?join(dataDir,'downloads'):resolve('runtime/downloads'),downloadFetch:(url,options)=>net.fetch(url,options)});
   computer=new ComputerController(vm,dataDir,changed);artifacts=new ArtifactService(store,vm);
   const imagePreview=(bytes:Buffer,id:string)=>{const image=nativeImage.createFromBuffer(bytes);if(image.isEmpty())return;const {width,height}=image.getSize();if(width*height>64*1024*1024)return;const scale=Math.min(1,2048/width,2048/height),preview=scale<1?image.resize({width:Math.max(1,Math.round(width*scale)),height:Math.max(1,Math.round(height*scale)),quality:'best'}):image;writeFileSync(join(computer.imageDir,id+'.png'),preview.toPNG());return {id,...preview.getSize()};};
   attachments=new Attachments(store,vm,artifacts,imagePreview);
@@ -163,7 +163,7 @@ async function initialize(){
       const blocked=updateBlocked();if(blocked)throw new Error(blocked);
       assertUpdateDataOutsideApp(dataDir,dirname(process.execPath));assertUpdateDataOutsideApp(profileDir,dirname(process.execPath));
       updatePreparing=true;changed();cognition.learning.preempt();const resumeComputer=Boolean(vm.state.pid);
-      try{await vm.stop();pendingLaunch={version:1,executable:process.execPath,dataDir,projectDir,configDir,resumeComputer,targetVersion:version};saveUpdateLaunchContext(profileDir,pendingLaunch);store.save();}
+      try{if(vm.storage.snapshot().settings.reclaimAfterUpdate){try{await vm.reclaimStorage(version);}catch(error){await vm.stop();console.warn('更新空间回收已延后：',(error as Error).message);}}else await vm.stop();pendingLaunch={version:1,executable:process.execPath,dataDir,projectDir,configDir,resumeComputer,targetVersion:version};saveUpdateLaunchContext(profileDir,pendingLaunch);store.save();}
       catch{updatePreparing=false;changed();cognition.learning.schedule();throw new Error('无法安全关闭工作电脑，请先在电脑设置中关闭后再更新。');}
     },
     recoverInstall:async()=>{updatePreparing=false;if(pendingLaunch){const resume=pendingLaunch.resumeComputer;saveUpdateLaunchContext(profileDir,{...pendingLaunch,resumeComputer:false});pendingLaunch=undefined;if(resume)await vm.start().catch(()=>{});}changed();cognition.learning.schedule();}
@@ -322,6 +322,11 @@ async function initialize(){
     if(!['prepare','start','stop','restart','repair-tools'].includes(action))throw new Error('不支持的维护操作');
     if(harness.busy&&action!=='prepare')throw new Error('Bot 正在工作，请先停止任务再维护电脑');
     if(action==='prepare')await vm.prepare();if(action==='start')await vm.start();if(action==='stop')await vm.stop();if(action==='restart')await vm.restart();if(action==='repair-tools')await vm.repairTools();changed();
+  });
+  handle('vm:storage-save',async value=>{await vm.saveStorageSettings(value);changed();});
+  handle('vm:storage-reclaim',async()=>{
+    if(harness.busy||groupChats?.busy||greetings?.botIds.length||store.data.bots.some(bot=>chatPins?.hasPending(bot.id))||interactions.snapshot().length||previewDirty||previewWrites||Object.values(computer.state.desktops).some(desktop=>desktop.manualControl))throw Error('请先结束任务、保存修改并交还电脑控制，再回收空间');
+    await vm.reclaimStorage();changed();
   });
   handle('vm:terminal',(command)=>{if(typeof command!=='string')throw new Error('无效命令');return vm.execute(command,'manual');});
   handle('files:list',async(botId)=>{const id=String(botId);const files=await artifacts.list(id);if(artifacts.importKnown(id,files))changed();return files;});
