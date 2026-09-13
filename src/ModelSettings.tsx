@@ -24,7 +24,6 @@ export function ModelSettings({state,onNotify}:{state:Snapshot;onNotify:(text:st
       <DefaultModelAssignment key={JSON.stringify(selection)} providers={providers} selection={selection} busy={busy} onNotify={onNotify}/>
     </SettingsSection>
     <SettingsSection title={t('自动审核模型')}>
-      <p className="subtle">{t('仅用于自动审批，不影响聊天模型。')}</p>
       <DefaultModelAssignment key={'approval:'+JSON.stringify(state.approvalModel)} approval defaultModel={state.defaultModel} providers={providers} selection={state.approvalModel||null} busy={false} onNotify={onNotify}/>
     </SettingsSection>
     <SettingsSection title="Providers">
@@ -40,12 +39,16 @@ export function ModelSettings({state,onNotify}:{state:Snapshot;onNotify:(text:st
 }
 
 function DefaultModelAssignment({providers,selection,busy,onNotify,approval=false,defaultModel}:{approval?:boolean;defaultModel?:ModelSelection;providers:ModelProvider[];selection:ModelSelection|null;busy:boolean;onNotify:(text:string)=>void}){
-  const {t}=useI18n();
-  const [value,setValue]=useState<ModelSelection|null>(selection),[saving,setSaving]=useState(false);
-  const save=async()=>{setSaving(true);try{if(approval)await window.aelion.setApprovalModel(value);else await window.aelion.setDefaultModel(value);onNotify(t(approval?'自动审核模型已保存':'默认模型已保存'));}catch(error){onNotify(errorText(error));}finally{setSaving(false);}};
+  const [value,setValue]=useState<ModelSelection|null>(selection),seq=useRef(0);
+  const persist=async(next:ModelSelection|null)=>{
+    setValue(next);
+    if(!validModelSelection(next,providers)||same(next,selection))return;
+    const n=++seq.current;
+    try{if(approval)await window.aelion.setApprovalModel(next);else await window.aelion.setDefaultModel(next);}
+    catch(error){if(n===seq.current)onNotify(errorText(error));}
+  };
   return <div className="model-assignment">
-    <ModelSelectionFields providers={providers} value={value} onChange={setValue} disabled={busy||saving} inheritDefault={approval} defaultModel={defaultModel} showInheritedReasoning={!approval}/>
-    <div className="settings-actions"><button className="primary-button" disabled={busy||saving||!validModelSelection(value,providers)||same(value,selection)} onClick={()=>void save()}>{saving?t('保存中…'):t(approval?'保存审核模型':'保存默认模型')}</button></div>
+    <ModelSelectionFields providers={providers} value={value} onChange={persist} disabled={busy} inheritDefault={approval} defaultModel={defaultModel} showInheritedReasoning={!approval}/>
   </div>;
 }
 

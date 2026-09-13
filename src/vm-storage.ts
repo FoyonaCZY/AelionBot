@@ -1,7 +1,7 @@
 export const GiB=1024**3;
 export interface VmStorageSettings {limitGiB:number;reclaimAfterUpdate:boolean;}
 export interface VmStorageState {settings:VmStorageSettings;usageBytes:number;baseBytes:number;systemBytes:number;workBytes:number;otherBytes:number;paused:boolean;reclaiming:boolean;reclaimPending:boolean;lastReclaimedBytes?:number;lastReclaimedAt?:string;error?:string;}
-export const DEFAULT_VM_STORAGE:VmStorageSettings={limitGiB:12,reclaimAfterUpdate:true};
+export const DEFAULT_VM_STORAGE:VmStorageSettings={limitGiB:12,reclaimAfterUpdate:false};
 export function vmStorageSettings(value:unknown):VmStorageSettings {
  if(!value||typeof value!=='object')throw Error('无效存储设置');
  const v=value as VmStorageSettings;

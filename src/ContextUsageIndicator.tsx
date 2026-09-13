@@ -21,7 +21,6 @@ export function ContextUsageIndicator({overview,capacity}:{overview?:ContextOver
   </button>{open&&createPortal(<div ref={panel} className="context-usage-panel" role="dialog" aria-label={t('上下文占用')} style={{...position,maxHeight:`calc(100vh - ${position.bottom+12}px)`}}>
     <header><strong>{t('上下文容量')}</strong><span>{overview?`${number(overview.tokens)} / ${number(limit)}`:limit?`— / ${number(limit)}`:'—'}</span></header>
     <div className="context-usage-total"><div className="context-usage-bar" role="progressbar" aria-label={t('上下文容量')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent===undefined?undefined:Math.min(100,Math.round(percent))}>{CONTEXT_PARTS.map(part=><span className={`context-part-${part}`} key={part} style={{width:overview&&limit?`${parts[part]/Math.max(limit,overview.tokens)*100}%`:'0%'}}/>)}</div><strong>{percent===undefined?'—':percentage(percent)}</strong></div>
-    {overview&&<p className="context-usage-source">{t(overview.estimateSource==='provider-usage'?'总量：服务端报告 · 分类：估算':'总量与分类均为估算')}</p>}
     <div className="context-usage-parts">{CONTEXT_PARTS.map(part=><div key={part}><span><i className={`context-part-${part}`}/>{t(labels[part])}</span><span>{overview?number(parts[part]):'—'} <small>{overview&&limit?percentage(parts[part]/limit*100):''}</small></span></div>)}</div>
   </div>,document.body)}</>;
 }

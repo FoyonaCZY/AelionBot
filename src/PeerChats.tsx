@@ -1,3 +1,4 @@
+import {PreviewScopeProvider} from './FilePreviewContext';
 import {MessageTime} from './ConversationTime';
 import {formatConversationTime} from './conversation-time';
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
@@ -65,7 +66,7 @@ export function PrivateChatWindow({panel,view,bots,streamingReplies=[],avatarAct
     try{const previous=await window.aelion.readPrivateChat({threadId:id,before});if(body.current)scroll.current={top:body.current.scrollTop,height:body.current.scrollHeight};setPage(current=>current?.thread.id===id?{...current,messages:merged(previous.messages,current.messages),exchanges:merged(previous.exchanges,current.exchanges),before:previous.before}:current);}catch(error){setError(errorText(error));}finally{setOlderPending(false);}
   };
   const member=(identity:BotIdentity)=>bots.find(bot=>bot.id===identity.id)||identity;
-  return <div className="peer-chat-layer" onMouseDown={event=>{if(event.currentTarget===event.target)onClose();}}><section ref={root} className="peer-chat-window" tabIndex={-1} role="dialog" aria-modal="true" aria-label={panel.threadId?t('Bot 私聊'):t('私聊记录')} onKeyDown={event=>{
+  return <PreviewScopeProvider scope={{kind:'bot',id:panel.ownerId}}><div className="peer-chat-layer" onMouseDown={event=>{if(event.currentTarget===event.target)onClose();}}><section ref={root} className="peer-chat-window" tabIndex={-1} role="dialog" aria-modal="true" aria-label={panel.threadId?t('Bot 私聊'):t('私聊记录')} onKeyDown={event=>{
     if(event.key==='Escape'){event.preventDefault();event.stopPropagation();onClose();return;}
     if(event.key==='Tab'){const buttons=Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled),a[href]')).filter(item=>item.getClientRects().length);if(!buttons.length)return;const index=buttons.indexOf(document.activeElement as HTMLElement);if(event.shiftKey&&index<=0){event.preventDefault();buttons.at(-1)?.focus();}else if(!event.shiftKey&&(index===buttons.length-1||index<0)){event.preventDefault();buttons[0]?.focus();}}
   }}>
@@ -84,7 +85,7 @@ export function PrivateChatWindow({panel,view,bots,streamingReplies=[],avatarAct
         {[...new Map((view?.exchanges||page?.exchanges||[]).filter(exchange=>exchange.threadId===panel.threadId&&peerPending(exchange.status)).map(exchange=>[(['reply_queued','relaying'].includes(exchange.status)?exchange.fromBotId:exchange.toBotId),exchange])).entries()].map(([id,exchange])=>{const bot=bots.find(bot=>bot.id===id)||thread?.members.find(bot=>bot.id===id),run=[...runs].reverse().find(run=>run.botId===id&&run.peerOrigin?.exchangeId===exchange.id&&run.status==='running');return bot?<BotWorkingStatus key={id} bot={bot} showName step={liveBotStep(messages,run)||{phase:'thinking',label:exchange.status==='queued'?t('正在准备处理'):['reply_queued','relaying'].includes(exchange.status)?t('正在整理回复'):t('正在思考')}}/>:null;})}
       </>}
     </div>
-  </section></div>;
+  </section></div></PreviewScopeProvider>;
 }
 function PrivateMessage({message,exchange,showDate}:{message:PeerMessage;exchange?:PeerExchangeView;showDate:boolean}){
   const {t}=useI18n();

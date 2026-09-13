@@ -34,7 +34,7 @@ export interface McpServerView { id: string; name: string; source: SkillSource; 
 export interface IntegrationsView { sharedSkillDir: string; privateSkillDir: string; mcpFile: string; projectDir: string; sources: IntegrationSource[]; servers: McpServerView[]; scannedAt: string; }
 export const WORKSTATION_VERSION='6';
 export interface InstallationProgress {stage:string;phase:string;percent?:number;source?:string;package?:string;updatedAt:number;error?:string;}
-export interface VmState {storage?:import("./vm-storage").VmStorageState; status: 'unprepared' | 'preparing' | 'stopped' | 'starting' | 'ready' | 'stopping' | 'error'; detail: string; progress?: number; installation?:InstallationProgress;pid?: number; sshPort?: number; imageVersion: string; desktopReady?: boolean; appsReady?: boolean; maintenance?: boolean; needsReboot?: boolean; lastError?: string; diskBytes?: number; vncUrl?: string; }
+export interface VmState { operationPending?:boolean;storage?:import("./vm-storage").VmStorageState; status: 'unprepared' | 'preparing' | 'stopped' | 'starting' | 'ready' | 'stopping' | 'error'; detail: string; progress?: number; installation?:InstallationProgress;pid?: number; sshPort?: number; imageVersion: string; desktopReady?: boolean; appsReady?: boolean; maintenance?: boolean; needsReboot?: boolean; lastError?: string; diskBytes?: number; vncUrl?: string; }
 export interface ComputerDesktopState {botId:string;status:'idle'|'starting'|'ready'|'error';ownerBotId?:string;manualControl:boolean;vncUrl?:string;error?:string;}
 export interface ComputerState { desktops:Record<string,ComputerDesktopState>; }
 export interface CommandPattern {kind:'prefix'|'exact';pattern:string;}
@@ -49,6 +49,7 @@ export interface Snapshot {previewRequests?:import("./agent-preview").AgentPrevi
 export interface AppEvent { type: 'state'; snapshot: Snapshot; }
 export interface CommandResult { stdout: string; stderr: string; exitCode: number; durationMs: number; }
 export interface AelionAPI {
+  sendPreviewFeedback(input:import("./preview-feedback").PreviewFeedbackInput):Promise<{sent:true;attachmentId:string}>;
   setSkillEnabled(input:{id:string;enabled:boolean}):Promise<void>;
   saveVmStorageSettings(value:import("./vm-storage").VmStorageSettings):Promise<void>;
   reclaimVmStorage():Promise<void>;

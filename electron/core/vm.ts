@@ -68,6 +68,7 @@ export class VmController extends EventEmitter {
   private child?:import('node:child_process').ChildProcess;
   private seedServer?: HttpServer;
   private vncBridge?: WebSocketServer;
+  private vncBridgeTask?:Promise<void>;
   private vncToken = randomBytes(24).toString('hex');
   private desktopPorts=new Map<string,number>();
   private desktopRuntime?:Promise<void>;
@@ -87,7 +88,7 @@ export class VmController extends EventEmitter {
     this.storage=VmStorage.forQemu(this.dir,options.appVersion||'dev',qemuBinary(options.runtimeDir,this.platform.imageTool));
     this.stateValue={storage:this.storage.snapshot(),status:this.record?'stopped':'unprepared',detail:this.record?'工作电脑已准备':'首次使用前需要准备工作电脑',imageVersion:this.platform.image.version,appsReady:this.record?this.record.workstationVersion===WORKSTATION_VERSION:undefined};
   }
-  get state() { return {...this.stateValue}; }
+  get state() { return {...this.stateValue,operationPending:this.operation}; }
   private update(patch: Partial<VmState>) { const changed=Object.entries(patch).some(([key,value])=>this.stateValue[key as keyof VmState]!==value);this.stateValue={...this.stateValue,...patch};if(changed)this.emit('state',this.state); }
   private assertOpen(){if(this.closing)throw Error('客户端正在退出，已取消工作电脑操作');}
   private persist() { atomicJson(join(this.dir,'machine.json'),this.record); }
@@ -95,7 +96,7 @@ export class VmController extends EventEmitter {
     this.assertOpen();
     if(this.operation) throw new Error('工作电脑正在执行维护操作，请等待完成');
     this.operation=true;
-    try{return await fn();}catch(error){this.update({status:'error',lastError:String((error as Error).message),detail:String((error as Error).message)});throw error;}finally{this.operation=false;}
+    try{this.emit('state',this.state);return await fn();}catch(error){this.update({status:'error',lastError:String((error as Error).message),detail:String((error as Error).message)});throw error;}finally{this.operation=false;this.emit('state',this.state);}
   }
   async prepare() { return this.exclusive(async()=>{
     const imageProfile=this.platform.image;
@@ -153,6 +154,7 @@ export class VmController extends EventEmitter {
     const address=this.seedServer.address();record.seedPort=typeof address==='object'&&address?address.port:0;this.persist();
   }
   private async bridge() {
+    if(this.vncBridgeTask)return this.vncBridgeTask;
     if(this.vncBridge||!this.record) return;
     this.vncBridge=new WebSocketServer({host:'127.0.0.1',port:0,maxPayload:16*1024*1024});
     this.vncBridge.on('connection',(ws,request)=>{
@@ -173,10 +175,20 @@ export class VmController extends EventEmitter {
       ws.on('message',data=>tcp.write(Buffer.isBuffer(data)?data:Buffer.from(data as ArrayBuffer)));
       const close=()=>{tcp.destroy();ws.close();};tcp.on('error',close);tcp.on('close',()=>ws.close());ws.on('close',()=>tcp.destroy());ws.on('error',()=>tcp.destroy());
     });
-    await new Promise<void>((ok,fail)=>{this.vncBridge!.once('listening',ok);this.vncBridge!.once('error',fail);});
-    const address=this.vncBridge.address();if(address&&typeof address==='object')this.update({vncUrl:`ws://127.0.0.1:${address.port}/${this.vncToken}`});
+    const server=this.vncBridge;
+    const pending=(async()=>{
+      await new Promise<void>((ok,fail)=>{
+        const clean=()=>{server.off('listening',ready);server.off('error',error);server.off('close',closed);};
+        const ready=()=>{clean();ok();},error=(cause:Error)=>{clean();fail(cause);},closed=()=>{clean();fail(Error('桌面连接桥已关闭'));};
+        server.once('listening',ready);server.once('error',error);server.once('close',closed);
+      });
+      if(this.vncBridge!==server||this.closing)throw Error('桌面连接已失效');
+      const address=server.address();if(!address||typeof address!=='object')throw Error('桌面连接桥尚未就绪');
+      this.update({vncUrl:`ws://127.0.0.1:${address.port}/${this.vncToken}`});
+    })();this.vncBridgeTask=pending;
+    try{await pending;}catch(error){if(this.vncBridge===server){server.close();this.vncBridge=undefined;}throw error;}finally{if(this.vncBridgeTask===pending)this.vncBridgeTask=undefined;}
   }
-  private closeServers() { if(this.budgetTimer)clearInterval(this.budgetTimer);this.budgetTimer=undefined; this.health?.close();this.storagePolicy=undefined;this.storageRetryAt=0; this.seedServer?.close();this.seedServer=undefined;for(const client of this.vncBridge?.clients||[])client.terminate();this.vncBridge?.close();this.vncBridge=undefined;this.desktopPorts.clear();this.desktopRuntime=undefined;this.wallpaperTask=undefined;this.wallpaperRetryAt=0;this.update({vncUrl:undefined}); }
+  private closeServers() { if(this.budgetTimer)clearInterval(this.budgetTimer);this.budgetTimer=undefined; this.health?.close();this.storagePolicy=undefined;this.storageRetryAt=0; this.seedServer?.close();this.seedServer=undefined;for(const client of this.vncBridge?.clients||[])client.terminate();this.vncBridge?.close();this.vncBridge=undefined;this.vncBridgeTask=undefined;this.desktopPorts.clear();this.desktopRuntime=undefined;this.wallpaperTask=undefined;this.wallpaperRetryAt=0;this.update({vncUrl:undefined}); }
   async start() { this.assertOpen();if(!this.record) await this.prepare();return this.exclusive(async()=>{
     this.checkArchitecture();
     if(process.platform==='darwin'&&process.arch==='x64'){let translated=false;try{translated=execFileSync('/usr/sbin/sysctl',['-in','sysctl.proc_translated'],{encoding:'utf8',stdio:['ignore','pipe','ignore']}).trim()==='1';}catch{}if(translated)throw Error('当前运行的是 Intel 安装包，请为这台 Apple Silicon Mac 下载 ARM64 安装包');}

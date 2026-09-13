@@ -1,3 +1,4 @@
+import {startVncConnection,canvasHasFrame} from './vnc-connection';
 import {MessageQuote} from './MessageQuote';
 import {MessageTime} from './ConversationTime';
 import {AttachmentList} from './Attachments';
@@ -64,34 +65,14 @@ export const bytes=(size:number)=>size<1024?`${size} B`:size<1048576?`${Math.rou
 
 export function Vnc({url,control=false}:{url?:string;control?:boolean}){
   const {t}=useI18n();
-  const host=useRef<HTMLDivElement>(null),rfb=useRef<any>(null);const [connected,setConnected]=useState(false),[retry,setRetry]=useState(0),[failed,setFailed]=useState(false);
-  const coldRetries=useRef(0);
-  useEffect(()=>{coldRetries.current=0;},[url]);
+  const host=useRef<HTMLDivElement>(null),connection=useRef<ReturnType<typeof startVncConnection>|null>(null);const [connected,setConnected]=useState(false),[retry,setRetry]=useState(0),[failed,setFailed]=useState(false);
   useEffect(()=>{
     setConnected(false);setFailed(false);if(!host.current||!url)return;
-    let active=true;
-    let frameTimer:ReturnType<typeof setInterval>|undefined;
-    try{
-      const client=new RFB(host.current,url,{shared:true});rfb.current=client;client.background='transparent';client.scaleViewport=true;client.resizeSession=false;client.viewOnly=!control;
-      client.addEventListener('connect',()=>{
-        if(!active)return;
-        const begin=Date.now();
-        frameTimer=setInterval(()=>{
-          const canvas=host.current?.querySelector('canvas'),context=canvas?.getContext('2d');
-          if(canvas&&context&&canvas.width>1&&canvas.height>1){
-            const points=[[.08,.08],[.5,.08],[.5,.5],[.9,.5],[.5,.92]];
-            let painted=false;try{painted=points.some(([x,y])=>{const pixel=context.getImageData(Math.floor(x*canvas.width),Math.floor(y*canvas.height),1,1).data;return pixel[3]>0&&pixel[0]+pixel[1]+pixel[2]>12;});}catch{/* Wait for a readable frame before showing a connected state. */}
-            if(painted){clearInterval(frameTimer);setConnected(true);return;}
-          }
-          if(Date.now()-begin>2500){clearInterval(frameTimer);if(coldRetries.current++<2)setRetry(value=>value+1);else setFailed(true);}
-        },150);
-      });
-      client.addEventListener('disconnect',()=>{clearInterval(frameTimer);if(active){setConnected(false);setFailed(true);}});
-      return()=>{active=false;clearInterval(frameTimer);client.disconnect();rfb.current=null;};
-    }catch{clearInterval(frameTimer);setFailed(true);}
+    const session=startVncConnection({create:()=>new RFB(host.current!,url,{shared:true}),hasFrame:()=>canvasHasFrame(host.current?.querySelector('canvas')),onState:state=>{setConnected(state==='connected');setFailed(state==='failed');},control});connection.current=session;
+    return()=>{session.dispose();if(connection.current===session)connection.current=null;};
   },[url,retry]);
-  useEffect(()=>{if(rfb.current)rfb.current.viewOnly=!control;},[control]);
-  return <div className="vnc-shell"><div ref={host} className="vnc-surface"/>{!connected&&<div className="vnc-overlay"><Icon name="computer" size={34}/><span>{!url?t('正在等待工作电脑桌面'):failed?t('画面尚未恢复'):t('正在连接电脑画面')}</span>{url&&failed&&<button onClick={event=>{event.stopPropagation();coldRetries.current=0;setRetry(value=>value+1);}}>{t('重新连接')}</button>}</div>}</div>;
+  useEffect(()=>{connection.current?.setControl(control);},[control]);
+  return <div className="vnc-shell"><div ref={host} className="vnc-surface"/>{!connected&&<div className="vnc-overlay"><Icon name="computer" size={34}/><span>{!url?t('正在等待工作电脑桌面'):failed?t('画面尚未恢复'):t('正在连接电脑画面')}</span>{url&&failed&&<button onClick={event=>{event.stopPropagation();setRetry(value=>value+1);}}>{t('重新连接')}</button>}</div>}</div>;
 }
 
 export function ScreenImage({id,onOpen}:{id:string;onOpen:(url:string)=>void}){

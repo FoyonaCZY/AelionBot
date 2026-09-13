@@ -12,7 +12,7 @@ import {workspaceKey} from './work-types';
 import {RuntimeSettings} from './RuntimeSettings';
 import {UsageSettings} from './UsageSettings';
 import React,{useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
-import {FilePreviewProvider,useFilePreview} from './FilePreviewContext';
+import {FilePreviewProvider,PreviewScopeProvider,useFilePreview} from './FilePreviewContext';
 import {attachmentSummary} from './attachment-types';
 import type {Bot,ChatMessage,InteractionRequest,ModelSelection,Snapshot} from './shared';
 import {Avatar,bytes,FileCard,type FileItem,Icon,Message,time,Vnc} from './ui';
@@ -97,7 +97,7 @@ function AppContent(){
   const anyRunning=state?.runs.some(run=>run.status==='running')||false;
   const greeting=state?.greetingBotIds?.includes(bot?.id||'')||false;
   const draft=drafts[bot?.id||'']||{text:'',mentions:[]};
-  const vmReady=state?.vm.status==='ready',desktopAvailable=Boolean(state&&computerDesktopReady(state.vm));
+  const vmReady=state?.vm.status==='ready'&&!state.vm.operationPending,desktopAvailable=Boolean(state&&computerDesktopReady(state.vm));
   const desktopBot=state?.bots.find(item=>item.id===computerBotId)||bot;
   const desktop=state?.computer.desktops?.[desktopBot?.id||''];
   const controlled=desktop?.manualControl||false;
@@ -157,7 +157,7 @@ function AppContent(){
     setModal(null);
     showPreview([{id:'artifact:'+file.botId+':'+file.path,name:file.name,size:file.size,workspace:{botId:file.botId,path:file.path},load:()=>window.aelion.previewFile({botId:file.botId,path:file.path}),save:()=>window.aelion.exportFile({botId:file.botId,path:file.path}),
       ...(!state?.computer.desktops?.[file.botId]?.ownerBotId?{openInComputer:async()=>{await window.aelion.openFile({botId:file.botId,path:file.path});setComputerBotId(file.botId);setModal('computer');}}:{})
-    }]);
+    }],0,{scope:group?{kind:'group',id:group.id}:{kind:'bot',id:file.botId}});
   };
   const saveFile=(file:PreviewFile)=>act(async()=>{const path=await window.aelion.exportFile({botId:file.botId,path:file.path});if(path)setToast(`${t('已保存：')}${path}`);});
   const openNewBot=()=>{setPage('chat');if(!newMenu)setNewBotPalette(randomBotPalette(newBotPalette));setName('');setRole('');setProfileModel(null);setProfileReasoning(state?.defaultModel?.reasoningEffort||'');setModal('new');};
@@ -176,7 +176,7 @@ function AppContent(){
   const rows=conversationRows(state.bots,state.messages,state.groups?.rooms||[],state.runs);
   const title=modal==='computer-setup'?t('工作电脑设置'):modal==='settings'?t('设置'):modal==='new'?t('创建新 Bot'):modal==='profile'?t('Bot 资料'):modal==='delete-bot'?t('删除 Bot'):modal==='terminal'?t('工作终端'):modal==='files'?`${bot?.name||'Bot'} ${t('的文件')}`:modal==='screen'?t('操作截图'):t('工作电脑');
   const scopePicker=<label className="scope-picker"><span>Bot</span><Select aria-label={t('选择 Bot')} disabled={!state.bots.length} value={scopeBot?.id||''} onChange={event=>setScope(event.target.value)}>{state.bots.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</Select></label>;
-  return <BotAvatarProvider bots={state.bots}><div className="app-shell" data-platform={state.platform} data-page={page}>
+  return <PreviewScopeProvider scope={group?{kind:'group',id:group.id}:bot?{kind:'bot',id:bot.id}:undefined}><BotAvatarProvider bots={state.bots}><div className="app-shell" data-platform={state.platform} data-page={page}>
     <aside className="sidebar">
       <div className="sidebar-top drag"><span className="brand">Aelion<span>Bot</span></span><div className="new-menu-anchor no-drag"><button className="icon-button" aria-label={t('新建')} aria-haspopup="menu" aria-expanded={newMenu} onClick={()=>{if(!newMenu)setNewBotPalette(randomBotPalette(newBotPalette));setNewMenu(value=>!value);}}><Icon name="plus"/></button>{newMenu&&<div className="new-conversation-menu" role="menu"><button role="menuitem" onClick={()=>{setNewMenu(false);openNewBot();}}><span className="new-bot-icon" aria-hidden="true"><Avatar bot={{name:t('新 Bot'),...newBotPalette}} size={20}/></span>{t('新建 Bot')}</button><button role="menuitem" onClick={()=>{setNewMenu(false);setGroupEditor('new');}}><Icon name="message" size={20}/>{t('创建群聊')}</button></div>}</div></div>
       <label className="search"><Icon name="search" size={18}/><input placeholder={t('搜索')} value={query} onChange={event=>setQuery(event.target.value)}/></label>
@@ -280,5 +280,5 @@ function AppContent(){
 
       {modal==='screen'&&<img className="artifact-image screen-full" src={screen} alt={t('Bot 操作后的工作电脑截图')}/>}
     </section></div>}
-  </div></BotAvatarProvider>;
+  </div></BotAvatarProvider></PreviewScopeProvider>;
 }

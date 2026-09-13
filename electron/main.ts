@@ -1,3 +1,5 @@
+import {PreviewFeedbackService} from './core/preview-feedback';
+import {feedbackCaptureRect} from '../src/preview-feedback';
 import {VideoInspector} from './video-inspector';
 import {VideoFrames} from './core/video-frames';
 import {AgentPreviews} from './core/agent-previews';
@@ -300,6 +302,21 @@ async function initialize(){
   handle('attachments:paste',async scope=>{attachments.scope(scope);const data=await readAttachmentClipboard();return data.paths.length?attachments.importPaths(scope,data.paths):data.files.length?attachments.importFiles(scope,data.files):[];});
   handle('attachments:preview',id=>attachments.previewRich(id));
   handle('attachments:save',async id=>{const file=attachments.metadata(id);const result=await dialog.showSaveDialog(window!,{defaultPath:file.name});if(result.canceled||!result.filePath)return null;writeFileSync(result.filePath,attachments.bytes(id));return result.filePath;});
+  const previewFeedback=new PreviewFeedbackService({
+    validate:scope=>{attachments.scope(scope);if(scope.kind==='bot'){if(!store.modelFor(scope.id).model)throw Error('请先为这个 Bot 选择模型');}else{const room=store.data.groups.find(room=>room.id===scope.id);if(!room?.members.some(member=>!member.leftAt&&store.data.bots.some(bot=>bot.id===member.id)&&store.modelFor(member.id).model))throw Error('请先为群内 Bot 选择模型');}},
+    capture:async input=>{
+      if(!window||window.isDestroyed()||window.isMinimized()||!window.isVisible())throw Error('请保持预览窗口可见后再发送');
+      feedbackCaptureRect(input.rect,input.viewport,input.viewport);
+      let timer:ReturnType<typeof setTimeout>|undefined;const capture=await Promise.race([window.webContents.capturePage(undefined,{stayHidden:true}),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(Error('预览截图超时，请重试')),10000);})]).finally(()=>{if(timer)clearTimeout(timer);});if(capture.isEmpty())throw Error('未能截取预览画面，请重试');
+      let cropped=capture.crop(feedbackCaptureRect(input.rect,input.viewport,capture.getSize()));const size=cropped.getSize();if(Math.max(size.width,size.height)>2560)cropped=cropped.resize(size.width>=size.height?{width:2560,quality:'best'}:{height:2560,quality:'best'});
+      return cropped.toPNG();
+    },
+    attach:(scope,name,bytes)=>attachments.importFiles(scope,[{name,bytes}])[0],
+    discard:(scope,id)=>attachments.discardUnsentDraft(scope,id),
+    send:(scope,message,attachmentId)=>{if(scope.kind==='bot')chatPins!.send({botId:scope.id,message,attachmentIds:[attachmentId]});else groupChats!.send({id:scope.id,message,attachmentIds:[attachmentId]});},
+    delivered:(scope,id)=>(scope.kind==='bot'?store.data.messages.filter(message=>message.botId===scope.id&&message.role==='user'):store.data.groups.find(room=>room.id===scope.id)?.messages.filter(message=>message.sender.kind==='user')||[]).some(message=>message.attachments?.some(file=>file.id===id))
+  });
+  handle('preview:feedback',input=>previewFeedback.send(input));
   handle('chat:send',(input)=>{if(!input||typeof input.botId!=='string'||typeof input.message!=='string')throw new Error('无效消息');return chatPins!.send(input);});
   handle('chat:resume',input=>{if(typeof input?.botId!=='string'||typeof input.runId!=='string')throw Error('恢复任务参数无效');if(harness.isRunning(input.botId)||chatPins?.hasPending(input.botId))throw Error('Bot 正在处理消息，请稍后继续');const run=resumableRun(store,input.botId,input.runId);greetings?.cancel(input.botId);if(run.groupOrigin)groupChats!.retryRun(run);else if(run.peerOrigin)peerChats!.retryRun(run);else void harness.resume(input.botId,input.runId).catch(error=>{store.message(input.botId,'event',(error as Error).message);changed();});changed();});
   handle('chat:pin',input=>chatPins!.pin(input));

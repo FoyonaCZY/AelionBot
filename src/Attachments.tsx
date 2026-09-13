@@ -1,6 +1,6 @@
 import {sourceTextFile} from './source-language';
 import {useEffect,useState} from 'react';
-import {useFilePreview,type PreviewItem} from './FilePreviewContext';
+import {useFilePreview,usePreviewScope,type PreviewItem} from './FilePreviewContext';
 import {FilePreview} from './FilePreview';
 import type {Attachment} from './attachment-types';
 import type {ArtifactPreview} from './shared';
@@ -23,11 +23,11 @@ function AttachmentCard({file,compact,onRemove,onOpen}:{file:Attachment;compact:
   </article>;
 }
 export function AttachmentList({files=[],compact=false,onRemove}:{files?:Attachment[];compact?:boolean;onRemove?:(id:string)=>void}){
-  const openPreview=useFilePreview(),[selected,setSelected]=useState<{items:PreviewItem[];index:number}>();
+  const openPreview=useFilePreview(),feedbackScope=usePreviewScope(),[selected,setSelected]=useState<{items:PreviewItem[];index:number}>();
   const open=(index:number)=>{
     const items=files.map(file=>({id:'attachment:'+file.id,name:file.name,size:file.size,load:()=>preview(file.id),save:()=>window.aelion.saveAttachment(file.id),...(sourceTextFile(file.name)?{editor:{read:()=>window.aelion.readEditableAttachment(file.id)}}:{})}));
     if(openPreview)openPreview(items,index);else setSelected({items,index});
   };
   if(!files.length)return null;
-  return <><div className={`message-attachments ${compact?'composer-attachments':''}`}>{files.map((file,index)=><AttachmentCard key={file.id} file={file} compact={compact} onOpen={()=>open(index)} onRemove={onRemove?()=>onRemove(file.id):undefined}/>)}</div>{selected&&<FilePreview key={selected.items[selected.index].id} items={selected.items} initialIndex={selected.index} onClose={()=>setSelected(undefined)}/>}</>;
+  return <><div className={`message-attachments ${compact?'composer-attachments':''}`}>{files.map((file,index)=><AttachmentCard key={file.id} file={file} compact={compact} onOpen={()=>open(index)} onRemove={onRemove?()=>onRemove(file.id):undefined}/>)}</div>{selected&&<FilePreview key={selected.items[selected.index].id} items={selected.items} feedbackScope={feedbackScope} initialIndex={selected.index} onClose={()=>setSelected(undefined)}/>}</>;
 }

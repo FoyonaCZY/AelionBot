@@ -14,7 +14,7 @@ export function useAgentPreview(requests:AgentPreviewRequest[]|undefined,scope:A
     let item:PreviewItem;
     if(request.target.kind==='workspace')item=workspacePreviewItem(request.botId,{name:request.name,path:request.target.path,size:request.size});
     else{const file=request.target.file;item={id:'attachment:'+file.id,name:file.name,size:file.size,load:()=>window.aelion.previewAttachment(file.id),save:()=>window.aelion.saveAttachment(file.id),...(sourceTextFile(file.name)?{editor:{read:()=>window.aelion.readEditableAttachment(file.id)}}:{})};}
-    show([item],0,{expanded:request.placement==='full'});
+    show([item],0,{expanded:request.placement==='full',scope:request.scope});
     void window.aelion.acknowledgePreview(request.id).catch(onError);
   },[requests,scope.kind,scope.id,blocked,show,focus,onError]);
 }

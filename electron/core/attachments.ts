@@ -33,6 +33,12 @@ export class Attachments {
     return file.ownerBotId===botId||this.store.data.messages.some(message=>message.botId===botId&&has(message))||this.store.data.peerThreads.some(thread=>thread.members.some(member=>member.id===botId)&&thread.messages.some(has))||this.store.data.groups.some(room=>room.members.some(member=>member.id===botId&&!member.leftAt)&&room.messages.some(has));
   }
   forBot(botId:string,ids:unknown){return this.size(this.batch(ids).map(id=>{if(!this.canRead(botId,id))throw new Error('不能读取或转发尚未收到的附件');return ref(this.file(id));}));}
+  discardUnsentDraft(scope:AttachmentScope,id:string){
+    const file=this.file(id);if(file.ownerBotId||file.draftScope?.kind!==scope.kind||file.draftScope.id!==scope.id)throw Error('不能移除此附件');
+    const referenced=[...this.store.data.messages,...this.store.data.peerMessages,...this.store.data.groupRunMessages,...this.store.data.runs,...this.store.data.groups.flatMap(group=>group.messages),...this.store.data.peerThreads.flatMap(thread=>thread.messages)].some(message=>message.attachments?.some(item=>item.id===id));
+    if(referenced)throw Error('已发送的附件不能移除');
+    this.store.data.attachments=this.store.data.attachments.filter(item=>item.id!==id);this.store.save();unlinkSync(this.location(id));
+  }
   importFiles(scope:AttachmentScope,files:AttachmentUpload[]){this.scope(scope);return this.import(files,{draftScope:{...scope}});}
   importPaths(scope:AttachmentScope,paths:string[]){this.scope(scope);if(!Array.isArray(paths)||paths.length>ATTACHMENT_LIMITS.count)throw new Error('一次最多选择 10 个文件');const files=paths.map(path=>{if(typeof path!=='string'||!statSync(path).isFile())throw new Error('请选择文件，文件夹请先压缩');if(statSync(path).size>ATTACHMENT_LIMITS.fileBytes)throw new Error('单个附件不能超过 25 MB');return {name:attachmentName(path),bytes:readFileSync(path)};});return this.importFiles(scope,files);}
   private import(files:AttachmentUpload[],origin:Pick<StoredAttachment,'draftScope'|'ownerBotId'>){

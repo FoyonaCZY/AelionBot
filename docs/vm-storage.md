@@ -18,7 +18,7 @@ A persistent transaction records conversion/swap intent. Pending swaps restore t
 
 ## Updates and migration
 
-Automatic reclamation is enabled by default and may be disabled in settings. The updater reclaims at its existing safe shutdown boundary, remembering the target app version after success. The new version's first offline start also checks the version marker, so VMs created before this feature receive a reclamation attempt. Failures leave reclamation pending and visible, preserve the disks, and do not force a shutdown of an already running VM. An old running application receives these changes only after installing a release that includes them.
+Automatic reclamation is off by default and may be enabled in settings. The updater reclaims at its existing safe shutdown boundary, remembering the target app version after success. The new version's first offline start also checks the version marker, so VMs created before this feature receive a reclamation attempt. Failures leave reclamation pending and visible, preserve the disks, and do not force a shutdown of an already running VM. An old running application receives these changes only after installing a release that includes them.
 
 Daily guest maintenance independently bounds journald and removes regenerable installation caches after successful installation. It does not delete Bot work files or uninstall kernels.
 
