@@ -313,7 +313,7 @@ async function initialize(){
     },
     attach:(scope,name,bytes)=>attachments.importFiles(scope,[{name,bytes}])[0],
     discard:(scope,id)=>attachments.discardUnsentDraft(scope,id),
-    send:(scope,message,attachmentId)=>{if(scope.kind==='bot')chatPins!.send({botId:scope.id,message,attachmentIds:[attachmentId]});else groupChats!.send({id:scope.id,message,attachmentIds:[attachmentId]});},
+    send:(scope,message,attachmentId,previewPrompt)=>{if(scope.kind==='bot')chatPins!.send({botId:scope.id,message,attachmentIds:[attachmentId],previewPrompt});else groupChats!.send({id:scope.id,message,attachmentIds:[attachmentId],previewPrompt});},
     delivered:(scope,id)=>(scope.kind==='bot'?store.data.messages.filter(message=>message.botId===scope.id&&message.role==='user'):store.data.groups.find(room=>room.id===scope.id)?.messages.filter(message=>message.sender.kind==='user')||[]).some(message=>message.attachments?.some(file=>file.id===id))
   });
   handle('preview:feedback',input=>previewFeedback.send(input));

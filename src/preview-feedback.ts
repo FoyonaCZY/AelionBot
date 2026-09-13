@@ -18,3 +18,22 @@ export function previewFeedbackMessage(input:Pick<PreviewFeedbackInput,'text'|'f
  const en=input.language==='en',tw=input.language==='zh-TW';
  return (en?'Preview: ':tw?'預覽：':'预览：')+clean(input.file.name)+(input.file.page?(en?' · Page ':' · 第 ')+input.file.page+(en?'':' 页'):'')+'\n'+input.text.trim()+'\n'+(input.file.path?'\n'+(en?'File: ':'文件：')+clean(input.file.path):'')+(input.file.attachmentId?'\n'+(en?'Source attachment: ':tw?'原附件：':'原附件：')+clean(input.file.attachmentId):'')+'\n'+(en?'Screenshot: visible area only.':tw?'截圖僅包含目前可見範圍。':'截图仅包含当前可见范围。')+(input.file.unsaved?(en?' Includes unsaved edits.':tw?'畫面含未儲存的修改。':'画面含未保存的修改。'):'');
 }
+
+/** Presentation only: keep the original message content available to the Agent. */
+export function previewFeedbackDisplay(message:{content:string;previewPrompt?:string;attachments?:Array<{name:string;mime:string}>;mentions?:Array<import('./peer-types').BotMention>;role?:string;sender?:{kind:string}}){
+ const original={content:message.content,mentions:message.mentions};
+ if(message.role&&message.role!=='user'||message.sender&&message.sender.kind!=='user')return original;
+ let prompt=message.previewPrompt,offset=0;
+ if(prompt===undefined){
+  // Recognize only our old screenshot-feedback envelope, not ordinary user prose.
+  if(!message.attachments?.some(file=>/^preview-[a-f0-9]{8}\.png$/.test(file.name)&&file.mime==='image/png'))return original;
+  const header=/^(?:预览：|預覽：|Preview: )[^\r\n]+\r?\n/.exec(message.content);if(!header)return original;
+  const rest=message.content.slice(header[0].length).replaceAll('\r\n','\n'),split=rest.lastIndexOf('\n\n');if(split<0)return original;
+  const tail=rest.slice(split+2).split('\n').filter(Boolean),footer=tail.at(-1)||'';
+  if(!/^(?:截图仅包含当前可见范围。|截圖僅包含目前可見範圍。|Screenshot: visible area only\.)(?:画面含未保存的修改。|畫面含未儲存的修改。| Includes unsaved edits\.)?$/.test(footer))return original;
+  if(tail.slice(0,-1).some(line=>!(/^(?:文件：|File: )\S.+$/.test(line)||/^(?:原附件：|Source attachment: )[a-f0-9-]{36}$/.test(line))))return original;
+  prompt=rest.slice(0,split).trimEnd();offset=header[0].length;
+ }else if(prompt!==message.content){offset=message.content.indexOf(prompt,message.content.indexOf('\n')+1);if(offset<0)offset=0;}
+ if(prompt===message.content)return original;
+ return {content:prompt,mentions:message.mentions?.filter(item=>item.start>=offset&&item.end<=offset+prompt!.length).map(item=>({...item,start:item.start-offset,end:item.end-offset}))};
+}

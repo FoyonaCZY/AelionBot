@@ -1,9 +1,10 @@
+import {previewFeedbackDisplay} from './preview-feedback';
 import {readableContent} from './activity';
 import {attachmentSummary,type Attachment} from './attachment-types';
 
 export interface MessageReply {messageId:string;author:string;authorId?:string;excerpt:string;attachments?:Array<Pick<Attachment,'id'|'name'|'size'|'mime'>>;}
-export function messageReply(message:{id:string;content:string;attachments?:Attachment[]},author:string,authorId?:string):MessageReply{
-  const content=readableContent(message.content)||attachmentSummary(message.attachments);
+export function messageReply(message:{id:string;content:string;previewPrompt?:string;attachments?:Attachment[]},author:string,authorId?:string):MessageReply{
+  const content=readableContent(previewFeedbackDisplay(message).content)||attachmentSummary(message.attachments);
   return {messageId:message.id,author:author.slice(0,80),...(authorId?{authorId}:{}),excerpt:content.replace(/\s+/g,' ').trim().slice(0,600),...(message.attachments?.length?{attachments:message.attachments.slice(0,10).map(({id,name,size,mime})=>({id,name,size,mime}))}:{})};
 }
 export function replyInput(content:string,reply?:MessageReply){

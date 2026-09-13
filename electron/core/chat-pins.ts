@@ -30,13 +30,14 @@ export class ChatPinQueue {
     const previous=this.runner.refresh?.(botId);if(previous)this.superseded.set(botId,previous);
     clearTimeout(this.timer);this.timer=undefined;this.changed();this.wake();
   }
-  send(input:{botId:string;message:string;replyToMessageId?:string;mentions?:BotMention[];attachmentIds?:string[]}){
+  send(input:{botId:string;message:string;previewPrompt?:string;replyToMessageId?:string;mentions?:BotMention[];attachmentIds?:string[]}){
     if(this.closed)throw new Error('客户端正在退出');
+    if(input.previewPrompt!==undefined&&(typeof input.previewPrompt!=='string'||input.previewPrompt.length>12000))throw Error('无效预览意见');
     const attachments=this.attachments.forDraft({kind:'bot',id:input?.botId},input?.attachmentIds),mentions=validateChatInput(this.store,input?.botId,input?.message,input?.mentions,Boolean(attachments.length));
     if(!this.store.modelFor(input.botId).model)throw new Error('请先为这个 Bot 选择模型');
     const command=workCommand(input.message);if(command&&!command.objective)throw Error(`请在 /${command.kind} 后填写任务内容`);
     const reply=resolveChatReply(this.store,input.botId,input.replyToMessageId);
-    this.store.message(input.botId,'user',input.message,{mentions,attachments,...(reply?{reply}:{}),workspaceDir:conversationWorkspace(this.store,{kind:'bot',id:input.botId})||null,inputState:'queued'});this.received(input.botId);
+    this.store.message(input.botId,'user',input.message,{mentions,attachments,...(input.previewPrompt!==undefined?{previewPrompt:input.previewPrompt}:{}),...(reply?{reply}:{}),workspaceDir:conversationWorkspace(this.store,{kind:'bot',id:input.botId})||null,inputState:'queued'});this.received(input.botId);
   }
   schedule(botId:string,message:string,scheduled:ScheduledTrigger){
     if(this.closed)throw new Error('客户端正在退出');validateChatInput(this.store,botId,message);
