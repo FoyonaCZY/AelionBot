@@ -1,3 +1,4 @@
+import {usePreviewFeedbackOverlay} from './use-preview-feedback-overlay';
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import type {AttachmentScope} from './attachment-types';
 import type {PreviewItem} from './FilePreviewContext';
@@ -9,12 +10,14 @@ const paint=()=>new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>
 export function PreviewFeedback({scope,item,panel,unsaved,onBusy}:{scope:AttachmentScope;item:PreviewItem;panel:{current:HTMLElement|null};unsaved:boolean;onBusy:(busy:boolean)=>void}){
  const {language}=useI18n(),label=(cn:string,en:string,tw=cn)=>language==='en'?en:language==='zh-TW'?tw:cn;
  const [drafts,setDrafts]=useState<Record<string,string>>({}),[pending,setPending]=useState(false),[status,setStatus]=useState(''),[failed,setFailed]=useState(false);
+ const overlayVersion=useRef(0);
  const wrapper=useRef<HTMLDivElement>(null),input=useRef<HTMLTextAreaElement>(null),lock=useRef(false),attempt=useRef<{key:string;id:string}|undefined>(undefined);const text=drafts[item.id]||'';
  useLayoutEffect(()=>{const node=input.current;if(node){node.style.height='0px';node.style.height=Math.min(108,Math.max(24,node.scrollHeight))+'px';}},[text,item.id]);
  useEffect(()=>{setStatus('');},[item.id]);
  useEffect(()=>{const node=wrapper.current,layer=panel.current?.closest<HTMLElement>('.fp-layer');if(!node||!layer)return;const update=()=>layer.style.setProperty('--fp-feedback-height',node.getBoundingClientRect().height+'px');update();const observer=new ResizeObserver(update);observer.observe(node);return()=>{observer.disconnect();layer.style.removeProperty('--fp-feedback-height');};},[panel]);
  useEffect(()=>{if(!status||failed)return;const timer=setTimeout(()=>setStatus(''),4000);return()=>clearTimeout(timer);},[status,failed]);
- const send=async()=>{
+ const send=async(submittedText=text)=>{
+  const text=submittedText;
   if(lock.current||!text.trim())return;const host=panel.current;if(!host)return;
   lock.current=true;setPending(true);onBusy(true);setStatus('');setFailed(false);const layer=host.closest<HTMLElement>('.fp-layer');
   try{
@@ -33,8 +36,12 @@ export function PreviewFeedback({scope,item,panel,unsaved,onBusy}:{scope:Attachm
    await window.aelion.sendPreviewFeedback(request);
    setDrafts(value=>({...value,[item.id]:''}));attempt.current=undefined;setStatus(label('已发送，已附上当前画面','Sent with the current view','已傳送，已附上目前畫面'));
   }catch(error){setFailed(true);setStatus(previewErrorText(error));}
-  finally{if(layer)delete layer.dataset.feedbackCapture;lock.current=false;setPending(false);onBusy(false);input.current?.focus({preventScroll:true});}
+  finally{if(layer)delete layer.dataset.feedbackCapture;lock.current=false;setPending(false);onBusy(false);if(wrapper.current?.dataset.nativeFeedback!=='true')input.current?.focus({preventScroll:true});}
  };
+ usePreviewFeedbackOverlay(wrapper,panel,{id:item.id,editVersion:overlayVersion.current,text,pending,status,failed,language},value=>{
+  if(value.kind==='escape'){panel.current?.focus();window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));return;}
+  if(lock.current)return;overlayVersion.current=value.editVersion;setDrafts(drafts=>({...drafts,[item.id]:value.text}));if(value.kind==='send')void send(value.text);
+ });
  return <div className="fp-feedback-wrap" ref={wrapper}>
   {status&&<div className={`fp-feedback-status ${failed?'is-error':''}`} role={failed?'alert':'status'}>{status}</div>}
   <form className="fp-feedback" onSubmit={event=>{event.preventDefault();void send();}} aria-label={label('预览修改意见','Preview feedback','預覽修改意見')}>

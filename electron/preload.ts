@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { AelionAPI, AppEvent } from '../src/shared';
 const api:AelionAPI={
+  updatePreviewFeedbackOverlay:input=>ipcRenderer.invoke('preview-feedback:overlay',input),
+  onPreviewFeedbackInput:callback=>{const handler=(_event:unknown,input:import('../src/preview-feedback-overlay').FeedbackOverlayInput)=>callback(input);ipcRenderer.on('preview-feedback:input',handler);return()=>ipcRenderer.removeListener('preview-feedback:input',handler);},
   openWebPreview:input=>ipcRenderer.invoke('web-preview:open',input),layoutWebPreview:input=>ipcRenderer.invoke('web-preview:layout',input),webPreviewAction:input=>ipcRenderer.invoke('web-preview:action',input),closeWebPreview:id=>ipcRenderer.invoke('web-preview:close',id),
   onWebPreview:callback=>{const handler=(_event:unknown,state:import('../src/web-preview').WebPreviewState)=>callback(state);ipcRenderer.on('web-preview:event',handler);return()=>ipcRenderer.removeListener('web-preview:event',handler);},
   onWebPreviewEscape:callback=>{const handler=(_event:unknown,id:string)=>callback(id);ipcRenderer.on('web-preview:escape',handler);return()=>ipcRenderer.removeListener('web-preview:escape',handler);},
@@ -97,6 +99,7 @@ const api:AelionAPI={
   manageSkill:input=>ipcRenderer.invoke('skills:manage',input),
   readSkill:input=>ipcRenderer.invoke('skills:read',input),
   addIntegrationSource:kind=>ipcRenderer.invoke('integrations:add-source',kind),
+  importMcpSnippet:text=>ipcRenderer.invoke('integrations:import-mcp',text),
   openIntegrationPath:input=>ipcRenderer.invoke('integrations:open-path',input),
   setMcpEnabled:input=>ipcRenderer.invoke('mcp:enabled',input),
   testMcp:id=>ipcRenderer.invoke('mcp:test',id),

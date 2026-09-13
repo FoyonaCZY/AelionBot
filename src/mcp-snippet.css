@@ -1,0 +1,8 @@
+.mcp-snippet-backdrop{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:24px;background:#0006}
+.mcp-snippet-dialog{width:min(560px,100%);max-height:min(80vh,720px);display:flex;flex-direction:column;gap:12px;padding:22px 22px 18px;border-radius:16px;background:light-dark(#fff,#252525);color:light-dark(#222,#eee);box-shadow:0 18px 50px #0003}
+.mcp-snippet-dialog h2{margin:0;font-size:17px;font-weight:var(--weight-heading)}
+.mcp-snippet-dialog>p{margin:0;font-size:13px;line-height:1.6;color:light-dark(#777,#aaa)}
+.mcp-snippet-dialog textarea{width:100%;min-height:220px;resize:vertical;padding:12px 13px;border:1px solid light-dark(#e4e4e4,#3c3c3c);border-radius:10px;background:light-dark(#fafafa,#1f1f1f);color:inherit;font:12px/1.6 var(--font-code);outline:0}
+.mcp-snippet-dialog textarea:focus{border-color:#8b9db0}
+.mcp-snippet-error{margin:0;font-size:13px;line-height:1.6;color:#b26555}
+.mcp-snippet-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}

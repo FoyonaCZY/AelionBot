@@ -1,4 +1,5 @@
-import {useEffect,useRef,useState} from 'react';
+import {createPortal} from 'react-dom';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {PreviewIcon} from './FilePreview';
 import {feedbackWebUrl,type WebPreviewSource,type WebPreviewState} from './web-preview';
 import {useI18n} from './i18n';
@@ -10,6 +11,8 @@ export function WebPreview({source,onSource}:{source:WebPreviewSource;onSource?:
  const id=useRef(crypto.randomUUID()),slot=useRef<HTMLDivElement>(null);
  const [state,setState]=useState<WebPreviewState>(),[error,setError]=useState(''),[address,setAddress]=useState('');
  const sourceKey=JSON.stringify(source),isUrl=source.kind==='url';
+ const [navigationHost,setNavigationHost]=useState<HTMLElement|null>(null);
+ useLayoutEffect(()=>{setNavigationHost(slot.current?.closest('.fp-panel')?.querySelector<HTMLElement>('.fp-web-navigation-slot')||null);},[]);
  useEffect(()=>{
   let disposed=false,ready=false,frame=0;const currentId=crypto.randomUUID();id.current=currentId;
   setError('');setState(undefined);
@@ -31,8 +34,7 @@ export function WebPreview({source,onSource}:{source:WebPreviewSource;onSource?:
  },[sourceKey]);
  useEffect(()=>{setAddress(state?.url||(source.kind==='url'?source.url:source.name));},[state?.url,sourceKey]);
  const action=async(action:'back'|'forward'|'reload'|'navigate',url?:string)=>{setError('');try{setState(await window.aelion.webPreviewAction({id:id.current,action,url}));}catch(reason){setError(String((reason as Error).message));}};
- return <div className="web-preview" data-preview-url={/^https?:/.test(state?.url||'')?feedbackWebUrl(state!.url):isUrl?feedbackWebUrl(source.url):undefined}>
-  <form className="web-preview-nav" onSubmit={event=>{event.preventDefault();if(isUrl)void action('navigate',address);}}>
+ const navigation=(<form className="web-preview-nav" onSubmit={event=>{event.preventDefault();if(isUrl)void action('navigate',address);}}>
    <button type="button" disabled={!state?.canBack} onClick={()=>void action('back')} aria-label={label('后退','Back')}><PreviewIcon name="left"/></button>
    <button type="button" disabled={!state?.canForward} onClick={()=>void action('forward')} aria-label={label('前进','Forward')}><PreviewIcon name="right"/></button>
    <button type="button" disabled={!state} onClick={()=>void action('reload')} aria-label={label('刷新网页','Reload page')}><PreviewIcon name="refresh"/></button>
@@ -40,7 +42,9 @@ export function WebPreview({source,onSource}:{source:WebPreviewSource;onSource?:
    {error&&state&&<output className="web-preview-error" role="alert" title={error}>{error}</output>}
    {state?.loading&&<span className="web-preview-loading" role="status" aria-label={label('正在加载','Loading')}/>}
    {onSource&&<button type="button" onClick={onSource} aria-label={label('查看源码','View source')}><PreviewIcon name="code"/></button>}
-  </form>
+  </form>);
+ return <div className="web-preview" data-preview-url={/^https?:/.test(state?.url||'')?feedbackWebUrl(state!.url):isUrl?feedbackWebUrl(source.url):undefined}>
+  {navigationHost?createPortal(navigation,navigationHost):navigation}
   <div ref={slot} className="web-preview-slot" tabIndex={0} aria-label={label('网页预览','Web preview')}>
    {(error||state?.error)?<div className="fp-state" role="alert"><strong>{label('暂时无法打开网页','Unable to open page')}</strong><p>{error||state?.error}</p></div>:!state&&<div className="fp-state" role="status"><span className="fp-loading"/><strong>{label('正在连接','Connecting')}</strong></div>}
   </div>

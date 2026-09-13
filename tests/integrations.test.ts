@@ -7,7 +7,8 @@ import {createHash} from 'node:crypto';
 import {Store} from '../electron/core/store';
 import {SkillLibrary,parseSkill} from '../electron/core/skill-library';
 import {TaskScheduler} from '../electron/core/task-scheduler';
-import {discoverMcp,publicEndpoint} from '../electron/core/mcp-config';
+import {discoverMcp,parseMcpSnippet,publicEndpoint} from '../electron/core/mcp-config';
+import {Integrations} from '../electron/core/integrations';
 import {McpRuntime} from '../electron/core/mcp-runtime';
 import type {IntegrationPaths} from '../electron/core/integration-paths';
 
@@ -80,6 +81,24 @@ test('skill references and bundles cannot escape through links or traversal',t=>
   assert.equal(library.readFile(bot.id,'portable','references/readme.md').content,'reference marker');
   assert.throws(()=>library.readFile(bot.id,'portable','../outside/secret.txt'));assert.throws(()=>library.readFile(bot.id,'portable','escape/secret.txt'),/不在技能目录/);
   assert.throws(()=>library.bundle(bot.id,'portable'),/超出了/);
+});
+test('pasted MCP snippets merge named servers into Aelion mcp.json',async t=>{
+  const paths=fixture(t),store=new Store(paths.dataDir);t.after(()=>store.close());
+  const integrations=new Integrations(store,paths,()=>{});t.after(()=>integrations.close());
+  const fragment=`"my-node-tool": {\n  "command": "npx",\n  "args": ["-y", "@username/mcp-server-example"],\n  "env": { "API_KEY": "your_api_key_here" }\n}`;
+  assert.equal(parseMcpSnippet(fragment)['my-node-tool'].command,'npx');
+  const names=await integrations.importMcpSnippet(fragment);
+  assert.deepEqual(names,['my-node-tool']);
+  const saved=JSON.parse(readFileSync(join(paths.configDir,'mcp.json'),'utf8'));
+  assert.equal(saved.mcpServers['my-node-tool'].command,'npx');
+  assert.deepEqual(saved.mcpServers['my-node-tool'].args,['-y','@username/mcp-server-example']);
+  const discovered=discoverMcp(paths).configs.find(item=>item.name==='my-node-tool')!;
+  assert.equal(discovered.command,'npx');assert.equal(discovered.env.API_KEY,'your_api_key_here');
+  await integrations.importMcpSnippet('{"mcpServers":{"docs":{"url":"https://example.com/mcp"}}}');
+  assert.equal(JSON.parse(readFileSync(join(paths.configDir,'mcp.json'),'utf8')).mcpServers.docs.url,'https://example.com/mcp');
+  assert.equal(JSON.parse(readFileSync(join(paths.configDir,'mcp.json'),'utf8')).mcpServers['my-node-tool'].command,'npx');
+  assert.throws(()=>parseMcpSnippet('{'),/JSON/);
+  assert.throws(()=>parseMcpSnippet('{"command":"npx"}'),/名称/);
 });
 test('MCP adapters parse common formats, variables, filters and disabled entries without exposing credentials',t=>{
   const paths=fixture(t);paths.env.API_TOKEN='fixture-secret';

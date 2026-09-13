@@ -24,7 +24,7 @@ Only one of `url`, `path`, or `attachmentId` may be supplied. Existing file call
 - Closing or replacing a preview, reloading the app, or stopping the VM releases its forwarding connections. It does not stop the project server. Preview sessions are ephemeral and cleared between previews; one browser session is reused to avoid accumulating partitions.
 - Full-screen and side-panel feedback capture the visible browser content and includes its current URL as model context. Common credential query parameters are redacted. The message bubble still shows only the user's prompt and screenshot attachment.
 
-The native browser rectangle leaves room for the white navigation controls and feedback input. It is hidden behind settings and unsaved-change dialogs. Non-Electron preview fixtures retain the existing static file renderers.
+The native browser rectangle leaves room for navigation and extends to the bottom edge. Feedback is a transparent, trusted sibling view floating over the page; its bridge only relays text input to the main app, and browser screenshots exclude this overlay. It is hidden behind settings and unsaved-change dialogs. Non-Electron preview fixtures retain the existing static file renderers.
 
 ## Verification
 

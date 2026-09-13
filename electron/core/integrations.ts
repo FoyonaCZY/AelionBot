@@ -4,7 +4,7 @@ import type {IntegrationsView,ScreenReference} from '../../src/shared';
 import {atomicJson,Store} from './store';
 import {canonical,hashId,type IntegrationPaths,type SourceDescriptor} from './integration-paths';
 import {SkillLibrary} from './skill-library';
-import {discoverMcp} from './mcp-config';
+import {discoverMcp,parseMcpSnippet} from './mcp-config';
 import {McpRuntime,type McpPreference} from './mcp-runtime';
 import type {VmController} from './vm';
 
@@ -31,6 +31,13 @@ export class Integrations {
   async add(kind:'skills'|'mcp',path:string){
     path=resolve(path);if(kind==='skills'&&!statSync(path).isDirectory()||kind==='mcp'&&!statSync(path).isFile())throw new Error('请选择有效目录或配置文件');
     const list=kind==='skills'?this.preferences.extraSkillDirs:this.preferences.extraMcpFiles;if(!list.some(value=>canonical(value)===canonical(path)))list.push(path);this.save();await this.refresh();
+  }
+  async importMcpSnippet(text:string){
+    const servers=parseMcpSnippet(text),file=join(this.paths.configDir,'mcp.json');
+    let current:any={mcpServers:{}};try{if(existsSync(file))current=JSON.parse(readFileSync(file,'utf8').replace(/^\uFEFF/,''));}catch{}
+    if(!current||typeof current!=='object'||Array.isArray(current))current={mcpServers:{}};
+    const existing=current.mcpServers&&typeof current.mcpServers==='object'&&!Array.isArray(current.mcpServers)?current.mcpServers:{};
+    current.mcpServers={...existing,...servers};atomicJson(file,current);await this.refresh();return Object.keys(servers);
   }
   path(input:{kind:string;id?:string}){
     const view=this.snapshot();if(input.kind==='shared-skills')return view.sharedSkillDir;if(input.kind==='private-skills'){mkdirSync(view.privateSkillDir,{recursive:true});return view.privateSkillDir;}if(input.kind==='mcp-config')return view.mcpFile;

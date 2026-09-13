@@ -1,6 +1,7 @@
 import {platformName} from './host-platform';
 import {existsSync} from 'node:fs';
 import {basename,isAbsolute,join,resolve} from 'node:path';
+import {parse as parseJsonc,type ParseError} from 'jsonc-parser';
 import type {McpServerView,SkillSource,IntegrationSource} from '../../src/shared';
 import {canonical,hashId,mcpSources,parseConfig,sourceView,type IntegrationPaths,type SourceDescriptor} from './integration-paths';
 
@@ -9,6 +10,23 @@ export interface McpConfig {
   enabledBySource:boolean;startupTimeout:number;toolTimeout:number;include?:string[];exclude:string[];issue?:string;fingerprint:string;secrets:string[];
 }
 function record(value:any):Record<string,any>{return value&&typeof value==='object'&&!Array.isArray(value)?value:{};}
+function isServer(raw:unknown){if(!raw||typeof raw!=='object'||Array.isArray(raw))return false;const value=raw as Record<string,unknown>;return typeof value.command==='string'||Array.isArray(value.command)||typeof value.url==='string'||typeof value.serverUrl==='string';}
+function parseJsonObject(text:string){const errors:ParseError[]=[];const value=parseJsonc(text,errors,{allowTrailingComma:true,disallowComments:false});if(errors.length||!value||typeof value!=='object'||Array.isArray(value))return undefined;return value as Record<string,any>;}
+export function parseMcpSnippet(text:string){
+  if(typeof text!=='string')throw Error('请粘贴 MCP 配置');
+  const trimmed=text.replace(/^\uFEFF/,'').trim();
+  if(!trimmed)throw Error('请粘贴 MCP 配置');
+  if(trimmed.length>200000)throw Error('配置内容过长');
+  const value=parseJsonObject(trimmed)||(!trimmed.startsWith('{')&&!trimmed.startsWith('[')?parseJsonObject(`{${trimmed}}`):undefined);
+  if(!value)throw Error('配置格式不合法，请检查 JSON');
+  const nested=value.mcpServers||value.mcp_servers||value.servers||value.mcp;
+  const source=nested&&typeof nested==='object'&&!Array.isArray(nested)?nested:value;
+  const servers:Record<string,Record<string,unknown>>={};
+  for(const [name,raw] of Object.entries(source))if(name.trim()&&name.length<=80&&isServer(raw))servers[name]=raw as Record<string,unknown>;
+  if(Object.keys(servers).length)return servers;
+  if(isServer(value)){const name=typeof value.name==='string'?value.name.trim():'';if(!name||name.length>80)throw Error('请为这项配置加上名称，例如 "my-node-tool": { ... }');return {[name]:value};}
+  throw Error('没有找到 MCP 服务，请包含名称和 command 或 url');
+}
 function strings(value:any){return Array.isArray(value)?value.filter((item:unknown)=>typeof item==='string'):undefined;}
 export function expandConfigString(value:string,options:IntegrationPaths,missing:Set<string>){
   const replacement=(name:string,fallback?:string)=>{

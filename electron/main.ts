@@ -195,7 +195,8 @@ async function initialize(){
   window.on('close',event=>{if(!canDiscardPreview())event.preventDefault();});
   window.webContents.on('will-prevent-unload',event=>{if(canDiscardPreview())event.preventDefault();});
   installComputerView(window);
-  webPreview=new WebPreviewBrowser(window,vm,artifacts,attachments);
+  webPreview=new WebPreviewBrowser(window,vm,artifacts,attachments,join(__dirname,'preview-feedback-preload.cjs'));
+  handle('preview-feedback:overlay',input=>webPreview!.feedback(input));
   handle('web-preview:open',input=>webPreview!.open(String(input?.id),input?.source));
   handle('web-preview:layout',input=>webPreview!.bounds(String(input?.id),input?.rect,input?.visible===true));
   handle('web-preview:action',input=>webPreview!.action(String(input?.id),String(input?.action),input?.url));
@@ -287,9 +288,11 @@ async function initialize(){
   handle('integrations:open-path',async input=>{const target=integrations.path(input||{});const result=await shell.openPath(target);if(result)throw new Error(result);});
   handle('integrations:add-source',async kind=>{
     if(!['skills','mcp'].includes(kind))throw new Error('未知配置类型');if(harness.busy)throw new Error('请等待当前任务结束');
-    const selected=await dialog.showOpenDialog(window!,{title:kind==='skills'?'添加共享技能目录':'添加已有 MCP 配置',properties:kind==='skills'?['openDirectory']:['openFile'],...(kind==='mcp'?{filters:[{name:'Agent 配置',extensions:['json','jsonc','toml','yaml','yml']}]}:{})});
+    if(kind==='mcp')throw new Error('请粘贴 MCP 配置');
+    const selected=await dialog.showOpenDialog(window!,{title:'添加共享技能目录',properties:['openDirectory']});
     if(!selected.canceled&&selected.filePaths[0]){await integrations.add(kind,selected.filePaths[0]);changed();}
   });
+  handle('integrations:import-mcp',async text=>{if(harness.busy)throw new Error('请等待当前任务结束');const names=await integrations.importMcpSnippet(text);changed();return names;});
   handle('mcp:enabled',async input=>{if(harness.busy)throw new Error('请等待当前任务结束后修改 MCP');if(typeof input?.enabled!=='boolean')throw new Error('无效状态');await integrations.setEnabled(String(input.id),input.enabled);});
   handle('mcp:test',async id=>{const result=await integrations.mcp.listTools(String(id));return {tools:result.tools.map(tool=>tool.name)};});
   handle('bot:create',(input)=>{if(!input||typeof input.name!=='string'||typeof input.role!=='string'||input.color!==undefined&&typeof input.color!=='string')throw new Error('无效 Bot 参数');const model=input.model?providers.selection(input.model):undefined,reasoningEffort=cleanReasoning(input.reasoningEffort===undefined?store.data.defaultModel?.reasoningEffort:input.reasoningEffort);const bot=store.createBot(input.name,input.role,input.color,input.avatarStyle,{model,reasoningEffort});changed();void greetings?.greet(bot.id);return bot;});

@@ -3,6 +3,7 @@ import { createServer } from 'vite';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
+await build({entryPoints:['electron/preview-feedback-preload.ts'],outfile:'dist-electron/preview-feedback-preload.cjs',bundle:true,platform:'node',format:'cjs',target:'node22',external:['electron']});
 await build({ entryPoints: ['electron/main.ts'], outfile: 'dist-electron/main.cjs', bundle: true, platform: 'node', format: 'cjs', target: 'node22', external: ['electron', 'electron-updater', 'ssh2'], sourcemap: true });
 await build({ entryPoints: ['electron/preload.ts'], outfile: 'dist-electron/preload.cjs', bundle: true, platform: 'node', format: 'cjs', target: 'node22', external: ['electron'] });
 await build({ entryPoints: ['electron/core/file-search-worker.ts'], outfile: 'dist-electron/file-search-worker.cjs', bundle: true, platform: 'node', format: 'cjs', target: 'node24' });

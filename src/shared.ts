@@ -49,6 +49,8 @@ export interface Snapshot {previewRequests?:import("./agent-preview").AgentPrevi
 export interface AppEvent { type: 'state'; snapshot: Snapshot; }
 export interface CommandResult { stdout: string; stderr: string; exitCode: number; durationMs: number; }
 export interface AelionAPI {
+  updatePreviewFeedbackOverlay(input:import('./preview-feedback-overlay').FeedbackOverlayLayout|null):Promise<boolean>;
+  onPreviewFeedbackInput(callback:(input:import('./preview-feedback-overlay').FeedbackOverlayInput)=>void):()=>void;
   openWebPreview(input:{id:string;source:import('./web-preview').WebPreviewSource}):Promise<import('./web-preview').WebPreviewState>;
   layoutWebPreview(input:{id:string;rect:{x:number;y:number;width:number;height:number};visible:boolean}):Promise<void>;
   webPreviewAction(input:{id:string;action:'back'|'forward'|'reload'|'navigate';url?:string}):Promise<import('./web-preview').WebPreviewState>;
@@ -148,6 +150,7 @@ export interface AelionAPI {
   manageSkill(input:{botId:string;id:string;action:string;revision?:number}):Promise<unknown>;
   readSkill(input: {id:string;botId?:string}): Promise<Skill>;
   addIntegrationSource(kind:'skills'|'mcp'): Promise<void>;
+  importMcpSnippet(text:string):Promise<string[]>;
   openIntegrationPath(input:{kind:'shared-skills'|'private-skills'|'mcp-config'|'source';id?:string}): Promise<void>;
   setMcpEnabled(input:{id:string;enabled:boolean}): Promise<void>;
   testMcp(id:string): Promise<{tools:string[]}>;

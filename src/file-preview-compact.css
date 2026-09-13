@@ -1,0 +1,35 @@
+/* One shared row for file identity, format controls and preview actions. */
+.fp-layer{--fp-top-inset:38px}
+.fp-layer.is-docked{--fp-top-inset:0px}
+.fp-layer.is-immersive .fp-header{height:calc(var(--fp-top-inset) + 48px);min-height:0;padding:var(--fp-top-inset) 12px 0;gap:10px;align-items:center;background:#fff;border-bottom:1px solid #eceef1}
+.fp-layer .fp-header .fp-title{flex:1 1 140px;min-width:48px;max-width:none;min-height:30px;padding:0 4px;border:0;border-radius:0;background:transparent;box-shadow:none}
+.fp-layer .fp-header .fp-title h2{font-size:12px;line-height:1.5}
+.fp-layer .fp-header .fp-title .fp-file-select{width:100%;min-width:0;min-height:30px;font-size:12px}
+.fp-layer .fp-header .fp-actions{margin-left:0;padding:0;gap:2px;border:0;background:transparent;box-shadow:none;flex-wrap:nowrap;align-items:center}
+.fp-layer .fp-header .fp-actions button{min-width:28px;min-height:30px;padding:5px;border-radius:7px}
+.fp-layer .fp-header .fp-action-divider{margin:0 3px}
+.fp-file-controls-slot{display:none;min-width:0;pointer-events:auto}
+.fp-file-controls-slot:has(button){display:flex;flex:0 1 auto;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none}
+.fp-file-controls-slot:focus-within{scrollbar-width:thin}
+.fp-layer .fp-header :is(.fp-toolbar,.fp-edit-toolbar){position:static;inset:auto;transform:none;display:flex;align-items:center;justify-content:flex-start;flex:0 0 auto;gap:6px;width:auto;min-height:30px;max-width:none;padding:0;background:transparent;border:0;border-radius:0;box-shadow:none;color:#626a75}
+.fp-layer .fp-header .fp-toolbar>.fp-tools+.fp-tools{padding-left:6px;border-left:1px solid #e2e5e9}
+.fp-layer .fp-header :is(.fp-tools,.fp-segments){gap:1px;flex-shrink:0}
+.fp-layer .fp-header :is(.fp-toolbar,.fp-edit-toolbar) button{min-width:26px;min-height:30px;padding:5px;border-radius:7px}
+.fp-layer .fp-header .fp-edit-toolbar button{padding:5px 8px}
+.fp-layer .fp-header .fp-tools output{min-width:38px;font-size:11px}
+.fp-layer .fp-header .fp-segments>span{display:none}
+.fp-layer .fp-header .fp-page-input{width:26px;min-height:26px;font-size:12px;padding:2px}
+.fp-layer .fp-header .fp-page-total{font-size:11px}
+.fp-layer:not(:has(.web-preview)) .fp-workspace{padding-top:calc(var(--fp-top-inset) + 48px)}
+.fp-layer:not(:has(.web-preview)) .fp-directory{padding-top:12px}
+.fp-layer .fp-thumbnails{padding:12px 8px;width:132px}
+.fp-layer .fp-code-grid{padding-top:16px;padding-bottom:32px}
+.fp-layer .fp-editor-host .cm-content{padding-top:16px!important;padding-bottom:32px!important}
+.fp-layer .fp-paper{padding:22px max(22px,calc((100% - 880px)/2)) 32px}
+.fp-layer .fp-source{padding:16px 22px 32px}
+.fp-layer.has-feedback :is(.fp-code-grid,.fp-paper,.fp-source){padding-bottom:calc(var(--fp-feedback-height,54px) + 36px)}
+.fp-layer.has-feedback .fp-editor-host .cm-content{padding-bottom:calc(var(--fp-feedback-height,54px) + 36px)!important}
+.fp-layer .fp-content:has(.fp-csv) .fp-document-stage{padding:12px 16px 0}
+.fp-layer.has-feedback .fp-csv{padding-bottom:calc(var(--fp-feedback-height,54px) + 36px)}
+@media(max-width:700px){.fp-layer.is-immersive .fp-header{padding-left:8px;padding-right:8px;gap:5px}.fp-layer .fp-header .fp-title{min-width:40px;flex-basis:90px}.fp-layer .fp-header .fp-title h2{font-size:11px}.fp-layer .fp-paper{padding-left:18px;padding-right:18px}.fp-layer .fp-thumbnails{width:100px}}
+@media(forced-colors:active){.fp-layer.is-immersive .fp-header{background:Canvas;border-color:CanvasText}.fp-layer .fp-header :is(.fp-toolbar,.fp-edit-toolbar){color:ButtonText}}
