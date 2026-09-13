@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { AelionAPI, AppEvent } from '../src/shared';
 const api:AelionAPI={
+  acknowledgePreview:id=>ipcRenderer.invoke('preview:acknowledge',id),
   readEditableFile:input=>ipcRenderer.invoke('files:edit-read',input),
   saveEditableFile:input=>ipcRenderer.invoke('files:edit-save',input),
   readEditableAttachment:id=>ipcRenderer.invoke('attachments:edit-read',id),
@@ -60,6 +61,7 @@ const api:AelionAPI={
   saveProvider:input=>ipcRenderer.invoke('providers:save',input),
   refreshProviderModels:id=>ipcRenderer.invoke('providers:models',id),
   removeProvider:id=>ipcRenderer.invoke('providers:remove',id),
+  setApprovalModel:selection=>ipcRenderer.invoke('models:approval',selection),
   setDefaultModel:selection=>ipcRenderer.invoke('models:default',selection),
   setBotModel:input=>ipcRenderer.invoke('models:bot',input),
   vmAction:action=>ipcRenderer.invoke('vm:action',action),

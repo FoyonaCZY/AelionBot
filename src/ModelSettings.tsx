@@ -23,11 +23,15 @@ export function ModelSettings({state,onNotify}:{state:Snapshot;onNotify:(text:st
     <SettingsSection title={t('默认模型')}>
       <DefaultModelAssignment key={JSON.stringify(selection)} providers={providers} selection={selection} busy={busy} onNotify={onNotify}/>
     </SettingsSection>
+    <SettingsSection title={t('自动审核模型')}>
+      <p className="subtle">{t('仅用于自动审批，不影响聊天模型。')}</p>
+      <DefaultModelAssignment key={'approval:'+JSON.stringify(state.approvalModel)} approval defaultModel={state.defaultModel} providers={providers} selection={state.approvalModel||null} busy={false} onNotify={onNotify}/>
+    </SettingsSection>
     <SettingsSection title="Providers">
       <div className="provider-heading"><button className="secondary-button" onClick={()=>setEditing('new')}>{t('添加 Provider')}</button></div>
       <div className="settings-card provider-list">{providers.map(provider=>{
-        const used=state.defaultModel?.providerId===provider.id||state.bots.some(bot=>bot.model?.providerId===provider.id);
-        return <div className="provider-row" key={provider.id}><button className="provider-info" aria-label={t('编辑 Provider {name}',{name:provider.name})} onClick={()=>setEditing(provider.id)}><strong>{provider.name}</strong><span>{provider.baseUrl}</span></button><span className="provider-model-count">{refreshing.includes(provider.id)?t('拉取中…'):t('{count} 个模型',{count:provider.models.length})}</span><button className="text-button" disabled={refreshing.includes(provider.id)} onClick={()=>void refresh(provider.id)} aria-label={t('刷新 {name} 模型列表',{name:provider.name})}>{t('刷新')}</button><button className="text-button" disabled={used||removing===provider.id} title={used?t('请先切换默认模型或相关 Bot 的模型'):''} aria-label={t('删除 Provider {name}',{name:provider.name})} onClick={async()=>{setRemoving(provider.id);try{await window.aelion.removeProvider(provider.id);if(editing===provider.id)setEditing(undefined);}catch(error){onNotify(errorText(error));}finally{setRemoving('');}}}>{t('删除')}</button></div>;
+        const used=state.defaultModel?.providerId===provider.id||state.approvalModel?.providerId===provider.id||state.bots.some(bot=>bot.model?.providerId===provider.id);
+        return <div className="provider-row" key={provider.id}><button className="provider-info" aria-label={t('编辑 Provider {name}',{name:provider.name})} onClick={()=>setEditing(provider.id)}><strong>{provider.name}</strong><span>{provider.baseUrl}</span></button><span className="provider-model-count">{refreshing.includes(provider.id)?t('拉取中…'):t('{count} 个模型',{count:provider.models.length})}</span><button className="text-button" disabled={refreshing.includes(provider.id)} onClick={()=>void refresh(provider.id)} aria-label={t('刷新 {name} 模型列表',{name:provider.name})}>{t('刷新')}</button><button className="text-button" disabled={used||removing===provider.id} title={used?t('请先切换使用此 Provider 的默认模型、审核模型或 Bot 模型'):''} aria-label={t('删除 Provider {name}',{name:provider.name})} onClick={async()=>{setRemoving(provider.id);try{await window.aelion.removeProvider(provider.id);if(editing===provider.id)setEditing(undefined);}catch(error){onNotify(errorText(error));}finally{setRemoving('');}}}>{t('删除')}</button></div>;
       })}{!providers.length&&<div className="provider-empty">{t('还没有 Provider')}</div>}</div>
       {providers.filter(provider=>provider.modelsError).map(provider=><p className="provider-error" role="status" key={provider.id}>{provider.name}：{provider.modelsError}</p>)}
       {editing&&(editing==='new'||editor)&&<ProviderEditor key={editing} provider={editor} disabled={editingBusy} onClose={()=>setEditing(undefined)} onSaved={provider=>{setEditing(undefined);onNotify(provider.modelsError?t('Provider 已保存，模型列表拉取失败'):t('Provider 已保存'));}}/>}
@@ -35,13 +39,13 @@ export function ModelSettings({state,onNotify}:{state:Snapshot;onNotify:(text:st
   </>;
 }
 
-function DefaultModelAssignment({providers,selection,busy,onNotify}:{providers:ModelProvider[];selection:ModelSelection|null;busy:boolean;onNotify:(text:string)=>void}){
+function DefaultModelAssignment({providers,selection,busy,onNotify,approval=false,defaultModel}:{approval?:boolean;defaultModel?:ModelSelection;providers:ModelProvider[];selection:ModelSelection|null;busy:boolean;onNotify:(text:string)=>void}){
   const {t}=useI18n();
   const [value,setValue]=useState<ModelSelection|null>(selection),[saving,setSaving]=useState(false);
-  const save=async()=>{setSaving(true);try{await window.aelion.setDefaultModel(value);onNotify(t('默认模型已保存'));}catch(error){onNotify(errorText(error));}finally{setSaving(false);}};
+  const save=async()=>{setSaving(true);try{if(approval)await window.aelion.setApprovalModel(value);else await window.aelion.setDefaultModel(value);onNotify(t(approval?'自动审核模型已保存':'默认模型已保存'));}catch(error){onNotify(errorText(error));}finally{setSaving(false);}};
   return <div className="model-assignment">
-    <ModelSelectionFields providers={providers} value={value} onChange={setValue} disabled={busy||saving}/>
-    <div className="settings-actions"><button className="primary-button" disabled={busy||saving||!validModelSelection(value,providers)||same(value,selection)} onClick={()=>void save()}>{saving?t('保存中…'):t('保存默认模型')}</button></div>
+    <ModelSelectionFields providers={providers} value={value} onChange={setValue} disabled={busy||saving} inheritDefault={approval} defaultModel={defaultModel} showInheritedReasoning={!approval}/>
+    <div className="settings-actions"><button className="primary-button" disabled={busy||saving||!validModelSelection(value,providers)||same(value,selection)} onClick={()=>void save()}>{saving?t('保存中…'):t(approval?'保存审核模型':'保存默认模型')}</button></div>
   </div>;
 }
 

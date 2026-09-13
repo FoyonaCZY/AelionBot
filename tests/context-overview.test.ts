@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {contextOverview} from '../electron/core/context-overview';
+import {contextOverview,countedContextOverview} from '../electron/core/context-overview';
 import {foldContextParts} from '../src/context-overview';
 import {estimateRequest} from '../electron/core/context-budget';
 import {protocolRequest} from '../electron/core/model-protocol';
@@ -40,4 +40,17 @@ test('empty schemas, quoted skill markers and mixed batch outputs are not mislab
  const request:WireMessage[]=[{role:'user',content:'当前可用技能清单：quoted text'}, {role:'assistant',content:'已使用技能的参考快照（不增加权限）：PDF details'}, {role:'tool',tool_call_id:'batch',content:'Mixed result'}];
  const result=contextOverview(request,[],model);
  assert.equal(result.parts.mcp,0);assert.ok(result.parts.conversation>0);assert.ok(result.parts.skills>0);assert.equal('results' in result.parts,false);assert.equal('images' in result.parts,false);
+});
+
+
+test('overview displays calibrated tokens rather than the separate conservative budget',()=>{
+ const result=contextOverview(messages,tools,model,{estimatedTokens:401252,displayTokens:265652,displaySource:'calibrated',estimateSource:'tokenizer'});
+ assert.equal(result.tokens,265652);assert.equal(result.estimateSource,'calibrated');
+ const reported=countedContextOverview(result,266000,'provider-usage');
+ assert.equal(reported.tokens,266000);assert.equal(reported.estimateSource,'provider-usage');
+ assert.equal(Object.values(reported.parts).reduce((a,b)=>a+b,0),266000);
+ assert.equal(result.tokens,265652,'an earlier request snapshot is not mutated');
+ assert.equal(countedContextOverview(result,NaN,'provider-usage'),result);
+ assert.equal(countedContextOverview(result,-1,'provider-usage'),result);
+ assert.equal(countedContextOverview(result,0,'provider-usage').tokens,0);
 });

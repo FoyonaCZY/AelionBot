@@ -34,3 +34,16 @@ test('user action overrides work and terminal runs remove the whole status',()=>
   for(const status of ['completed','failed','cancelled','interrupted'] as const)assert.equal(liveBotProgress([],run({status})),undefined);
 });
 
+
+
+test('a waiting retry does not remain in the retrying UI and names the safe connection cause',()=>{
+ const r=run({modelRequest:{phase:'retrying',startedAt:at,updatedAt:at,attempt:1,maxRetries:2,reason:'connect_timeout'}});
+ assert.equal(liveBotProgress([],r)?.label,'连接模型服务超时，准备重试');
+ r.modelRequest={...r.modelRequest!,phase:'waiting'};
+ const waiting=liveBotProgress([],r)!;
+ assert.equal(waiting.label,'等待重试请求响应');assert.equal(waiting.retry,undefined);
+ assert.match(waiting.description!,/第 1 次重试已开始/);assert.match(waiting.description!,/连接模型服务超时/);
+ r.modelRequest={...r.modelRequest!,phase:'streaming'};assert.equal(liveBotProgress([],r)?.label,'正在生成回复');
+ r.modelRequest={phase:'waiting',startedAt:at,updatedAt:at,attempt:0,maxRetries:2};
+ assert.equal(liveBotProgress([],r)?.label,'正在处理你的请求');
+});

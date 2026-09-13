@@ -5,5 +5,5 @@ export interface ModelRequestStatus{
   updatedAt:string;
   attempt:number;
   maxRetries:number;
-  reason?:'rate_limit'|'timeout'|'connection'|'fallback';
+  reason?:'rate_limit'|'timeout'|'connect_timeout'|'connection'|'fallback';
 }

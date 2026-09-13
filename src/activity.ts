@@ -4,6 +4,7 @@ import {isContextCapacityFailure} from './context-issue';
 import {currentLanguage,translate} from './i18n';
 
 const operations:Record<string,{label:string;active:string;icon:string}>={
+  open_preview:{label:'预览',active:'正在打开预览',icon:'file'},
   execution_list:{label:'核对执行记录',active:'正在核对执行记录',icon:'check'},
   execution_resolve:{label:'核对问题处理结果',active:'正在核对问题处理结果',icon:'check'},
   tools_batch:{label:'批量读取资料',active:'正在批量读取资料',icon:'file'},

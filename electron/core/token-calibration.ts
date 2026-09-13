@@ -12,3 +12,20 @@ export function observeCalibration(state:TokenCalibration,reported:number,estima
  const factor=target>=state.factor?target:samples.length>=5?Math.max(target,state.factor*.9):state.factor;
  return {version:2,factor,samples};
 }
+
+
+// Display estimates are separate from the conservative compression/output budget above.
+const validRatio=(value:unknown):value is number=>typeof value==='number'&&Number.isFinite(value)&&value>=.1&&value<=4;
+function displaySamples(raw?:string):number[]{
+ try{const value=JSON.parse(raw||'null');if(value?.version===1&&Array.isArray(value.samples))return value.samples.filter(validRatio).slice(-12);}catch{}
+ return [];
+}
+export function displayCalibration(raw?:string,fallback?:number){
+ const samples=displaySamples(raw).sort((a,b)=>a-b);
+ if(samples.length){const middle=Math.floor(samples.length/2);return {factor:samples.length%2?samples[middle]:(samples[middle-1]+samples[middle])/2,calibrated:true};}
+ return {factor:validRatio(fallback)?fallback:1,calibrated:validRatio(fallback)};
+}
+export function recordDisplayCalibration(raw:string|undefined,reported:number,estimated:number):string|undefined{
+ if(!Number.isSafeInteger(reported)||reported<64||!Number.isFinite(estimated)||estimated<1024||!validRatio(reported/estimated))return;
+ return JSON.stringify({version:1,samples:[...displaySamples(raw),reported/estimated].slice(-12)});
+}

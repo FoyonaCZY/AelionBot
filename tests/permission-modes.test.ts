@@ -87,7 +87,7 @@ test('a definite model denial stops the operation without requesting a human ove
 
 test('review errors and missing defaults fall back to a visible human request',async t=>{
   const f=fixture(t,async()=>{throw Error('API unavailable');});f.mode('auto');const first=f.permission(command(f.project));await until(()=>(f.interactions.snapshot()[0] as HostPermissionRequest)?.approval?.phase==='waiting');assert.match((f.interactions.snapshot()[0] as HostPermissionRequest).approval?.reason||'',/未完成/);f.interactions.approve(f.interactions.snapshot()[0].id,true);await first;
-  f.config.model='';const next=f.permission(command(f.project));assert.equal(f.reviews(),1);assert.match((f.interactions.snapshot()[0] as HostPermissionRequest).approval?.reason||'',/默认模型/);f.interactions.approve(f.interactions.snapshot()[0].id,true);await next;
+  f.config.model='';const next=f.permission(command(f.project));assert.equal(f.reviews(),1);assert.match((f.interactions.snapshot()[0] as HostPermissionRequest).approval?.reason||'',/审核模型/);f.interactions.approve(f.interactions.snapshot()[0].id,true);await next;
 });
 
 test('a hung reviewer times out to human confirmation even if it ignores abort',async t=>{

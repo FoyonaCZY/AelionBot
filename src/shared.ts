@@ -45,10 +45,11 @@ export interface UserQuestion {id:string;title:string;options?:string[];}
 export type InteractionRequest = {id:string;botId:string;runId:string;createdAt:string} & ({kind:'host_permission';details:HostPermissionDetails;approval?:HostApprovalView}|{kind:'vm_takeover';reason:string;phase:'waiting'|'controlling'}|{kind:'user_input';questions:UserQuestion[];phase:'waiting'});
 export type InteractionAction='allow'|'allow-always'|'deny'|'takeover'|'resume'|'cancel'|'answer';
 export interface CognitionView {learning:{enabled:boolean;runningBotId?:string;queued:number};bots:Array<{botId:string;memoryRevision:number;context?:{estimatedTokens:number;inputBudget:number;toolTokens:number;imageTokens:number;epoch:number;compactions:number;prunedOutputs:number;lastIssue?:string};lastLearning?:{kind:string;action:string;time:string}}>}
-export interface Snapshot {appearance?:import("./appearance").AppearanceSettings;userProfile?:import("./user-profile").UserProfile;hostPermissionModes?:Record<string,HostPermissionMode>;platform?:string; workItems?:WorkItem[];conversationWorkspaces?:Record<string,string>; runtime?:RuntimeSettings;modelUsage?:UsageRecord[];updates?:UpdateState; scheduledTasks?:ScheduledTask[]; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; model: ModelConfig; providers?:ModelProvider[];defaultModel?:ModelSelection;botModels?:Record<string,ModelConfig>; streamingReplies?:StreamingReply[]; vm: VmState; skills: Skill[]; artifacts: Artifact[]; computer: ComputerState; dataDir: string; integrations?:IntegrationsView; interactions?:InteractionRequest[]; cognition?:CognitionView; peers?:PeerView;groups?:GroupsView; greetingBotIds?:string[]; commandPermissions?:CommandPermissionRule[]; hostWorkspace?:HostWorkspaceSettings; }
+export interface Snapshot {previewRequests?:import("./agent-preview").AgentPreviewRequest[];appearance?:import("./appearance").AppearanceSettings;userProfile?:import("./user-profile").UserProfile;hostPermissionModes?:Record<string,HostPermissionMode>;platform?:string; workItems?:WorkItem[];conversationWorkspaces?:Record<string,string>; runtime?:RuntimeSettings;modelUsage?:UsageRecord[];updates?:UpdateState; scheduledTasks?:ScheduledTask[]; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; model: ModelConfig; providers?:ModelProvider[];defaultModel?:ModelSelection;approvalModel?:ModelSelection;botModels?:Record<string,ModelConfig>; streamingReplies?:StreamingReply[]; vm: VmState; skills: Skill[]; artifacts: Artifact[]; computer: ComputerState; dataDir: string; integrations?:IntegrationsView; interactions?:InteractionRequest[]; cognition?:CognitionView; peers?:PeerView;groups?:GroupsView; greetingBotIds?:string[]; commandPermissions?:CommandPermissionRule[]; hostWorkspace?:HostWorkspaceSettings; }
 export interface AppEvent { type: 'state'; snapshot: Snapshot; }
 export interface CommandResult { stdout: string; stderr: string; exitCode: number; durationMs: number; }
 export interface AelionAPI {
+  acknowledgePreview(id:string):Promise<void>;
   readEditableFile(input:{botId:string;path:string}):Promise<import('./editable-text').EditableText>;
   saveEditableFile(input:{botId:string;path:string;edit:import('./editable-text').TextEdit}):Promise<import('./editable-text').EditableText>;
   readEditableAttachment(id:string):Promise<import('./editable-text').EditableText>;
@@ -108,6 +109,7 @@ export interface AelionAPI {
   refreshProviderModels(id:string):Promise<ModelProvider>;
   removeProvider(id:string):Promise<void>;
   setDefaultModel(selection:ModelSelection|null):Promise<void>;
+  setApprovalModel(selection:ModelSelection|null):Promise<void>;
   setBotModel(input:{botId:string;selection:ModelSelection|null}):Promise<void>;
   vmAction(action: 'prepare' | 'start' | 'stop' | 'restart' | 'repair-tools'): Promise<void>;
   vmTerminal(command: string): Promise<CommandResult>;

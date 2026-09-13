@@ -69,3 +69,45 @@ test('re-reading an archived attachment displays the new occurrence without rest
  let a=view.compose(f.input,f.input.history);assert.equal(view.archiveImages(a),23);a=view.compose(f.input,f.input.history);view.persist();
  f.input.history.push({role:'user',content:'read again',images:[{...image,id:'image-0'}]});const b=new ContextView(f.storage,f.bot.id,'main').compose(f.input,f.input.history);assert.deepEqual(b.slice(0,a.length),a);assert.equal(b.at(-1)?.images?.[0].id,'image-0');assert.equal(b.flatMap(message=>message.images||[]).length,11);
 });
+
+
+test('pruning uses a downward display calibration without lowering the conservative input budget',t=>{
+ const f=fixture(t),config=f.store.modelFor(f.bot.id),messages:WireMessage[]=[{role:'system',content:'rules'},{role:'user',content:'input '.repeat(10000)}];
+ const meter=new ContextMeter(f.storage,f.bot.id,'main',config,[]),raw=estimateRequest(messages,[]).tokens;
+ const actual=Math.round(raw*265652/401252);
+ meter.record(messages,[],{content:'ok',calls:[],finishReason:'stop',usage:{inputTokens:actual,outputTokens:10}});
+ const pruned:WireMessage[]=[messages[0],{role:'user',content:'input '.repeat(5000)}];
+ const restored=new ContextMeter(f.storage,f.bot.id,'main',config,[]),value=restored.estimate(pruned,[],1);
+ assert.equal(value.tokens,estimateRequest(pruned,[]).tokens);
+ assert.equal(value.estimateSource,'tokenizer');assert.equal(value.displaySource,'calibrated');
+ assert.equal(value.displayTokens,Math.ceil(estimateRequest(pruned,[]).tokens*actual/raw));
+ assert.ok(value.displayTokens<value.tokens*.7);
+ const appended=[...messages,{role:'user' as const,content:'new input '.repeat(100)}],next=restored.estimate(appended,[],2);
+ const delta=estimateRequest(appended,[]).tokens-raw;
+ assert.equal(next.tokens,actual+2*delta);assert.equal(next.displayTokens,Math.ceil(actual+delta*actual/raw));
+ assert.equal(next.displaySource,'usage-anchor');
+});
+
+test('display calibration persists independently of a prefix and does not cross models or modalities',t=>{
+ const f=fixture(t),config=f.store.modelFor(f.bot.id),messages:WireMessage[]=[{role:'user',content:'words '.repeat(3000)}];
+ const meter=new ContextMeter(f.storage,f.bot.id,'main',config,[]),raw=estimateRequest(messages,[]).tokens;
+ meter.record(messages,[],{content:'ok',calls:[],finishReason:'stop',usage:{inputTokens:Math.round(raw*.6)}});
+ const same=new ContextMeter(f.storage,f.bot.id,'other-scope',config,[]).estimate(messages,[],1);
+ assert.equal(same.displaySource,'calibrated');assert.ok(same.displayTokens<raw*.7);
+ const other=new ContextMeter(f.storage,f.bot.id,'main',{...config,model:'other-model'},[]).estimate(messages,[],1);
+ assert.equal(other.displaySource,'tokenizer');assert.equal(other.displayTokens,raw);
+ const vision=[{...messages[0],images:[{id:'image',width:100,height:100}]}];
+ assert.equal(meter.estimate(vision,[],1).displaySource,'tokenizer');
+ meter.record(messages,[],{requestModelKey:'fallback-model',content:'ok',calls:[],finishReason:'stop',usage:{inputTokens:raw*2}});
+ assert.equal(meter.estimate(messages,[],1).displayTokens,Math.round(raw*.6));
+});
+
+test('a legacy real-usage anchor still calibrates display after pruning on the first upgraded request',t=>{
+ const f=fixture(t),config=f.store.modelFor(f.bot.id),messages:WireMessage[]=[{role:'user',content:'words '.repeat(3000)}];
+ const raw=estimateRequest(messages,[]).tokens,meter=new ContextMeter(f.storage,f.bot.id,'main',config,[]);
+ meter.record(messages,[],{content:'ok',calls:[],finishReason:'stop',usage:{inputTokens:Math.round(raw*.65)}});
+ f.storage.db.prepare("DELETE FROM context_state WHERE scope LIKE 'display-calibration:%'").run();
+ const legacy=JSON.parse(f.storage.contextState(f.bot.id,'main','meter')!);delete legacy.imageTokens;f.storage.contextState(f.bot.id,'main','meter',JSON.stringify(legacy));
+ const next=new ContextMeter(f.storage,f.bot.id,'main',config,[]).estimate([{role:'user',content:'pruned '.repeat(500)}],[],1);
+ assert.equal(next.displaySource,'calibrated');assert.ok(next.displayTokens<next.tokens*.7);
+});

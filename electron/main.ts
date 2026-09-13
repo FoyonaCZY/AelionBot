@@ -1,3 +1,4 @@
+import {AgentPreviews} from './core/agent-previews';
 import {editableText,editedBytes} from './core/preview-editing';
 import {sourceTextFile} from '../src/source-language';
 import {normalizeAppearance,type AppearanceSettings} from '../src/appearance';
@@ -72,6 +73,7 @@ let scheduler:TaskScheduler|undefined;
 let greetings:BotGreetings|undefined;
 let appUpdates:AppUpdates|undefined;
 let diagnostics:Diagnostics|undefined;
+let agentPreviews:AgentPreviews|undefined;
 process.on('uncaughtExceptionMonitor',(error,origin)=>diagnostics?.record('process.'+origin,error));
 let updatePreparing=false;
 let timer:NodeJS.Timeout|undefined;
@@ -82,7 +84,7 @@ else {
   app.on('second-instance',()=>{window?.show();window?.focus();});
   app.whenReady().then(initialize).catch(error=>{diagnostics?.record('app.startup-error',error);console.error(error);dialog.showErrorBox('AelionBot 启动失败',String(error.message));app.exit(1);});
 }
-function snapshot():Snapshot{return {appearance:normalizeAppearance(store?.data.appearance),userProfile:store.data.userProfile,platform:process.platform,workItems:store.data.workItems,conversationWorkspaces:store.data.conversationWorkspaces,updates:appUpdates?.snapshot(),scheduledTasks:store.data.scheduledTasks,bots:store.data.bots,messages:store.data.messages,runs:store.data.runs,model:providers.config(),providers:providers.list(),defaultModel:store.data.defaultModel,botModels:Object.fromEntries(store.data.bots.map(bot=>[bot.id,providers.config(bot.id)])),vm:vm.state,skills:integrations?integrations.skills.all():store.data.skills,artifacts:store.data.artifacts,computer:computer.state,dataDir:store.dir,integrations:integrations?.snapshot(),interactions:interactions?.snapshot()||[],cognition:cognition?.view(),peers:peerChats?.snapshot(),groups:groupChats?.snapshot(),greetingBotIds:greetings?.botIds||[],streamingReplies:[...(harness?.streams.snapshot()||[]),...(greetings?.streams.snapshot()||[])],runtime:store?new RunPolicy(store).settings():undefined,modelUsage:store?.data.modelUsage?.slice(-100),commandPermissions:commandPermissions?.list()||[],hostPermissionModes:hostApprovals?.modes(),hostWorkspace:host?.workspaceSettings()};}
+function snapshot():Snapshot{return {previewRequests:agentPreviews?.snapshot(),appearance:normalizeAppearance(store?.data.appearance),userProfile:store.data.userProfile,platform:process.platform,workItems:store.data.workItems,conversationWorkspaces:store.data.conversationWorkspaces,updates:appUpdates?.snapshot(),scheduledTasks:store.data.scheduledTasks,bots:store.data.bots,messages:store.data.messages,runs:store.data.runs,model:providers.config(),providers:providers.list(),defaultModel:store.data.defaultModel,approvalModel:store.data.approvalModel,botModels:Object.fromEntries(store.data.bots.map(bot=>[bot.id,providers.config(bot.id)])),vm:vm.state,skills:integrations?integrations.skills.all():store.data.skills,artifacts:store.data.artifacts,computer:computer.state,dataDir:store.dir,integrations:integrations?.snapshot(),interactions:interactions?.snapshot()||[],cognition:cognition?.view(),peers:peerChats?.snapshot(),groups:groupChats?.snapshot(),greetingBotIds:greetings?.botIds||[],streamingReplies:[...(harness?.streams.snapshot()||[]),...(greetings?.streams.snapshot()||[])],runtime:store?new RunPolicy(store).settings():undefined,modelUsage:store?.data.modelUsage?.slice(-100),commandPermissions:commandPermissions?.list()||[],hostPermissionModes:hostApprovals?.modes(),hostWorkspace:host?.workspaceSettings()};}
 function changed(){if(exiting)return;if(window&&!window.isDestroyed())window.webContents.send('app:event',{type:'state',snapshot:snapshot()});chatPins?.wake();peerChats?.wake();groupChats?.wake();}
 function handle(channel:string,callback:(...args:any[])=>unknown){
   ipcMain.handle(channel,async(event,...args)=>{
@@ -127,10 +129,12 @@ async function initialize(){
   });
   await integrations.refresh();
   model=new ModelClient(botId=>providers.config(botId),botId=>providers.key(botId),id=>computer.image(id),()=>new RunPolicy(store).settings(),record=>{record.runId||=store.data.runs.find(run=>run.botId===record.botId&&run.status==='running')?.id;(store.data.modelUsage||=[]).push(record);store.journal('model.usage',record);store.save();});
-  const approvalModel=defaultApprovalModel(providers,()=>new RunPolicy(store).settings(),record=>{(store.data.modelUsage||=[]).push(record);store.journal('model.usage',record);store.save();});
-  hostApprovals=new HostApprovals(store,commandPermissions,defaultPermissionReviewer(approvalModel,()=>providers.config(),text=>host.redact(text)),{homeDir,defaultModel:()=>providers.config()});interactions.setHostPolicy(hostApprovals);
+  const approvalModel=defaultApprovalModel({config:()=>providers.approvalConfig(),key:()=>providers.approvalKey()},()=>new RunPolicy(store).settings(),record=>{(store.data.modelUsage||=[]).push(record);store.journal('model.usage',record);store.save();});
+  hostApprovals=new HostApprovals(store,commandPermissions,defaultPermissionReviewer(approvalModel,()=>providers.approvalConfig(),text=>host.redact(text)),{homeDir,defaultModel:()=>providers.approvalConfig()});interactions.setHostPolicy(hostApprovals);
   cognition=new Cognition(store,model,integrations.skills,changed,()=>Boolean(updatePreparing||harness?.busy||groupChats?.busy),()=>providers.secrets());
+  agentPreviews=new AgentPreviews(store,artifacts,attachments,changed,host);
   harness=new Harness(store,vm,model,changed,computer,(botId,runId)=>artifacts.collect(botId,runId),integrations,host,interactions,cognition,attachments);
+  harness.setPreviewGateway(agentPreviews);
   greetings=new BotGreetings(store,model,changed,id=>updatePreparing||harness.isRunning(id));
   peerChats=new PeerChats(store,{isRunning:id=>updatePreparing||harness.isRunning(id)||Boolean(chatPins?.hasPending(id)),run:(id,input,options)=>{groupChats?.preempt(id);greetings?.cancel(id);return harness.run(id,input,options);},cancel:id=>harness.cancel(id)},changed,attachments);
   harness.setPeerGateway(peerChats);peerChats.start();
@@ -206,6 +210,7 @@ async function initialize(){
   handle('profile:save',value=>{store.data.userProfile=normalizeUserProfile(value);store.save();greetings?.cancelAll();changed();void greetings?.greetEmpty();});
   handle('runtime:save',value=>{store.data.runtime=runtimeSettings(value);store.save();changed();});
   handle('app:snapshot',snapshot);
+  handle('preview:acknowledge',id=>{if(typeof id!=='string'||id.length>100)throw Error('无效预览 ID');agentPreviews?.acknowledge(id);});
   handle('usage:query',input=>usageReport(store.data.modelUsage||[],providers.list(),input));
   handle('app:open-external-url',value=>{const url=externalWebUrl(value);if(!url)throw new Error('只能在浏览器中打开有效的 HTTP 或 HTTPS 链接');return shell.openExternal(url);});
   handle('updates:state',()=>appUpdates!.snapshot());
@@ -302,6 +307,7 @@ async function initialize(){
   });
   handle('providers:models',id=>providers.refresh(String(id)));
   handle('providers:remove',id=>{providers.remove(String(id));afterModelChange();});
+  handle('models:approval',selection=>{providers.setApproval(selection);});
   handle('models:default',selection=>{providers.selection(selection);beforeModelChange(store.data.bots.filter(bot=>!bot.model).map(bot=>bot.id));providers.setDefault(selection);afterModelChange();});
   handle('models:bot',input=>{const id=store.bot(String(input?.botId)).id;providers.selection(input?.selection);beforeModelChange([id]);providers.setBot(id,input.selection);afterModelChange();});
   handle('model:save',async(input)=>{

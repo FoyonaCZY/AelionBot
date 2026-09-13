@@ -7,7 +7,7 @@ import {Store} from '../electron/core/store';
 import {CognitiveStore} from '../electron/core/cognitive-store';
 import {ContextEngine} from '../electron/core/context-engine';
 import {ContextPruning} from '../electron/core/context-pruning';
-import {readCalibration,observeCalibration} from '../electron/core/token-calibration';
+import {readCalibration,observeCalibration,displayCalibration,recordDisplayCalibration} from '../electron/core/token-calibration';
 import type {ModelClient} from '../electron/core/model';
 import type {WireMessage} from '../src/shared';
 
@@ -56,4 +56,18 @@ test('pruning snapshots are scoped, reject changed sources and are removed when 
  const other=f.store.createBot('other','other');assert.equal(new ContextPruning(f.storage,other.id,'main').apply(history)[0].content,history[0].content);
  const changed=[tool('call','different output')];assert.equal(new ContextPruning(f.storage,f.bot.id,'main').apply(changed)[0].content,changed[0].content);
  f.storage.clearBot(f.bot.id);assert.equal(f.storage.readContextPruning(f.bot.id,'main').size,0);
+});
+
+
+test('display ratios can fall below one, resist outliers, and never change safety calibration',()=>{
+ let raw:string|undefined;
+ for(let i=0;i<6;i++)raw=recordDisplayCalibration(raw,6600,10000);
+ const stable=displayCalibration(raw);assert.equal(stable.factor,.66);assert.equal(stable.calibrated,true);
+ raw=recordDisplayCalibration(raw,35000,10000);assert.equal(displayCalibration(raw).factor,.66);
+ assert.equal(displayCalibration('invalid').factor,1);
+ assert.equal(recordDisplayCalibration(raw,0,10000),undefined);
+ assert.equal(recordDisplayCalibration(raw,10000,0),undefined);
+ assert.equal(recordDisplayCalibration(raw,Infinity,10000),undefined);
+ assert.equal(recordDisplayCalibration(raw,1,10000),undefined);
+ let safe=readCalibration();for(let i=0;i<10;i++)safe=observeCalibration(safe,6600,10000,1);assert.equal(safe.factor,1);
 });

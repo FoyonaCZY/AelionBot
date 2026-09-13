@@ -9,7 +9,7 @@ export function validModelSelection(value:ModelSelection|null,providers:ModelPro
   return !value||Boolean(providers.some(provider=>provider.id===value.providerId)&&value.model.trim()&&Number.isInteger(value.contextTokens)&&value.contextTokens>=8000&&value.contextTokens<=1000000);
 }
 
-export function ModelSelectionFields({providers,value,onChange,defaultModel,inheritDefault=false,disabled=false,reasoningValue,onReasoningChange}:{providers:ModelProvider[];value:ModelSelection|null;onChange:(value:ModelSelection|null)=>void;defaultModel?:ModelSelection;inheritDefault?:boolean;disabled?:boolean;reasoningValue?:string;onReasoningChange?:(value:string)=>void}){
+export function ModelSelectionFields({providers,value,onChange,defaultModel,inheritDefault=false,disabled=false,reasoningValue,onReasoningChange,showInheritedReasoning=true}:{showInheritedReasoning?:boolean;providers:ModelProvider[];value:ModelSelection|null;onChange:(value:ModelSelection|null)=>void;defaultModel?:ModelSelection;inheritDefault?:boolean;disabled?:boolean;reasoningValue?:string;onReasoningChange?:(value:string)=>void}){
   const {t}=useI18n();
   const provider=providers.find(provider=>provider.id===value?.providerId),ids=provider?.models.map(model=>model.id)||[];
   const effective=provider||(inheritDefault&&value===null?providers.find(provider=>provider.id===defaultModel?.providerId):undefined);
@@ -23,6 +23,6 @@ export function ModelSelectionFields({providers,value,onChange,defaultModel,inhe
       <label className="settings-row settings-number"><span>{t('上下文容量')}</span><ContextCapacityInput value={value?.contextTokens??32000} disabled={!value||disabled} onChange={contextTokens=>update({contextTokens})}/></label>
       {reason}
     </div>}
-    {inheritDefault&&value===null&&reason&&<div className="settings-card model-reasoning-card">{reason}</div>}
+    {inheritDefault&&showInheritedReasoning&&value===null&&reason&&<div className="settings-card model-reasoning-card">{reason}</div>}
   </div>;
 }

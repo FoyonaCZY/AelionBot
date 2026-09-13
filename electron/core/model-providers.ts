@@ -59,6 +59,9 @@ export class ModelProviders {
   list(){return (this.store.data.providers||[]).map(provider=>this.public(provider));}
   key(botId?:string){const id=this.store.modelFor(botId).providerId;return id?this.keyFor(this.provider(id)):'';}
   config(botId?:string){const config=this.store.modelFor(botId);return {...config,hasKey:!config.issue&&Boolean(this.key(botId))};}
+  approvalKey(){const config=this.store.modelFor(undefined,this.store.data.approvalModel);return config.providerId&&!config.issue?this.keyFor(this.provider(config.providerId)):'';}
+  approvalConfig(){const config=this.store.modelFor(undefined,this.store.data.approvalModel);return {...config,hasKey:!config.issue&&Boolean(this.approvalKey())};}
+  setApproval(value:unknown){this.commit({approvalModel:this.selection(value)});}
   secrets(){return (this.store.data.providers||[]).map(provider=>this.keyFor(provider)).filter(Boolean);}
   using(id:string){return this.store.data.bots.filter(bot=>this.store.modelSelection(bot.id)?.providerId===id).map(bot=>bot.id);}
   selection(value:unknown):ModelSelection|undefined{
@@ -90,7 +93,7 @@ export class ModelProviders {
     this.commit({providers:previous?this.store.data.providers!.map(item=>item.id===provider.id?provider:item):[...this.store.data.providers!,provider]});return this.public(provider);
   }
   remove(id:string){
-    const previous=this.provider(id);if(this.store.data.defaultModel?.providerId===id||this.using(id).length)throw new Error('此 Provider 仍被默认模型或 Bot 使用，请先切换模型');
+    const previous=this.provider(id);if(this.store.data.defaultModel?.providerId===id||this.store.data.approvalModel?.providerId===id||this.using(id).length)throw new Error('此 Provider 仍被默认模型、自动审核模型或 Bot 使用，请先切换模型');
     this.requests.get(id)?.controller.abort();this.requests.delete(id);this.commit({providers:this.store.data.providers!.filter(provider=>provider.id!==id)});if(previous.encryptedKey)this.decrypted.delete(previous.encryptedKey);
   }
   refresh(id:string):Promise<ModelProvider>{

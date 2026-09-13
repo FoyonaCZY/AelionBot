@@ -1,3 +1,4 @@
+import {sourceTextFile} from '../../src/source-language';
 import {randomUUID,createHash} from 'node:crypto';
 import {officeExtensions,officePreview} from './office-preview';
 import {mkdirSync,readFileSync,writeFileSync,statSync,lstatSync,unlinkSync} from 'node:fs';
@@ -15,6 +16,11 @@ export function attachmentName(value:unknown){if(typeof value!=='string'||!value
 const ref=(file:StoredAttachment):Attachment=>({id:file.id,name:file.name,size:file.size,mime:file.mime,...(file.image?{image:file.image}:{})});
 export class Attachments {
   constructor(private store:Store,private vm?:VmController,private artifacts?:ArtifactService,private image?:(bytes:Buffer,id:string)=>ScreenReference|undefined){}
+  importForBot(botId:string,name:string,bytes:Buffer){
+    this.store.bot(botId);name=attachmentName(name);
+    const same=this.store.data.attachments.find(file=>file.ownerBotId===botId&&file.name===name&&file.sha256===hash(bytes));
+    return same?ref(same):this.import([{name,bytes}],{ownerBotId:botId})[0];
+  }
   scope(value:AttachmentScope){if(!value||!['bot','group'].includes(value.kind)||typeof value.id!=='string')throw new Error('附件会话无效');if(value.kind==='bot')this.store.bot(value.id);else if(!this.store.data.groups.some(group=>group.id===value.id))throw new Error('群聊不存在');return value;}
   private file(id:string){if(typeof id!=='string'||!/^[a-f0-9-]{36}$/.test(id))throw new Error('附件 ID 无效');const file=this.store.data.attachments.find(file=>file.id===id);if(!file)throw new Error('附件不存在');return file;}
   private location(id:string){return join(this.store.dir,'attachments',id);}
@@ -34,7 +40,7 @@ export class Attachments {
     const prepared=files.map(file=>{if(!file||!(file.bytes instanceof Uint8Array)||file.bytes.byteLength>ATTACHMENT_LIMITS.fileBytes)throw new Error('单个附件不能超过 25 MB');const name=attachmentName(file.name);return {name,bytes:Buffer.from(file.bytes)};});
     this.size(prepared.map(file=>({id:'',name:file.name,size:file.bytes.length,mime:''})));mkdirSync(join(this.store.dir,'attachments'),{recursive:true});const records:StoredAttachment[]=[];
     try{
-      for(const file of prepared){const id=randomUUID(),mime=mimeTypes[extname(file.name).toLowerCase()]||(textExtensions.has(extname(file.name).toLowerCase())?'text/plain':'application/octet-stream'),image=mime.startsWith('image/')&&mime!=='image/svg+xml'?this.image?.(file.bytes,id):undefined;
+      for(const file of prepared){const id=randomUUID(),mime=mimeTypes[extname(file.name).toLowerCase()]||(sourceTextFile(file.name)?'text/plain':'application/octet-stream'),image=mime.startsWith('image/')&&mime!=='image/svg+xml'?this.image?.(file.bytes,id):undefined;
         const record:StoredAttachment={id,name:file.name,size:file.bytes.length,mime,createdAt:new Date().toISOString(),sha256:hash(file.bytes),...origin,...(image?{image:{...image,attachmentId:id}}:{})};writeFileSync(this.location(id),file.bytes,{flag:'wx',mode:0o600});records.push(record);
       }
       this.store.data.attachments.push(...records);this.store.save();return records.map(ref);
@@ -49,7 +55,7 @@ export class Attachments {
     return this.size([...new Map(files.map(file=>[file.id,file])).values()]);
   }
   private text(file:StoredAttachment){
-    if(!textExtensions.has(extname(file.name).toLowerCase())&&!file.mime.startsWith('text/'))return;
+    if(!sourceTextFile(file.name)&&!file.mime.startsWith('text/'))return;
     const bytes=this.bytes(file.id);if(bytes[0]===255&&bytes[1]===254)return bytes.subarray(2).toString('utf16le');if(bytes.subarray(0,4096).includes(0))return;
     try{return new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{return;}
   }

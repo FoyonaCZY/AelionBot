@@ -116,7 +116,7 @@ export class Interactions {
       else{try{this.record?.(structuredClone(item.request),'auto-model-'+result.decision);}catch{}this.changed();}
     }).catch(()=>{
       const item=this.pending.get(id);if(!item||item!==pending||item.revision!==revision||controller.signal.aborted||item.request.kind!=='host_permission')return;
-      item.request.approval={mode:'auto',phase:'waiting',decision:'ask',reason:'默认模型审核未完成，需要你确认本次操作',reviewer:request.approval?.reviewer};
+      item.request.approval={mode:'auto',phase:'waiting',decision:'ask',reason:'审核模型未完成审核，需要你确认本次操作',reviewer:request.approval?.reviewer};
       try{this.record?.(structuredClone(item.request),'auto-review-unavailable');}catch{}this.changed();
     });
   }

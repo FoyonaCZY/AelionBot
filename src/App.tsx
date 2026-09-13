@@ -1,3 +1,4 @@
+import {useAgentPreview} from './use-agent-preview';
 import {WorkspaceFileTree} from './WorkspaceFileTree';
 import {ArtifactList} from './ArtifactList';
 import {AppearanceSettings} from './AppearanceSettings';
@@ -101,6 +102,7 @@ function AppContent(){
   const requests=state?.interactions||[];
   const takeover=requests.find((request):request is Extract<InteractionRequest,{kind:'vm_takeover'}>=>request.kind==='vm_takeover'&&request.botId===desktopBot?.id);
   const waiting=requests.find(request=>request.botId===bot?.id&&(!state?.runs.find(run=>run.id===request.runId)?.groupOrigin||state?.runs.find(run=>run.id===request.runId)?.groupTask));
+  useAgentPreview(state?.previewRequests,group?{kind:'group',id:group.id}:{kind:'bot',id:bot?.id||''},Boolean(modal||peerPanel||groupEditor||taskModalOpen),error=>setToast(errorText(error)));
   const scopeBot=state?.bots.find(item=>item.id===scope)||bot;
   const act=async(operation:()=>Promise<unknown>)=>{setBusy(true);try{await operation();}catch(error){setToast(errorText(error));}finally{setBusy(false);}};
   const computerAction=async(operation:()=>Promise<unknown>)=>{if(controlBusy.current)return;controlBusy.current=true;setControlPending(true);try{await operation();}catch(error){setToast(errorText(error));}finally{controlBusy.current=false;setControlPending(false);}};
@@ -182,7 +184,7 @@ function AppContent(){
         }
         const {bot:item,last}=row;
         const active=state.runs.some(run=>run.botId===item.id&&run.status==='running'),introducing=state.greetingBotIds?.includes(item.id)||false;
-        const pending=requests.find(request=>request.botId===item.id);const lastRun=last?.runId?state.runs.find(run=>run.id===last.runId):undefined;const preview=pending?(pending.kind==='host_permission'?(pending.approval?.phase==='reviewing'?t('默认模型正在审核操作'):t('等待你的本机操作许可')):t('等待人工接管')):active?t('正在工作…'):introducing?t('正在打招呼…'):lastRun?.status==='failed'||lastRun?.status==='interrupted'?friendlyError(lastRun.error||'').title:lastRun?.groupUpdated?t('已接收新的群消息'):lastRun?.status==='cancelled'?t('已停止，工作记录已保留'):readableContent(last?.content||attachmentSummary(last?.attachments)).replace(/[#*`]/g,'');
+        const pending=requests.find(request=>request.botId===item.id);const lastRun=last?.runId?state.runs.find(run=>run.id===last.runId):undefined;const preview=pending?(pending.kind==='host_permission'?(pending.approval?.phase==='reviewing'?t('审核模型正在审核操作'):t('等待你的本机操作许可')):t('等待人工接管')):active?t('正在工作…'):introducing?t('正在打招呼…'):lastRun?.status==='failed'||lastRun?.status==='interrupted'?friendlyError(lastRun.error||'').title:lastRun?.groupUpdated?t('已接收新的群消息'):lastRun?.status==='cancelled'?t('已停止，工作记录已保留'):readableContent(last?.content||attachmentSummary(last?.attachments)).replace(/[#*`]/g,'');
         return <button className={`bot-item ${!group&&bot?.id===item.id?'selected':''}`} key={`bot:${item.id}`} data-bot-id={item.id} aria-haspopup="menu" aria-expanded={botMenu?.id===item.id} onClick={()=>{setSelectedGroup('');setSelected(item.id);setFiles([]);}} onContextMenu={event=>{event.preventDefault();showBotMenu(item,event.currentTarget,event.clientX||undefined,event.clientY||undefined);}} onKeyDown={event=>{if(event.key==='ContextMenu'||event.shiftKey&&event.key==='F10'){event.preventDefault();showBotMenu(item,event.currentTarget);}}}><Avatar bot={item} activity={avatarActivities[item.id]}/><span className="bot-copy"><span className="bot-line"><strong>{item.name}</strong><small>{last?time(last.time):''}</small></span><span className="bot-preview">{preview}</span></span>{(active||introducing)&&<span className={`bot-working ${pending?'needs-user':''}`}/>}</button>;
       })}</div>
       <div className="sidebar-bottom"><button className="sidebar-link" onClick={()=>openSettings()}><Icon name="settings"/><span>{t('设置')}</span></button><SidebarUpdate update={state.updates} onOpen={()=>openSettings('about')}/></div>

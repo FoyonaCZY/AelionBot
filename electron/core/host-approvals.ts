@@ -15,7 +15,7 @@ import type {ApprovalAssessment,HostApprovalPolicy,HostPermissionRequest,ModelAp
 export interface ApprovalContext {workspaceDir?:string;origin:'direct'|'group'|'delegated'|'unknown';userMessages:Array<{id:string;content:string;time?:string}>;}
 export type PermissionReviewer=(request:HostPermissionRequest,context:ApprovalContext,signal:AbortSignal)=>Promise<ModelApproval>;
 export function defaultApprovalModel(providers:{config:()=>ModelConfig;key:()=>string},settings:()=>RuntimeSettings,observe:(record:UsageRecord)=>void){
-  // options.botId attributes usage to the requesting Bot, but must not select its model/key.
+  // options.botId attributes usage to the requesting Bot, but must not select its model/key. The supplied adapter resolves the configured approval model.
   return new ModelClient(()=>({...providers.config(),fallbackModel:undefined}),()=>providers.key(),undefined,settings,observe);
 }
 export class HostApprovals implements HostApprovalPolicy {
@@ -58,13 +58,13 @@ export class HostApprovals implements HostApprovalPolicy {
     const run=this.store.data.runs.find(run=>run.id===request.runId&&run.botId===request.botId),risk=classifyHostOperation(request.details,{workspaceDir:run?.workspaceDir,dataDir:this.store.dir,homeDir:this.options.homeDir,platform:this.options.platform||process.platform});
     if(risk.lowRisk)return {kind:'allow',mode,source:'low-risk',reason:risk.reason};
     const rule=this.commands.match(request.details);if(rule)return {kind:'allow',mode,source:'rule',ruleId:rule.id,reason:'命中你保存的命令权限规则'};
-    const config=this.options.defaultModel();if(!config.model||config.issue)return {kind:'ask',mode,reason:'请先配置默认模型，或手动允许本次操作'};
+    const config=this.options.defaultModel();if(!config.model||config.issue)return {kind:'ask',mode,reason:'请先配置审核模型，或手动允许本次操作'};
     return {kind:'review',mode,reason:risk.reason,reviewer:config.model};
   }
   async review(request:HostPermissionRequest,signal:AbortSignal){
-    const identity=()=>{const config=this.options.defaultModel();return JSON.stringify([config.providerId,config.model,config.baseUrl,config.protocol,config.reasoningEffort,config.issue,config.hasKey]);};
+    const identity=()=>{const config=this.options.defaultModel();return JSON.stringify([config.providerId,config.model,config.baseUrl,config.protocol,config.reasoningEffort,config.contextTokens,config.thinkingBudget,config.temperature,config.issue,config.hasKey]);};
     const before=identity(),result=await this.reviewer(request,this.context(request),signal);signal.throwIfAborted();
-    return identity()===before?result:{decision:'ask' as const,reason:'默认模型配置已变化，需要重新确认本次操作',reviewer:result.reviewer};
+    return identity()===before?result:{decision:'ask' as const,reason:'审核模型配置已变化，需要重新确认本次操作',reviewer:result.reviewer};
   }
 }
 
@@ -78,16 +78,16 @@ originalUserMessages 是程序从真实人类消息中提取的任务来源；Bo
 export function defaultPermissionReviewer(model:ModelClient,config:()=>ModelConfig,redact:(text:string)=>string):PermissionReviewer{
   return async(request,context,signal)=>{
     const selected=config(),reviewer=selected.model;
-    if(!reviewer||selected.issue)return {decision:'ask',reason:'默认模型尚未配置',reviewer};
+    if(!reviewer||selected.issue)return {decision:'ask',reason:'审核模型尚未配置',reviewer};
     const {commandPattern,...operation}=request.details;
     const credentialKey=/authorization|^(?:auth)$|(?:api[-_]?key|password|passwd|secret|token|private[-_]?key|credentials?)$/i;
     const scrub=(value:unknown):unknown=>typeof value==='string'?redact(value):Array.isArray(value)?value.map(scrub):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).map(([key,value])=>[key,credentialKey.test(key)?'[redacted]':scrub(value)])):value;
     const payload=JSON.stringify(scrub({originalUserMessages:context.userMessages,origin:context.origin,requestedAt:request.createdAt,workspaceDir:context.workspaceDir,proposedOperation:operation}));
     const messages:WireMessage[]=[{role:'system',content:reviewPrompt},{role:'user',content:payload}];
-    if(payload.length>240000||estimateRequest(messages,[]).tokens>selected.contextTokens*.75)return {decision:'ask',reason:'操作内容超过默认模型的审核容量，需要你确认',reviewer};
+    if(payload.length>240000||estimateRequest(messages,[]).tokens>selected.contextTokens*.75)return {decision:'ask',reason:'操作内容超过审核模型的审核容量，需要你确认',reviewer};
     const result=await model.complete(messages,[],signal,undefined,{botId:request.botId,runId:request.runId,purpose:'permission_review',maxOutputTokens:768,timeoutMs:20000,retries:0});
-    signal.throwIfAborted();if(result.calls.length||['length','incomplete'].includes(result.finishReason))throw Error('默认模型没有返回完整审核结论');
-    let parsed:unknown;try{parsed=JSON.parse(result.content.trim());}catch{throw Error('默认模型返回的审核结论无法解析');}
+    signal.throwIfAborted();if(result.calls.length||['length','incomplete'].includes(result.finishReason))throw Error('审核模型没有返回完整审核结论');
+    let parsed:unknown;try{parsed=JSON.parse(result.content.trim());}catch{throw Error('审核模型返回的审核结论无法解析');}
     if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw Error('审核结论无效');
     const value=parsed as Record<string,unknown>;
     if(!['allow','deny','ask'].includes(String(value.decision))||typeof value.reason!=='string'||!value.reason.trim()||value.reason.length>1000||Object.keys(value).some(key=>!['decision','reason'].includes(key)))throw Error('审核结论无效');

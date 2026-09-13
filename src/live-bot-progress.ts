@@ -42,7 +42,12 @@ export function liveBotProgress(messages:ChatMessage[],run?:RunRecord,waiting?:'
   }
   const request=run.modelRequest;
   if(request){
-    if(request.phase!=='streaming'&&(request.phase==='retrying'||request.attempt>0||request.reason==='fallback'))return {...common,label:translate(request.reason==='fallback'?'正在尝试备用模型':request.reason==='rate_limit'?'服务繁忙，正在重试':'正在重试模型请求'),description:request.reason==='fallback'?translate('正在使用配置的备用模型继续请求。'):translate('正在进行第 {attempt} 次重试，最多 {max} 次。',{attempt:Math.max(1,request.attempt),max:request.maxRetries}),since:request.startedAt,retry:true,waitingOn:'model'};
+    if(request.phase==='retrying')return {...common,label:translate(request.reason==='fallback'?'正在尝试备用模型':request.reason==='rate_limit'?'服务繁忙，正在重试':request.reason==='connect_timeout'?'连接模型服务超时，准备重试':'正在重试模型请求'),description:request.reason==='fallback'?translate('正在使用配置的备用模型继续请求。'):translate('正在进行第 {attempt} 次重试，最多 {max} 次。',{attempt:Math.max(1,request.attempt),max:request.maxRetries}),since:request.startedAt,retry:true,waitingOn:'model'};
+    if(request.phase==='waiting'&&request.attempt>0){
+      const reason=translate(request.reason==='connect_timeout'?'连接模型服务超时':request.reason==='timeout'?'等待模型响应超时':request.reason==='rate_limit'?'模型服务限流':'模型连接中断');
+      return {...common,label:translate('等待重试请求响应'),description:translate('第 {attempt} 次重试已开始，正在等待响应。上次原因：{reason}。',{attempt:request.attempt,reason}),since:request.startedAt,waitingOn:'model'};
+    }
+    if(request.phase==='waiting'&&request.reason==='fallback')return {...common,label:translate('正在尝试备用模型'),description:translate('正在使用配置的备用模型继续请求。'),since:request.startedAt,waitingOn:'model'};
     if(request.phase==='streaming')return {...common,label:translate('正在生成回复'),description:translate('已收到模型输出，内容会陆续显示在对话中。'),since:request.updatedAt,waitingOn:'stream'};
     return {...common,label:translate('正在处理你的请求'),description:translate('请求已发送，等待模型返回下一步。'),since:request.startedAt,waitingOn:'model'};
   }

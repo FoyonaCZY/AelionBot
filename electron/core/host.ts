@@ -89,6 +89,23 @@ export class HostComputer {
       return {path,location:'host',...textPage(safe,range),redacted:safe!==decoded.text,sha256:decoded.sha256,bytes:decoded.bytes,bom:decoded.bom};
     }catch(error){throw filesystemError(error,path);}
   }
+  async readPreviewFile(botId:string,runId:string,args:Record<string,unknown>,signal:AbortSignal,workspace?:string){
+    const path=this.canonical(this.resolveFilePath(args.path,workspace)),reason=text(args.reason,'reason',1000),stamp=this.stamp(path),limit=25*1024*1024;
+    await this.interactions.permission(botId,runId,{operation:'read_file',reason,path,tool:'open_preview'},signal);aborted(signal);
+    if(this.canonical(path)!==path||this.stamp(path)!==stamp)throw new FileToolError('FILE_CHANGED','文件在确认期间发生变化，请重新预览');
+    const expected=statSync(path);if(!expected.isFile()||expected.size>limit)throw new FileToolError('FILE_TOO_LARGE','预览需要 25 MB 以内的普通文件');
+    const fd=openSync(path,'r');let bytes:Buffer;
+    try{
+      const opened=fstatSync(fd);
+      if(!opened.isFile()||opened.dev!==expected.dev||opened.ino!==expected.ino||opened.size!==expected.size||opened.mtimeMs!==expected.mtimeMs)throw new FileToolError('FILE_CHANGED','文件在打开时发生变化');
+      const buffer=Buffer.alloc(opened.size+1);let total=0;
+      while(total<buffer.length){const count=readSync(fd,buffer,total,buffer.length-total,null);if(!count)break;total+=count;}
+      const after=fstatSync(fd);
+      if(total!==opened.size||after.size!==opened.size||after.mtimeMs!==opened.mtimeMs||this.canonical(path)!==path||this.stamp(path)!==stamp)throw new FileToolError('FILE_CHANGED','文件在读取期间发生变化');
+      bytes=buffer.subarray(0,total);
+    }finally{closeSync(fd);}
+    aborted(signal);return {path,bytes};
+  }
   async viewImage(botId:string,runId:string,args:Record<string,unknown>,signal:AbortSignal,workspace?:string){
     const path=this.canonical(this.resolveFilePath(args.path,workspace)),reason=text(args.reason,'reason',1000),stamp=this.stamp(path);
     if(!this.options.imagePreview)throw new FileToolError('IMAGE_UNAVAILABLE','图像预览服务尚未就绪');

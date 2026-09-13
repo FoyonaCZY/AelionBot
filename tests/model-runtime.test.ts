@@ -57,3 +57,62 @@ test('request context telemetry arrives before the response and cannot break inf
  const result=await model.complete([{role:'user',content:'Current request'}],[],new AbortController().signal,undefined,{onContext:overview=>{reported=true;observed=overview;throw Error('UI observer failure');}});
  assert.equal(result.content,'ok');assert.equal(observed?.capacity,32000);assert.ok(observed!.parts.conversation>0);
 });
+
+
+test('connect timeouts retain a specific public reason and retries remain bounded',async t=>{
+ const original=globalThis.fetch;let count=0;const states:ModelRequestStatus[]=[];
+ globalThis.fetch=async()=>{count++;throw new TypeError('fetch failed',{cause:Object.assign(new Error('sensitive transport details'),{code:'UND_ERR_CONNECT_TIMEOUT'})});};
+ t.after(()=>{globalThis.fetch=original;});
+ const model=new ModelClient(()=>cfg,()=> '');t.after(()=>model.dispose());
+ await assert.rejects(model.complete([{role:'user',content:'test'}],[],new AbortController().signal,undefined,{retries:2,onStatus:status=>states.push(status)}),/fetch failed/);
+ assert.equal(count,3);assert.equal(states.filter(s=>s.phase==='retrying').length,2);
+ assert.ok(states.filter(s=>s.phase==='retrying').every(s=>s.reason==='connect_timeout'));
+ assert.deepEqual(states.filter(s=>s.phase==='waiting').map(s=>s.attempt),[0,1,2]);
+ assert.doesNotMatch(JSON.stringify(states),/sensitive transport details/);
+});
+
+
+for(const protocol of ['chat','responses','anthropic','gemini'] as const)test(`${protocol} updates the same request overview from normalized provider input usage`,async t=>{
+ const updates:import('../src/context-overview').ContextOverview[]=[];let requests=0,observed=false;let observedSource:string|undefined;
+ const baseUrl=await server(t,async(req,res)=>{
+  for await(const _ of req){}requests++;
+  if(protocol==='chat'||protocol==='responses'){
+   res.writeHead(200,{'content-type':'application/json'});
+   res.end(JSON.stringify(protocol==='chat'?{choices:[{message:{content:'ok'},finish_reason:'stop'}],usage:{prompt_tokens:321,completion_tokens:7,total_tokens:328,prompt_tokens_details:{cached_tokens:200}}}:{status:'completed',output:[{type:'message',role:'assistant',content:[{type:'output_text',text:'ok'}]}],usage:{input_tokens:321,output_tokens:7,total_tokens:328,input_tokens_details:{cached_tokens:200}}}));
+  }else{
+   res.writeHead(200,{'content-type':'text/event-stream'});
+   const events=protocol==='anthropic'?[
+    {type:'message_start',message:{usage:{input_tokens:21,cache_read_input_tokens:200,cache_creation_input_tokens:100}}},
+    {type:'content_block_start',index:0,content_block:{type:'text',text:''}},
+    {type:'content_block_delta',index:0,delta:{type:'text_delta',text:'ok'}},
+    {type:'message_delta',delta:{stop_reason:'end_turn'},usage:{output_tokens:7}},
+    {type:'message_stop'}
+   ]:[{candidates:[{content:{role:'model',parts:[{text:'ok'}]},finishReason:'STOP'}],usageMetadata:{promptTokenCount:321,candidatesTokenCount:7,totalTokenCount:328,cachedContentTokenCount:200}}];
+   res.end(events.map(event=>'data: '+JSON.stringify(event)+'\n\n').join(''));
+  }
+ });
+ const model=new ModelClient(()=>({...cfg,baseUrl,protocol}),()=> '',undefined,()=>DEFAULT_RUNTIME,record=>{if(!record.error){observed=true;observedSource=updates.at(-1)?.estimateSource;}});t.after(()=>model.dispose());
+ const result=await model.complete([{role:'user',content:'request'}],[],new AbortController().signal,undefined,{onContext:value=>updates.push(value),contextStats:{estimatedTokens:1000,displayTokens:650,displaySource:'calibrated',calibration:1,prunedOutputs:1,epoch:0}});
+ assert.equal(requests,1,'statistics must not make an extra inference or counting request');
+ assert.equal(observed,true);assert.equal(observedSource,'provider-usage');assert.equal(updates[0].tokens,650);assert.equal(updates[0].estimateSource,'calibrated');
+ assert.equal(updates.at(-1)?.tokens,321);assert.equal(result.usage?.inputTokens,321);
+ assert.equal(Object.values(updates.at(-1)!.parts).reduce((sum,value)=>sum+value,0),321);
+ assert.equal(updates[0].tokens,650,'the estimated snapshot remains immutable');
+});
+
+test('missing provider input counts preserve the estimate instead of inventing zero',async t=>{
+ const updates:import('../src/context-overview').ContextOverview[]=[];
+ const baseUrl=await server(t,async(req,res)=>{for await(const _ of req){}res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({choices:[{message:{content:'ok'},finish_reason:'stop'}],usage:{completion_tokens:7}}));});
+ const model=new ModelClient(()=>({...cfg,baseUrl}),()=> '');t.after(()=>model.dispose());
+ await model.complete([{role:'user',content:'request'}],[],new AbortController().signal,undefined,{onContext:value=>updates.push(value)});
+ assert.equal(updates.length,1);assert.ok(updates[0].tokens>0);assert.equal(updates[0].estimateSource,'tokenizer');
+});
+
+test('fallback usage is identified with the model that actually handled the request',async t=>{
+ let calls=0;const updates:import('../src/context-overview').ContextOverview[]=[];
+ const baseUrl=await server(t,async(req,res)=>{for await(const _ of req){}calls++;if(calls===1){res.writeHead(503);res.end('unavailable');return;}res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({choices:[{message:{content:'ok'},finish_reason:'stop'}],usage:{prompt_tokens:123,completion_tokens:2}}));});
+ const model=new ModelClient(()=>({...cfg,baseUrl,fallbackModel:'fallback'}),()=> '');t.after(()=>model.dispose());
+ const result=await model.complete([{role:'user',content:'request'}],[],new AbortController().signal,undefined,{retries:0,onContext:value=>updates.push(value)});
+ assert.equal(updates[0].model,'test');assert.equal(updates.at(-1)?.model,'fallback');assert.equal(updates.at(-1)?.tokens,123);
+ assert.notEqual(result.requestModelKey,nativeKey({...cfg,baseUrl}));
+});

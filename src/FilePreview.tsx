@@ -67,10 +67,10 @@ function PreviewContent({item,retry,override}:{item:PreviewItem;retry:number;ove
   if(value.kind==='unsupported')return <div className="fp-state"><FileTypeBadge name={item.name}/><strong>{t('保存后，继续查看')}</strong><p>{t('此格式暂不支持直接预览，可保存到本机打开。')}</p></div>;
   return <><DocumentPreview value={value} name={item.name}/>{value.truncated&&<div className="fp-truncated" role="status">{t('预览内容已截断，可保存原文件查看全部内容。')}</div>}</>;
 }
-export function FilePreview({items:initialItems,initialIndex=0,onClose,registerGuard}:{items:PreviewItem[];initialIndex?:number;onClose:()=>void;registerGuard?:RegisterPreviewGuard}){
+export function FilePreview({items:initialItems,initialIndex=0,initialExpanded=false,onClose,registerGuard}:{items:PreviewItem[];initialIndex?:number;initialExpanded?:boolean;onClose:()=>void;registerGuard?:RegisterPreviewGuard}){
   const {t}=useI18n();
   const [items,setItems]=useState(()=>initialItems.map(item=>item.editor||!item.workspace?item:{...item,editor:workspacePreviewItem(item.workspace.botId,{name:item.name,path:item.workspace.path,size:item.size}).editor})),[directoryOpen,setDirectoryOpen]=useState(true);
-  const [index,setIndex]=useState(initialIndex),[expanded,setExpanded]=useState(false),[wide,setWide]=useState(()=>matchMedia('(min-width:1200px)').matches),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[retry,setRetry]=useState(0);
+  const [index,setIndex]=useState(initialIndex),[expanded,setExpanded]=useState(initialExpanded),[wide,setWide]=useState(()=>matchMedia('(min-width:1200px)').matches),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[retry,setRetry]=useState(0);
   const edits=usePreviewEdits();
   const panel=useRef<HTMLElement>(null),previous=useRef<HTMLElement|null>(null),item=items[index],modal=expanded||!wide;
   const draft=edits.drafts[item.id],dirty=Boolean(draft&&draftChanged(draft));
