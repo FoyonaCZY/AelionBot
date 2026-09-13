@@ -1,6 +1,6 @@
 {
   "name": "aelion-bot",
-  "version": "0.21.3",
+  "version": "0.22.0",
   "private": true,
   "description": "Local AI teammates with a managed Linux computer",
   "type": "module",
@@ -36,6 +36,7 @@
       "dist-electron/**",
       "assets/icon.*",
       "assets/wallpaper-light.png",
+      "assets/video-inspector.html",
       "assets/skills/**",
       "!assets/skills/**/__pycache__/**",
       "!assets/skills/**/*.pyc",

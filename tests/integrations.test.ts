@@ -114,3 +114,22 @@ test('real Streamable HTTP, SSE and HTTP-to-SSE fallback connect; imported serve
   for(const config of configs){await runtime.setEnabled(config.id,true);const tools=await runtime.listTools(config.id);assert.ok(tools.tools.some(tool=>tool.name==='echo'));const result=await runtime.call(config.id,'echo',{message:config.name},new AbortController().signal);assert.equal(result.structuredContent.echo,config.name);}
   await runtime.setEnabled(configs[0].id,false);await assert.rejects(()=>runtime.listTools(configs[0].id),/尚未启用/);
 });
+
+
+test('plugin skill switches persist, keep disabled details inspectable, and block runtime use',t=>{
+ const paths=fixture(t),store=new Store(paths.dataDir),a=store.data.bots[0],b=store.createBot('Other','Independent');t.after(()=>store.close());
+ const sharedPath=join(paths.projectDir,'.agents','skills','shared-switch','SKILL.md');file(sharedPath,skill('shared-switch','Shared workflow'));
+ store.data.skills.push({id:'owned-switch',name:'Private workflow',description:'Private',body:'Private body',botId:a.id});
+ const library=new SkillLibrary(store,paths),shared=library.all().find(item=>item.name==='shared-switch')!;assert.ok(shared);
+ library.setEnabled(shared.id,false);
+ assert.equal(library.all().find(item=>item.id===shared.id)?.enabled,false);
+ for(const bot of [a,b]){assert.ok(!library.list(bot.id).some(item=>item.id===shared.id));assert.throws(()=>library.read(bot.id,shared.id),/停用/);assert.throws(()=>library.bundle(bot.id,shared.id),/停用/);}
+ assert.match(library.read(undefined,shared.id,true).body,/Shared workflow/);
+ assert.equal(readFileSync(sharedPath,'utf8'),skill('shared-switch','Shared workflow'));
+ library.refresh();assert.equal(library.all().find(item=>item.id===shared.id)?.enabled,false);
+ const reopened=new SkillLibrary(store,paths);assert.equal(reopened.all().find(item=>item.id===shared.id)?.enabled,false);
+ reopened.setEnabled(shared.id,true);assert.ok(reopened.list(a.id).some(item=>item.id===shared.id));
+ reopened.setEnabled('owned-switch',false);assert.ok(!reopened.list(a.id).some(item=>item.id==='owned-switch'));assert.match(reopened.read(a.id,'owned-switch',true).body,/Private body/);assert.throws(()=>reopened.read(b.id,'owned-switch',true),/无权访问/);
+ reopened.setEnabled('owned-switch',true);reopened.manage(a.id,'owned-switch','archive');assert.equal(reopened.all().find(item=>item.id==='owned-switch')?.enabled,false);
+ reopened.setEnabled('owned-switch',true);assert.ok(reopened.list(a.id).some(item=>item.id==='owned-switch'));assert.ok(!reopened.list(b.id).some(item=>item.id==='owned-switch'));
+});

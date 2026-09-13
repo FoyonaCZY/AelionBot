@@ -101,3 +101,11 @@ test('reading then saving a group attachment promotes the actual save and keeps 
 test('Bot group sends forward a received attachment without exposing it to nonmembers',async t=>{
   let roomId='';const fx=fixture(t,(run,messages)=>{if(run.groupOrigin)return answer('[群聊静默]');const file=fx.store.data.messages.find(message=>message.role==='user'&&message.attachments?.length)!.attachments![0];return messages.some(message=>message.role==='tool')?answer('已发到群里。'):tool('group_send_message',{groupId:roomId,message:'请看这份文件',attachments:[{attachmentId:file.id}]});});const room=fx.groups.create({name:'接收群',botIds:[fx.a.id,fx.b.id]});roomId=room.id;const [file]=fx.attachments.importFiles({kind:'bot',id:fx.a.id},[{name:'转发.csv',bytes:document}]);fx.queue.send({botId:fx.a.id,message:'把附件发到接收群',attachmentIds:[file.id]});fx.groups.start();await until(fx.idle);assert.ok(fx.groups.read({id:room.id}).messages.some(message=>message.attachments?.[0].id===file.id));assert.equal(fx.attachments.canRead(fx.b.id,file.id),true);assert.equal(fx.attachments.canRead(fx.c.id,file.id),false);
 });
+
+
+test('video contact-sheet observations reach the next model request as actual images',async t=>{
+ let calls=0;const id='11111111-2222-3333-4444-555555555555';
+ const fx=fixture(t,(_run,messages)=>{if(calls++===0)return tool('video_frames',{path:'sample.mp4',reason:'inspect video'});assert.ok(messages.some(message=>message.images?.some(image=>image.id===id)));return answer('抽样画面已查看');});
+ fx.harness.setVideoFrames({inspect:async()=>({images:[{id,width:640,height:202}],timestamps:[.2,1.8],note:'sampled frames only'})} as any);
+ await fx.harness.run(fx.a.id,'查看视频');assert.equal(calls,2);assert.ok(fx.store.data.messages.some(message=>message.tool==='video_frames'&&message.screenshotId===id&&message.status==='done'));
+});

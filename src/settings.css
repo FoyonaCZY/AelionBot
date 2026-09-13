@@ -203,3 +203,11 @@
 @media(max-width:520px){.modal-backdrop.settings-backdrop{padding:8px}.modal.settings-modal{grid-template-columns:56px minmax(0,1fr);height:calc(100dvh - 16px);border-radius:18px}.settings-modal .settings-sidebar{padding:18px 7px}.settings-modal .settings-brand{padding:0;justify-content:center;margin-bottom:15px}.settings-modal .settings-brand>span,.settings-modal .settings-sidebar button>span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}.settings-modal .settings-sidebar button{padding:10px;justify-content:center}.settings-modal .settings-heading{padding:30px 18px 23px}.settings-modal .settings-body{padding:0 18px 24px}.settings-modal .settings-heading h2{font-size:calc(21px * var(--appearance-text-scale,1))}.settings-modal .settings-actions{flex-wrap:wrap}.settings-modal .integration-path{flex-wrap:wrap}.settings-modal .settings-row{font-size:calc(12px * var(--appearance-text-scale,1))}.settings-modal .provider-row{flex-wrap:wrap;gap:12px}.settings-modal .provider-info{flex-basis:65%}.settings-modal .about-app{padding:18px}}
 .profile-background{display:flex;flex-direction:column;gap:10px;padding:16px 0;font-size:calc(13px * var(--appearance-text-scale,1))}
 .profile-background textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:120px;padding:12px;border:1px solid var(--line,light-dark(#e5e1eb,#3e3945));border-radius:10px;background:var(--surface,light-dark(#fff,#201e24));color:inherit;font:inherit;line-height:1.65;outline:none}
+
+/* Settings navigation: neutral surfaces, without brand decoration. */
+:root[data-theme] .settings-modal .settings-sidebar{background:light-dark(#f5f5f5,#252525);border-right-color:light-dark(#e5e5e5,#3a3a3a);padding-top:24px}
+.settings-modal .settings-sidebar button{color:light-dark(#595959,#c8c8c8)}
+.settings-modal .settings-sidebar button:hover{background:light-dark(#ededed,#303030)}
+.settings-modal .settings-sidebar button.active{background:light-dark(#e4e4e4,#3b3b3b);color:light-dark(#171717,#f2f2f2)}
+.settings-modal .settings-sidebar svg{color:light-dark(#777,#b0b0b0)}
+.settings-modal .settings-sidebar button.active svg{color:inherit}

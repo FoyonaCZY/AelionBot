@@ -10,7 +10,7 @@ import type {ArtifactPreview,ScreenReference,WireMessage} from '../../src/shared
 import {ATTACHMENT_LIMITS,attachmentSummary,type Attachment,type AttachmentScope,type AttachmentUpload,type StoredAttachment} from '../../src/attachment-types';
 
 const hash=(bytes:Uint8Array)=>createHash('sha256').update(bytes).digest('hex');
-const mimeTypes:Record<string,string>={'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif','.bmp':'image/bmp','.avif':'image/avif','.pdf':'application/pdf','.txt':'text/plain','.md':'text/markdown','.csv':'text/csv','.tsv':'text/tab-separated-values','.json':'application/json','.html':'text/html','.xml':'application/xml','.svg':'image/svg+xml','.docx':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','.xlsx':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','.pptx':'application/vnd.openxmlformats-officedocument.presentationml.presentation','.zip':'application/zip'};
+const mimeTypes:Record<string,string>={'.mp4':'video/mp4','.webm':'video/webm','.mov':'video/quicktime','.m4v':'video/mp4','.mkv':'video/x-matroska','.avi':'video/x-msvideo','.ogv':'video/ogg','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif','.bmp':'image/bmp','.avif':'image/avif','.pdf':'application/pdf','.txt':'text/plain','.md':'text/markdown','.csv':'text/csv','.tsv':'text/tab-separated-values','.json':'application/json','.html':'text/html','.xml':'application/xml','.svg':'image/svg+xml','.docx':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','.xlsx':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','.pptx':'application/vnd.openxmlformats-officedocument.presentationml.presentation','.zip':'application/zip'};
 const textExtensions=new Set(['.txt','.md','.csv','.tsv','.json','.jsonl','.yaml','.yml','.xml','.svg','.html','.htm','.log','.py','.js','.ts','.tsx','.jsx','.css','.sql','.sh','.ps1','.c','.h','.cpp','.java','.rs','.go','.toml','.ini','.conf']);
 export function attachmentName(value:unknown){if(typeof value!=='string'||!value.trim())throw new Error('附件名称无效');const name=basename(value.replaceAll('\\','/')).replace(/[<>:"/\\|?*\u0000-\u001f]/g,'_').replace(/[. ]+$/,'')||'附件';if(name.length<=255)return name;const extension=extname(name).slice(0,20);let stem=name.slice(0,255-extension.length);if(/[\uD800-\uDBFF]$/.test(stem))stem=stem.slice(0,-1);return stem+extension;}
 const ref=(file:StoredAttachment):Attachment=>({id:file.id,name:file.name,size:file.size,mime:file.mime,...(file.image?{image:file.image}:{})});
@@ -81,5 +81,6 @@ export class Attachments {
     if(!botId)throw new Error('请先创建一个 Bot，再预览此文档。');
     return officePreview(this.vm,botId,extension,this.bytes(id));
   }
+  videoReference(botId:string,id:string){this.forBot(botId,[id]);this.bytes(id);const file=this.file(id);const path=this.location(id);if(lstatSync(path).isSymbolicLink()||statSync(path).size!==file.size)throw Error('附件文件发生变化');return {path,name:file.name};}
   metadata(id:string){return ref(this.file(id));}
 }

@@ -1,7 +1,7 @@
 import {spawn} from 'node:child_process';
 import {createHash,randomUUID} from 'node:crypto';
 import {existsSync,mkdirSync,readFileSync,readdirSync,realpathSync,statSync,writeFileSync,renameSync,unlinkSync,linkSync,chmodSync,copyFileSync,constants,openSync,readSync,closeSync,fstatSync} from 'node:fs';
-import {dirname,isAbsolute,join,resolve} from 'node:path';
+import {dirname,isAbsolute,join,resolve,relative} from 'node:path';
 import {Interactions} from './interactions';
 import {atomicJson} from './store';
 import type {HostWorkspaceSettings,ScreenReference} from '../../src/shared';
@@ -163,6 +163,20 @@ export class HostComputer {
     try{const items=readdirSync(path,{withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name)),nextOffset=Math.min(items.length,offset+limit);
       return {path,location:'host',items:items.slice(offset,nextOffset).map(item=>({name:item.name,kind:item.isDirectory()?'directory':item.isSymbolicLink()?'link':'file'})),total:items.length,nextOffset,truncated:nextOffset<items.length,eof:nextOffset>=items.length};
     }catch(error){throw filesystemError(error,path);}
+  }
+  async mentionFiles(query:string,workspace:string,signal:AbortSignal){
+    if(typeof query!=='string'||query.length>150||forbidden.test(query))throw Error('文件搜索词无效');
+    const root=this.validateWorkspace(workspace),part=query.trim().replaceAll('\\','/').replace(/[*?\[\]{}]/g,'');
+    if(part.split('/').includes('..'))return {workspaceDir:root,files:[],truncated:false};
+    const found=await this.searches.run({kind:'find',root,dataDir:this.options.dataDir,homeDir:this.options.homeDir,glob:part?'**/*'+part.split('/').join('*/**/*')+'*':'**/*',regex:false,caseSensitive:false,respectIgnore:true,outputMode:'files',contextLines:0,offset:0,limit:30,secrets:[]},signal);
+    return {workspaceDir:root,files:(found.files||[]).map(path=>({path,relativePath:relative(root,path).replaceAll('\\','/')})),truncated:found.truncated||found.scanLimited};
+  }
+  async videoFile(botId:string,runId:string,args:Record<string,unknown>,signal:AbortSignal,workspace?:string){
+    const path=this.canonical(this.resolveFilePath(args.path,workspace)),reason=text(args.reason,'reason',1000),stamp=this.stamp(path);
+    if(!statSync(path).isFile())throw Error('请选择视频文件');
+    await this.interactions.permission(botId,runId,{operation:'read_file',path,reason,tool:'video_frames'},signal);aborted(signal);
+    if(this.canonical(path)!==path||this.stamp(path)!==stamp)throw Error('视频文件在确认期间发生变化，请重新读取');
+    return path;
   }
   async searchFiles(botId:string,runId:string,args:Record<string,unknown>,signal:AbortSignal,workspace?:string,kind:'find'|'search'='search'){
     const path=this.canonical(this.resolveFilePath(args.path===undefined||args.path===''?workspace||this.workspace(botId):args.path,workspace)),reason=text(args.reason,'reason',1000);

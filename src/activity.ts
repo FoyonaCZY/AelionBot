@@ -21,6 +21,7 @@ const operations:Record<string,{label:string;active:string;icon:string}>={
   code_exec:{label:'运行工具编排',active:'正在运行工具',icon:'terminal'},
   request_user_input:{label:'向你提问',active:'等待你的回答',icon:'message'},
   user_input_wait:{label:'等待回答',active:'等待你的回答',icon:'message'},
+  video_frames:{label:'查看视频画面',active:'正在抽取视频画面',icon:'file'},
   view_image:{label:'查看图片',active:'正在查看图片',icon:'file'},
   tool_search:{label:'查找工具',active:'正在查找工具',icon:'search'},
   web_search:{label:'搜索网页',active:'正在搜索网页',icon:'globe'},

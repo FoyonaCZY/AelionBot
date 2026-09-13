@@ -20,7 +20,7 @@ import {RunMessage} from './activity-ui';
 import {BotWorkingStatus} from './BotWorkingStatus';
 import {liveBotProgress as liveBotStep} from './live-bot-progress';
 import {conversationTimeline,friendlyError,readableContent} from './activity';
-import {SkillsSettings,McpSettings} from './integration-ui';
+import {PluginsPage,type PluginFilter} from './PluginsPage';
 import {SettingsWindow,SettingsSection,SettingsEmpty,type SettingsTab} from './SettingsWindow';
 import {CommandPermissionsSettings} from './CommandPermissionsSettings';
 import {HostWorkspaceSettings} from './HostWorkspaceSettings';
@@ -55,6 +55,7 @@ const errorText=(error:unknown)=>(error as Error).message.replace(/^Error invoki
 export default function App(){return <I18nProvider><FilePreviewProvider><AppContent/></FilePreviewProvider></I18nProvider>;}
 function AppContent(){
   const showPreview=useFilePreview()!;
+  const [page,setPage]=useState<'chat'|'plugins'>('chat'),[pluginFilter,setPluginFilter]=useState<PluginFilter>('all');
   const {t,language}=useI18n();
   useWindowDimming();
   const [state,setState]=useState<Snapshot>(),[selected,setSelected]=useState(''),[query,setQuery]=useState(''),[drafts,setDrafts]=useState<Record<string,ComposerDraft>>({});
@@ -103,15 +104,15 @@ function AppContent(){
   const requests=state?.interactions||[];
   const takeover=requests.find((request):request is Extract<InteractionRequest,{kind:'vm_takeover'}>=>request.kind==='vm_takeover'&&request.botId===desktopBot?.id);
   const waiting=requests.find(request=>request.botId===bot?.id&&(!state?.runs.find(run=>run.id===request.runId)?.groupOrigin||state?.runs.find(run=>run.id===request.runId)?.groupTask));
-  useAgentPreview(state?.previewRequests,group?{kind:'group',id:group.id}:{kind:'bot',id:bot?.id||''},Boolean(modal||peerPanel||groupEditor||taskModalOpen),error=>setToast(errorText(error)));
+  useAgentPreview(state?.previewRequests,group?{kind:'group',id:group.id}:{kind:'bot',id:bot?.id||''},Boolean(page!=='chat'||modal||peerPanel||groupEditor||taskModalOpen),error=>setToast(errorText(error)));
   const scopeBot=state?.bots.find(item=>item.id===scope)||bot;
   const act=async(operation:()=>Promise<unknown>)=>{setBusy(true);try{await operation();}catch(error){setToast(errorText(error));}finally{setBusy(false);}};
   const computerAction=async(operation:()=>Promise<unknown>)=>{if(controlBusy.current)return;controlBusy.current=true;setControlPending(true);try{await operation();}catch(error){setToast(errorText(error));}finally{controlBusy.current=false;setControlPending(false);}};
   const closeModal=async()=>{if(modal==='computer'&&controlled&&desktopBot)await window.aelion.setComputerControl({botId:desktopBot.id,enabled:false});if(modal==='computer-setup'&&state)try{localStorage.setItem(computerSetupDismissalKey(state.dataDir,state.vm),'dismissed');}catch{}setModal(null);};
-  const startTakeover=(request:Extract<InteractionRequest,{kind:'vm_takeover'}>)=>computerAction(async()=>{await closeModal();await window.aelion.respondInteraction({id:request.id,action:'takeover'});setPeerPanel(undefined);setSelected(request.botId);setComputerBotId(request.botId);setModal('computer');});
-  const viewInteraction=(request:InteractionRequest)=>void computerAction(async()=>{await closeModal();setPeerPanel(undefined);setQuery('');setSelected(request.botId);setSelectedGroup(state?.runs.find(run=>run.id===request.runId)?.groupOrigin?.groupId||'');setFiles([]);setBotMenu(undefined);setViewingRequest(request.id);});
-  const openGroup=(id:string)=>void computerAction(async()=>{await closeModal();setPeerPanel(undefined);setGroupEditor(undefined);setNewMenu(false);setBotMenu(undefined);setSelectedGroup(id);});
-  const openPrivateChat=(panel:PeerPanel)=>void computerAction(async()=>{await closeModal();setBotMenu(undefined);setPeerPanel(panel);});
+  const startTakeover=(request:Extract<InteractionRequest,{kind:'vm_takeover'}>)=>computerAction(async()=>{await closeModal();setPage('chat');await window.aelion.respondInteraction({id:request.id,action:'takeover'});setPeerPanel(undefined);setSelected(request.botId);setComputerBotId(request.botId);setModal('computer');});
+  const viewInteraction=(request:InteractionRequest)=>void computerAction(async()=>{await closeModal();setPage('chat');setPeerPanel(undefined);setQuery('');setSelected(request.botId);setSelectedGroup(state?.runs.find(run=>run.id===request.runId)?.groupOrigin?.groupId||'');setFiles([]);setBotMenu(undefined);setViewingRequest(request.id);});
+  const openGroup=(id:string)=>void computerAction(async()=>{await closeModal();setPage('chat');setPeerPanel(undefined);setGroupEditor(undefined);setNewMenu(false);setBotMenu(undefined);setSelectedGroup(id);});
+  const openPrivateChat=(panel:PeerPanel)=>void computerAction(async()=>{await closeModal();setPage('chat');setBotMenu(undefined);setPeerPanel(panel);});
   const toggleComputerControl=()=>computerAction(async()=>{if(!desktopBot)return;if(takeover)await window.aelion.respondInteraction({id:takeover.id,action:controlled&&takeover.phase==='controlling'?'resume':'takeover'});else await window.aelion.setComputerControl({botId:desktopBot.id,enabled:!controlled});});
   useEffect(()=>{if(bot)setComputerBotId(bot.id);},[bot?.id]);
   useEffect(()=>{if(!desktopBot||!desktopAvailable)return;let active=true;void window.aelion.ensureComputerDesktop(desktopBot.id).catch(error=>{if(active)setToast(errorText(error));});return()=>{active=false;};},[desktopBot?.id,desktopAvailable,state?.vm.pid]);
@@ -122,13 +123,13 @@ function AppContent(){
   },[]);
   useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(''),6000);return()=>clearTimeout(timer);},[toast]);
   useEffect(()=>{
-    if(!state||modal||peerPanel||groupEditor||taskModalOpen)return;
+    if(!state||page!=='chat'||modal||peerPanel||groupEditor||taskModalOpen)return;
     const offer=computerSetupDismissalKey(state.dataDir,state.vm);
     if(setupPrompted.current===offer)return;
     let dismissed=false;try{dismissed=localStorage.getItem(offer)==='dismissed';}catch{}
     if(!shouldOfferComputerSetup(state.vm,dismissed))return;
     setupPrompted.current=offer;setModal('computer-setup');
-  },[state?.dataDir,state?.vm.status,state?.vm.appsReady,modal,peerPanel,groupEditor,taskModalOpen]);
+  },[state?.dataDir,state?.vm.status,state?.vm.appsReady,modal,peerPanel,groupEditor,taskModalOpen,page]);
   useEffect(()=>{
     if(!state||state.bots.some(item=>item.id===selected))return;
     const next=state.bots[0]?.id||'';selectedRef.current=next;setSelected(next);setFiles([]);
@@ -145,7 +146,8 @@ function AppContent(){
   useEffect(()=>{if(follow.current)bottom.current?.scrollIntoView();},[messages.length,messages.at(-1)?.content,state?.artifacts.length,liveSignature]);
   useEffect(()=>{if(!vmReady||!bot)return;const owner=bot.id;window.aelion.listFiles(owner).then(values=>{if(selectedRef.current===owner)setFiles(values);}).catch(()=>{});},[bot?.id,vmReady]);
   useEffect(()=>{const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'&&modal&&!(modal==='computer'&&controlled)){if(modal==='computer')void computerAction(closeModal);else void act(closeModal);}};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);},[modal,controlled]);
-  const openSettings=(tab:SettingsTab='model')=>{setScope(bot?.id||'');setSettingsTab(tab);setModal('settings');};
+  const openPlugins=(filter:PluginFilter='all')=>{setPluginFilter(filter);setModal(null);setPeerPanel(undefined);setGroupEditor(undefined);setNewMenu(false);setBotMenu(undefined);setPage('plugins');};
+  const openSettings=(tab:SettingsTab|'mcp'='model')=>{if(tab==='mcp'){openPlugins('mcp');return;}setScope(bot?.id||'');setSettingsTab(tab);setModal('settings');};
   const replyTo=(message:ChatMessage)=>{const owner=state?.bots.find(bot=>bot.id===message.botId);if(!owner)return;setDrafts(value=>({...value,[owner.id]:{...(value[owner.id]||{text:'',mentions:[]}),reply:messageReply(message,message.role==='user'?t('你'):owner.name,message.role==='user'?'user':owner.id)}}));};
   const send=async()=>{if(!bot||sending.current.has(bot.id)||!draft.text.trim()&&!draft.attachments?.length)return;if(draft.text.length>32000){setToast(t('消息过长，请分段发送'));return;}if(!currentModel?.model||currentModel.issue){openSettings();setToast(t('先为这个 Bot 选择模型'));return;}const saved=draft,botId=bot.id;sending.current.add(botId);setDrafts(value=>({...value,[botId]:{text:'',mentions:[]}}));follow.current=true;try{await window.aelion.send({botId,message:saved.text,mentions:saved.mentions,replyToMessageId:saved.reply?.messageId,attachmentIds:saved.attachments?.map(file=>file.id)});}catch(error){setDrafts(value=>value[botId]?.text||value[botId]?.attachments?.length||value[botId]?.reply?value:{...value,[botId]:saved});setToast(errorText(error));}finally{sending.current.delete(botId);}};
   const continueWork=()=>{if(!bot||running||!latestRun)return;follow.current=true;void window.aelion.resumeChat({botId:bot.id,runId:latestRun.id}).catch(error=>setToast(errorText(error)));};
@@ -158,7 +160,7 @@ function AppContent(){
     }]);
   };
   const saveFile=(file:PreviewFile)=>act(async()=>{const path=await window.aelion.exportFile({botId:file.botId,path:file.path});if(path)setToast(`${t('已保存：')}${path}`);});
-  const openNewBot=()=>{if(!newMenu)setNewBotPalette(randomBotPalette(newBotPalette));setName('');setRole('');setProfileModel(null);setProfileReasoning(state?.defaultModel?.reasoningEffort||'');setModal('new');};
+  const openNewBot=()=>{setPage('chat');if(!newMenu)setNewBotPalette(randomBotPalette(newBotPalette));setName('');setRole('');setProfileModel(null);setProfileReasoning(state?.defaultModel?.reasoningEffort||'');setModal('new');};
   const editBot=(target:Bot)=>{setBotMenu(undefined);setEditingId(target.id);setName(target.name);setRole(target.role);setProfileModel(target.model?{...target.model}:null);setProfileReasoning(target.reasoningEffort||'');setProfilePalette(displayBotPalette(target));setModal('profile');};
   const showBotMenu=(target:Bot,trigger:HTMLButtonElement,x?:number,y?:number)=>{
     const box=trigger.getBoundingClientRect();setBotMenu({id:target.id,trigger,x:x??box.left+24,y:y??box.bottom});
@@ -174,24 +176,25 @@ function AppContent(){
   const rows=conversationRows(state.bots,state.messages,state.groups?.rooms||[],state.runs);
   const title=modal==='computer-setup'?t('工作电脑设置'):modal==='settings'?t('设置'):modal==='new'?t('创建新 Bot'):modal==='profile'?t('Bot 资料'):modal==='delete-bot'?t('删除 Bot'):modal==='terminal'?t('工作终端'):modal==='files'?`${bot?.name||'Bot'} ${t('的文件')}`:modal==='screen'?t('操作截图'):t('工作电脑');
   const scopePicker=<label className="scope-picker"><span>Bot</span><Select aria-label={t('选择 Bot')} disabled={!state.bots.length} value={scopeBot?.id||''} onChange={event=>setScope(event.target.value)}>{state.bots.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</Select></label>;
-  return <BotAvatarProvider bots={state.bots}><div className="app-shell" data-platform={state.platform}>
+  return <BotAvatarProvider bots={state.bots}><div className="app-shell" data-platform={state.platform} data-page={page}>
     <aside className="sidebar">
       <div className="sidebar-top drag"><span className="brand">Aelion<span>Bot</span></span><div className="new-menu-anchor no-drag"><button className="icon-button" aria-label={t('新建')} aria-haspopup="menu" aria-expanded={newMenu} onClick={()=>{if(!newMenu)setNewBotPalette(randomBotPalette(newBotPalette));setNewMenu(value=>!value);}}><Icon name="plus"/></button>{newMenu&&<div className="new-conversation-menu" role="menu"><button role="menuitem" onClick={()=>{setNewMenu(false);openNewBot();}}><span className="new-bot-icon" aria-hidden="true"><Avatar bot={{name:t('新 Bot'),...newBotPalette}} size={20}/></span>{t('新建 Bot')}</button><button role="menuitem" onClick={()=>{setNewMenu(false);setGroupEditor('new');}}><Icon name="message" size={20}/>{t('创建群聊')}</button></div>}</div></div>
       <label className="search"><Icon name="search" size={18}/><input placeholder={t('搜索')} value={query} onChange={event=>setQuery(event.target.value)}/></label>
       <div className="bot-list conversation-list" role="region" aria-label={t('会话列表')}>{rows.filter(row=>(row.kind==='bot'?row.bot.name:row.group.name).toLowerCase().includes(query.toLowerCase())).map(row=>{
         if(row.kind==='group'){
           const room=row.group;
-          return <button key={`group:${room.id}`} className={`bot-item group-item ${group?.id===room.id?'selected':''}`} data-group-id={room.id} onClick={()=>openGroup(room.id)}><GroupAvatar group={room} activities={avatarActivities}/><span className="bot-copy"><span className="bot-line"><strong>{room.name}</strong><small>{time(row.time)}</small></span><span className="bot-preview">{room.activities?.length?t('{count} 位成员正在处理…',{count:room.activities.length}):room.preview}</span></span>{room.unread>0&&<span className="group-unread">{room.unread>99?'99+':room.unread}</span>}</button>;
+          return <button key={`group:${room.id}`} className={`bot-item group-item ${page==='chat'&&group?.id===room.id?'selected':''}`} data-group-id={room.id} onClick={()=>openGroup(room.id)}><GroupAvatar group={room} activities={avatarActivities}/><span className="bot-copy"><span className="bot-line"><strong>{room.name}</strong><small>{time(row.time)}</small></span><span className="bot-preview">{room.activities?.length?t('{count} 位成员正在处理…',{count:room.activities.length}):room.preview}</span></span>{room.unread>0&&<span className="group-unread">{room.unread>99?'99+':room.unread}</span>}</button>;
         }
         const {bot:item,last}=row;
         const active=state.runs.some(run=>run.botId===item.id&&run.status==='running'),introducing=state.greetingBotIds?.includes(item.id)||false;
         const pending=requests.find(request=>request.botId===item.id);const lastRun=last?.runId?state.runs.find(run=>run.id===last.runId):undefined;const preview=pending?(pending.kind==='host_permission'?(pending.approval?.phase==='reviewing'?t('审核模型正在审核操作'):t('等待你的本机操作许可')):t('等待人工接管')):active?t('正在工作…'):introducing?t('正在打招呼…'):lastRun?.status==='failed'||lastRun?.status==='interrupted'?friendlyError(lastRun.error||'').title:lastRun?.groupUpdated?t('已接收新的群消息'):lastRun?.status==='cancelled'?t('已停止，工作记录已保留'):readableContent(last?.content||attachmentSummary(last?.attachments)).replace(/[#*`]/g,'');
-        return <button className={`bot-item ${!group&&bot?.id===item.id?'selected':''}`} key={`bot:${item.id}`} data-bot-id={item.id} aria-haspopup="menu" aria-expanded={botMenu?.id===item.id} onClick={()=>{setSelectedGroup('');setSelected(item.id);setFiles([]);}} onContextMenu={event=>{event.preventDefault();showBotMenu(item,event.currentTarget,event.clientX||undefined,event.clientY||undefined);}} onKeyDown={event=>{if(event.key==='ContextMenu'||event.shiftKey&&event.key==='F10'){event.preventDefault();showBotMenu(item,event.currentTarget);}}}><Avatar bot={item} activity={avatarActivities[item.id]}/><span className="bot-copy"><span className="bot-line"><strong>{item.name}</strong><small>{last?time(last.time):''}</small></span><span className="bot-preview">{preview}</span></span>{(active||introducing)&&<span className={`bot-working ${pending?'needs-user':''}`}/>}</button>;
+        return <button className={`bot-item ${page==='chat'&&!group&&bot?.id===item.id?'selected':''}`} key={`bot:${item.id}`} data-bot-id={item.id} aria-haspopup="menu" aria-expanded={botMenu?.id===item.id} onClick={()=>{setPage('chat');setSelectedGroup('');setSelected(item.id);setFiles([]);}} onContextMenu={event=>{event.preventDefault();showBotMenu(item,event.currentTarget,event.clientX||undefined,event.clientY||undefined);}} onKeyDown={event=>{if(event.key==='ContextMenu'||event.shiftKey&&event.key==='F10'){event.preventDefault();showBotMenu(item,event.currentTarget);}}}><Avatar bot={item} activity={avatarActivities[item.id]}/><span className="bot-copy"><span className="bot-line"><strong>{item.name}</strong><small>{last?time(last.time):''}</small></span><span className="bot-preview">{preview}</span></span>{(active||introducing)&&<span className={`bot-working ${pending?'needs-user':''}`}/>}</button>;
       })}</div>
-      <div className="sidebar-bottom"><button className="sidebar-link" onClick={()=>openSettings()}><Icon name="settings"/><span>{t('设置')}</span></button><SidebarUpdate update={state.updates} onOpen={()=>openSettings('about')}/></div>
+      <div className="sidebar-bottom"><button className="sidebar-link" aria-current={page==='plugins'?'page':undefined} onClick={()=>openPlugins()}><Icon name="plugin"/><span>{language==='en'?'Plugins':language==='zh-TW'?'外掛':'插件'}</span></button><button className="sidebar-link" onClick={()=>openSettings()}><Icon name="settings"/><span>{t('设置')}</span></button><SidebarUpdate update={state.updates} onOpen={()=>openSettings('about')}/></div>
     </aside>
+    {page==='plugins'&&<PluginsPage key={pluginFilter} initialFilter={pluginFilter} state={state} busy={busy||anyRunning} act={act} onClose={()=>setPage('chat')}/>}
     <main className="conversation">
-      {group?<GroupConversation key={group.id} group={group} state={state} avatarActivities={avatarActivities} draft={groupDrafts[group.id]||{text:'',mentions:[]}} onDraft={draft=>setGroupDrafts(value=>({...value,[group.id]:draft}))} onManage={()=>setGroupEditor(group.id)} onTakeover={startTakeover} onOpenFile={file=>void openPreview(file)} onSaveFile={file=>void saveFile(file)} visible={!modal&&!peerPanel&&!groupEditor&&!taskModalOpen}/>:bot?<><header className="chat-header drag"><button className="bot-heading no-drag" onClick={()=>editBot(bot)}><Avatar bot={bot} size={31} activity={avatarActivities[bot.id]}/><strong>{bot.name}</strong></button><div className="header-actions no-drag"><button className="bot-model-button" aria-label={t('选择 Bot 模型')} onClick={()=>editBot(bot)}>{currentModel?.model||t('选择模型')}</button>{(running||greeting||!currentModel?.model)&&<span className={`connection-status ${running||greeting?'working':''}`}>{running?(waiting?.kind==='host_permission'?(waiting.approval?.phase==='reviewing'?t('正在审核'):t('等待许可')):waiting?t('等待接管'):t('正在工作')):greeting?t('正在打招呼…'):t('尚未连接模型')}</span>}</div></header>
+      {group?<GroupConversation key={group.id} group={group} state={state} avatarActivities={avatarActivities} draft={groupDrafts[group.id]||{text:'',mentions:[]}} onDraft={draft=>setGroupDrafts(value=>({...value,[group.id]:draft}))} onManage={()=>setGroupEditor(group.id)} onTakeover={startTakeover} onOpenFile={file=>void openPreview(file)} onSaveFile={file=>void saveFile(file)} visible={page==='chat'&&!modal&&!peerPanel&&!groupEditor&&!taskModalOpen}/>:bot?<><header className="chat-header drag"><button className="bot-heading no-drag" onClick={()=>editBot(bot)}><Avatar bot={bot} size={31} activity={avatarActivities[bot.id]}/><strong>{bot.name}</strong></button><div className="header-actions no-drag"><button className="bot-model-button" aria-label={t('选择 Bot 模型')} onClick={()=>editBot(bot)}>{currentModel?.model||t('选择模型')}</button>{(running||greeting||!currentModel?.model)&&<span className={`connection-status ${running||greeting?'working':''}`}>{running?(waiting?.kind==='host_permission'?(waiting.approval?.phase==='reviewing'?t('正在审核'):t('等待许可')):waiting?t('等待接管'):t('正在工作')):greeting?t('正在打招呼…'):t('尚未连接模型')}</span>}</div></header>
       <ConversationTimeProvider messages={messages}><section key={bot.id} className="messages" onScroll={event=>{const el=event.currentTarget;follow.current=el.scrollHeight-el.scrollTop-el.clientHeight<100;}}>{timeline.map(item=>{
         const key=`${bot.id}:${item.kind}:${item.kind==='run'?item.segmentId:item.id}`;
         if(item.kind==='message')return item.message.groupTaskSource?<GroupTaskMessage key={key} message={item.message} view={state.groups} onOpen={openGroup}/>:item.message.groupLink?<div key={key} className="peer-notice"><button className="peer-notice-open" disabled={!state.groups?.rooms.some(room=>room.id===item.message.groupLink?.groupId)} onClick={()=>openGroup(item.message.groupLink!.groupId)}><Icon name="message" size={16}/>{item.message.content}</button></div>:item.message.taskSource?<PeerTaskMessage key={key} message={item.message} view={state.peers} onOpen={openPrivateChat}/>:item.message.peer?<PeerNotice key={key} message={item.message} view={state.peers} onOpen={openPrivateChat}/>:<Message key={key} message={item.message} onReply={replyTo} allowPins={!state.runs.find(run=>run.id===item.message.runId)?.groupOrigin}/>;
@@ -212,7 +215,7 @@ function AppContent(){
     </aside>
     {toast&&<div className="toast" role="status">{toast}</div>}
     <InteractionNotifications requests={requests} bots={state.bots} onView={viewInteraction}/>
-    <GroupNotifications view={state.groups} selected={!modal&&!peerPanel&&!taskModalOpen?group?.id:undefined} onView={openGroup}/>
+    <GroupNotifications view={state.groups} selected={page==='chat'&&!modal&&!peerPanel&&!taskModalOpen?group?.id:undefined} onView={openGroup}/>
     {groupEditor&&<GroupEditor key={groupEditor} bots={state.bots} group={state.groups?.rooms.find(room=>room.id===groupEditor)} onClose={()=>setGroupEditor(undefined)} onSaved={id=>{setGroupEditor(undefined);setSelectedGroup(id);}} onDeleted={id=>{setGroupEditor(undefined);if(selectedGroup===id)setSelectedGroup('');setGroupDrafts(value=>{const next={...value};delete next[id];return next;});}}/>}
     <PeerNotifications view={state.peers} bots={state.bots} onView={openPrivateChat}/>
     {peerPanel&&<PrivateChatWindow panel={peerPanel} view={state.peers} bots={state.bots} streamingReplies={state.streamingReplies} avatarActivities={avatarActivities} runs={state.runs} messages={state.messages} onNavigate={setPeerPanel} onClose={()=>setPeerPanel(undefined)}/>}
@@ -235,8 +238,6 @@ function AppContent(){
         {settingsTab==='runtime'&&<RuntimeSettings settings={state.runtime} onNotify={setToast}/>}
         {settingsTab==='model'&&<ModelSettings state={state} onNotify={setToast}/>}
         {settingsTab==='usage'&&<UsageSettings state={state}/>}
-        {settingsTab==='skills'&&<>{scopeBot&&scopePicker}<SkillsSettings botId={scopeBot?.id} skills={state.skills.filter(skill=>!skill.botId||skill.botId===scopeBot?.id)} integrations={state.integrations} busy={busy||anyRunning} act={act}/></>}
-        {settingsTab==='mcp'&&<McpSettings integrations={state.integrations} busy={busy||anyRunning} act={act}/>}
         {settingsTab==='memory'&&<>
           {scopePicker}
           {state.cognition&&<SettingsSection title={t('后台学习')}><div className="learning-setting">

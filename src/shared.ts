@@ -28,7 +28,7 @@ export interface ChatMessage {operationDenial?:import("./operation-denial").Oper
 export interface RunRecord {contextOverview?:import("./context-overview").ContextOverview;modelRequest?:import("./model-request-status").ModelRequestStatus;resumedFromRunId?:string;contextIssue?:import('./context-issue').ContextIssue; lastProgressAt?:string;lastProgressDigest?:string; workItemId?:string;workspaceDir?:string; plan?:TaskPlan; executions?:ToolExecution[]; attachments?:Attachment[]; inputUpdated?:boolean;supersedesRunId?:string;progressSteps?:number; groupReplyMessageId?:string; id: string; botId: string; status: 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted'; startedAt: string; endedAt?: string; error?: string; modelCalls: number; toolCalls: number; peerOrigin?:PeerRunOrigin;groupOrigin?:GroupRunOrigin;groupTask?:boolean;groupUpdated?:boolean; }
 export interface ModelConfig extends ModelParameters { supportsImages?:boolean;baseUrl: string; model: string; hasKey: boolean; contextTokens: number; providerId?:string;providerName?:string;issue?:string; }
 export interface SkillSource { label: string; path: string; scope: 'user'|'project'|'private'|'builtin'; readonly: boolean; }
-export interface Skill {hash?:string;archived?:boolean;pinned?:boolean;readCount?:number;lastReadAt?:string; id: string; name: string; description: string; body: string; botId?: string; source?: SkillSource; compatibility?: string; availableFiles?: string[]; vmPath?: string; }
+export interface Skill {enabled?:boolean;hash?:string;archived?:boolean;pinned?:boolean;readCount?:number;lastReadAt?:string; id: string; name: string; description: string; body: string; botId?: string; source?: SkillSource; compatibility?: string; availableFiles?: string[]; vmPath?: string; }
 export interface IntegrationSource { id: string; label: string; path: string; kind: 'skills'|'mcp'; scope: 'user'|'project'|'private'|'builtin'; exists: boolean; count: number; issue?: string; }
 export interface McpServerView { id: string; name: string; source: SkillSource; transport: 'stdio'|'http'|'sse'|'unsupported'; endpoint: string; enabled: boolean; status: 'disabled'|'available'|'connecting'|'connected'|'error'|'needs-config'; issue?: string; toolCount?: number; }
 export interface IntegrationsView { sharedSkillDir: string; privateSkillDir: string; mcpFile: string; projectDir: string; sources: IntegrationSource[]; servers: McpServerView[]; scannedAt: string; }
@@ -49,6 +49,7 @@ export interface Snapshot {previewRequests?:import("./agent-preview").AgentPrevi
 export interface AppEvent { type: 'state'; snapshot: Snapshot; }
 export interface CommandResult { stdout: string; stderr: string; exitCode: number; durationMs: number; }
 export interface AelionAPI {
+  setSkillEnabled(input:{id:string;enabled:boolean}):Promise<void>;
   saveVmStorageSettings(value:import("./vm-storage").VmStorageSettings):Promise<void>;
   reclaimVmStorage():Promise<void>;
   acknowledgePreview(id:string):Promise<void>;
@@ -116,6 +117,7 @@ export interface AelionAPI {
   vmAction(action: 'prepare' | 'start' | 'stop' | 'restart' | 'repair-tools'): Promise<void>;
   vmTerminal(command: string): Promise<CommandResult>;
   listFiles(botId: string): Promise<Array<{ name: string; path: string; size: number; modifiedAt: string }>>;
+  searchMentionFiles(input:{scope:import("./attachment-types").AttachmentScope;query:string}):Promise<import("./file-mentions").MentionFileSearch>;
   listWorkspaceDirectory(input:{botId:string;path?:string}):Promise<import('./workspace-files').WorkspaceDirectory>;
   exportFile(input: { botId: string; path: string }): Promise<string | null>;
   previewFile(input: { botId: string; path: string }): Promise<ArtifactPreview>;

@@ -69,7 +69,7 @@ function PreviewContent({item,retry,override}:{item:PreviewItem;retry:number;ove
 }
 export function FilePreview({items:initialItems,initialIndex=0,initialExpanded=false,onClose,registerGuard}:{items:PreviewItem[];initialIndex?:number;initialExpanded?:boolean;onClose:()=>void;registerGuard?:RegisterPreviewGuard}){
   const {t}=useI18n();
-  const [items,setItems]=useState(()=>initialItems.map(item=>item.editor||!item.workspace?item:{...item,editor:workspacePreviewItem(item.workspace.botId,{name:item.name,path:item.workspace.path,size:item.size}).editor})),[directoryOpen,setDirectoryOpen]=useState(true);
+  const [items,setItems]=useState(()=>initialItems.map(item=>item.editor||!item.workspace?item:{...item,editor:workspacePreviewItem(item.workspace.botId,{name:item.name,path:item.workspace.path,size:item.size}).editor})),[directoryOpen,setDirectoryOpen]=useState(false);
   const [index,setIndex]=useState(initialIndex),[expanded,setExpanded]=useState(initialExpanded),[wide,setWide]=useState(()=>matchMedia('(min-width:1200px)').matches),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[retry,setRetry]=useState(0);
   const edits=usePreviewEdits();
   const panel=useRef<HTMLElement>(null),previous=useRef<HTMLElement|null>(null),item=items[index],modal=expanded||!wide;

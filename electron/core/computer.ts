@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ComputerState, ComputerDesktopState, ScreenReference } from '../../src/shared';
 import { VmController, shQuote } from './vm';
@@ -63,7 +63,8 @@ export class ComputerController {
   }
   image(id:string){
     if(!/^[a-f0-9-]{36}$/.test(id))throw new Error('无效截图 ID');
-    return `data:image/png;base64,${readFileSync(join(this.imageDir,`${id}.png`)).toString('base64')}`;
+    const direct=join(this.imageDir,`${id}.png`),file=existsSync(direct)?direct:join(this.imageDir,'video-frames',`${id}.png`);
+    return `data:image/png;base64,${readFileSync(file).toString('base64')}`;
   }
   private async capture(botId:string,signal:AbortSignal):Promise<ScreenReference>{
     const id=randomUUID();const file=join(this.imageDir,`${id}.png`);const png=await this.vm.desktopScreenshot(botId,signal);

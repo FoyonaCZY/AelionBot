@@ -1,3 +1,5 @@
+import {VideoInspector} from './video-inspector';
+import {VideoFrames} from './core/video-frames';
 import {AgentPreviews} from './core/agent-previews';
 import {editableText,editedBytes} from './core/preview-editing';
 import {sourceTextFile} from '../src/source-language';
@@ -59,6 +61,7 @@ let model:ModelClient;
 let providers:ModelProviders;
 let computer:ComputerController;
 let artifacts:ArtifactService;
+let videoInspector:VideoInspector;
 let attachments:Attachments;
 let integrations:Integrations;
 let interactions:Interactions;
@@ -135,6 +138,12 @@ async function initialize(){
   agentPreviews=new AgentPreviews(store,artifacts,attachments,changed,host);
   harness=new Harness(store,vm,model,changed,computer,(botId,runId)=>artifacts.collect(botId,runId),integrations,host,interactions,cognition,attachments);
   harness.setPreviewGateway(agentPreviews);
+  videoInspector=new VideoInspector(join(app.getAppPath(),'assets','video-inspector.html'));
+  harness.setVideoFrames(new VideoFrames(host,attachments,join(computer.imageDir,'video-frames'),(path,request,signal)=>videoInspector.render(path,request,signal),()=>{
+    const ids=new Set<string>();for(const message of [...store.data.messages,...store.data.peerMessages,...store.data.groupRunMessages])if(message.screenshotId)ids.add(message.screenshotId);
+    for(const history of [...Object.values(store.data.conversations),...Object.values(store.data.peerContexts),...Object.values(store.data.groupContexts)])for(const message of history)for(const image of message.images||[])ids.add(image.id);
+    return ids;
+  }));
   greetings=new BotGreetings(store,model,changed,id=>updatePreparing||harness.isRunning(id));
   peerChats=new PeerChats(store,{isRunning:id=>updatePreparing||harness.isRunning(id)||Boolean(chatPins?.hasPending(id)),run:(id,input,options)=>{groupChats?.preempt(id);greetings?.cancel(id);return harness.run(id,input,options);},cancel:id=>harness.cancel(id)},changed,attachments);
   harness.setPeerGateway(peerChats);peerChats.start();
@@ -235,6 +244,12 @@ async function initialize(){
   handle('permissions:mode',input=>{if(hostApprovals.set(input?.scope,input?.mode))interactions.refreshHostPolicy();changed();});
   handle('permissions:command-enabled',input=>{if(typeof input?.id!=='string'||typeof input.enabled!=='boolean')throw new Error('无效命令权限参数');commandPermissions.setEnabled(input.id,input.enabled);interactions.applyCommandRules();changed();});
   handle('permissions:command-remove',id=>{if(typeof id!=='string')throw new Error('无效命令模式');commandPermissions.remove(id);changed();});
+  const mentionSearches=new Map<string,AbortController>();
+  handle('workspace:mention-files',async input=>{
+    const scope=assertWorkspaceScope(store,input?.scope),key=scope.kind+':'+scope.id;
+    mentionSearches.get(key)?.abort();const controller=new AbortController();mentionSearches.set(key,controller);
+    try{return await host.mentionFiles(input?.query,conversationWorkspace(store,scope)||host.workspaceSettings().workspaceDir,controller.signal);}finally{if(mentionSearches.get(key)===controller)mentionSearches.delete(key);}
+  });
   handle('workspace:pick',async scope=>{assertWorkspaceScope(store,scope);const selected=await dialog.showOpenDialog(window!,{title:'选择会话工作目录',defaultPath:conversationWorkspace(store,scope)||host.workspaceSettings().workspaceDir,properties:['openDirectory']});if(selected.canceled||!selected.filePaths[0])return null;const path=setConversationWorkspace(store,host,scope,selected.filePaths[0]);changed();return path;});
   handle('workspace:reset',scope=>{setConversationWorkspace(store,host,scope,null);changed();});
   handle('work:action',input=>{
@@ -256,7 +271,8 @@ async function initialize(){
   handle('host:workspace-pick',async()=>{const selected=await dialog.showOpenDialog(window!,{title:'选择本机默认工作目录',defaultPath:host.workspaceSettings().workspaceDir,properties:['openDirectory']});return selected.canceled?null:selected.filePaths[0]||null;});
   handle('integrations:refresh',async()=>{if(harness.busy)throw new Error('请等待当前任务结束后重新扫描');await integrations.refresh();});
   handle('skills:manage',input=>{if(harness.busy)throw Error('请等待当前任务结束');const result=integrations.skills.manage(String(input?.botId),String(input?.id),String(input?.action),input?.revision);changed();return result;});
-  handle('skills:read',input=>integrations.skills.read(input?.botId===undefined?undefined:String(input.botId),String(input?.id)));
+  handle('skills:enabled',input=>{if(harness.busy)throw Error('请等待当前任务结束');if(typeof input?.id!=='string'||typeof input?.enabled!=='boolean')throw Error('无效技能状态');integrations.skills.setEnabled(input.id,input.enabled);changed();});
+  handle('skills:read',input=>integrations.skills.read(input?.botId===undefined?undefined:String(input.botId),String(input?.id),true));
   handle('integrations:open-path',async input=>{const target=integrations.path(input||{});const result=await shell.openPath(target);if(result)throw new Error(result);});
   handle('integrations:add-source',async kind=>{
     if(!['skills','mcp'].includes(kind))throw new Error('未知配置类型');if(harness.busy)throw new Error('请等待当前任务结束');
@@ -351,7 +367,7 @@ async function initialize(){
   });
   handle('app:open-data',()=>shell.openPath(dataDir));
   const shutdown=new Shutdown({
-    stop:()=>{vm.beginShutdown();if(timer)clearInterval(timer);for(const close of [()=>appUpdates?.dispose(),()=>scheduler?.dispose(),()=>greetings?.dispose(),()=>{for(const bot of store.data.bots)harness.cancel(bot.id);},()=>providers.dispose(),()=>model?.dispose(),()=>harness.disposeTools(),()=>chatPins?.dispose(),()=>peerChats?.dispose(),()=>groupChats?.dispose(),()=>interactions.dispose(),()=>host.dispose()])try{close();}catch(error){diagnostics?.record('app.shutdown-error',error);}},
+    stop:()=>{vm.beginShutdown();if(timer)clearInterval(timer);for(const close of [()=>appUpdates?.dispose(),()=>scheduler?.dispose(),()=>greetings?.dispose(),()=>{for(const bot of store.data.bots)harness.cancel(bot.id);},()=>providers.dispose(),()=>model?.dispose(),()=>harness.disposeTools(),()=>videoInspector?.dispose(),()=>chatPins?.dispose(),()=>peerChats?.dispose(),()=>groupChats?.dispose(),()=>interactions.dispose(),()=>host.dispose()])try{close();}catch(error){diagnostics?.record('app.shutdown-error',error);}},
     closeWork:()=>[harness.closeProcesses(),cognition.close(),integrations.close()],
     closeVm:()=>vm.shutdownForExit(),closeState:()=>{vm.dispose();store.close();},
     report:error=>diagnostics?.record('app.shutdown-error',error),exit:()=>{diagnostics?.dispose();app.exit(0);}

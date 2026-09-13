@@ -42,6 +42,10 @@ const en:Record<string,string>={
 
 const dictionaries:Record<Language,Record<string,string>>={'zh-CN':{},'zh-TW':zhTW,en};
 export const translationTables=dictionaries;
+Object.assign(en,{"查看视频画面":"View video frames","正在抽取视频画面":"Extracting video frames"});
+Object.assign(zhTW,{"查看视频画面":"查看影片畫面","正在抽取视频画面":"正在擷取影片畫面"});
+Object.assign(en,{"选择 Bot 或文件": "Choose a Bot or file", "文件引用 · 不复制原文件": "File reference · no source copy", "正在搜索文件…": "Searching files…", "无法搜索文件，请确认工作目录可用。": "Could not search files. Check that the workspace is available.", "没有匹配的 Bot 或文件": "No matching Bots or files"});
+Object.assign(zhTW,{"选择 Bot 或文件": "選擇 Bot 或檔案", "文件引用 · 不复制原文件": "檔案參照 · 不複製原檔案", "正在搜索文件…": "正在搜尋檔案…", "无法搜索文件，请确认工作目录可用。": "無法搜尋檔案，請確認工作目錄可用。", "没有匹配的 Bot 或文件": "沒有符合的 Bot 或檔案"});
 Object.assign(en,{"自动审核模型": "Automatic approval model", "仅用于自动审批，不影响聊天模型。": "Used only for automatic approval; chat models are unchanged.", "自动审核模型已保存": "Automatic approval model saved", "保存审核模型": "Save approval model", "审核模型": "Approval model", "审核模型正在审核操作": "The approval model is reviewing the operation", "普通项目读写直接放行，敏感或越界操作由审核模型审核": "Ordinary project reads and writes are allowed directly; sensitive or out-of-scope operations are reviewed by the approval model", "请先切换使用此 Provider 的默认模型、审核模型或 Bot 模型": "First switch the default, approval, or Bot models using this Provider"});
 Object.assign(zhTW,{"自动审核模型": "自動審核模型", "仅用于自动审批，不影响聊天模型。": "僅用於自動審批，不影響聊天模型。", "自动审核模型已保存": "自動審核模型已儲存", "保存审核模型": "儲存審核模型", "审核模型": "審核模型", "审核模型正在审核操作": "審核模型正在審核操作", "普通项目读写直接放行，敏感或越界操作由审核模型审核": "一般專案讀寫直接放行，敏感或越界操作由審核模型審核", "请先切换使用此 Provider 的默认模型、审核模型或 Bot 模型": "請先切換使用此 Provider 的預設模型、審核模型或 Bot 模型"});
 Object.assign(en,{"总量：服务端报告 · 分类：估算": "Total: provider-reported · Breakdown: estimated", "总量与分类均为估算": "Total and breakdown are estimates"});

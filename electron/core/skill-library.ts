@@ -28,8 +28,17 @@ export function searchSkills(skills:Skill[],query='',limit=100,offset=0){
 
 export class SkillLibrary {
   private entries:Entry[]=[];
+  private enabled:Record<string,boolean>={};
   sources:IntegrationSource[]=[];
-  constructor(private store:Store,readonly paths:IntegrationPaths){this.migrate();this.refresh();}
+  constructor(private store:Store,readonly paths:IntegrationPaths){
+    const path=join(paths.configDir,'skill-enablement.json');if(existsSync(path)){const value=JSON.parse(readFileSync(path,'utf8'));if(value.version!==1||!value.enabled||typeof value.enabled!=='object'||Object.values(value.enabled).some(item=>typeof item!=='boolean'))throw Error('技能启用配置无效，已保留原文件');this.enabled=value.enabled;}
+    this.migrate();this.refresh();
+  }
+  setEnabled(id:string,enabled:boolean){
+    if(typeof enabled!=='boolean')throw Error('无效技能状态');const entry=this.entries.find(item=>item.summary.id===id);if(!entry)throw Error('技能不存在');if(entry.summary.botId)this.store.bot(entry.summary.botId);
+    const next={...this.enabled,[id]:enabled};mkdirSync(this.paths.configDir,{recursive:true});atomicJson(join(this.paths.configDir,'skill-enablement.json'),{version:1,enabled:next});this.enabled=next;
+    if(enabled&&entry.summary.botId){const state=this.metadata(entry.summary.botId);if(state[id]?.archived){state[id]={...state[id],archived:false};this.saveMetadata(entry.summary.botId,state);}}
+  }
   private ownedPath(skill:Skill){return join(this.paths.dataDir,...(skill.botId?['bots',skill.botId,'skills']:['skills','builtin']),slug(skill.name,skill.id),'SKILL.md');}
   private writeOwned(skill:Skill,path=this.ownedPath(skill)){
     const meta={name:basename(dirname(path)),description:skill.description,metadata:{'aelion-id':skill.id,'aelion-display-name':skill.name,...(skill.botId?{'aelion-bot-id':skill.botId}:{})}};
@@ -81,17 +90,17 @@ export class SkillLibrary {
   private metadata(botId:string):Record<string,{archived?:boolean;pinned?:boolean;readCount?:number;lastReadAt?:string}>{this.store.bot(botId);try{return JSON.parse(readFileSync(join(this.paths.dataDir,'bots',botId,'skill-state.json'),'utf8'));}catch{return {};}}
   private saveMetadata(botId:string,state:ReturnType<SkillLibrary['metadata']>){const dir=join(this.paths.dataDir,'bots',botId);mkdirSync(dir,{recursive:true});atomicJson(join(dir,'skill-state.json'),state);}
   observeRead(botId:string,id:string){const entry=this.find(botId,id),state=this.metadata(botId);state[entry.summary.id]={...state[entry.summary.id],readCount:(state[entry.summary.id]?.readCount||0)+1,lastReadAt:new Date().toISOString()};this.saveMetadata(botId,state);}
-  all(){
+  all():Skill[]{
     // A snapshot may be requested between deleting a Bot and clearing its skill cache.
     const bots=new Set(this.store.data.bots.map(bot=>bot.id));
-    return this.entries.filter(entry=>!entry.summary.botId||bots.has(entry.summary.botId)).map(entry=>({...entry.summary,...(entry.summary.botId?this.metadata(entry.summary.botId)[entry.summary.id]:{})}));
+    return this.entries.filter(entry=>!entry.summary.botId||bots.has(entry.summary.botId)).map(entry=>{const metadata=entry.summary.botId?this.metadata(entry.summary.botId)[entry.summary.id]:undefined;return {...entry.summary,...metadata,enabled:this.enabled[entry.summary.id]!==false&&!metadata?.archived};});
   }
   forgetBot(botId:string){
     const removed=this.entries.filter(entry=>entry.summary.botId===botId);
     this.entries=this.entries.filter(entry=>entry.summary.botId!==botId);
     this.sources=this.sources.map(source=>source.scope==='private'?{...source,count:Math.max(0,source.count-removed.filter(entry=>isWithin(source.path,entry.file)).length)}:source);
   }
-  list(botId:string,includeArchived=false){this.store.bot(botId);const metadata=this.metadata(botId);return this.all().filter(skill=>!skill.botId||skill.botId===botId).map(skill=>({...skill,...metadata[skill.id]})).filter(skill=>includeArchived||!skill.archived).sort((a,b)=>Number(Boolean(b.pinned))-Number(Boolean(a.pinned)));}
+  list(botId:string,includeArchived=false):Skill[]{this.store.bot(botId);const metadata=this.metadata(botId);return this.all().filter(skill=>!skill.botId||skill.botId===botId).map(skill=>({...skill,...metadata[skill.id]})).filter(skill=>this.enabled[skill.id]!==false&&(includeArchived||!skill.archived)).sort((a,b)=>Number(Boolean(b.pinned))-Number(Boolean(a.pinned)));}
   search(botId:string,query='',limit=100,offset=0){
     return searchSkills(this.list(botId),query,limit,offset);
   }
@@ -101,10 +110,11 @@ export class SkillLibrary {
     if(!isWithin(entry.root,target))throw new Error('技能资源超出了目录');
     const actual=realpathSync.native(target);if(!isWithin(entry.root,actual))throw new Error('技能资源链接超出了目录');return actual;
   }
-  private find(botId:string|undefined,id:string){
+  private find(botId:string|undefined,id:string,inspect=false){
     if(botId!==undefined)this.store.bot(botId);const visible=this.entries.filter(entry=>!entry.summary.botId||entry.summary.botId===botId);
-    const exact=visible.find(entry=>entry.summary.id===id);if(exact)return exact;
-    const named=visible.filter(entry=>entry.summary.name===id);if(named.length>1)throw new Error('存在同名技能，请使用 skills_list 返回的来源 ID');if(!named.length)throw new Error('技能不存在或无权访问');return named[0];
+    const available=(entry:Entry)=>{if(!inspect&&this.enabled[entry.summary.id]===false)throw Error('技能已停用，请在插件页面启用');return entry;};
+    const exact=visible.find(entry=>entry.summary.id===id);if(exact)return available(exact);
+    const named=visible.filter(entry=>entry.summary.name===id);if(named.length>1)throw new Error('存在同名技能，请使用 skills_list 返回的来源 ID');if(!named.length)throw new Error('技能不存在或无权访问');return available(named[0]);
   }
   private fileList(entry:Entry,includeBytes=false):SkillFile[]{
     const files:SkillFile[]=[];let bytes=0;
@@ -123,12 +133,12 @@ export class SkillLibrary {
     };
     visit(entry.root,0);return files;
   }
-  read(botId:string|undefined,id:string):Skill{
-    const entry=this.find(botId,id);if(!isWithin(entry.root,realpathSync.native(entry.file)))throw new Error('技能文件链接超出了技能目录');
+  read(botId:string|undefined,id:string,inspect=false):Skill{
+    const entry=this.find(botId,id,inspect);if(!isWithin(entry.root,realpathSync.native(entry.file)))throw new Error('技能文件链接超出了技能目录');
     if(statSync(entry.file).size>256*1024)throw new Error('SKILL.md 超过 256 KB');
     const parsed=parseSkill(readFileSync(entry.file,'utf8'),basename(entry.root));
     let files:string[]=[];try{files=this.fileList(entry).map(file=>file.path);}catch{/* Large packages remain readable; explicit materialization reports its limits. */}
-    return {...entry.summary,...(botId?this.metadata(botId)[entry.summary.id]:{}),body:parsed.body,compatibility:parsed.compatibility,availableFiles:files,hash:this.fingerprint(botId,entry.summary.id)};
+    return {...entry.summary,...(botId?this.metadata(botId)[entry.summary.id]:{}),body:parsed.body,compatibility:parsed.compatibility,availableFiles:files,hash:hashId(readFileSync(entry.file,'utf8'))};
   }
   readFile(botId:string,id:string,path:string){
     const entry=this.find(botId,id);

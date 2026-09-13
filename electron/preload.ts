@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { AelionAPI, AppEvent } from '../src/shared';
 const api:AelionAPI={
+  setSkillEnabled:input=>ipcRenderer.invoke('skills:enabled',input),
   saveVmStorageSettings:value=>ipcRenderer.invoke('vm:storage-save',value),
   reclaimVmStorage:()=>ipcRenderer.invoke('vm:storage-reclaim'),
   acknowledgePreview:id=>ipcRenderer.invoke('preview:acknowledge',id),
@@ -9,6 +10,7 @@ const api:AelionAPI={
   readEditableAttachment:id=>ipcRenderer.invoke('attachments:edit-read',id),
   exportEditedText:input=>ipcRenderer.invoke('files:edit-export',input),
   setPreviewDirty:dirty=>ipcRenderer.invoke('files:edit-dirty',dirty),
+  searchMentionFiles:input=>ipcRenderer.invoke('workspace:mention-files',input),
   listWorkspaceDirectory:input=>ipcRenderer.invoke('files:directory',input),
   saveAppearanceSettings:settings=>ipcRenderer.invoke('appearance:save',settings),
   queryUsage:input=>ipcRenderer.invoke('usage:query',input),
