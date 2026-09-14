@@ -1,3 +1,4 @@
+import {CsvPreview} from './CsvPreview';
 import {PreviewToolbar} from './PreviewToolbar';
 import {WebPreview} from './WebPreview';
 import {PreviewFeedback} from './PreviewFeedback';
@@ -16,7 +17,7 @@ import Markdown from './MessageMarkdown';
 import {Select} from './Select';
 import {PreviewLayoutContext,useImmersivePreview} from './preview-layout';
 import {usePreviewViewport} from './use-preview-viewport';
-import {csvRows,previewErrorText,previewFormat,previewHtml,previewKind} from './preview-utils';
+import {previewErrorText,previewFormat,previewHtml,previewKind} from './preview-utils';
 import {useI18n} from './i18n';
 import './file-preview.css';
 import './file-preview-compact.css';
@@ -54,9 +55,8 @@ function DocumentPreview({value,name,onRendered}:{value:ArtifactPreview;name:str
   const {t}=useI18n();
   const [source,setSource]=useState(Boolean(onRendered)),[device,setDevice]=useState('fit');
   const html=value.kind==='html',markdown=value.kind==='markdown',csv=previewFormat(name)==='csv';
-  const rows=csv?csvRows(value.content||''):[];
   return <><PreviewToolbar><div className="fp-segments" aria-label={t('查看方式')}>{(html||markdown)?<><button aria-pressed={!source} onClick={()=>onRendered?onRendered():setSource(false)} title={t('预览')} aria-label={t('预览')}><PreviewIcon name="eye"/></button><button aria-pressed={source} onClick={()=>setSource(true)} title={t('源码')} aria-label={t('源码')}><PreviewIcon name="code"/></button></>:<span>{csv?t('表格'):sourceLanguage(name)?t('源码'):t('文本')}</span>}</div>{html&&!source&&<div className="fp-segments" aria-label={t('网页显示尺寸')}>{[['fit','自适应'],['1440','桌面'],['768','平板'],['390','手机']].map(([id,label])=><button key={id} aria-pressed={device===id} onClick={()=>setDevice(id)} title={t(label)} aria-label={t(label)}><PreviewIcon name={id==='fit'?'fit':id==='1440'?'desktop':id==='768'?'tablet':'phone'}/></button>)}</div>}</PreviewToolbar>
-    {html&&!source?<div className="fp-web-stage"><iframe className="fp-web-frame" title={name} sandbox="" srcDoc={previewHtml(value.content||'')} style={{width:device==='fit'?'100%':Number(device)}}/></div>:<div className={`fp-document-stage ${!csv&&(!markdown||source)?'fp-source-stage':''}`} tabIndex={0} aria-label={t('文档内容')}>{markdown&&!source?<article className="fp-paper markdown"><Markdown>{value.content||''}</Markdown></article>:csv?<div className="fp-csv markdown-table-scroll"><table><thead><tr>{rows[0]?.map((cell,i)=><th key={i}>{cell}</th>)}</tr></thead><tbody>{rows.slice(1).map((row,i)=><tr key={i}>{row.map((cell,j)=><td key={j}>{cell}</td>)}</tr>)}</tbody></table></div>:<CodePreview content={value.content||''} name={name}/>}</div>}
+    {html&&!source?<div className="fp-web-stage"><iframe className="fp-web-frame" title={name} sandbox="" srcDoc={previewHtml(value.content||'')} style={{width:device==='fit'?'100%':Number(device)}}/></div>:<div className={`fp-document-stage ${csv?'fp-csv-stage':(!markdown||source)?'fp-source-stage':''}`} tabIndex={0} aria-label={t('文档内容')}>{markdown&&!source?<article className="fp-paper markdown"><Markdown>{value.content||''}</Markdown></article>:csv?<CsvPreview content={value.content||''}/>:<CodePreview content={value.content||''} name={name}/>}</div>}
     </>;
 }
 function PreviewContent({item,retry,override}:{item:PreviewItem;retry:number;override?:ArtifactPreview}){

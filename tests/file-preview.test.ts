@@ -22,8 +22,8 @@ test('preview viewport keeps fractional bounds without expanding into scrollbars
 
 test('CSV preview preserves quoted commas, escaped quotes and multiline cells',()=>{
   assert.deepEqual(csvRows('name,note\r\n"A,B","a ""quote""\nand a line"\r\n'),[['name','note'],['A,B','a "quote"\nand a line']]);
-  assert.equal(csvRows(Array.from({length:250},()=>Array(40).fill('x').join(',')).join('\n')).length,201);
-  assert.equal(csvRows(Array(40).fill('x').join(','))[0].length,30);
+  assert.equal(csvRows(Array.from({length:250},()=>Array(40).fill('x').join(',')).join('\n')).length,250);
+  assert.equal(csvRows(Array(40).fill('x').join(','))[0].length,40);
 });
 test('HTML preview applies restrictive policy before any supplied markup',()=>{
   const html=previewHtml('<base href="https://example.com"><script>parent.location="https://example.com"</script>');

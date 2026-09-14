@@ -9,14 +9,14 @@ export function previewKind(name:string){
 }
 export function csvRows(text:string){
   const rows:string[][]=[];let row:string[]=[],cell='',quoted=false;
-  for(let i=0;i<text.length&&rows.length<201;i++){
+  for(let i=0;i<text.length;i++){
     const c=text[i];if(c==='"'){if(quoted&&text[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;}
     else if(c===','&&!quoted){row.push(cell);cell='';}
     else if(c==='\n'&&!quoted){row.push(cell.replace(/\r$/,''));rows.push(row);row=[];cell='';}
     else cell+=c;
   }
-  if((cell||row.length)&&rows.length<201){row.push(cell.replace(/\r$/,''));rows.push(row);}
-  return rows.map(row=>row.slice(0,30));
+  if(cell||row.length){row.push(cell.replace(/\r$/,''));rows.push(row);}
+  return rows;
 }
 
 // The document stays in an opaque, script-free frame. Do not inherit its base URL
