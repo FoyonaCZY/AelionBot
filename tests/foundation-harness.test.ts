@@ -9,14 +9,15 @@ import {HostComputer} from '../electron/core/host';
 import {Interactions} from '../electron/core/interactions';
 import {Harness,TOOLS} from '../electron/core/harness';
 import type {Completion,ModelClient} from '../electron/core/model';
-import type {WireMessage} from '../src/shared';
+import type {ChatMessage,WireMessage} from '../src/shared';
 const call=(name:string,args:unknown)=>({id:randomUUID(),type:'function' as const,function:{name,arguments:JSON.stringify(args)}});
 function fixture(t:test.TestContext,complete:(messages:WireMessage[],index:number)=>Completion){
  const parent=realpathSync(tmpdir()),dir=mkdtempSync(join(parent,'aelion-tool-flow-')),store=new Store(join(dir,'data'));store.data.model.model='test';store.data.model.contextTokens=64000;let calls=0;
  const interactions=new Interactions(()=>{for(const request of interactions.snapshot())if(request.kind==='host_permission')queueMicrotask(()=>{try{interactions.approve(request.id,true);}catch{}});});
  const host=new HostComputer({dataDir:store.dir,homeDir:dir,projectDir:dir,env:{...process.env},imagePreview:(_bytes,id)=>({id,width:20,height:20})},interactions);
- const model={complete:async(messages:WireMessage[])=>complete(messages,++calls)} as unknown as ModelClient,harness=new Harness(store,{} as any,model,()=>{},undefined,undefined,undefined,host,interactions);
- t.after(()=>{harness.disposeTools();host.dispose();interactions.dispose();store.close();assert.equal(dirname(resolve(dir)),parent);rmSync(dir,{recursive:true,force:true});});return {dir,store,host,interactions,harness,bot:store.data.bots[0]};
+ let published:ChatMessage[]=[];
+ const model={complete:async(messages:WireMessage[])=>complete(messages,++calls)} as unknown as ModelClient,harness=new Harness(store,{} as any,model,()=>{published=structuredClone(store.data.messages);},undefined,undefined,undefined,host,interactions);
+ t.after(()=>{harness.disposeTools();host.dispose();interactions.dispose();store.close();assert.equal(dirname(resolve(dir)),parent);rmSync(dir,{recursive:true,force:true});});return {dir,store,host,interactions,harness,bot:store.data.bots[0],published:()=>published};
 }
 test('foreground requests impose no reply language despite legacy stored settings',async t=>{
  const f=fixture(t,messages=>{const systems=messages.filter(message=>message.role==='system').map(message=>message.content||'').join('\n');assert.doesNotMatch(systems,/Response language policy|current interface language|latestHumanMessage/);assert.doesNotMatch(systems,/使用中文、简洁且准确/);return {content:'Hello!',calls:[],finishReason:'stop'};});f.store.data.language='en';await f.harness.run(f.bot.id,'Please greet me in English');assert.equal(f.store.data.runs[0].status,'completed',f.store.data.runs[0].error||'');
@@ -45,4 +46,24 @@ test('view_image passes a real image reference into the model and stores its pre
 test('all new tools have strict argument schemas and no subagent creation is introduced',()=>{
  for(const name of ['terminal_start','terminal_input','terminal_read','terminal_stop','apply_patch','code_exec','request_user_input','user_input_wait','view_image','tool_search','web_search','web_read','mcp_list_resource_templates'])assert.equal(TOOLS.find(tool=>tool.function.name===name)?.function.parameters.additionalProperties,false);
  assert.equal(TOOLS.some(tool=>tool.function.name==='spawn_agent'),false);
+});
+
+for(const blocking of [false,true])test(`question explanations are published before answering (blocking=${blocking})`,async t=>{
+ let waitingResponse=false;
+ const f=fixture(t,(messages,index)=>{
+  if(index===1)return {content:'Here is the context you need to choose.',finishReason:'tool_calls',calls:[call('request_user_input',{questions:[{id:'scope',title:'Which scope?',options:['Fix','Test']}],wait:blocking})]};
+  if(!blocking&&!messages.some(message=>message.role==='user'&&message.content?.includes('用户对会话内问题的回答'))){waitingResponse=true;return {content:'I have checked the files; please choose the scope.',finishReason:'stop',calls:[]};}
+  return {content:'The selected scope is Test.',finishReason:'stop',calls:[]};
+ });
+ const pending=f.harness.run(f.bot.id,'Help me choose a scope');
+ try{
+  for(let i=0;i<200&&(!f.interactions.pendingQuestions(f.bot.id,f.store.data.runs[0]?.id).length||!blocking&&!waitingResponse);i++)await new Promise(resolve=>setTimeout(resolve,10));
+  const question=f.interactions.snapshot().find(request=>request.kind==='user_input');assert.ok(question);
+  for(const text of ['Here is the context you need to choose.',...(!blocking?['I have checked the files; please choose the scope.']:[])]){
+   const message=f.published().find(message=>message.content===text);
+   assert.ok(message,`Missing published explanation: ${text}`);assert.equal(message.status,'done');assert.equal(message.presentation,'progress');
+  }
+  assert.equal(f.store.data.runs[0].status,'running');
+  f.interactions.answer(question.id,{scope:'Test'});await pending;assert.equal(f.store.data.runs[0].status,'completed');
+ }finally{f.harness.cancel(f.bot.id);await pending;}
 });
