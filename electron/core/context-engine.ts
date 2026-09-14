@@ -12,7 +12,7 @@ import {contextModelKey} from '../../src/context-issue';
 import {contextBudget,estimateRequest,exchanges,excerpt,serializeForSummary,sourceHash,tailBoundary,textTokens} from './context-budget';
 
 export interface ContextStats {displayTokens?:number;displaySource?:import("../../src/context-overview").ContextEstimateSource;estimatedTokens:number;calibration:number;inputBudget:number;toolTokens:number;imageTokens:number;epoch:number;compactions:number;prunedOutputs:number;estimateSource?:'tokenizer'|'usage-anchor';contextChanges?:string[];archivedImages?:number;lastIssue?:string;}
-export interface ContextInput {botId:string;runId:string;system:WireMessage;prefixContext?:WireMessage[];dynamicContext?:WireMessage[];history:WireMessage[];tools:ToolDefinition[];signal:AbortSignal;pendingFailures?:Map<string,string>;force?:boolean;scopeKey?:string;legacyHead?:{through:number;summary:string};taskFrame?:string;}
+export interface ContextInput {botId:string;runId:string;system:WireMessage;prefixContext?:WireMessage[];dynamicContext?:WireMessage[];history:WireMessage[];tools:ToolDefinition[];signal:AbortSignal;pendingFailures?:Map<string,string>;force?:boolean;scopeKey?:string;sharedScope?:boolean;legacyHead?:{through:number;summary:string};taskFrame?:string;}
 const keys=['constraints','done','pending','decisions','failures','next'] as const;
 export function parseContextSummary(text:string,maxTokens:number){
   const content=text.trim().replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'');let summary:any;
@@ -62,9 +62,9 @@ export class ContextEngine {
     return [...new Set(anchors)].slice(0,24);
   }
   async prepare(input:ContextInput){const botId=input.botId;
-    const stateKey=input.scopeKey?`${botId}:${input.scopeKey}`:botId;
+    const stateKey=input.scopeKey?(input.sharedScope?input.scopeKey:`${botId}:${input.scopeKey}`):botId,stateOwner=input.sharedScope?stateKey:botId;
     const historyVersion=this.storage.store.data.historyVersions?.[input.scopeKey||botId]||0;
-    if(Number(this.storage.contextState(botId,stateKey,'history-version')||0)!==historyVersion){this.storage.db.prepare('DELETE FROM context_heads WHERE bot_id=?').run(stateKey);this.storage.db.prepare('DELETE FROM context_state WHERE bot_id=? AND scope=?').run(botId,stateKey);this.storage.db.prepare('DELETE FROM context_pruning WHERE bot_id=? AND scope=?').run(botId,stateKey);this.storage.contextState(botId,stateKey,'history-version',String(historyVersion));}
+    if(Number(this.storage.contextState(stateOwner,stateKey,'history-version')||0)!==historyVersion){this.storage.db.prepare('DELETE FROM context_heads WHERE bot_id=?').run(stateKey);this.storage.db.prepare('DELETE FROM context_state WHERE bot_id=? AND scope=?').run(stateOwner,stateKey);this.storage.db.prepare('DELETE FROM context_pruning WHERE bot_id=? AND scope=?').run(botId,stateKey);this.storage.contextState(stateOwner,stateKey,'history-version',String(historyVersion));}
     const capacity=this.storage.store.modelFor(botId).contextTokens,budget=contextBudget(capacity),calibration=this.calibration(botId);
     let head=this.storage.head(stateKey),compactions=0,prunedCount=0,lastIssue:string|undefined;
     if(!head.revision&&input.legacyHead?.through)head={...head,...input.legacyHead};
