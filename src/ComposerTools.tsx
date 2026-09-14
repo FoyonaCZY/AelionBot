@@ -7,7 +7,7 @@ import {useI18n} from './i18n';
 import type {WorkMode} from './work-types';
 import './work-items.css';
 
-export function ComposerTools({scope,workspaceDir,onAttach,onCommand,onFolderPicked}:{scope:AttachmentScope;workspaceDir?:string;onAttach:()=>void;onCommand:(mode:WorkMode)=>void;onFolderPicked:()=>void}){
+export function ComposerTools({scope,workspaceDir,workspaceInherited=false,onAttach,onCommand,onFolderPicked}:{scope:AttachmentScope;workspaceDir?:string;workspaceInherited?:boolean;onAttach:()=>void;onCommand:(mode:WorkMode)=>void;onFolderPicked:()=>void}){
   const {t}=useI18n();
   const [open,setOpen]=useState(false),[pending,setPending]=useState(false),[error,setError]=useState('');
   const root=useRef<HTMLDivElement>(null),button=useRef<HTMLButtonElement>(null);
@@ -20,7 +20,7 @@ export function ComposerTools({scope,workspaceDir,onAttach,onCommand,onFolderPic
     if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){event.preventDefault();const items=[...root.current!.querySelectorAll<HTMLElement>('[role="menuitem"]')],at=items.indexOf(document.activeElement as HTMLElement);items[event.key==='Home'?0:event.key==='End'?items.length-1:(at+(event.key==='ArrowUp'?-1:1)+items.length)%items.length]?.focus();}
   }}>
     <button ref={button} type="button" className="icon-button composer-plus" aria-label={t('添加附件或工作目录')} aria-haspopup="menu" aria-expanded={open} disabled={pending} onClick={()=>setOpen(!open)}><Icon name="plus" size={23}/></button>
-    {workspaceDir&&<div className="composer-workspace" title={workspaceDir}><button type="button" disabled={pending} onClick={()=>void folder()} aria-label={t('工作目录：{path}',{path:workspaceDir})}><Icon name="folder" size={15}/><span>{workspaceDir.split(/[\\/]/).filter(Boolean).at(-1)||workspaceDir}</span></button><button type="button" className="workspace-remove" aria-label={t('清除会话工作目录')} disabled={pending} onClick={()=>void folder(true)}><Icon name="close" size={13}/></button></div>}
+    {workspaceDir&&<div className="composer-workspace" title={workspaceDir}><button type="button" disabled={pending} onClick={()=>void folder()} aria-label={t('工作目录：{path}',{path:workspaceDir})}><Icon name="folder" size={15}/><span>{workspaceDir.split(/[\\/]/).filter(Boolean).at(-1)||workspaceDir}</span></button>{!workspaceInherited&&<button type="button" className="workspace-remove" aria-label={t('清除会话工作目录')} disabled={pending} onClick={()=>void folder(true)}><Icon name="close" size={13}/></button>}</div>}
     {open&&<div className="composer-add-menu" role="menu" aria-label={t('添加到会话')}>
       <button type="button" role="menuitem" onClick={()=>{close();onAttach();}}><span className="composer-menu-icon"><AttachmentIcon/></span><span>{t('上传附件')}</span></button>
       <button type="button" role="menuitem" onClick={()=>void folder()}><span className="composer-menu-icon"><Icon name="folder"/></span><span>{workspaceDir?t('更换工作目录'):t('选择工作目录')}</span></button>

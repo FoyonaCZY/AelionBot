@@ -1,7 +1,8 @@
 import {resolveChatReply} from './message-replies';
 import {workCommand} from '../../src/work-types';
-import {conversationWorkspace} from './workspaces';
+import {effectiveWorkspace} from './workspaces';
 import {Attachments} from './attachments';
+import type {HostComputer} from './host';
 import type {Store} from './store';
 import type {HarnessRunOptions} from './peer-runtime-types';
 import type {BotMention,ChatMessage} from '../../src/shared';
@@ -23,7 +24,7 @@ export function pinChat(store:Store,botId:string,actor:PinActor,input:PinInput,r
 export class ChatPinQueue {
   private timer?:ReturnType<typeof setTimeout>;private closed=false;
   private workers=new Set<string>();private superseded=new Map<string,string>();
-  constructor(private store:Store,private runner:{isRunning:(id:string)=>boolean;run:(id:string,input:string,options:HarnessRunOptions)=>Promise<void>;refresh?:(id:string)=>string|undefined},private changed:()=>void,private attachments=new Attachments(store)){}
+  constructor(private store:Store,private runner:{isRunning:(id:string)=>boolean;run:(id:string,input:string,options:HarnessRunOptions)=>Promise<void>;refresh?:(id:string)=>string|undefined},private changed:()=>void,private attachments=new Attachments(store),private host?:HostComputer){}
   private queued(message:ChatMessage){return message.role==='user'&&!message.runId&&(message.inputState==='queued'||Boolean(message.reaction&&!message.inputState));}
   hasPending(id:string){return this.workers.has(id)||this.store.data.messages.some(message=>message.botId===id&&this.queued(message));}
   private received(botId:string){
@@ -37,7 +38,7 @@ export class ChatPinQueue {
     if(!this.store.modelFor(input.botId).model)throw new Error('请先为这个 Bot 选择模型');
     const command=workCommand(input.message);if(command&&!command.objective)throw Error(`请在 /${command.kind} 后填写任务内容`);
     const reply=resolveChatReply(this.store,input.botId,input.replyToMessageId);
-    this.store.message(input.botId,'user',input.message,{mentions,attachments,...(input.previewPrompt!==undefined?{previewPrompt:input.previewPrompt}:{}),...(reply?{reply}:{}),workspaceDir:conversationWorkspace(this.store,{kind:'bot',id:input.botId})||null,inputState:'queued'});this.received(input.botId);
+    this.store.message(input.botId,'user',input.message,{mentions,attachments,...(input.previewPrompt!==undefined?{previewPrompt:input.previewPrompt}:{}),...(reply?{reply}:{}),workspaceDir:effectiveWorkspace(this.store,this.host,{kind:'bot',id:input.botId}),inputState:'queued'});this.received(input.botId);
   }
   schedule(botId:string,message:string,scheduled:ScheduledTrigger){
     if(this.closed)throw new Error('客户端正在退出');validateChatInput(this.store,botId,message);

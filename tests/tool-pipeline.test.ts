@@ -68,6 +68,20 @@ for(const mode of ['auto','full'] as const)test(`real host batch reads inherit $
  const run=f.store.data.runs[0];assert.equal(run.status,'completed');assert.equal(f.interactions.snapshot().length,0);assert.equal(f.reviews(),0);assert.equal(run.executions?.filter(entry=>entry.tool==='host_file_read'&&entry.status==='succeeded').length,3);
  for(const entry of run.executions||[])assert.ok(JSON.parse(readFileSync(join(f.store.dir,'results',entry.resultId+'.json'),'utf8')));
 });
+test('independent tool calls in one turn overlap while later serial work waits',async t=>{
+ const parent=realpathSync.native(tmpdir()),root=mkdtempSync(join(parent,'aelion-parallel-')),project=join(root,'project'),store=new Store(join(root,'data'));mkdirSync(project);
+ writeFileSync(join(project,'a.txt'),'A');writeFileSync(join(project,'b.txt'),'B');
+ const interactions=new Interactions(()=>{});const policy=new HostApprovals(store,new CommandPermissions(join(store.dir,'rules.json')),async()=>({decision:'allow',reason:'fixture'}),{homeDir:root,defaultModel:()=>({baseUrl:'http://localhost',model:'fixture',hasKey:false,contextTokens:32000})});interactions.setHostPolicy(policy);policy.set({kind:'bot',id:store.data.bots[0].id},'full');
+ const host=new HostComputer({dataDir:store.dir,homeDir:root,projectDir:project},interactions);t.after(()=>{host.dispose();interactions.dispose();store.close();assert.equal(dirname(resolve(root)),parent);rmSync(root,{recursive:true,force:true});});
+ const started:string[]=[],gate=deferred<void>();
+ const original=host.readFile.bind(host);host.readFile=async(...args)=>{started.push(String(args[2].path));if(started.length===1)await gate.promise;return original(...args);};
+ let modelCalls=0;const model={complete:async()=>++modelCalls===1?{content:'',calls:[{id:'a',type:'function',function:{name:'host_file_read',arguments:JSON.stringify({path:'a.txt',reason:'read a'})}},{id:'b',type:'function',function:{name:'host_file_read',arguments:JSON.stringify({path:'b.txt',reason:'read b'})}}],finishReason:'tool_calls'}:{content:'已并行读取',calls:[],finishReason:'stop'}} as unknown as ModelClient;
+ const harness=new Harness(store,{} as VmController,model,()=>{},undefined,undefined,undefined,host,interactions);
+ const pending=harness.run(store.data.bots[0].id,'同时读两个文件',{workspaceDir:project});
+ for(let i=0;i<40&&started.length<2;i++)await flush();
+ assert.deepEqual(started,['a.txt','b.txt']);gate.resolve();await pending;
+ assert.equal(store.data.runs[0].status,'completed');assert.equal(store.data.runs[0].executions?.filter(entry=>entry.tool==='host_file_read'&&entry.status==='succeeded').length,2);
+});
 test('denying one host batch approval withdraws the batch but resumes the model',async t=>{
  const f=fixture(t,'ask'),pending=f.harness.run(f.store.data.bots[0].id,'阅读本机项目文件',{workspaceDir:f.project});for(let i=0;i<30&&f.interactions.snapshot().length<3;i++)await flush();assert.equal(f.interactions.snapshot().length,3);
  f.interactions.approve(f.interactions.snapshot()[0].id,false);await pending;const run=f.store.data.runs[0];assert.equal(run.status,'completed');assert.equal(f.interactions.snapshot().length,0);assert.equal(f.modelCalls(),2);assert.ok(f.store.data.messages.some(message=>message.operationDenial?.path?.endsWith('README.md')));

@@ -46,6 +46,26 @@ test('conversation folders persist independently, reset to default, and require 
   assert.throws(()=>setConversationWorkspace(store,host,{kind:'group',id:'missing'},a),/不存在/);
 });
 
+test('runs without a conversation folder inherit the configured default workspace and can read it',async t=>{
+  const {store,bot,dir,host,interactions,cleanup}=fixture(t),project=join(dir,'default-project');mkdirSync(project);writeFileSync(join(project,'README.md'),'from default workspace');
+  host.setWorkspaceDir(project);store.data.model.model='test';store.data.hostPermissionModes={['bot:'+bot.id]:'full'};
+  let listed='';
+  const model={complete:async()=>{if(!listed){listed='once';return response([call('host_file_read',{path:'README.md',reason:'读取默认工作区'})]);}return response([],'已读到默认工作区。');}} as unknown as ModelClient;
+  const harness=new Harness(store,{} as VmController,model,()=>{},undefined,undefined,undefined,host,interactions);
+  const queue=new ChatPinQueue(store,{isRunning:id=>harness.isRunning(id),run:(id,input,options)=>harness.run(id,input,options)},()=>{},undefined,host);
+  cleanup.push(()=>{queue.dispose();harness.cancel(bot.id);});
+  queue.send({botId:bot.id,message:'读一下 README'});
+  for(let i=0;i<80&&store.data.runs[0]?.status!=='completed';i++){
+    for(const request of interactions.snapshot())if(request.kind==='host_permission')try{interactions.approve(request.id,true);}catch{}
+    await new Promise(resolve=>setTimeout(resolve,20));
+  }
+  assert.equal(store.data.messages.find(message=>message.role==='user')?.workspaceDir,realpathSync.native(project));
+  assert.equal(store.data.runs[0]?.workspaceDir,realpathSync.native(project));
+  assert.equal(store.data.runs[0]?.status,'completed',store.data.runs[0]?.error||'');
+  const tool=store.data.messages.find(message=>message.tool==='host_file_read');
+  assert.match(tool?.content||'',/from default workspace/);
+});
+
 test('relative host reads and writes show exact project paths and retain single-use permission',async t=>{
   const {dir,host,interactions}=fixture(t),project=join(dir,'project 空格');mkdirSync(project);writeFileSync(join(project,'readme.md'),'original');
   const reading=host.readFile('bot','r',{path:'readme.md',reason:'查看项目说明'},new AbortController().signal,project),request=interactions.snapshot()[0];

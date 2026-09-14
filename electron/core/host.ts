@@ -50,7 +50,7 @@ export class HostComputer {
     return resolve(expanded);
   }
   workspace(botId:string){if(!/^[a-zA-Z0-9_-]{1,80}$/.test(botId))throw new Error('无效 Bot 工作目录');return this.workspaceSettings().workspaceDir;}
-  context(botId:string,workspace?:string){return {platform:process.platform,shell:shellName(),homeDir:this.options.homeDir,projectDir:this.options.projectDir,workspace:workspace||this.workspace(botId)};}
+  context(botId:string,workspace?:string){return {platform:process.platform,shell:shellName(),homeDir:this.options.homeDir,workspace:workspace||this.workspace(botId)};}
   private secrets(){const env=this.options.env||process.env;return [...Object.entries(env).filter(([name])=>/(?:TOKEN|SECRET|PASSWORD|PASSWD|API_?KEY|PRIVATE_?KEY)$/i.test(name)).map(([,value])=>value||''),...(this.options.secrets?.()||[])];}
   redact(value:string,preserveLines=false){return redactHost(value,this.secrets(),preserveLines);}
   private path(value:unknown){const path=text(value,'path',1500);if(!isAbsolute(path)||/[\r\n\t]/.test(path))throw new Error('本机路径必须是绝对路径');return resolve(path);}

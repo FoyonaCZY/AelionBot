@@ -154,8 +154,8 @@ async function initialize(){
   greetings=new BotGreetings(store,model,changed,id=>updatePreparing||harness.isRunning(id));
   peerChats=new PeerChats(store,{isRunning:id=>updatePreparing||harness.isRunning(id)||Boolean(chatPins?.hasPending(id)),run:(id,input,options)=>{groupChats?.preempt(id);greetings?.cancel(id);return harness.run(id,input,options);},cancel:id=>harness.cancel(id)},changed,attachments);
   harness.setPeerGateway(peerChats);peerChats.start();
-  groupChats=new GroupChats(store,{isRunning:id=>updatePreparing||harness.isRunning(id)||Boolean(chatPins?.hasPending(id)),run:(id,input,options)=>{greetings?.cancel(id);return harness.run(id,input,options);},cancel:id=>harness.cancel(id),refresh:id=>harness.refreshGroup(id)},changed,attachments);
-  chatPins=new ChatPinQueue(store,{isRunning:id=>updatePreparing||harness.isRunning(id),run:(id,input,options)=>{greetings?.cancel(id);return harness.run(id,input,options);},refresh:id=>{greetings?.cancel(id);const active=store.data.runs.find(run=>run.botId===id&&run.status==='running');groupChats?.yieldToUser(id);if(active)peerChats?.cancelRun(active);return harness.refreshInput(id);}},changed,attachments);chatPins.wake();
+  groupChats=new GroupChats(store,{isRunning:id=>updatePreparing||harness.isRunning(id)||Boolean(chatPins?.hasPending(id)),run:(id,input,options)=>{greetings?.cancel(id);return harness.run(id,input,options);},cancel:id=>harness.cancel(id),refresh:id=>harness.refreshGroup(id)},changed,attachments,host);
+  chatPins=new ChatPinQueue(store,{isRunning:id=>updatePreparing||harness.isRunning(id),run:(id,input,options)=>{greetings?.cancel(id);return harness.run(id,input,options);},refresh:id=>{greetings?.cancel(id);const active=store.data.runs.find(run=>run.botId===id&&run.status==='running');groupChats?.yieldToUser(id);if(active)peerChats?.cancelRun(active);return harness.refreshInput(id);}},changed,attachments,host);chatPins.wake();
   harness.setGroupGateway(groupChats);groupChats.start();
   scheduler=new TaskScheduler(store,{
     ready:target=>{

@@ -10,6 +10,7 @@ export function assertWorkspaceScope(store:Store,scope:AttachmentScope){
   return scope;
 }
 export function conversationWorkspace(store:Store,scope:AttachmentScope){return store.data.conversationWorkspaces?.[workspaceKey(scope)];}
+export function effectiveWorkspace(store:Store,host:HostComputer|undefined,scope:AttachmentScope){return conversationWorkspace(store,scope)||host?.workspaceSettings().workspaceDir;}
 export function setConversationWorkspace(store:Store,host:HostComputer,scope:AttachmentScope,value:string|null){
   assertWorkspaceScope(store,scope);
   const path=value===null?undefined:host.validateWorkspace(value);
