@@ -1,3 +1,4 @@
+import {applyDomEdits} from './core/html-preview-edits';
 import {WebPreviewBrowser} from './web-preview';
 import {protocol} from 'electron';
 import {PreviewFeedbackService} from './core/preview-feedback';
@@ -195,8 +196,11 @@ async function initialize(){
   window.on('close',event=>{if(!canDiscardPreview())event.preventDefault();});
   window.webContents.on('will-prevent-unload',event=>{if(canDiscardPreview())event.preventDefault();});
   installComputerView(window);
-  webPreview=new WebPreviewBrowser(window,vm,artifacts,attachments,join(__dirname,'preview-feedback-preload.cjs'));
+  webPreview=new WebPreviewBrowser(window,vm,artifacts,attachments,join(__dirname,'preview-feedback-preload.cjs'),join(__dirname,'web-preview-preload.cjs'));
   handle('preview-feedback:overlay',input=>webPreview!.feedback(input));
+  handle('web-preview:freeze',input=>webPreview!.freeze(input.id,input.frozen));
+  handle('web-preview:editor',input=>webPreview!.editor.command(input.id,input.command));
+  handle('preview:html-edits',input=>applyDomEdits(input.content,input.edits));
   handle('web-preview:open',input=>webPreview!.open(String(input?.id),input?.source));
   handle('web-preview:layout',input=>webPreview!.bounds(String(input?.id),input?.rect,input?.visible===true));
   handle('web-preview:action',input=>webPreview!.action(String(input?.id),String(input?.action),input?.url));
@@ -326,7 +330,7 @@ async function initialize(){
     },
     attach:(scope,name,bytes)=>attachments.importFiles(scope,[{name,bytes}])[0],
     discard:(scope,id)=>attachments.discardUnsentDraft(scope,id),
-    send:(scope,message,attachmentId,previewPrompt)=>{if(scope.kind==='bot')chatPins!.send({botId:scope.id,message,attachmentIds:[attachmentId],previewPrompt});else groupChats!.send({id:scope.id,message,attachmentIds:[attachmentId],previewPrompt});},
+    send:(scope,message,attachmentId,previewPrompt,input)=>{const offset=message.indexOf(previewPrompt,message.indexOf('\n')+1)-(input?.text.length||0)+(input?.text.trimStart().length||0),extras={attachmentIds:[...(input?.attachmentIds||[]),attachmentId],mentions:input?.mentions?.map(m=>({...m,start:m.start+offset,end:m.end+offset})),replyToMessageId:input?.replyToMessageId,previewPrompt};if(scope.kind==='bot')chatPins!.send({botId:scope.id,message,...extras});else groupChats!.send({id:scope.id,message,...extras});},
     delivered:(scope,id)=>(scope.kind==='bot'?store.data.messages.filter(message=>message.botId===scope.id&&message.role==='user'):store.data.groups.find(room=>room.id===scope.id)?.messages.filter(message=>message.sender.kind==='user')||[]).some(message=>message.attachments?.some(file=>file.id===id))
   });
   handle('preview:feedback',input=>previewFeedback.send(input));

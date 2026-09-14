@@ -6,6 +6,7 @@ import electron from 'electron';
 const dir=resolve('.local/web-preview-check');mkdirSync(dir,{recursive:true});
 await build({entryPoints:['scripts/verify-web-preview.ts'],outfile:dir+'/native-check.mjs',bundle:true,platform:'node',format:'esm',external:['electron'],target:'node24'});
 await build({entryPoints:['electron/preview-feedback-preload.ts'],outfile:dir+'/preview-feedback-preload.cjs',bundle:true,platform:'node',format:'cjs',external:['electron'],target:'node24'});
+await build({entryPoints:['electron/web-preview-preload.ts'],outfile:dir+'/web-preview-preload.cjs',bundle:true,platform:'node',format:'cjs',external:['electron'],target:'node24'});
 const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;
 const result=spawnSync(electron,[dir+'/native-check.mjs',dir],{env,windowsHide:true,encoding:'utf8',timeout:45000});
 process.stdout.write(result.stdout||'');process.stderr.write(result.stderr||'');process.exit(result.status??1);

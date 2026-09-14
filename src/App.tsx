@@ -1,3 +1,5 @@
+import {usePreviewWorkbench,PreviewComposerContext} from './preview-workbench';
+import {PreviewBotSwitcher} from './PreviewBotSwitcher';
 import {previewFeedbackDisplay} from './preview-feedback';
 import {VmStorageSettings} from './VmStorageSettings';
 import {useAgentPreview} from './use-agent-preview';
@@ -55,7 +57,7 @@ const errorText=(error:unknown)=>(error as Error).message.replace(/^Error invoki
 
 export default function App(){return <I18nProvider><FilePreviewProvider><AppContent/></FilePreviewProvider></I18nProvider>;}
 function AppContent(){
-  const showPreview=useFilePreview()!;
+  const showPreview=useFilePreview()!,previewWorkbench=usePreviewWorkbench();
   const [page,setPage]=useState<'chat'|'plugins'>('chat'),[pluginFilter,setPluginFilter]=useState<PluginFilter>('all');
   const {t,language}=useI18n();
   useWindowDimming();
@@ -84,6 +86,7 @@ function AppContent(){
   const sending=useRef(new Set<string>());
   const bottom=useRef<HTMLDivElement>(null),follow=useRef(true),selectedRef=useRef(selected);selectedRef.current=selected;
   const bot=state?.bots.find(item=>item.id===selected)||state?.bots[0];
+  useEffect(()=>{previewWorkbench?.activate(page==='chat'?(group?{kind:'group',id:group.id}:bot?{kind:'bot',id:bot.id}:undefined):undefined);},[page,bot?.id,group?.id,previewWorkbench?.activate]);
   const currentModel=bot?(state?.botModels?.[bot.id]||state?.model):state?.model;
   const menuBot=state?.bots.find(item=>item.id===botMenu?.id),editingBot=state?.bots.find(item=>item.id===editingId),deletingBot=state?.bots.find(item=>item.id===deletingId);
   const profileRunning=state?.runs.some(run=>run.botId===editingId&&run.status==='running')||false;
@@ -150,7 +153,7 @@ function AppContent(){
   const openPlugins=(filter:PluginFilter='all')=>{setPluginFilter(filter);setModal(null);setPeerPanel(undefined);setGroupEditor(undefined);setNewMenu(false);setBotMenu(undefined);setPage('plugins');};
   const openSettings=(tab:SettingsTab|'mcp'='model')=>{if(tab==='mcp'){openPlugins('mcp');return;}setScope(bot?.id||'');setSettingsTab(tab);setModal('settings');};
   const replyTo=(message:ChatMessage)=>{const owner=state?.bots.find(bot=>bot.id===message.botId);if(!owner)return;setDrafts(value=>({...value,[owner.id]:{...(value[owner.id]||{text:'',mentions:[]}),reply:messageReply(message,message.role==='user'?t('你'):owner.name,message.role==='user'?'user':owner.id)}}));};
-  const send=async()=>{if(!bot||sending.current.has(bot.id)||!draft.text.trim()&&!draft.attachments?.length)return;if(draft.text.length>32000){setToast(t('消息过长，请分段发送'));return;}if(!currentModel?.model||currentModel.issue){openSettings();setToast(t('先为这个 Bot 选择模型'));return;}const saved=draft,botId=bot.id;sending.current.add(botId);setDrafts(value=>({...value,[botId]:{text:'',mentions:[]}}));follow.current=true;try{await window.aelion.send({botId,message:saved.text,mentions:saved.mentions,replyToMessageId:saved.reply?.messageId,attachmentIds:saved.attachments?.map(file=>file.id)});}catch(error){setDrafts(value=>value[botId]?.text||value[botId]?.attachments?.length||value[botId]?.reply?value:{...value,[botId]:saved});setToast(errorText(error));}finally{sending.current.delete(botId);}};
+  const send=async()=>{if(!bot||sending.current.has(bot.id)||!draft.text.trim()&&!draft.attachments?.length)return;if(draft.text.length>32000){setToast(t('消息过长，请分段发送'));return;}if(!currentModel?.model||currentModel.issue){openSettings();setToast(t('先为这个 Bot 选择模型'));return;}const saved=draft,botId=bot.id;sending.current.add(botId);setDrafts(value=>({...value,[botId]:{text:'',mentions:[]}}));follow.current=true;try{if(!await previewWorkbench?.send({kind:'bot',id:botId},{text:saved.text,mentions:saved.mentions,replyToMessageId:saved.reply?.messageId,attachmentIds:saved.attachments?.map(f=>f.id)}))await window.aelion.send({botId,message:saved.text,mentions:saved.mentions,replyToMessageId:saved.reply?.messageId,attachmentIds:saved.attachments?.map(file=>file.id)});}catch(error){setDrafts(value=>value[botId]?.text||value[botId]?.attachments?.length||value[botId]?.reply?value:{...value,[botId]:saved});setToast(errorText(error));}finally{sending.current.delete(botId);}};
   const continueWork=()=>{if(!bot||running||!latestRun)return;follow.current=true;void window.aelion.resumeChat({botId:bot.id,runId:latestRun.id}).catch(error=>setToast(errorText(error)));};
   const refreshFiles=()=>bot&&act(async()=>{const owner=bot.id;const result=await window.aelion.listFiles(owner);if(selectedRef.current===owner)setFiles(result.map(file=>({...file,path:file.path||file.name})));});
   const openFiles=()=>{setFiles([]);setModal('files');void refreshFiles();};
@@ -194,7 +197,7 @@ function AppContent(){
       <div className="sidebar-bottom"><button className="sidebar-link" aria-current={page==='plugins'?'page':undefined} onClick={()=>openPlugins()}><Icon name="plugin"/><span>{language==='en'?'Plugins':language==='zh-TW'?'外掛':'插件'}</span></button><button className="sidebar-link" onClick={()=>openSettings()}><Icon name="settings"/><span>{t('设置')}</span></button><SidebarUpdate update={state.updates} onOpen={()=>openSettings('about')}/></div>
     </aside>
     {page==='plugins'&&<PluginsPage key={pluginFilter} initialFilter={pluginFilter} state={state} busy={busy||anyRunning} act={act} onClose={()=>setPage('chat')}/>}
-    <main className="conversation">
+    <main className="conversation">{previewWorkbench?.info?.docked&&<PreviewBotSwitcher bots={state.bots} groups={state.groups?.rooms||[]} value={group?'group:'+group.id:'bot:'+bot?.id} onChange={value=>previewWorkbench.navigate(()=>{const [kind,id]=value.split(':');setPage('chat');setSelectedGroup(kind==='group'?id:'');if(kind==='bot')setSelected(id);setFiles([]);})} onSettings={()=>openSettings()} onPlugins={()=>previewWorkbench.navigate(()=>openPlugins())} onNew={()=>previewWorkbench.navigate(openNewBot)}/>}
       {group?<GroupConversation key={group.id} group={group} state={state} avatarActivities={avatarActivities} draft={groupDrafts[group.id]||{text:'',mentions:[]}} onDraft={draft=>setGroupDrafts(value=>({...value,[group.id]:draft}))} onManage={()=>setGroupEditor(group.id)} onTakeover={startTakeover} onOpenFile={file=>void openPreview(file)} onSaveFile={file=>void saveFile(file)} visible={page==='chat'&&!modal&&!peerPanel&&!groupEditor&&!taskModalOpen}/>:bot?<><header className="chat-header drag"><button className="bot-heading no-drag" onClick={()=>editBot(bot)}><Avatar bot={bot} size={31} activity={avatarActivities[bot.id]}/><strong>{bot.name}</strong></button><div className="header-actions no-drag"><button className="bot-model-button" aria-label={t('选择 Bot 模型')} onClick={()=>editBot(bot)}>{currentModel?.model||t('选择模型')}</button>{(running||greeting||!currentModel?.model)&&<span className={`connection-status ${running||greeting?'working':''}`}>{running?(waiting?.kind==='host_permission'?(waiting.approval?.phase==='reviewing'?t('正在审核'):t('等待许可')):waiting?t('等待接管'):t('正在工作')):greeting?t('正在打招呼…'):t('尚未连接模型')}</span>}</div></header>
       <ConversationTimeProvider messages={messages}><section key={bot.id} className="messages" onScroll={event=>{const el=event.currentTarget;follow.current=el.scrollHeight-el.scrollTop-el.clientHeight<100;}}>{timeline.map(item=>{
         const key=`${bot.id}:${item.kind}:${item.kind==='run'?item.segmentId:item.id}`;
@@ -205,6 +208,7 @@ function AppContent(){
       <div className={`composer-wrap ${waiting?'with-request':''}`}>
         <ConversationInteractions requests={requests.filter(request=>!state.runs.find(run=>run.id===request.runId)?.groupOrigin||state.runs.find(run=>run.id===request.runId)?.groupTask)} botId={bot.id} onTakeover={startTakeover}/>
         <WorkItemsPanel items={state.workItems} scope={{kind:'bot',id:bot.id}} bots={state.bots}/>
+        <PreviewComposerContext scope={{kind:'bot',id:bot.id}}/>
         <BotComposer contextOverview={lastContext?.model===currentModel?.model&&lastContext?.providerId===currentModel?.providerId&&lastContext?.capacity===currentModel?.contextTokens?lastContext:undefined} contextCapacity={currentModel?.contextTokens} permissionMode={state.hostPermissionModes?.[workspaceKey({kind:'bot',id:bot.id})]} workspaceDir={state.conversationWorkspaces?.[workspaceKey({kind:'bot',id:bot.id})]} key={bot.id} bot={bot} bots={state.bots} draft={draft} running={running} onChange={draft=>setDrafts(value=>({...value,[bot.id]:draft}))} onSend={()=>void send()} onStop={()=>void window.aelion.cancel(bot.id)}/>
       </div>
       </>:<div className="empty-workspace"><Icon name="bot" size={38}/><h2>{t('还没有 Bot')}</h2><button className="primary-button" onClick={openNewBot}>{t('创建 Bot')}</button></div>}

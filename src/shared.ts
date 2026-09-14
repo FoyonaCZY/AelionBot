@@ -49,6 +49,11 @@ export interface Snapshot {previewRequests?:import("./agent-preview").AgentPrevi
 export interface AppEvent { type: 'state'; snapshot: Snapshot; }
 export interface CommandResult { stdout: string; stderr: string; exitCode: number; durationMs: number; }
 export interface AelionAPI {
+  freezeWebPreview(input:{id:string;frozen:boolean}):Promise<string|null>;
+  previewEditorCommand(input:{id:string;command:import('./preview-editor-types').EditorCommand}):Promise<import('./preview-editor-types').EditorResult>;
+  onPreviewSave(callback:(id:string)=>void):()=>void;
+  onPreviewEditor(callback:(event:{id:string;state:import('./preview-editor-types').PreviewEditorState})=>void):()=>void;
+  patchPreviewHtml(input:{content:string;edits:import('./preview-editor-types').DomEdit[]}):Promise<string>;
   updatePreviewFeedbackOverlay(input:import('./preview-feedback-overlay').FeedbackOverlayLayout|null):Promise<boolean>;
   onPreviewFeedbackInput(callback:(input:import('./preview-feedback-overlay').FeedbackOverlayInput)=>void):()=>void;
   openWebPreview(input:{id:string;source:import('./web-preview').WebPreviewSource}):Promise<import('./web-preview').WebPreviewState>;

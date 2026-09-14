@@ -11,7 +11,7 @@ export function usePreviewFeedbackOverlay(wrapper:RefObject<HTMLDivElement|null>
   const accessible=(native:boolean)=>{node.dataset.nativeFeedback=String(native);node.setAttribute('aria-hidden',String(native));for(const control of node.querySelectorAll<HTMLElement>('textarea,button'))control.tabIndex=native?-1:0;};
   const update=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{
    const serial=++revision,rect=node.getBoundingClientRect(),field=node.querySelector('textarea')!,style=getComputedStyle(field),web=host.querySelector('.web-preview-slot');
-   const visible=Boolean(web)&&layer.dataset.feedbackCapture!=='true'&&!node.closest('[inert]')&&document.visibilityState!=='hidden';
+   const visible=Boolean(web)&&layer.classList.contains('is-expanded')&&layer.dataset.feedbackCapture!=='true'&&!node.closest('[inert]')&&document.visibilityState!=='hidden';
    void window.aelion.updatePreviewFeedbackOverlay(web?{state:{...snapshot.current,fontFamily:style.fontFamily,fontSize:style.fontSize,fontWeight:style.fontWeight},rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height},visible}:null).then(native=>{if(!closed&&revision===serial)accessible(native);}).catch(()=>{if(!closed)accessible(false);});
   });};sync.current=update;
   const off=window.aelion.onPreviewFeedbackInput(value=>{if(value.id===state.id)handler.current(value);});

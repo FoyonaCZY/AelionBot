@@ -10,7 +10,7 @@
 .fp-layer:has(.web-preview) .fp-actions button{min-width:28px;min-height:30px;padding:5px;border-radius:7px}
 .fp-layer:has(.web-preview) .fp-actions .fp-reload{display:none}
 .fp-layer:has(.web-preview) .fp-action-divider{margin:0 3px}
-.fp-layer:has(.web-preview) .fp-directory{padding-top:calc(var(--web-chrome-top) + 58px)}
+.fp-layer:has(.web-preview) .fp-directory{padding-top:calc(var(--web-chrome-top) + 80px)}
 .web-preview-nav{display:flex;align-items:center;gap:2px;width:100%;height:32px;margin:0;padding:0;border:0;background:transparent;color:#626a75}
 .web-preview-nav button{display:grid;place-items:center;width:28px;height:30px;flex-shrink:0;border:0;border-radius:7px;padding:4px;background:transparent;color:inherit}
 .web-preview-nav button:hover{background:#f0f2f5;color:#202630}.web-preview-nav button:disabled{opacity:.3}

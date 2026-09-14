@@ -56,3 +56,13 @@ test('feedback mention offsets remain aligned after the preview header is hidden
  const message={content,previewPrompt:prompt,mentions:[{id:'bot',name:'写作伙伴',color:'#999',start,end:start+5}]};
  assert.equal(previewFeedbackDisplay(message).mentions?.[0].start,0);assert.equal(previewFeedbackDisplay(message).mentions?.[0].end,5);
 });
+test('feedback carries annotations and a complete edit manifest while retaining ordinary attachments and reply metadata',async()=>{
+ const scope={kind:'bot' as const,id:'bot'},created=new Map<string,{name:string;bytes:Buffer}>(),sent:any[]=[];let serial=0;
+ const service=new PreviewFeedbackService({validate:()=>{},capture:async()=>Buffer.from('png'),attach:(_scope,name,bytes)=>{const id='generated-'+(++serial);created.set(id,{name,bytes});return{id,name,size:bytes.length,mime:name.endsWith('.json')?'application/json':'image/png'};},discard:(_scope,id)=>{created.delete(id);},send:(scope,text,id,prompt,input)=>sent.push({scope,text,id,prompt,input}),delivered:(_scope,id)=>sent.some(row=>row.id===id)});
+ const input={...request(scope),attachmentIds:['original'],replyToMessageId:'reply',annotations:[{id:'mark',type:'rect' as const,x:.1,y:.2,w:.3,h:.4,text:'More spacing',color:'#3975c6'}],edits:[{before:{tag:'h1',path:['h1:1'],html:'<h1>Old</h1>'},after:'<h1>New</h1>'}]};
+ await service.send(input);await service.send(input);assert.equal(sent.length,1);assert.equal(created.size,2);const manifest=[...created.values()].find(file=>file.name.endsWith('.json'))!;assert.deepEqual(JSON.parse(manifest.bytes.toString()).edits,input.edits);assert.match(sent[0].text,/More spacing/);assert.equal(sent[0].input.replyToMessageId,'reply');assert.ok(sent[0].input.attachmentIds.includes('original'));assert.equal(sent[0].input.attachmentIds.length,2);assert.equal(sent[0].prompt,input.text);
+});
+test('a failed edit-feedback send cleans up both generated attachments and keeps the original attachment reference',async()=>{
+ const removed:string[]=[],created:string[]=[];const service=new PreviewFeedbackService({validate:()=>{},capture:async()=>Buffer.from('png'),attach:(_scope,name,bytes)=>{created.push(name);return{id:name,name,size:bytes.length,mime:'application/octet-stream'};},discard:(_scope,id)=>removed.push(id),send:()=>{throw Error('offline');},delivered:()=>false});
+ await assert.rejects(service.send({...request({kind:'bot',id:'bot'}),attachmentIds:['original'],edits:[{before:{tag:'p',path:['p:1'],html:'<p>A</p>'},after:'<p>B</p>'}]}),/offline/);assert.equal(created.length,2);assert.deepEqual(removed.sort(),created.sort());assert.ok(!removed.includes('original'));
+});

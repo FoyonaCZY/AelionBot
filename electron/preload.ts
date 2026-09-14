@@ -1,6 +1,10 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { AelionAPI, AppEvent } from '../src/shared';
 const api:AelionAPI={
+  freezeWebPreview:input=>ipcRenderer.invoke('web-preview:freeze',input),
+  previewEditorCommand:input=>ipcRenderer.invoke('web-preview:editor',input),patchPreviewHtml:input=>ipcRenderer.invoke('preview:html-edits',input),
+  onPreviewSave:callback=>{const handler=(_event:unknown,id:string)=>callback(id);ipcRenderer.on('web-preview:save',handler);return()=>ipcRenderer.removeListener('web-preview:save',handler);},
+  onPreviewEditor:callback=>{const handler=(_event:unknown,value:{id:string;state:import('../src/preview-editor-types').PreviewEditorState})=>callback(value);ipcRenderer.on('web-preview:editor-event',handler);return()=>ipcRenderer.removeListener('web-preview:editor-event',handler);},
   updatePreviewFeedbackOverlay:input=>ipcRenderer.invoke('preview-feedback:overlay',input),
   onPreviewFeedbackInput:callback=>{const handler=(_event:unknown,input:import('../src/preview-feedback-overlay').FeedbackOverlayInput)=>callback(input);ipcRenderer.on('preview-feedback:input',handler);return()=>ipcRenderer.removeListener('preview-feedback:input',handler);},
   openWebPreview:input=>ipcRenderer.invoke('web-preview:open',input),layoutWebPreview:input=>ipcRenderer.invoke('web-preview:layout',input),webPreviewAction:input=>ipcRenderer.invoke('web-preview:action',input),closeWebPreview:id=>ipcRenderer.invoke('web-preview:close',id),
