@@ -17,7 +17,12 @@ test('blank or invalid limits cannot be submitted while zero retains its unlimit
 });
 test('edited settings keep the backend contract and checkpoint toggle',()=>{
   const draft=runtimeDraft(DEFAULT_RUNTIME);draft.numbers.requestTimeoutMs='45';draft.numbers.modelRetries='3';draft.fileCheckpoints=true;
-  const result=runtimeDraftValues(draft)!;assert.equal(result.requestTimeoutMs,45000);assert.equal(result.fileCheckpoints,true);assert.equal(result.modelRetries,3);assert.deepEqual(runtimeSettings(result),result);
+  const result=runtimeDraftValues(draft)!;assert.equal(result.requestTimeoutMs,45000);assert.equal(result.fileCheckpoints,true);assert.equal(result.modelRetries,3);assert.equal(result.wakeAllGroupBots,true);assert.deepEqual(runtimeSettings(result),result);
+});
+test('group broadcast wake stays on by default and can be turned off',()=>{
+  assert.equal(runtimeSettings({}).wakeAllGroupBots,true);
+  const draft=runtimeDraft(DEFAULT_RUNTIME);draft.wakeAllGroupBots=false;
+  const result=runtimeDraftValues(draft)!;assert.equal(result.wakeAllGroupBots,false);assert.deepEqual(runtimeSettings(result),result);
 });
 
 test('retired progress settings load without exposing or resaving a reporting interval',()=>{

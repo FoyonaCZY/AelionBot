@@ -23,7 +23,7 @@ function RuntimeGroup({title,children,wide=false}:{title:string;children:ReactNo
 export function RuntimeSettings({settings,onNotify}:{settings?:Values;onNotify:(text:string)=>void}){
   const {t}=useI18n();
   const [saved,setSaved]=useState<Values>(()=>({...DEFAULT_RUNTIME,...settings})),[draft,setDraft]=useState(()=>runtimeDraft({...DEFAULT_RUNTIME,...settings})),[saving,setSaving]=useState(false),[error,setError]=useState('');
-  const checkpointId=useId(),values=runtimeDraftValues(draft),dirty=JSON.stringify(draft)!==JSON.stringify(runtimeDraft(saved));
+  const checkpointId=useId(),wakeAllId=useId(),values=runtimeDraftValues(draft),dirty=JSON.stringify(draft)!==JSON.stringify(runtimeDraft(saved));
   const update=(key:RuntimeNumberKey,value:string)=>{setError('');setDraft(current=>({...current,numbers:{...current.numbers,[key]:value}}));};
   const number=(key:RuntimeNumberKey)=><RuntimeNumber key={key} field={RUNTIME_FIELDS.find(field=>field.key===key)!} value={draft.numbers[key]} onChange={value=>update(key,value)}/>;
   return <form className="runtime-settings" onSubmit={async event=>{
@@ -39,6 +39,7 @@ export function RuntimeSettings({settings,onNotify}:{settings?:Values;onNotify:(
         <RuntimeGroup title={t('模型与读取')}>{number('requestTimeoutMs')}{number('modelRetries')}{number('maxOutputTokens')}{number('parallelReads')}</RuntimeGroup>
       </div>
       <RuntimeGroup title={t('恢复')} wide><div className="runtime-field runtime-checkpoint"><label htmlFor={checkpointId} className="runtime-field-copy"><span>{t('文件恢复点')}</span><small>{t('修改前保留一份文件版本')}</small></label><button id={checkpointId} type="button" className="runtime-switch" role="switch" aria-label={t('文件修改前保留检查点')} aria-checked={draft.fileCheckpoints} onClick={()=>{setError('');setDraft(value=>({...value,fileCheckpoints:!value.fileCheckpoints}));}}><span/></button></div></RuntimeGroup>
+      <RuntimeGroup title={t('群聊')} wide><div className="runtime-field runtime-checkpoint"><label htmlFor={wakeAllId} className="runtime-field-copy"><span>{t('群聊全员唤醒')}</span><small>{t('关闭后，只唤醒被提及、被指派或仍有未完成任务的 Bot')}</small></label><button id={wakeAllId} type="button" className="runtime-switch" role="switch" aria-label={t('群聊是否全员唤醒')} aria-checked={draft.wakeAllGroupBots} onClick={()=>{setError('');setDraft(value=>({...value,wakeAllGroupBots:!value.wakeAllGroupBots}));}}><span/></button></div></RuntimeGroup>
     </fieldset>
     <footer className="runtime-actions"><button type="button" className="runtime-reset" disabled={saving} onClick={()=>{setError('');setDraft(runtimeDraft(DEFAULT_RUNTIME));}}>{t('恢复默认')}</button><span className={`runtime-save-state ${error?'is-error':''}`} role="status">{error||(!values?t('请检查输入的数值'):dirty?t('有未保存的更改'):'')}</span><button type="submit" className="runtime-save" disabled={!dirty||!values||saving}>{saving?t('保存中…'):t('保存更改')}</button></footer>
   </form>;

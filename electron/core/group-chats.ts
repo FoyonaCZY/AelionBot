@@ -9,6 +9,8 @@ import {randomUUID} from 'node:crypto';
 import type {Bot,BotMention,RunRecord} from '../../src/shared';
 import {GROUP_LIMITS,groupPending,type GroupDelivery,type GroupLifecycleEvent,type GroupPage,type GroupRoom,type GroupRound,type GroupSender,type GroupSummary,type GroupsView} from '../../src/group-types';
 import {normalized,repeatedGroupResponse,groupAcknowledgment,groupContributionContext,individualGroupResponses} from './group-response';
+import {GROUP_WAKE_SKIPPED,shouldWakeGroupBot} from './group-wake';
+import {runtimeSettings} from './runtime-policy';
 import {rememberPublished} from './group-history';
 import {pinDescription,updatePins,validPin,type PinInput} from '../../src/reactions';
 import {readableContent} from '../../src/activity';
@@ -148,7 +150,7 @@ export class GroupChats implements GroupGateway {
   private requeue(worker:Worker){for(const delivery of worker.deliveries)if(groupPending(delivery.status)&&this.round(delivery.rootId).status==='active'){delivery.status='queued';delivery.reason=undefined;}}
   private pump(){
     if(this.closing)return;let dirty=false;
-    // A worker owns one Bot, never an entire group. All idle recipients start together.
+    // A worker owns one Bot, never an entire group. Idle recipients start together unless addressing skips them.
     for(const delivery of this.store.data.groupDeliveries.filter(d=>d.status==='queued')){
       if(delivery.status!=='queued')continue;const room=this.store.data.groups.find(room=>room.id===delivery.groupId),round=this.round(delivery.rootId);
       if(!room||!this.members(room).some(member=>member.id===delivery.recipientId)){delivery.status='cancelled';dirty=true;continue;}
@@ -156,6 +158,12 @@ export class GroupChats implements GroupGateway {
       if(this.workers.has(delivery.recipientId)||this.runner.isRunning(delivery.recipientId))continue;
       const batch=this.store.data.groupDeliveries.filter(d=>d.groupId===room.id&&d.recipientId===delivery.recipientId&&d.status==='queued'&&this.round(d.rootId).status==='active').slice(0,8);
       const trigger=batch.at(-1)!;
+      if(!runtimeSettings(this.store.data.runtime||{}).wakeAllGroupBots){
+        const messages=batch.map(item=>room.messages.find(message=>message.id===item.messageId)).filter((message):message is NonNullable<typeof message>=>Boolean(message));
+        if(!shouldWakeGroupBot({botId:delivery.recipientId,messages,room,round,workItems:this.store.data.workItems,retry:batch.some(item=>Boolean(item.retryRunId))})){
+          for(const item of batch){item.status='ignored';item.reason=GROUP_WAKE_SKIPPED;}dirty=true;continue;
+        }
+      }
       const worker:Worker={groupId:room.id,botId:delivery.recipientId,rootId:trigger.rootId,deliveries:batch,controller:new AbortController(),seq:room.messages.at(-1)?.seq||0};this.workers.set(worker.botId,worker);
       void this.process(room,worker).catch(error=>{
         if((worker.preempted||worker.updating)&&this.round(worker.rootId).status==='active')this.requeue(worker);

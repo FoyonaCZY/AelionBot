@@ -17,6 +17,9 @@ import type {VmController} from '../electron/core/vm';
 import {groupPending} from '../src/group-types';
 import {conversationTimeline} from '../src/activity';
 import {groupParaphrases} from './fixtures/group-paraphrases';
+import {DEFAULT_RUNTIME} from '../src/runtime-types';
+import {botIdentity} from '../src/bot-colors';
+import {GROUP_WAKE_SKIPPED} from '../electron/core/group-wake';
 const publishedMessages=(messages:WireMessage[])=>messages.filter(message=>message.groupMessageId).map(message=>JSON.parse(message.content!));
 const delay=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms));
 async function until(predicate:()=>boolean){for(let i=0;i<650;i++){if(predicate())return;await delay(10);}throw new Error('群聊测试等待超时');}
@@ -69,6 +72,26 @@ test('work progress is visible in the group and own main chat, broadcasts to oth
   const progress=fx.groups.read({id:room.id}).messages.filter(message=>message.kind==='progress');assert.equal(progress.length,1);assert.equal(actions,4);assert.deepEqual(recipients,new Set([fx.b.id,fx.c.id]));
   assert.ok(fx.store.data.messages.some(message=>message.botId===fx.a.id&&message.content===progress[0].content&&message.audience==='user'));
   assert.equal(fx.store.data.runs.filter(run=>run.botId===fx.a.id).length,1);assert.equal(fx.store.data.runs.find(run=>run.botId===fx.a.id)?.status,'completed');
+});
+test('turning off group broadcast wake skips unmentioned Bots after an @, and keeps default broadcast',async t=>{
+  const woken=new Set<string>();
+  const fx=fixture(t,run=>{woken.add(run.botId);return silent();});
+  const room=fx.groups.create({name:'点名',botIds:[fx.a.id,fx.b.id,fx.c.id]});await until(fx.settled);woken.clear();
+  fx.groups.send({id:room.id,message:`@${fx.a.name} 请处理这份报告`,mentions:[{...botIdentity(fx.a),start:0,end:fx.a.name.length+1}]});
+  await until(fx.settled);assert.deepEqual(woken,new Set([fx.a.id,fx.b.id,fx.c.id]));
+  fx.store.data.runtime={...DEFAULT_RUNTIME,wakeAllGroupBots:false};woken.clear();
+  fx.groups.send({id:room.id,message:`@${fx.b.name} 请核对数字`,mentions:[{...botIdentity(fx.b),start:0,end:fx.b.name.length+1}]});
+  await until(fx.settled);assert.deepEqual(woken,new Set([fx.b.id]));
+  const trigger=fx.store.data.groups[0].messages.find(message=>message.content.includes('请核对数字'))!;
+  assert.ok(fx.store.data.groupDeliveries.filter(delivery=>delivery.messageId===trigger.id&&delivery.recipientId!==fx.b.id&&delivery.recipientId!=='user').every(delivery=>delivery.status==='ignored'&&delivery.reason===GROUP_WAKE_SKIPPED));
+});
+test('addressing still wakes the whole room for an unaddressed human message',async t=>{
+  const woken=new Set<string>();
+  const fx=fixture(t,run=>{woken.add(run.botId);return silent();});
+  fx.store.data.runtime={...DEFAULT_RUNTIME,wakeAllGroupBots:false};
+  const room=fx.groups.create({name:'全员',botIds:[fx.a.id,fx.b.id]});await until(fx.settled);woken.clear();
+  fx.groups.send({id:room.id,message:'大家一起看这份材料'});await until(fx.settled);
+  assert.deepEqual(woken,new Set([fx.a.id,fx.b.id]));
 });
 test('each human or bot message broadcasts to all others, directly and concurrently without a judge',async t=>{
   const started=new Set<string>();let release:(value:Completion)=>void=()=>{};let first=true;
