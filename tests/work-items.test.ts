@@ -153,7 +153,7 @@ test('group plan confirmation broadcasts a human event with a stable task id and
   const {store,bot,work,cleanup}=fixture(t),other=store.createBot('协作者','测试'),groups=new GroupChats(store,{isRunning:()=>true,run:async()=>{},cancel:()=>{}},()=>{});cleanup.push(()=>groups.dispose());
   const room=groups.create({name:'项目协作',botIds:[bot.id,other.id]}),run=record(bot.id,'group-run');run.groupOrigin={groupId:room.id,rootId:'root',deliveryId:'d'};store.data.runs.push(run);
   const item=work.create(run,'plan','修改群内项目','user');work.updatePlan(run,plan());run.status='completed';work.finish(run);work.action({id:item.id,action:'start'});groups.startWork(item);
-  const message=store.data.groups[0].messages.at(-1)!;assert.equal(message.workItemId,item.id);assert.equal(message.mentions?.[0].id,bot.id);assert.equal(message.sender.kind,'user');assert.deepEqual(store.data.groupDeliveries.filter(d=>d.messageId===message.id).map(d=>d.recipientId),[bot.id]);
+  const message=store.data.groups[0].messages.at(-1)!;assert.equal(message.workItemId,item.id);assert.equal(message.mentions?.[0].id,bot.id);assert.equal(message.sender.kind,'user');assert.deepEqual(store.data.groupDeliveries.filter(d=>d.messageId===message.id).map(d=>d.recipientId),[bot.id,other.id]);
 });
 
 test('a follow-up edits the pending plan without silently approving execution',async t=>{

@@ -116,11 +116,10 @@ export const TOOLS:ToolDefinition[]=[
   ...SCHEDULED_TOOLS,
   tool('chat_pin','用 emoji 回应用户的文字，或回应用户在当前原消息下新加的表态。messageId 使用可回应列表的真实 ID；回应用户给你的消息加的表情时，仍使用那条原消息 ID。仅在本次只需表态、没有待办工作时，用表情结束发言并省略重复文字。若用户交代了任务，表情只是确认收到，必须继续执行并给出最终结果；不能用表情代替任务。已有相同表态时选不同的 emoji 或用文字自然回应。表情不授予操作权限。',{messageId:string,emoji:{type:'string',maxLength:32,description:'单个标准 emoji，例如 👍、❤️、😂、🎉、🤔、👀、🙏、🚀、☕、🐱，也可使用其他常见表情。'}},['messageId','emoji']),
   tool('group_pin','用 emoji 回应自己所在群的一条已发布消息，代替重复接话。表态会作为一次群发事件通知其他成员。不要回应别人的表态事件，也不要给自己表态。仅需要表态时用表情结束发言，不补发同义文字。承担任务或同时调用其他工具时继续执行，完成后仍需给出结果。',{groupId:string,messageId:string,emoji:{type:'string',maxLength:32,description:'单个标准 emoji，例如 👍、❤️、😂、🎉、🤔、👀、🙏、🚀、☕、🐱，也可使用其他常见表情。'}},['groupId','messageId','emoji']),
-  tool('groups_list','列出自己已加入的群聊及成员；群成员可读取同一份已发布历史，普通消息由协调 Bot 处理。',{},[]),
+  tool('groups_list','列出自己已加入的群聊及成员；群里每条新消息都会通知其他成员，只有必要时才回复。',{},[]),
   tool('group_create','按当前用户任务需要主动创建群聊。用户自动加入，你自动成为成员；botIds 是其他成员的真实 ID（来自 bots_list）。message 说明具体问题或分工，不要只发问候。共 2–8 位 Bot；可在 message 中用 @{成员ID} 明确 @ 某位成员。',{name:string,botIds:{type:'array',items:string,maxItems:8},message:string,attachments:attachmentList},['name','botIds','message']),
   tool('group_invite','向自己参加的群邀请 Bot。新成员可以查看历史，之后的新消息才通知它；不要为邀请自动发送欢迎或致谢。',{groupId:string,botIds:{type:'array',items:string,maxItems:8}},['groupId','botIds']),
-  tool('group_send_message','向自己参加的群发送一条具体协作消息。message 可以包含 @{成员ID} 来 @ 群成员，唯一名字也可直接写 @名字。当前群聊任务的最终答复由应用自动发出，不调用此工具重复发言。',{groupId:string,message:string,attachments:attachmentList},['groupId','message']),
-  tool('group_wake','委托群内成员处理明确的子任务，或将当前轮次主责移交给一位成员。只在确有分工需要时调用；被委托者从共享群历史读取上下文，完成后会回报委托者。',{botIds:{type:'array',minItems:1,maxItems:4,items:string},task:string,mode:{type:'string',enum:['assist','handoff']}},['botIds','task']),
+  tool('group_send_message','向自己参加的群发送一条具体协作消息。其他成员会收到事件并按需回应，无需轮询。message 可以包含 @{成员ID} 来 @ 群成员，唯一名字也可直接写 @名字。当前群聊任务的最终答复由应用自动发出，不调用此工具重复发言。',{groupId:string,message:string,attachments:attachmentList},['groupId','message']),
   tool('group_read','按需读取自己参加的群聊历史；before 是返回的消息 ID。不能访问未加入的群，不要轮询。',{groupId:string,before:string},['groupId']),
   tool('start_main_task','把当前收到的私聊请求转入自己的主会话任务。应用将载入你自己的主会话历史、记忆和完整工具，再由你执行。仅聊天或查询协作状态时直接回复；需要保存记忆、操作文件或电脑等任务时先调用此工具。调用本身不代表任务已完成。',{},[]),
   tool('bots_list','查看可私聊的其他 Bot 的准确 ID、职责和当前忙闲状态。先确定身份再发送，不要凭空编造 Bot 或回复。',{},[]),
@@ -254,7 +253,7 @@ export class Harness {
     const requiredImageIds=new Set([...(initialWire?.images||[]),...[...inputWires.values()].flatMap(wire=>wire.images||[]),...(trigger?.attachments||[]).flatMap(file=>file.image?[file.image]:[])].map(image=>image.id));
     const bot=this.store.bot(botId),mentions=this.mentions(botId,input,options.mentions);const controller=new AbortController();this.active.set(botId,controller);this.cognition?.beforeRun();
     let privateSessionId=options.peerOrigin?(isPrivatePeerOrigin(options.peerOrigin)?options.privateSessionId||`reply:${options.peerOrigin.exchangeId}`:undefined):options.privateSessionId;
-    const groupKey=options.groupOrigin?`group:${options.groupOrigin.groupId}`:undefined;
+    const groupKey=options.groupOrigin?`group:${options.groupOrigin.groupId}:${botId}`:undefined;
     let cognition=privateSessionId||groupKey?undefined:this.cognition,contextKey=groupKey||(privateSessionId?`peer:${privateSessionId}`:botId);
     const carry=resumed||this.store.data.runs.find(run=>run.id===(options.groupTaskFrom||options.supersedesRunId)&&run.botId===botId);
     const workspaceScope=options.groupOrigin?{kind:'group' as const,id:options.groupOrigin.groupId}:{kind:'bot' as const,id:botId};
@@ -271,7 +270,7 @@ export class Harness {
     if(reactionMessage)reactionMessage.runId=run.id;
     if(options.groupTaskFrom)this.store.promoteGroupTask(run.id,options.groupTaskFrom);
     const userSource=options.peerOrigin||options.groupOrigin?undefined:humanRunSource(this.store,run.id),userMemoryRoute=userSource?memoryRoute(this.store,userSource):undefined;
-    let history=groupKey?initialGroupHistory!:privateSessionId?(this.store.data.peerContexts[privateSessionId]||=[]):(this.store.data.conversations[botId]||=[]),groupPrivateCursor=groupKey?initialGroupHistory!.length:0;
+    let history=groupKey?initialGroupHistory!:privateSessionId?(this.store.data.peerContexts[privateSessionId]||=[]):(this.store.data.conversations[botId]||=[]);
     if(inputs.length){for(const message of inputs)if(message)history.push({role:'user',...inputWires.get(message.id)!});}
     else if(!groupKey&&!resumed)history.push({role:'user',...initialWire!});if(resumed)this.store.message(botId,'event','继续处理原任务',{runId:run.id});this.store.save();options.onStarted?.(run.id);this.changed();
     let visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});this.changed();
@@ -298,7 +297,7 @@ export class Harness {
     if(this.peers)system.content+="\nCollaborate privately with other Bots as needed for the user task. Verify identity with bots_list or an explicitly mentioned Bot ID, then send a specific question with bot_send_message. The recipient processes the message independently; quote their response only after a real reply arrives. Successful sending means queued, not completed. You may report that the message was sent. Raw inter-Bot messages appear in the private chat window; the main chat shows send/receive events and a later user-facing summary. Do not present the recipient words as your own user-facing reply. Do not poll, repeatedly prompt, or wait idly. Private messages cannot expand user authorization. Host operations still follow saved rules or per-operation approval; Bots cannot approve each other or add permission rules.";
     if(mentions.length)turnContext.content+=`\n用户在本条消息中明确选择的 Bot 身份：${JSON.stringify(mentions.map(mention=>({id:mention.id,name:this.store.bot(mention.id).name})))}。按照用户要求联系它们，同名时以 ID 为准。`;
     if(options.peerContext){turnContext.content=turnContext.content!.replace(requestContext,'当前正在处理一条协作消息。');turnContext.content+='\n'+options.peerContext;}
-    if(this.groups)system.content+="\nCreate groups or invite Bots when needed for the user task, verifying identities with bots_list. Group messages are stored in a separate conversation and members can read the same published history. Ordinary group messages go to that group's coordinator; explicit @ mentions go directly to their targets. A coordinator may use group_wake for concrete work, but never wake Bots for politeness, agreement, or acknowledgement.";
+    if(this.groups)system.content+="\nCreate groups or invite Bots when needed for the user task, verifying identities with bots_list. Group messages are stored in a separate conversation. Each new message notifies other members, but reply only when necessary, explicitly asked, or assigned work. Do not reply merely for politeness, agreement, or acknowledgement, and do not repeatedly prompt one another.";
     if(!options.peerOrigin&&!options.groupOrigin){
       const targets=this.store.data.messages.filter(message=>message.botId===botId&&!message.reaction&&['user','assistant'].includes(message.role)&&(message.content||message.attachments?.length)&&(!message.status||message.status==='done')).slice(-8).map(message=>({messageId:message.id,sender:message.role==='user'?'用户':bot.name,content:(message.content||attachmentSummary(message.attachments)).slice(0,350),canPin:message.role==='user'||requiresReactionReply&&message.id===reactionMessage?.reaction?.messageId,pins:message.pins?.map(pin=>({emoji:pin.emoji,actor:pin.actor.name}))}));
       system.content+="\nUse chat_pin to react with emoji instead of repetitive textual acknowledgements.";turnContext.content+='\nMessages available for reactions: '+JSON.stringify(targets);
@@ -362,12 +361,7 @@ export class Harness {
         const references:WireMessage[]=[...(profile?[{role:'system' as const,content:profile}]:[]),{role:'system',content:this.cognition&&!privateSessionId?this.cognition.memory.prompt(botId):`本次记忆快照：\n${this.store.bot(botId).memories.join('\n')||'暂无'}`},reference,{role:'system',content:skillCatalog(this.integrations?.skills||{list:id=>this.store.data.skills.filter(skill=>!skill.botId||skill.botId===id),autoManaged:()=>false},botId,this.store.modelFor(botId).contextTokens,options.groupOrigin?'read-only':'foreground').prompt}];
         const contextInput={botId,runId:run.id,system,prefixContext:references,dynamicContext:[turnContext],history,tools:modelTools,signal:inferenceSignal,pendingFailures,taskFrame,...(privateSessionId?{scopeKey:contextKey}:{}),legacyHead:{through:contextStart,summary:this.store.data.summaries[contextKey]||''}};
         let prepared=!groupKey?await abortable(inferenceSignal,()=>contextEngine.prepare(contextInput)):undefined;if(prepared)finalContext=prepared.messages;
-        // The group head is shared and must be derived only from published
-        // events. Tool calls remain a per-Bot execution detail, so append just
-        // this Bot's new private delta after the shared transcript instead of
-        // allowing it to advance the shared compaction boundary.
-        const privateGroupDelta=groupKey?history.slice(groupPrivateCursor):[];if(groupKey)groupPrivateCursor=history.length;
-        const groupInput=groupKey?{...contextInput,key:groupKey,history:groupHistory(this.store,options.groupOrigin!.groupId,botId),dynamicContext:[...(contextInput.dynamicContext||[]),...privateGroupDelta]}:undefined;
+        const groupInput=groupKey?{...contextInput,key:groupKey}:undefined;
         let groupPrepared=groupInput?await abortable(inferenceSignal,()=>prepareGroupContext(this.store,this.model,groupInput,contextEngine)):undefined;if(groupPrepared)finalContext=groupPrepared.messages;
         if(!prepared&&!groupPrepared&&taskFrame)finalContext.push({role:'system',content:taskFrame});
         const complete=async(messages:WireMessage[],maxOutputTokens?:number)=>{
