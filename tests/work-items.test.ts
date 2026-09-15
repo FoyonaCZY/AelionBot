@@ -102,6 +102,35 @@ test('/plan persists a pending checklist, exposes only read tools, and executes 
   assert.equal(writes,1);assert.equal(item.status,'completed');assert.equal(item.runIds.length,2);assert.equal(store.data.messages.filter(m=>m.role==='user').length,userMessages);assert.equal(store.humanRunMessage(item.runIds[1])?.id,item.sourceMessageId);
 });
 
+for(const kind of ['plan','goal'] as const)test(`${kind} stops repeated premature answers and retains unfinished work`,async t=>{
+  const {store,bot,work}=fixture(t);let turns=0;
+  const model={complete:async()=>{
+    turns++;if(turns===1)return response([kind==='plan'?call('plan_update',plan()):call('goal_set',{objective:'核对项目'})]);
+    if(turns>4)throw Error('test: repeated generation was not stopped');
+    return response([],'材料已齐，现在发送正文。');
+  }} as unknown as ModelClient;
+  await new Harness(store,{} as VmController,model,()=>{}).run(bot.id,'核对项目后提交结果');
+  const run=store.data.runs.at(-1)!;
+  assert.equal(turns,4);assert.equal(run.status,'failed');assert.match(run.error||'',/连续.*未推进/);
+  assert.equal(work.forRun(run)?.status,'blocked');assert.equal(run.executions?.length,1);
+});
+
+test('tool execution resets premature-answer retries and completed work still delivers',async t=>{
+  const {store,bot}=fixture(t);let turns=0;
+  const model={complete:async()=>{
+    turns++;
+    if(turns===1)return response([call('plan_update',plan())]);
+    if([2,3,5,6].includes(turns))return response([],'准备提交结果。');
+    if(turns===4)return response([call('file_read',{path:'proof.txt'})]);
+    if(turns===7){const evidence=store.data.runs.at(-1)!.executions!.find(e=>e.tool==='file_read')!.id;return response([call('plan_update',plan(1,'done',[evidence]))]);}
+    return response([],'已经核对并完成。');
+  }} as unknown as ModelClient;
+  const vm={execute:async(_command:string,id:string)=>({exitCode:0,stdout:JSON.stringify({path:`/work/${id}/proof.txt`,data:Buffer.from('verified').toString('base64')})})} as unknown as VmController;
+  await new Harness(store,vm,model,()=>{}).run(bot.id,'核对文件');
+  assert.equal(turns,8);assert.equal(store.data.runs.at(-1)?.status,'completed');
+  assert.ok(store.data.messages.some(message=>message.presentation==='answer'&&message.content==='已经核对并完成。'));
+});
+
 test('goal keeps working after premature final text and needs real verification to complete',async t=>{
   const {store,bot}=fixture(t);let turn=0;
   const model={complete:async()=>{

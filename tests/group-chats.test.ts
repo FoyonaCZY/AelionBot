@@ -65,6 +65,23 @@ test('group tool results remain available across multiple model turns',async t=>
   assert.equal(fx.groups.read({id:room.id}).messages.filter(message=>message.content==='三次工具结果均已保留，核对完成。').length,1);
 });
 
+test('stalled group plans stop and publish a notice without delivering an unverified answer',async t=>{
+  let turns=0;
+  const fx=fixture(t,(run)=>{
+    if(run.botId!==fx.a.id)return silent();
+    turns++;if(turns===1)return call('plan_update',{revision:0,goal:'提交核对结果',steps:[{id:'check',title:'核对材料',acceptance:'引用实际材料',status:'pending',evidenceIds:[]}]});
+    if(turns>4)throw Error('test: repeated generation was not stopped');
+    return answer('材料已齐，现在发送正文。');
+  });
+  const room=fx.groups.create({name:'循环回归',botIds:[fx.a.id,fx.b.id]});fx.groups.send({id:room.id,message:'核对材料后提交正文'});await until(fx.settled);
+  assert.equal(turns,4);
+  const messages=fx.groups.read({id:room.id}).messages;
+  assert.ok(messages.some(message=>message.sender.id===fx.a.id&&/连续.*未推进/.test(message.content)));
+  assert.ok(!messages.some(message=>message.kind==='message'&&message.content==='材料已齐，现在发送正文。'));
+  assert.equal(fx.store.data.workItems?.[0]?.status,'blocked');
+  assert.equal(fx.store.data.groupDeliveries.find(d=>d.recipientId===fx.a.id&&d.status==='failed')?.status,'failed');
+});
+
 test('real group dispatch keeps mixed-language conversation without language rules',async t=>{
  const captured:Array<{text:string;botEvent:boolean}>=[];let replied=false;
  const fx=fixture(t,(run,messages)=>{const context=messages.filter(m=>m.role==='system').map(m=>m.content||'').join('\n');if(!context.includes('Build an awesome project.'))return silent();const history=publishedMessages(messages);captured.push({text:context,botEvent:history.some(m=>m.sender.kind==='bot'&&m.content==='我建议做音乐项目。')});if(run.botId===fx.a.id&&!replied){replied=true;return answer('我建议做音乐项目。');}return silent();});

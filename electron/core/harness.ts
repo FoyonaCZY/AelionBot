@@ -329,6 +329,18 @@ export class Harness {
       this.store.save();this.changed();
     };
     const work=new WorkItems(this.store);
+    let prematureAnswers=0;
+    const continueUnfinishedWork=(instruction:string)=>{
+      visible.presentation='progress';visible.content='';
+      if(++prematureAnswers>=3){
+        const reason='连续 3 次生成答复但未推进未完成任务，已停止自动重试。工作记录已保留，请检查任务步骤后继续。';
+        if(options.groupOrigin)this.groups?.publishProgress(botId,run.id,reason);
+        throw new Error(reason);
+      }
+      history.push({role:'system',content:`本次答复尚未交付（连续第 ${prematureAnswers} 次）。${instruction}`});
+      visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});
+      this.store.save();this.changed();
+    };
     let ownedContext:CognitiveStore|undefined;
     try {
       if(!this.cognition)ownedContext=new CognitiveStore(this.store);
@@ -393,6 +405,7 @@ export class Harness {
         run.modelCalls++;visible.content=silentReaction||standaloneReaction?'':result.content;visible.status='done';visible.presentation=result.calls.length?'progress':'answer';
         if((!groupKey||result.calls.length)&&!silentReaction)history.push({role:'assistant',native:result.native,content:groupKey||standaloneReaction?null:result.content||null,...(result.calls.length?{tool_calls:result.calls}:{})});this.store.save();if(result.calls.length)this.changed();
         if(options.groupOrigin&&result.calls.length&&readableContent(visible.content)){this.groups?.publishProgress(botId,run.id,readableContent(visible.content));visible.audience='user';this.store.save();this.changed();}
+        if(result.calls.length)prematureAnswers=0;
         if(!result.calls.length){
           if(this.interactions?.pendingQuestions(botId,run.id).length||this.interactions?.hasAnswers(botId,run.id)){visible.presentation='progress';this.store.save();this.changed();await this.interactions.waitQuestions(botId,run.id,controller.signal);visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});continue;}
           const terminals=this.terminals.list(botId,run.id).filter(session=>session.purpose==='task'&&session.exitCode===undefined);if(terminals.length){visible.presentation='progress';history.push({role:'system',content:'以下终端仍在运行，请 terminal_read 检查或 terminal_stop 停止，不能仅凭启动成功交付：'+JSON.stringify(terminals)});visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});continue;}
@@ -401,10 +414,10 @@ export class Harness {
           const pendingPython=this.pythonSessions.pending(botId,run.id);if(pendingPython.length){visible.content='';visible.presentation='progress';history.push({role:'system',content:'Python 代码仍未核对完成，请用 python_session poll 取回结果，不要重新执行：'+JSON.stringify(pendingPython)});visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});continue;}
           const pendingProcesses=this.processes.list(botId,run.id).filter(p=>p.purpose==='task'&&!['completed','failed','stopped'].includes(p.status));
           if(pendingProcesses.length){visible.content='';visible.presentation='progress';history.push({role:'system',content:'以下后台任务尚未核对完成，请用 process_wait/status 检查状态、日志与退出码，不能仅凭启动成功交付：'+JSON.stringify(pendingProcesses)});visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});continue;}
-          if(!['planning','blocked'].includes(work.forRun(run)?.status||'')&&new RunPolicy(this.store).incomplete(botId,run.id)){visible.presentation='progress';visible.content='';history.push({role:'system',content:'任务清单仍有未完成步骤，请继续执行并更新 task_update。不要提前宣称完成；无法继续的步骤必须说明阻碍。'});visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});continue;}
+          if(!['planning','blocked'].includes(work.forRun(run)?.status||'')&&new RunPolicy(this.store).incomplete(botId,run.id)){continueUnfinishedWork('任务清单仍有未完成步骤，请继续执行并更新 task_update 或 plan_update。不要提前宣称完成；无法继续时用 goal_update(status=blocked) 说明阻碍。');continue;}
           const currentWork=work.forRun(run);
           if(currentWork?.status==='planning'&&!run.plan?.steps.length||currentWork?.kind==='goal'&&currentWork.status==='running'){
-            visible.presentation='progress';visible.content='';history.push({role:'system',content:currentWork?.status==='planning'?'请先调用 plan_update 保存具体计划，再结束规划。':'目标尚未完成。请继续执行；实际验收后用 goal_update 标记完成，无法继续则报告 blocked 及阻碍。'});visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});continue;
+            continueUnfinishedWork(currentWork?.status==='planning'?'请先调用 plan_update 保存具体计划，再结束规划。':'目标尚未完成。请继续执行；实际验收后用 goal_update 标记完成，无法继续则报告 blocked 及阻碍。');continue;
           }
           const waitingForPeer=memoryDelegation&&this.store.data.peerExchanges.some(item=>item.parentId===memoryDelegation.exchangeId&&peerPending(item.status));
           if(memoryDelegation&&!memoryConfirmed&&!waitingForPeer){
