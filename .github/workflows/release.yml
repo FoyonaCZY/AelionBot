@@ -66,7 +66,9 @@ jobs:
           python-version: '3.11'
           architecture: ${{ matrix.arch }}
       - name: Test
-        timeout-minutes: 5
+        # Windows process startup makes the full suite slower on hosted runners.
+        # Individual tests still retain the 30-second limit in npm test.
+        timeout-minutes: ${{ runner.os == 'Windows' && 15 || 5 }}
         env:
           AELION_TEST_PYTHON: ${{ steps.python.outputs.python-path }}
         run: npm test

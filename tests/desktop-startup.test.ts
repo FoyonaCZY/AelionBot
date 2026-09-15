@@ -5,7 +5,7 @@ import {BOT_DESKTOP_SCRIPT} from '../electron/core/bot-desktop-profile';
 import {SESSION_LAUNCHER} from '../electron/core/desktop-profile';
 
 const python=process.env.AELION_TEST_PYTHON||(process.platform==='win32'?'python':'python3');
-const probe=spawnSync(python,['--version'],{windowsHide:true,timeout:10000});
+const probe=spawnSync(python,['--version'],{windowsHide:true,timeout:25000});
 if(process.env.AELION_TEST_PYTHON)assert.equal(probe.status,0,`Configured test Python could not start: ${String(probe.error||probe.stderr)}`);
 const available=probe.status===0;
 // The script's fake clock asserts the desktop deadlines. This separate guard

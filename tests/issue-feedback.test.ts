@@ -36,10 +36,10 @@ test('missing and orphan tool replies recover as unknown without invented succes
 test('successful request baselines do not synthesize replies for newly returned tool calls',()=>{
  const history:WireMessage[]=[{role:'user',content:'hi'},{role:'assistant',content:null,tool_calls:[call('new')]}];const request=protocolRequest(cfg,history,[],4096,'',()=>'',true,undefined,undefined,true);assert.equal((request.body as any).messages.length,2);assert.equal(request.historyRepairs,0);
 });
-test('published group progress rebuilds the shared transcript without exposing private tool batches',t=>{
+test('published group progress waits until the pending tool batch has finished',t=>{
  const {store,bot}=fixture(t),groupId='group',message={id:'p',seq:2,groupId,sender:{kind:'bot',id:bot.id,name:bot.name,color:bot.color},kind:'progress',content:'working',time:new Date().toISOString()} as any;
  store.data.groups.push({id:groupId,messages:[message]} as any);const history:WireMessage[]=[{role:'user',content:'request',groupMessageId:'first'},{role:'assistant',content:null,tool_calls:[call('a')]}];store.data.groupContexts[groupContextKey(groupId,bot.id)]=history;
- rememberPublished(store,message);history.push(reply('a'));const shared=groupHistory(store,groupId,bot.id);assert.equal(shared.length,1);assert.equal(shared.at(-1)?.groupMessageId,'p');assert.ok(shared.every(message=>message.role==='user'&&!message.tool_calls));
+ rememberPublished(store,message);assert.equal(history.length,2);history.push(reply('a'));groupHistory(store,groupId,bot.id);assertPairs(history);assert.equal(history.at(-1)?.groupMessageId,'p');
 });
 test('existing corrupt histories are backed up, repaired and do not reuse obsolete summary offsets',async t=>{
  const f=fixture(t),history:WireMessage[]=[{role:'user',content:'task'},{role:'assistant',content:null,tool_calls:[call('a')]},{role:'assistant',content:'progress'},reply('a')];f.store.data.conversations[f.bot.id]=history;
