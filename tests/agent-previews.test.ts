@@ -87,3 +87,27 @@ test('URL previews route VM services to their Bot and reject ambiguous or mixed 
  for(const input of [{url:'http://localhost:5173'},{url:'http://localhost:22',location:'vm'},{url:'https://example.com',location:'vm'},{url:'file:///etc/passwd'},{url:'https://example.com',path:'a.html',location:'host'}])await assert.rejects(f.previews.open(f.bot.id,f.run.id,{reason:'Show',...input},signal()));
  await f.previews.open(f.bot.id,f.run.id,{url:'https://example.com/demo',reason:'Show website'},signal());assert.equal(f.previews.snapshot()[0].target.kind,'url');
 });
+
+test('acknowledged previews stay in per-conversation history so they can reopen',async t=>{
+ const f=fixture(t);
+ await f.previews.open(f.bot.id,f.run.id,{url:'http://localhost:5173/',location:'vm',reason:'Show site'},signal());
+ const queued=f.previews.snapshot()[0];
+ f.previews.acknowledge(queued.id);
+ assert.equal(f.previews.snapshot().length,0);
+ const history=f.previews.history();assert.equal(history.length,1);
+ assert.equal(history[0].id,queued.id);assert.deepEqual(history[0].scope,{kind:'bot',id:f.bot.id});
+ assert.deepEqual(history[0].target,{kind:'url',url:'http://localhost:5173/',location:'vm'});
+ assert.ok(history[0].acknowledgedAt>=history[0].createdAt);
+ const reopened=new Store(f.dir);assert.equal(reopened.data.previewHistory?.length,1,'历史写入磁盘');
+});
+
+test('history keeps only the newest previews per conversation',async t=>{
+ const f=fixture(t);
+ for(let i=0;i<23;i++){
+  await f.previews.open(f.bot.id,f.run.id,{url:`http://localhost:30${String(i).padStart(3,'0')}/`,location:'vm',reason:'Show'},signal());
+  f.previews.acknowledge(f.previews.snapshot()[0].id);
+ }
+ const history=f.previews.history();assert.equal(history.length,20);
+ assert.equal((history.at(-1)!.target as any).url,'http://localhost:30022/');
+ const other=new Store(f.dir);assert.equal(other.data.previewHistory?.length,20);
+});

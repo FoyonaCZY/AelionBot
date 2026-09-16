@@ -1,0 +1,8 @@
+.preview-history{display:flex;flex-direction:column;gap:6px;margin:10px 0 16px}
+.preview-history-chip{display:flex;align-items:center;gap:9px;width:min(100%,440px);padding:9px 13px;border:1px solid light-dark(#e5e1ea,#403747);border-radius:11px;background:light-dark(#fff,#242128);color:var(--text-ink);text-align:left;cursor:pointer}
+.preview-history-chip:hover{background:light-dark(#faf8fc,#2b2631);border-color:light-dark(#d4c7e0,#574a61)}
+.preview-history-chip:focus-visible{outline:2px solid light-dark(#a48cb9,#b49bc7);outline-offset:1px}
+.preview-history-symbol{display:grid;place-items:center;flex:0 0 auto;color:light-dark(#9984ab,#b29ac6)}
+.preview-history-name{flex:1;min-width:0;font-size:var(--text-control);line-height:1.45;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.preview-history-action{flex:0 0 auto;display:grid;place-items:center;color:var(--text-muted)}
+.preview-history-chip:hover .preview-history-action{color:var(--text-secondary)}
