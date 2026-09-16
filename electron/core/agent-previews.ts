@@ -18,6 +18,9 @@ export class AgentPreviews {
   history(){return this.store.data.previewHistory||[];}
   acknowledge(id:string){for(const [key,request] of this.pending)if(request.id===id){this.pending.delete(key);this.remember(request);this.changed();return;}}
   private remember(request:AgentPreviewRequest){
+    // Query strings and fragments commonly contain one-time links or bearer material.
+    // Keep them available for the currently open preview, but never write them to disk.
+    if(request.target.kind==='url'){const url=new URL(request.target.url);if(url.search||url.hash)return;}
     const history=this.store.data.previewHistory||=[];
     const scopeKey=request.scope.kind+':'+request.scope.id;
     history.push({id:request.id,botId:request.botId,runId:request.runId,scope:request.scope,name:request.name,size:request.size,createdAt:request.createdAt,acknowledgedAt:new Date().toISOString(),target:request.target});
