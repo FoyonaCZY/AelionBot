@@ -19,7 +19,7 @@ import {BOT_COLORS,normalizeBotPalette,type BotAvatarStyle} from '../../src/bot-
 
 import type {StoredAttachment} from '../../src/attachment-types';
 export interface StoredProvider extends Omit<ModelProvider,'hasKey'> {encryptedKey?:string;}
-interface Persisted {language?:import("../../src/interface-language").Language;appearance?:import("../../src/appearance").AppearanceSettings;userProfile?:import("../../src/user-profile").UserProfile;historyVersions?:Record<string,number>;hostPermissionModes?:Record<string,import("../../src/permission-types").HostPermissionMode>;pythonSessions?:PythonSession[];fileCheckpoints?:FileCheckpoint[];processes?:BackgroundProcess[];workItems?:import("../../src/work-types").WorkItem[];conversationWorkspaces?:Record<string,string>;runtime?:RuntimeSettings;unlimitedTokenBudgetMigrated?:boolean;modelUsage?:UsageRecord[];scheduledTasks:ScheduledTask[];attachments:StoredAttachment[]; version: 1; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; conversations: Record<string, WireMessage[]>; summaries: Record<string, string>; contextOffsets:Record<string,number>; model: Omit<ModelConfig, 'hasKey'> & { encryptedKey?: string }; providers?:StoredProvider[];defaultModel?:ModelSelection;approvalModel?:ModelSelection; skills: Skill[]; artifacts: Artifact[]; skillFilesMigrated?: boolean; peerThreads:PeerThread[];peerExchanges:PeerExchange[];peerContexts:Record<string,WireMessage[]>;peerMessages:ChatMessage[];groups:GroupRoom[];groupRounds:GroupRound[];groupDeliveries:GroupDelivery[];groupContexts:Record<string,WireMessage[]>;groupRunMessages:ChatMessage[]; }
+interface Persisted {language?:import("../../src/interface-language").Language;appearance?:import("../../src/appearance").AppearanceSettings;userProfile?:import("../../src/user-profile").UserProfile;historyVersions?:Record<string,number>;hostPermissionModes?:Record<string,import("../../src/permission-types").HostPermissionMode>;pythonSessions?:PythonSession[];fileCheckpoints?:FileCheckpoint[];processes?:BackgroundProcess[];workItems?:import("../../src/work-types").WorkItem[];conversationWorkspaces?:Record<string,string>;runtime?:RuntimeSettings;unlimitedTokenBudgetMigrated?:boolean;modelUsage?:UsageRecord[];scheduledTasks:ScheduledTask[];attachments:StoredAttachment[]; version: 1; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; conversations: Record<string, WireMessage[]>; summaries: Record<string, string>; contextOffsets:Record<string,number>; model: Omit<ModelConfig, 'hasKey'> & { encryptedKey?: string }; providers?:StoredProvider[];defaultModel?:ModelSelection;approvalModel?:ModelSelection; skills: Skill[]; artifacts: Artifact[]; skillFilesMigrated?: boolean; peerThreads:PeerThread[];peerExchanges:PeerExchange[];peerContexts:Record<string,WireMessage[]>;peerMessages:ChatMessage[];groups:GroupRoom[];groupRounds:GroupRound[];groupDeliveries:GroupDelivery[];groupContexts:Record<string,WireMessage[]>;groupRunMessages:ChatMessage[]; previewHistory?:import("../../src/agent-preview").PreviewHistoryEntry[]; }
 export function atomicJson(path: string, value: unknown) {
   const temp = `${path}.${process.pid}.tmp`;
   const fd = openSync(temp, 'w', 0o600);
@@ -54,6 +54,7 @@ export class Store {
     this.data.contextOffsets ||= {};
     this.data.scheduledTasks ||= [];
     this.data.artifacts ||= [];this.data.attachments||=[];
+    this.data.previewHistory||=[];for(const entry of this.data.previewHistory)if(!entry.scope)entry.scope={kind:'bot',id:entry.botId};
     this.data.peerThreads ||= [];this.data.peerExchanges ||= [];this.data.peerContexts ||= {};this.data.peerMessages ||= [];
     this.data.groups||=[];this.data.groupRounds||=[];this.data.groupDeliveries||=[];this.data.groupContexts||={};this.data.groupRunMessages||=[];
     for(const message of this.data.messages)if(message.inputState==='queued')message.inputState='interrupted';
@@ -211,6 +212,7 @@ export class Store {
       groupRunMessages:this.data.groupRunMessages.filter(message=>message.botId!==id),groupContexts:{...this.data.groupContexts},
       runs:this.data.runs.filter(run=>run.botId!==id),
       artifacts:this.data.artifacts.filter(artifact=>artifact.botId!==id),
+      previewHistory:(this.data.previewHistory||[]).filter(entry=>entry.botId!==id),
       skills:this.data.skills.filter(skill=>skill.botId!==id),
       conversations:{...this.data.conversations},summaries:{...this.data.summaries},contextOffsets:{...this.data.contextOffsets},peerContexts:{...this.data.peerContexts},
       peerExchanges:this.data.peerExchanges.map(exchange=>exchange.rootBotId===id?{...exchange,rootRequest:''}:exchange)

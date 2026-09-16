@@ -1,7 +1,7 @@
 import {webPreviewUrl,vmPreviewPort} from '../../src/web-preview';
 import {randomUUID} from 'node:crypto';
 import {basename,extname} from 'node:path';
-import type {AgentPreviewRequest} from '../../src/agent-preview';
+import type {AgentPreviewRequest,PreviewHistoryEntry} from '../../src/agent-preview';
 import {sourceTextFile} from '../../src/source-language';
 import type {Store} from './store';
 import {artifactPath,type ArtifactService} from './artifacts';
@@ -9,12 +9,23 @@ import type {Attachments} from './attachments';
 import type {HostComputer} from './host';
 import {officeExtensions} from './office-preview';
 const LIMIT=25*1024*1024;
+const HISTORY_PER_SCOPE=20,HISTORY_TOTAL=400;
 const supported=(name:string)=>sourceTextFile(name)||officeExtensions.has(extname(name).toLowerCase())||['.pdf','.png','.jpg','.jpeg','.webp','.gif','.svg','.bmp','.avif'].includes(extname(name).toLowerCase());
 export class AgentPreviews {
   private pending=new Map<string,AgentPreviewRequest>();
   constructor(private store:Store,private artifacts:ArtifactService,private attachments:Attachments,private changed:()=>void,private host?:HostComputer){}
   snapshot(){return [...this.pending.values()].filter(request=>this.store.data.bots.some(bot=>bot.id===request.botId)&&(request.scope.kind==='bot'||this.store.data.groups.some(group=>group.id===request.scope.id&&group.members.some(member=>member.id===request.botId&&!member.leftAt))));}
-  acknowledge(id:string){for(const [key,request] of this.pending)if(request.id===id){this.pending.delete(key);this.changed();return;}}
+  history(){return this.store.data.previewHistory||[];}
+  acknowledge(id:string){for(const [key,request] of this.pending)if(request.id===id){this.pending.delete(key);this.remember(request);this.changed();return;}}
+  private remember(request:AgentPreviewRequest){
+    const history=this.store.data.previewHistory||=[];
+    const scopeKey=request.scope.kind+':'+request.scope.id;
+    history.push({id:request.id,botId:request.botId,runId:request.runId,scope:request.scope,name:request.name,size:request.size,createdAt:request.createdAt,acknowledgedAt:new Date().toISOString(),target:request.target});
+    const scoped=history.filter(entry=>(entry.scope.kind+':'+entry.scope.id)===scopeKey);
+    if(scoped.length>HISTORY_PER_SCOPE)for(const old of scoped.slice(0,scoped.length-HISTORY_PER_SCOPE))history.splice(history.indexOf(old),1);
+    if(history.length>HISTORY_TOTAL)history.splice(0,history.length-HISTORY_TOTAL);
+    this.store.save();
+  }
   async open(botId:string,runId:string,args:Record<string,unknown>,signal:AbortSignal){
     this.store.bot(botId);signal.throwIfAborted();
     const run=this.store.data.runs.find(run=>run.id===runId&&run.botId===botId&&run.status==='running');
