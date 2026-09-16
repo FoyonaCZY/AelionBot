@@ -23,7 +23,7 @@
 | --- | --- |
 | **Linux work computer (VM)** | Give General Bots a browser, terminal and desktop apps for real file and application work |
 | **Group chats and Bot-to-Bot messages** | Assign roles, exchange files and results, and ask a partner to take the next step |
-| **Specialist roles when needed** | Add a Designer with 152 bundled design systems for webpages and presentations |
+| **Specialist roles when needed** | Add a Designer with 152 bundled design systems for webpages, presentations and site clones |
 
 <img src="docs/assets/screenshots/workspace-en.png" alt="Multi-agent workspace illustration: partners, a task conversation, files and a VM" width="100%">
 
@@ -59,7 +59,7 @@ General Bots can also access host files and commands under your permission setti
 
 | | General Bot | Designer |
 | --- | --- | --- |
-| Best suited to | Research, writing, office work, code and desktop operations | Web prototypes, presentations and design revisions |
+| Best suited to | Research, writing, office work, code and desktop operations | Web prototypes, presentations, site clones and design revisions |
 | Execution location | Linux VM, plus permission-controlled host tools | The local `designers` workspace |
 | Organization | Conversations, plans, goals and collaboration | Separate design tasks, design directions and deliverables |
 | Collaboration | Group chat and Bot-to-Bot messages | Group chat and Bot-to-Bot messages |
@@ -68,10 +68,10 @@ Choose the type when creating a Bot, or change it in the profile. **Changing typ
 
 ## A specialist role: Designers and 152 design systems
 
-Create a Designer Bot, choose a prototype or presentation task, and select its design system. **All 152 references are bundled with the app**, including color, typography, layout guidance and component references. No separate reference download is needed, and you can leave the system unspecified.
+Create a Designer Bot, choose a prototype, presentation or website-clone task, and select its design system. **All 152 references are bundled with the app**, including color, typography, layout guidance and component references. No separate reference download is needed, and you can leave the system unspecified.
 
 - **Choose per task.** Different projects can use different systems. Change the selection while the task is stopped.
-- **Keep editable deliverables.** Prototypes retain their HTML/CSS/JS. Presentations use editable PPTX files and can include an HTML preview.
+- **Keep editable deliverables.** Prototypes and site clones retain their HTML/CSS/JS. Presentations use editable PPTX files and can include an HTML preview. Clone tasks also write NOTES.md with the source URL and what was not copied.
 - **Refine in the preview.** Mark a region, add an annotation, or select webpage elements and edit their properties or source before saving.
 - **Work locally.** Designers use `designers/<bot>/<task>` under the configured default workspace. They do not require the VM.
 
@@ -89,7 +89,7 @@ Designer presentations can be viewed through their HTML companion. External Offi
 
 1. **[Download AelionBot](https://github.com/FoyonaCZY/AelionBot/releases/latest)** for Windows or macOS.
 2. **Connect your AI service** and configure a model. Usage charges depend on the service you choose.
-3. **Choose a partner type:** start with a General Bot task, or create a Designer for a prototype or presentation.
+3. **Choose a partner type:** start with a General Bot task, or create a Designer for a prototype, presentation or website clone.
 4. **Bring in a team when needed:** create a group, add partners, share materials and assign the work.
 
 Use English, Simplified Chinese or Traditional Chinese, with light/dark themes and adjustable fonts and display scale. Save preferences and schedule recurring tasks; the app must remain open while scheduled work runs. Bundled design references can be read offline, while model services and external assets may still need an internet connection.

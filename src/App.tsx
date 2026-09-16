@@ -1,7 +1,7 @@
 import './conversation-chrome.css';
 import {DesignerWorkspace,DesignerTaskCard} from './DesignerWorkspace';
 import type {BotType} from './designer-types';
-import {usePreviewWorkbench,PreviewComposerContext} from './preview-workbench';
+import {usePreviewWorkbench} from './preview-workbench';
 import {PreviewBotSwitcher} from './PreviewBotSwitcher';
 import {previewFeedbackDisplay} from './preview-feedback';
 import {VmStorageSettings} from './VmStorageSettings';
@@ -225,7 +225,6 @@ function AppContent(){
       <div className={`composer-wrap ${waiting?'with-request':''}`}>
         <ConversationInteractions requests={requests.filter(request=>!state.runs.find(run=>run.id===request.runId)?.groupOrigin||state.runs.find(run=>run.id===request.runId)?.groupTask)} botId={bot.id} onTakeover={startTakeover}/>
         <WorkItemsPanel items={state.workItems} scope={{kind:'bot',id:bot.id}} bots={state.bots}/>
-        <PreviewComposerContext scope={{kind:'bot',id:bot.id}}/>
         <BotComposer contextOverview={lastContext?.model===currentModel?.model&&lastContext?.providerId===currentModel?.providerId&&lastContext?.capacity===currentModel?.contextTokens?lastContext:undefined} contextCapacity={currentModel?.contextTokens} permissionMode={state.hostPermissionModes?.[workspaceKey({kind:'bot',id:bot.id})]} workspaceDir={state.conversationWorkspaces?.[workspaceKey({kind:'bot',id:bot.id})]||state.hostWorkspace?.workspaceDir} workspaceInherited={!state.conversationWorkspaces?.[workspaceKey({kind:'bot',id:bot.id})]} key={bot.id} bot={bot} bots={state.bots} draft={draft} running={running} onChange={draft=>setDrafts(value=>({...value,[bot.id]:draft}))} onSend={()=>void send()} onStop={()=>void window.aelion.cancel(bot.id)}/>
       </div>
       </>:<div className="empty-workspace"><Icon name="bot" size={38}/><h2>{t('还没有 Bot')}</h2><button className="primary-button" onClick={openNewBot}>{t('创建 Bot')}</button></div>}

@@ -361,7 +361,7 @@ export const siteQuestions:Record<SiteLanguage,ReadonlyArray<{question:string;an
     },
     {
       "question": "通用 Bot 和设计师有什么区别？",
-      "answer": "通用 Bot 负责调研、文件处理、代码和桌面操作，可以使用 Linux VM；设计师按独立任务制作网页原型和可编辑 PPT，在本机 designers 目录工作。新建时选择类型，也可以在资料里更改；更改类型需要确认清空该 Bot 的上下文。"
+      "answer": "通用 Bot 负责调研、文件处理、代码和桌面操作，可以使用 Linux VM；设计师按独立任务制作网页原型、可编辑 PPT 和网站复刻，在本机 designers 目录工作。新建时选择类型，也可以在资料里更改；更改类型需要确认清空该 Bot 的上下文。"
     },
     {
       "question": "设计系统需要另外安装吗？",
@@ -391,7 +391,7 @@ export const siteQuestions:Record<SiteLanguage,ReadonlyArray<{question:string;an
     },
     {
       "question": "通用 Bot 和設計師有什麼差別？",
-      "answer": "通用 Bot 負責調研、檔案處理、程式碼與桌面操作，可以使用 Linux VM；設計師以獨立工作製作網頁原型和可編輯 PPT，在本機 designers 目錄工作。建立時選擇類型，也能在資料中更改；更改類型需要確認清空該 Bot 的上下文。"
+      "answer": "通用 Bot 負責調研、檔案處理、程式碼與桌面操作，可以使用 Linux VM；設計師以獨立工作製作網頁原型、可編輯 PPT 和網站複刻，在本機 designers 目錄工作。建立時選擇類型，也能在資料中更改；更改類型需要確認清空該 Bot 的上下文。"
     },
     {
       "question": "設計系統需要另外安裝嗎？",
@@ -421,7 +421,7 @@ export const siteQuestions:Record<SiteLanguage,ReadonlyArray<{question:string;an
     },
     {
       "question": "How are General Bots and Designers different?",
-      "answer": "General Bots handle research, files, code and desktop work, with access to a Linux VM. Designers create web prototypes and editable presentations as separate tasks in your local designers folder. Choose a type at creation or change it in the profile; switching requires confirmation that the Bot’s context will be cleared."
+      "answer": "General Bots handle research, files, code and desktop work, with access to a Linux VM. Designers create web prototypes, editable presentations and website clones as separate tasks in your local designers folder. Choose a type at creation or change it in the profile; switching requires confirmation that the Bot’s context will be cleared."
     },
     {
       "question": "Do design systems need a separate installation?",

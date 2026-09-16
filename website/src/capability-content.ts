@@ -11,7 +11,7 @@ export const capabilityCopy:Record<SiteLanguage,CapabilityCopy>={
     "design": {
       "kicker": "03 / 专业角色 · 设计师",
       "title": "设计师与设计系统",
-      "description": "设计师按独立任务制作网页原型和可编辑 PPT，可选择 152 套预装设计系统。",
+      "description": "设计师按独立任务制作网页原型、可编辑 PPT 和网站复刻，可选择 152 套预装设计系统。",
       "points": [
         "配色、字体、布局与组件参考，围绕同一个方向展开。",
         "每个任务独立选择设计系统，停止任务后可以更改，也可以不指定。",
@@ -51,7 +51,7 @@ export const capabilityCopy:Record<SiteLanguage,CapabilityCopy>={
     "design": {
       "kicker": "03 / 專業角色 · 設計師",
       "title": "設計師與設計系統",
-      "description": "152 套設計系統預裝在應用程式裡。為設計師選好視覺方向，再把點子做成可互動的網頁原型或可編輯的 PPT。",
+      "description": "152 套設計系統預裝在應用程式裡。為設計師選好視覺方向，再把點子做成可互動的網頁原型、可編輯的 PPT 或網站複刻。",
       "points": [
         "配色、字型、版面與元件參考，圍繞同一個方向展開。",
         "每個工作獨立選擇設計系統，停止工作後可以更改，也可以不指定。",
@@ -91,7 +91,7 @@ export const capabilityCopy:Record<SiteLanguage,CapabilityCopy>={
     "design": {
       "kicker": "03 / SPECIALIST ROLE · DESIGNER",
       "title": "Designer and design systems",
-      "description": "152 design systems come bundled with the app. Choose a direction for your Designer, then turn an idea into an interactive web prototype or an editable presentation.",
+      "description": "152 design systems come bundled with the app. Choose a direction for your Designer, then turn an idea into an interactive web prototype, an editable presentation, or a local website clone.",
       "points": [
         "Keep color, typography, layout and component references working together.",
         "Choose a system for each task, change it while the task is stopped, or leave it unspecified.",

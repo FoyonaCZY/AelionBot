@@ -51,7 +51,7 @@ test('runtime dispatch follows user-selected types and rejects resumes from anot
 });
 
 const call=(name:string,args:any)=>({id:randomUUID(),type:'function' as const,function:{name,arguments:JSON.stringify(args)}});
-function loopFixture(t:any,kind:'prototype'|'ppt'='prototype'){
+function loopFixture(t:any,kind:'prototype'|'ppt'|'clone'='prototype'){
  const f=fixture(t),{root,store,bot}=f,systems=new DesignSystems(catalog(root)),designs=new DesignStore(store,systems);const task=designs.create({botId:bot.id,kind,brief:'Create a usable design',systemId:'sample'});
  const requests:any[]=[],invocations:string[]=[];const shared={openToolSession:(_bot:string,runId:string,_options:any,allow:(name:string)=>boolean)=>({definitions:[{type:'function',function:{name:'host_file_write',description:'Write',parameters:{type:'object',properties:{path:{type:'string'},content:{type:'string'}},required:['path','content'],additionalProperties:false}}},{type:'function',function:{name:'skill_read',description:'Should not load',parameters:{}}}].filter(v=>allow(v.function.name)),invoke:async(name:string,args:any)=>{invocations.push(name);if(name==='host_file_write'){const p=args.path;mkdirSync(dirname(p),{recursive:true});writeFileSync(p,args.content);}return {executionId:randomUUID(),result:{written:true}};},close:()=>{}})};
  const files=new DesignerFiles(store,designs);const vm:any={},collectRuns:string[]=[];const artifacts={read:(botId:string,path:string)=>files.read(botId,path),collect:async(botId:string,runId:string)=>{collectRuns.push(runId);const run=store.data.runs.find(r=>r.id===runId&&r.botId===botId);for(const file of await files.list(botId,run?.designSessionId))if(!store.data.artifacts.some(a=>a.botId===botId&&a.path===file.path&&a.modifiedAt===file.modifiedAt))store.data.artifacts.push({id:randomUUID(),botId,runId,...file});}};
@@ -185,4 +185,19 @@ test('first designer text reaches the shared stream and updates request state be
  test('native deck generation publishes local files with execution-backed receipts',async t=>{
  const f=loopFixture(t,'ppt');let step=0;await f.make(async()=>({content:'Editable deck ready',calls:step++===0?[call('design_deck',{title:'Local design',path:'deck',slides:[{title:'A clear idea',body:'A useful first draft',layout:'statement'}]})]:step===2?[call('design_publish',{paths:['deck.pptx','deck.html']})]:[],finishReason:'stop'})).run(f.bot.id,'Create slides',{designSessionId:f.task.id});
  const run=f.store.data.runs.at(-1)!;assert.equal(run.status,'completed');assert.ok(run.executions?.some(e=>e.tool==='design_deck'&&e.status==='succeeded'));assert.ok(run.executions?.some(e=>e.tool==='design_publish'&&e.status==='succeeded'));assert.equal(f.designs.get(f.task.id).artifacts.length,2);assert.ok(existsSync(join(f.task.workspaceDir!,'deck.html')));
+});
+test('clone tasks inject the clone playbook and refuse publish without a source URL',async t=>{
+ const f=loopFixture(t,'clone'),path=f.task.workspacePath+'/index.html';
+ mkdirSync(dirname(f.files.absolute(f.task,path)),{recursive:true});
+ writeFileSync(f.files.absolute(f.task,path),'<!doctype html><html><body><main>Replica</main></body></html>');
+ let step=0;await f.make(async()=>({content:step++?'Cannot publish yet':'Checking',calls:step===1?[call('design_publish',{paths:[path]})]:[],finishReason:'stop'})).run(f.bot.id,'Clone the site',{designSessionId:f.task.id});
+ assert.match(JSON.stringify(f.requests[0].prefixContext),/CLONE WORKFLOW/);
+ assert.match(JSON.stringify(f.designs.history(f.bot.id,f.task.origin,f.task.id).history.messages),/NOTES\.md/);
+ assert.notEqual(f.designs.get(f.task.id).checks.find(c=>c.id==='format')?.status,'passed');
+ writeFileSync(f.files.absolute(f.task,'NOTES.md'),'# Notes\nSource: https://example.test/observed\nDo not clone login or payment.\n');
+ step=0;await f.make(async()=>({content:step++?'Replica ready':'Publishing',calls:step===1?[call('design_publish',{paths:[path]})]:[],finishReason:'stop'})).run(f.bot.id,'Deliver the replica',{designSessionId:f.task.id});
+ assert.equal(f.store.data.runs.at(-1)?.status,'completed');
+ assert.equal(f.designs.get(f.task.id).artifacts[0]?.kind,'html');
+ assert.ok(f.designs.get(f.task.id).artifacts.some(a=>a.name==='NOTES.md'));
+ assert.equal(f.designs.get(f.task.id).checks.find(c=>c.id==='format')?.status,'passed');
 });

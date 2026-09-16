@@ -8,10 +8,6 @@
 .designer-failure-details{margin-top:8px;min-width:0}
 .designer-failure-details summary{cursor:pointer;color:var(--design-muted);font-size:11px}
 .designer-failure-details p{overflow-wrap:anywhere}
-.preview-composer-context label{width:100%;gap:7px}
-.preview-composer-context label>span{flex:1;min-width:0}
-.preview-composer-context label>small{margin:0 0 0 auto;flex-shrink:0;font-size:10px;color:var(--design-muted,#89919b)}
-
 /* A dedicated narrow conversation rail, not a scaled-down desktop card. */
 .designer-workspace.is-preview-docked .designer-task-top{width:100%;flex:1;gap:8px}
 .app-shell>.conversation .designer-workspace.is-preview-docked .designer-task-top .preview-picker{max-width:none;min-width:0;flex:1;padding:6px 0;font-size:12px;font-weight:600}
@@ -47,7 +43,6 @@
 .designer-workspace.is-preview-docked .designer-activity p{font-size:11px}
 .designer-workspace.is-preview-docked .studio-working-collage{width:28px;height:28px;border-width:3px}
 .designer-workspace.is-preview-docked .designer-task-composer{padding:10px 12px 12px;border-top:1px solid var(--design-line)}
-.designer-workspace.is-preview-docked .preview-composer-context{padding:0 1px 8px;font-size:11px}
 .designer-workspace.is-preview-docked .composer{padding:11px 12px 10px;border-radius:13px}
 .designer-workspace.is-preview-docked .composer-editor{min-height:48px;max-height:160px;font-size:13px;line-height:1.75}
 .designer-workspace.is-preview-docked .composer-bottom{display:grid;grid-template-columns:minmax(0,1fr) 28px 32px;gap:8px 6px;align-items:center;margin-top:9px}

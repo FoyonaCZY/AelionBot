@@ -1,7 +1,7 @@
 import type {WireMessage} from './shared';
 export type BotType='general'|'designer';
 export function botType(value:unknown):BotType{if(value===undefined||value==='general')return 'general';if(value==='designer')return value;throw Error('无效 Bot 类型');}
-export type DesignTaskKind='prototype'|'ppt';
+export type DesignTaskKind='prototype'|'ppt'|'clone';
 export type DesignOrigin={kind:'bot';id:string}|{kind:'group';id:string}|{kind:'peer';id:string};
 export interface DesignSystemSummary{id:string;name:string;category:string;description:string;version:string;bytes:number;colors:string[];source:string;license:string;}
 export interface DesignSystemFile{path:string;sha256:string;bytes:number;}

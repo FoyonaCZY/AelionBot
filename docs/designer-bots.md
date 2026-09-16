@@ -14,13 +14,13 @@ Manual saves invalidate prior checks and record the saved file revision. If a us
 
 ## Product UI
 
-The existing general chat and computer sidebar remain. Designer mode adds a task home, prototype/PPT choices, a searchable preinstalled design-system library, a task selector, brief/design-direction context and verified deliverable cards. There is no top-right type switch or automatic general/designer handoff. Drafts are scoped to a context-reset generation. Group chat keeps its message UI and uses design task cards; the task drawer can open the shared file/web preview.
+The existing general chat and computer sidebar remain. Designer mode adds a task home, prototype/PPT/website-clone choices, a searchable preinstalled design-system library, a task selector, brief/design-direction context and verified deliverable cards. There is no top-right type switch or automatic general/designer handoff. Drafts are scoped to a context-reset generation. Group chat keeps its message UI and uses design task cards; the task drawer can open the shared file/web preview.
 
 The same preview supports code and element editing, annotations, keyboard undo/redo and save. Designer model calls use the configured provider; designer tools run locally without VM or desktop startup; an isolated browser fixture lives under `.local/designer-product-ui/` for UI tests and never sends real model requests.
 
 ## Deliverables and verification
 
-`design_publish` reads actual files under the task directory before attaching them. A prototype requires an HTML artifact. PPT requires a PPTX archive with actual slides and editable text, rather than an image-only deck. A companion HTML preview is encouraged. File validation does not imply visual correctness: screenshot checks remain pending until the run supplies actual successful `view_image` observation evidence. Human acceptance is a separate UI action.
+`design_publish` reads actual files under the task directory before attaching them. A prototype requires an HTML artifact. PPT requires a PPTX archive with actual slides and editable text, rather than an image-only deck. A companion HTML preview is encouraged. A website clone requires HTML plus `NOTES.md` that names the source URL and what was not cloned. File validation does not imply visual correctness: screenshot checks remain pending until the run supplies actual successful `view_image` observation evidence. Human acceptance is a separate UI action.
 
 Tools with unresolved failures cannot produce a successful completion silently. Runs share cancellation and time/token budgets. User questions use the existing interaction service. CLI/terminal startup is not a verification signal.
 
@@ -34,7 +34,7 @@ New tasks pin their local directory to `<configured-default-workspace>/designers
 
 ## Dedicated local workflows
 
-The first-party `design_skill` playbooks cover prototypes, presentations and focused refinement. General default skills are not mounted. `design_spec` persists DESIGN.md; `design_deck` creates editable OOXML text/shapes and a companion HTML deck without Python or Office. Its built-in layouts are a starting scaffold, not an arbitrary PPT renderer. External Office attachments without an HTML companion have no VM-free visual converter yet; they remain downloadable.
+The first-party `design_skill` playbooks cover prototypes, presentations, website clones and focused refinement. General default skills are not mounted. `design_spec` persists DESIGN.md; `design_deck` creates editable OOXML text/shapes and a companion HTML deck without Python or Office. Built-in layouts are title, agenda, split, statement, quote, compare, timeline, stat and cta — a starting scaffold, not an arbitrary PPT renderer. Clone tasks observe a public page with existing web tools and rebuild a local replica; they do not vendor OpenDesign's CDP harvest scripts. External Office attachments without an HTML companion have no VM-free visual converter yet; they remain downloadable.
 
 File APIs validate task ownership, canonical paths and saved revisions. Host command cwd is pinned to the task and follows the existing permission system; this is not an OS-level filesystem sandbox for arbitrary shell commands. Dedicated design tools now store execution receipts and full results, supporting collaboration evidence and interrupted-run recovery.
 
@@ -72,6 +72,6 @@ Validation: 56 focused tests passed across designer execution, context-prefix st
 
 ## First-draft delivery policy
 
-Default design work ends after a usable first draft and basic file/format checks. Exhaustive click-through flows, repeated screenshot reviews and extra product modules require an explicit user request. Design-system materials define visual references, not additional feature scope or mandatory acceptance steps. The user reviews the first draft and drives revisions.
+Default design work ends after a usable first draft and basic file/format checks. HTML publish also rejects remote font stylesheets and filler copy, and records token/selector warnings without blocking delivery. After the user saves preview edits, whole-file HTML/CSS overwrites are rejected in favor of patches. Exhaustive click-through flows, repeated screenshot reviews and extra product modules require an explicit user request. Design-system materials define visual references, not additional feature scope or mandatory acceptance steps. The user reviews the first draft and drives revisions.
 
 Designer requests archive old screenshots in batches once more than eight are present, retaining four recent observations in subsequent requests while preserving original records. After a partial-response timeout, the next designer retry explicitly requests smaller complete file writes and preserves already completed operations; incomplete tool calls are never executed. Usage records notify the UI after persistence, and missing provider token counts are distinguished from zero consumption.
