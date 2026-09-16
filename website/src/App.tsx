@@ -1,7 +1,9 @@
 import {useEffect,useRef,useState,type CSSProperties,type ReactNode} from 'react';
 import logoLight from '../../docs/assets/logo-light.svg';
 import logoDark from '../../docs/assets/logo-dark.svg';
-import {productScenes,sceneCopy} from './product-scenes';
+import {CapabilitySections} from './CapabilitySections';
+import {capabilityCopy} from './capability-content';
+import {productScenes,sceneCopy,teamShowcaseCopy} from './product-scenes';
 import {readSiteLanguage,rememberSiteLanguage} from './locale.mjs';
 import {version} from '../../package.json';
 import {BotSculpture,tones,type BotTone} from './BotSculpture';
@@ -36,23 +38,13 @@ function DownloadPanel({copy}:{copy:typeof siteCopy['zh-CN']}){
   </>;
 }
 
-function WorkOfArt({copy}:{copy:typeof siteCopy['zh-CN']}){
-  return <div className="work-of-art" aria-label={copy.sceneAria}>
-    <div className="work-light"/>
-    <div className="work-paper paper-back"><span>{copy.paperBack}</span><div className="paper-chart" aria-hidden="true">{[35,59,45,75,61,90,73].map((height,index)=><i key={index} style={{'--bar-height':`${height}%`} as CSSProperties}/>)}</div><div className="paper-rule"/><div className="paper-rule short"/></div>
-    <div className="work-paper paper-front"><span className="paper-overline">{copy.paperOverline}</span><h3>{copy.paperTitle[0]}<br/>{copy.paperTitle[1]}</h3><div className="paper-art" aria-hidden="true"><i/><i/><i/></div><div className="paper-rule"/><div className="paper-rule"/><div className="paper-rule short"/><span className="paper-page">01</span></div>
-    <div className="work-delivery"><span className="delivery-icon"><Icon name="file" size={24}/></span><div><strong>{copy.deliveryTitle}</strong><span>{copy.deliverySubtitle}</span></div><Icon name="check" size={19}/></div>
-    <BotSculpture className="work-helper" tone="blue"/>
-  </div>;
-}
-
 export default function App(){
   const root=useRef<HTMLDivElement>(null),gallery=useRef<HTMLDialogElement>(null),menuButton=useRef<HTMLButtonElement>(null);
   const motion=useMotionPreference();useSiteMotion(root,motion.enabled);
   const [language,setLanguage]=useState<SiteLanguage>(()=>readSiteLanguage() as SiteLanguage),[menuOpen,setMenuOpen]=useState(false),[view,setView]=useState(0),[detail,setDetail]=useState(2),[shot,setShot]=useState<number|null>(null),[tone,setTone]=useState<BotTone>('violet'),[example,setExample]=useState(0);
-  const copy=siteCopy[language],scenes=sceneCopy[language],workExamples=siteExamples[language],questions=siteQuestions[language],screenshots=productScenes(language).map((src,index)=>({src,title:index<2?copy.viewProduct[index]:scenes.tabs[index-2],alt:scenes.alt[index]}));
+  const copy=siteCopy[language],capabilities=capabilityCopy[language],showcase=teamShowcaseCopy[language],scenes=sceneCopy[language],workExamples=siteExamples[language],questions=siteQuestions[language],screenshots=productScenes(language).map((src,index)=>({src,title:index<2?copy.viewProduct[index]:scenes.tabs[index-2],alt:scenes.alt[index]}));
   const current=workExamples[example];
-  useEffect(()=>{document.documentElement.lang=language;document.title=language==='en'?'AelionBot · Good ideas, made together':language==='zh-TW'?'AelionBot · 好點子，一起做出來':'AelionBot · 好想法，一起做出来';document.querySelector('meta[name="description"]')?.setAttribute('content',copy.heroDescription);rememberSiteLanguage(language);document.querySelector('meta[property="og:title"]')?.setAttribute('content',document.title);document.querySelector('meta[property="og:description"]')?.setAttribute('content',copy.heroDescription);},[language,copy.heroDescription]);
+  useEffect(()=>{document.documentElement.lang=language;document.title=language==='en'?'AelionBot · A general-purpose multi-agent workspace':language==='zh-TW'?'AelionBot · 通用多 Agent 工作空間':'AelionBot · 通用多 Agent 工作空间';document.querySelector('meta[name="description"]')?.setAttribute('content',copy.heroDescription);rememberSiteLanguage(language);document.querySelector('meta[property="og:title"]')?.setAttribute('content',document.title);document.querySelector('meta[property="og:description"]')?.setAttribute('content',copy.heroDescription);},[language,copy.heroDescription]);
   useEffect(()=>{
     if(!menuOpen)return;
     const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){setMenuOpen(false);menuButton.current?.focus();}};
@@ -71,14 +63,18 @@ export default function App(){
   return <div ref={root} className="site-app product-site" data-motion={motion.enabled?'on':'off'}>
     <div className="reading-progress" aria-hidden="true"/><a className="skip-link" href="#main">{copy.skip}</a>
     <header className="site-header"><div className="nav-shell"><a className="brand-link" href="#" aria-label={copy.home}><img className="brand-on-light" src={logoLight} width="144" height="41" alt="AelionBot"/><img className="brand-on-dark" src={logoDark} width="144" height="41" alt=""/></a>
-      <nav id="main-navigation" className={`main-nav ${menuOpen?'is-open':''}`} aria-label={copy.mainNav}>{site.navigation.map(link=><a key={link.href} href={link.href==='/blog/'?`/blog/?lang=${language}`:link.href} onClick={()=>setMenuOpen(false)} {...(link.external?{target:'_blank',rel:'noopener noreferrer'}:{})}>{link.href==='/blog/'?copy.blog:copy.github}</a>)}</nav>
+      <nav id="main-navigation" className={`main-nav ${menuOpen?'is-open':''}`} aria-label={copy.mainNav}>{capabilities.nav.map((label,index)=><a key={label} href={'#'+['group-chat','vm','design-systems'][index]} onClick={()=>setMenuOpen(false)}>{label}</a>)}{site.navigation.map(link=><a key={link.href} href={link.href==='/blog/'?`/blog/?lang=${language}`:link.href} onClick={()=>setMenuOpen(false)} {...(link.external?{target:'_blank',rel:'noopener noreferrer'}:{})}>{link.href==='/blog/'?copy.blog:copy.github}</a>)}</nav>
       <a className="button nav-download" href="#download">{copy.download}</a><select className="site-language-switcher" aria-label={language==='en'?'Language':language==='zh-TW'?'語言':'语言'} value={language} onChange={event=>setLanguage(event.target.value as SiteLanguage)}>{siteLanguages.map(option=><option value={option.value} key={option.value}>{option.label}</option>)}</select><button ref={menuButton} className="mobile-menu-button" aria-label={menuOpen?copy.closeNav:copy.openNav} aria-controls="main-navigation" aria-expanded={menuOpen} onClick={()=>setMenuOpen(value=>!value)}><Icon name={menuOpen?'close':'menu'}/></button>
     </div></header>
     <main id="main">
       <section className="hero-section" aria-labelledby="hero-title" data-motion-region data-scroll-scene="hero">
-        <div className="hero-spotlight" aria-hidden="true"/><div className="hero-copy"><p className="eyebrow" data-reveal>{copy.heroEyebrow}</p><h1 id="hero-title" data-reveal data-delay="1">{copy.heroTitle[0]}<br/><span>{copy.heroTitle[1]}</span></h1><p className="hero-description" data-reveal data-delay="2">{copy.heroDescription}</p><div className="hero-actions" data-reveal data-delay="3"><a href="#download" className="button button-primary">{copy.meet}<Icon name="arrow" size={17}/></a><a href="#work" className="hero-more">{copy.seeCollab}<Icon name="down" size={16}/></a></div></div>
+        <div className="hero-spotlight" aria-hidden="true"/><div className="hero-copy"><p className="eyebrow" data-reveal>{copy.heroEyebrow}</p><h1 id="hero-title" data-reveal data-delay="1">{copy.heroTitle[0]}<br/><span>{copy.heroTitle[1]}</span></h1><p className="hero-description" data-reveal data-delay="2">{copy.heroDescription}</p><div className="hero-actions" data-reveal data-delay="3"><a href="#download" className="button button-primary">{copy.meet}<Icon name="arrow" size={17}/></a><a href="#workspace" className="hero-more">{copy.seeCollab}<Icon name="down" size={16}/></a></div></div>
         <div className="hero-cast" aria-hidden="true"><div className="cast-floor"/><div className="cast-member cast-blue"><BotSculpture tone="blue"/></div><div className="cast-member cast-mint"><BotSculpture tone="mint"/></div><div className="cast-member cast-violet"><BotSculpture/></div><span className="cast-caption">{copy.castCaption}</span></div>
       </section>
+
+      <section className="team-overview section-shell" id="workspace" aria-labelledby="workspace-title"><div className="section-heading centered"><p className="section-kicker">{showcase.kicker}</p><h2 id="workspace-title">{showcase.title}</h2><p>{showcase.description}</p></div><button className="team-overview-image" onClick={()=>setShot(6)} aria-label={copy.expandProduct+': '+screenshots[6].title}><img src={screenshots[6].src} alt={screenshots[6].alt} width="1200" height="740" loading="lazy"/><span className="studio-expand"><Icon name="expand" size={18}/></span></button><p className="product-caption">{scenes.caption}</p></section>
+      <CapabilitySections language={language} part="core"/>
+      <section className="team-picture-section section-shell" aria-labelledby="team-picture-title"><h2 id="team-picture-title">{showcase.gallery}</h2><div className="team-picture-grid">{[4,5].map((index,i)=><figure key={index}><button onClick={()=>setShot(index)} aria-label={copy.expandProduct+': '+screenshots[index].title}><img src={screenshots[index].src} alt={screenshots[index].alt} width="1200" height="740" loading="lazy"/><span className="studio-expand"><Icon name="expand" size={18}/></span></button><figcaption><strong>{screenshots[index].title}</strong><p>{showcase.captions[i]}</p></figcaption></figure>)}</div><p className="product-caption">{scenes.caption}</p></section>
 
       <section className="work-section section-shell" id="work" data-scroll-scene="showcase">
         <div className="section-heading centered" data-reveal><p className="section-kicker">{copy.fromOne}</p><h2>{copy.workTitle[0]}<br/>{copy.workTitle[1]}</h2><p>{copy.workDescription}</p></div>
@@ -87,9 +83,6 @@ export default function App(){
         <p className="product-caption">{scenes.caption}</p>
       </section>
 
-      <section className="making-section" data-scroll-scene="making" data-motion-region>
-        <div className="making-sticky section-shell"><div className="making-copy" data-reveal><p className="section-kicker">{copy.makingKicker}</p><h2>{copy.makingTitle[0]}<br/>{copy.makingTitle[1]}<br/><span>{copy.makingTitle[2]}</span></h2><p>{copy.makingDescription[0]}<br/>{copy.makingDescription[1]}</p></div><WorkOfArt copy={copy}/></div>
-      </section>
 
       <section className="personality-section section-shell" data-motion-region>
         <div className="personality-visual" style={{'--tone-light':tones[tone][0],'--tone-main':tones[tone][1]} as CSSProperties}><div className="personality-halo" aria-hidden="true"/><BotSculpture key={tone} tone={tone} className="personality-bot"/><div className="palette-options" role="group" aria-label={copy.paletteAria}>{(Object.keys(tones) as BotTone[]).map((value,index)=><button key={value} aria-label={copy.paletteNames[index]} aria-pressed={tone===value} onClick={()=>setTone(value)} style={{'--swatch':`linear-gradient(140deg,${tones[value][0]},${tones[value][2]})`} as CSSProperties}/>)}</div><span className="palette-hint">{copy.paletteHint}</span></div>
@@ -107,6 +100,8 @@ export default function App(){
         <div className="studio-tabs" role="group" aria-label={scenes.kicker}>{scenes.tabs.map((label,index)=><button key={label} aria-pressed={detail===index+2} onClick={()=>setDetail(index+2)}>{label}</button>)}</div>
         <button className="studio-visual" onClick={()=>setShot(detail)} aria-label={`${copy.expandProduct}: ${scenes.tabs[detail-2]}`}><img src={screenshots[detail].src} alt={screenshots[detail].alt} width="1200" height="740" loading="lazy"/><span className="studio-expand"><Icon name="expand" size={18}/></span></button><p className="product-caption">{scenes.caption}</p>
       </section>
+
+      <CapabilitySections language={language} part="design"/>
 
       <section className="questions-section section-shell" id="questions"><h2 data-reveal>{copy.questionsTitle}</h2><div className="question-list">{questions.map(item=><details className="question-item" key={item.question}><summary>{item.question}<Icon name="plus" size={18}/></summary><p>{item.answer}</p></details>)}</div></section>
 
