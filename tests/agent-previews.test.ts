@@ -101,6 +101,14 @@ test('acknowledged previews stay in per-conversation history so they can reopen'
  const reopened=new Store(f.dir);assert.equal(reopened.data.previewHistory?.length,1,'历史写入磁盘');
 });
 
+test('preview history never persists URLs with query or fragment values',async t=>{
+ const f=fixture(t),secret='review-secret-123';
+ await f.previews.open(f.bot.id,f.run.id,{url:`https://example.com/demo?token=${secret}#access-token`,reason:'Show site'},signal());
+ f.previews.acknowledge(f.previews.snapshot()[0].id);
+ assert.equal(f.previews.history().length,0);
+ assert.ok(!readFileSync(join(f.dir,'state.json'),'utf8').includes(secret));
+});
+
 test('history keeps only the newest previews per conversation',async t=>{
  const f=fixture(t);
  for(let i=0;i<23;i++){

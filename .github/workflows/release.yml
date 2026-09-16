@@ -65,6 +65,8 @@ jobs:
         with:
           python-version: '3.11'
           architecture: ${{ matrix.arch }}
+      - name: Install native test Python dependencies
+        run: python -m pip install --disable-pip-version-check --no-input python-pptx
       - name: Test
         # Windows process startup makes the full suite slower on hosted runners.
         # Individual tests still retain the 30-second limit in npm test.
