@@ -87,6 +87,13 @@ export class PeerChats implements PeerGateway {
     this.store.data.peerExchanges.push(exchange);exchange.requestMessageId=this.append(exchange,from.id,content,'request',attachments).id;this.notice(from.id,exchange,'sent');this.notice(to.id,exchange,'received');this.touch();
     return {sent:true,exchangeId:exchange.id,threadId:thread.id,recipient:{id:to.id,name:to.name},status:'queued',message:'消息已进入对方收件队列。双方内容保存在私聊中，回信到达会显示可点击的收到消息事件，不需要轮询。'};
   }
+  async waitResult(botId:string,runId:string,exchangeId:string,signal:AbortSignal){
+    const exchange=this.exchange(exchangeId);if(exchange.fromBotId!==botId||!this.store.data.runs.some(r=>r.id===runId&&r.botId===botId&&r.status==='running'))throw Error('无权等待这项协作任务');
+    while(!exchange.replyMessageId){signal.throwIfAborted();if(['cancelled','failed','interrupted'].includes(exchange.status))throw Error(exchange.error||'协作任务未完成');await new Promise<void>((resolve,reject)=>{const done=()=>{signal.removeEventListener('abort',abort);resolve();},timer=setTimeout(done,150),abort=()=>{clearTimeout(timer);signal.removeEventListener('abort',abort);reject(signal.reason||Error('任务已停止'));};signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();});}
+    const reply=this.store.data.peerThreads.find(t=>t.id===exchange.threadId)?.messages.find(m=>m.id===exchange.replyMessageId);if(!reply)throw Error('协作结果不存在');
+    if(exchange.status==='reply_queued'){exchange.status='completed';exchange.updatedAt=now();this.touch();}
+    return {content:reply.content,attachments:reply.attachments,receipt:exchange.receipt};
+  }
   private pump(){
     if(this.closing)return;
     for(const exchange of this.store.data.peerExchanges.filter(item=>item.status==='queued'||item.status==='reply_queued').sort((a,b)=>a.updatedAt.localeCompare(b.updatedAt))){

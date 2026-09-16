@@ -1,0 +1,7 @@
+OpenDesign design-system resources
+Source: https://github.com/nexu-io/open-design
+Revision: d465086b2c9264c47c5d3e1cfeb8cfb2864a41d4
+Copyright remains with the respective contributors.
+These design-systems/ files are distributed under the repository Apache-2.0 license, preserving authored notices. The separate plugin manifests are not used to relicense these files.
+Brand-inspired systems are curated references, not official brand endorsements. Font family names and external asset URLs do not convey third-party redistribution rights. No remote fonts, logos, or images were downloaded by this vendoring step.
+AelionBot adds the catalog index and uses selected packages as design reference data; upstream files are copied without modification.

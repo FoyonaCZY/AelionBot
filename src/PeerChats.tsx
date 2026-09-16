@@ -1,3 +1,5 @@
+import {DesignerTaskCard} from './DesignerWorkspace';
+import type {DesignerSnapshot} from './designer-types';
 import {PreviewScopeProvider} from './FilePreviewContext';
 import {MessageTime} from './ConversationTime';
 import {formatConversationTime} from './conversation-time';
@@ -40,7 +42,7 @@ export function PeerNotice({message,view,onOpen}:{message:ChatMessage;view?:Peer
 }
 
 function merged<T extends {id:string}>(older:T[],newer:T[]){const values=new Map(older.map(item=>[item.id,item]));for(const item of newer)values.set(item.id,item);return [...values.values()];}
-export function PrivateChatWindow({panel,view,bots,streamingReplies=[],avatarActivities={},runs=[],messages=[],onNavigate,onClose}:{panel:PeerPanel;view?:PeerView;bots:Bot[];streamingReplies?:Reply[];avatarActivities?:BotActivities;runs?:RunRecord[];messages?:ChatMessage[];onNavigate:(panel:PeerPanel)=>void;onClose:()=>void}){
+export function PrivateChatWindow({designer,panel,view,bots,streamingReplies=[],avatarActivities={},runs=[],messages=[],onNavigate,onClose}:{designer?:DesignerSnapshot;panel:PeerPanel;view?:PeerView;bots:Bot[];streamingReplies?:Reply[];avatarActivities?:BotActivities;runs?:RunRecord[];messages?:ChatMessage[];onNavigate:(panel:PeerPanel)=>void;onClose:()=>void}){
   const {t,language}=useI18n();
   const streams=streamingReplies.filter(reply=>Boolean(panel.threadId)&&reply.peerThreadId===panel.threadId),streamSignature=streams.map(reply=>reply.id+':'+reply.content).join('|');
   const root=useRef<HTMLElement>(null),body=useRef<HTMLDivElement>(null),follow=useRef(true),jump=useRef(''),scroll=useRef<{top:number;height:number}|undefined>(undefined);
@@ -80,6 +82,7 @@ export function PrivateChatWindow({panel,view,bots,streamingReplies=[],avatarAct
       {!panel.threadId?(()=>{const threads=view?.threads.filter(thread=>thread.members.some(member=>member.id===panel.ownerId))||[];return threads.length?threads.map(thread=>{const other=thread.members.find(member=>member.id!==panel.ownerId)!;return <button key={thread.id} className="peer-thread-row" onClick={()=>onNavigate({...panel,threadId:thread.id})}><Avatar bot={member(other)} size={36}/><span><strong>{member(other).name}{!bots.some(bot=>bot.id===other.id)?t('（已删除）'):''}</strong><small>{thread.preview}</small></span>{thread.pending>0&&<span className="peer-pending-count">{t('等待回复')}</span>}<time>{time(thread.updatedAt)}</time><Icon name="arrow" size={16}/></button>;}):<div className="peer-chat-empty">{t('还没有私聊记录')}</div>;})():<>
         {page?.before&&<button className="peer-chat-load" disabled={olderPending} onClick={()=>void older()}>{olderPending?t('正在加载…'):t('加载更早的消息')}</button>}
         {!page&&loading&&<div className="peer-chat-empty">{t('正在读取私聊记录…')}</div>}
+        {designer?.sessions.filter(s=>s.origin.kind==='peer'&&s.origin.id===panel.threadId).map(s=><DesignerTaskCard key={s.id} session={s}/>)}
         {page?.messages.map((message,index)=>{const exchange=view?.exchanges.find(exchange=>exchange.id===message.exchangeId)||page.exchanges.find(exchange=>exchange.id===message.exchangeId),previous=page.messages[index-1],showDate=!previous||new Date(message.time).getTime()-new Date(previous.time).getTime()>15*60*1000;return <PrivateMessage key={message.id} message={message} exchange={exchange} showDate={showDate}/>;})}
         {streams.map(reply=><StreamingReply key={reply.id} reply={reply} bots={bots} context="peer"/>)}
         {[...new Map((view?.exchanges||page?.exchanges||[]).filter(exchange=>exchange.threadId===panel.threadId&&peerPending(exchange.status)).map(exchange=>[(['reply_queued','relaying'].includes(exchange.status)?exchange.fromBotId:exchange.toBotId),exchange])).entries()].map(([id,exchange])=>{const bot=bots.find(bot=>bot.id===id)||thread?.members.find(bot=>bot.id===id),run=[...runs].reverse().find(run=>run.botId===id&&run.peerOrigin?.exchangeId===exchange.id&&run.status==='running');return bot?<BotWorkingStatus key={id} bot={bot} showName step={liveBotStep(messages,run)||{phase:'thinking',label:exchange.status==='queued'?t('正在准备处理'):['reply_queued','relaying'].includes(exchange.status)?t('正在整理回复'):t('正在思考')}}/>:null;})}

@@ -30,7 +30,11 @@ export function groupHistory(store:Store,groupId:string,botId:string){
   }
   const seen=new Set(history.map(message=>message.groupMessageId));
   for(const message of room.messages){if(!seen.has(message.id)){history.push(published(store,message,botId));seen.add(message.id);}else if(groupReplyContent(message.content,message.sender.kind==='bot'?message.sender.id:undefined)!==message.content){const index=history.findIndex(item=>item.groupMessageId===message.id);if(index>=0)history[index]=published(store,message,botId);}}
-  return history;
+  const resetAt=store.bot(botId).contextResetAt;
+  if(!resetAt)return history;
+  const allowed=new Set(room.messages.filter(message=>message.time>=resetAt).map(message=>message.id));
+  return history.filter(item=>!item.groupMessageId||allowed.has(item.groupMessageId));
+
 }
 export function rememberPublished(store:Store,message:GroupMessage){
   if(message.sender.kind!=='bot'||message.kind==='reaction')return;

@@ -1,3 +1,9 @@
+import {BotRuntime} from './core/bot-runtime';
+import {DesignerLoop} from './core/designer-loop';
+import {DesignerFiles} from './core/designer-files';
+import {DesignStore} from './core/design-store';
+import {DesignSystems} from './core/design-systems';
+import {botType} from '../src/designer-types';
 import {applyDomEdits} from './core/html-preview-edits';
 import {WebPreviewBrowser} from './web-preview';
 import {protocol} from 'electron';
@@ -61,7 +67,9 @@ let window:BrowserWindow|undefined;
 let previewDirty=false,previewWrites=0;
 let vm:VmController;
 let store:Store;
-let harness:Harness;
+let harness:BotRuntime;
+let designSystems:DesignSystems;
+let designStore:DesignStore;
 let model:ModelClient;
 let providers:ModelProviders;
 let computer:ComputerController;
@@ -94,7 +102,7 @@ else {
   app.on('second-instance',()=>{window?.show();window?.focus();});
   app.whenReady().then(initialize).catch(error=>{diagnostics?.record('app.startup-error',error);console.error(error);dialog.showErrorBox('AelionBot 启动失败',String(error.message));app.exit(1);});
 }
-function snapshot():Snapshot{return {previewRequests:agentPreviews?.snapshot(),appearance:normalizeAppearance(store?.data.appearance),userProfile:store.data.userProfile,platform:process.platform,workItems:store.data.workItems,conversationWorkspaces:store.data.conversationWorkspaces,updates:appUpdates?.snapshot(),scheduledTasks:store.data.scheduledTasks,bots:store.data.bots,messages:store.data.messages,runs:store.data.runs,model:providers.config(),providers:providers.list(),defaultModel:store.data.defaultModel,approvalModel:store.data.approvalModel,botModels:Object.fromEntries(store.data.bots.map(bot=>[bot.id,providers.config(bot.id)])),vm:vm.state,skills:integrations?integrations.skills.all():store.data.skills,artifacts:store.data.artifacts,computer:computer.state,dataDir:store.dir,integrations:integrations?.snapshot(),interactions:interactions?.snapshot()||[],cognition:cognition?.view(),peers:peerChats?.snapshot(),groups:groupChats?.snapshot(),greetingBotIds:greetings?.botIds||[],streamingReplies:[...(harness?.streams.snapshot()||[]),...(greetings?.streams.snapshot()||[])],runtime:store?new RunPolicy(store).settings():undefined,modelUsage:store?.data.modelUsage?.slice(-100),commandPermissions:commandPermissions?.list()||[],hostPermissionModes:hostApprovals?.modes(),hostWorkspace:host?.workspaceSettings()};}
+function snapshot():Snapshot{return {designer:designStore?.snapshot(),previewRequests:agentPreviews?.snapshot(),appearance:normalizeAppearance(store?.data.appearance),userProfile:store.data.userProfile,platform:process.platform,workItems:store.data.workItems,conversationWorkspaces:store.data.conversationWorkspaces,updates:appUpdates?.snapshot(),scheduledTasks:store.data.scheduledTasks,bots:store.data.bots,messages:store.data.messages,runs:store.data.runs,model:providers.config(),providers:providers.list(),defaultModel:store.data.defaultModel,approvalModel:store.data.approvalModel,botModels:Object.fromEntries(store.data.bots.map(bot=>[bot.id,providers.config(bot.id)])),vm:vm.state,skills:integrations?integrations.skills.all():store.data.skills,artifacts:store.data.artifacts,computer:computer.state,dataDir:store.dir,integrations:integrations?.snapshot(),interactions:interactions?.snapshot()||[],cognition:cognition?.view(),peers:peerChats?.snapshot(),groups:groupChats?.snapshot(),greetingBotIds:greetings?.botIds||[],streamingReplies:[...(harness?.streams.snapshot()||[]),...(greetings?.streams.snapshot()||[])],runtime:store?new RunPolicy(store).settings():undefined,modelUsage:store?.data.modelUsage?.slice(-100),commandPermissions:commandPermissions?.list()||[],hostPermissionModes:hostApprovals?.modes(),hostWorkspace:host?.workspaceSettings()};}
 function changed(){if(exiting)return;if(window&&!window.isDestroyed())window.webContents.send('app:event',{type:'state',snapshot:snapshot()});chatPins?.wake();peerChats?.wake();groupChats?.wake();}
 function handle(channel:string,callback:(...args:any[])=>unknown){
   ipcMain.handle(channel,async(event,...args)=>{
@@ -138,12 +146,17 @@ async function initialize(){
     const id=randomUUID();writeFileSync(join(computer.imageDir,`${id}.png`),img.toPNG());return {id,width:size.width,height:size.height};
   });
   await integrations.refresh();
-  model=new ModelClient(botId=>providers.config(botId),botId=>providers.key(botId),id=>computer.image(id),()=>new RunPolicy(store).settings(),record=>{record.runId||=store.data.runs.find(run=>run.botId===record.botId&&run.status==='running')?.id;(store.data.modelUsage||=[]).push(record);store.journal('model.usage',record);store.save();});
-  const approvalModel=defaultApprovalModel({config:()=>providers.approvalConfig(),key:()=>providers.approvalKey()},()=>new RunPolicy(store).settings(),record=>{(store.data.modelUsage||=[]).push(record);store.journal('model.usage',record);store.save();});
+  model=new ModelClient(botId=>providers.config(botId),botId=>providers.key(botId),id=>computer.image(id),()=>new RunPolicy(store).settings(),record=>{record.runId||=store.data.runs.find(run=>run.botId===record.botId&&run.status==='running')?.id;(store.data.modelUsage||=[]).push(record);store.journal('model.usage',record);store.save();changed();});
+  const approvalModel=defaultApprovalModel({config:()=>providers.approvalConfig(),key:()=>providers.approvalKey()},()=>new RunPolicy(store).settings(),record=>{(store.data.modelUsage||=[]).push(record);store.journal('model.usage',record);store.save();changed();});
   hostApprovals=new HostApprovals(store,commandPermissions,defaultPermissionReviewer(approvalModel,()=>providers.approvalConfig(),text=>host.redact(text)),{homeDir,defaultModel:()=>providers.approvalConfig()});interactions.setHostPolicy(hostApprovals);
   cognition=new Cognition(store,model,integrations.skills,changed,()=>Boolean(updatePreparing||harness?.busy||groupChats?.busy),()=>providers.secrets());
   agentPreviews=new AgentPreviews(store,artifacts,attachments,changed,host);
-  harness=new Harness(store,vm,model,changed,computer,(botId,runId)=>artifacts.collect(botId,runId),integrations,host,interactions,cognition,attachments);
+  const generalHarness=new Harness(store,vm,model,changed,computer,(botId,runId)=>artifacts.collect(botId,runId),integrations,host,interactions,cognition,attachments);
+  designSystems=new DesignSystems(join(app.getAppPath(),'assets','design-systems'),join(store.dir,'design-system-cache'));
+  designStore=new DesignStore(store,designSystems,changed,()=>host.workspaceSettings().workspaceDir);
+  const designerFiles=new DesignerFiles(store,designStore);artifacts.designerFiles=designerFiles;artifacts.openLocal=path=>shell.openPath(path);
+  const designerLoop=new DesignerLoop(store,designStore,designSystems,designerFiles,model,cognition.context,generalHarness,artifacts,attachments,interactions,changed);
+  harness=new BotRuntime(store,generalHarness,designerLoop,changed,()=>cognition.beforeRun());
   harness.setPreviewGateway(agentPreviews);
   videoInspector=new VideoInspector(join(app.getAppPath(),'assets','video-inspector.html'));
   harness.setVideoFrames(new VideoFrames(host,attachments,join(computer.imageDir,'video-frames'),(path,request,signal)=>videoInspector.render(path,request,signal),()=>{
@@ -264,7 +277,7 @@ async function initialize(){
   handle('workspace:mention-files',async input=>{
     const scope=assertWorkspaceScope(store,input?.scope),key=scope.kind+':'+scope.id;
     mentionSearches.get(key)?.abort();const controller=new AbortController();mentionSearches.set(key,controller);
-    try{return await host.mentionFiles(input?.query,conversationWorkspace(store,scope)||host.workspaceSettings().workspaceDir,controller.signal);}finally{if(mentionSearches.get(key)===controller)mentionSearches.delete(key);}
+    try{let directory=conversationWorkspace(store,scope)||host.workspaceSettings().workspaceDir;if(input?.designSessionId){const task=designStore.get(input.designSessionId);if(task.origin.kind!==scope.kind||task.origin.id!==scope.id)throw Error('设计任务不属于当前会话');directory=designerFiles.absolute(task,'.',true);}else if(scope.kind==='bot'&&store.bot(scope.id).type==='designer')return {workspaceDir:join(host.workspaceSettings().workspaceDir,'designers'),files:[],truncated:false};return await host.mentionFiles(input?.query,directory,controller.signal);}finally{if(mentionSearches.get(key)===controller)mentionSearches.delete(key);}
   });
   handle('workspace:pick',async scope=>{assertWorkspaceScope(store,scope);const selected=await dialog.showOpenDialog(window!,{title:'选择会话工作目录',defaultPath:conversationWorkspace(store,scope)||host.workspaceSettings().workspaceDir,properties:['openDirectory']});if(selected.canceled||!selected.filePaths[0])return null;const path=setConversationWorkspace(store,host,scope,selected.filePaths[0]);changed();return path;});
   handle('workspace:reset',scope=>{setConversationWorkspace(store,host,scope,null);changed();});
@@ -299,14 +312,18 @@ async function initialize(){
   handle('integrations:import-mcp',async text=>{if(harness.busy)throw new Error('请等待当前任务结束');const names=await integrations.importMcpSnippet(text);changed();return names;});
   handle('mcp:enabled',async input=>{if(harness.busy)throw new Error('请等待当前任务结束后修改 MCP');if(typeof input?.enabled!=='boolean')throw new Error('无效状态');await integrations.setEnabled(String(input.id),input.enabled);});
   handle('mcp:test',async id=>{const result=await integrations.mcp.listTools(String(id));return {tools:result.tools.map(tool=>tool.name)};});
-  handle('bot:create',(input)=>{if(!input||typeof input.name!=='string'||typeof input.role!=='string'||input.color!==undefined&&typeof input.color!=='string')throw new Error('无效 Bot 参数');const model=input.model?providers.selection(input.model):undefined,reasoningEffort=cleanReasoning(input.reasoningEffort===undefined?store.data.defaultModel?.reasoningEffort:input.reasoningEffort);const bot=store.createBot(input.name,input.role,input.color,input.avatarStyle,{model,reasoningEffort});changed();void greetings?.greet(bot.id);return bot;});
+  handle('bot:create',(input)=>{if(!input||typeof input.name!=='string'||typeof input.role!=='string'||input.color!==undefined&&typeof input.color!=='string')throw new Error('无效 Bot 参数');const model=input.model?providers.selection(input.model):undefined,reasoningEffort=cleanReasoning(input.reasoningEffort===undefined?store.data.defaultModel?.reasoningEffort:input.reasoningEffort);const bot=store.createBot(input.name,input.role,input.color,input.avatarStyle,{model,reasoningEffort,type:botType(input.type)});changed();if(bot.type!=='designer')void greetings?.greet(bot.id);return bot;});
   handle('bot:delete',async(id)=>{
     if(typeof id!=='string')throw new Error('无效 Bot 参数');
     if(harness.isRunning(id))throw new Error('请先停止这个 Bot 的任务并等待结束，再删除');
     await harness.stopBotProcesses(id);greetings?.cancel(id);chatPins?.cancel(id);peerChats?.deletingBot(id);groupChats?.deletingBot(id);store.deleteBot(id);integrations.skills.forgetBot(id);scheduler?.removeTarget({kind:'bot',id});cognition.deleteBot(id);computer.forget(id);changed();
   });
   handle('bot:update',input=>{
+    if(input.defaultDesignSystemId)designSystems.get(input.defaultDesignSystemId);
+    const typeChanged=input.type!==undefined&&botType(input.type)!==botType(store.bot(input.id).type);
+    if(typeChanged&&(updatePreparing||harness.isRunning(input.id)))throw Error('请先结束当前任务，再切换 Bot 类型');
     const modelChanged=updateBotProfile(store,providers,input,id=>beforeModelChange([id]));
+    if(typeChanged){greetings?.cancel(input.id);chatPins?.cancel(input.id);cognition.deleteBot(input.id);designStore.clearBot(input.id);changed();return;}
     if(modelChanged)afterModelChange();else {greetings?.cancel(input.id);changed();void greetings?.greet(input.id);}
   });
   handle('attachments:pick',async scope=>{attachments.scope(scope);const result=await dialog.showOpenDialog(window!,{title:'添加附件',properties:['openFile','multiSelections']});return result.canceled?[]:attachments.importPaths(scope,result.filePaths);});
@@ -330,11 +347,21 @@ async function initialize(){
     },
     attach:(scope,name,bytes)=>attachments.importFiles(scope,[{name,bytes}])[0],
     discard:(scope,id)=>attachments.discardUnsentDraft(scope,id),
-    send:(scope,message,attachmentId,previewPrompt,input)=>{const offset=message.indexOf(previewPrompt,message.indexOf('\n')+1)-(input?.text.length||0)+(input?.text.trimStart().length||0),extras={attachmentIds:[...(input?.attachmentIds||[]),attachmentId],mentions:input?.mentions?.map(m=>({...m,start:m.start+offset,end:m.end+offset})),replyToMessageId:input?.replyToMessageId,previewPrompt};if(scope.kind==='bot')chatPins!.send({botId:scope.id,message,...extras});else groupChats!.send({id:scope.id,message,...extras});},
+    send:(scope,message,attachmentId,previewPrompt,input)=>{const design=input?.designSessionId?designStore.get(input.designSessionId,undefined,{kind:scope.kind,id:scope.id}):undefined;const offset=message.indexOf(previewPrompt,message.indexOf('\n')+1)-(input?.text.length||0)+(input?.text.trimStart().length||0),extras={designSessionId:design?.id,attachmentIds:[...(input?.attachmentIds||[]),attachmentId],mentions:input?.mentions?.map(m=>({...m,start:m.start+offset,end:m.end+offset})),replyToMessageId:input?.replyToMessageId,previewPrompt};if(scope.kind==='bot')chatPins!.send({botId:scope.id,message,...extras});else groupChats!.send({id:scope.id,message,...extras});},
     delivered:(scope,id)=>(scope.kind==='bot'?store.data.messages.filter(message=>message.botId===scope.id&&message.role==='user'):store.data.groups.find(room=>room.id===scope.id)?.messages.filter(message=>message.sender.kind==='user')||[]).some(message=>message.attachments?.some(file=>file.id===id))
   });
   handle('preview:feedback',input=>previewFeedback.send(input));
-  handle('chat:send',(input)=>{if(!input||typeof input.botId!=='string'||typeof input.message!=='string')throw new Error('无效消息');return chatPins!.send(input);});
+  handle('design:system',id=>designSystems.detail(String(id)));
+  handle('design:create',input=>designStore.create(input));
+  handle('design:update',input=>designStore.update(input));
+  handle('design:send',input=>{
+    const session=designStore.get(String(input?.id)),message=String(input?.message||'');
+    if(session.origin.kind==='bot')return chatPins!.send({botId:session.botId,message,designSessionId:session.id,attachmentIds:input.attachmentIds});
+    if(session.origin.kind==='group'){const bot=store.bot(session.botId),text='@'+bot.name+' '+message;return groupChats!.send({id:session.origin.id,message:text,designSessionId:session.id,attachmentIds:input.attachmentIds,mentions:[{id:bot.id,name:bot.name,color:bot.color,start:0,end:bot.name.length+1}]});}
+    throw Error('请通过原 Bot 协作私聊继续这个设计任务');
+  });
+  handle('design:accept',input=>{const session=designStore.get(String(input?.id));if(session.revision!==input.revision||session.activeRunId||!session.artifacts.length)throw Error('请先完成当前设计并刷新任务');session.status='completed';designStore.touch(session);});
+  handle('chat:send',(input)=>{if(!input||typeof input.botId!=='string'||typeof input.message!=='string')throw new Error('无效消息');if(input.designSessionId)designStore.get(String(input.designSessionId),input.botId,{kind:'bot',id:input.botId});return chatPins!.send(input);});
   handle('chat:resume',input=>{if(typeof input?.botId!=='string'||typeof input.runId!=='string')throw Error('恢复任务参数无效');if(harness.isRunning(input.botId)||chatPins?.hasPending(input.botId))throw Error('Bot 正在处理消息，请稍后继续');const run=resumableRun(store,input.botId,input.runId);greetings?.cancel(input.botId);if(run.groupOrigin)groupChats!.retryRun(run);else if(run.peerOrigin)peerChats!.retryRun(run);else void harness.resume(input.botId,input.runId).catch(error=>{store.message(input.botId,'event',(error as Error).message);changed();});changed();});
   handle('chat:pin',input=>chatPins!.pin(input));
   handle('groups:pin',input=>groupChats!.pinUser(input));
@@ -383,14 +410,14 @@ async function initialize(){
   handle('files:preview',async(input)=>artifacts.preview(String(input?.botId),String(input?.path)));
   handle('files:edit-dirty',dirty=>{if(typeof dirty!=='boolean')throw Error('无效编辑状态');previewDirty=dirty;});
   handle('files:edit-read',input=>artifacts.readEditable(String(input?.botId),String(input?.path)));
-  handle('files:edit-save',async input=>{previewWrites++;try{return await artifacts.saveEditable(String(input?.botId),String(input?.path),input?.edit);}finally{previewWrites--;}});
+  handle('files:edit-save',async input=>{previewWrites++;try{const saved=await artifacts.saveEditable(String(input?.botId),String(input?.path),input?.edit);designStore.userEdit(String(input.botId),String(input.path),saved.revision);return saved;}finally{previewWrites--;}});
   handle('attachments:edit-read',id=>{const file=attachments.metadata(id);if(!sourceTextFile(file.name))throw Error('此附件不支持文本编辑');return editableText(attachments.bytes(id),'attachment:'+id);});
   handle('files:edit-export',async input=>{if(typeof input?.name!=='string'||input.name.length>256||!sourceTextFile(input.name))throw Error('无效文件名称');const bytes=editedBytes(input.content);previewWrites++;try{const target=await dialog.showSaveDialog(window!,{title:'保存编辑后的文件',defaultPath:basename(input.name)});if(target.canceled||!target.filePath)return null;await writeFile(target.filePath,bytes);return target.filePath;}finally{previewWrites--;}});
 
   handle('files:directory',input=>{if(typeof input?.botId!=='string'||input.path!==undefined&&typeof input.path!=='string')throw Error('无效目录请求');return artifacts.directory(input.botId,input.path||'');});
   handle('files:open',async(input)=>{const bot=store.bot(String(input?.botId));if(computer.stateFor(bot.id).ownerBotId)throw new Error('Bot 正在操作桌面，请先接管电脑');await computer.ensure(bot.id);return artifacts.open(bot.id,String(input?.path));});
   handle('computer:screenshot',(id)=>{if(![...store.data.messages,...store.data.peerMessages,...store.data.groupRunMessages].some(message=>message.screenshotId===id))throw new Error('截图不存在');return computer.image(String(id));});
-  handle('computer:ensure',id=>computer.ensure(store.bot(String(id)).id));
+  handle('computer:ensure',id=>{const bot=store.bot(String(id));if(bot.type==='designer')throw Error('设计师使用本机设计目录，不创建工作电脑');return computer.ensure(bot.id);});
   handle('computer:control',async input=>{const bot=store.bot(String(input?.botId));if(typeof input?.enabled!=='boolean')throw new Error('无效控制状态');await computer.ensure(bot.id);return changeManualControl(interactions,computer,bot.id,input.enabled,id=>harness.cancel(id));});
   handle('computer:open-app',async(input)=>{const bot=store.bot(String(input?.botId));if(computer.stateFor(bot.id).ownerBotId)throw new Error('Bot 正在操作桌面，请先接管电脑');await computer.openApp(bot.id,input.app);});
   handle('files:export',async(input)=>{

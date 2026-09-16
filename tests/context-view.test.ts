@@ -111,3 +111,10 @@ test('a legacy real-usage anchor still calibrates display after pruning on the f
  const next=new ContextMeter(f.storage,f.bot.id,'main',config,[]).estimate([{role:'user',content:'pruned '.repeat(500)}],[],1);
  assert.equal(next.displaySource,'calibrated');assert.ok(next.displayTokens<next.tokens*.7);
 });
+
+test('compact designer screenshots keep four recent observations without deleting source images',t=>{
+ const f=fixture(t),view=new ContextView(f.storage,f.bot.id,'designer:test');f.input.controls=[];f.input.history=Array.from({length:9},(_,i)=>({role:'user' as const,content:'screen '+i,images:[{id:String(i),width:1440,height:900}]}));
+ let request=view.compose(f.input,f.input.history);assert.equal(view.archiveImages(request,false,true),5);request=view.compose(f.input,f.input.history);view.persist();
+ assert.deepEqual(request.flatMap(m=>m.images||[]).map(i=>i.id),['5','6','7','8']);assert.equal(f.input.history.flatMap(m=>m.images||[]).length,9);
+ const restored=new ContextView(f.storage,f.bot.id,'designer:test').compose(f.input,f.input.history);assert.equal(restored.flatMap(m=>m.images||[]).length,4);assert.match(restored[restored.findIndex(m=>m.content?.includes('screen 0'))].content||'',/已归档/);
+});

@@ -51,10 +51,10 @@ export class ContextView {
    this.imageSlots.set(mapped,slots!);return mapped;
   });
  }
- archiveImages(messages:WireMessage[],pressure=false){
+ archiveImages(messages:WireMessage[],pressure=false,compactScreens=false){
   if(!this.state)return 0;
   const all=messages.flatMap(message=>(message.images||[]).map(image=>({image,key:this.imageSlots.get(message)?.get(image.id)}))).filter(item=>item.key),screens=all.filter(item=>!item.image.attachmentId),files=all.filter(item=>item.image.attachmentId);
-  const drop=[...(pressure||screens.length>32?screens.slice(0,-(pressure?2:8)):[]),...(pressure||files.length>32?files.slice(0,-10):[])];
+  const drop=[...(pressure||screens.length>(compactScreens?8:32)?screens.slice(0,-(pressure?2:compactScreens?4:8)):[]),...(pressure||files.length>32?files.slice(0,-10):[])];
   const known=new Set(this.state.archived);let count=0;for(const item of drop)if(!known.has(item.key!)){known.add(item.key!);count++;}
   if(count){this.state.archived=[...known];this.changes.add('image-archive');}return count;
  }

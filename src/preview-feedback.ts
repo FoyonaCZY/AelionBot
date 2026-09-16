@@ -2,7 +2,7 @@ import {annotationContext} from './preview-annotations';
 import {feedbackWebUrl} from './web-preview';
 import type {AttachmentScope} from './attachment-types';
 export interface PreviewFeedbackInput {
- requestId:string;scope:AttachmentScope;text:string;attachmentIds?:string[];mentions?:import('./peer-types').BotMention[];replyToMessageId?:string;annotations?:import('./preview-editor-types').PreviewAnnotation[];edits?:import('./preview-editor-types').DomEdit[];language?:'en'|'zh-CN'|'zh-TW';
+ designSessionId?:string;requestId:string;scope:AttachmentScope;text:string;attachmentIds?:string[];mentions?:import('./peer-types').BotMention[];replyToMessageId?:string;annotations?:import('./preview-editor-types').PreviewAnnotation[];edits?:import('./preview-editor-types').DomEdit[];language?:'en'|'zh-CN'|'zh-TW';
  file:{name:string;url?:string;path?:string;attachmentId?:string;page?:number;unsaved?:boolean};
  rect:{x:number;y:number;width:number;height:number};viewport:{width:number;height:number};
 }

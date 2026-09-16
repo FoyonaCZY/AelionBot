@@ -6,3 +6,5 @@
 *.sh text eol=lf
 *.py text eol=lf
 assets/skills/** text eol=lf
+assets/design-systems/** text eol=lf
+assets/design-systems/**/*.png binary

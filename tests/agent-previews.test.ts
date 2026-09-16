@@ -20,7 +20,7 @@ function fixture(t:test.TestContext){
  const dir=mkdtempSync(join(tmpdir(),'aelion-preview-')),store=new Store(dir),bot=store.data.bots[0],other=store.createBot('Other','Other'),attachments=new Attachments(store);
  const run:RunRecord={id:randomUUID(),botId:bot.id,status:'running',startedAt:new Date().toISOString(),modelCalls:0,toolCalls:0};store.data.runs.push(run);
  const reads:Array<{botId:string;path:string;max:number}>=[];
- const artifacts={read:async(botId:string,path:string,max:number)=>{reads.push({botId,path,max});if(path==='missing.txt')throw Error('missing');return Buffer.from('Hello');}} as ArtifactService;
+ const artifacts={isLocal:()=>false,read:async(botId:string,path:string,max:number)=>{reads.push({botId,path,max});if(path==='missing.txt')throw Error('missing');return Buffer.from('Hello');}} as unknown as ArtifactService;
  let notify=0;const previews=new AgentPreviews(store,artifacts,attachments,()=>notify++);
  t.after(()=>{assert.equal(dirname(resolve(dir)),resolve(tmpdir()));rmSync(dir,{recursive:true,force:true});});
  return {dir,store,bot,other,run,attachments,artifacts,previews,reads,notifications:()=>notify};

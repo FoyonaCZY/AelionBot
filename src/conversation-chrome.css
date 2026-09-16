@@ -1,0 +1,21 @@
+/* Shared geometry: changing Bot type must not move application chrome. */
+.app-shell{--conversation-header-height:70px;--conversation-header-inline:23px;--native-caption-width:0px}
+.app-shell:is([data-platform=win32],[data-platform=linux]){--native-caption-width:max(138px,calc(100vw - env(titlebar-area-x,0px) - env(titlebar-area-width,100vw)))}
+.app-shell>.conversation{--conversation-caption-space:0px}
+.app-shell[data-bot-type=designer]>.conversation{--conversation-caption-space:var(--native-caption-width)}
+.app-shell>.conversation :is(.chat-header,.designer-header){height:var(--conversation-header-height);min-height:var(--conversation-header-height);padding:13px calc(var(--conversation-header-inline) + var(--conversation-caption-space)) 13px var(--conversation-header-inline);gap:12px}
+.app-shell>.conversation .designer-identity{padding:4px 0;gap:9px;min-width:0;flex-shrink:0}
+.app-shell>.conversation .designer-identity strong{font-size:calc(16px * var(--appearance-text-scale,1));font-weight:var(--weight-label)}
+.app-shell>.conversation .designer-task-top{min-width:0;gap:12px}
+.app-shell>.conversation .designer-task-top>button:last-child{flex-shrink:0;white-space:nowrap}
+.app-shell>.sidebar .sidebar-bottom .sidebar-link{white-space:nowrap;gap:8px;padding:10px 8px;margin-top:0}
+@media(max-width:1250px){.app-shell{--conversation-header-inline:16px}}
+@media(max-width:900px){.app-shell>.conversation{--conversation-caption-space:var(--native-caption-width)}}
+@media(max-width:620px){.app-shell>.sidebar .sidebar-bottom{flex-direction:column}.app-shell>.sidebar .sidebar-link{width:100%;flex:none}}
+/* A docked preview owns the right-hand window controls; chat stays compact. */
+@media(min-width:1000px){
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat]>.conversation{--conversation-caption-space:0px}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat]>.conversation :is(.chat-header,.designer-header){height:40px;min-height:40px;padding:0 12px;gap:8px}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat] .designer-task-top{padding:0;border:0;gap:6px}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat] .designer-task-top>button{font-size:11px;min-height:23px;padding:2px 5px}
+}

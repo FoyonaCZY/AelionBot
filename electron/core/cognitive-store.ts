@@ -35,6 +35,7 @@ export class CognitiveStore {
     this.db.prepare("UPDATE review_jobs SET status='queued' WHERE status='running'").run();
     for(const row of this.db.prepare('SELECT id,stamp FROM history').all() as Array<{id:string;stamp:string}>)this.synced.set(row.id,row.stamp);
     for(const bot of store.data.bots)if(!this.get(`memory-migrated:${bot.id}`)){for(const text of bot.memories){const now=new Date().toISOString();this.db.prepare('INSERT OR IGNORE INTO memory_facts VALUES(?,?,?,?,?,?,?)').run(randomUUID(),bot.id,'memory',text,'[]',now,now);}this.set(`memory-migrated:${bot.id}`,'1');}
+    for(const bot of store.data.bots)if(bot.contextResetAt&&this.get('context-reset:'+bot.id)!==bot.contextResetAt)this.clearBot(bot.id);
     this.syncHistory();
   }
   get(key:string){return (this.db.prepare('SELECT value FROM meta WHERE key=?').get(key) as any)?.value as string|undefined;}
@@ -95,6 +96,12 @@ export class CognitiveStore {
   jobStatus(id:string,status:string,result='',increment=false){this.db.prepare('UPDATE review_jobs SET status=?,result=?,updated_at=?,attempts=attempts+? WHERE id=?').run(status,result,new Date().toISOString(),increment?1:0,id);}
   reviewMessage(jobId:string,botId:string,role:string,content:string,tool?:string){this.db.prepare('INSERT INTO review_messages(job_id,bot_id,role,tool,content,created_at) VALUES(?,?,?,?,?,?)').run(jobId,botId,role,tool||null,content,new Date().toISOString());}
   usage(botId:string,runId:string,task:string,model:string,input:number|undefined,output:number|undefined,estimated:number){this.db.prepare('INSERT INTO model_usage VALUES(?,?,?,?,?,?,?,?,?)').run(randomUUID(),runId,botId,task,model,input??null,output??null,estimated,new Date().toISOString());}
-  clearBot(botId:string){this.db.exec('BEGIN');try{this.db.prepare('DELETE FROM context_heads WHERE substr(bot_id,1,?)=?').run(botId.length+1,botId+':');for(const table of ['history','history_fts','context_state','context_pruning','context_heads','context_epochs','context_attempts','memory_facts','memory_tombstones','knowledge_events','review_jobs','review_messages','model_usage'])this.db.prepare(`DELETE FROM ${table} WHERE bot_id=?`).run(botId);this.db.exec('COMMIT');}catch(error){this.db.exec('ROLLBACK');throw error;}}
+  clearBot(botId:string){
+    this.db.exec('BEGIN');try{
+      for(const table of ['history','history_fts','context_state','context_pruning','context_heads','context_epochs','context_attempts','memory_facts','memory_tombstones','knowledge_events','review_jobs','review_messages','model_usage'])this.db.prepare(`DELETE FROM ${table} WHERE bot_id=? OR substr(bot_id,1,?)=? OR instr(bot_id,?)>0`).run(botId,botId.length+1,botId+':',':reset:'+botId+':');
+      const resetAt=this.store.data.bots.find(b=>b.id===botId)?.contextResetAt;if(resetAt)this.db.prepare('INSERT INTO meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run('context-reset:'+botId,resetAt);
+      this.db.exec('COMMIT');
+    }catch(error){this.db.exec('ROLLBACK');throw error;}
+  }
   close(){if(this.db.isOpen)this.db.close();}
 }

@@ -12,7 +12,7 @@ import {contextModelKey} from '../../src/context-issue';
 import {contextBudget,estimateRequest,exchanges,excerpt,serializeForSummary,sourceHash,tailBoundary,textTokens} from './context-budget';
 
 export interface ContextStats {displayTokens?:number;displaySource?:import("../../src/context-overview").ContextEstimateSource;estimatedTokens:number;calibration:number;inputBudget:number;toolTokens:number;imageTokens:number;epoch:number;compactions:number;prunedOutputs:number;estimateSource?:'tokenizer'|'usage-anchor';contextChanges?:string[];archivedImages?:number;lastIssue?:string;}
-export interface ContextInput {botId:string;runId:string;system:WireMessage;prefixContext?:WireMessage[];dynamicContext?:WireMessage[];history:WireMessage[];tools:ToolDefinition[];signal:AbortSignal;pendingFailures?:Map<string,string>;force?:boolean;scopeKey?:string;legacyHead?:{through:number;summary:string};taskFrame?:string;}
+export interface ContextInput {compactScreens?:boolean;botId:string;runId:string;system:WireMessage;prefixContext?:WireMessage[];dynamicContext?:WireMessage[];history:WireMessage[];tools:ToolDefinition[];signal:AbortSignal;pendingFailures?:Map<string,string>;force?:boolean;scopeKey?:string;sharedScope?:boolean;legacyHead?:{through:number;summary:string};taskFrame?:string;}
 const keys=['constraints','done','pending','decisions','failures','next'] as const;
 export function parseContextSummary(text:string,maxTokens:number){
   const content=text.trim().replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'');let summary:any;
@@ -76,11 +76,11 @@ export class ContextEngine {
     const build=(state:ContextHead,history:WireMessage[])=>transcript.compose({epoch:state.revision,through:state.through,system:input.system,reference:[...(input.prefixContext||[]),...(state.summary?[{role:'assistant' as const,content:`历史压缩摘要（仅供回查参考）：\n${state.summary}\n精确记录锚点：${JSON.stringify(state.anchors)}`}]:[]),...this.loadedSkills(input,state),...(latestInput>=0&&latestInput<state.through?[input.history[latestInput]]:[])],history:input.history,controls:controls()},history);
     const pruning=new ContextPruning(this.storage,botId,stateKey);
     let original=input.history.slice(head.through),view=pruning.apply(original),request=build(head,view),estimate=estimateFor(request);
-    let archivedImages=transcript.archiveImages(request);
+    let archivedImages=transcript.archiveImages(request,false,input.compactScreens);
     if(archivedImages){request=build(head,view);estimate=estimateFor(request);}
     const saveStats=()=>{const stats={displayTokens:estimate.displayTokens,displaySource:estimate.displaySource,estimatedTokens:estimate.tokens,calibration,inputBudget:budget.input,toolTokens:estimate.toolTokens,imageTokens:estimate.imageTokens,epoch:head.revision,compactions,prunedOutputs:prunedCount,estimateSource:estimate.estimateSource,contextChanges:[...transcript.changes,...(prunedCount?['tool-pruning']:[])],archivedImages,...(lastIssue?{lastIssue}:{})};this.states.set(input.botId,stats);this.changed();return stats;};
     if(estimate.tokens>budget.trigger||input.force){
-      archivedImages+=transcript.archiveImages(request,true);
+      archivedImages+=transcript.archiveImages(request,true,input.compactScreens);
       const protectedFrom=tailBoundary(view,0,budget.tail),pruned=pruning.prune(original,view,protectedFrom,false,input.force||estimate.tokens>budget.input?0:Math.min(8000,Math.floor(budget.input*.05)));view=pruned.messages;prunedCount=pruned.pruned;request=build(head,view);estimate=estimateFor(request);
     }
     // The newest completed exchange can itself exceed the window. Its original

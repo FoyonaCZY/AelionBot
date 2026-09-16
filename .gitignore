@@ -47,3 +47,5 @@ id_ed25519*
 .aelion/
 runtime/mac-release.json
 runtime/qemu-macos-staging/
+
+.playwright-cli/

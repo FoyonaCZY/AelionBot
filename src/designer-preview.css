@@ -1,0 +1,62 @@
+.designer-check-details{margin:12px 0;font-size:11px;color:var(--design-muted)}
+.designer-check-details summary{cursor:pointer;width:fit-content}
+.designer-check-details .designer-checks{margin:8px 0 0}
+.designer-workspace .designer-failure{display:block}
+.designer-failure-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.designer-failure-heading strong{min-width:0}
+.designer-failure-heading button{flex-shrink:0}
+.designer-failure-details{margin-top:8px;min-width:0}
+.designer-failure-details summary{cursor:pointer;color:var(--design-muted);font-size:11px}
+.designer-failure-details p{overflow-wrap:anywhere}
+.preview-composer-context label{width:100%;gap:7px}
+.preview-composer-context label>span{flex:1;min-width:0}
+.preview-composer-context label>small{margin:0 0 0 auto;flex-shrink:0;font-size:10px;color:var(--design-muted,#89919b)}
+
+/* A dedicated narrow conversation rail, not a scaled-down desktop card. */
+.designer-workspace.is-preview-docked .designer-task-top{width:100%;flex:1;gap:8px}
+.app-shell>.conversation .designer-workspace.is-preview-docked .designer-task-top .preview-picker{max-width:none;min-width:0;flex:1;padding:6px 0;font-size:12px;font-weight:600}
+.app-shell>.conversation .designer-workspace.is-preview-docked .designer-new-task{width:28px;min-width:28px;height:28px;min-height:28px;padding:0;border-radius:7px;justify-content:center;border:1px solid var(--design-line);background:var(--design-surface)}
+.designer-workspace.is-preview-docked .designer-new-task>span{display:none}
+.designer-workspace.is-preview-docked .designer-thread{padding:18px 16px 0;scrollbar-gutter:stable}
+.designer-workspace.is-preview-docked .designer-conversation-sheet{max-width:none;padding:0 0 16px}
+.designer-workspace.is-preview-docked .designer-spec{margin:0 0 20px;padding-bottom:14px}
+.designer-workspace.is-preview-docked .designer-spec p{font-size:calc(12px * var(--appearance-text-scale,1));line-height:1.75;margin:8px 0}
+.designer-workspace.is-preview-docked .designer-message .message-row{margin:18px 0}
+.designer-workspace.is-preview-docked .designer-message .message-row.assistant .bubble{border-left:2px solid var(--bh-blue);padding:0 0 0 11px;line-height:1.75;font-size:calc(13px * var(--appearance-text-scale,1))}
+.designer-workspace.is-preview-docked .designer-message .message-row.user .bubble{max-width:96%;padding:9px 12px;font-size:calc(13px * var(--appearance-text-scale,1));line-height:1.7}
+.designer-workspace.is-preview-docked .markdown :is(ul,ol){padding-left:18px;margin:10px 0}
+.designer-workspace.is-preview-docked .markdown li{margin:5px 0}
+.designer-workspace.is-preview-docked .markdown p{margin:10px 0}
+.designer-workspace.is-preview-docked .markdown :is(h1,h2,h3){font-size:15px;line-height:1.5;margin:16px 0 8px}
+.designer-workspace.is-preview-docked .designer-delivery{margin:20px 0;padding:12px;border-radius:9px;box-shadow:none}
+.designer-workspace.is-preview-docked .designer-delivery-title{font-size:12px;margin-bottom:8px}
+.designer-workspace.is-preview-docked .designer-delivery-title button{font-size:11px;white-space:nowrap}
+.designer-workspace.is-preview-docked .designer-artifact{gap:8px;padding:9px 0;font-size:12px;min-height:36px}
+.designer-workspace.is-preview-docked .designer-artifact>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;word-break:normal}
+.designer-workspace.is-preview-docked .designer-artifact>small{font-size:10px}
+.designer-workspace.is-preview-docked .designer-check-details{margin:9px 0 11px;font-size:10px}
+.designer-workspace.is-preview-docked .designer-checks{font-size:10px}
+.designer-workspace.is-preview-docked .designer-accept{display:block;width:100%;padding:6px 10px;min-height:30px;border-radius:6px;font-size:11px;background:var(--bh-bg)}
+.designer-workspace.is-preview-docked .designer-failure{margin:16px 0 8px;padding:11px 12px;border-radius:8px;line-height:1.65}
+.designer-workspace.is-preview-docked .designer-failure-heading{gap:8px;font-size:12px}
+.designer-workspace.is-preview-docked .designer-failure-heading button{font-size:11px;padding:4px 7px;min-height:28px;background:var(--design-surface)}
+.designer-workspace.is-preview-docked .designer-failure-details p{font-size:11px;margin:7px 0 0}
+.designer-workspace.is-preview-docked .designer-activity{margin:18px 0;padding:12px!important}
+.designer-workspace.is-preview-docked .designer-activity-line{gap:12px}
+.designer-workspace.is-preview-docked .designer-activity strong{font-size:12px}
+.designer-workspace.is-preview-docked .designer-activity p{font-size:11px}
+.designer-workspace.is-preview-docked .studio-working-collage{width:28px;height:28px;border-width:3px}
+.designer-workspace.is-preview-docked .designer-task-composer{padding:10px 12px 12px;border-top:1px solid var(--design-line)}
+.designer-workspace.is-preview-docked .preview-composer-context{padding:0 1px 8px;font-size:11px}
+.designer-workspace.is-preview-docked .composer{padding:11px 12px 10px;border-radius:13px}
+.designer-workspace.is-preview-docked .composer-editor{min-height:48px;max-height:160px;font-size:13px;line-height:1.75}
+.designer-workspace.is-preview-docked .composer-bottom{display:grid;grid-template-columns:minmax(0,1fr) 28px 32px;gap:8px 6px;align-items:center;margin-top:9px}
+.designer-workspace.is-preview-docked .composer-tools{grid-column:1/3;grid-row:1;width:100%;gap:7px;margin:0}
+.designer-workspace.is-preview-docked .composer-tools .composer-plus{width:28px;height:28px;flex-shrink:0;border-radius:6px}
+.designer-workspace.is-preview-docked .designer-system-control{max-width:calc(100% - 35px);border-radius:6px;font-size:11px}
+.designer-workspace.is-preview-docked .designer-system-control button{padding:4px 7px;gap:5px;min-height:27px}
+.designer-workspace.is-preview-docked .context-usage-trigger{grid-column:3;grid-row:1;width:28px;height:28px;justify-self:end}
+.designer-workspace.is-preview-docked .permission-mode{grid-column:1;grid-row:2;justify-self:start}
+.designer-workspace.is-preview-docked .permission-mode>.aelion-select{font-size:11px;min-height:28px;min-width:88px;background:none;border-color:var(--design-line)}
+.designer-workspace.is-preview-docked .composer-bottom>.icon-button{grid-column:2;grid-row:2;width:28px;height:28px}
+.designer-workspace.is-preview-docked .composer .send-button{grid-column:3;grid-row:2;width:32px;height:32px;justify-self:end}

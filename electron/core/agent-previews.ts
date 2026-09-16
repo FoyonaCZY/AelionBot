@@ -36,7 +36,9 @@ export class AgentPreviews {
     }else{
       if(typeof args.path!=='string'||!args.path.trim()||args.path.length>1500)throw Error('文件路径无效');
       if(!supported(args.path))throw Error('此格式暂不支持预览，请用 message_attach 发送原文件');
-      if(args.location==='host'){
+      if(args.location==='host'&&this.artifacts.isLocal(botId,args.path)){
+        const path=artifactPath(args.path),bytes=await this.artifacts.read(botId,path,LIMIT);target={kind:'workspace',path};name=basename(path);size=bytes.length;
+      }else if(args.location==='host'){
         if(!this.host)throw Error('本机文件服务尚未就绪');
         const source=await this.host.readPreviewFile(botId,runId,args,signal,run.workspaceDir);
         signal.throwIfAborted();const file=this.attachments.importForBot(botId,basename(source.path),source.bytes);
@@ -48,7 +50,7 @@ export class AgentPreviews {
       }else throw Error('文件预览需要 location: host 或 vm');
     }
     signal.throwIfAborted();if(run.status!=='running')throw Error('任务已结束，预览未排队');
-    const key=scope.kind+':'+scope.id,request:AgentPreviewRequest={id:randomUUID(),botId,runId,scope,target,name,size,placement:args.placement==='full'?'full':'side',createdAt:new Date().toISOString()};
+    const key=scope.kind+':'+scope.id,request:AgentPreviewRequest={id:randomUUID(),botId,runId,designSessionId:run.designSessionId,scope,target,name,size,placement:args.placement==='full'?'full':'side',createdAt:new Date().toISOString()};
     // Keep only the newest pending request in each conversation.
     this.pending.delete(key);this.pending.set(key,request);
     while(this.pending.size>100)this.pending.delete(this.pending.keys().next().value!);

@@ -122,6 +122,7 @@ export class HostComputer {
     if(typeof args.content!=='string'||args.content.length>256000)throw new Error('写入内容过长或无效');
     if(args.overwrite!==undefined&&typeof args.overwrite!=='boolean')throw new Error('overwrite 必须是布尔值');
     const content=args.content,overwrite=args.overwrite===true,stamp=this.stamp(path),expected=expectedHash(args.expectedSha256);
+    if(expected&&stamp==='missing')throw new FileToolError('INVALID_ARGUMENT','新建文件请省略 expectedSha256；它只用于核对已经存在且已读取的文件，不要填写零或猜测哈希。未写入任何内容。');
     if(stamp!=='missing'&&!overwrite)throw new Error('文件已存在；确认内容后使用 overwrite=true');
     await this.interactions.permission(botId,runId,{operation:'write_file',reason,path,content,overwrite},signal);aborted(signal);
     if(this.canonical(path)!==path||this.stamp(path)!==stamp)throw new Error('文件在确认期间发生变化，请重新确认');

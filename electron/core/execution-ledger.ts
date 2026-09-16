@@ -31,7 +31,7 @@ export class ExecutionLedger {
   list(botId:string,runId?:string){this.store.bot(botId);return runId?this.forTask(botId,runId):this.store.data.runs.filter(run=>run.botId===botId).flatMap(run=>run.executions||[]);}
   forTask(botId:string,runId:string){
     const run=this.store.data.runs.find(r=>r.id===runId&&r.botId===botId);if(!run)return [];
-    const work=this.store.data.workItems?.find(item=>item.id===run.workItemId&&item.botId===botId),ids=new Set(work?.runIds||[runId]);
+    const work=this.store.data.workItems?.find(item=>item.id===run.workItemId&&item.botId===botId),ids=new Set(work?.runIds||(run.designSessionId?this.store.data.runs.filter(r=>r.botId===botId&&r.designSessionId===run.designSessionId).map(r=>r.id):[runId]));
     for(const id of ids){const current=this.store.data.runs.find(r=>r.id===id&&r.botId===botId),previous=this.store.data.runs.find(r=>r.id===current?.resumedFromRunId&&r.botId===botId&&r.workspaceDir===current.workspaceDir);if(previous)ids.add(previous.id);}
     return this.store.data.runs.filter(r=>r.botId===botId&&ids.has(r.id)).flatMap(r=>r.executions||[]);
   }

@@ -1,3 +1,6 @@
+import {RequestIdleTimeout} from './request-idle-timeout';
+import {readModelResponse,modelEventActivity} from './model-stream';
+import {RequestTiming} from './request-timing';
 import {contextOverview,countedContextOverview} from './context-overview';
 import type {ContextOverview} from '../../src/context-overview';
 import type {ModelRequestStatus} from '../../src/model-request-status';
@@ -16,7 +19,7 @@ import {imageInputRejected,omitHistoricalImages,ModelImageUnsupportedError} from
 import {ResponsesTransport,websocketEnabled,type TransportStats} from './responses-transport';
 export interface ToolDefinition {type:'function';function:{name:string;description:string;parameters:Record<string,unknown>};}
 export interface Completion {requestModelKey?:string;inputImagesOmitted?:boolean;content:string;calls:ToolCall[];finishReason:string;usage?:ModelUsage;native?:NativeAssistant;}
-export interface CompletionOptions {onContext?:(overview:ContextOverview)=>void;onStatus?:(status:ModelRequestStatus)=>void;requiredImageIds?:string[];contextStats?:ContextUsage;botId?:string;runId?:string;cacheScope?:string;purpose?:string;maxOutputTokens?:number;timeoutMs?:number;retries?:number;onReset?:()=>void;}
+export interface CompletionOptions {splitOnTimeout?:boolean;onContext?:(overview:ContextOverview)=>void;onStatus?:(status:ModelRequestStatus)=>void;requiredImageIds?:string[];contextStats?:ContextUsage;botId?:string;runId?:string;cacheScope?:string;purpose?:string;maxOutputTokens?:number;timeoutMs?:number;retries?:number;onReset?:()=>void;}
 export class ContextOverflowError extends Error {constructor(){super('模型报告上下文容量不足，需要压缩后继续');this.name='ContextOverflowError';}}
 class RequestError extends Error {constructor(message:string,readonly retryable=false,readonly retryAfterMs=0,readonly truncated=false){super(message);}}
 export function validateModelEndpoint(value:string){const url=new URL(value);if(url.username||url.password||url.search||url.hash)throw Error('API 地址不能包含凭据、查询参数或片段');if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(url.hostname)))throw Error('API 必须使用 HTTPS，本地模型可使用 localhost HTTP');return url.toString().replace(/\/$/,'');}
@@ -32,6 +35,7 @@ export class ModelClient {
  dispose(){this.responses.dispose();}
  constructor(private getConfig:(botId?:string)=>ModelConfig,private getKey:(botId?:string)=>string,private resolveImage:(id:string)=>string=()=>{throw Error('屏幕图像解析器未配置');},private settings:()=>RuntimeSettings=()=>DEFAULT_RUNTIME,private observe:(record:UsageRecord)=>void=()=>{}){}
  async complete(messages:WireMessage[],tools:ToolDefinition[],signal:AbortSignal,onText:(text:string)=>void=()=>{},options:CompletionOptions={}):Promise<Completion>{
+  let timing=new RequestTiming();
   let cfg=this.getConfig(options.botId);if(cfg.issue)throw Error(cfg.issue);if(!cfg.model.trim())throw Error('请先为这个 Bot 选择 Provider 和模型');
   cfg={...cfg,baseUrl:validateModelEndpoint(cfg.baseUrl)};const key=this.getKey(options.botId),settings=this.settings();
   if(!key&&!['localhost','127.0.0.1','[::1]'].includes(new URL(cfg.baseUrl).hostname))throw Error('请先在设置中填写 API Key');
@@ -41,12 +45,13 @@ export class ModelClient {
   const requiredImages=new Set(options.requiredImageIds??visibleImages(messages).map(image=>image.id));let imagesOmitted=false;
   const visionKey=()=>JSON.stringify([cfg.protocol||'chat',nativeKey(cfg),cfg.supportsImages]);
   if(cfg.supportsImages===false||(this.noImages.get(visionKey())||0)>Date.now()){const next=omitHistoricalImages(messages,requiredImages,cfg);imagesOmitted=next.some((message,index)=>message!==messages[index]);messages=next;}
-  const retries=options.retries??settings.modelRetries;let emitted=false,fallback=false,inputAdjusted=false;let retryReason:ModelRequestStatus['reason'];
+  const retries=options.retries??settings.modelRetries;let emitted=false,fallback=false,inputAdjusted=false,timeoutAdjusted=false;let retryReason:ModelRequestStatus['reason'];
   const notify=(status:ModelRequestStatus)=>{try{options.onStatus?.(status);}catch{/* Observing transport state must not alter a request. */}};
   let measuredMessages:WireMessage[]|undefined,measuredModelKey='',measuredOutput=0,currentOverview:ContextOverview|undefined;
   const publishOverview=(overview:ContextOverview)=>{currentOverview=overview;try{options.onContext?.(overview);}catch{/* UI observers cannot fail inference. */}};
   for(let attempt=0;;attempt++){
-   signal.throwIfAborted();const start=Date.now(),timeout=AbortSignal.timeout(options.timeoutMs||settings.requestTimeoutMs),requestSignal=AbortSignal.any([signal,timeout]);let accumulator:StreamAccumulator|undefined,requestCache:RequestCacheDiagnostics|undefined;
+   if(attempt!==0||fallback)timing=new RequestTiming();
+   signal.throwIfAborted();const start=Date.now(),timeout=new RequestIdleTimeout(options.timeoutMs||settings.requestTimeoutMs),requestSignal=AbortSignal.any([signal,timeout.signal]);let accumulator:StreamAccumulator|undefined,requestCache:RequestCacheDiagnostics|undefined;
    notify({phase:'waiting',startedAt:new Date(start).toISOString(),updatedAt:new Date(start).toISOString(),attempt:Math.max(0,attempt),maxRetries:retries,reason:retryReason});
    try{
     const featureKey=`${cfg.protocol||'chat'}:${nativeKey(cfg)}`,scope=options.cacheScope||options.botId,cacheKey=scope?promptCacheKey(featureKey,scope,options.purpose||'foreground'):undefined;
@@ -55,7 +60,7 @@ export class ModelClient {
       measuredMessages=messages;measuredModelKey=nativeKey(cfg);measuredOutput=output;
       publishOverview(contextOverview(messages,tools,cfg,imagesOmitted||fallback||inputAdjusted?undefined:options.contextStats));
      }
-     const request=protocolRequest(cfg,messages,tools,output,key,resolveImage,!this.noUsage.has(featureKey),cfg.protocol==='responses'&&!this.noCacheKey.has(featureKey)?cacheKey:undefined,cacheKey);requestCache=this.cacheDiagnostics.record(cacheKey||promptCacheKey(featureKey,'unscoped',options.purpose||'foreground'),request.body);requestCache.imageCount=visibleImages(messages).length;requestCache.toolHistoryRepairs=request.historyRepairs;requestCache.cacheKeyRejected=this.noCacheKey.has(featureKey);requestCache.sessionAffinitySent=Boolean(cacheKey);const transport:TransportStats=Object.assign(requestCache,{transport:'http' as const,incremental:false,sentInputItems:(request.body as any).input?.length||0});const stream=websocketEnabled(cfg)?await this.responses.request(cacheKey||featureKey,request,requestSignal,transport):undefined;Object.assign(requestCache,transport);return stream||fetch(request.url,{method:'POST',redirect:'error',headers:request.headers,body:JSON.stringify(request.body),signal:requestSignal});};
+     const request=protocolRequest(cfg,messages,tools,output,key,resolveImage,!this.noUsage.has(featureKey),cfg.protocol==='responses'&&!this.noCacheKey.has(featureKey)?cacheKey:undefined,cacheKey);requestCache=this.cacheDiagnostics.record(cacheKey||promptCacheKey(featureKey,'unscoped',options.purpose||'foreground'),request.body);requestCache.imageCount=visibleImages(messages).length;requestCache.toolHistoryRepairs=request.historyRepairs;requestCache.cacheKeyRejected=this.noCacheKey.has(featureKey);requestCache.sessionAffinitySent=Boolean(cacheKey);const transport:TransportStats=Object.assign(requestCache,{transport:'http' as const,incremental:false,sentInputItems:(request.body as any).input?.length||0});const useWebsocket=websocketEnabled(cfg),body=useWebsocket?undefined:JSON.stringify(request.body);timing.mark('preparationMs');timeout.start();requestSignal.throwIfAborted();const stream=useWebsocket?await this.responses.request(cacheKey||featureKey,request,requestSignal,transport):undefined;Object.assign(requestCache,transport);const response=stream||await fetch(request.url,{method:'POST',redirect:'error',headers:request.headers,body:body??JSON.stringify(request.body),signal:requestSignal});timing.mark('responseMs');timeout.touch();return response;};
     let response=await send();
     if([400,422].includes(response.status)&&cfg.protocol==='responses'&&cacheKey&&!this.noCacheKey.has(featureKey)&&rejectsPromptCacheKey(await response.clone().text())){await response.body?.cancel();if(this.noCacheKey.size>=128)this.noCacheKey.clear();this.noCacheKey.add(featureKey);response=await send();}
     if(response.status===400&&!this.noUsage.has(featureKey)&&(cfg.protocol||'chat')==='chat'){const body=await response.clone().text();if(/stream_options|include_usage/i.test(body)&&/unknown|unsupported|not supported|unrecognized|extra/i.test(body)){await response.body?.cancel();this.noUsage.add(featureKey);response=await send();}}
@@ -66,13 +71,14 @@ export class ModelClient {
     }
     if(!response.ok){const body=(await response.text()).slice(0,1200);if([400,413].includes(response.status)&&/context[_ ]?(length|window)|maximum.*tokens|too many.*tokens|prompt.*too long/i.test(body))throw new ContextOverflowError();const retry=response.headers.get('retry-after'),after=retry?Number.isFinite(Number(retry))?Number(retry)*1000:Date.parse(retry)-Date.now():0;throw new RequestError(`模型请求失败 HTTP ${response.status}: ${redactHost(body,[key])}`,[408,409,429].includes(response.status)||response.status>=500,Math.min(30000,Math.max(0,after||0)));}
     if(!response.body)throw new RequestError('模型返回空响应',true);
-    let streamed='',visible='';accumulator=new StreamAccumulator(cfg.protocol||'chat',nativeKey(cfg),delta=>{streamed+=delta;const trimmed=streamed.trimStart();if('</think>'.startsWith(trimmed)&&trimmed!=='</think>')return;const clean=streamed.replace(/^\s*<\/think>\s*/,'');if(clean.length>visible.length){onText(clean.slice(visible.length));visible=clean;emitted=true;}});
-    if(response.headers.get('content-type')?.includes('application/json')){const data=await response.json();if((cfg.protocol||'chat')==='chat')accumulator.consume(data);else if(cfg.protocol==='responses')accumulator.consume({type:'response.'+(data.status||'completed'),response:data});else throw new RequestError('原生模型没有返回流式协议');}
-    else {
-     const reader=response.body.getReader(),decoder=new TextDecoder();let pending='',total=0,doneMarker=false;
-     const line=(line:string)=>{if(!line.startsWith('data:'))return;const data=line.slice(5).trim();if(!data)return;if(data==='[DONE]'){doneMarker=true;return;}try{accumulator!.consume(JSON.parse(data));if(accumulator!.ended&&['responses','anthropic'].includes(cfg.protocol||''))doneMarker=true;}catch(error){throw new RequestError(redactHost((error as Error).message,[key]),/overload|temporar|rate.limit/i.test((error as Error).message));}};
-     try{while(!doneMarker){const next=await reader.read();if(next.done)break;total+=next.value.length;if(total>16*1024*1024)throw Error('模型响应超过 16 MB');pending+=decoder.decode(next.value,{stream:true});let pos:number;while((pos=pending.indexOf('\n'))>=0){line(pending.slice(0,pos).replace(/\r$/,''));pending=pending.slice(pos+1);if(doneMarker)break;}}pending+=decoder.decode();if(!doneMarker&&pending.trim())line(pending.trim());}finally{await reader.cancel().catch(()=>{});}
-    }
+    let streamed='',visible='';accumulator=new StreamAccumulator(cfg.protocol||'chat',nativeKey(cfg),delta=>{streamed+=delta;const trimmed=streamed.trimStart();if('</think>'.startsWith(trimmed)&&trimmed!=='</think>')return;const clean=streamed.replace(/^\s*<\/think>\s*/,'');if(clean.length>visible.length){timing.mark('firstTextMs');onText(clean.slice(visible.length));visible=clean;emitted=true;}});
+    let activityAt=0,lastActivity='',receivedBytes=0,toolArgumentChars=0;
+    await readModelResponse(response,{signal:requestSignal,completed:()=>accumulator!.ended,finish:()=>{timeout.finish();timing.completed();},bytes:count=>{receivedBytes+=count;timing.received(count);},jsonProgress:()=>timeout.touch(),consume:event=>{
+     timing.mark('firstEventMs');
+     if(response.headers.get('content-type')?.includes('application/json')&&cfg.protocol==='responses')event={type:'response.'+(event.status||'completed'),response:event};
+     try{accumulator!.consume(event);}catch(error){throw new RequestError(redactHost((error as Error).message,[key]),/overload|temporar|rate.limit/i.test((error as Error).message));}
+     const activity=modelEventActivity(cfg.protocol||'chat',event);if(activity){timeout.touch();toolArgumentChars+=activity.argumentChars||0;timing.activity(activity.kind,activity.argumentChars);const now=Date.now();if(activity.kind!==lastActivity||now-activityAt>=250){lastActivity=activity.kind;activityAt=now;notify({phase:'streaming',activity:activity.kind,receivedBytes,toolArgumentChars,startedAt:new Date(start).toISOString(),updatedAt:new Date(now).toISOString(),attempt:Math.max(0,attempt),maxRetries:retries,reason:retryReason});}}
+    }});
     signal.throwIfAborted();const result=accumulator.result();result.requestModelKey=nativeKey(cfg);
     if(currentOverview&&accumulator.ended&&result.usage?.inputTokens!==undefined)publishOverview(countedContextOverview(currentOverview,result.usage.inputTokens,'provider-usage'));
     if(imagesOmitted)result.inputImagesOmitted=true;
@@ -84,18 +90,20 @@ export class ModelClient {
     if(new Set(result.calls.map(c=>c.id)).size!==result.calls.length)throw new RequestError('模型返回重复的工具调用 ID，未执行');
     const completedRequest=protocolRequest(cfg,[...messages,assistantMessage(result)],tools,output,key,resolveImage,!this.noUsage.has(`${cfg.protocol||'chat'}:${nativeKey(cfg)}`),cfg.protocol==='responses'&&!this.noCacheKey.has(featureKey)?cacheKey:undefined,cacheKey,true);this.cacheDiagnostics.success(cacheKey||promptCacheKey(featureKey,'unscoped',options.purpose||'foreground'),completedRequest.body);
     if(result.usage)result.usage={...result.usage,latencyMs:Date.now()-start,attempts:attempt+1};
-    this.observe({id:randomUUID(),botId:options.botId,runId:options.runId,purpose:options.purpose||'foreground',model:cfg.model,providerId:cfg.providerId,providerName:cfg.providerName,time:new Date().toISOString(),usage:result.usage,requestCache,...(contextStats?{context:contextStats}:{}),estimatedTokens:estimateRequest(messages,tools).tokens+Math.ceil(JSON.stringify(result.calls).length/3)+Math.ceil(result.content.length/3)});return result;
+    this.observe({id:randomUUID(),botId:options.botId,runId:options.runId,purpose:options.purpose||'foreground',timing:timing.snapshot(),model:cfg.model,providerId:cfg.providerId,providerName:cfg.providerName,time:new Date().toISOString(),usage:result.usage,requestCache,...(contextStats?{context:contextStats}:{}),estimatedTokens:estimateRequest(messages,tools).tokens+Math.ceil(JSON.stringify(result.calls).length/3)+Math.ceil(result.content.length/3)});return result;
    }catch(error){
-    const safe=redactHost((error as Error)?.message||String(error),[key]),transportCodes=transportErrorCodes(error);this.observe({id:randomUUID(),botId:options.botId,runId:options.runId,purpose:options.purpose||'foreground',model:cfg.model,providerId:cfg.providerId,providerName:cfg.providerName,time:new Date().toISOString(),usage:accumulator?.usage,requestCache,...(contextStats?{context:contextStats}:{}),...(transportCodes.length?{transportErrorCodes:transportCodes}:{}),error:safe});
+    timeout.dispose();
+    const safe=redactHost((error as Error)?.message||String(error),[key]),transportCodes=transportErrorCodes(error);this.observe({id:randomUUID(),botId:options.botId,runId:options.runId,purpose:options.purpose||'foreground',timing:timing.snapshot(),model:cfg.model,providerId:cfg.providerId,providerName:cfg.providerName,time:new Date().toISOString(),usage:accumulator?.usage,requestCache,...(contextStats?{context:contextStats}:{}),...(transportCodes.length?{transportErrorCodes:transportCodes}:{}),error:safe});
     signal.throwIfAborted();if(error instanceof ContextOverflowError)throw error;
     const retryable=error instanceof RequestError?error.retryable:error instanceof TypeError||timeout.aborted;
     if(!retryable||emitted&&!options.onReset)throw Error(safe);
     if(attempt>=retries){if(!fallback&&cfg.fallbackModel?.trim()&&cfg.fallbackModel!==cfg.model){cfg={...cfg,model:cfg.fallbackModel};fallback=true;attempt=-1;}else throw Error(safe);}
+    if(timeout.aborted&&options.splitOnTimeout&&!timeoutAdjusted&&accumulator){const partial=accumulator.result();if(partial.content||partial.calls.length){timeoutAdjusted=true;inputAdjusted=true;messages=[...messages,{role:'system',content:'The previous response timed out before it completed. None of its tool calls were executed. Return a shorter complete response and split large code generation into small file writes or focused patches. Preserve already successful tool results; do not repeat completed operations or add extra acceptance tests.'}];}}
     if(emitted){options.onReset?.();emitted=false;}if(error instanceof RequestError&&error.truncated){if(output>=ceiling){inputAdjusted=true;messages=[...messages,{role:'system',content:'上次响应超出输出预算，没有执行该响应中的调用。请缩短回复或拆分工具参数，返回完整 JSON，保留已经完成的工具结果。'}];}else output=Math.min(ceiling,output*2);}
     retryReason=attempt<0?'fallback':transportCodes.includes('UND_ERR_CONNECT_TIMEOUT')?'connect_timeout':timeout.aborted?'timeout':/HTTP 429/.test(safe)?'rate_limit':'connection';
     notify({phase:'retrying',startedAt:new Date().toISOString(),updatedAt:new Date().toISOString(),attempt:Math.max(0,attempt+1),maxRetries:retries,reason:retryReason});
     await backoff(error instanceof RequestError&&error.retryAfterMs?error.retryAfterMs:Math.min(10000,500*2**Math.max(0,attempt)),signal);
-   }
+   }finally{timeout.dispose();}
   }
  }
 }

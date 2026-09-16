@@ -47,3 +47,8 @@ test('a waiting retry does not remain in the retrying UI and names the safe conn
  r.modelRequest={phase:'waiting',startedAt:at,updatedAt:at,attempt:0,maxRetries:2};
  assert.equal(liveBotProgress([],r)?.label,'正在处理你的请求');
 });
+
+test('tool output progress refreshes the clock without pretending it is visible reply text',()=>{
+ const r=run({modelRequest:{phase:'streaming',activity:'tool',startedAt:at,updatedAt:'2026-09-11T10:02:00Z',attempt:0,maxRetries:2,toolArgumentChars:2048}});const step=liveBotProgress([],r)!;
+ assert.equal(step.label,'正在接收代码与工具参数');assert.equal(waitingExplanation(step,Date.parse(at)+125000),undefined);assert.match(waitingExplanation(step,Date.parse(at)+185000)!,/有效输出/);assert.doesNotMatch(JSON.stringify(step),/2048/);
+});

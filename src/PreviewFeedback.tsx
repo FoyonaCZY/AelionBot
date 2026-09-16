@@ -35,7 +35,7 @@ export function PreviewFeedback({scope,item,panel,unsaved,onBusy,annotations=[],
    const file={name:(unbound?.dataset.previewName||item.name).slice(0,300),...(url?{url}:{}),...(!unbound&&item.id.startsWith('attachment:')?{attachmentId:item.id.slice('attachment:'.length)}:{}),...(!unbound&&item.workspace?{path:'/work/'+item.workspace.botId+'/'+item.workspace.path.replace(/^\/+/, '')}:{}),...(page?{page}:{}),...(unsaved?{unsaved:true}:{})};
    const partial={scope,text,file,language,annotations,...(extras?{attachmentIds:extras.attachmentIds,mentions:extras.mentions,replyToMessageId:extras.replyToMessageId,edits:extras.edits}:{}),rect:{x,y,width,height},viewport:{width:innerWidth,height:innerHeight}};
    const key=JSON.stringify({...partial,scroll:[area.scrollLeft,area.scrollTop]});if(attempt.current?.key!==key)attempt.current={key,id:crypto.randomUUID()};
-   const request:PreviewFeedbackInput={requestId:attempt.current.id,...partial};
+   const request:PreviewFeedbackInput={requestId:attempt.current.id,designSessionId:item.designSessionId,...partial};
    await window.aelion.sendPreviewFeedback(request);
    setDrafts(value=>({...value,[item.id]:''}));attempt.current=undefined;setStatus(label('已发送，已附上当前画面','Sent with the current view','已傳送，已附上目前畫面'));
   }catch(error){setFailed(true);setStatus(previewErrorText(error));if(extras)throw error;}

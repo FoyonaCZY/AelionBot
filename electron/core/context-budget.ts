@@ -1,3 +1,4 @@
+import {TokenCountCache} from './token-count-cache';
 import {createHash} from 'node:crypto';
 import {getEncoding} from 'js-tiktoken';
 import {visibleImages} from '../../src/model-images';
@@ -5,14 +6,9 @@ import type {WireMessage} from '../../src/shared';
 import type {ToolDefinition} from './model';
 
 const encoding=getEncoding('o200k_base');
-const cache=new Map<string,number>();
-export function textTokens(text:string){
-  if(!text)return 0;
-  const key=createHash('sha256').update(text).digest('hex');const known=cache.get(key);if(known!==undefined)return known;
-  // The provider may use another tokenizer; actual reported usage calibrates this base count.
-  const tokens=encoding.encode(text,[],[]).length;
-  if(cache.size>2048)cache.clear();cache.set(key,tokens);return tokens;
-}
+// Provider usage still calibrates this unchanged tokenizer's exact local count.
+const cache=new TokenCountCache(text=>encoding.encode(text,[],[]).length);
+export const textTokens=(text:string)=>cache.count(text);
 export function messageTokens(message:WireMessage){return 5+Math.max(textTokens(message.content||'')+textTokens(message.tool_calls?JSON.stringify(message.tool_calls):''),textTokens(message.native?JSON.stringify(message.native.data):''));}
 export function estimateRequest(messages:WireMessage[],tools:ToolDefinition[],calibration=1){
   const text=messages.reduce((total,message)=>total+messageTokens(message),3),schema=textTokens(JSON.stringify(tools));

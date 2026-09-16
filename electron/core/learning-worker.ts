@@ -30,7 +30,7 @@ export class LearningWorker {
   enabled(){return this.storage.get('background-review-enabled')!=='false';}
   setEnabled(enabled:boolean){this.storage.set('background-review-enabled',String(enabled));if(!enabled)this.preempt();else this.schedule();this.changed();}
   status(){return {enabled:this.enabled(),runningBotId:this.current?.job.botId,queued:this.storage.jobs().length};}
-  enqueue(botId:string,runId:string,payload:ReviewPayload){if(!this.enabled())return;this.storage.enqueue(botId,runId,payload);this.schedule();this.changed();}
+  enqueue(botId:string,runId:string,payload:ReviewPayload){if(!this.enabled()||this.storage.store.bot(botId).type==='designer')return;this.storage.enqueue(botId,runId,payload);this.schedule();this.changed();}
   start(){this.schedule();}
   preempt(){if(this.timer){clearTimeout(this.timer);this.timer=undefined;}if(this.current){this.current.preempted=true;this.current.controller.abort();}}
   schedule(){if(this.closing||this.timer||this.current||!this.enabled())return;this.timer=setTimeout(()=>{this.timer=undefined;this.working=this.drain().finally(()=>{this.working=undefined;});},this.settleMs);this.timer.unref?.();}
@@ -38,7 +38,7 @@ export class LearningWorker {
     if(this.closing||!this.enabled()||this.current)return;
     if(this.foregroundBusy()){this.schedule();return;}
     const job=this.storage.jobs()[0];if(!job)return;
-    if(!this.storage.store.data.bots.some(bot=>bot.id===job.botId)){this.storage.jobStatus(job.id,'cancelled','Bot 已删除');this.schedule();return;}
+    if(!this.storage.store.data.bots.some(bot=>bot.id===job.botId&&bot.type!=='designer')){this.storage.jobStatus(job.id,'cancelled','Bot 已删除');this.schedule();return;}
     const controller=new AbortController();this.current={job,controller,preempted:false};this.storage.jobStatus(job.id,'running','',true);this.changed();
     try{await this.review(job,controller.signal);this.storage.jobStatus(job.id,'completed','已完成经验复盘');}
     catch(error){if(this.current.preempted||this.closing){this.storage.jobStatus(job.id,'queued','等待前台任务结束');this.storage.db.prepare('UPDATE review_jobs SET attempts=max(0,attempts-1) WHERE id=?').run(job.id);}else this.storage.jobStatus(job.id,'failed',excerpt((error as Error).message,180));}

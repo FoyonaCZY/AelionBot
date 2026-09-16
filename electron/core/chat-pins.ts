@@ -31,14 +31,14 @@ export class ChatPinQueue {
     const previous=this.runner.refresh?.(botId);if(previous)this.superseded.set(botId,previous);
     clearTimeout(this.timer);this.timer=undefined;this.changed();this.wake();
   }
-  send(input:{botId:string;message:string;previewPrompt?:string;replyToMessageId?:string;mentions?:BotMention[];attachmentIds?:string[]}){
+  send(input:{designSessionId?:string;botId:string;message:string;previewPrompt?:string;replyToMessageId?:string;mentions?:BotMention[];attachmentIds?:string[]}){
     if(this.closed)throw new Error('客户端正在退出');
     if(input.previewPrompt!==undefined&&(typeof input.previewPrompt!=='string'||input.previewPrompt.length>12000))throw Error('无效预览意见');
     const attachments=this.attachments.forDraft({kind:'bot',id:input?.botId},input?.attachmentIds),mentions=validateChatInput(this.store,input?.botId,input?.message,input?.mentions,Boolean(attachments.length));
     if(!this.store.modelFor(input.botId).model)throw new Error('请先为这个 Bot 选择模型');
     const command=workCommand(input.message);if(command&&!command.objective)throw Error(`请在 /${command.kind} 后填写任务内容`);
     const reply=resolveChatReply(this.store,input.botId,input.replyToMessageId);
-    this.store.message(input.botId,'user',input.message,{mentions,attachments,...(input.previewPrompt!==undefined?{previewPrompt:input.previewPrompt}:{}),...(reply?{reply}:{}),workspaceDir:effectiveWorkspace(this.store,this.host,{kind:'bot',id:input.botId}),inputState:'queued'});this.received(input.botId);
+    this.store.message(input.botId,'user',input.message,{mentions,attachments,designSessionId:input.designSessionId,...(input.previewPrompt!==undefined?{previewPrompt:input.previewPrompt}:{}),...(reply?{reply}:{}),workspaceDir:effectiveWorkspace(this.store,this.host,{kind:'bot',id:input.botId}),inputState:'queued'});this.received(input.botId);
   }
   schedule(botId:string,message:string,scheduled:ScheduledTrigger){
     if(this.closed)throw new Error('客户端正在退出');validateChatInput(this.store,botId,message);
@@ -54,9 +54,9 @@ export class ChatPinQueue {
     if(this.closed||this.timer||!this.store.data.messages.some(message=>this.queued(message)&&this.store.modelFor(message.botId).model))return;
     this.timer=setTimeout(()=>{this.timer=undefined;for(const botId of new Set(this.store.data.messages.filter(message=>this.queued(message)).map(message=>message.botId))){
       if(!this.store.modelFor(botId).model||this.runner.isRunning(botId)||this.workers.has(botId))continue;
-      const queued=this.store.data.messages.filter(message=>message.botId===botId&&this.queued(message)),human=queued.filter(message=>!message.scheduled),batch=human.length?human:queued.slice(0,1),latest=batch.at(-1)!;
+      const queued=this.store.data.messages.filter(message=>message.botId===botId&&this.queued(message)),human=queued.filter(message=>!message.scheduled),candidate=human.length?human:queued.slice(0,1),first=candidate[0],batch=candidate.filter(message=>message.designSessionId===first.designSessionId),latest=batch.at(-1)!;
       this.workers.add(botId);const supersedesRunId=this.superseded.get(botId);this.superseded.delete(botId);
-      void this.runner.run(botId,chatInputText(latest,false),{inputMessageIds:batch.map(message=>message.id),reactionMessageId:latest.reaction?latest.id:undefined,mentions:latest.reaction?undefined:latest.mentions,supersedesRunId}).catch(error=>{
+      void this.runner.run(botId,chatInputText(latest,false),{designSessionId:latest.designSessionId,inputMessageIds:batch.map(message=>message.id),reactionMessageId:latest.reaction?latest.id:undefined,mentions:latest.reaction?undefined:latest.mentions,supersedesRunId}).catch(error=>{
         for(const message of batch)if(!message.runId)message.inputState='cancelled';
         if(this.store.data.bots.some(bot=>bot.id===botId))this.store.message(botId,'event',`这次输入未能处理：${String((error as Error).message).slice(0,300)}`);
       }).finally(()=>{this.workers.delete(botId);this.store.save();this.changed();this.wake();});

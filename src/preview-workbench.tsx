@@ -14,5 +14,5 @@ export const WorkbenchContext=createContext<PreviewWorkbench|undefined>(undefine
 export const usePreviewWorkbench=()=>useContext(WorkbenchContext);
 export function PreviewComposerContext({scope}:{scope:AttachmentScope}){
  const preview=usePreviewWorkbench(),info=preview?.info;if(!info?.docked||info.scope?.kind!==scope.kind||info.scope.id!==scope.id)return null;
- return <div className="preview-composer-context"><label><input type="checkbox" checked={preview!.attached} onChange={e=>preview!.setAttached(e.target.checked)}/><span>{info.name}{info.annotations.length?' · '+info.annotations.length+' 处标注':''}</span></label><small>发送时附上当前画面</small></div>;
+ return <div className="preview-composer-context"><label><input type="checkbox" checked={preview!.attached} onChange={e=>preview!.setAttached(e.target.checked)}/><span>{info.name}{info.annotations.length?' · '+info.annotations.length+' 处标注':''}</span><small title="发送时附上当前可见画面">附带画面</small></label></div>;
 }

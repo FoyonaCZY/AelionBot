@@ -35,13 +35,13 @@
 
 /* Native window zoom can make a desktop viewport narrow. Keep chat and settings usable. */
 @media(max-width:900px){
-  .app-shell{grid-template-columns:190px minmax(0,1fr)}
+  .app-shell{--sidebar-width:190px;grid-template-columns:var(--sidebar-width) minmax(0,1fr)}
   .app-shell>.details{display:none}
   .chat-header{padding-left:16px;padding-right:16px}
   .messages{padding-left:18px;padding-right:18px}
 }
 @media(max-width:620px){
-  .app-shell{grid-template-columns:68px minmax(0,1fr)}
+  .app-shell{--sidebar-width:68px;grid-template-columns:var(--sidebar-width) minmax(0,1fr)}
   .sidebar-top{padding:12px 15px;justify-content:center}.sidebar-top .brand,.sidebar .search,.sidebar .bot-copy,.sidebar .group-row-copy{display:none}
   .sidebar .bot-item{justify-content:center;padding:12px 2px}.sidebar .bot-list{padding:0 6px}
   .sidebar .sidebar-bottom{padding:8px}.sidebar .sidebar-link{font-size:0;justify-content:center;padding:10px}.sidebar .sidebar-link svg{width:20px;height:20px}

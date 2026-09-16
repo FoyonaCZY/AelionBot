@@ -8,7 +8,7 @@ export interface LiveBotProgress extends LiveBotStep{
   receipt?:string;
   recent?:Array<{id:string;time:string;label:string}>;
   since?:string;
-  waitingOn?:'model'|'tool'|'stream';
+  waitingOn?:'model'|'tool'|'stream'|'output';
   retry?:boolean;
   needsInput?:boolean;
 }
@@ -48,6 +48,8 @@ export function liveBotProgress(messages:ChatMessage[],run?:RunRecord,waiting?:'
       return {...common,label:translate('等待重试请求响应'),description:translate('第 {attempt} 次重试已开始，正在等待响应。上次原因：{reason}。',{attempt:request.attempt,reason}),since:request.startedAt,waitingOn:'model'};
     }
     if(request.phase==='waiting'&&request.reason==='fallback')return {...common,label:translate('正在尝试备用模型'),description:translate('正在使用配置的备用模型继续请求。'),since:request.startedAt,waitingOn:'model'};
+    if(request.phase==='streaming'&&request.activity==='tool')return {...common,label:translate('正在接收代码与工具参数'),description:translate('模型仍在输出执行内容，完整返回后才会执行。'),since:request.updatedAt,waitingOn:'output'};
+    if(request.phase==='streaming'&&request.activity==='reasoning')return {...common,label:translate('模型正在处理'),description:translate('已收到模型处理进度，正在等待可用结果。'),since:request.updatedAt,waitingOn:'output'};
     if(request.phase==='streaming')return {...common,label:translate('正在生成回复'),description:translate('已收到模型输出，内容会陆续显示在对话中。'),since:request.updatedAt,waitingOn:'stream'};
     return {...common,label:translate('正在处理你的请求'),description:translate('请求已发送，等待模型返回下一步。'),since:request.startedAt,waitingOn:'model'};
   }
@@ -57,5 +59,5 @@ export function waitingExplanation(step:LiveBotProgress,now:number){
   if(!step.since||!step.waitingOn||step.needsInput)return;
   const seconds=Math.floor((now-Date.parse(step.since))/1000);if(!Number.isFinite(seconds)||seconds<60)return;
   const elapsed=seconds<120?translate('超过 1 分钟'):translate('约 {count} 分钟',{count:Math.floor(seconds/60)});
-  return step.waitingOn==='model'?translate('本次请求已等待{elapsed}，还没有返回结果。',{elapsed}):step.waitingOn==='stream'?translate('回复已有{elapsed}没有新增内容，仍在等待后续输出。',{elapsed}):translate('当前操作已持续{elapsed}，尚未返回最终结果。',{elapsed});
+  return step.waitingOn==='output'?translate('模型已有{elapsed}没有返回新的有效输出，仍在等待。',{elapsed}):step.waitingOn==='model'?translate('本次请求已等待{elapsed}，还没有返回结果。',{elapsed}):step.waitingOn==='stream'?translate('回复已有{elapsed}没有新增内容，仍在等待后续输出。',{elapsed}):translate('当前操作已持续{elapsed}，尚未返回最终结果。',{elapsed});
 }

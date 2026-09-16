@@ -11,6 +11,12 @@ export const languageOptions:ReadonlyArray<{value:Language;label:string}>=[
 ];
 
 const zhTW:Record<string,string>={
+"等待响应或连续无有效输出的时限":"等待回應或連續無有效輸出的時限",
+"正在接收代码与工具参数":"正在接收程式碼與工具參數",
+"模型仍在输出执行内容，完整返回后才会执行。":"模型仍在輸出執行內容，完整返回後才會執行。",
+"模型正在处理":"模型正在處理",
+"已收到模型处理进度，正在等待可用结果。":"已收到模型處理進度，正在等待可用結果。",
+"模型已有{elapsed}没有返回新的有效输出，仍在等待。":"模型已有{elapsed}沒有返回新的有效輸出，仍在等待。",
   '偏好设置':'偏好設定','设置分类':'設定分類','个人资料':'個人資料','外观':'外觀','模型':'模型','用量':'用量','技能':'技能','记忆':'記憶','电脑':'電腦','权限':'權限','关于':'關於','关闭对话框':'關閉對話框',
   '语言':'語言','界面语言':'介面語言','选择界面语言':'選擇介面語言','语言会立即应用并保存在本机':'語言會立即套用並儲存在本機',
   '主题':'主題','浅色':'淺色','深色':'深色','跟随系统':'跟隨系統','外观实时预览':'外觀即時預覽','实时预览':'即時預覽','让阅读更舒服一点。':'讓閱讀更舒服一點。','今天的工作已经整理好。':'今天的工作已經整理好。','字体':'字型','界面字体':'介面字型','系统默认':'系統預設','自定义字体':'自訂字型','字体名称':'字型名稱','填写已安装的字体；未找到时使用内置字体':'填寫已安裝的字型；找不到時使用內建字型','自定义界面字体名称':'自訂介面字型名稱','代码字体':'程式碼字型','系统等宽字体':'系統等寬字型','代码字体名称':'程式碼字型名稱','建议使用等宽字体':'建議使用等寬字型','正文字重':'正文粗細','按钮和标题会相应加重，保留层级':'按鈕和標題會相應加粗，保留層級','纤细 · 300':'纖細 · 300','常规 · 400':'一般 · 400','中等 · 500':'中等 · 500','较粗 · 600':'較粗 · 600','大小与间距':'大小與間距','界面文字':'介面文字','同时调整标题、按钮和辅助文字':'同時調整標題、按鈕和輔助文字','界面文字大小':'介面文字大小','消息文字':'訊息文字','消息文字大小':'訊息文字大小','代码文字':'程式碼文字','代码文字大小':'程式碼文字大小','消息行距':'訊息行距','显示比例':'顯示比例','缩放整个界面，包括侧栏与控件':'縮放整個介面，包括側欄與控制項','默认':'預設','恢复默认':'恢復預設','正在保存…':'正在儲存…','更改已自动保存':'變更已自動儲存','例如 Microsoft YaHei':'例如 Microsoft YaHei',
@@ -26,6 +32,12 @@ const zhTW:Record<string,string>={
 };
 
 const en:Record<string,string>={
+"等待响应或连续无有效输出的时限":"Time limit for waiting for a response or receiving no meaningful output",
+"正在接收代码与工具参数":"Receiving code and tool arguments",
+"模型仍在输出执行内容，完整返回后才会执行。":"The model is still producing execution content. It will run only after the complete response arrives.",
+"模型正在处理":"Model processing",
+"已收到模型处理进度，正在等待可用结果。":"The model is making progress. Waiting for a usable result.",
+"模型已有{elapsed}没有返回新的有效输出，仍在等待。":"No new meaningful output for {elapsed}. Still waiting.",
   '偏好设置':'Preferences','设置分类':'Settings categories','个人资料':'Profile','外观':'Appearance','模型':'Models','用量':'Usage','技能':'Skills','记忆':'Memory','运行':'Runtime','电脑':'Computer','权限':'Permissions','关于':'About','关闭对话框':'Close dialog',
   '语言':'Language','界面语言':'Interface language','选择界面语言':'Choose interface language','语言会立即应用并保存在本机':'Language changes apply immediately and are saved locally',
   '主题':'Theme','浅色':'Light','深色':'Dark','跟随系统':'System','外观实时预览':'Live appearance preview','实时预览':'Live preview','让阅读更舒服一点。':'Make reading a little easier.','今天的工作已经整理好。':'Today’s work is all organized.','字体':'Fonts','界面字体':'Interface font','系统默认':'System default','自定义字体':'Custom font','字体名称':'Font name','填写已安装的字体；未找到时使用内置字体':'Enter an installed font; the bundled font is used if it is not found','自定义界面字体名称':'Custom interface font name','代码字体':'Code font','系统等宽字体':'System monospace','代码字体名称':'Code font name','建议使用等宽字体':'A monospace font is recommended','正文字重':'Body weight','按钮和标题会相应加重，保留层级':'Buttons and headings become heavier to preserve hierarchy','纤细 · 300':'Light · 300','常规 · 400':'Regular · 400','中等 · 500':'Medium · 500','较粗 · 600':'Semibold · 600','大小与间距':'Size and spacing','界面文字':'Interface text','同时调整标题、按钮和辅助文字':'Also adjusts headings, buttons, and supporting text','界面文字大小':'Interface text size','消息文字':'Message text','消息文字大小':'Message text size','代码文字':'Code text','代码文字大小':'Code text size','消息行距':'Message line height','显示比例':'Display scale','缩放整个界面，包括侧栏与控件':'Scale the whole interface, including the sidebar and controls','默认':'Default','恢复默认':'Restore defaults','正在保存…':'Saving…','更改已自动保存':'Changes saved automatically','例如 Microsoft YaHei':'e.g. Microsoft YaHei',

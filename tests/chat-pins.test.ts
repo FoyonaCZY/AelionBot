@@ -50,7 +50,7 @@ test('a reaction mixed with project discovery continues to a final answer and ke
     assert.ok(messages.some(message=>message.role==='assistant'&&message.content===progress));assert.ok(messages.some(message=>message.role==='tool'&&message.content.includes('README.md')));
     return {content:'已了解项目结构：入口是 README.md，下一步可按模块继续阅读。',calls:[],finishReason:'stop'};
   }} as unknown as ModelClient;
-  const host={options:{},workspace:()=>dir,workspaceSettings:()=>({workspaceDir:dir}),context:()=>({workspace:dir}),redact:(text:string)=>text,listDirectory:async()=>{reads++;return {path:dir,items:[{name:'README.md',kind:'file'}]};}} as unknown as HostComputer;
+  const host={options:{},workspaceSettings:()=>({workspaceDir:dir,defaultWorkspaceDir:dir}),workspace:()=>dir,context:()=>({workspace:dir}),redact:(text:string)=>text,listDirectory:async()=>{reads++;return {path:dir,items:[{name:'README.md',kind:'file'}]};}} as unknown as HostComputer;
   const harness=new Harness(store,{} as VmController,model,()=>{},undefined,undefined,undefined,host,interactions);await harness.run(bot.id,'熟悉一下这个项目');
   assert.equal(calls,2);assert.equal(reads,1);assert.equal(store.data.runs[0].status,'completed');assert.equal(store.data.runs[0].toolCalls,4);
   assert.ok(store.data.messages.some(message=>message.presentation==='progress'&&message.content===progress));assert.ok(store.data.messages.some(message=>message.presentation==='answer'&&message.content.startsWith('已了解项目结构')));

@@ -20,7 +20,7 @@ test('requests use the full configured output allowance immediately and honor ex
 test('429 retries are bounded; failed partial previews reset before retry and only complete calls escape',async t=>{
  let count=0,resets=0,visible='';const statuses:ModelRequestStatus[]=[];const baseUrl=await server(t,async(req,res)=>{for await(const _ of req){}count++;if(count===1){res.writeHead(429,{'retry-after':'0.001'});res.end('busy');return;}res.writeHead(200,{'content-type':'text/event-stream'});res.write('data: '+JSON.stringify({choices:[{delta:{content:count===2?'partial':'finished'}}]})+'\n\n');if(count===3)res.write('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n');res.end();});
  const model=new ModelClient(()=>({...cfg,baseUrl}),()=> '');const result=await model.complete([{role:'user',content:'test'}],[],new AbortController().signal,t=>visible+=t,{onStatus:status=>statuses.push(status),onReset:()=>{resets++;visible='';}});
- assert.equal(count,3);assert.equal(resets,1);assert.equal(visible,'finished');assert.equal(result.content,'finished');assert.deepEqual(statuses.map(s=>s.phase),['waiting','retrying','waiting','retrying','waiting']);assert.equal(statuses[1].reason,'rate_limit');assert.equal(statuses[1].attempt,1);assert.doesNotMatch(JSON.stringify(statuses),/busy|partial|finished/);
+ assert.equal(count,3);assert.equal(resets,1);assert.equal(visible,'finished');assert.equal(result.content,'finished');assert.deepEqual(statuses.filter(s=>s.phase!=='streaming').map(s=>s.phase),['waiting','retrying','waiting','retrying','waiting']);assert.equal(statuses[1].reason,'rate_limit');assert.equal(statuses[1].attempt,1);assert.doesNotMatch(JSON.stringify(statuses),/busy|partial|finished/);
 });
 test('authentication failures are not retried and cancellation interrupts backoff',async t=>{
  let count=0;const baseUrl=await server(t,async(req,res)=>{for await(const _ of req){}count++;res.writeHead(count===1?401:429,{'retry-after':'30'});res.end('denied');});
@@ -115,4 +115,10 @@ test('fallback usage is identified with the model that actually handled the requ
  const result=await model.complete([{role:'user',content:'request'}],[],new AbortController().signal,undefined,{retries:0,onContext:value=>updates.push(value)});
  assert.equal(updates[0].model,'test');assert.equal(updates.at(-1)?.model,'fallback');assert.equal(updates.at(-1)?.tokens,123);
  assert.notEqual(result.requestModelKey,nativeKey({...cfg,baseUrl}));
+});
+
+test('designer timeout recovery changes a stalled large response into a smaller complete request',async t=>{
+ let count=0;const bodies:any[]=[];const baseUrl=await server(t,async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;bodies.push(JSON.parse(body));count++;res.writeHead(200,{'content-type':'text/event-stream'});if(count===1){res.write('data: '+JSON.stringify({choices:[{delta:{tool_calls:[{index:0,id:'partial',type:'function',function:{name:'file_write',arguments:'{"content":"unfinished'}}]}}]})+'\n\n');return;}res.end('data: '+JSON.stringify({choices:[{delta:{content:'Use smaller files'},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n');});
+ const client=new ModelClient(()=>({...cfg,baseUrl}),()=> '');t.after(()=>client.dispose());const result=await client.complete([{role:'user',content:'Build the requested page'}],[],new AbortController().signal,()=>{},{timeoutMs:100,retries:1,splitOnTimeout:true});
+ assert.equal(count,2);assert.equal(result.content,'Use smaller files');assert.deepEqual(result.calls,[]);assert.match(bodies[1].messages.at(-1).content,/None of its tool calls were executed/);assert.match(bodies[1].messages.at(-1).content,/split large code generation/);assert.equal(bodies[0].messages.length,1);
 });

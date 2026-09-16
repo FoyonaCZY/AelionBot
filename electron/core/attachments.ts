@@ -82,9 +82,11 @@ export class Attachments {
   async previewRich(id:string):Promise<ArtifactPreview>{
     const file=this.file(id),extension=extname(file.name).toLowerCase();
     if(!officeExtensions.has(extension))return this.preview(id);
-    if(!this.vm)throw new Error('启动工作电脑后，即可预览此文档。');
+    
     const botId=file.ownerBotId||(file.draftScope?.kind==='bot'?file.draftScope.id:undefined)||this.store.data.bots.find(bot=>this.canRead(bot.id,id))?.id||this.store.data.bots[0]?.id;
     if(!botId)throw new Error('请先创建一个 Bot，再预览此文档。');
+    if(this.store.bot(botId).type==='designer')return {kind:'unsupported'};
+    if(!this.vm)throw new Error('启动工作电脑后，即可预览此文档。');
     return officePreview(this.vm,botId,extension,this.bytes(id));
   }
   videoReference(botId:string,id:string){this.forBot(botId,[id]);this.bytes(id);const file=this.file(id);const path=this.location(id);if(lstatSync(path).isSymbolicLink()||statSync(path).size!==file.size)throw Error('附件文件发生变化');return {path,name:file.name};}

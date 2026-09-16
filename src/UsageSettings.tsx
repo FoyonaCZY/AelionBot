@@ -45,7 +45,7 @@ function Breakdown({title,groups,onChoose,model=false}:{title:string;groups:Usag
 }
 
 export function UsageSettings({state}:{state:Snapshot}){
-  const {t}=useI18n();
+  const {t,language}=useI18n();
   const [preset,setPreset]=useState('30'),[query,setQuery]=useState<UsageQuery>(()=>({...range(30),granularity:'day'})),[metric,setMetric]=useState<Metric>('totalTokens'),[report,setReport]=useState<UsageReport>(),[error,setError]=useState(''),[refresh,setRefresh]=useState(0);
   const revision=state.modelUsage?.at(-1)?.id,providerRevision=(state.providers||[]).map(provider=>provider.id+provider.name).join('|');
   useEffect(()=>{let active=true;setError('');const timer=setTimeout(()=>{void window.aelion.queryUsage(query).then(value=>{if(active)setReport(value);}).catch(error=>{if(active)setError(String(error.message).replace(/^Error invoking remote method '[^']+': Error: /,''));});},120);return()=>{active=false;clearTimeout(timer);};},[JSON.stringify(query),revision,providerRevision,refresh]);
@@ -61,6 +61,7 @@ export function UsageSettings({state}:{state:Snapshot}){
     </div>
     {preset==='custom'&&<div className="usage-dates"><label>{t('开始日期')}<input type="date" aria-label={t('用量开始日期')} value={query.from} onChange={event=>update({from:event.target.value})}/></label><span>—</span><label>{t('结束日期')}<input type="date" aria-label={t('用量结束日期')} value={query.to} onChange={event=>update({to:event.target.value})}/></label></div>}
     <div className="usage-toolbar"><span>{totals?t('{count} 次请求',{count:number(totals.requests)})+(totals.failedRequests?t(' · {count} 次失败',{count:number(totals.failedRequests)}):''):t('正在读取记录…')}</span><div><button type="button" className="text-button" onClick={reset}>{t('重置筛选')}</button><button type="button" className="text-button" onClick={()=>setRefresh(value=>value+1)}>{t('刷新')}</button></div></div>
+    {totals?.missingUsage? <p className="usage-empty-small">{language==='en'?`${totals.missingUsage} requests did not return token usage (including failed or timed-out requests). They are not counted as zero usage.`:`${totals.missingUsage} 次请求未返回 token 用量（可能包括失败或超时请求），不代表零消耗。`}</p>:null}
     {error?<div className="usage-query-error" role="alert">{error}</div>:!totals?<div className="usage-loading" role="status">{t('正在统计用量…')}</div>:<>
       <div className="usage-metrics">
         <div><span>{t('总 tokens')}</span><strong title={number(totals.totalTokens)}>{totals.reportedRequests||!totals.requests?compact(totals.totalTokens):'—'}</strong></div>

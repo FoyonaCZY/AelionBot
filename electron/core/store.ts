@@ -1,3 +1,4 @@
+import {botType} from '../../src/designer-types';
 import {repairToolHistory} from './tool-history';
 import {createHash} from 'node:crypto';
 import type {PythonSession} from './python-sessions';
@@ -46,6 +47,7 @@ export class Store {
       if(this.data.runtime?.maxTokens===500000)this.data.runtime.maxTokens=0;
       this.data.unlimitedTokenBudgetMigrated=true;
     }
+    for(const bot of this.data.bots)bot.type=botType(bot.type);
     this.data.workItems ||= [];
     this.data.conversationWorkspaces ||= {};
     for(const item of this.data.workItems){if(item.activeRunId||["running","planning"].includes(item.status)){item.status="paused";item.reason="应用中断，继续前请核对已执行的操作。";delete item.activeRunId;}}
@@ -58,6 +60,8 @@ export class Store {
     this.separatePrivateMessages();
     for(const run of this.data.runs)for(const execution of run.executions||[])if(execution.status==='running'){execution.status='unknown';execution.endedAt=new Date().toISOString();execution.error='应用中断，操作结果未知。继续前先核对实际状态。';}
     for (const run of this.data.runs) if (run.status === 'running') { run.status = 'interrupted'; run.endedAt = new Date().toISOString(); run.error = '应用中断。请检查已执行的操作后继续，系统不会自动重复工具调用。'; }
+    // Legacy deferred switches were not confirmed as context resets. Discard them.
+    for(const bot of this.data.bots)delete (bot as any).pendingType;
     for (const message of [...this.data.messages,...this.data.peerMessages,...this.data.groupRunMessages]) if (message.status === 'running') message.status = 'failed';
     for(const [key,history] of [...Object.entries(this.data.conversations),...Object.entries(this.data.peerContexts).map(([id,history])=>['peer:'+id,history] as const),...Object.entries(this.data.groupContexts)])this.repairHistory(history,key);
     this.exposeGroupTasks();
@@ -218,10 +222,10 @@ export class Store {
     for(const exchange of this.data.peerExchanges.filter(exchange=>exchange.toBotId===id)){delete next.peerContexts[exchange.id];delete next.summaries[`peer:${exchange.id}`];delete next.contextOffsets[`peer:${exchange.id}`];}
     this.replaceData(next);
   }
-  createBot(name: string, role: string, color?: string,avatarStyle?:BotAvatarStyle|null,modelOptions?:Pick<Bot,'model'|'reasoningEffort'>): Bot {
+  createBot(name: string, role: string, color?: string,avatarStyle?:BotAvatarStyle|null,modelOptions?:Pick<Bot,'model'|'reasoningEffort'|'type'|'defaultDesignSystemId'>): Bot {
     if (!name.trim() || name.length > 80 || role.length > 4000) throw new Error('请填写有效的名称与职责');
     const palette=normalizeBotPalette({color:color===undefined?BOT_COLORS[this.data.bots.length%BOT_COLORS.length]:color,avatarStyle});
-    const bot:Bot = { id: randomUUID(), name: name.trim(), role: role.trim(), ...palette, createdAt: new Date().toISOString(), memories: [],...modelOptions };
+    const bot:Bot = { id: randomUUID(), name: name.trim(), role: role.trim(), ...palette, createdAt: new Date().toISOString(), memories: [],...modelOptions,type:botType(modelOptions?.type) };
     this.data.bots.push(bot); this.data.conversations[bot.id] = [];
     this.save();
     return bot;

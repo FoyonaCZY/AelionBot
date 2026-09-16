@@ -20,7 +20,8 @@ export class ReplyStreams {
       const allowed=members?.();if(allowed)content=content.replace(/@\{([^{}\s]+)\}/g,(match,id)=>allowed.some(member=>member.id===id&&id!==target.botId)?match:'');
       const formatted=allowed?botMentions(content,allowed,target.botId,false):{content,mentions:[]};
       if(previous?.reply.content===formatted.content)return;
-      this.entries.set(target.id,{token,reply:{...target,...formatted}});this.schedule();
+      this.entries.set(target.id,{token,reply:{...target,...formatted}});
+      if(!previous.reply.content&&formatted.content)this.emit();else this.schedule();
     };
     return {update,close:(notify=true)=>{if(closed)return;closed=true;const current=this.entries.get(target.id);if(current?.token===token){this.entries.delete(target.id);if(!this.entries.size){clearTimeout(this.timer);this.timer=undefined;}if(notify)this.emit();}}};
   }

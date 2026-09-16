@@ -93,7 +93,7 @@ export function FilePreview({items:initialItems,initialIndex=0,initialExpanded=f
   const {t}=useI18n(),workbench=usePreviewWorkbench();
   const [items,setItems]=useState(()=>initialItems.map(item=>item.editor||!item.workspace?item:{...item,editor:workspacePreviewItem(item.workspace.botId,{name:item.name,path:item.workspace.path,size:item.size}).editor})),[directoryOpen,setDirectoryOpen]=useState(false);
   const [index,setIndex]=useState(initialIndex),[expanded,setExpanded]=useState(initialExpanded),[wide,setWide]=useState(()=>matchMedia('(min-width:1000px)').matches),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[retry,setRetry]=useState(0);
-  const [chatWidth,setChatWidth]=useState(()=>{try{return Math.max(260,Math.min(420,Number(localStorage.getItem('aelion-preview-chat-width'))||300));}catch{return 300;}});
+  const [chatWidth,setChatWidth]=useState(()=>{try{return Math.max(260,Math.min(420,Number(localStorage.getItem('aelion-preview-chat-width'))||340));}catch{return 340;}});
   useEffect(()=>{document.body.style.setProperty('--preview-chat-width',chatWidth+'px');try{localStorage.setItem('aelion-preview-chat-width',String(chatWidth));}catch{}},[chatWidth]);
   const [mode,setMode]=useState<PreviewMode>('browse'),[tool,setTool]=useState<AnnotationTool>('rect'),[web,setWeb]=useState<WebPreviewControls>(),[fileAnnotations,setFileAnnotations]=useState<PreviewAnnotation[]>([]),[domPending,setDomPending]=useState<(()=>void)|undefined>(undefined),[domGuardError,setDomGuardError]=useState(''),[domSaving,setDomSaving]=useState(false);
   const annotationCache=useRef(initialAnnotations||{}),sourceRevision=useRef(0),previousSource=useRef<string|undefined>(undefined);

@@ -14,7 +14,9 @@ export function delegationStatus(store:Store,botId:string,id:string){
 }
 export function recordDelegationReceipt(store:Store,botId:string,runId:string,args:Record<string,unknown>){
  const run=store.data.runs.find(r=>r.id===runId&&r.botId===botId),origin=run?.peerOrigin,exchange=origin&&store.data.peerExchanges.find(e=>e.id===(origin.sessionId||origin.exchangeId)&&e.toBotId===botId);
- if(!run||origin?.kind!=='peer_task'||!exchange?.task)throw Error('只有已接下结构化委托的接收方可以提交回执');
+ const root=exchange&&store.data.runs.find(r=>r.id===exchange.rootRunId&&!r.peerOrigin),human=root&&store.humanRunMessage(root.id);
+ const designerAccepted=run?.engine==='designer'&&Boolean(exchange&&human&&human.content.slice(0,8000)===exchange.rootRequest&&root&&['running','completed'].includes(root.status));
+ if(!run||origin?.kind!=='peer_task'&&!designerAccepted||!exchange?.task)throw Error('只有已接下结构化委托的接收方可以提交回执');
  const status=args.status,summary=args.summary,evidenceIds=args.evidenceIds;if(!['completed','blocked'].includes(String(status))||typeof summary!=='string'||!summary.trim()||summary.length>3000||!Array.isArray(evidenceIds)||evidenceIds.length>10)throw Error('回执需要状态、总结和证据列表');
  const evidence=run.executions||[];
  if(status==='completed'&&(!evidenceIds.length||evidenceIds.some(id=>!evidence.some(e=>e.id===id&&e.status==='succeeded'&&!/^(task_|goal_|plan_|execution_|delegation_)/.test(e.tool)))||evidence.some(e=>['failed','unknown'].includes(e.status)&&!e.resolution)||run.plan?.steps.some(s=>['pending','working'].includes(s.status))))throw Error('完成回执需要真实执行证据，并先处理未完成步骤及失败');
