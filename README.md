@@ -5,8 +5,8 @@
   </picture>
 
   <p><strong>English</strong> · <a href="README.zh-CN.md">简体中文</a></p>
-  <h1>Good ideas. Made together.</h1>
-  <p>Your AI partners for the things you want to get done.</p>
+  <h1>A general-purpose multi-agent workspace</h1>
+  <p>Configure agents and work with group chats, a Linux VM and local tools.</p>
   <p>
     <a href="https://aelion.chat/?lang=en"><strong>Explore the website ↗</strong></a> &nbsp; · &nbsp;
     <a href="https://github.com/FoyonaCZY/AelionBot/releases/latest"><strong>Download for Windows and macOS</strong></a> &nbsp; · &nbsp;
@@ -25,7 +25,7 @@
 | **Group chats and Bot-to-Bot messages** | Assign roles, exchange files and results, and ask a partner to take the next step |
 | **Specialist roles when needed** | Add a Designer with 152 bundled design systems for webpages and presentations |
 
-<img src="docs/assets/product/workspace-en.svg" alt="Multi-agent workspace illustration: partners, a task conversation, files and a VM" width="100%">
+<img src="docs/assets/screenshots/workspace-en.png" alt="Multi-agent workspace illustration: partners, a task conversation, files and a VM" width="100%">
 
 ## Multi-agent collaboration: give each partner a role
 
@@ -39,9 +39,9 @@ For a product research and comparison task:
 
 Bots can also exchange private messages and files. Group context stays separate from unrelated private conversations. **You choose the roles**; the app does not automatically turn a General Bot into a Designer.
 
-<img src="docs/assets/product/collaboration-en.svg" alt="Group collaboration illustration: partners share research, ideas and finished files" width="100%">
+<img src="docs/assets/screenshots/collaboration-en.png" alt="Group collaboration illustration: partners share research, ideas and finished files" width="100%">
 
-<img src="docs/assets/product/handoff-en.svg" alt="Bot private messages with source files and analysis results" width="100%">
+<img src="docs/assets/screenshots/handoff-en.png" alt="Bot private messages with source files and analysis results" width="100%">
 
 ## A VM for work that needs a computer
 
@@ -53,7 +53,7 @@ A browser gathers sources, a terminal processes data, and office apps handle doc
 
 General Bots can also access host files and commands under your permission settings. The VM and host workspace are distinct execution locations; you choose which operations need approval.
 
-<img src="docs/assets/product/computer-en.svg" alt="Linux work computer illustration with a browser, files and terminal" width="100%">
+<img src="docs/assets/screenshots/computer-en.png" alt="Work computer settings in the actual interface; the example environment is stopped" width="100%">
 
 ## Configure roles. Add specialists when needed.
 
@@ -77,7 +77,7 @@ Create a Designer Bot, choose a prototype or presentation task, and select its d
 
 The design references come from OpenDesign, with source and license notices retained. Brand-inspired references do not imply official endorsement. See [third-party notices](docs/THIRD-PARTY-NOTICES.md).
 
-<img src="docs/assets/product/studio-en.svg" alt="Preview workspace illustration with a file tree, webpage and editable content" width="100%">
+<img src="docs/assets/screenshots/studio-en.png" alt="File preview alongside the conversation in the actual interface" width="100%">
 
 ## Keep the result beside the conversation
 
@@ -94,7 +94,7 @@ Designer presentations can be viewed through their HTML companion. External Offi
 
 Use English, Simplified Chinese or Traditional Chinese, with light/dark themes and adjustable fonts and display scale. Save preferences and schedule recurring tasks; the app must remain open while scheduled work runs. Bundled design references can be read offline, while model services and external assets may still need an internet connection.
 
-<sub>Images are vector product illustrations with example content, not application screenshots. This README describes the current source; see release notes for the features in a downloadable build.</sub>
+<sub>Product images are screenshots of the current App frontend using fictional conversations and files, without a model or VM connection. The Bot artwork at the top is a brand illustration. This README describes the current source; see release notes for the features in a downloadable build.</sub>
 
 ## Explore further
 

@@ -1,0 +1,133 @@
+{
+  "source": "Production App React components with fictional read-only example data",
+  "sourceRevision": "5b3c111046eac3188255065294d24362fb616405",
+  "applicationVersion": "0.25.1",
+  "viewport": {
+    "width": 1400,
+    "height": 900
+  },
+  "modelConnected": false,
+  "vmConnected": false,
+  "files": [
+    {
+      "name": "workspace-zh-CN.png",
+      "bytes": 104347,
+      "sha256": "9ba8edddac23846d2ee57ff4e8ce783f7d8559497e70a3c0fce478403f094cbe"
+    },
+    {
+      "name": "conversation-zh-CN.png",
+      "bytes": 103797,
+      "sha256": "b5f401a3108d6dd7325b92e194089819b7b24a7e20efc30b5e4b94a20a70ed67"
+    },
+    {
+      "name": "collaboration-zh-CN.png",
+      "bytes": 107881,
+      "sha256": "bf8191f9197f72b2eb3e91b3d3b0d1f7e8f265f92ea0c3e39a4784ee3116d6eb"
+    },
+    {
+      "name": "studio-zh-CN.png",
+      "bytes": 92251,
+      "sha256": "9cc1cf67ebde5a925b5dc9973c264f648f3578220de23aa9a295561272486767"
+    },
+    {
+      "name": "computer-zh-CN.png",
+      "bytes": 99816,
+      "sha256": "56f35a047b8e16d54e41a979fc20b6961fb4a0011fba98708f0a1880bbcd25fb"
+    },
+    {
+      "name": "handoff-zh-CN.png",
+      "bytes": 79465,
+      "sha256": "074c471ab9d910984c2b1e670b02d0baa74043dbb33e85d5878a5a9c74fce34f"
+    },
+    {
+      "name": "rhythm-zh-CN.png",
+      "bytes": 122908,
+      "sha256": "34150c2fc9d0455e9b246ed48da563db9cfea110b19abb259adf6e36345ace2f"
+    },
+    {
+      "name": "designer-zh-CN.png",
+      "bytes": 265282,
+      "sha256": "4b52cf98ac341bf415d7d2060ead3374c66b5f56990e765102a30adfdb067e08"
+    },
+    {
+      "name": "workspace-zh-TW.png",
+      "bytes": 107076,
+      "sha256": "2745b46a1cc9205c3702c608d8b2ce1c6cebaec09abd8825e349a094ae629417"
+    },
+    {
+      "name": "conversation-zh-TW.png",
+      "bytes": 106808,
+      "sha256": "ebf41afe7a623943e3eec0ed62518381087bfaa67a4cf7555286883b34ae05fa"
+    },
+    {
+      "name": "collaboration-zh-TW.png",
+      "bytes": 111079,
+      "sha256": "d155754d7721d3f55b47b669e2310a60b5104ba735548c51108d58294b8a7a5a"
+    },
+    {
+      "name": "studio-zh-TW.png",
+      "bytes": 95325,
+      "sha256": "51358834ea8beb34198b740b48f9b447910a3bf97447c3f8eded8cae60acfe54"
+    },
+    {
+      "name": "computer-zh-TW.png",
+      "bytes": 103309,
+      "sha256": "a4aa96be896547824bc6c5827fc180ea02641633db48c820129f13e05a73952a"
+    },
+    {
+      "name": "handoff-zh-TW.png",
+      "bytes": 80296,
+      "sha256": "52fc6ad5a55aba626bab3645fba83197e39667b70d01590ca283766635252d92"
+    },
+    {
+      "name": "rhythm-zh-TW.png",
+      "bytes": 124986,
+      "sha256": "5349f373df5208a651195d69d46b27e42ed700d49a5ff47f38e50df843e77fab"
+    },
+    {
+      "name": "designer-zh-TW.png",
+      "bytes": 266214,
+      "sha256": "f3d5a97d31c35bfb862303e0c54b87fbec161b13d8892b08479f213ba96f9c50"
+    },
+    {
+      "name": "workspace-en.png",
+      "bytes": 104877,
+      "sha256": "8c916a893e63edb561276d1ee08fc8bb9170f3e03d93772cc6d1b9a647e48c1f"
+    },
+    {
+      "name": "conversation-en.png",
+      "bytes": 105290,
+      "sha256": "b767c14e773a93f962c656478b2453855c50888d9ead24a4aad74eb39441196a"
+    },
+    {
+      "name": "collaboration-en.png",
+      "bytes": 111298,
+      "sha256": "59529e81651cc8a19a5dbb209da2ef4fbc298d537fe67cf862286e89ac56a013"
+    },
+    {
+      "name": "studio-en.png",
+      "bytes": 94215,
+      "sha256": "e66fe6cfda9e8bac80133d7214a88e432f239473a5737b0e1121f87789ea94e6"
+    },
+    {
+      "name": "computer-en.png",
+      "bytes": 107995,
+      "sha256": "6cffc530d2c5b944480e62b97ca735b4f2e75764696cdd80f0f53d29bfc917fb"
+    },
+    {
+      "name": "handoff-en.png",
+      "bytes": 81225,
+      "sha256": "f7c33d0b38851bb49b63499e8f28e1c426021233089ca75a0ca638a3f016aa2c"
+    },
+    {
+      "name": "rhythm-en.png",
+      "bytes": 127248,
+      "sha256": "3f91527d95bb92167b65896e1a0cb8e408250127caa2edee0d2db31d43e9dec6"
+    },
+    {
+      "name": "designer-en.png",
+      "bytes": 267257,
+      "sha256": "db3b24accc3da64bba1fbe6747ee9d71f0393cb6c55f702a1f197023b35ea986"
+    }
+  ]
+}

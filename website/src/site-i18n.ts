@@ -10,14 +10,317 @@ export const siteLanguages:ReadonlyArray<{value:SiteLanguage;label:string}>=([
 export const siteCopy:Record<SiteLanguage,{
   blog:string;github:string;download:string;closeNav:string;openNav:string;downloadWindows:string;downloadMacArm:string;downloadMacIntel:string;downloadAll:string;downloadWindowsShort:string;downloadMacArmShort:string;downloadMacIntelShort:string;downloadMobileHint:string;downloadLinuxHint:string;home:string;mainNav:string;footerNav:string;skip:string;heroEyebrow:string;heroTitle:string[];heroDescription:string;meet:string;seeCollab:string;castCaption:string;fromOne:string;workTitle:string[];workDescription:string;viewProduct:string[];productAlt:string[];productCaption:string;makingKicker:string;makingTitle:string[];makingDescription:string[];paperBack:string;paperOverline:string;paperTitle:string[];deliveryTitle:string;deliverySubtitle:string;personalityKicker:string;personalityTitle:string[];personalityDescription:string[];paletteAria:string;paletteNames:string[];paletteHint:string;memoryQuote:string;memoryDescription:string;possibilitiesKicker:string;possibilitiesTitle:string[];casePrompt:string;weeklyTitle:string;weeklyDescription:string;weeklyLink:string;questionsTitle:string;downloadKicker:string;downloadTitle:string[];footerTagline:string;realProduct:string;exampleContent:string;closeScreenshot:string;previousScreenshot:string;nextScreenshot:string;expandProduct:string;productViewAria:string;sceneAria:string;tryPalette:string;
 }>={
-  'zh-CN':{
-    blog:'博客',github:'GitHub',download:'下载应用',closeNav:'关闭导航',openNav:'打开导航',downloadWindows:'下载 Windows 版',downloadMacArm:'下载 Mac 版（Apple 芯片）',downloadMacIntel:'下载 Mac 版（Intel）',downloadAll:'查看全部版本',downloadWindowsShort:'Windows',downloadMacArmShort:'Mac · Apple 芯片',downloadMacIntelShort:'Mac · Intel',downloadMobileHint:'这是桌面应用，请在电脑上下载安装。',downloadLinuxHint:'暂无 Linux 安装包，可下载 Windows 或 Mac 版。',home:'AelionBot 首页',mainNav:'主导航',footerNav:'页脚导航',skip:'跳至主要内容',heroEyebrow:'AelionBot · 通用多 Agent 系统',heroTitle:['把任务，','交给一支团队。'],heroDescription:'为不同 Agent 配置职责、模型与工具，让它们在群聊中协作，通过 VM 和本机工具完成调研、代码与办公任务。',meet:'组建你的 AI 团队',seeCollab:'探索核心功能',castCaption:'各有本事。一起做事。',fromOne:'从一句话开始',workTitle:['聊着聊着，','事情就做出来了。'],workDescription:'单独交代一件事，或让几位伙伴接力完成。',viewProduct:['和伙伴聊聊','让团队一起做'],productAlt:['AelionBot 当前版本的写作对话，展示分享讲稿和可保存的文件。','AelionBot 当前版本的群聊，资料、灵感和写作伙伴共同准备分享讲稿。'],productCaption:'当前版本界面 · 示例任务',makingKicker:'会想，也会动手',makingTitle:['让成果，','从对话里','走出来。'],makingDescription:['查资料、处理文件、使用应用。','通用 Bot 使用 VM，设计师在本机创作。'],paperBack:'资料，变得有头绪。',paperOverline:'写下来的想法',paperTitle:['让灵感，','有处可去。'],deliveryTitle:'分享讲稿',deliverySubtitle:'准备好了，看看吧。',personalityKicker:'很有个性，也很合拍',personalityTitle:['你的伙伴。','你的样子。'],personalityDescription:['名字、职责、配色，都由你决定。','写作搭档，资料助手，或随时陪你聊灵感的朋友。'],paletteAria:'试试伙伴的配色',paletteNames:['暮光紫','晴空蓝','薄荷绿','蜜桃粉'],paletteHint:'点一点，换个心情。',memoryQuote:'“下次，也用这套风格。”',memoryDescription:'记下你确认过的偏好，让合作接得上。',possibilitiesKicker:'先从哪件事开始？',possibilitiesTitle:['你正好需要。','它正好拿手。'],casePrompt:'试着这样开口',weeklyTitle:'每周的老任务，也有人惦记。',weeklyDescription:'约好时间，把周报、资料整理安排给伙伴。',weeklyLink:'了解定时工作',questionsTitle:'还有几个小问题。',downloadKicker:'AelionBot',downloadTitle:['下一件事，','一起做。'],footerTagline:'有想法，就一起动手。',realProduct:'真实产品界面 · 示例内容',exampleContent:'示例内容',closeScreenshot:'关闭图片',previousScreenshot:'上一张图片',nextScreenshot:'下一张图片',expandProduct:'放大查看功能示意',productViewAria:'查看产品界面',sceneAria:'资料、创意和文件成果的视觉演示',tryPalette:'试试伙伴的配色'
+  "zh-CN": {
+    "blog": "博客",
+    "github": "GitHub",
+    "download": "下载应用",
+    "closeNav": "关闭导航",
+    "openNav": "打开导航",
+    "downloadWindows": "下载 Windows 版",
+    "downloadMacArm": "下载 Mac 版（Apple 芯片）",
+    "downloadMacIntel": "下载 Mac 版（Intel）",
+    "downloadAll": "查看全部版本",
+    "downloadWindowsShort": "Windows",
+    "downloadMacArmShort": "Mac · Apple 芯片",
+    "downloadMacIntelShort": "Mac · Intel",
+    "downloadMobileHint": "这是桌面应用，请在电脑上下载安装。",
+    "downloadLinuxHint": "暂无 Linux 安装包，可下载 Windows 或 Mac 版。",
+    "home": "AelionBot 首页",
+    "mainNav": "主导航",
+    "footerNav": "页脚导航",
+    "skip": "跳至主要内容",
+    "heroEyebrow": "AelionBot",
+    "heroTitle": [
+      "通用多 Agent",
+      "桌面工作空间"
+    ],
+    "heroDescription": "为 Agent 配置模型、职责和工具。通过群聊分工，使用 Linux VM 和本机工具完成调研、写作、代码与办公任务。",
+    "meet": "下载应用",
+    "seeCollab": "查看界面",
+    "castCaption": "对话 · 群聊 · 工具执行",
+    "fromOne": "界面截图",
+    "workTitle": [
+      "对话与群聊"
+    ],
+    "workDescription": "与单个 Bot 处理任务，或在群聊中分配工作、交换文件。",
+    "viewProduct": [
+      "和伙伴聊聊",
+      "让团队一起做"
+    ],
+    "productAlt": [
+      "AelionBot 当前版本的写作对话，展示分享讲稿和可保存的文件。",
+      "AelionBot 当前版本的群聊，资料、灵感和写作伙伴共同准备分享讲稿。"
+    ],
+    "productCaption": "当前版本界面 · 示例任务",
+    "makingKicker": "会想，也会动手",
+    "makingTitle": [
+      "让成果，",
+      "从对话里",
+      "走出来。"
+    ],
+    "makingDescription": [
+      "查资料、处理文件、使用应用。",
+      "通用 Bot 使用 VM，设计师在本机创作。"
+    ],
+    "paperBack": "资料，变得有头绪。",
+    "paperOverline": "写下来的想法",
+    "paperTitle": [
+      "让灵感，",
+      "有处可去。"
+    ],
+    "deliveryTitle": "分享讲稿",
+    "deliverySubtitle": "准备好了，看看吧。",
+    "personalityKicker": "Agent 配置",
+    "personalityTitle": [
+      "按任务配置",
+      "模型和角色"
+    ],
+    "personalityDescription": [
+      "设置名称、职责、模型和配色。",
+      "可以创建多个 Bot，分别处理不同类型的工作。"
+    ],
+    "paletteAria": "试试伙伴的配色",
+    "paletteNames": [
+      "暮光紫",
+      "晴空蓝",
+      "薄荷绿",
+      "蜜桃粉"
+    ],
+    "paletteHint": "选择配色",
+    "memoryQuote": "“回复时保留来源链接。”",
+    "memoryDescription": "保存经你确认的工作偏好。",
+    "possibilitiesKicker": "任务类型",
+    "possibilitiesTitle": [
+      "调研、写作、代码",
+      "与日常办公"
+    ],
+    "casePrompt": "试着这样开口",
+    "weeklyTitle": "定时任务",
+    "weeklyDescription": "安排一次性或周期性任务，执行时需要保持应用开启。",
+    "weeklyLink": "了解定时工作",
+    "questionsTitle": "常见问题",
+    "downloadKicker": "AelionBot",
+    "downloadTitle": [
+      "下载 AelionBot"
+    ],
+    "footerTagline": "通用多 Agent 桌面应用",
+    "realProduct": "真实产品界面 · 示例内容",
+    "exampleContent": "示例内容",
+    "closeScreenshot": "关闭图片",
+    "previousScreenshot": "上一张图片",
+    "nextScreenshot": "下一张图片",
+    "expandProduct": "放大界面截图",
+    "productViewAria": "查看产品界面",
+    "sceneAria": "资料、创意和文件成果的视觉演示",
+    "tryPalette": "试试伙伴的配色"
   },
-  'zh-TW':{
-    blog:'部落格',github:'GitHub',download:'下載應用程式',closeNav:'關閉導覽',openNav:'開啟導覽',downloadWindows:'下載 Windows 版',downloadMacArm:'下載 Mac 版（Apple 晶片）',downloadMacIntel:'下載 Mac 版（Intel）',downloadAll:'查看全部版本',downloadWindowsShort:'Windows',downloadMacArmShort:'Mac · Apple 晶片',downloadMacIntelShort:'Mac · Intel',downloadMobileHint:'這是桌面應用程式，請在電腦上下載安裝。',downloadLinuxHint:'暫無 Linux 安裝包，可下載 Windows 或 Mac 版。',home:'AelionBot 首頁',mainNav:'主導覽',footerNav:'頁尾導覽',skip:'跳至主要內容',heroEyebrow:'AelionBot · 通用多 Agent 系統',heroTitle:['把工作，','交給一支團隊。'],heroDescription:'為不同 Agent 設定職責、模型與工具，讓它們在群組中協作，透過 VM 和本機工具完成調研、程式與辦公工作。',meet:'組建你的 AI 團隊',seeCollab:'探索核心功能',castCaption:'各有本事。一起做事。',fromOne:'從一句話開始',workTitle:['聊著聊著，','事情就做出來了。'],workDescription:'單獨交代一件事，或讓幾位夥伴接力完成。',viewProduct:['和夥伴聊聊','讓團隊一起做'],productAlt:['AelionBot 目前版本的寫作對話，展示分享講稿和可儲存的檔案。','AelionBot 目前版本的群組聊天，資料、靈感和寫作夥伴共同準備分享講稿。'],productCaption:'目前版本介面 · 範例工作',makingKicker:'會想，也會動手',makingTitle:['讓成果，','從對話裡','走出來。'],makingDescription:['查資料、處理檔案、使用應用程式。','通用 Bot 使用 VM，設計師在本機創作。'],paperBack:'資料，變得有頭緒。',paperOverline:'寫下來的想法',paperTitle:['讓靈感，','有處可去。'],deliveryTitle:'分享講稿',deliverySubtitle:'準備好了，看看吧。',personalityKicker:'很有個性，也很合拍',personalityTitle:['你的夥伴。','你的樣子。'],personalityDescription:['名字、職責、配色，都由你決定。','寫作搭檔、資料助手，或隨時陪你聊靈感的朋友。'],paletteAria:'試試夥伴的配色',paletteNames:['暮光紫','晴空藍','薄荷綠','蜜桃粉'],paletteHint:'點一下，換個心情。',memoryQuote:'「下次，也用這套風格。」',memoryDescription:'記下你確認過的偏好，讓合作接得上。',possibilitiesKicker:'先從哪件事開始？',possibilitiesTitle:['你正好需要。','它正好拿手。'],casePrompt:'可以這樣開口',weeklyTitle:'每週的老工作，也有人惦記。',weeklyDescription:'約好時間，把週報、資料整理安排給夥伴。',weeklyLink:'了解排程工作',questionsTitle:'還有幾個小問題。',downloadKicker:'AelionBot',downloadTitle:['下一件事，','一起做。'],footerTagline:'有想法，就一起動手。',realProduct:'真實產品介面 · 範例內容',exampleContent:'範例內容',closeScreenshot:'關閉圖片',previousScreenshot:'上一張圖片',nextScreenshot:'下一張圖片',expandProduct:'放大查看功能示意',productViewAria:'查看產品介面',sceneAria:'資料、創意和檔案成果的視覺演示',tryPalette:'試試夥伴的配色'
+  "zh-TW": {
+    "blog": "部落格",
+    "github": "GitHub",
+    "download": "下載應用程式",
+    "closeNav": "關閉導覽",
+    "openNav": "開啟導覽",
+    "downloadWindows": "下載 Windows 版",
+    "downloadMacArm": "下載 Mac 版（Apple 晶片）",
+    "downloadMacIntel": "下載 Mac 版（Intel）",
+    "downloadAll": "查看全部版本",
+    "downloadWindowsShort": "Windows",
+    "downloadMacArmShort": "Mac · Apple 晶片",
+    "downloadMacIntelShort": "Mac · Intel",
+    "downloadMobileHint": "這是桌面應用程式，請在電腦上下載安裝。",
+    "downloadLinuxHint": "暫無 Linux 安裝包，可下載 Windows 或 Mac 版。",
+    "home": "AelionBot 首頁",
+    "mainNav": "主導覽",
+    "footerNav": "頁尾導覽",
+    "skip": "跳至主要內容",
+    "heroEyebrow": "AelionBot",
+    "heroTitle": [
+      "通用多 Agent",
+      "桌面工作空間"
+    ],
+    "heroDescription": "為 Agent 設定模型、職責和工具。透過群組分工，使用 Linux VM 和本機工具完成調研、寫作、程式與辦公工作。",
+    "meet": "下載應用程式",
+    "seeCollab": "查看介面",
+    "castCaption": "對話 · 群組 · 工具執行",
+    "fromOne": "介面截圖",
+    "workTitle": [
+      "對話與群組"
+    ],
+    "workDescription": "與單個 Bot 處理工作，或在群組中分工、交換檔案。",
+    "viewProduct": [
+      "和夥伴聊聊",
+      "讓團隊一起做"
+    ],
+    "productAlt": [
+      "AelionBot 目前版本的寫作對話，展示分享講稿和可儲存的檔案。",
+      "AelionBot 目前版本的群組聊天，資料、靈感和寫作夥伴共同準備分享講稿。"
+    ],
+    "productCaption": "目前版本介面 · 範例工作",
+    "makingKicker": "會想，也會動手",
+    "makingTitle": [
+      "讓成果，",
+      "從對話裡",
+      "走出來。"
+    ],
+    "makingDescription": [
+      "查資料、處理檔案、使用應用程式。",
+      "通用 Bot 使用 VM，設計師在本機創作。"
+    ],
+    "paperBack": "資料，變得有頭緒。",
+    "paperOverline": "寫下來的想法",
+    "paperTitle": [
+      "讓靈感，",
+      "有處可去。"
+    ],
+    "deliveryTitle": "分享講稿",
+    "deliverySubtitle": "準備好了，看看吧。",
+    "personalityKicker": "Agent 設定",
+    "personalityTitle": [
+      "按工作設定",
+      "模型和角色"
+    ],
+    "personalityDescription": [
+      "設定名稱、職責、模型和配色。",
+      "可以建立多個 Bot，分別處理不同類型的工作。"
+    ],
+    "paletteAria": "試試夥伴的配色",
+    "paletteNames": [
+      "暮光紫",
+      "晴空藍",
+      "薄荷綠",
+      "蜜桃粉"
+    ],
+    "paletteHint": "選擇配色",
+    "memoryQuote": "「回覆時保留來源連結。」",
+    "memoryDescription": "儲存經你確認的工作偏好。",
+    "possibilitiesKicker": "工作類型",
+    "possibilitiesTitle": [
+      "調研、寫作、程式",
+      "與日常辦公"
+    ],
+    "casePrompt": "可以這樣開口",
+    "weeklyTitle": "排程工作",
+    "weeklyDescription": "安排一次性或週期性工作，執行時需要保持應用程式開啟。",
+    "weeklyLink": "了解排程工作",
+    "questionsTitle": "常見問題",
+    "downloadKicker": "AelionBot",
+    "downloadTitle": [
+      "下載 AelionBot"
+    ],
+    "footerTagline": "通用多 Agent 桌面應用程式",
+    "realProduct": "真實產品介面 · 範例內容",
+    "exampleContent": "範例內容",
+    "closeScreenshot": "關閉圖片",
+    "previousScreenshot": "上一張圖片",
+    "nextScreenshot": "下一張圖片",
+    "expandProduct": "放大介面截圖",
+    "productViewAria": "查看產品介面",
+    "sceneAria": "資料、創意和檔案成果的視覺演示",
+    "tryPalette": "試試夥伴的配色"
   },
-  en:{
-    blog:'Blog',github:'GitHub',download:'Download app',closeNav:'Close navigation',openNav:'Open navigation',downloadWindows:'Download for Windows',downloadMacArm:'Download for Mac (Apple Silicon)',downloadMacIntel:'Download for Mac (Intel)',downloadAll:'See all downloads',downloadWindowsShort:'Windows',downloadMacArmShort:'Mac · Apple Silicon',downloadMacIntelShort:'Mac · Intel',downloadMobileHint:'This is a desktop app. Download it on a computer.',downloadLinuxHint:'No Linux build yet. You can download Windows or Mac.',home:'AelionBot home',mainNav:'Main navigation',footerNav:'Footer navigation',skip:'Skip to main content',heroEyebrow:'AelionBot · A general-purpose multi-agent system',heroTitle:['One task.','A team to take it on.'],heroDescription:'Configure agents with different roles, models and tools. Bring them together in group chats to research, code and handle everyday work through a VM and local tools.',meet:'Build your AI team',seeCollab:'Explore the capabilities',castCaption:'Different strengths. One team.',fromOne:'Start with a sentence',workTitle:['Talk it through,','then make it real.'],workDescription:'Hand off one task, or let several partners take turns.',viewProduct:['Chat with a partner','Work as a team'],productAlt:['AelionBot writing conversation showing a shareable talk outline and saved files.','AelionBot group chat where research, ideas, and writing partners prepare a talk outline together.'],productCaption:'Current interface · Example task',makingKicker:'Thinks, then does',makingTitle:['Beyond chat.','Into the','real world.'],makingDescription:['Research, handle files, use apps.','Your partner has its own work computer.'],paperBack:'Make the material make sense.',paperOverline:'Ideas, written down',paperTitle:['Give ideas','somewhere to go.'],deliveryTitle:'Shareable outline',deliverySubtitle:'Ready when you are.',personalityKicker:'A little more you',personalityTitle:['Your partner.','Your style.'],personalityDescription:['You choose the name, role, and colors.','A writing partner, research assistant, or a friend for exploring ideas.'],paletteAria:'Try the partner colors',paletteNames:['Twilight violet','Clear sky blue','Mint green','Peach pink'],paletteHint:'Tap to change the mood.',memoryQuote:'“Use this style next time.”',memoryDescription:'Keep confirmed preferences so the next collaboration picks up naturally.',possibilitiesKicker:'What should you start with?',possibilitiesTitle:['Your everyday.','A little easier.'],casePrompt:'Try saying it this way',weeklyTitle:'Give the routine its own rhythm.',weeklyDescription:'Set a time and let a partner handle reports and research.',weeklyLink:'Explore scheduled work',questionsTitle:'Before you begin.',downloadKicker:'AelionBot',downloadTitle:['The next thing,','together.'],footerTagline:'Have an idea? Let’s make it.',realProduct:'Real product interface · Example content',exampleContent:'Example content',closeScreenshot:'Close image',previousScreenshot:'Previous image',nextScreenshot:'Next image',expandProduct:'Enlarge illustration',productViewAria:'View product interface',sceneAria:'A visual demonstration of research, ideas, and file results',tryPalette:'Try the partner colors'
+  "en": {
+    "blog": "Blog",
+    "github": "GitHub",
+    "download": "Download app",
+    "closeNav": "Close navigation",
+    "openNav": "Open navigation",
+    "downloadWindows": "Download for Windows",
+    "downloadMacArm": "Download for Mac (Apple Silicon)",
+    "downloadMacIntel": "Download for Mac (Intel)",
+    "downloadAll": "See all downloads",
+    "downloadWindowsShort": "Windows",
+    "downloadMacArmShort": "Mac · Apple Silicon",
+    "downloadMacIntelShort": "Mac · Intel",
+    "downloadMobileHint": "This is a desktop app. Download it on a computer.",
+    "downloadLinuxHint": "No Linux build yet. You can download Windows or Mac.",
+    "home": "AelionBot home",
+    "mainNav": "Main navigation",
+    "footerNav": "Footer navigation",
+    "skip": "Skip to main content",
+    "heroEyebrow": "AelionBot",
+    "heroTitle": [
+      "A desktop workspace",
+      "for multiple AI agents"
+    ],
+    "heroDescription": "Configure models, roles and tools for your agents. Use group chats, a Linux VM and local tools for research, writing, code and office tasks.",
+    "meet": "Download app",
+    "seeCollab": "View the interface",
+    "castCaption": "Conversations · Group chat · Tool execution",
+    "fromOne": "INTERFACE SCREENSHOTS",
+    "workTitle": [
+      "Conversations and group chats"
+    ],
+    "workDescription": "Work with one Bot, or use group chat to assign tasks and exchange files.",
+    "viewProduct": [
+      "Chat with a partner",
+      "Work as a team"
+    ],
+    "productAlt": [
+      "AelionBot writing conversation showing a shareable talk outline and saved files.",
+      "AelionBot group chat where research, ideas, and writing partners prepare a talk outline together."
+    ],
+    "productCaption": "Current interface · Example task",
+    "makingKicker": "Thinks, then does",
+    "makingTitle": [
+      "Beyond chat.",
+      "Into the",
+      "real world."
+    ],
+    "makingDescription": [
+      "Research, handle files, use apps.",
+      "Your partner has its own work computer."
+    ],
+    "paperBack": "Make the material make sense.",
+    "paperOverline": "Ideas, written down",
+    "paperTitle": [
+      "Give ideas",
+      "somewhere to go."
+    ],
+    "deliveryTitle": "Shareable outline",
+    "deliverySubtitle": "Ready when you are.",
+    "personalityKicker": "AGENT CONFIGURATION",
+    "personalityTitle": [
+      "Configure models",
+      "and roles"
+    ],
+    "personalityDescription": [
+      "Set a name, role, model and color.",
+      "Create multiple Bots for different types of work."
+    ],
+    "paletteAria": "Try the partner colors",
+    "paletteNames": [
+      "Twilight violet",
+      "Clear sky blue",
+      "Mint green",
+      "Peach pink"
+    ],
+    "paletteHint": "Select a color",
+    "memoryQuote": "“Include source links in your replies.”",
+    "memoryDescription": "Save work preferences that you have confirmed.",
+    "possibilitiesKicker": "TASK TYPES",
+    "possibilitiesTitle": [
+      "Research, writing, code",
+      "and office tasks"
+    ],
+    "casePrompt": "Try saying it this way",
+    "weeklyTitle": "Scheduled tasks",
+    "weeklyDescription": "Set one-off or recurring tasks. Keep the app open while they run.",
+    "weeklyLink": "Explore scheduled work",
+    "questionsTitle": "Frequently asked questions",
+    "downloadKicker": "AelionBot",
+    "downloadTitle": [
+      "Download AelionBot"
+    ],
+    "footerTagline": "A general-purpose multi-agent desktop app",
+    "realProduct": "Real product interface · Example content",
+    "exampleContent": "Example content",
+    "closeScreenshot": "Close image",
+    "previousScreenshot": "Previous image",
+    "nextScreenshot": "Next image",
+    "expandProduct": "Enlarge interface screenshot",
+    "productViewAria": "View product interface",
+    "sceneAria": "A visual demonstration of research, ideas, and file results",
+    "tryPalette": "Try the partner colors"
   }
 };
 

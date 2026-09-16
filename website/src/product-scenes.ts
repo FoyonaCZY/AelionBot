@@ -1,37 +1,142 @@
-import computerEn from '../../docs/assets/product/computer-en.svg';
-import computerZh from '../../docs/assets/product/computer-zh-CN.svg';
-import computerTw from '../../docs/assets/product/computer-zh-TW.svg';
-import handoffEn from '../../docs/assets/product/handoff-en.svg';
-import handoffZh from '../../docs/assets/product/handoff-zh-CN.svg';
-import handoffTw from '../../docs/assets/product/handoff-zh-TW.svg';
-import workspaceEn from '../../docs/assets/product/workspace-en.svg';
-import workspaceZh from '../../docs/assets/product/workspace-zh-CN.svg';
-import workspaceTw from '../../docs/assets/product/workspace-zh-TW.svg';
-import conversationEn from '../../docs/assets/product/conversation-en.svg';
-import conversationZh from '../../docs/assets/product/conversation-zh-CN.svg';
-import collaborationEn from '../../docs/assets/product/collaboration-en.svg';
-import collaborationZh from '../../docs/assets/product/collaboration-zh-CN.svg';
-import studioEn from '../../docs/assets/product/studio-en.svg';
-import studioZh from '../../docs/assets/product/studio-zh-CN.svg';
-import rhythmEn from '../../docs/assets/product/rhythm-en.svg';
-import rhythmZh from '../../docs/assets/product/rhythm-zh-CN.svg';
-import conversationTw from '../../docs/assets/product/conversation-zh-TW.svg';
-import collaborationTw from '../../docs/assets/product/collaboration-zh-TW.svg';
-import studioTw from '../../docs/assets/product/studio-zh-TW.svg';
-import rhythmTw from '../../docs/assets/product/rhythm-zh-TW.svg';
 import type {SiteLanguage} from './site-i18n';
+import conversationEn from '../../docs/assets/screenshots/conversation-en.png';
+import conversationZh from '../../docs/assets/screenshots/conversation-zh-CN.png';
+import conversationTw from '../../docs/assets/screenshots/conversation-zh-TW.png';
+import collaborationEn from '../../docs/assets/screenshots/collaboration-en.png';
+import collaborationZh from '../../docs/assets/screenshots/collaboration-zh-CN.png';
+import collaborationTw from '../../docs/assets/screenshots/collaboration-zh-TW.png';
+import studioEn from '../../docs/assets/screenshots/studio-en.png';
+import studioZh from '../../docs/assets/screenshots/studio-zh-CN.png';
+import studioTw from '../../docs/assets/screenshots/studio-zh-TW.png';
+import rhythmEn from '../../docs/assets/screenshots/rhythm-en.png';
+import rhythmZh from '../../docs/assets/screenshots/rhythm-zh-CN.png';
+import rhythmTw from '../../docs/assets/screenshots/rhythm-zh-TW.png';
+import computerEn from '../../docs/assets/screenshots/computer-en.png';
+import computerZh from '../../docs/assets/screenshots/computer-zh-CN.png';
+import computerTw from '../../docs/assets/screenshots/computer-zh-TW.png';
+import handoffEn from '../../docs/assets/screenshots/handoff-en.png';
+import handoffZh from '../../docs/assets/screenshots/handoff-zh-CN.png';
+import handoffTw from '../../docs/assets/screenshots/handoff-zh-TW.png';
+import workspaceEn from '../../docs/assets/screenshots/workspace-en.png';
+import workspaceZh from '../../docs/assets/screenshots/workspace-zh-CN.png';
+import workspaceTw from '../../docs/assets/screenshots/workspace-zh-TW.png';
+import designerEn from '../../docs/assets/screenshots/designer-en.png';
+import designerZh from '../../docs/assets/screenshots/designer-zh-CN.png';
+import designerTw from '../../docs/assets/screenshots/designer-zh-TW.png';
 
-export const productScenes=(language:SiteLanguage)=>language==='en'
-  ?[conversationEn,collaborationEn,studioEn,rhythmEn,computerEn,handoffEn,workspaceEn]
-  :language==='zh-TW'?[conversationTw,collaborationTw,studioTw,rhythmTw,computerTw,handoffTw,workspaceTw]:[conversationZh,collaborationZh,studioZh,rhythmZh,computerZh,handoffZh,workspaceZh];
+export const productScenes=(language:SiteLanguage)=>language==='en'?[conversationEn,collaborationEn,studioEn,rhythmEn,computerEn,handoffEn,workspaceEn,designerEn]:language==='zh-TW'?[conversationTw,collaborationTw,studioTw,rhythmTw,computerTw,handoffTw,workspaceTw,designerTw]:[conversationZh,collaborationZh,studioZh,rhythmZh,computerZh,handoffZh,workspaceZh,designerZh];
 export const sceneCopy={
-  en:{kicker:'A closer look',title:['Open it.','Make it yours.'],description:'Browse the files. Preview the result. Edit code and text in the same space.',tabs:["Your preview studio","The details, remembered","Linux work computer","Bot-to-Bot handoff","Multi-agent workspace"],caption:'Product illustrations · Example content',alt:['A writing partner turns notes into a talk and a document.','Three partners share research, ideas, and a finished brief.','A file tree, web preview, and editable notes in one space.','Preferences, scheduled research, and permission choices.',"A Linux desktop with source files, a browser and a terminal.","Two Bots exchange source material and a comparison file.","Multiple AI partners, a task conversation, files and a VM in one workspace."]},
-  'zh-CN':{kicker:'成果，近一点看',title:['打开看看。','顺手改改。'],description:'浏览目录、预览成果，代码和文字都能在这里直接修改。',tabs:["你的预览工作台","记住合作里的细节","Linux 工作电脑","Bot 私信与文件交接","多 Agent 工作台"],caption:'功能示意 · 示例内容',alt:['写作伙伴将笔记整理成分享讲稿和文档。','三位伙伴一起整理资料、讨论创意、完成提纲。','文件目录、网页预览与可编辑的笔记。','偏好记忆、定时资料整理与操作许可。',"Linux 桌面中的资料文件、浏览器和终端。","两位 Bot 通过私信交接资料与对比结果。","多位 AI 伙伴、任务对话、文件和 VM 构成的工作台。"]},
-  'zh-TW':{kicker:'成果，近一點看',title:['打開看看。','順手改改。'],description:'瀏覽目錄、預覽成果，程式碼和文字都能在這裡直接修改。',tabs:["你的預覽工作台","記住合作裡的細節","Linux 工作電腦","Bot 私訊與檔案交接","多 Agent 工作台"],caption:'功能示意 · 範例內容',alt:['寫作夥伴將筆記整理成分享講稿和文件。','三位夥伴一起整理資料、討論創意、完成提綱。','檔案目錄、網頁預覽與可編輯的筆記。','偏好記憶、排程資料整理與操作許可。',"Linux 桌面中的資料檔案、瀏覽器和終端機。","兩位 Bot 透過私訊交接資料與比較結果。","多位 AI 夥伴、工作對話、檔案和 VM 組成的工作台。"]}
+  "zh-CN": {
+    "kicker": "界面功能",
+    "title": [
+      "文件预览",
+      "与工作配置"
+    ],
+    "description": "查看当前界面。截图中的对话和文件均为示例数据。",
+    "tabs": [
+      "文件预览",
+      "Bot 配置",
+      "工作电脑设置",
+      "Bot 私聊",
+      "工作台",
+      "设计系统选择"
+    ],
+    "caption": "当前界面截图 · 示例数据",
+    "alt": [
+      "任务对话 · 当前界面截图 · 示例数据",
+      "群聊协作 · 当前界面截图 · 示例数据",
+      "文件预览 · 当前界面截图 · 示例数据",
+      "Bot 配置 · 当前界面截图 · 示例数据",
+      "工作电脑设置 · 当前界面截图 · 示例数据",
+      "Bot 私聊 · 当前界面截图 · 示例数据",
+      "工作台 · 当前界面截图 · 示例数据",
+      "设计系统选择 · 当前界面截图 · 示例数据"
+    ]
+  },
+  "zh-TW": {
+    "kicker": "介面功能",
+    "title": [
+      "檔案預覽",
+      "與工作設定"
+    ],
+    "description": "查看目前介面。截圖中的對話和檔案均為範例資料。",
+    "tabs": [
+      "檔案預覽",
+      "Bot 設定",
+      "工作電腦設定",
+      "Bot 私訊",
+      "工作台",
+      "設計系統選擇"
+    ],
+    "caption": "目前介面截圖 · 範例資料",
+    "alt": [
+      "工作對話 · 目前介面截圖 · 範例資料",
+      "群組協作 · 目前介面截圖 · 範例資料",
+      "檔案預覽 · 目前介面截圖 · 範例資料",
+      "Bot 設定 · 目前介面截圖 · 範例資料",
+      "工作電腦設定 · 目前介面截圖 · 範例資料",
+      "Bot 私訊 · 目前介面截圖 · 範例資料",
+      "工作台 · 目前介面截圖 · 範例資料",
+      "設計系統選擇 · 目前介面截圖 · 範例資料"
+    ]
+  },
+  "en": {
+    "kicker": "INTERFACE",
+    "title": [
+      "Files and",
+      "configuration"
+    ],
+    "description": "Browse the current interface. Screenshots use sample conversations and files.",
+    "tabs": [
+      "File preview",
+      "Bot configuration",
+      "Work computer settings",
+      "Bot messages",
+      "Workspace",
+      "Design system picker"
+    ],
+    "caption": "Current UI screenshots · Example data",
+    "alt": [
+      "Task conversation · Current UI screenshots · Example data",
+      "Group conversation · Current UI screenshots · Example data",
+      "File preview · Current UI screenshots · Example data",
+      "Bot configuration · Current UI screenshots · Example data",
+      "Work computer settings · Current UI screenshots · Example data",
+      "Bot messages · Current UI screenshots · Example data",
+      "Workspace · Current UI screenshots · Example data",
+      "Design system picker · Current UI screenshots · Example data"
+    ]
+  }
 };
-
 export const teamShowcaseCopy={
- 'zh-CN':{kicker:'通用多 AGENT 工作空间',title:'把伙伴、工具和任务放在一起。',description:'配置不同职责的 Agent，单独交办，或在群聊中分工。浏览器、代码、文件与工作电脑，都围绕正在做的事展开。',gallery:'看看伙伴怎样真正动手。',captions:['在 Linux 工作电脑中浏览、运行代码和处理文件。','通过 Bot 私信交接来源、数据与结果。']},
- 'zh-TW':{kicker:'通用多 AGENT 工作空間',title:'把夥伴、工具和工作放在一起。',description:'設定不同職責的 Agent，單獨交辦，或在群組裡分工。瀏覽器、程式碼、檔案與工作電腦，都圍繞正在做的事展開。',gallery:'看看夥伴怎樣真正動手。',captions:['在 Linux 工作電腦中瀏覽、執行程式與處理檔案。','透過 Bot 私訊交接來源、資料與結果。']},
- en:{kicker:'A GENERAL-PURPOSE MULTI-AGENT WORKSPACE',title:'Partners, tools and tasks. Together.',description:'Configure agents with different responsibilities. Work one-to-one or divide a task in group chat, with browsers, code, files and a work computer close at hand.',gallery:'See how the work gets done.',captions:['Browse, run code and process files in a Linux work computer.','Pass sources, data and results through Bot-to-Bot messages.']}
+  "zh-CN": {
+    "kicker": "工作台",
+    "title": "查看实际工作界面",
+    "description": "左侧选择 Bot 或群聊，中间处理任务，右侧查看工作电脑和定时任务。截图使用示例数据，没有连接模型或 VM。",
+    "gallery": "工作电脑与 Bot 私聊",
+    "captions": [
+      "工作电脑设置页，示例环境未启动。",
+      "查看 Bot 之间的消息和附件。"
+    ]
+  },
+  "zh-TW": {
+    "kicker": "工作台",
+    "title": "查看實際工作介面",
+    "description": "左側選擇 Bot 或群組，中間處理工作，右側查看工作電腦和排程。截圖使用範例資料，沒有連線模型或 VM。",
+    "gallery": "工作電腦與 Bot 私訊",
+    "captions": [
+      "工作電腦設定頁，範例環境尚未啟動。",
+      "查看 Bot 之間的訊息與附件。"
+    ]
+  },
+  "en": {
+    "kicker": "WORKSPACE",
+    "title": "The application workspace",
+    "description": "Select a Bot or group on the left, work in the conversation, and access the work computer and schedules on the right. Screenshots use sample data, without a model or VM connection.",
+    "gallery": "Work computer and Bot messages",
+    "captions": [
+      "Work computer settings, with the example environment stopped.",
+      "View messages and attachments exchanged between Bots."
+    ]
+  }
 };

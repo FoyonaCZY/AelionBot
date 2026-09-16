@@ -5,8 +5,8 @@
   </picture>
 
   <p><a href="README.md">English</a> · <strong>简体中文</strong></p>
-  <h1>好想法。一起做出来。</h1>
-  <p>你的 AI 工作伙伴，陪你把想做的事往前推一步。</p>
+  <h1>通用多 Agent 桌面工作空间</h1>
+  <p>配置多个 Agent，通过群聊、VM 和本机工具协作完成任务。</p>
   <p>
     <a href="https://aelion.chat/?lang=zh-CN"><strong>逛逛官网 ↗</strong></a> &nbsp; · &nbsp;
     <a href="https://github.com/FoyonaCZY/AelionBot/releases/latest"><strong>下载 Windows 与 macOS 版</strong></a> &nbsp; · &nbsp;
@@ -25,7 +25,7 @@
 | **群聊与 Bot 私信** | 按角色分工、交换文件与结果，指定伙伴接手 |
 | **按需加入专业角色** | 需要设计时，可使用设计师与 152 套预装设计系统制作网页和 PPT |
 
-<img src="docs/assets/product/workspace-zh-CN.svg" alt="多 Agent 工作台示意：伙伴列表、任务对话、文件与工作电脑" width="100%">
+<img src="docs/assets/screenshots/workspace-zh-CN.png" alt="多 Agent 工作台示意：伙伴列表、任务对话、文件与工作电脑" width="100%">
 
 ## 多 Agent 协作：把任务分给合适的伙伴
 
@@ -39,9 +39,9 @@
 
 Bot 之间也能互发私信、传递文件。群聊围绕群内上下文工作，不会直接混入无关的私聊记录。**谁负责什么，由你决定**，系统不会自动把通用 Bot 切成设计师。
 
-<img src="docs/assets/product/collaboration-zh-CN.svg" alt="群聊协作示意：不同伙伴分享资料、提出想法并交付文件" width="100%">
+<img src="docs/assets/screenshots/collaboration-zh-CN.png" alt="群聊协作示意：不同伙伴分享资料、提出想法并交付文件" width="100%">
 
-<img src="docs/assets/product/handoff-zh-CN.svg" alt="Bot 私信示意：交接来源文件与分析结果" width="100%">
+<img src="docs/assets/screenshots/handoff-zh-CN.png" alt="Bot 私信示意：交接来源文件与分析结果" width="100%">
 
 ## VM：给通用 Bot 一台能动手的工作电脑
 
@@ -53,7 +53,7 @@ Bot 之间也能互发私信、传递文件。群聊围绕群内上下文工作�
 
 通用 Bot 也可以按权限使用本机文件与命令。VM 和本机目录是不同的执行位置，哪些操作需要许可，由你设置。
 
-<img src="docs/assets/product/computer-zh-CN.svg" alt="Linux 工作电脑示意：浏览器、文件和终端" width="100%">
+<img src="docs/assets/screenshots/computer-zh-CN.png" alt="实际工作电脑设置界面，示例环境未启动" width="100%">
 
 ## 角色由你配置，专业能力按需加入
 
@@ -77,7 +77,7 @@ Bot 之间也能互发私信、传递文件。群聊围绕群内上下文工作�
 
 设计系统来自 OpenDesign 的整理资源，保留原始来源与许可说明。品牌风格参考不代表品牌官方合作；详见[第三方声明](docs/THIRD-PARTY-NOTICES.md)。
 
-<img src="docs/assets/product/studio-zh-CN.svg" alt="预览工作台示意：文件目录、网页预览与可编辑内容" width="100%">
+<img src="docs/assets/screenshots/studio-zh-CN.png" alt="实际文件预览界面，可在对话旁查看文件" width="100%">
 
 ## 成果就在对话旁边
 
@@ -94,7 +94,7 @@ Bot 之间也能互发私信、传递文件。群聊围绕群内上下文工作�
 
 应用支持英文、简体中文、繁体中文，以及浅色/深色、字体与显示比例设置。你可以保存偏好、安排定时任务；定时任务执行时需要保持应用开启。预装设计参考可离线读取，模型服务与外部素材可能仍需联网。
 
-<sub>文中图片为矢量功能示意，使用示例内容，并非应用截图。本文介绍当前源码能力，下载包以对应版本说明为准。</sub>
+<sub>产品图片直接截取当前 App 前端，使用虚构的示例对话和文件，未连接模型或 VM。顶部 Bot 形象为品牌插画。本文介绍当前源码能力，下载包以对应版本说明为准。</sub>
 
 ## 了解更多
 

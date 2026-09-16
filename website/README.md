@@ -16,13 +16,15 @@ npm run site:preview
 
 静态构建输出到 `website/dist/`，版本号取自根目录 `package.json`。首页及博客界面默认英文，可切换简体、繁体中文；语言会保存在本机，`?lang=en` / `?lang=zh-CN` / `?lang=zh-TW` 链接优先于保存的选择。博客正文保留作者撰写的语言。
 
-README 英文入口为根目录 `README.md`，中文为 `README.zh-CN.md`。两者与官网共用 `docs/assets/product/` 的矢量功能示意图，图中文字有对应语言版本，放大仍清晰。图片是示意而非真实截图；旧 PNG 不再用于首页和 README。修改示意内容后运行 `node website/scripts/product-visuals.mjs` 和 `node website/scripts/team-visuals.mjs` 重建 SVG。目前有 7 组、共 21 张三语功能画面，新增工作台总览、VM 桌面与 Bot 私信交接。单张图片约 3–10 KB，构建时单独输出并按内容哈希缓存。
+README 英文入口为根目录 `README.md`，中文为 `README.zh-CN.md`。产品画面使用 `docs/assets/screenshots/` 中的实际前端截图：8 个界面、三种语言，共 24 张。截图环境在 `tools/product-capture/`，直接导入当前 App 组件，使用只读示例数据，不读取真实会话、不连接模型或 VM。页面注明“当前界面截图 · 示例数据”。旧矢量界面不再用于首页和 README 的产品展示。
+
+更新截图时，启动 `npm run site:dev`，再通过 Playwright CLI 的 `run-code --filename=website/tools/capture-screens.cjs` 运行截图脚本。截图尺寸为 1400×900。截图是完整组件渲染结果，不手工重绘按钮、布局或桌面内容。
 
 Bot 主视觉和成果插画由网页直接绘制，滚动动效遵循系统的减少动态效果设置。下载、代码与反馈入口指向项目的 GitHub 页面。
 
 ## 首页功能介绍
 
-首页以通用多 Agent 系统为主定位，先展示完整工作台、群聊分工与 Linux VM，再介绍设计师等专业角色。三种语言文案位于 `src/capability-content.ts`，展示组件是 `src/CapabilitySections.tsx`；主标题、FAQ 和下载文案在 `src/site-i18n.ts`。设计系统卡片仅使用四组目录示例做配色交互，不向网站打包完整设计资源库。工作电脑和群聊画面明确标为功能示意。
+首页以通用多 Agent 系统为主定位，先展示完整工作台、群聊分工与 Linux VM，再介绍设计师等专业角色。三种语言文案位于 `src/capability-content.ts`，展示组件是 `src/CapabilitySections.tsx`；主标题、FAQ 和下载文案在 `src/site-i18n.ts`。设计系统、工作电脑和群聊均使用真实组件截图，可点击放大。官网不打包完整设计资源库。
 
 更新文案时同步维护根目录的英文和中文 README。区分通用 Bot 的 VM 与设计师的本机 `designers` 目录；不要将群聊描述成自动切换 Bot 类型，也不要承诺默认读取无关私聊。设计系统数量和来源以 `assets/design-systems/catalog.json` 为准。
 
