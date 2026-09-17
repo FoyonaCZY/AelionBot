@@ -11,7 +11,7 @@ import {hostEnvironment,hostShell,stopHostProcess} from './host-platform';
 import {boundedInteger,FileToolError,textPage} from './file-text';
 import {backoff} from './model';
 export interface TerminalDriver {write:(text:string)=>void;kill:()=>void;resize?:(cols:number,rows:number)=>void;onData:(fn:(text:string)=>void)=>unknown;onExit:(fn:(code:number)=>void)=>unknown;}
-interface Session {id:string;botId:string;runId:string;location:'host'|'vm';command:string;cwd:string;tty:boolean;purpose:'task'|'service';driver:TerminalDriver;output:string;baseOffset:number;exitCode?:number;closed:boolean;}
+interface Session {id:string;botId:string;runId:string;location:'host'|'vm';command:string;cwd:string;tty:boolean;purpose:'task'|'service';driver:TerminalDriver;output:string;baseOffset:number;createdAt:string;exitCode?:number;closed:boolean;}
 export class TerminalSessions {
  private sessions=new Map<string,Session>();
  constructor(private vm:VmController,private host:HostComputer|undefined,private interactions:Interactions|undefined,private runtimeDir:string){}
@@ -45,7 +45,7 @@ export class TerminalSessions {
    cwd=posix.resolve(`/work/${botId}`,typeof args.cwd==='string'?args.cwd:'.');if(cwd!==`/work/${botId}`&&!cwd.startsWith(`/work/${botId}/`))throw Error('VM 终端目录必须在当前 Bot 工作目录内');
    driver=await this.vm.openTerminal(botId,args.command,cwd,signal,tty?{cols,rows}:undefined);
   }
-  const session:Session={id:randomUUID(),botId,runId,location,cwd,command:args.command,tty,purpose:args.purpose==='service'?'service':'task',driver,output:'',baseOffset:0,closed:false};this.sessions.set(session.id,session);
+  const session:Session={id:randomUUID(),botId,runId,location,cwd,command:args.command,tty,purpose:args.purpose==='service'?'service':'task',driver,output:'',baseOffset:0,createdAt:new Date().toISOString(),closed:false};this.sessions.set(session.id,session);
   driver.onData(text=>{session.output+=text;if(session.output.length>2*1024*1024){const remove=session.output.length-1024*1024;session.output=session.output.slice(remove);session.baseOffset+=remove;}});driver.onExit(code=>{session.exitCode=code;session.closed=true;});
   if(signal.aborted){driver.kill();signal.throwIfAborted();}
   for(const [id,value] of this.sessions)if(value.closed&&this.sessions.size>64)this.sessions.delete(id);
@@ -70,6 +70,7 @@ export class TerminalSessions {
  }
  async stop(botId:string,id:string,signal:AbortSignal){const session=this.get(botId,id);if(!session.closed)session.driver.kill();const until=Date.now()+3000;while(!session.closed&&Date.now()<until)await backoff(100,signal);const result=await this.read(botId,id,signal,0,0);return {...result,stopped:result.status==='exited',processExitCode:result.exitCode,exitCode:result.status==='exited'?0:undefined};}
  list(botId:string,runId?:string){return [...this.sessions.values()].filter(session=>session.botId===botId&&(!runId||session.runId===runId)).map(({id,runId,purpose,exitCode,location})=>({id,runId,purpose,exitCode,location}));}
+ live(botId:string){return [...this.sessions.values()].filter(session=>session.botId===botId&&!session.closed).map(({id,runId,purpose,location,command,cwd,createdAt})=>({id,runId,purpose,location,command,cwd,createdAt}));}
  cancelRun(botId:string,runId:string){for(const session of this.sessions.values())if(session.botId===botId&&session.runId===runId&&!session.closed)session.driver.kill();}
  async forgetBot(botId:string,signal:AbortSignal){for(const session of [...this.sessions.values()])if(session.botId===botId){if(!session.closed)await this.stop(botId,session.id,signal);if(!session.closed)throw Error('终端尚未确认退出，请稍后再删除 Bot');this.sessions.delete(session.id);}}
  dispose(){for(const session of this.sessions.values())if(!session.closed)session.driver.kill();this.sessions.clear();}

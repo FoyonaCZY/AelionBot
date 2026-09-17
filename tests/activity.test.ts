@@ -1,10 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {conversationTimeline,describeTool,friendlyError,readableContent,runPresentation,technicalOutput,liveBotStep} from '../src/activity';
+import {conversationTimeline,describeTool,friendlyError,readableContent,runOutcomeMessages,runPresentation,technicalOutput,liveBotStep} from '../src/activity';
 import type {ChatMessage,RunRecord} from '../src/shared';
 const message=(id:string,role:ChatMessage['role'],content='',extra:Partial<ChatMessage>={}):ChatMessage=>({id,botId:'bot',role,content,time:'2026-09-05T10:00:00Z',runId:'run',status:'done',...extra});
 const run=(status:RunRecord['status']):RunRecord=>({id:'run',botId:'bot',status,startedAt:'2026-09-05T10:00:00Z',modelCalls:2,toolCalls:2});
 
+test('command and patch activity show a short detail without dumping the payload',()=>{
+  assert.equal(describeTool('host_execute',{command:'npm test -- --watch'}).detail,'npm test -- --watch');
+  assert.equal(describeTool('apply_patch',{patch:'*** Begin Patch\n*** Update File: src/app.ts\n*** Add File: README.md\n*** End Patch'}).detail,'app.ts · README.md');
+});
+test('run outcomes keep writes and commands, not intermediate reads',()=>{
+  const items=runOutcomeMessages([
+    message('read','tool','{}',{tool:'file_read'}),
+    message('run','tool','{}',{tool:'host_execute',activity:{label:'执行本机命令',detail:'npm test'}}),
+    message('patch','tool','{}',{tool:'apply_patch'}),
+    message('search','tool','{}',{tool:'host_search_files'}),
+  ]);
+  assert.deepEqual(items.map(item=>item.id),['run','patch']);
+});
 test('live status follows the current step and vanishes for every terminal state',()=>{
   const read=message('read','tool','private command',{tool:'file_read',status:'running',activity:{label:'读取文件',detail:'提纲.md'}});
   assert.deepEqual(liveBotStep([read],run('running')),{phase:'working',label:'正在读取文件',detail:'提纲.md'});

@@ -106,6 +106,8 @@ Object.assign(zhTW,{'表格':'表格','文档':'文件','演示':'簡報','浏�
 Object.assign(en,{'表格':'Table','文档':'Document','演示':'Presentation','浏览器':'Browser','文件管理器':'File manager','更新工作环境':'Update the work environment','更新桌面':'Update desktop','给桌面补上新工具':'Add the new desktop tools','文件还在。更新后可以使用压缩包、表格脚本和演示文稿。':'Your files are still there. After updating, archives, spreadsheet scripts, and presentations will be available.','已有文件还在。更新后可以使用压缩包、表格脚本和演示文稿。':'Your existing files are still there. After updating, archives, spreadsheet scripts, and presentations will be available.','通常几分钟，需要联网':'Usually a few minutes; internet required','通常几分钟 · 需要联网':'Usually a few minutes · internet required'});
 Object.assign(zhTW,{'拒绝本次':'拒絕本次','操作已拒绝':'操作已拒絕','自动审核未放行':'自動審核未放行','读取文件':'讀取檔案','写入文件':'寫入檔案','删除文件':'刪除檔案'});
 Object.assign(en,{'拒绝本次':'Deny this operation','操作已拒绝':'Operation denied','自动审核未放行':'Automatic review denied this operation','读取文件':'Read file','写入文件':'Write file','删除文件':'Delete file'});
+Object.assign(zhTW,{'本轮操作':'本輪操作','正在运行的任务':'正在執行的工作','已应用补丁':'已套用補丁','终端已启动':'終端已啟動','后台任务已启动':'背景工作已啟動','任务仍在运行，可在输入框上方查看或停止。':'工作仍在執行，可在輸入框上方查看或停止。'});
+Object.assign(en,{'本轮操作':'This run','正在运行的任务':'Running tasks','已应用补丁':'Patch applied','终端已启动':'Terminal started','后台任务已启动':'Background task started','任务仍在运行，可在输入框上方查看或停止。':'The task is still running. You can inspect or stop it above the composer.','本机':'This computer','服务':'Service','停止':'Stop'});
 let activeLanguage:Language='zh-CN';
 
 export function readLanguage():Language{

@@ -100,9 +100,25 @@ print(json.dumps(files,ensure_ascii=False))`;
     const result=await this.vm.execute(`python3 -c ${shQuote(script)}`,botId,undefined,Math.ceil(maxBytes*1.4)+10000);
     if(result.exitCode!==0)throw new Error(result.stderr||'无法读取文件');return Buffer.from(result.stdout.trim(),'base64');
   }
+  async previewLocalOffice(botId:string,name:string,size?:number){
+    if(!this.local(botId))return;
+    const files=await this.designerFiles!.list(botId),stem=basename(name).replace(/\.[^.]+$/,'');
+    const pptx=files.find(file=>file.name===name&&(size===undefined||file.size===size))||files.find(file=>file.name===name);
+    if(pptx)return this.preview(botId,pptx.path);
+    const html=files.find(file=>file.name===stem+'.html'||file.name===stem+'.htm');
+    if(html)return this.preview(botId,html.path);
+  }
+  private async localOfficeCompanion(botId:string,path:string){
+    const normalized=artifactPath(path),stem=basename(normalized).replace(/\.[^.]+$/,'');
+    const parent=normalized.includes('/')?normalized.slice(0,normalized.lastIndexOf('/')):'';
+    for(const ext of ['.html','.htm']){
+      const companion=parent?parent+'/'+stem+ext:stem+ext;
+      try{const bytes=await this.read(botId,companion,2*1024*1024);return {kind:'web' as const,web:{kind:'document' as const,format:'html' as const,name:basename(companion),content:bytes.toString('utf8'),workspace:{botId,path:companion}}};}catch{}
+    }
+  }
   async preview(botId:string,path:string):Promise<ArtifactPreview>{
     const extension=extname(artifactPath(path)).toLowerCase();
-    if(officeExtensions.has(extension)&&this.local(botId,path)){const companion=path.replace(/\.[^.]+$/,'.html');try{return {kind:'web',web:{kind:'document',format:'html',name:basename(companion),content:(await this.read(botId,companion,2*1024*1024)).toString('utf8'),workspace:{botId,path:companion}}};}catch{return {kind:'unsupported'};}}
+    if(officeExtensions.has(extension)&&this.local(botId,path))return (await this.localOfficeCompanion(botId,path))||{kind:'unsupported'};
     if(officeExtensions.has(extension))return officePreview(this.vm,botId,extension,await this.read(botId,path,OFFICE_PREVIEW_LIMIT));
     const imageTypes:Record<string,string>={'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif','.svg':'image/svg+xml','.bmp':'image/bmp','.avif':'image/avif'};
     const isText=!imageTypes[extension]&&sourceTextFile(path);

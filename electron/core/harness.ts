@@ -37,6 +37,9 @@ import { VmController, shQuote } from './vm';
 import { ComputerController, type ComputerInput, type ComputerResult } from './computer';
 import type {Integrations} from './integrations';
 import {describeTool,readableContent} from '../../src/activity';
+import {projectConventions} from './project-conventions';
+import type {LiveWorkItem} from '../../src/live-work';
+import {summarizeCommand} from '../../src/live-work';
 import {HostComputer} from './host';
 import {Interactions,InteractionDenied} from './interactions';
 import type {HarnessRunOptions,PeerGateway} from './peer-runtime-types';
@@ -198,6 +201,19 @@ export class Harness {
   async stopBotProcesses(botId:string){await this.terminals.forgetBot(botId,AbortSignal.timeout(10000));this.web.clearBot(botId);for(const process of this.processes.list(botId).filter(p=>['running','starting','unknown'].includes(p.status))){const result=await this.processes.stop(botId,process.id,AbortSignal.timeout(6000));if(!['stopped','failed','completed'].includes(result.status))throw Error('后台进程尚未确认停止，请检查后再删除 Bot');}}
   get busy(){return this.active.size>0;}
   isRunning(botId:string){return this.active.has(botId);}
+  liveWork():LiveWorkItem[]{
+    const items:LiveWorkItem[]=[];
+    for(const bot of this.store.data.bots){
+      for(const session of this.terminals.live(bot.id))items.push({id:session.id,botId:bot.id,runId:session.runId,kind:'terminal',command:summarizeCommand(this.host?.redact(session.command)||session.command||''),cwd:session.cwd,location:session.location,purpose:session.purpose,createdAt:session.createdAt});
+      for(const process of this.processes.list(bot.id).filter(item=>['starting','running','unknown'].includes(item.status)))items.push({id:process.id,botId:process.botId,runId:process.runId,kind:'process',command:summarizeCommand(process.command),cwd:process.cwd,location:process.location,purpose:process.purpose,createdAt:process.createdAt});
+    }
+    return items.sort((a,b)=>a.createdAt.localeCompare(b.createdAt));
+  }
+  async stopLiveWork(botId:string,kind:'terminal'|'process',id:string){
+    if(kind==='process')await this.processes.stop(botId,id,AbortSignal.timeout(8000));
+    else await this.terminals.stop(botId,id,AbortSignal.timeout(8000));
+    this.changed();
+  }
   resume(botId:string,runId:string){
     const previous=resumableRun(this.store,botId,runId),source=this.store.humanRunMessage(previous.id),work=this.store.data.workItems?.find(item=>item.id===previous.workItemId);
     if(previous.groupOrigin||previous.peerOrigin)throw Error('协作任务需要通过原会话恢复');
@@ -350,7 +366,7 @@ export class Harness {
       const source=options.workItemId?undefined:(groupSource?.mentions?.length&&!groupSource.mentions.some(m=>m.id===botId)?undefined:groupSource)||(!options.peerOrigin&&!options.groupOrigin?this.store.humanRunMessage(run.id):undefined);
       work.begin(run,options,source);if(work.forRun(run))this.changed();
       for(const [id,failure] of this.ledger.failureMap(botId,run.id))pendingFailures.set(id,failure);
-      if(run.workspaceDir)reference.content+='\n本次任务的本机项目目录：'+JSON.stringify(run.workspaceDir)+'。若本次工作围绕此本机项目，使用 host_* 工具；host_execute 默认 cwd 和 host_file_* 相对路径均基于此目录。VM /work 目录与本机项目不是同一个位置。先用 host_list_directory、host_file_read 查看项目结构、README 和适用的 AGENTS 开发约定，不猜测项目内容。选择目录本身不授予本机操作权限。';
+      if(run.workspaceDir){reference.content+='\n本次任务的本机项目目录：'+JSON.stringify(run.workspaceDir)+'。若本次工作围绕此本机项目，使用 host_* 工具；host_execute 默认 cwd 和 host_file_* 相对路径均基于此目录。VM /work 目录与本机项目不是同一个位置。先用 host_list_directory、host_file_read 查看项目结构、README 和适用的 AGENTS 开发约定，不猜测项目内容。选择目录本身不授予本机操作权限。';const conventions=projectConventions(run.workspaceDir);if(conventions)turnContext.content+='\n'+conventions;}
       // A child reply resumes the same main-conversation task with its real execution history.
       if(options.peerOrigin?.kind==='peer_result'&&options.peerOrigin.sessionId&&this.store.data.runs.some(previous=>previous.id!==run.id&&previous.botId===botId&&previous.peerOrigin?.kind==='peer_task'&&(previous.peerOrigin.sessionId||previous.peerOrigin.exchangeId)===options.peerOrigin!.sessionId))enterMainTask();
       for(let iteration=0;;iteration++){

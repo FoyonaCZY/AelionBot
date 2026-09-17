@@ -36,6 +36,8 @@ export class BotRuntime {
  }
 
  cancel(id:string){this.general.cancel(id);this.designer.cancel(id);}
+ liveWork(){return this.general.liveWork();}
+ stopLiveWork(botId:string,kind:'terminal'|'process',id:string){return this.general.stopLiveWork(botId,kind,id);}
  refreshInput(id:string){return this.designer.isRunning(id)?this.designer.refreshInput(id):this.general.refreshInput(id);}
  refreshGroup(id:string){if(this.designer.isRunning(id))this.designer.refreshGroup(id);else this.general.refreshGroup(id);}
  setPeerGateway(gateway:PeerGateway){this.general.setPeerGateway(gateway);this.designer.setPeerGateway(gateway);}

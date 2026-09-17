@@ -71,6 +71,7 @@ const api:AelionAPI={
   stopGroup:id=>ipcRenderer.invoke('groups:stop',id),
   continueGroup:id=>ipcRenderer.invoke('groups:continue',id),
   cancel:id=>ipcRenderer.invoke('chat:cancel',id),
+  stopLiveWork:input=>ipcRenderer.invoke('work:stop-live',input),
   saveModel:input=>ipcRenderer.invoke('model:save',input),
   testModel:()=>ipcRenderer.invoke('model:test'),
   saveProvider:input=>ipcRenderer.invoke('providers:save',input),

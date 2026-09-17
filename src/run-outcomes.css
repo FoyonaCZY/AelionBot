@@ -1,0 +1,7 @@
+.run-outcomes{margin:6px 0 10px;max-width:560px;border:1px solid var(--appearance-line);border-radius:10px;background:var(--appearance-fill);font-size:var(--text-caption);color:var(--text-secondary)}
+.run-outcomes>summary{padding:8px 12px;cursor:pointer;font-weight:var(--weight-label);color:var(--text-ink)}
+.run-outcome{border-top:1px solid var(--appearance-line)}
+.run-outcome>summary{display:flex;gap:8px;align-items:baseline;padding:8px 12px;cursor:pointer;min-width:0}
+.run-outcome>summary span{flex-shrink:0}
+.run-outcome>summary small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted)}
+.run-outcome .tool-detail{margin:0;border:0;border-radius:0;background:transparent}

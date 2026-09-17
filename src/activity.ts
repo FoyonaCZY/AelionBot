@@ -87,12 +87,14 @@ const operations:Record<string,{label:string;active:string;icon:string}>={
 };
 export const toolOperation=(name?:string)=>{const operation=operations[name||'']||{label:'执行操作',active:'正在处理',icon:'terminal'};return {...operation,label:translate(operation.label),active:translate(operation.active)};};
 
-// Store only short display metadata, never commands, code, credentials or full arguments.
+// Store short display metadata. Command previews are truncated; never keep full code, credentials or raw arguments.
 export function describeTool(name:string,input:Record<string,unknown>={},output?:unknown):NonNullable<ChatMessage['activity']>{
   let label=toolOperation(name).label,detail='';
   const result=output&&typeof output==='object'?output as Record<string,unknown>:{};
   const text=(value:unknown)=>typeof value==='string'?value.replace(/[\r\n\t]/g,' ').trim().slice(0,100):'';
   if(['file_read','file_write','file_patch','skill_file_read','host_file_read','host_file_write','host_file_patch'].includes(name))detail=text(typeof input.path==='string'?input.path.replace(/\\/g,'/').split('/').at(-1):'')+(Number.isInteger(input.startLine)?` · 第 ${input.startLine} 行起`:'');
+  if(['host_execute','computer_execute','process_start','terminal_start'].includes(name))detail=text(input.command);
+  if(name==='apply_patch'){const files=[...String(input.patch||'').matchAll(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm)].map(match=>text(match[1].replace(/\\/g,'/').split('/').at(-1))).filter(Boolean);detail=files.slice(0,3).join(' · ')+(files.length>3?` · ${files.length}`:'');}
   if(['skill_read','skill_save','skill_materialize'].includes(name))detail=text(result.name||input.name);
   if(name==='mcp_call')detail=text(result.tool||input.name);
   if(name==='bot_send_message')detail=text((result.recipient as Record<string,unknown>|undefined)?.name);
@@ -182,6 +184,8 @@ export function runPresentation(messages:ChatMessage[],run?:RunRecord){
   const current=[...tools].reverse().find(message=>message.status==='running');
   return {status,tools,final,error,notes,current};
 }
+const OUTCOME_TOOLS=new Set(['host_execute','computer_execute','python_execute','apply_patch','file_write','file_patch','host_file_write','host_file_patch','process_start','terminal_start']);
+export function runOutcomeMessages(messages:ChatMessage[]){return messages.filter(message=>message.role==='tool'&&message.status==='done'&&OUTCOME_TOOLS.has(message.tool||''));}
 export function technicalOutput(message:ChatMessage){
   const result=toolResult(message);
   if(result&&typeof result==='object'&&!Array.isArray(result)){
