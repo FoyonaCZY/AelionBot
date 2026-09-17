@@ -68,10 +68,19 @@ export class TerminalSessions {
   const safe=this.host?.redact(session.output)||session.output,page=textPage(safe,{offset:Math.max(0,offset-session.baseOffset),maxChars:16000});
   return {id:session.id,location:session.location,cwd:session.cwd,tty:session.tty,purpose:session.purpose,status:session.closed?'exited':'running',exitCode:session.exitCode,output:stripVTControlCharacters(page.content),offset:session.baseOffset+page.offset,nextOffset:session.baseOffset+page.nextOffset,hasMore:!page.eof,truncated:offset<session.baseOffset};
  }
- async stop(botId:string,id:string,signal:AbortSignal){const session=this.get(botId,id);if(!session.closed)session.driver.kill();const until=Date.now()+3000;while(!session.closed&&Date.now()<until)await backoff(100,signal);const result=await this.read(botId,id,signal,0,0);return {...result,stopped:result.status==='exited',processExitCode:result.exitCode,exitCode:result.status==='exited'?0:undefined};}
+ private guestGone(){const state=this.vm.state;return !state||state.status!=='ready'||Boolean(state.maintenance);}
+ async stop(botId:string,id:string,signal:AbortSignal){
+  const session=this.get(botId,id);
+  if(!session.closed){
+   try{session.driver.kill();}catch{}
+   if(session.location==='vm'&&this.guestGone()){session.closed=true;session.exitCode??=-1;}
+   else{const until=Date.now()+3000;while(!session.closed&&Date.now()<until)await backoff(100,signal);}
+  }
+  const result=await this.read(botId,id,signal,0,0);return {...result,stopped:result.status==='exited',processExitCode:result.exitCode,exitCode:result.status==='exited'?0:undefined};
+ }
  list(botId:string,runId?:string){return [...this.sessions.values()].filter(session=>session.botId===botId&&(!runId||session.runId===runId)).map(({id,runId,purpose,exitCode,location})=>({id,runId,purpose,exitCode,location}));}
  live(botId:string){return [...this.sessions.values()].filter(session=>session.botId===botId&&!session.closed).map(({id,runId,purpose,location,command,cwd,createdAt})=>({id,runId,purpose,location,command,cwd,createdAt}));}
  cancelRun(botId:string,runId:string){for(const session of this.sessions.values())if(session.botId===botId&&session.runId===runId&&!session.closed)session.driver.kill();}
- async forgetBot(botId:string,signal:AbortSignal){for(const session of [...this.sessions.values()])if(session.botId===botId){if(!session.closed)await this.stop(botId,session.id,signal);if(!session.closed)throw Error('终端尚未确认退出，请稍后再删除 Bot');this.sessions.delete(session.id);}}
+ async forgetBot(botId:string,signal:AbortSignal){for(const session of [...this.sessions.values()])if(session.botId===botId){if(!session.closed)try{await this.stop(botId,session.id,signal);}catch(error){if(!(session.location==='vm'&&this.guestGone()))throw error;session.closed=true;session.exitCode??=-1;}if(!session.closed&&session.location==='vm'&&this.guestGone()){session.closed=true;session.exitCode??=-1;}if(!session.closed)throw Error('终端尚未确认退出，请稍后再删除 Bot');this.sessions.delete(session.id);}}
  dispose(){for(const session of this.sessions.values())if(!session.closed)session.driver.kill();this.sessions.clear();}
 }

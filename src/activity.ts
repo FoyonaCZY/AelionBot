@@ -1,5 +1,5 @@
 import type {ChatMessage,RunRecord} from './shared';
-import {readableQuestionAnswer} from './question-answers';
+import {placeQuestionAnswers,readableQuestionAnswer} from './question-answers';
 import {isContextCapacityFailure} from './context-issue';
 import {currentLanguage,translate} from './i18n';
 
@@ -145,6 +145,7 @@ export function friendlyError(raw:string):Notice{
   if(/工作电脑.*(就绪|启动|准备)|VM.*(ready|running)|SSH|ECONNREFUSED.*127\.0\.0\.1/i.test(raw))return localizedNotice('工作电脑连接中断','请检查工作电脑状态，恢复连接后继续。',{settings:'computer'});
   if(/MCP.*未启用|MCP.*授权/i.test(raw))return localizedNotice('外部工具需要设置','请在设置的 MCP 页面检查服务状态，再继续工作。',{settings:'mcp'});
   if(/timeout|timed.out|超时/i.test(raw))return localizedNotice('等待响应超时','当前工作已暂停，继续前会先核对已有结果。');
+
   if(/fetch failed|network|ECONN|ENOTFOUND|网络/i.test(raw))return localizedNotice('连接暂时中断','请检查网络或服务状态，恢复后可以继续。');
   if(/KeyError|AssertionError|SyntaxError|Traceback|exitCode|执行.*错误|工具.*失败|操作.*失败/i.test(raw))return localizedNotice('执行遇到问题','这项工作尚未完成，可以继续检查并修正。');
   return localizedNotice('这次工作未能完成','工作记录已保留，可以查看详情后继续。');
@@ -153,7 +154,7 @@ export function friendlyError(raw:string):Notice{
 export type TimelineItem={kind:'message';id:string;message:ChatMessage}|{kind:'run';id:string;segmentId:string;isLast:boolean;messages:ChatMessage[]};
 const internalVerificationNotice=(message:ChatMessage)=>message.role==='assistant'&&message.status==='failed'&&message.presentation==='progress'&&message.content==='发现校验问题，正在检查并修正。';
 export function conversationTimeline(messages:ChatMessage[]):TimelineItem[]{
-  messages=messages.filter(message=>!internalVerificationNotice(message));
+  messages=placeQuestionAnswers(messages.filter(message=>!internalVerificationNotice(message)));
   const timeline:TimelineItem[]=[];
   const progress=new Set<string>(),laterActivity=new Set<string>();
   for(let i=messages.length-1;i>=0;i--){

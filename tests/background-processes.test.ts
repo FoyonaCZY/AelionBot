@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
 import {mkdtempSync,rmSync,realpathSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -16,4 +17,13 @@ test('host processes require approval, preserve logs across manager restart and 
  let output='';for(let n=0;n<30&&!output.includes('ready');n++){await new Promise(r=>setTimeout(r,100));output=(await manager.status(bot.id,id,signal)).output;}assert.match(output,/ready/);
  const restored=new BackgroundProcesses(new Store(dir),{} as VmController,host,interactions);assert.match((await restored.status(bot.id,id,signal)).output,/ready/);await assert.rejects(restored.status(other.id,id,signal),/不属于/);
  const stopped=await manager.stop(bot.id,id,signal);assert.equal(stopped.status,'stopped');
+});
+test('VM background services can be dropped when the work computer is off',async t=>{
+ const dir=mkdtempSync(join(tmpdir(),'aelion-background-off-')),store=new Store(dir),bot=store.data.bots[0];
+ t.after(()=>rmSync(dir,{recursive:true,force:true}));
+ const vm={state:{status:'stopped'},execute:async()=>{throw new Error('工作电脑尚未就绪或正在维护');}} as unknown as VmController;
+ const manager=new BackgroundProcesses(store,vm),id=randomUUID();
+ store.data.processes!.push({id,botId:bot.id,runId:'r',location:'vm',purpose:'service',command:'python3 -m http.server',cwd:'/work/'+bot.id,createdAt:new Date().toISOString(),status:'running'});
+ const stopped=await manager.stop(bot.id,id,new AbortController().signal);
+ assert.equal(stopped.status,'stopped');assert.equal(store.data.processes!.find(item=>item.id===id)?.status,'stopped');
 });

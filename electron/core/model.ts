@@ -83,11 +83,16 @@ export class ModelClient {
     if(currentOverview&&accumulator.ended&&result.usage?.inputTokens!==undefined)publishOverview(countedContextOverview(currentOverview,result.usage.inputTokens,'provider-usage'));
     if(imagesOmitted)result.inputImagesOmitted=true;
     if(!accumulator.ended||!result.finishReason)throw new RequestError('模型连接在完整响应之前断开，未执行不完整工具调用',true);
-    if(['length','incomplete'].includes(result.finishReason))throw new RequestError('模型输出达到上限，未执行不完整响应，请拆分任务后继续',true,0,true);
+    if(['length','incomplete'].includes(result.finishReason)&&!result.calls.length&&!result.content.trim())throw new RequestError('模型输出达到上限，未执行不完整响应，请拆分任务后继续',true,0,true);
     if(['content_filter','SAFETY','RECITATION','BLOCKLIST','PROHIBITED_CONTENT'].includes(result.finishReason))throw new RequestError('模型未能提供本次回复：'+result.finishReason);
     if(!result.content.trim()&&!result.calls.length)throw new RequestError('模型返回空响应',true);
-    for(const call of result.calls){if(!call.id||!call.function.name)throw new RequestError('模型工具调用缺少 ID 或名称');try{const args=JSON.parse(call.function.arguments);if(!args||typeof args!=='object'||Array.isArray(args))throw Error();}catch{throw new RequestError('模型工具参数不是完整 JSON 对象，未执行');}}
-    if(new Set(result.calls.map(c=>c.id)).size!==result.calls.length)throw new RequestError('模型返回重复的工具调用 ID，未执行');
+    const seen=new Set<string>();
+    for(const call of result.calls){
+      if(!call.function)call.function={name:'',arguments:''};
+      if(typeof call.function.arguments!=='string')call.function.arguments=call.function.arguments==null?'':JSON.stringify(call.function.arguments);
+      if(!call.id||seen.has(call.id))call.id=randomUUID();
+      seen.add(call.id);
+    }
     const completedRequest=protocolRequest(cfg,[...messages,assistantMessage(result)],tools,output,key,resolveImage,!this.noUsage.has(`${cfg.protocol||'chat'}:${nativeKey(cfg)}`),cfg.protocol==='responses'&&!this.noCacheKey.has(featureKey)?cacheKey:undefined,cacheKey,true);this.cacheDiagnostics.success(cacheKey||promptCacheKey(featureKey,'unscoped',options.purpose||'foreground'),completedRequest.body);
     if(result.usage)result.usage={...result.usage,latencyMs:Date.now()-start,attempts:attempt+1};
     this.observe({id:randomUUID(),botId:options.botId,runId:options.runId,purpose:options.purpose||'foreground',timing:timing.snapshot(),model:cfg.model,providerId:cfg.providerId,providerName:cfg.providerName,time:new Date().toISOString(),usage:result.usage,requestCache,...(contextStats?{context:contextStats}:{}),estimatedTokens:estimateRequest(messages,tools).tokens+Math.ceil(JSON.stringify(result.calls).length/3)+Math.ceil(result.content.length/3)});return result;

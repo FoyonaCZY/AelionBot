@@ -36,3 +36,26 @@ export function questionToolMessage<T extends {id:string;botId:string;role:strin
     try{const body=JSON.parse(message.content);return body.result?.id===requestId||body.id===requestId;}catch{return false;}
   });
 }
+const asksUser=(content:string)=>/[？?]/.test(content)||/请(?:你)?选|选一个|选项/.test(content);
+export function placeQuestionAnswers<T extends {id:string;botId:string;role:string;tool?:string;content:string;status?:string;questionAnswer?:QuestionAnswerData}>(messages:T[]){
+  const answers=messages.filter(message=>message.role==='user'&&(message.questionAnswer||legacyQuestionAnswerData(message.content)));
+  if(!answers.length)return messages;
+  const waiting=new Set(answers.map(message=>message.id)),placed=new Set<string>(),result:T[]=[];
+  const release=(answer:T)=>{if(waiting.delete(answer.id)&&!placed.has(answer.id)){placed.add(answer.id);result.push(answer);}};
+  const ready=(answer:T)=>{
+    const requestId=(answer.questionAnswer||legacyQuestionAnswerData(answer.content))?.requestId;if(!requestId)return true;
+    const tool=questionToolMessage(messages,answer.botId,requestId);if(!tool)return true;
+    if(!result.includes(tool))return false;
+    const asked=messages.slice(0,messages.indexOf(tool)).some(item=>item.role==='assistant'&&item.status!=='running'&&item.status!=='cancelled'&&asksUser(item.content));
+    if(asked)return true;
+    const follow=messages.slice(messages.indexOf(tool)+1).find(item=>item.id!==answer.id&&item.role==='assistant'&&item.status!=='running'&&item.status!=='cancelled'&&asksUser(item.content));
+    return !follow||result.includes(follow);
+  };
+  for(const message of messages){
+    if(waiting.has(message.id)||placed.has(message.id))continue;
+    result.push(message);placed.add(message.id);
+    for(const answer of answers)if(waiting.has(answer.id)&&ready(answer))release(answer);
+  }
+  for(const answer of answers)release(answer);
+  return result;
+}

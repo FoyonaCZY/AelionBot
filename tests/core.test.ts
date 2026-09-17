@@ -101,6 +101,27 @@ test('model parser reconstructs fragmented SSE tool calls and rejects incomplete
   assert.equal(result.calls[0].function.name,'file_write');assert.deepEqual(JSON.parse(result.calls[0].function.arguments),{path:'proof.txt',content:'ok'});
   await assert.rejects(()=>client.complete([{role:'user',content:'go'}],[],new AbortController().signal),/完整响应之前断开/);
 });
+test('a complete stream with truncated tool JSON is accepted as a call, not retried as a transport error',async t=>{
+  const base=await server(t,async(req,res)=>{for await(const _ of req){}res.writeHead(200,{'Content-Type':'text/event-stream'});res.end('data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call-1","function":{"name":"skills_list","arguments":"{\\"query\\":"}}]},"finish_reason":"tool_calls"}]}\n\ndata: [DONE]\n\n');});
+  const client=new ModelClient(()=>({baseUrl:base,model:'test',contextTokens:32000,hasKey:false}),()=>'');
+  const result=await client.complete([{role:'user',content:'go'}],[],new AbortController().signal);
+  assert.equal(result.calls[0].function.name,'skills_list');
+  assert.throws(()=>JSON.parse(result.calls[0].function.arguments));
+});
+test('incomplete tool JSON is returned to the model as a tool result instead of failing the run',async t=>{
+  const store=new Store(temporary(t));let step=0;
+  const fakeModel={complete:async(messages:WireMessage[])=>{
+    step++;
+    if(step===1)return {content:'先搜索。',finishReason:'tool_calls',calls:[{id:'broken',type:'function',function:{name:'skills_list',arguments:'{"query":'}}]};
+    const tools=messages.filter(message=>message.role==='tool');
+    assert.equal(tools.length,1);assert.match(tools[0].content||'',/完整 JSON/);
+    return {content:'已改用短调用。',finishReason:'stop',calls:[]};
+  }} as unknown as ModelClient;
+  await new Harness(store,{} as VmController,fakeModel,()=>{}).run(store.data.bots[0].id,'继续');
+  assert.equal(store.data.runs.at(-1)?.status,'completed');
+  assert.equal(store.data.messages.find(message=>message.role==='tool')?.status,'failed');
+  assert.ok(store.data.messages.some(message=>message.presentation==='answer'&&message.content==='已改用短调用。'));
+});
 test('model HTTP error redacts a provided key',async t=>{
   const base=await server(t,(_req,res)=>{res.writeHead(401);res.end('key secret-unit-value rejected');});
   const client=new ModelClient(()=>({baseUrl:base,model:'test',contextTokens:32000,hasKey:true}),()=> 'secret-unit-value');
@@ -116,14 +137,14 @@ test('Harness denies another Bot private skill and never dispatches an unknown t
   assert.equal(executed,0);const results=store.data.conversations[second.id].filter(m=>m.role==='tool').map(m=>m.content).join('\n');
   assert.match(results,/无权访问/);assert.match(results,/未注册工具/);assert.equal(store.bot(first.id).memories.length,0);
 });
-test('nonzero guest exit is visibly failed and cannot be confirmed as completed',async t=>{
+test('nonzero command exit is visible but does not fail the run',async t=>{
   const store=new Store(temporary(t));const bot=store.data.bots[0];let step=0;
   const fakeModel={complete:async()=>++step===1?{content:'',finishReason:'tool_calls',calls:[{id:'failed-command',type:'function',function:{name:'python_execute',arguments:'{"code":"raise ValueError()"}'}}]}:{content:'已经完成',finishReason:'stop',calls:[]}} as unknown as ModelClient;
   const fakeVm={execute:async()=>({stdout:'',stderr:'ValueError',exitCode:1,durationMs:1})} as unknown as VmController;
   await new Harness(store,fakeVm,fakeModel,()=>{}).run(bot.id,'执行并验证');
   assert.equal(store.data.messages.find(m=>m.role==='tool')?.status,'failed');
-  assert.equal(store.data.runs.at(-1)?.status,'failed');
-  assert.match(store.data.runs.at(-1)?.error||'',/不能确认完成/);
+  assert.equal(store.data.runs.at(-1)?.status,'completed');
+  assert.ok(store.data.messages.some(message=>message.presentation==='answer'&&message.content==='已经完成'));
 });
 
 test('skill names resolve only within the Bot scope and ambiguous names require an ID',async t=>{

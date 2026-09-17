@@ -22,6 +22,20 @@ test('another target succeeding cannot erase a failure or complete the run',asyn
  assert.ok(!store.data.messages.some(message=>message.content==='发现校验问题，正在检查并修正。'));
 });
 
+test('a user-visible briefing stays on screen while leftover failures are resolved',async t=>{
+ const store=fixture(t);let turns=0,writes=0;
+ const model={complete:async()=>{
+  turns++;
+  if(turns===1)return {content:'先保存一处。',finishReason:'tool_calls',calls:[call('w1','a.txt')]};
+  if(turns===2)return {content:'项目是 Spark Island monorepo。',finishReason:'stop',calls:[]};
+  if(turns===3)return {content:'再保存一次。',finishReason:'tool_calls',calls:[call('w2','a.txt')]};
+  return {content:'已经写好。',finishReason:'stop',calls:[]};
+ }} as unknown as ModelClient;
+ const vm={execute:async()=>({exitCode:writes++===0?1:0,stdout:'ok',stderr:''})} as unknown as VmController;
+ await new Harness(store,vm,model,()=>{}).run(store.data.bots[0].id,'熟悉项目');
+ assert.equal(store.data.runs[0].status,'completed');
+ assert.ok(store.data.messages.some(message=>message.presentation==='progress'&&message.content.includes('Spark Island monorepo')));
+});
 test('project inspection can finish after a failed read and a successful alternate read',async t=>{
  const store=fixture(t),bot=store.data.bots[0];writeFileSync(join(store.dir,'README.md'),'A small Go project.');
  const interactions=new Interactions(()=>{queueMicrotask(()=>{for(const request of interactions.snapshot())if(request.kind==='host_permission')interactions.approve(request.id,true);});});
@@ -36,6 +50,19 @@ test('project inspection can finish after a failed read and a successful alterna
  assert.equal(new ExecutionLedger(store).failureMap(bot.id,run.id).size,0);
 });
 
+test('failed memory saves do not block a completed briefing',t=>{
+ const store=fixture(t),bot=store.data.bots[0],ledger=new ExecutionLedger(store);
+ store.data.runs.push({id:'r',botId:bot.id,status:'running',startedAt:new Date().toISOString(),modelCalls:0,toolCalls:0});
+ const memory=ledger.begin(bot.id,'r',{id:'mem',type:'function',function:{name:'memory',arguments:'{}'}},{action:'add'});ledger.finish(memory,'failed',{error:'记忆操作或内容无效'},'mem');
+ assert.equal(ledger.failureMap(bot.id,'r').size,0);
+});
+test('failed inspect commands do not block completion while failed writes still do',t=>{
+ const store=fixture(t),bot=store.data.bots[0],ledger=new ExecutionLedger(store);
+ store.data.runs.push({id:'r',botId:bot.id,status:'running',startedAt:new Date().toISOString(),modelCalls:0,toolCalls:0});
+ const command=ledger.begin(bot.id,'r',{id:'cmd',type:'function',function:{name:'host_execute',arguments:'{}'}},{command:'go vet ./...'});ledger.finish(command,'failed',{exitCode:1,stderr:'existing issue'},'cmd');
+ const write=ledger.begin(bot.id,'r',{id:'write',type:'function',function:{name:'host_file_write',arguments:'{}'}},{path:'a.go'});ledger.finish(write,'failed',{error:'denied'},'write');
+ assert.equal(ledger.failureMap(bot.id,'r').size,1);assert.match([...ledger.failureMap(bot.id,'r').values()][0],/host_file_write/);
+});
 test('read and bookkeeping failures do not mask unresolved command or write outcomes',t=>{
  const store=fixture(t),bot=store.data.bots[0],ledger=new ExecutionLedger(store);
  store.data.runs.push({id:'r',botId:bot.id,status:'running',startedAt:new Date().toISOString(),modelCalls:0,toolCalls:0});
@@ -43,7 +70,7 @@ test('read and bookkeeping failures do not mask unresolved command or write outc
   const entry=ledger.begin(bot.id,'r',{id:name,type:'function',function:{name,arguments:'{}'}},{});ledger.finish(entry,'failed',{error:'failure'},name);
  }
  const unknown=ledger.begin(bot.id,'r',{id:'unknown',type:'function',function:{name:'host_execute',arguments:'{}'}},{command:'unknown'});ledger.finish(unknown,'unknown',{error:'connection lost'},'unknown');
- assert.deepEqual([...ledger.failureMap(bot.id,'r').values()].map(value=>JSON.parse(value).tool),['host_execute','host_file_write','host_execute']);
+ assert.deepEqual([...ledger.failureMap(bot.id,'r').values()].map(value=>JSON.parse(value).tool),['host_file_write','host_execute']);
  assert.equal(ledger.pending(bot.id,'r').length,6);
 });
 test('a successful retry of the same file resolves its failure',async t=>{

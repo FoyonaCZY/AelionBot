@@ -68,6 +68,17 @@ test('a mid-run question answer stays after the question and before later tool w
   ];
   assert.deepEqual(conversationTimeline(messages).map(item=>item.kind==='message'?item.id:item.segmentId),['user','ask','question','answer','search']);
 });
+test('an answer waits for a later restated question instead of appearing above it',()=>{
+  const messages=[
+    message('user','user','继续'),
+    message('done','assistant','项目结构和依赖都看清楚了。',{presentation:'progress'}),
+    message('question','tool',JSON.stringify({result:{id:'q1',status:'waiting'}}),{tool:'request_user_input'}),
+    message('answer','user','修 vet',{questionAnswer:{requestId:'q1',items:[{id:'next',title:'下一步做哪件事？',answer:'修 vet'}]}}),
+    message('ask','assistant','我把下一步的选项做成按钮发到了会话里，你选一个就行。',{presentation:'progress'}),
+    message('next','assistant','先读完整文件。',{presentation:'progress'}),
+  ];
+  assert.deepEqual(conversationTimeline(messages).map(item=>item.kind==='message'?item.id:item.segmentId),['user','done','question','ask','answer','next']);
+});
 
 test('private-chat notices stay clickable between stable run segments without duplicating content',()=>{
   const messages=[message('user','user','请联络'),message('send','tool','{}',{tool:'bot_send_message'}),message('notice','event','已发送给 B',{runId:undefined,peer:{exchangeId:'exchange',direction:'sent'}}),message('final','assistant','等对方回复。',{presentation:'answer'})];

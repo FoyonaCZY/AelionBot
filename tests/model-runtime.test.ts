@@ -27,6 +27,15 @@ test('authentication failures are not retried and cancellation interrupts backof
  const model=new ModelClient(()=>({...cfg,baseUrl}),()=> '');await assert.rejects(model.complete([],[],new AbortController().signal),/401/);assert.equal(count,1);
  const controller=new AbortController();setTimeout(()=>controller.abort(Error('cancelled by test')),100);await assert.rejects(model.complete([],[],controller.signal),/cancelled by test/);assert.equal(count,2);
 });
+test('chat tool deltas concatenate by numeric or string index and by call id',()=>{
+ const parser=new StreamAccumulator('chat',nativeKey(cfg),()=>{});
+ parser.consume({choices:[{delta:{tool_calls:[{index:'0',id:'call-1',function:{name:'host_search_files',arguments:'{"q'}}]}}]});
+ parser.consume({choices:[{delta:{tool_calls:[{id:'call-1',function:{arguments:'uery":"TODO"}'}}]}}]});
+ parser.consume({choices:[{delta:{},finish_reason:'tool_calls'}]});
+ const result=parser.result();
+ assert.equal(result.calls.length,1);
+ assert.deepEqual(JSON.parse(result.calls[0].function.arguments),{query:'TODO'});
+});
 test('Responses reasoning and call IDs survive the next tool turn but never cross model boundaries',()=>{
  const config={...cfg,protocol:'responses' as const},parser=new StreamAccumulator('responses',nativeKey(config),()=>{});
  const reasoning={type:'reasoning',id:'rs_1',summary:[],encrypted_content:'opaque-signature'};

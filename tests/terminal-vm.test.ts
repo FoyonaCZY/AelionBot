@@ -17,6 +17,11 @@ test('VM terminal requests a real SSH PTY, carries stdin and preserves exit stat
  t.after(async()=>{clientConnection?.end();await new Promise<void>(resolve=>server.close(()=>resolve()));(vm as any).record=undefined;vm.dispose();assert.equal(dirname(resolve(dir)),parent);rmSync(dir,{recursive:true,force:true});});
  const terminal=await vm.openTerminal('test-bot','read input','/work/test-bot',new AbortController().signal,{cols:90,rows:25});let text='';terminal.onData(value=>text+=value);const exited=new Promise<number>(resolve=>terminal.onExit(resolve));terminal.write('Ada\n');assert.equal(await exited,0);assert.equal(text,'HELLO_Ada');assert.equal(pty.cols,90);assert.equal(pty.rows,25);assert.match(command,/\/work\/test-bot/);assert.equal((vm as any).activeExecutions,0);
 });
+test('deleting a Bot drops VM terminals when the work computer is off',async()=>{
+ const vm={state:{status:'stopped'},openTerminal:async()=>({write:()=>{},onData:()=>{},onExit:()=>{},kill:()=>{}} satisfies TerminalDriver)};
+ const sessions=new TerminalSessions(vm as any,undefined,undefined,resolve('electron/core'));
+ try{await sessions.start('a','r1',{location:'vm',command:'python3 -m http.server',purpose:'service',yieldTimeMs:0},new AbortController().signal);await sessions.forgetBot('a',AbortSignal.timeout(2000));assert.equal(sessions.list('a').length,0);}finally{sessions.dispose();}
+});
 test('deleting a Bot stops only its owned terminal services and releases their records',async()=>{
  const killed:string[]=[];const vm={openTerminal:async(botId:string)=>{let exit=(code:number)=>{};return {write:()=>{},onData:()=>{},onExit:fn=>{exit=fn;},kill:()=>{killed.push(botId);exit(-9);}} satisfies TerminalDriver;}};
  const sessions=new TerminalSessions(vm as any,undefined,undefined,resolve('electron/core'));

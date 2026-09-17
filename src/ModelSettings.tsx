@@ -21,10 +21,10 @@ export function ModelSettings({state,onNotify}:{state:Snapshot;onNotify:(text:st
   const editor=providers.find(provider=>provider.id===editing),editingUsed=state.bots.filter(bot=>(bot.model||state.defaultModel)?.providerId===editing).map(bot=>bot.id),editingBusy=state.runs.some(run=>run.status==='running'&&editingUsed.includes(run.botId));
   return <>
     <SettingsSection title={t('默认模型')}>
-      <DefaultModelAssignment key={JSON.stringify(selection)} providers={providers} selection={selection} busy={busy} onNotify={onNotify}/>
+      <DefaultModelAssignment providers={providers} selection={selection} busy={busy} onNotify={onNotify}/>
     </SettingsSection>
     <SettingsSection title={t('自动审核模型')}>
-      <DefaultModelAssignment key={'approval:'+JSON.stringify(state.approvalModel)} approval defaultModel={state.defaultModel} providers={providers} selection={state.approvalModel||null} busy={false} onNotify={onNotify}/>
+      <DefaultModelAssignment approval defaultModel={state.defaultModel} providers={providers} selection={state.approvalModel||null} busy={false} onNotify={onNotify}/>
     </SettingsSection>
     <SettingsSection title="Providers">
       <div className="provider-heading"><button className="secondary-button" onClick={()=>setEditing('new')}>{t('添加 Provider')}</button></div>

@@ -4,7 +4,7 @@ import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {Store} from '../electron/core/store';
-import {QUESTION_ANSWER_PREFIX,questionAnswerData,legacyQuestionAnswerData,questionAnswerText,questionToolMessage,readableQuestionAnswer} from '../src/question-answers';
+import {QUESTION_ANSWER_PREFIX,questionAnswerData,legacyQuestionAnswerData,questionAnswerText,questionToolMessage,placeQuestionAnswers,readableQuestionAnswer} from '../src/question-answers';
 import {readableContent} from '../src/activity';
 
 const answer={id:'question-fixture',status:'answered',questions:[{id:'next',title:'现在要哪一步？',options:['重建','暂停']}],answers:{next:'Rust 迁移先停，仓库保持现状'}};
@@ -52,5 +52,12 @@ test('a submitted answer is stored after the question, not after later tool work
     const reply=store.message(bot.id,'user','全部',{runId,questionAnswer:questionAnswerData({...answer,answers:{next:'全部'}}),afterId:placed?.id});
     assert.deepEqual(store.data.messages.map(message=>message.id).slice(-3),[question.id,reply.id,store.data.messages.at(-1)!.id]);
     assert.equal(store.data.messages.at(-1)?.tool,'host_search_files');
+    const restated=[
+      {id:'tool',botId:bot.id,role:'tool',tool:'request_user_input',content:JSON.stringify({result:{id:answer.id}})},
+      {id:'reply',botId:bot.id,role:'user',content:'全部',questionAnswer:questionAnswerData({...answer,answers:{next:'全部'}})},
+      {id:'ask',botId:bot.id,role:'assistant',content:'请选一个下一步。'},
+      {id:'go',botId:bot.id,role:'assistant',content:'先读完整文件。'},
+    ];
+    assert.deepEqual(placeQuestionAnswers(restated).map(message=>message.id),['tool','ask','reply','go']);
   }finally{rmSync(dir,{recursive:true,force:true});}
 });

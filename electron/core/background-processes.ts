@@ -96,7 +96,12 @@ export class BackgroundProcesses {
   if(data.status==='running'&&Number(data.ageMs??Date.now()-Number(data.heartbeat))>10000||data.status==='starting'&&Date.now()-Date.parse(record.createdAt)>10000)data.status='unknown';record.status=['starting','running','completed','failed','stopped','unknown'].includes(data.status)?data.status:'unknown';record.exitCode=data.exitCode;record.endedAt=data.endedAt;this.store.save();return {...record,...data,output:this.host?.redact(data.output||'')||data.output||''};
  }
  async wait(botId:string,id:string,signal:AbortSignal,milliseconds=10000,offset=0){const until=Date.now()+Math.min(30000,Math.max(0,milliseconds));let result;do{result=await this.status(botId,id,signal,offset);if(!['starting','running'].includes(result.status)||Date.now()>=until)return result;await backoff(Math.min(500,until-Date.now()),signal);}while(true);}
- async stop(botId:string,id:string,signal:AbortSignal){const record=this.get(botId,id),current=await this.status(botId,id,signal);if(['completed','failed','stopped'].includes(current.status))return current;
+ private guestGone(){const state=this.vm.state;return !state||state.status!=='ready'||Boolean(state.maintenance);}
+ private abandonVm(record:BackgroundProcess){record.status='stopped';record.endedAt=new Date().toISOString();this.store.save();return {...record,output:''};}
+ async stop(botId:string,id:string,signal:AbortSignal){
+  const record=this.get(botId,id);
+  if(record.location==='vm'&&this.guestGone())return this.abandonVm(record);
+  const current=await this.status(botId,id,signal);if(['completed','failed','stopped'].includes(current.status))return current;
   if(record.location==='host'){const dir=this.dir(record);if(!existsSync(dir))throw Error('进程工作目录已不存在');writeFileSync(join(dir,'stop'),'stop');}
   else await this.vmScript(record,`import pathlib,json; d=pathlib.Path.cwd()/'.aelion-processes'/'${id}'; assert d.is_dir(); (d/'stop').write_text('stop'); print(json.dumps({'stopRequested':True}))`,signal);
   return this.wait(botId,id,signal,5000);

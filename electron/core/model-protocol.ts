@@ -9,6 +9,7 @@ import {repairToolHistory} from './tool-history';
 
 export const nativeKey=(cfg:ModelConfig)=>`${cfg.providerId||''}:${cfg.baseUrl.replace(/\/$/,'')}:${cfg.model}`;
 const rawCall=(name:string,args:unknown,id?:string):ToolCall=>({id:id??randomUUID(),type:'function',function:{name,arguments:typeof args==='string'?args:JSON.stringify(args||{})}});
+const objectArgs=(raw:string)=>{try{const value=JSON.parse(raw);if(value&&typeof value==='object'&&!Array.isArray(value))return value;}catch{}return {};};
 export function protocolRequest(cfg:ModelConfig,messages:WireMessage[],tools:ToolDefinition[],output:number,key:string,resolveImage:(id:string)=>string,usage=true,cacheKey?:string,affinityKey?:string,allowPendingTail=false){
  const repaired=repairToolHistory(messages,allowPendingTail);return {...buildProtocolRequest(cfg,repaired.messages,tools,output,key,resolveImage,usage,cacheKey,affinityKey),historyRepairs:repaired.repairs};
 }
@@ -49,7 +50,7 @@ function buildProtocolRequest(cfg:ModelConfig,messages:WireMessage[],tools:ToolD
   else {
    if(m.content)parts.push(protocol==='gemini'?{text:m.content}:{type:'text',text:m.content});
    for(const url of images(m)){const match=/^data:([^;]+);base64,([\s\S]+)$/.exec(url);if(!match)throw Error('原生模型图像需要本地 base64 数据');parts.push(protocol==='gemini'?{inlineData:{mimeType:match[1],data:match[2]}}:{type:'image',source:{type:'base64',media_type:match[1],data:match[2]}});}
-   for(const call of m.tool_calls||[])parts.push(protocol==='gemini'?{functionCall:{id:call.id,name:call.function.name,args:JSON.parse(call.function.arguments)}}:{type:'tool_use',id:call.id,name:call.function.name,input:JSON.parse(call.function.arguments)});
+   for(const call of m.tool_calls||[])parts.push(protocol==='gemini'?{functionCall:{id:call.id,name:call.function.name,args:objectArgs(call.function.arguments)}}:{type:'tool_use',id:call.id,name:call.function.name,input:objectArgs(call.function.arguments)});
   }push(role,parts);cacheEnd(index);
  }
  if(protocol==='anthropic'){
@@ -68,6 +69,11 @@ export class StreamAccumulator {
  private calls=new Map<number,ToolCall>();private blocks=new Map<number,any>();private json=new Map<number,string>();private extras:Record<string,any>={};private output:any[]=[];private parts:any[]=[];
  constructor(private protocol:ModelProtocol,private key:string,private onText:(delta:string)=>void){}
  private text(value:unknown){if(typeof value==='string'){this.content+=value;this.onText(value);}}
+ private callSlot(part:any){
+  if(part.index!==undefined&&part.index!==null&&Number.isFinite(Number(part.index)))return Number(part.index);
+  if(part.id){for(const [key,call] of this.calls)if(call.id===part.id)return key;}
+  return this.calls.size;
+ }
  consume(item:any){
   if(this.protocol==='responses'&&item.type==='response.failed')this.usage=modelUsage('responses',item.response?.usage,this.usage);
   if(item.error||item.type==='error'||item.type==='response.failed')throw Error(`模型流错误：${item.error?.message||item.response?.error?.message||'unknown'}`);
@@ -86,7 +92,7 @@ export class StreamAccumulator {
    if(item.type==='content_block_start'){this.blocks.set(item.index,structuredClone(item.content_block));if(item.content_block.type==='text')this.text(item.content_block.text);}
    if(item.type==='content_block_delta'){const b=this.blocks.get(item.index),d=item.delta;if(!b)throw Error('模型内容块缺少起始事件');if(d.type==='text_delta'){b.text=(b.text||'')+d.text;this.text(d.text);}if(d.type==='input_json_delta')this.json.set(item.index,(this.json.get(item.index)||'')+d.partial_json);if(d.type==='thinking_delta')b.thinking=(b.thinking||'')+d.thinking;if(d.type==='signature_delta')b.signature=(b.signature||'')+d.signature;}
    if(item.type==='message_delta'){if(item.delta?.stop_reason)this.finishReason=item.delta.stop_reason==='max_tokens'?'length':item.delta.stop_reason;this.usage=modelUsage('anthropic',item.usage,this.usage);}
-   if(item.type==='message_stop'){this.ended=true;for(const [index,b] of this.blocks){if(b.type==='tool_use'){if(this.json.has(index))b.input=JSON.parse(this.json.get(index)!);this.calls.set(index,rawCall(b.name,b.input,b.id||''));}}}return;
+   if(item.type==='message_stop'){this.ended=true;for(const [index,b] of this.blocks){if(b.type==='tool_use'){const raw=this.json.has(index)?this.json.get(index)!:JSON.stringify(b.input||{});if(this.json.has(index))b.input=objectArgs(raw);this.calls.set(index,rawCall(b.name,raw,b.id||''));}}}return;
   }
   if(this.protocol==='gemini'){
    const c=item.candidates?.[0];if(c){for(const part of c.content?.parts||[]){this.parts.push(structuredClone(part));if(part.text&&!part.thought)this.text(part.text);if(part.functionCall){const f=part.functionCall;this.calls.set(this.calls.size,rawCall(f.name,f.args,f.id));}}if(c.finishReason){this.finishReason=c.finishReason==='MAX_TOKENS'?'length':c.finishReason;this.ended=true;}}
@@ -96,7 +102,7 @@ export class StreamAccumulator {
   const c=item.choices?.[0];if(!c)return;if(c.finish_reason){this.finishReason=c.finish_reason;this.ended=true;}const d=c.delta||c.message||{};
   if(typeof d.content==='string')this.text(d.content);
   for(const key of ['reasoning_content','reasoning','reasoning_details'])if(d[key]!==undefined){if(typeof d[key]==='string')this.extras[key]=(this.extras[key]||'')+d[key];else if(Array.isArray(d[key]))this.extras[key]=[...(this.extras[key]||[]),...d[key]];}
-  for(const p of d.tool_calls||[]){const n=p.index??this.calls.size,call=this.calls.get(n)||rawCall('','','');if(p.id)call.id=p.id;if(p.function?.name)call.function.name+=p.function.name;if(p.function?.arguments)call.function.arguments+=p.function.arguments;this.calls.set(n,call);}
+  for(const p of d.tool_calls||[]){const n=this.callSlot(p),call=this.calls.get(n)||rawCall('','','');if(p.id)call.id=p.id;if(p.function?.name)call.function.name+=p.function.name;if(typeof p.function?.arguments==='string')call.function.arguments+=p.function.arguments;this.calls.set(n,call);}
  }
  result():Completion{
   const data=this.protocol==='responses'?this.output:this.protocol==='anthropic'?[...this.blocks.entries()].sort(([a],[b])=>a-b).map(([,v])=>v):this.protocol==='gemini'?this.parts:this.extras;
