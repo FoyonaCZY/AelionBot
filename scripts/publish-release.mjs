@@ -19,11 +19,15 @@ for(const manifest of ['latest.yml',...(includeMac?['latest-mac-arm64.yml','late
 if(includeMac){const merged={...mac[1],files:mac.flatMap(m=>m.files)};writeFileSync(join(directory,'latest-mac.yml'),stringify(merged));}
 const assets=[...new Set([...required.filter(f=>!f.endsWith('-verification.json')&&!/^latest-mac-(arm64|x64)\.yml$/.test(f)),...(includeMac?['latest-mac.yml']:[]),...readdirSync(directory).filter(f=>f.endsWith('.blockmap')&&required.includes(f.slice(0,-9)))])];
 const checksums=[];for(const name of assets){const hash=createHash('sha256');for await(const bytes of createReadStream(join(directory,name)))hash.update(bytes);checksums.push(`${hash.digest('hex')}  ${name}`);}writeFileSync(join(directory,'SHA256SUMS.txt'),checksums.join('\n')+'\n');assets.push('SHA256SUMS.txt');
-const gh=(args)=>execFileSync('gh',args,{cwd:root,encoding:'utf8',stdio:['ignore','pipe','inherit']}).trim();
+const gh=(args,opts={})=>execFileSync('gh',args,{cwd:root,encoding:'utf8',stdio:['ignore','pipe','inherit'],...opts}).trim();
+const listed=JSON.parse(gh(['api',`repos/${process.env.GITHUB_REPOSITORY||'FoyonaCZY/AelionBot'}/releases?per_page=20`]));
+const existing=listed.find(item=>item.tag_name===tag);
+if(existing&&!existing.draft)throw Error('Do not replace an already published release');
+if(existing?.draft&&existing.html_url.includes('/untagged-')){gh(['api','-X','DELETE',`repos/${process.env.GITHUB_REPOSITORY||'FoyonaCZY/AelionBot'}/releases/${existing.id}`]);}
+const notes=join(root,'docs','releases',`${tag}.md`);
 let release;try{release=JSON.parse(gh(['release','view',tag,'--json','isDraft,tagName']));}catch{}
 if(release&&!release.isDraft)throw Error('Do not replace an already published release');
-const notes=join(root,'docs','releases',`${tag}.md`);
-if(!release)gh(['release','create',tag,'--draft','--verify-tag','--title',`AelionBot ${tag}`,...(existsSync(notes)?['--notes-file',notes]:['--generate-notes'])]);else if(existsSync(notes))gh(['release','edit',tag,'--notes-file',notes]);
+if(!release)gh(['release','create',tag,'--draft','--title',`AelionBot ${tag}`,...(existsSync(notes)?['--notes-file',notes]:['--generate-notes'])]);else if(existsSync(notes))gh(['release','edit',tag,'--notes-file',notes]);
 gh(['release','upload',tag,...assets.map(f=>join(directory,f)),'--clobber']);
 const uploaded=JSON.parse(gh(['release','view',tag,'--json','assets']));for(const name of assets)if(!uploaded.assets.some(a=>a.name===name&&a.size>0))throw Error('Upload did not complete: '+name);
 gh(['release','edit',tag,'--draft=false','--latest']);console.log(`Published ${tag} with ${includeMac?'Windows, macOS arm64 and macOS x64':'Windows'} assets`);
