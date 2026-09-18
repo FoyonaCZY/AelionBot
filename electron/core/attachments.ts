@@ -13,6 +13,12 @@ const hash=(bytes:Uint8Array)=>createHash('sha256').update(bytes).digest('hex');
 const mimeTypes:Record<string,string>={'.mp4':'video/mp4','.webm':'video/webm','.mov':'video/quicktime','.m4v':'video/mp4','.mkv':'video/x-matroska','.avi':'video/x-msvideo','.ogv':'video/ogg','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif','.bmp':'image/bmp','.avif':'image/avif','.pdf':'application/pdf','.txt':'text/plain','.md':'text/markdown','.csv':'text/csv','.tsv':'text/tab-separated-values','.json':'application/json','.html':'text/html','.xml':'application/xml','.svg':'image/svg+xml','.docx':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','.xlsx':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','.pptx':'application/vnd.openxmlformats-officedocument.presentationml.presentation','.zip':'application/zip'};
 const textExtensions=new Set(['.txt','.md','.csv','.tsv','.json','.jsonl','.yaml','.yml','.xml','.svg','.html','.htm','.log','.py','.js','.ts','.tsx','.jsx','.css','.sql','.sh','.ps1','.c','.h','.cpp','.java','.rs','.go','.toml','.ini','.conf']);
 export function attachmentName(value:unknown){if(typeof value!=='string'||!value.trim())throw new Error('附件名称无效');const name=basename(value.replaceAll('\\','/')).replace(/[<>:"/\\|?*\u0000-\u001f]/g,'_').replace(/[. ]+$/,'')||'附件';if(name.length<=255)return name;const extension=extname(name).slice(0,20);let stem=name.slice(0,255-extension.length);if(/[\uD800-\uDBFF]$/.test(stem))stem=stem.slice(0,-1);return stem+extension;}
+export function isHostAttachmentPath(path:string,botId?:string){
+  const value=path.trim();if(!value)return false;
+  const unix=value.replaceAll('\\','/');
+  if(botId&&(unix===`/work/${botId}`||unix.startsWith(`/work/${botId}/`)))return false;
+  return /^[A-Za-z]:[\\/]/.test(value)||value.startsWith('\\\\')||unix.startsWith('/')&&!unix.startsWith('/work/');
+}
 const ref=(file:StoredAttachment):Attachment=>({id:file.id,name:file.name,size:file.size,mime:file.mime,...(file.image?{image:file.image}:{})});
 export class Attachments {
   constructor(private store:Store,private vm?:VmController,private artifacts?:ArtifactService,private image?:(bytes:Buffer,id:string)=>ScreenReference|undefined){}
@@ -52,11 +58,16 @@ export class Attachments {
       this.store.data.attachments.push(...records);this.store.save();return records.map(ref);
     }catch(error){const ids=new Set(records.map(file=>file.id));this.store.data.attachments=this.store.data.attachments.filter(file=>!ids.has(file.id));for(const record of records)try{unlinkSync(this.location(record.id));}catch{}throw error;}
   }
-  async prepare(botId:string,value:unknown,signal:AbortSignal){
+  async prepare(botId:string,value:unknown,signal:AbortSignal,readHost?:(path:string)=>Promise<Buffer>){
     if(value===undefined)return [];if(!Array.isArray(value)||value.length>ATTACHMENT_LIMITS.count)throw new Error('一次最多发送 10 个附件');const files:Attachment[]=[];
-    for(const item of value){signal.throwIfAborted();if(!item||typeof item!=='object'||Boolean(item.attachmentId)===Boolean(item.path))throw new Error('附件应填写 attachmentId 或当前 Bot 工作目录中的 path');
+    for(const item of value){signal.throwIfAborted();if(!item||typeof item!=='object'||Boolean(item.attachmentId)===Boolean(item.path))throw new Error('附件应填写 attachmentId 或文件 path');
       if(item.attachmentId)files.push(...this.forBot(botId,[item.attachmentId]));
-      else{if(!this.artifacts||typeof item.path!=='string')throw new Error('文件附件服务不可用');const path=item.path.startsWith(`/work/${botId}/`)?item.path.slice(`/work/${botId}/`.length):item.path,bytes=await this.artifacts.read(botId,path,ATTACHMENT_LIMITS.fileBytes);signal.throwIfAborted();const same=this.store.data.attachments.find(file=>file.ownerBotId===botId&&file.name===attachmentName(path)&&file.sha256===hash(bytes));files.push(same?ref(same):this.import([{name:attachmentName(path),bytes}],{ownerBotId:botId})[0]);}
+      else{
+        if(typeof item.path!=='string'||!item.path.trim())throw new Error('请填写要发送的文件路径');
+        const host=item.location==='host'||isHostAttachmentPath(item.path,botId);
+        if(host){if(!readHost)throw new Error('本机文件附件需要本机读取权限');const bytes=await readHost(item.path);signal.throwIfAborted();if(bytes.length>ATTACHMENT_LIMITS.fileBytes)throw new Error('单个附件不能超过 25 MB');const name=attachmentName(item.path),same=this.store.data.attachments.find(file=>file.ownerBotId===botId&&file.name===name&&file.sha256===hash(bytes));files.push(same?ref(same):this.import([{name,bytes}],{ownerBotId:botId})[0]);}
+        else{if(!this.artifacts)throw new Error('文件附件服务不可用');const path=item.path.startsWith(`/work/${botId}/`)?item.path.slice(`/work/${botId}/`.length):item.path,bytes=await this.artifacts.read(botId,path,ATTACHMENT_LIMITS.fileBytes);signal.throwIfAborted();const same=this.store.data.attachments.find(file=>file.ownerBotId===botId&&file.name===attachmentName(path)&&file.sha256===hash(bytes));files.push(same?ref(same):this.import([{name:attachmentName(path),bytes}],{ownerBotId:botId})[0]);}
+      }
     }
     return this.size([...new Map(files.map(file=>[file.id,file])).values()]);
   }

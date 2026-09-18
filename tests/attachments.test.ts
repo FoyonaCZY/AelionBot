@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,rmSync,mkdirSync,writeFileSync} from 'node:fs';
+import {mkdtempSync,rmSync,mkdirSync,writeFileSync,readFileSync} from 'node:fs';
 import {join,dirname,resolve} from 'node:path';
 import {tmpdir} from 'node:os';
 import {randomUUID} from 'node:crypto';
-import {Attachments} from '../electron/core/attachments';
+import {Attachments,isHostAttachmentPath} from '../electron/core/attachments';
+import {firstDeliveryAttachments} from '../src/attachment-types';
 import {ArtifactService} from '../electron/core/artifacts';
 import {Store} from '../electron/core/store';
 import {Harness} from '../electron/core/harness';
@@ -81,6 +82,32 @@ test('human group attachments notify every member and follow current group membe
   const seen=new Set<string>(),fx=fixture(t,(run,messages)=>{if(messages.some(message=>message.content?.includes('attachmentData')&&message.content.includes('咖啡,42')))seen.add(run.botId);return answer('[群聊静默]');}),room=fx.groups.create({name:'文件协作',botIds:[fx.a.id,fx.b.id]});const [file]=fx.attachments.importFiles({kind:'group',id:room.id},[{name:'数据.csv',bytes:document}]);fx.groups.send({id:room.id,message:'',attachmentIds:[file.id]});fx.groups.start();await until(fx.idle);assert.deepEqual(seen,new Set([fx.a.id,fx.b.id]));assert.equal(fx.attachments.canRead(fx.c.id,file.id),false);fx.groups.update({id:room.id,name:room.name,botIds:[fx.a.id,fx.c.id]});assert.equal(fx.attachments.canRead(fx.c.id,file.id),true);assert.equal(fx.attachments.canRead(fx.b.id,file.id),false);
 });
 
+test('host attachment paths are detected without treating VM workspace files as host files',()=>{
+  const bot='11111111-2222-3333-4444-555555555555';
+  assert.equal(isHostAttachmentPath('C:\\Users\\me\\report.md',bot),true);
+  assert.equal(isHostAttachmentPath('/Users/me/report.md',bot),true);
+  assert.equal(isHostAttachmentPath('report.md',bot),false);
+  assert.equal(isHostAttachmentPath(`/work/${bot}/report.md`,bot),false);
+});
+test('prepare can attach a host file through the provided reader',async t=>{
+  const fx=fixture(t),outside=join(fx.dir,'outside.md');writeFileSync(outside,'host-report');
+  const files=await fx.attachments.prepare(fx.a.id,[{path:outside,location:'host'}],new AbortController().signal,async path=>{assert.equal(path,outside);return readFileSync(path);});
+  assert.equal(files[0].name,'outside.md');assert.deepEqual(fx.attachments.bytes(files[0].id),Buffer.from('host-report'));
+});
+test('later turns do not reattach a file already delivered in this chat',async t=>{
+  const fx=fixture(t,(run,messages)=>{if(messages.some(message=>message.role==='tool'))return answer(run.attachments?.length?'请查收报告。':'同一份报告不必再发。');return tool('message_attach',{attachments:[{path:'报告.csv'}]});});
+  fx.queue.send({botId:fx.a.id,message:'先发报告'});await until(fx.idle);
+  fx.queue.send({botId:fx.a.id,message:'再发一次'});await until(fx.idle);
+  const replies=fx.store.data.messages.filter(message=>message.botId===fx.a.id&&message.role==='assistant'&&message.content);
+  assert.equal(replies.filter(message=>message.attachments?.length).length,1);
+  assert.equal(replies.at(-1)?.content,'同一份报告不必再发。');
+});
+test('chat display keeps the first delivery of a repeated attachment',()=>{
+  const file={id:'file-1',name:'report.md',size:12,mime:'text/markdown'};
+  const history=[{id:'a',role:'assistant',attachments:[file]},{id:'b',role:'assistant',attachments:[file]}];
+  assert.equal(firstDeliveryAttachments(history[0],history)?.length,1);
+  assert.deepEqual(firstDeliveryAttachments(history[1],history),[]);
+});
 test('a group Bot can attach an actual output file to its final message',async t=>{
   const fx=fixture(t,(run,messages)=>{if(run.botId!==fx.a.id)return answer('[群聊静默]');return messages.some(message=>message.role==='tool')?answer('请查收核对报告。'):tool('message_attach',{attachments:[{path:'报告.csv'}]});});const room=fx.groups.create({name:'报告群',botIds:[fx.a.id,fx.b.id]});fx.groups.send({id:room.id,message:'发送核对报告'});fx.groups.start();await until(fx.idle);const result=fx.groups.read({id:room.id}).messages.find(message=>message.content==='请查收核对报告。');assert.equal(result?.attachments?.[0].name,'报告.csv');assert.deepEqual(fx.attachments.bytes(result!.attachments![0].id),document);assert.ok(fx.store.data.messages.some(message=>message.botId===fx.a.id&&message.attachments?.[0].id===result!.attachments![0].id));
 });

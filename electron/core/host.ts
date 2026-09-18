@@ -91,7 +91,7 @@ export class HostComputer {
   }
   async readPreviewFile(botId:string,runId:string,args:Record<string,unknown>,signal:AbortSignal,workspace?:string){
     const path=this.canonical(this.resolveFilePath(args.path,workspace)),reason=text(args.reason,'reason',1000),stamp=this.stamp(path),limit=25*1024*1024;
-    await this.interactions.permission(botId,runId,{operation:'read_file',reason,path,tool:'open_preview'},signal);aborted(signal);
+    await this.interactions.permission(botId,runId,{operation:'read_file',reason,path,tool:typeof args.tool==='string'?args.tool:'open_preview'},signal);aborted(signal);
     if(this.canonical(path)!==path||this.stamp(path)!==stamp)throw new FileToolError('FILE_CHANGED','文件在确认期间发生变化，请重新预览');
     const expected=statSync(path);if(!expected.isFile()||expected.size>limit)throw new FileToolError('FILE_TOO_LARGE','预览需要 25 MB 以内的普通文件');
     const fd=openSync(path,'r');let bytes:Buffer;
