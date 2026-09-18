@@ -57,7 +57,7 @@ import {skillCatalog,SKILLS_LIST_TOOL} from './skill-catalog';
 import {searchSkills} from './skill-library';
 import {Attachments} from './attachments';
 import {FOUNDATION_TOOLS} from './foundation-tools';
-import {persistOmittedToolOutputs} from './model-content-policy';
+import {ContentPolicyError,quarantinePolicyContext} from './model-content-policy';
 import {CodeOrchestrator} from './code-orchestrator';
 import {TerminalSessions} from './terminal-sessions';
 import {WebTools} from './web-tools';
@@ -420,7 +420,15 @@ export class Harness {
         };
         let result:Completion;
         try{result=await complete(finalContext,groupPrepared?.maxOutputTokens||prepared?.maxOutputTokens);}
-        catch(error){this.changed();if(error instanceof ContextOverflowError&&groupInput){groupPrepared=await abortable(inferenceSignal,()=>prepareGroupContext(this.store,this.model,{...groupInput,force:true},contextEngine));finalContext=groupPrepared.messages;result=await complete(finalContext,groupPrepared.maxOutputTokens);}else{if(!(error instanceof ContextOverflowError))throw error;const before=JSON.stringify(finalContext);prepared=await abortable(inferenceSignal,()=>contextEngine.prepare({...contextInput,force:true}));finalContext=prepared.messages;if(JSON.stringify(finalContext)===before)throw error;result=await complete(finalContext,prepared.maxOutputTokens);}}
+        catch(error){
+          this.changed();
+          if(error instanceof ContentPolicyError){
+            quarantinePolicyContext(history,this.store.data.summaries,this.store.data.contextOffsets,contextKey);this.store.save();
+            if(error.sanitized){prepared=!groupKey?await abortable(inferenceSignal,()=>contextEngine.prepare({...contextInput,force:true,legacyHead:{through:0,summary:''}})):prepared;if(prepared)finalContext=prepared.messages;if(groupInput){groupPrepared=await abortable(inferenceSignal,()=>prepareGroupContext(this.store,this.model,{...groupInput,force:true},contextEngine));finalContext=groupPrepared.messages;}result=await complete(finalContext,groupPrepared?.maxOutputTokens||prepared?.maxOutputTokens);}
+            else throw error;
+          }else if(error instanceof ContextOverflowError&&groupInput){groupPrepared=await abortable(inferenceSignal,()=>prepareGroupContext(this.store,this.model,{...groupInput,force:true},contextEngine));finalContext=groupPrepared.messages;result=await complete(finalContext,groupPrepared.maxOutputTokens);}
+          else{if(!(error instanceof ContextOverflowError))throw error;const before=JSON.stringify(finalContext);prepared=await abortable(inferenceSignal,()=>contextEngine.prepare({...contextInput,force:true}));finalContext=prepared.messages;if(JSON.stringify(finalContext)===before)throw error;result=await complete(finalContext,prepared.maxOutputTokens);}
+        }
         if(options.groupOrigin&&!result.calls.length)result={...result,content:groupReplyContent(result.content,botId)};
         checkpoint();if(groupRuntime)groupRuntime.inference=undefined;
         if(controller.signal.aborted)throw new Error('任务已取消');
@@ -431,7 +439,7 @@ export class Harness {
           visible.content='';visible.presentation='progress';
           enterMainTask();continue;
         }
-        if(result.toolOutputsOmitted)persistOmittedToolOutputs(history);
+        if(result.toolOutputsOmitted){quarantinePolicyContext(history,this.store.data.summaries,this.store.data.contextOffsets,contextKey);this.store.save();}
         if(prepared){prepared.recordUsage(result);contextEngine.observe(botId,run.id,'foreground',result,prepared.calibrationEstimate,prepared.stats.calibration);}if(groupPrepared){groupPrepared.recordUsage(result);contextEngine.observe(botId,run.id,'group',result,groupPrepared.calibrationEstimate,groupPrepared.stats.calibration);}
         lastRuntimeMessages=[...finalContext,{role:'assistant',native:result.native,content:result.content||null,...(result.calls.length?{tool_calls:result.calls}:{})}];lastTools=modelTools;
         const silentReaction=Boolean(reactionMessage&&!result.calls.length&&['[表情静默]','[群聊静默]'].includes(readableContent(result.content)));

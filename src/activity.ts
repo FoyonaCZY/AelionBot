@@ -138,7 +138,7 @@ export function friendlyError(raw:string):Notice{
   if(/不支持图片输入|no endpoints found that support image input|(?:image|vision).{0,40}(?:not supported|unsupported)|does not support.{0,20}image/i.test(raw))return localizedNotice('当前模型无法读取图片','请为这个 Bot 选择支持图片的模型。附件和原始对话已保留；新的纯文字消息可以继续处理。',{settings:'model'});
   if(/tool_calls.*must be followed|insufficient tool messages|tool_call_id|工具历史/i.test(raw))return localizedNotice('工具调用记录需要恢复','此前的工具调用与结果未正确配对。工作记录已保留，继续时会修复消息顺序并核对实际结果。');
   if(/HTTP\s*(401|403)\b|unauthorized|invalid.api.key|身份验证|凭据无效/i.test(raw))return localizedNotice('模型连接需要检查','请确认 API Key 和模型访问权限，再继续这项工作。',{settings:'model'});
-  if(/Content Exists Risk|content[_ ]filter|prohibited_content|内容审核|拒绝了这次输入/i.test(raw))return localizedNotice('当前模型拒绝了这段内容','先前工具输出或对话被内容审核拦截。工作记录已保留；可更换模型继续，或发送新消息。',{settings:'model'});
+  if(/Content Exists Risk|content[_ ]filter|prohibited_content|内容审核|拒绝了这次输入/i.test(raw))return localizedNotice('当前模型拒绝了这段内容','可能触发审核的工具输出已从会话中移除。请再发一条消息；若仍失败，请更换模型。',{settings:'model'});
   if(/HTTP\s*429\b|rate.limit|too.many.requests|额度|限流/i.test(raw))return localizedNotice('模型暂时达到使用限制','可以稍后继续，或在设置中更换可用模型。',{settings:'model'});
   if(/HTTP\s*5\d\d\b|service.temporarily.unavailable/i.test(raw))return localizedNotice('模型服务暂时不可用','已有工作记录保留，可以稍后继续。');
   if(isContextCapacityFailure(raw))return localizedNotice('上下文空间不足','工作记录已保留。请调整模型上下文容量或缩小任务输入后继续。',{settings:'model',context:true});

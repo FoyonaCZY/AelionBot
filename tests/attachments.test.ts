@@ -6,6 +6,7 @@ import {tmpdir} from 'node:os';
 import {randomUUID} from 'node:crypto';
 import {Attachments,isHostAttachmentPath} from '../electron/core/attachments';
 import {firstDeliveryAttachments} from '../src/attachment-types';
+import {ContentPolicyError} from '../electron/core/model-content-policy';
 import {ArtifactService} from '../electron/core/artifacts';
 import {Store} from '../electron/core/store';
 import {Harness} from '../electron/core/harness';
@@ -93,6 +94,14 @@ test('prepare can attach a host file through the provided reader',async t=>{
   const fx=fixture(t),outside=join(fx.dir,'outside.md');writeFileSync(outside,'host-report');
   const files=await fx.attachments.prepare(fx.a.id,[{path:outside,location:'host'}],new AbortController().signal,async path=>{assert.equal(path,outside);return readFileSync(path);});
   assert.equal(files[0].name,'outside.md');assert.deepEqual(fx.attachments.bytes(files[0].id),Buffer.from('host-report'));
+});
+test('a content-policy failure sanitizes stored history so the next model call is not poisoned',async t=>{
+  let hits=0;const fx=fixture(t,()=>{hits++;if(hits===1)throw new ContentPolicyError(true);return answer('已恢复');});
+  const history=fx.store.data.conversations[fx.a.id]||=[];
+  history.push({role:'assistant',content:null,tool_calls:[{id:'c1',type:'function',function:{name:'computer_execute',arguments:JSON.stringify({code:'poison-stdout'})}}]},{role:'tool',tool_call_id:'c1',content:JSON.stringify({result:{stdout:'poison-stdout',exitCode:1}})});
+  fx.queue.send({botId:fx.a.id,message:'你好'});await until(fx.idle);
+  assert.equal(hits,2);assert.equal(fx.store.data.runs.at(-1)?.status,'completed');
+  assert.doesNotMatch(JSON.stringify(history.filter(message=>message.role==='tool'||message.tool_calls)),/poison-stdout/);
 });
 test('later turns do not reattach a file already delivered in this chat',async t=>{
   const fx=fixture(t,(run,messages)=>{if(messages.some(message=>message.role==='tool'))return answer(run.attachments?.length?'请查收报告。':'同一份报告不必再发。');return tool('message_attach',{attachments:[{path:'报告.csv'}]});});

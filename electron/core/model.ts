@@ -16,7 +16,7 @@ import {PromptCacheDiagnostics,promptCacheKey,rejectsPromptCacheKey} from './pro
 import type {RequestCacheDiagnostics} from '../../src/runtime-types';
 import {stableToolDefinitions,transportErrorCodes} from './request-snapshot';
 import {imageInputRejected,omitHistoricalImages,ModelImageUnsupportedError} from './model-vision';
-import {contentPolicyRejected,omitToolResultBodies} from './model-content-policy';
+import {ContentPolicyError,contentPolicyRejected,omitToolCallArguments,omitToolResultBodies} from './model-content-policy';
 import {ResponsesTransport,websocketEnabled,type TransportStats} from './responses-transport';
 export interface ToolDefinition {type:'function';function:{name:string;description:string;parameters:Record<string,unknown>};}
 export interface Completion {requestModelKey?:string;inputImagesOmitted?:boolean;toolOutputsOmitted?:boolean;content:string;calls:ToolCall[];finishReason:string;usage?:ModelUsage;native?:NativeAssistant;}
@@ -43,7 +43,7 @@ export class ModelClient {
   const contextStats=options.contextStats?{displayTokens:options.contextStats.displayTokens,displaySource:options.contextStats.displaySource,estimatedTokens:options.contextStats.estimatedTokens,calibration:options.contextStats.calibration,prunedOutputs:options.contextStats.prunedOutputs,epoch:options.contextStats.epoch,estimateSource:options.contextStats.estimateSource,contextChanges:options.contextStats.contextChanges?.slice(),archivedImages:options.contextStats.archivedImages}:undefined;
   const images=new Map<string,string>(),resolveImage=(id:string)=>{let value=images.get(id);if(value===undefined){value=this.resolveImage(id);images.set(id,value);}return value;};
   messages=structuredClone(messages);tools=stableToolDefinitions(tools);const availableOutput=Math.floor(cfg.contextTokens-(options.contextStats?.estimatedTokens??estimateRequest(messages,tools).tokens)-contextBudget(cfg.contextTokens).safety),ceiling=Math.max(256,Math.min(settings.maxOutputTokens,availableOutput,options.maxOutputTokens||65536));let output=ceiling;
-  const requiredImages=new Set(options.requiredImageIds??visibleImages(messages).map(image=>image.id));let imagesOmitted=false,toolOutputsOmitted=false;
+  const requiredImages=new Set(options.requiredImageIds??visibleImages(messages).map(image=>image.id));let imagesOmitted=false,toolOutputsOmitted=false,policyStage=0;
   const visionKey=()=>JSON.stringify([cfg.protocol||'chat',nativeKey(cfg),cfg.supportsImages]);
   if(cfg.supportsImages===false||(this.noImages.get(visionKey())||0)>Date.now()){const next=omitHistoricalImages(messages,requiredImages,cfg);imagesOmitted=next.some((message,index)=>message!==messages[index]);messages=next;}
   const retries=options.retries??settings.modelRetries;let emitted=false,fallback=false,inputAdjusted=false,timeoutAdjusted=false;let retryReason:ModelRequestStatus['reason'];
@@ -70,17 +70,16 @@ export class ModelClient {
       if(visibleImages(messages).length){if(this.noImages.size>=128)this.noImages.clear();this.noImages.set(visionKey(),Date.now()+10*60000);await response.body?.cancel();messages=omitHistoricalImages(messages,requiredImages,cfg,detail);imagesOmitted=true;response=await send();}
       else throw new ModelImageUnsupportedError(cfg.model,detail);
     }
-    if(!response.ok){
+    while(!response.ok&&policyStage<2){
      const body=(await response.clone().text()).slice(0,1600);
      if([400,413].includes(response.status)&&/context[_ ]?(length|window)|maximum.*tokens|too many.*tokens|prompt.*too long/i.test(body))throw new ContextOverflowError();
-     if(contentPolicyRejected(response.status,body)&&!toolOutputsOmitted){
-      const next=omitToolResultBodies(messages);
-      if(next.some((message,index)=>message.content!==messages[index].content)){
-       await response.body?.cancel();messages=next;toolOutputsOmitted=true;inputAdjusted=true;response=await send();
-      }
-     }
+     if(!contentPolicyRejected(response.status,body))break;
+     const next=policyStage===0?omitToolResultBodies(messages):omitToolCallArguments(omitToolResultBodies(messages));
+     policyStage++;
+     if(!next.some((message,index)=>message!==messages[index]))continue;
+     await response.body?.cancel();messages=next;toolOutputsOmitted=true;inputAdjusted=true;response=await send();
     }
-    if(!response.ok){const body=(await response.text()).slice(0,1200);if(contentPolicyRejected(response.status,body))throw new RequestError('当前模型拒绝了这次输入（内容审核）。已尝试省略先前工具输出后仍未通过。可以更换模型，或发送新消息继续。');if([400,413].includes(response.status)&&/context[_ ]?(length|window)|maximum.*tokens|too many.*tokens|prompt.*too long/i.test(body))throw new ContextOverflowError();const retry=response.headers.get('retry-after'),after=retry?Number.isFinite(Number(retry))?Number(retry)*1000:Date.parse(retry)-Date.now():0;throw new RequestError(`模型请求失败 HTTP ${response.status}: ${redactHost(body,[key])}`,[408,409,429].includes(response.status)||response.status>=500,Math.min(30000,Math.max(0,after||0)));}
+    if(!response.ok){const body=(await response.text()).slice(0,1200);if(contentPolicyRejected(response.status,body))throw new ContentPolicyError(toolOutputsOmitted);if([400,413].includes(response.status)&&/context[_ ]?(length|window)|maximum.*tokens|too many.*tokens|prompt.*too long/i.test(body))throw new ContextOverflowError();const retry=response.headers.get('retry-after'),after=retry?Number.isFinite(Number(retry))?Number(retry)*1000:Date.parse(retry)-Date.now():0;throw new RequestError(`模型请求失败 HTTP ${response.status}: ${redactHost(body,[key])}`,[408,409,429].includes(response.status)||response.status>=500,Math.min(30000,Math.max(0,after||0)));}
     if(!response.body)throw new RequestError('模型返回空响应',true);
     let streamed='',visible='';accumulator=new StreamAccumulator(cfg.protocol||'chat',nativeKey(cfg),delta=>{streamed+=delta;const trimmed=streamed.trimStart();if('</think>'.startsWith(trimmed)&&trimmed!=='</think>')return;const clean=streamed.replace(/^\s*<\/think>\s*/,'');if(clean.length>visible.length){timing.mark('firstTextMs');onText(clean.slice(visible.length));visible=clean;emitted=true;}});
     let activityAt=0,lastActivity='',receivedBytes=0,toolArgumentChars=0;
@@ -110,7 +109,7 @@ export class ModelClient {
    }catch(error){
     timeout.dispose();
     const safe=redactHost((error as Error)?.message||String(error),[key]),transportCodes=transportErrorCodes(error);this.observe({id:randomUUID(),botId:options.botId,runId:options.runId,purpose:options.purpose||'foreground',timing:timing.snapshot(),model:cfg.model,providerId:cfg.providerId,providerName:cfg.providerName,time:new Date().toISOString(),usage:accumulator?.usage,requestCache,...(contextStats?{context:contextStats}:{}),...(transportCodes.length?{transportErrorCodes:transportCodes}:{}),error:safe});
-    signal.throwIfAborted();if(error instanceof ContextOverflowError)throw error;
+    signal.throwIfAborted();if(error instanceof ContextOverflowError||error instanceof ContentPolicyError||error instanceof ModelImageUnsupportedError)throw error;
     const retryable=error instanceof RequestError?error.retryable:error instanceof TypeError||timeout.aborted;
     if(!retryable||emitted&&!options.onReset)throw Error(safe);
     if(attempt>=retries){if(!fallback&&cfg.fallbackModel?.trim()&&cfg.fallbackModel!==cfg.model){cfg={...cfg,model:cfg.fallbackModel};fallback=true;attempt=-1;}else throw Error(safe);}

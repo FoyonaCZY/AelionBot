@@ -108,7 +108,7 @@ test('error notices classify failures without copying HTTP bodies, paths or secr
   assert.equal(notice.title,'模型服务暂时不可用');assert.doesNotMatch(JSON.stringify(notice),/HTTP|private|secret/);
   assert.equal(friendlyError('HTTP 401').settings,'model');assert.equal(friendlyError('工作电脑未就绪').settings,'computer');assert.equal(friendlyError('此 MCP 尚未启用').settings,'mcp');
   const policy=friendlyError('模型请求失败 HTTP 400: {"error":{"message":"Content Exists Risk","type":"invalid_request_error"}}');
-  assert.equal(policy.title,'当前模型拒绝了这段内容');assert.equal(policy.settings,'model');assert.doesNotMatch(JSON.stringify(policy),/HTTP|invalid_request|Content Exists Risk/);
+  assert.equal(policy.title,'当前模型拒绝了这段内容');assert.equal(policy.settings,'model');assert.match(policy.description,/再发一条消息/);assert.doesNotMatch(JSON.stringify(policy),/HTTP|invalid_request|Content Exists Risk/);
 });
 test('display metadata excludes commands and input values, and technical details remain available',()=>{
   assert.deepEqual(describeTool('python_execute',{code:'print("private-value")'}),{label:'运行代码'});

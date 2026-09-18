@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer,type RequestListener} from 'node:http';
 import {ModelClient,assistantMessage} from '../electron/core/model';
-import {omitToolResultBodies,persistOmittedToolOutputs} from '../electron/core/model-content-policy';
+import {ContentPolicyError,omitToolResultBodies,persistOmittedToolOutputs,quarantinePolicyContext} from '../electron/core/model-content-policy';
 import {protocolRequest,StreamAccumulator,nativeKey} from '../electron/core/model-protocol';
 import {DEFAULT_RUNTIME} from '../src/runtime-types';
 import type {ModelConfig} from '../src/shared';
@@ -42,7 +42,25 @@ test('provider content-policy refusals omit historical tool bodies and retry onc
 test('content-policy refusals without tool output are not retried',async t=>{
   let count=0;const baseUrl=await server(t,async(req,res)=>{for await(const _ of req){}count++;res.writeHead(400);res.end(JSON.stringify({error:{message:'Content Exists Risk',type:'invalid_request_error'}}));});
   const model=new ModelClient(()=>({...cfg,baseUrl}),()=> '');t.after(()=>model.dispose());
-  await assert.rejects(model.complete([{role:'user',content:'hello'}],[],new AbortController().signal),/内容审核/);assert.equal(count,1);
+  await assert.rejects(model.complete([{role:'user',content:'hello'}],[],new AbortController().signal),error=>{assert.equal((error as Error).name,'ContentPolicyError');assert.equal((error as ContentPolicyError).sanitized,false);assert.match((error as Error).message,/内容审核/);return true;});assert.equal(count,1);
+});
+test('content-policy refusals also drop tool-call arguments when results are not enough',async t=>{
+  const marker='POLICY_FLAGGED_ARGS';const requests:any[]=[];const baseUrl=await server(t,async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;const parsed=JSON.parse(body);requests.push(parsed);
+    const flagged=JSON.stringify(parsed).includes(marker);res.setHeader('content-type','application/json');if(flagged){res.statusCode=400;res.end(JSON.stringify({error:{message:'Content Exists Risk'}}));return;}
+    res.end(JSON.stringify({choices:[{message:{content:'ok'},finish_reason:'stop'}]}));
+  });
+  const model=new ModelClient(()=>({...cfg,baseUrl}),()=> '');t.after(()=>model.dispose());
+  const history:import('../src/shared').WireMessage[]=[{role:'user',content:'continue'},{role:'assistant',content:null,tool_calls:[{id:'call-1',type:'function',function:{name:'file_write',arguments:JSON.stringify({path:'demo.py',content:marker})}}]},{role:'tool',tool_call_id:'call-1',content:JSON.stringify({result:{stdout:'wrote',exitCode:0}})}];
+  const result=await model.complete(history,[],new AbortController().signal);
+  assert.equal(result.content,'ok');assert.equal(result.toolOutputsOmitted,true);assert.equal(requests.length,3);assert.doesNotMatch(JSON.stringify(requests[2]),new RegExp(marker));
+});
+test('quarantine writes omitted tools back and drops compaction summaries',()=>{
+  const history:import('../src/shared').WireMessage[]=[{role:'assistant',content:null,tool_calls:[{id:'c1',type:'function',function:{name:'file_write',arguments:JSON.stringify({content:'flagged'})}}]},{role:'tool',tool_call_id:'c1',content:JSON.stringify({result:{stdout:'flagged',exitCode:1}})}];
+  const summaries={bot:'old summary with flagged text'},offsets={bot:12};
+  assert.equal(quarantinePolicyContext(history,summaries,offsets,'bot'),true);
+  assert.equal(summaries.bot,undefined);assert.equal(offsets.bot,undefined);
+  assert.match(history[0].tool_calls![0].function.arguments,/provider_content_policy/);
+  assert.doesNotMatch(history[1].content||'',/flagged/);
 });
 test('authentication failures are not retried and cancellation interrupts backoff',async t=>{
  let count=0;const baseUrl=await server(t,async(req,res)=>{for await(const _ of req){}count++;res.writeHead(count===1?401:429,{'retry-after':'30'});res.end('denied');});
