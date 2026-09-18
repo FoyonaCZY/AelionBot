@@ -152,6 +152,7 @@ test('studio source keeps docked feedback and portals into the canvas host',()=>
  assert.match(studio,/\.fp-layer\.is-studio \.fp-web-frame\{[^}]*height:100%/);
  assert.match(studio,/left:var\(--preview-chat-width,340px\)/);
  assert.match(studio,/position:fixed/);
+ assert.match(studio,/\.designer-workspace.has-task.is-studio \.designer-delivery\{display:none\}/);
  assert.doesNotMatch(studio,/minmax\(280px,38%\)/);
  assert.doesNotMatch(studio,/minmax\(240px,\s*300px\)/);
  assert.doesNotMatch(studio,/\.fp-layer\.is-studio\{[^}]*top:auto;right:auto;bottom:auto/);

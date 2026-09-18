@@ -17,6 +17,9 @@
  .designer-workspace.has-task.is-studio>.designer-canvas{
   position:fixed;top:0;right:0;bottom:0;left:var(--preview-chat-width,340px);flex:none;width:auto;height:auto;z-index:40;
  }
+ /* Left strip is messages + composer; deliverables live on the canvas. */
+ .designer-workspace.has-task.is-studio .designer-delivery{display:none}
+ .designer-workspace.has-task.is-studio .designer-spec{margin:0 0 12px;padding-bottom:8px}
 }
 .designer-workspace.has-task.is-studio>.designer-error{grid-column:1/-1}
 .designer-workspace .designer-task-kinds{flex-wrap:wrap}
