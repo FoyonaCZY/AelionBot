@@ -381,9 +381,10 @@ async function initialize(){
   handle('cognition:learning',enabled=>{if(typeof enabled!=='boolean')throw new Error('无效设置');cognition.learning.setEnabled(enabled);});
   handle('providers:save',async input=>{
     beforeModelChange(input?.id?providers.using(String(input.id)):[]);
-    try{const provider=providers.save(input);return await providers.refresh(provider.id);}finally{afterModelChange();}
+    try{const provider=providers.save(input);const refreshed=await providers.refresh(provider.id);void providers.prewarm(provider.id);return refreshed;}finally{afterModelChange();}
   });
-  handle('providers:models',id=>providers.refresh(String(id)));
+  handle('providers:models',async id=>{const provider=await providers.refresh(String(id));void providers.prewarm(String(id));return provider;});
+  handle('providers:model',input=>{const provider=providers.updateModel(String(input?.providerId),input?.model);afterModelChange();return provider;});
   handle('providers:remove',id=>{providers.remove(String(id));afterModelChange();});
   handle('models:approval',selection=>{providers.setApproval(selection);});
   handle('models:default',selection=>{providers.selection(selection);beforeModelChange(store.data.bots.filter(bot=>!bot.model).map(bot=>bot.id));providers.setDefault(selection);afterModelChange();});
@@ -442,6 +443,7 @@ async function initialize(){
   window.show();
   appUpdates.startAutomaticChecks();
   void greetings.greetEmpty();
+  for(const provider of providers.list())void providers.prewarm(provider.id);
   await vm.refresh();
   if(exiting)return;
   if(launchContext?.resumeComputer&&resolve(launchContext.dataDir).toLowerCase()===dataDir.toLowerCase()){saveUpdateLaunchContext(profileDir,{...launchContext,resumeComputer:false});await vm.start().catch(()=>{});}

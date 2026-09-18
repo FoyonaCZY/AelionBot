@@ -41,8 +41,7 @@ function pathLocks(){
     try{await work();}finally{for(const release of releases.reverse())release();}
   };
 }
-export async function runConcurrentTools<T>(items:T[],serial:(item:T)=>boolean,limit:number,signal:AbortSignal,worker:(item:T,signal:AbortSignal)=>Promise<void>,lockKeys:(item:T)=>string[]=()=>[]){
-  const cap=Number.isFinite(limit)?Math.max(1,Math.min(32,Math.floor(limit))):1;
+export async function runConcurrentTools<T>(items:T[],serial:(item:T)=>boolean,_limit:number,signal:AbortSignal,worker:(item:T,signal:AbortSignal)=>Promise<void>,lockKeys:(item:T)=>string[]=()=>[]){
   const inflight=new Map<number,Promise<void>>();
   const batch=new AbortController();
   const abort=()=>batch.abort(signal.reason||Error('已取消'));
@@ -52,7 +51,7 @@ export async function runConcurrentTools<T>(items:T[],serial:(item:T)=>boolean,l
   try{
     while(index<items.length||inflight.size){
       if(batch.signal.aborted){await Promise.allSettled([...inflight.values()]);break;}
-      while(index<items.length&&inflight.size<cap){
+      while(index<items.length){
         if(serial(items[index])&&inflight.size)break;
         const current=index,item=items[current];index++;
         if(serial(item)){await withLocks(lockKeys(item),()=>worker(item,batch.signal));continue;}

@@ -76,6 +76,7 @@ const api:AelionAPI={
   testModel:()=>ipcRenderer.invoke('model:test'),
   saveProvider:input=>ipcRenderer.invoke('providers:save',input),
   refreshProviderModels:id=>ipcRenderer.invoke('providers:models',id),
+  updateProviderModel:input=>ipcRenderer.invoke('providers:model',input),
   removeProvider:id=>ipcRenderer.invoke('providers:remove',id),
   setApprovalModel:selection=>ipcRenderer.invoke('models:approval',selection),
   setDefaultModel:selection=>ipcRenderer.invoke('models:default',selection),

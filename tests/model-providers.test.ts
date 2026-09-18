@@ -40,9 +40,11 @@ test('provider reasoning migrates once to independent Bot settings and the defau
 
 test('responses hosted web search is marked on the provider and replaces the client search tool',t=>{
   const f=fixture(t),providers=f.router(),bot=f.store.data.bots[0];
-  const provider=providers.save({name:'Hosted search',baseUrl:'https://api.example/v1',protocol:'responses',hostedWebSearch:true,hostedImageGeneration:true});
-  providers.setDefault({providerId:provider.id,model:'gpt-test',contextTokens:128000});
+  const provider=providers.save({name:'Hosted search',baseUrl:'https://api.example/v1',protocol:'responses'});
+  providers.updateModel(provider.id,{id:'gpt-test',contextTokens:128000,hostedWebSearch:true,hostedImageGeneration:true,reasoningEffort:'high'});
+  providers.setDefault({providerId:provider.id,model:'gpt-test',contextTokens:32000});
   const config=providers.config(bot.id);
+  assert.equal(config.contextTokens,128000);assert.equal(config.reasoningEffort,'high');
   assert.equal(config.hostedWebSearch,true);assert.equal(config.hostedImageGeneration,true);
   assert.deepEqual(hiddenClientTools(config),new Set(['web_search']));
   const body=protocolRequest(config,[{role:'user',content:'search'}],TOOLS.filter(tool=>tool.function.name==='web_search'||tool.function.name==='web_read'),1024,'',()=> '').body as any;
@@ -50,8 +52,8 @@ test('responses hosted web search is marked on the provider and replaces the cli
   assert.ok(body.tools.some((tool:any)=>tool.type==='image_generation'));
   assert.ok(!body.tools.some((tool:any)=>tool.type==='function'&&tool.name==='web_search'));
   assert.ok(body.tools.some((tool:any)=>tool.type==='function'&&tool.name==='web_read'));
-  const chat=providers.save({id:provider.id,name:'Hosted search',baseUrl:'https://api.example/v1',protocol:'chat',hostedWebSearch:true,hostedImageGeneration:true});
-  assert.equal(chat.hostedWebSearch,undefined);assert.equal(chat.hostedImageGeneration,undefined);
+  providers.updateModel(provider.id,{id:'gpt-test',contextTokens:128000});
+  assert.equal(providers.config(bot.id).hostedWebSearch,undefined);
 });
 test('custom model names and per-Bot reasoning reach the chosen protocol without affecting peers',t=>{
   const f=fixture(t),providers=f.router(),a=f.store.data.bots[0],b=f.store.createBot('Beta','test'),provider=providers.save({name:'Empty list',baseUrl:'https://a.example/v1',protocol:'responses'});

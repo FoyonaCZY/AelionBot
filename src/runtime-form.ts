@@ -9,7 +9,6 @@ export const RUNTIME_FIELDS:readonly RuntimeField[]=[
   {key:'requestTimeoutMs',label:'请求超时',hint:'等待响应或连续无有效输出的时限',unit:'秒',min:1,max:600,factor:1000},
   {key:'modelRetries',label:'失败重试',hint:'0 表示不重试',unit:'次',min:0,max:5,stepper:true},
   {key:'maxOutputTokens',label:'单次输出上限',hint:'每次模型响应的输出量',unit:'Token',min:256,max:65536},
-  {key:'parallelReads',label:'并行工具',hint:'同一轮里同时执行的独立工具数量',unit:'项',min:1,max:8,stepper:true},
 ];
 export interface RuntimeDraft {numbers:Record<RuntimeNumberKey,string>;fileCheckpoints:boolean;}
 export function runtimeDraft(settings:RuntimeSettings):RuntimeDraft{

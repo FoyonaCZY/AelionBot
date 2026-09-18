@@ -36,7 +36,7 @@ export function RuntimeSettings({settings,onNotify}:{settings?:Values;onNotify:(
     <fieldset className="runtime-fields" disabled={saving}><legend className="runtime-sr-only">{t('运行设置')}</legend>
       <div className="runtime-columns">
         <RuntimeGroup title={t('每次任务')}>{number('maxTurns')}{number('maxMinutes')}{number('maxTokens')}</RuntimeGroup>
-        <RuntimeGroup title={t('模型与读取')}>{number('requestTimeoutMs')}{number('modelRetries')}{number('maxOutputTokens')}{number('parallelReads')}</RuntimeGroup>
+        <RuntimeGroup title={t('模型与读取')}>{number('requestTimeoutMs')}{number('modelRetries')}{number('maxOutputTokens')}</RuntimeGroup>
       </div>
       <RuntimeGroup title={t('恢复')} wide><div className="runtime-field runtime-checkpoint"><label htmlFor={checkpointId} className="runtime-field-copy"><span>{t('文件恢复点')}</span><small>{t('修改前保留一份文件版本')}</small></label><button id={checkpointId} type="button" className="runtime-switch" role="switch" aria-label={t('文件修改前保留检查点')} aria-checked={draft.fileCheckpoints} onClick={()=>{setError('');setDraft(value=>({...value,fileCheckpoints:!value.fileCheckpoints}));}}><span/></button></div></RuntimeGroup>
     </fieldset>

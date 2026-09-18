@@ -34,9 +34,9 @@ function validatedSteps(value:unknown,allowed?:ReadonlySet<string>):Step[]{
     const step:Step={id,tool:entry.tool,args:entry.args,dependsOn:deps};references(step.args,step);ids.add(id);return step;
   });
 }
-export async function readPipeline(value:unknown,parallel:number,signal:AbortSignal,invoke:(name:string,args:Record<string,unknown>,signal:AbortSignal)=>Promise<unknown>,options:Options={}){
+export async function readPipeline(value:unknown,_parallel:number,signal:AbortSignal,invoke:(name:string,args:Record<string,unknown>,signal:AbortSignal)=>Promise<unknown>,options:Options={}){
   const steps=validatedSteps(value,options.allowedTools),results=new Map<string,Outcome>(),pending=new Map(steps.map(step=>[step.id,step])),active=new Map<string,Promise<void>>();
-  const limit=Number.isFinite(parallel)?Math.max(1,Math.min(8,Math.floor(parallel))):1,controller=new AbortController();
+  const controller=new AbortController();
   let interruption:unknown;
   const stop=(error:unknown)=>{interruption??=error;controller.abort(error);};
   const abort=()=>stop(signal.reason||Error('批处理已取消'));signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();
@@ -55,7 +55,6 @@ export async function readPipeline(value:unknown,parallel:number,signal:AbortSig
         if(!step.dependsOn.every(id=>results.has(id)))continue;
         const failed=step.dependsOn.filter(id=>!results.get(id)!.ok);
         if(failed.length){results.set(step.id,{ok:false,status:'skipped',failedDependencies:failed,error:`依赖步骤 ${failed.join('、')} 未成功，已跳过`});pending.delete(step.id);progressed=true;continue;}
-        if(active.size>=limit)continue;
         pending.delete(step.id);progressed=true;
         const work=Promise.resolve().then(async()=>{
           try{

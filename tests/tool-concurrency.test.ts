@@ -39,6 +39,12 @@ test('two serial computer steps never overlap',async()=>{
   });
   assert.equal(peak,1);
 });
+test('independent reads are not capped by a concurrency number',async()=>{
+  const started:string[]=[],slow=deferred<void>();
+  const items=['a','b','c','d','e'];
+  const pending=runConcurrentTools(items,()=>false,1,new AbortController().signal,async item=>{started.push(item);await slow.promise;});
+  await flush();assert.equal(started.length,items.length);assert.deepEqual([...started].sort(),items);slow.resolve();await pending;
+});
 test('writes to different files overlap while the same path stays exclusive',async()=>{
   const active=new Map<string,number>(),peak=new Map<string,number>(),started:string[]=[];
   const slow=deferred<void>();

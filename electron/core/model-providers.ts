@@ -1,26 +1,36 @@
 import {randomUUID} from 'node:crypto';
 import {existsSync} from 'node:fs';
 import {join} from 'node:path';
-import type {ModelProvider,ModelSelection,ProviderInput} from '../../src/shared';
+import type {ModelProvider,ModelSelection,ProviderInput,ProviderModel} from '../../src/shared';
 import {Store,atomicJson,type StoredProvider} from './store';
 import {validateModelEndpoint} from './model';
 import {redactHost} from './host';
 import type {ModelParameters} from '../../src/model-types';
 import {imageCapability} from './model-vision';
 import {reasoningEffort as cleanReasoning} from '../../src/reasoning';
+import {modelFetch,prewarmModelEndpoint,disposeModelHttp} from './model-http';
 
 export function modelParameters(input:ModelParameters):ModelParameters{
- const {protocol,responsesTransport,hostedWebSearch,hostedImageGeneration,temperature,reasoningEffort,thinkingBudget,fallbackModel}=input;
+ const {protocol,responsesTransport,temperature,reasoningEffort,thinkingBudget,fallbackModel}=input;
  if(responsesTransport!==undefined&&!['auto','http','websocket'].includes(responsesTransport))throw Error('Responses 连接方式无效');
  if(protocol!==undefined&&!['chat','responses','anthropic','gemini'].includes(protocol))throw Error('模型协议无效');
- if(hostedWebSearch!==undefined&&typeof hostedWebSearch!=='boolean')throw Error('服务端网页搜索设置无效');
- if(hostedImageGeneration!==undefined&&typeof hostedImageGeneration!=='boolean')throw Error('服务端图片生成设置无效');
  if(temperature!==undefined&&(!Number.isFinite(temperature)||temperature<0||temperature>2))throw Error('温度应为 0–2');
  cleanReasoning(reasoningEffort);
  if(thinkingBudget!==undefined&&(!Number.isInteger(thinkingBudget)||thinkingBudget<1024||thinkingBudget>64000))throw Error('思考预算应为 1024–64000');
  if(fallbackModel!==undefined&&(typeof fallbackModel!=='string'||fallbackModel.length>256||/[\u0000-\u001f]/.test(fallbackModel)))throw Error('备用模型无效');
- const responses=(protocol||'chat')==='responses';
- return {protocol,responsesTransport,hostedWebSearch:responses&&hostedWebSearch?true:undefined,hostedImageGeneration:responses&&hostedImageGeneration?true:undefined,temperature,reasoningEffort,thinkingBudget,fallbackModel:fallbackModel?.trim()||undefined};
+ return {protocol,responsesTransport,temperature,reasoningEffort,thinkingBudget,fallbackModel:fallbackModel?.trim()||undefined};
+}
+export function providerModelEntry(input:unknown):ProviderModel{
+ if(!input||typeof input!=='object'||Array.isArray(input))throw Error('模型配置无效');
+ const value=input as ProviderModel,id=text(value.id,'模型 ID',256);
+ const contextTokens=value.contextTokens;
+ if(contextTokens!==undefined&&(!Number.isInteger(contextTokens)||contextTokens<8000||contextTokens>1000000))throw Error('上下文容量应为 8000–1000000');
+ const effort=cleanReasoning(value.reasoningEffort);
+ if(value.thinkingBudget!==undefined&&(!Number.isInteger(value.thinkingBudget)||value.thinkingBudget<1024||value.thinkingBudget>64000))throw Error('思考预算应为 1024–64000');
+ if(value.supportsImages!==undefined&&typeof value.supportsImages!=='boolean')throw Error('图片输入设置无效');
+ if(value.hostedWebSearch!==undefined&&typeof value.hostedWebSearch!=='boolean')throw Error('服务端网页搜索设置无效');
+ if(value.hostedImageGeneration!==undefined&&typeof value.hostedImageGeneration!=='boolean')throw Error('服务端图片生成设置无效');
+ return {id,...(contextTokens?{contextTokens}:{}),...(effort?{reasoningEffort:effort}:{}),...(value.thinkingBudget?{thinkingBudget:value.thinkingBudget}:{}),...(value.supportsImages!==undefined?{supportsImages:value.supportsImages}:{}),...(value.hostedWebSearch?{hostedWebSearch:true}:{}),...(value.hostedImageGeneration?{hostedImageGeneration:true}:{})};
 }
 
 export interface CredentialCodec {encrypt:(value:string)=>string;decrypt:(value:string)=>string;}
@@ -33,7 +43,7 @@ export class ModelProviders {
   private requests=new Map<string,{revision:string;controller:AbortController;promise:Promise<ModelProvider>}>();
   private decrypted=new Map<string,string>();
   constructor(readonly store:Store,private codec:CredentialCodec,private changed:()=>void=()=>{}){
-    if(store.data.providers!==undefined){this.migrateReasoning();return;}
+    if(store.data.providers!==undefined){this.migrateReasoning();this.migrateHostedTools();return;}
     const legacy=store.data.model,providers:StoredProvider[]=[];let defaultModel:ModelSelection|undefined;
     if(legacy.model||legacy.encryptedKey||legacy.baseUrl!=='https://api.openai.com/v1'){
       const backup=join(store.dir,'providers-migration-backup.json');if(!existsSync(backup))atomicJson(backup,store.data);
@@ -49,6 +59,14 @@ export class ModelProviders {
     const bots=this.store.data.bots.map(bot=>{const effort=bot.reasoningEffort??inherited(bot.model||this.store.data.defaultModel);return effort?{...bot,reasoningEffort:cleanReasoning(effort)}:bot;});
     const selection=this.store.data.defaultModel,effort=inherited(selection),defaultModel=selection&&effort?{...selection,reasoningEffort:cleanReasoning(effort)}:selection;
     this.commit({bots,defaultModel,providers:providers.map(({reasoningEffort,...provider})=>provider)});
+  }
+  private migrateHostedTools(){
+    const providers=this.store.data.providers;if(!providers?.some(provider=>provider.hostedWebSearch||provider.hostedImageGeneration))return;
+    this.commit({providers:providers.map(provider=>{
+      const {hostedWebSearch,hostedImageGeneration,...rest}=provider;
+      if(!hostedWebSearch&&!hostedImageGeneration)return provider;
+      return {...rest,models:provider.models.map(model=>({...model,...(hostedWebSearch&&!model.hostedWebSearch?{hostedWebSearch:true}:{}),...(hostedImageGeneration&&!model.hostedImageGeneration?{hostedImageGeneration:true}:{})}))};
+    })});
   }
   private commit(patch:Partial<Store['data']>){
     const next={...this.store.data,...patch},selection=next.defaultModel,provider=next.providers?.find(item=>item.id===selection?.providerId);
@@ -67,6 +85,23 @@ export class ModelProviders {
   setApproval(value:unknown){this.commit({approvalModel:this.selection(value)});}
   secrets(){return (this.store.data.providers||[]).map(provider=>this.keyFor(provider)).filter(Boolean);}
   using(id:string){return this.store.data.bots.filter(bot=>this.store.modelSelection(bot.id)?.providerId===id).map(bot=>bot.id);}
+  catalog(providerId:string,modelId:string){return this.provider(providerId).models.find(model=>model.id===modelId);}
+  updateModel(providerId:string,input:unknown){
+    const entry=providerModelEntry(input),provider=this.provider(providerId);
+    const models=[...provider.models];const index=models.findIndex(model=>model.id===entry.id);
+    if(index>=0)models[index]=entry;else models.push(entry);
+    models.sort((a,b)=>a.id.localeCompare(b.id));
+    this.commit({providers:this.store.data.providers!.map(item=>item.id===provider.id?{...item,models}:item)});
+    return this.public(this.provider(provider.id));
+  }
+  async prewarm(id:string){
+    const provider=this.provider(id),headers:Record<string,string>={Accept:'application/json'};
+    const key=this.keyFor(provider);
+    if(provider.protocol==='anthropic'){headers['anthropic-version']='2023-06-01';if(key)headers['x-api-key']=key;}
+    else if(provider.protocol==='gemini'){if(key)headers['x-goog-api-key']=key;}
+    else if(key)headers.Authorization=`Bearer ${key}`;
+    await prewarmModelEndpoint(provider.baseUrl,headers);
+  }
   selection(value:unknown):ModelSelection|undefined{
     if(value===null)return undefined;
     if(!value||typeof value!=='object')throw new Error('请选择 Provider 和模型');
@@ -108,7 +143,7 @@ export class ModelProviders {
       try{
         const key=this.keyFor(provider),headers:Record<string,string>={Accept:'application/json'};
         if(provider.protocol==='anthropic'){headers['anthropic-version']='2023-06-01';if(key)headers['x-api-key']=key;}else if(provider.protocol==='gemini'){if(key)headers['x-goog-api-key']=key;}else if(key)headers.Authorization=`Bearer ${key}`;
-        const response=await fetch(`${validateModelEndpoint(provider.baseUrl)}/models`,{headers,redirect:'error',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])});
+        const response=await modelFetch(`${validateModelEndpoint(provider.baseUrl)}/models`,{headers,redirect:'error',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])});
         if(!response.ok){await response.body?.cancel();throw new Error(`获取模型列表失败 HTTP ${response.status}`);}
         let body=await jsonBody(response);const all:any[]=[],cursors=new Set<string>();
         for(let page=0;;page++){
@@ -116,11 +151,16 @@ export class ModelProviders {
           all.push(...body.data);if(all.length>5000)throw Error('模型列表超过 5000 项');
           const cursor=provider.protocol==='gemini'?body.nextPageToken:provider.protocol==='anthropic'&&body.has_more?body.last_id:undefined;if(!cursor)break;
           if(typeof cursor!=='string'||cursor.length>4000||page>=19||cursors.has(cursor))throw Error('Provider 模型列表分页异常');cursors.add(cursor);
-          const url=new URL(`${validateModelEndpoint(provider.baseUrl)}/models`);url.searchParams.set(provider.protocol==='gemini'?'pageToken':'after_id',cursor);const next=await fetch(url,{headers,redirect:'error',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])});if(!next.ok){await next.body?.cancel();throw Error(`获取模型列表失败 HTTP ${next.status}`);}body=await jsonBody(next);
+          const url=new URL(`${validateModelEndpoint(provider.baseUrl)}/models`);url.searchParams.set(provider.protocol==='gemini'?'pageToken':'after_id',cursor);const next=await modelFetch(url.href,{headers,redirect:'error',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])});if(!next.ok){await next.body?.cancel();throw Error(`获取模型列表失败 HTTP ${next.status}`);}body=await jsonBody(next);
         }body={data:all};
         if(body.data.length>5000)throw new Error('模型列表超过 5000 项');
         const secrets=this.secrets(),ids=new Set<string>();for(const item of body.data){if(typeof item?.id!=='string')throw new Error('模型列表缺少模型 ID');const id=text(item.id,'模型 ID',256);if(secrets.some(secret=>id.includes(secret)))throw new Error('模型列表包含凭据信息');ids.add(id);}
-        models=[...ids].sort((a,b)=>a.localeCompare(b)).map(id=>{const capability=imageCapability(body.data.find((item:any)=>item.id===id));return {id,...(capability!==undefined?{supportsImages:capability}:{})};});
+        const previous=new Map(provider.models.map(model=>[model.id,model]));
+        models=[...ids].sort((a,b)=>a.localeCompare(b)).map(id=>{
+          const prior=previous.get(id),capability=imageCapability(body.data.find((item:any)=>item.id===id));
+          return {id,...prior,...(capability!==undefined&&prior?.supportsImages===undefined?{supportsImages:capability}:{})};
+        });
+        for(const model of provider.models)if(!ids.has(model.id))models.push(model);
       }catch(caught){error=redactHost((caught as Error).message,this.secrets()).slice(0,400);}
       const current=this.store.data.providers?.find(provider=>provider.id===id);
       if(!current)throw new Error('Provider 已删除');
@@ -129,5 +169,5 @@ export class ModelProviders {
       this.commit({providers:this.store.data.providers!.map(provider=>provider.id===id?next:provider)});return this.public(next);
     })();this.requests.set(id,{revision,controller,promise:pending});void pending.finally(()=>{if(this.requests.get(id)?.promise===pending)this.requests.delete(id);}).catch(()=>{});return pending;
   }
-  dispose(){for(const request of this.requests.values())request.controller.abort();this.requests.clear();this.decrypted.clear();}
+  dispose(){for(const request of this.requests.values())request.controller.abort();this.requests.clear();this.decrypted.clear();disposeModelHttp();}
 }
