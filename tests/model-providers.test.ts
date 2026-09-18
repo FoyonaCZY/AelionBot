@@ -40,8 +40,8 @@ test('provider reasoning migrates once to independent Bot settings and the defau
 
 test('responses hosted web search is marked on the provider and replaces the client search tool',t=>{
   const f=fixture(t),providers=f.router(),bot=f.store.data.bots[0];
-  const provider=providers.save({name:'Hosted search',baseUrl:'https://api.example/v1',protocol:'responses'});
-  providers.updateModel(provider.id,{id:'gpt-test',contextTokens:128000,hostedWebSearch:true,hostedImageGeneration:true,reasoningEffort:'high'});
+  const provider=providers.save({name:'Hosted search',baseUrl:'https://api.example/v1',protocol:'responses',hostedWebSearch:true,hostedImageGeneration:true});
+  providers.updateModel(provider.id,{id:'gpt-test',contextTokens:128000,reasoningEffort:'high'});
   providers.setDefault({providerId:provider.id,model:'gpt-test',contextTokens:32000});
   const config=providers.config(bot.id);
   assert.equal(config.contextTokens,128000);assert.equal(config.reasoningEffort,'high');
@@ -52,8 +52,22 @@ test('responses hosted web search is marked on the provider and replaces the cli
   assert.ok(body.tools.some((tool:any)=>tool.type==='image_generation'));
   assert.ok(!body.tools.some((tool:any)=>tool.type==='function'&&tool.name==='web_search'));
   assert.ok(body.tools.some((tool:any)=>tool.type==='function'&&tool.name==='web_read'));
-  providers.updateModel(provider.id,{id:'gpt-test',contextTokens:128000});
+  providers.updateModel(provider.id,{id:'gpt-test',contextTokens:128000,hostedWebSearch:true} as any);
+  assert.equal((providers.list()[0].models[0] as any).hostedWebSearch,undefined);
+  assert.equal(providers.config(bot.id).hostedWebSearch,true);
+  providers.save({id:provider.id,name:'Hosted search',baseUrl:'https://api.example/v1',protocol:'responses',hostedWebSearch:false,hostedImageGeneration:false});
   assert.equal(providers.config(bot.id).hostedWebSearch,undefined);
+  assert.equal(providers.config(bot.id).hostedImageGeneration,undefined);
+});
+test('catalog hosted-tool flags migrate onto the Responses provider without changing Bot model selection',t=>{
+  const f=fixture(t),bot=f.store.data.bots[0],before=JSON.stringify(f.store.data.bots);
+  f.store.data.providers=[{id:'p',name:'P',baseUrl:'https://api.example/v1',protocol:'responses',models:[{id:'gpt-test',contextTokens:128000,hostedWebSearch:true},{id:'other',hostedImageGeneration:true}] as any}];
+  f.store.data.defaultModel={providerId:'p',model:'gpt-test',contextTokens:32000};f.store.save();
+  const providers=f.router(),listed=providers.list()[0];
+  assert.equal(listed.hostedWebSearch,true);assert.equal(listed.hostedImageGeneration,true);
+  assert.ok(listed.models.every(model=>!('hostedWebSearch' in model)&&!('hostedImageGeneration' in model)));
+  assert.equal(providers.config(bot.id).model,'gpt-test');assert.equal(providers.config(bot.id).contextTokens,128000);
+  assert.equal(providers.config(bot.id).hostedWebSearch,true);assert.equal(JSON.stringify(f.store.data.bots),before);
 });
 test('custom model names and per-Bot reasoning reach the chosen protocol without affecting peers',t=>{
   const f=fixture(t),providers=f.router(),a=f.store.data.bots[0],b=f.store.createBot('Beta','test'),provider=providers.save({name:'Empty list',baseUrl:'https://a.example/v1',protocol:'responses'});

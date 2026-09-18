@@ -11,14 +11,17 @@ import {reasoningEffort as cleanReasoning} from '../../src/reasoning';
 import {modelFetch,prewarmModelEndpoint,disposeModelHttp} from './model-http';
 
 export function modelParameters(input:ModelParameters):ModelParameters{
- const {protocol,responsesTransport,temperature,reasoningEffort,thinkingBudget,fallbackModel}=input;
+ const {protocol,responsesTransport,temperature,reasoningEffort,thinkingBudget,fallbackModel,hostedWebSearch,hostedImageGeneration}=input;
  if(responsesTransport!==undefined&&!['auto','http','websocket'].includes(responsesTransport))throw Error('Responses 连接方式无效');
  if(protocol!==undefined&&!['chat','responses','anthropic','gemini'].includes(protocol))throw Error('模型协议无效');
  if(temperature!==undefined&&(!Number.isFinite(temperature)||temperature<0||temperature>2))throw Error('温度应为 0–2');
  cleanReasoning(reasoningEffort);
  if(thinkingBudget!==undefined&&(!Number.isInteger(thinkingBudget)||thinkingBudget<1024||thinkingBudget>64000))throw Error('思考预算应为 1024–64000');
  if(fallbackModel!==undefined&&(typeof fallbackModel!=='string'||fallbackModel.length>256||/[\u0000-\u001f]/.test(fallbackModel)))throw Error('备用模型无效');
- return {protocol,responsesTransport,temperature,reasoningEffort,thinkingBudget,fallbackModel:fallbackModel?.trim()||undefined};
+ if(hostedWebSearch!==undefined&&typeof hostedWebSearch!=='boolean')throw Error('服务端网页搜索设置无效');
+ if(hostedImageGeneration!==undefined&&typeof hostedImageGeneration!=='boolean')throw Error('服务端图片生成设置无效');
+ const responses=(protocol||'chat')==='responses';
+ return {protocol,responsesTransport,temperature,reasoningEffort,thinkingBudget,fallbackModel:fallbackModel?.trim()||undefined,...(responses&&hostedWebSearch?{hostedWebSearch:true}:{}),...(responses&&hostedImageGeneration?{hostedImageGeneration:true}:{})};
 }
 export function providerModelEntry(input:unknown):ProviderModel{
  if(!input||typeof input!=='object'||Array.isArray(input))throw Error('模型配置无效');
@@ -27,10 +30,7 @@ export function providerModelEntry(input:unknown):ProviderModel{
  if(contextTokens!==undefined&&(!Number.isInteger(contextTokens)||contextTokens<8000||contextTokens>1000000))throw Error('上下文容量应为 8000–1000000');
  const effort=cleanReasoning(value.reasoningEffort);
  if(value.thinkingBudget!==undefined&&(!Number.isInteger(value.thinkingBudget)||value.thinkingBudget<1024||value.thinkingBudget>64000))throw Error('思考预算应为 1024–64000');
- if(value.supportsImages!==undefined&&typeof value.supportsImages!=='boolean')throw Error('图片输入设置无效');
- if(value.hostedWebSearch!==undefined&&typeof value.hostedWebSearch!=='boolean')throw Error('服务端网页搜索设置无效');
- if(value.hostedImageGeneration!==undefined&&typeof value.hostedImageGeneration!=='boolean')throw Error('服务端图片生成设置无效');
- return {id,...(contextTokens?{contextTokens}:{}),...(effort?{reasoningEffort:effort}:{}),...(value.thinkingBudget?{thinkingBudget:value.thinkingBudget}:{}),...(value.supportsImages!==undefined?{supportsImages:value.supportsImages}:{}),...(value.hostedWebSearch?{hostedWebSearch:true}:{}),...(value.hostedImageGeneration?{hostedImageGeneration:true}:{})};
+ return {id,...(contextTokens?{contextTokens}:{}),...(effort?{reasoningEffort:effort}:{}),...(value.thinkingBudget?{thinkingBudget:value.thinkingBudget}:{})};
 }
 
 export interface CredentialCodec {encrypt:(value:string)=>string;decrypt:(value:string)=>string;}
@@ -61,11 +61,13 @@ export class ModelProviders {
     this.commit({bots,defaultModel,providers:providers.map(({reasoningEffort,...provider})=>provider)});
   }
   private migrateHostedTools(){
-    const providers=this.store.data.providers;if(!providers?.some(provider=>provider.hostedWebSearch||provider.hostedImageGeneration))return;
+    type LegacyModel=ProviderModel&{hostedWebSearch?:boolean;hostedImageGeneration?:boolean};
+    const providers=this.store.data.providers;if(!providers?.some(provider=>provider.models.some(model=>{const entry=model as LegacyModel;return entry.hostedWebSearch||entry.hostedImageGeneration;})))return;
     this.commit({providers:providers.map(provider=>{
-      const {hostedWebSearch,hostedImageGeneration,...rest}=provider;
-      if(!hostedWebSearch&&!hostedImageGeneration)return provider;
-      return {...rest,models:provider.models.map(model=>({...model,...(hostedWebSearch&&!model.hostedWebSearch?{hostedWebSearch:true}:{}),...(hostedImageGeneration&&!model.hostedImageGeneration?{hostedImageGeneration:true}:{})}))};
+      const models=provider.models as LegacyModel[];
+      const hostedWebSearch=Boolean(provider.hostedWebSearch||models.some(model=>model.hostedWebSearch));
+      const hostedImageGeneration=Boolean(provider.hostedImageGeneration||models.some(model=>model.hostedImageGeneration));
+      return {...provider,models:models.map(({hostedWebSearch:_search,hostedImageGeneration:_image,...model})=>model),...(hostedWebSearch?{hostedWebSearch:true}:{}),...(hostedImageGeneration?{hostedImageGeneration:true}:{})};
     })});
   }
   private commit(patch:Partial<Store['data']>){
@@ -88,8 +90,9 @@ export class ModelProviders {
   catalog(providerId:string,modelId:string){return this.provider(providerId).models.find(model=>model.id===modelId);}
   updateModel(providerId:string,input:unknown){
     const entry=providerModelEntry(input),provider=this.provider(providerId);
-    const models=[...provider.models];const index=models.findIndex(model=>model.id===entry.id);
-    if(index>=0)models[index]=entry;else models.push(entry);
+    const models=[...provider.models];const index=models.findIndex(model=>model.id===entry.id),prior=index>=0?models[index]:undefined;
+    const next={...entry,...(prior?.supportsImages!==undefined?{supportsImages:prior.supportsImages}:{})};
+    if(index>=0)models[index]=next;else models.push(next);
     models.sort((a,b)=>a.id.localeCompare(b.id));
     this.commit({providers:this.store.data.providers!.map(item=>item.id===provider.id?{...item,models}:item)});
     return this.public(this.provider(provider.id));
@@ -107,7 +110,7 @@ export class ModelProviders {
     if(!value||typeof value!=='object')throw new Error('请选择 Provider 和模型');
     const input=value as ModelSelection,providerId=text(input.providerId,'Provider',80),model=text(input.model,'模型名称',256),contextTokens=input.contextTokens;
     this.provider(providerId);if(!Number.isInteger(contextTokens)||contextTokens<8000||contextTokens>1000000)throw new Error('上下文容量应为 8000–1000000');
-    if(input.supportsImages!==undefined&&typeof input.supportsImages!=='boolean')throw Error('图片输入设置无效');const effort=cleanReasoning(input.reasoningEffort);return {providerId,model,contextTokens,...(input.supportsImages!==undefined?{supportsImages:input.supportsImages}:{}),...(effort?{reasoningEffort:effort}:{})};
+    const effort=cleanReasoning(input.reasoningEffort);return {providerId,model,contextTokens,...(effort?{reasoningEffort:effort}:{})};
   }
   setDefault(value:unknown){this.commit({defaultModel:this.selection(value)});}
   setBot(botId:string,value:unknown){this.store.bot(botId);const selection=this.selection(value);this.commit({bots:this.store.data.bots.map(bot=>bot.id===botId?{...bot,model:selection}:bot)});}
@@ -158,7 +161,7 @@ export class ModelProviders {
         const previous=new Map(provider.models.map(model=>[model.id,model]));
         models=[...ids].sort((a,b)=>a.localeCompare(b)).map(id=>{
           const prior=previous.get(id),capability=imageCapability(body.data.find((item:any)=>item.id===id));
-          return {id,...prior,...(capability!==undefined&&prior?.supportsImages===undefined?{supportsImages:capability}:{})};
+          return {id,...prior,...(capability!==undefined?{supportsImages:capability}:{})};
         });
         for(const model of provider.models)if(!ids.has(model.id))models.push(model);
       }catch(caught){error=redactHost((caught as Error).message,this.secrets()).slice(0,400);}

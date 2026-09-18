@@ -68,8 +68,11 @@ test('greetings and ongoing conversations receive current personal identity, inc
  const harness=new Harness(store,{} as any,model,()=>{});t.after(()=>harness.disposeTools());await harness.run(bot.id,'你好');assert.ok(captured.at(-1)!.some(message=>message.content?.includes('桌面软件')));
  store.data.userProfile=normalizeUserProfile({});await harness.run(bot.id,'再聊聊');const latest=captured.at(-1)!,clear=latest.findIndex(message=>message.content?.includes('人类已在设置中清空个人资料'));assert.ok(clear>=0);assert.ok(clear>latest.findIndex(message=>message.content?.includes('Wendy')));
 });
-test('provider model metadata detects image support and a model-specific override is preserved',async t=>{
+test('provider model metadata detects image support and ignores a stored selection override',async t=>{
  const f=fixture(t),server=createServer((_req,res)=>{res.setHeader('content-type','application/json');res.end(JSON.stringify({data:[{id:'text-model',architecture:{input_modalities:['text']}},{id:'vision-model',architecture:{input_modalities:['text','image']}}]}));});await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(()=>{server.closeAllConnections();server.close();});
  const providers=new ModelProviders(f.store,{encrypt:value=>value,decrypt:value=>value},()=>{});t.after(()=>providers.dispose());const provider=providers.save({name:'metadata',baseUrl:`http://127.0.0.1:${(server.address() as any).port}/v1`});await providers.refresh(provider.id);
- providers.setBot(f.bot.id,{providerId:provider.id,model:'text-model',contextTokens:8000});assert.equal(providers.config(f.bot.id).supportsImages,false);providers.setBot(f.bot.id,{providerId:provider.id,model:'text-model',contextTokens:8000,supportsImages:true});assert.equal(providers.config(f.bot.id).supportsImages,true);assert.throws(()=>providers.setBot(f.bot.id,{providerId:provider.id,model:'text-model',contextTokens:8000,supportsImages:'yes'}));
+ providers.setBot(f.bot.id,{providerId:provider.id,model:'text-model',contextTokens:8000});assert.equal(providers.config(f.bot.id).supportsImages,false);
+ providers.setBot(f.bot.id,{providerId:provider.id,model:'text-model',contextTokens:8000,supportsImages:true});assert.equal(providers.config(f.bot.id).supportsImages,false);
+ providers.setBot(f.bot.id,{providerId:provider.id,model:'vision-model',contextTokens:8000});assert.equal(providers.config(f.bot.id).supportsImages,true);
+ providers.updateModel(provider.id,{id:'text-model',contextTokens:16000,supportsImages:true});assert.equal(providers.list().find(item=>item.id===provider.id)?.models.find(model=>model.id==='text-model')?.supportsImages,false);assert.equal(providers.config(f.bot.id).supportsImages,true);
 });

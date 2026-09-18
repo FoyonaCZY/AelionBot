@@ -37,6 +37,7 @@
 .provider-model-add input{flex:1;min-width:0}
 .provider-hosted-flag{display:flex;align-items:flex-start;gap:8px;margin:8px 0 0;color:inherit;font-size:calc(13px * var(--appearance-text-scale,1));line-height:1.45}
 .provider-hosted-flag input{width:auto;margin:3px 0 0;accent-color:light-dark(#222,#e6e3e9)}
+.settings-modal .provider-hosted-flag input,.settings-modal .settings-row.provider-hosted-row input[type=checkbox]{width:auto;height:auto;padding:0;border:0;background:none;justify-self:start;accent-color:light-dark(#9475b0,#c3b3d1)}
 .provider-clear-key{display:flex;align-items:center;gap:7px;margin:14px 10px 0;color:light-dark(#777,#c8c5cb);font-size:calc(13px * var(--appearance-text-scale,1))}
 .settings-modal .provider-clear-key input{width:auto;margin:0;accent-color:light-dark(#222,#e6e3e9)}
 .bot-model-button{max-width:220px;border:0;background:transparent;color:light-dark(#888,#c1bec4);font-size:calc(12px * var(--appearance-text-scale,1));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:5px 8px;cursor:pointer}
