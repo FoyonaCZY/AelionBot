@@ -15,10 +15,19 @@
 }
 .designer-workspace.has-task.is-studio>.designer-error{grid-column:1/-1}
 .designer-workspace .designer-task-kinds{flex-wrap:wrap}
+.designer-workspace .composer-tools{flex-wrap:wrap}
+.designer-plugin-control{max-width:220px}
 .designer-canvas-hint,.designer-plugin-note{margin:8px 0 0;font-size:11px;color:var(--design-muted);line-height:1.7}
-.designer-plugins{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
-.designer-plugins>button{border:1px solid var(--design-line);background:transparent;color:inherit;border-radius:999px;padding:5px 10px;font:inherit;font-size:11px;cursor:pointer}
-.designer-plugins>button[aria-pressed=true]{border-color:light-dark(#174cc0,#4078e4);color:light-dark(#174cc0,#9bb7ef)}
+.designer-plugin-dialog{width:min(520px,92vw)}
+.designer-plugin-dialog .designer-plugin-list{display:flex;flex-direction:column;gap:8px;overflow:auto;min-height:0;flex:1;max-height:min(52vh,420px);padding:2px 4px 12px}
+.designer-plugin-row{display:flex;align-items:flex-start;gap:12px;width:100%;text-align:left;border:1px solid var(--design-line,#e3e3dd);border-radius:9px;padding:12px 14px;background:transparent;color:inherit;cursor:pointer}
+.designer-plugin-row:focus-visible{outline:2px solid #174cc0;outline-offset:2px}
+.designer-plugin-row.selected{border-color:#81926c;box-shadow:0 0 0 1px #81926c}
+.designer-plugin-row strong{display:block;font-size:13px;font-weight:550}
+.designer-plugin-row small{display:block;margin-top:4px;font-size:11px;line-height:1.65;color:var(--design-muted,#7b8173)}
+.designer-plugin-check{width:18px;height:18px;margin-top:2px;border:1px solid var(--design-line,#e3e3dd);border-radius:4px;display:grid;place-items:center;font-size:11px;flex:none}
+.designer-plugin-row.selected .designer-plugin-check{border-color:#81926c;background:#81926c;color:#fff}
+.designer-plugin-empty{margin:18px 8px;font-size:12px;color:var(--design-muted,#7b8173)}
 .designer-system-origin{display:inline-block;margin-left:6px;font-size:10px;font-style:normal;font-weight:500;color:light-dark(#174cc0,#9bb7ef)}
 .designer-import-system{margin-right:auto;border:1px solid var(--design-line, #e3e3dd);background:transparent;color:inherit;border-radius:8px;padding:8px 12px;font:inherit;font-size:12px;cursor:pointer}
 .designer-comment-details{margin:10px 0;font-size:11px;color:var(--design-muted)}

@@ -3,14 +3,14 @@
   "plugins": [
     {
       "id": "spacing-audit",
-      "name": "Spacing audit",
-      "description": "Keep rhythm on the selected spacing tokens instead of ad-hoc pixels.",
+      "name": "间距节奏",
+      "description": "对照已选设计系统的间距，避免随手写死像素。",
       "file": "PLUGIN.md"
     },
     {
       "id": "copy-tone",
-      "name": "Copy tone",
-      "description": "Tighten product copy so the first draft already sounds finished.",
+      "name": "文案语气",
+      "description": "标题和按钮写成能上线的口吻，少用套话。",
       "file": "PLUGIN.md"
     }
   ]
