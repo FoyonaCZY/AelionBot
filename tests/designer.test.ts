@@ -51,13 +51,13 @@ test('runtime dispatch follows user-selected types and rejects resumes from anot
 });
 
 const call=(name:string,args:any)=>({id:randomUUID(),type:'function' as const,function:{name,arguments:JSON.stringify(args)}});
-function loopFixture(t:any,kind:'prototype'|'ppt'|'clone'='prototype'){
+function loopFixture(t:any,kind:'prototype'|'ppt'|'clone'|'mobile'|'document'='prototype'){
  const f=fixture(t),{root,store,bot}=f,systems=new DesignSystems(catalog(root)),designs=new DesignStore(store,systems);const task=designs.create({botId:bot.id,kind,brief:'Create a usable design',systemId:'sample'});
  const requests:any[]=[],invocations:string[]=[];const shared={openToolSession:(_bot:string,runId:string,_options:any,allow:(name:string)=>boolean)=>({definitions:[{type:'function',function:{name:'host_file_write',description:'Write',parameters:{type:'object',properties:{path:{type:'string'},content:{type:'string'}},required:['path','content'],additionalProperties:false}}},{type:'function',function:{name:'skill_read',description:'Should not load',parameters:{}}}].filter(v=>allow(v.function.name)),invoke:async(name:string,args:any)=>{invocations.push(name);if(name==='host_file_write'){const p=args.path;mkdirSync(dirname(p),{recursive:true});writeFileSync(p,args.content);}return {executionId:randomUUID(),result:{written:true}};},close:()=>{}})};
  const files=new DesignerFiles(store,designs);const vm:any={},collectRuns:string[]=[];const artifacts={read:(botId:string,path:string)=>files.read(botId,path),collect:async(botId:string,runId:string)=>{collectRuns.push(runId);const run=store.data.runs.find(r=>r.id===runId&&r.botId===botId);for(const file of await files.list(botId,run?.designSessionId))if(!store.data.artifacts.some(a=>a.botId===botId&&a.path===file.path&&a.modifiedAt===file.modifiedAt))store.data.artifacts.push({id:randomUUID(),botId,runId,...file});}};
  const context={observe:()=>{},prepare:async(input:any)=>{requests.push(structuredClone({scopeKey:input.scopeKey,history:input.history,system:input.system,prefixContext:input.prefixContext,taskFrame:input.taskFrame,tools:input.tools}));return {messages:[input.system,...(input.prefixContext||[]),...input.history],maxOutputTokens:8192,stats:{calibration:1,estimatedTokens:2000},calibrationEstimate:2000,recordUsage:()=>{}};}};
  const attachments={wire:(_bot:string,content:string)=>({content})},interactions={pendingQuestions:()=>[],permission:async()=>{}};
- return {...f,systems,designs,task,files,requests,invocations,vm,collectRuns,make:(complete:any,contextOverride:any=context)=>new DesignerLoop(store,designs,systems,files,{complete} as any,contextOverride as any,shared as any,artifacts as any,attachments as any,interactions as any,()=>{})};
+ return {...f,systems,designs,task,files,requests,invocations,vm,collectRuns,make:(complete:any,contextOverride:any=context,extras:any={})=>new DesignerLoop(store,designs,systems,files,{complete} as any,contextOverride as any,shared as any,artifacts as any,attachments as any,interactions as any,()=>{},extras)};
 }
 
 test('independent designer loop writes and verifies a real prototype without default skills or general history',async t=>{

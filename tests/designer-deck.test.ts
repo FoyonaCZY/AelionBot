@@ -8,6 +8,8 @@ test('playbooks cover presentation layouts and website clone',()=>{
  assert.equal(designerPlaybookName('ppt'),'presentation');
  assert.equal(designerPlaybookName('clone'),'clone');
  assert.equal(designerPlaybookName('prototype'),'prototype');
+ assert.equal(designerPlaybookName('mobile'),'mobile');
+ assert.equal(designerPlaybookName('document'),'document');
  const ppt=designerPlaybook('presentation');
  assert.match(ppt,/agenda/);
  assert.match(ppt,/design_deck/);
@@ -19,6 +21,10 @@ test('playbooks cover presentation layouts and website clone',()=>{
  assert.match(clone,/generic hero plus three cards/);
  assert.match(clone,/login, payment/);
  assert.match(clone,/source URL/i);
+ const mobile=designerPlaybook('mobile');
+ assert.match(mobile,/device frame|phone-first/i);
+ const document=designerPlaybook('document');
+ assert.match(document,/print CSS/i);
  assert.throws(()=>designerPlaybook('missing'),/未知/);
 });
 
@@ -43,6 +49,8 @@ test('deck layouts include agenda and cta with escaped companion HTML',()=>{
  assert.match(stat,/>—</);
  const html=deck.html.toString();
  assert.match(html,/class="agenda"/);
+ assert.match(html,/class="magazine"/);
+ assert.match(html,/data-design-id="slide-7"/);
  assert.match(html,/class="cta"/);
  assert.match(html,/Quarterly &lt;Review&gt;/);
  assert.match(html,/data-slide-id="slide-7"/);

@@ -54,6 +54,8 @@ export interface AelionAPI {
   updateDesignSession(input:import('./designer-types').DesignSessionUpdate):Promise<import('./designer-types').DesignSession>;
   sendDesignMessage(input:{id:string;message:string;attachmentIds?:string[]}):Promise<void>;
   acceptDesignSession(input:{id:string;revision:number}):Promise<void>;
+  listDesignWorkspace(id:string):Promise<Array<{name:string;path:string;size:number;modifiedAt?:string}>>;
+  importDesignSystem():Promise<import('./designer-types').DesignSystemSummary|null>;
 
   freezeWebPreview(input:{id:string;frozen:boolean}):Promise<string|null>;
   previewEditorCommand(input:{id:string;command:import('./preview-editor-types').EditorCommand}):Promise<import('./preview-editor-types').EditorResult>;

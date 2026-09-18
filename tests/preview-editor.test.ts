@@ -25,6 +25,8 @@ test('implied table sections and void element source ranges are handled without 
 });
 test('annotation and edit inputs have finite bounds and preserve annotation text and target metadata',()=>{
  const annotations=validateAnnotations([{id:'a',type:'rect',x:.2,y:.3,w:.4,h:.1,color:'#3975c6',text:'More space',page:2}]);assert.match(annotationContext(annotations),/page 2.*More space/);
+ const targeted=validateAnnotations([{id:'b',type:'element',x:.1,y:.1,color:'#3975c6',designId:'hero-title',selector:'h1',text:'Smaller type'}]);
+ assert.match(annotationContext(targeted),/data-design-id=hero-title/);
  assert.throws(()=>validateAnnotations([{...annotations[0],x:Infinity}]));assert.throws(()=>validateAnnotations(Array(101).fill(annotations[0])));assert.throws(()=>validateDomEdits([{before:{tag:'h1',path:[],html:'x'},after:4}]));
 });
 

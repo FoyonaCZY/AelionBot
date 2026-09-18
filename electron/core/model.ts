@@ -21,7 +21,7 @@ import {ContentPolicyError,contentPolicyRejected,omitToolCallArguments,omitToolR
 import {ResponsesTransport,websocketEnabled,type TransportStats} from './responses-transport';
 export interface ToolDefinition {type:'function';function:{name:string;description:string;parameters:Record<string,unknown>};}
 export interface Completion {requestModelKey?:string;inputImagesOmitted?:boolean;toolOutputsOmitted?:boolean;content:string;calls:ToolCall[];finishReason:string;usage?:ModelUsage;native?:NativeAssistant;}
-export interface CompletionOptions {splitOnTimeout?:boolean;onContext?:(overview:ContextOverview)=>void;onStatus?:(status:ModelRequestStatus)=>void;requiredImageIds?:string[];contextStats?:ContextUsage;botId?:string;runId?:string;cacheScope?:string;purpose?:string;maxOutputTokens?:number;timeoutMs?:number;retries?:number;onReset?:()=>void;}
+export interface CompletionOptions {splitOnTimeout?:boolean;onContext?:(overview:ContextOverview)=>void;onStatus?:(status:ModelRequestStatus)=>void;requiredImageIds?:string[];contextStats?:ContextUsage;botId?:string;runId?:string;cacheScope?:string;purpose?:string;maxOutputTokens?:number;timeoutMs?:number;retries?:number;onReset?:()=>void;hostedImageGeneration?:boolean;}
 export class ContextOverflowError extends Error {constructor(){super('模型报告上下文容量不足，需要压缩后继续');this.name='ContextOverflowError';}}
 class RequestError extends Error {constructor(message:string,readonly retryable=false,readonly retryAfterMs=0,readonly truncated=false){super(message);}}
 export function validateModelEndpoint(value:string){const url=new URL(value);if(url.username||url.password||url.search||url.hash)throw Error('API 地址不能包含凭据、查询参数或片段');if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(url.hostname)))throw Error('API 必须使用 HTTPS，本地模型可使用 localhost HTTP');return url.toString().replace(/\/$/,'');}
@@ -39,7 +39,7 @@ export class ModelClient {
  async complete(messages:WireMessage[],tools:ToolDefinition[],signal:AbortSignal,onText:(text:string)=>void=()=>{},options:CompletionOptions={}):Promise<Completion>{
   let timing=new RequestTiming();
   let cfg=this.getConfig(options.botId);if(cfg.issue)throw Error(cfg.issue);if(!cfg.model.trim())throw Error('请先为这个 Bot 选择 Provider 和模型');
-  cfg={...cfg,baseUrl:validateModelEndpoint(cfg.baseUrl)};const key=this.getKey(options.botId),settings=this.settings();
+  cfg={...cfg,baseUrl:validateModelEndpoint(cfg.baseUrl),...(options.hostedImageGeneration===false?{hostedImageGeneration:undefined}:{})};const key=this.getKey(options.botId),settings=this.settings();
   if(!key&&!['localhost','127.0.0.1','[::1]'].includes(new URL(cfg.baseUrl).hostname))throw Error('请先在设置中填写 API Key');
   const contextStats=options.contextStats?{displayTokens:options.contextStats.displayTokens,displaySource:options.contextStats.displaySource,estimatedTokens:options.contextStats.estimatedTokens,calibration:options.contextStats.calibration,prunedOutputs:options.contextStats.prunedOutputs,epoch:options.contextStats.epoch,estimateSource:options.contextStats.estimateSource,contextChanges:options.contextStats.contextChanges?.slice(),archivedImages:options.contextStats.archivedImages}:undefined;
   const images=new Map<string,string>(),resolveImage=(id:string)=>{let value=images.get(id);if(value===undefined){value=this.resolveImage(id);images.set(id,value);}return value;};

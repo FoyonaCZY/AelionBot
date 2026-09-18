@@ -3,7 +3,7 @@ import type {AttachmentScope} from './attachment-types';
 import type {ArtifactPreview} from './shared';
 import {FilePreview} from './FilePreview';
 import {WorkbenchContext,type PreviewWorkbenchInfo,type PreviewChatInput} from './preview-workbench';
-export interface PreviewItem{designSessionId?:string;
+export interface PreviewItem{designSessionId?:string;deviceFrame?:'phone'|'slide'|'page';
  id:string;name:string;size:number;workspace?:{botId:string;path:string};directoryBotId?:string;
  load:()=>Promise<ArtifactPreview>;save?:()=>Promise<unknown>;openInComputer?:()=>Promise<unknown>;
  editor?:{read:()=>Promise<import('./editable-text').EditableText>;write?:(edit:import('./editable-text').TextEdit)=>Promise<import('./editable-text').EditableText>};

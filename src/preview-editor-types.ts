@@ -1,7 +1,7 @@
 export type PreviewMode='browse'|'annotate'|'edit';
 export type AnnotationTool='rect'|'arrow'|'pen'|'text'|'element';
 export interface AnnotationPoint{x:number;y:number;}
-export interface PreviewAnnotation{id:string;type:AnnotationTool;x:number;y:number;w?:number;h?:number;end?:AnnotationPoint;points?:AnnotationPoint[];text?:string;color:string;page?:number;selector?:string;}
+export interface PreviewAnnotation{id:string;type:AnnotationTool;x:number;y:number;w?:number;h?:number;end?:AnnotationPoint;points?:AnnotationPoint[];text?:string;color:string;page?:number;selector?:string;designId?:string;}
 export interface DomTarget{tag:string;path:string[];html:string;}
 export interface DomEdit{before:DomTarget;after:string;}
 export interface PreviewElement{id:string;tag:string;label:string;parentId?:string;path:string[];attributes:Record<string,string>;html:string;truncated:boolean;text:string;leaf:boolean;styles:Record<string,string>;bounds:{x:number;y:number;width:number;height:number};}
