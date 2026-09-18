@@ -57,6 +57,7 @@ import {skillCatalog,SKILLS_LIST_TOOL} from './skill-catalog';
 import {searchSkills} from './skill-library';
 import {Attachments} from './attachments';
 import {FOUNDATION_TOOLS} from './foundation-tools';
+import {persistOmittedToolOutputs} from './model-content-policy';
 import {CodeOrchestrator} from './code-orchestrator';
 import {TerminalSessions} from './terminal-sessions';
 import {WebTools} from './web-tools';
@@ -430,6 +431,7 @@ export class Harness {
           visible.content='';visible.presentation='progress';
           enterMainTask();continue;
         }
+        if(result.toolOutputsOmitted)persistOmittedToolOutputs(history);
         if(prepared){prepared.recordUsage(result);contextEngine.observe(botId,run.id,'foreground',result,prepared.calibrationEstimate,prepared.stats.calibration);}if(groupPrepared){groupPrepared.recordUsage(result);contextEngine.observe(botId,run.id,'group',result,groupPrepared.calibrationEstimate,groupPrepared.stats.calibration);}
         lastRuntimeMessages=[...finalContext,{role:'assistant',native:result.native,content:result.content||null,...(result.calls.length?{tool_calls:result.calls}:{})}];lastTools=modelTools;
         const silentReaction=Boolean(reactionMessage&&!result.calls.length&&['[表情静默]','[群聊静默]'].includes(readableContent(result.content)));

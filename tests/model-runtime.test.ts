@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer,type RequestListener} from 'node:http';
 import {ModelClient,assistantMessage} from '../electron/core/model';
+import {omitToolResultBodies,persistOmittedToolOutputs} from '../electron/core/model-content-policy';
 import {protocolRequest,StreamAccumulator,nativeKey} from '../electron/core/model-protocol';
 import {DEFAULT_RUNTIME} from '../src/runtime-types';
 import type {ModelConfig} from '../src/shared';
@@ -21,6 +22,27 @@ test('429 retries are bounded; failed partial previews reset before retry and on
  let count=0,resets=0,visible='';const statuses:ModelRequestStatus[]=[];const baseUrl=await server(t,async(req,res)=>{for await(const _ of req){}count++;if(count===1){res.writeHead(429,{'retry-after':'0.001'});res.end('busy');return;}res.writeHead(200,{'content-type':'text/event-stream'});res.write('data: '+JSON.stringify({choices:[{delta:{content:count===2?'partial':'finished'}}]})+'\n\n');if(count===3)res.write('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n');res.end();});
  const model=new ModelClient(()=>({...cfg,baseUrl}),()=> '');const result=await model.complete([{role:'user',content:'test'}],[],new AbortController().signal,t=>visible+=t,{onStatus:status=>statuses.push(status),onReset:()=>{resets++;visible='';}});
  assert.equal(count,3);assert.equal(resets,1);assert.equal(visible,'finished');assert.equal(result.content,'finished');assert.deepEqual(statuses.filter(s=>s.phase!=='streaming').map(s=>s.phase),['waiting','retrying','waiting','retrying','waiting']);assert.equal(statuses[1].reason,'rate_limit');assert.equal(statuses[1].attempt,1);assert.doesNotMatch(JSON.stringify(statuses),/busy|partial|finished/);
+});
+test('tool result omission keeps identifiers and drops command output',()=>{
+  const history:import('../src/shared').WireMessage[]=[{role:'tool',tool_call_id:'c1',content:JSON.stringify({resultId:'rid',result:{stdout:'flagged-output',stderr:'boom',exitCode:1,path:'out.txt'}})}];
+  assert.equal(persistOmittedToolOutputs(history),true);
+  const parsed=JSON.parse(history[0].content||'');assert.equal(parsed.result.omitted,true);assert.equal(parsed.result.resultId,'rid');assert.equal(parsed.result.exitCode,1);assert.equal(parsed.result.path,'out.txt');assert.equal(parsed.result.stdout,undefined);assert.equal(persistOmittedToolOutputs(history),false);assert.equal(omitToolResultBodies(history)[0],history[0]);
+});
+test('provider content-policy refusals omit historical tool bodies and retry once',async t=>{
+  const requests:any[]=[];const marker='POLICY_FLAGGED_STDOUT';const baseUrl=await server(t,async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;requests.push(JSON.parse(body));const tools=JSON.parse(body).messages?.filter((message:any)=>message.role==='tool')||[];const flagged=tools.some((message:any)=>String(message.content).includes(marker));
+  res.setHeader('content-type','application/json');if(flagged){res.statusCode=400;res.end(JSON.stringify({error:{message:'Content Exists Risk',type:'invalid_request_error',code:'invalid_request_error'}}));return;}
+  res.end(JSON.stringify({choices:[{message:{content:'ok'},finish_reason:'stop'}]}));
+ });
+  const model=new ModelClient(()=>({...cfg,baseUrl}),()=> '');t.after(()=>model.dispose());
+  const history:import('../src/shared').WireMessage[]=[{role:'user',content:'continue'},{role:'assistant',content:null,tool_calls:[{id:'call-1',type:'function',function:{name:'computer_execute',arguments:'{}'}}]},{role:'tool',tool_call_id:'call-1',content:JSON.stringify({resultId:'rid',result:{stdout:marker,stderr:'AttributeError',exitCode:1}})}];
+  const snapshot=JSON.stringify(history);const result=await model.complete(history,[],new AbortController().signal);
+  assert.equal(result.content,'ok');assert.equal(result.toolOutputsOmitted,true);assert.equal(JSON.stringify(history),snapshot);assert.equal(requests.length,2);
+  const retried=requests[1].messages.find((message:any)=>message.role==='tool');assert.match(retried.content,/provider_content_policy/);assert.doesNotMatch(retried.content,new RegExp(marker));assert.match(retried.content,/rid/);
+});
+test('content-policy refusals without tool output are not retried',async t=>{
+  let count=0;const baseUrl=await server(t,async(req,res)=>{for await(const _ of req){}count++;res.writeHead(400);res.end(JSON.stringify({error:{message:'Content Exists Risk',type:'invalid_request_error'}}));});
+  const model=new ModelClient(()=>({...cfg,baseUrl}),()=> '');t.after(()=>model.dispose());
+  await assert.rejects(model.complete([{role:'user',content:'hello'}],[],new AbortController().signal),/内容审核/);assert.equal(count,1);
 });
 test('authentication failures are not retried and cancellation interrupts backoff',async t=>{
  let count=0;const baseUrl=await server(t,async(req,res)=>{for await(const _ of req){}count++;res.writeHead(count===1?401:429,{'retry-after':'30'});res.end('denied');});
