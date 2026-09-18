@@ -9,5 +9,5 @@
 @media(max-width:700px){.fp-feedback-wrap{bottom:max(12px,env(safe-area-inset-bottom));width:calc(100% - 24px)}.fp-feedback{gap:10px;padding-left:15px;min-height:50px}.fp-layer.has-feedback .fp-toolbar{bottom:calc(var(--fp-feedback-height,50px) + 30px)}.fp-layer.has-feedback .fp-edit-toolbar{bottom:80px}}
 @media(forced-colors:active){.fp-feedback{border-color:CanvasText;background:Canvas;color:CanvasText}.fp-feedback textarea{color:CanvasText}.fp-feedback button{background:ButtonFace;color:ButtonText;border:1px solid ButtonText}}
 @media(prefers-reduced-motion:reduce){.fp-feedback-spinner{animation:none}}
-.is-docked .fp-feedback-wrap{bottom:14px;width:calc(100% - 28px);max-width:540px}
-.is-docked .fp-feedback{gap:10px;padding-left:15px;min-height:50px}
+.is-docked .fp-feedback-wrap,.is-studio .fp-feedback-wrap{bottom:14px;width:calc(100% - 28px);max-width:540px}
+.is-docked .fp-feedback,.is-studio .fp-feedback{gap:10px;padding-left:15px;min-height:50px}

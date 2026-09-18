@@ -18,6 +18,12 @@
 .web-preview-nav input:focus{background:#fff;border-color:#c6d4e4}.web-preview-nav button:focus-visible,.web-preview-slot:focus-visible{outline:2px solid #7eaad2;outline-offset:1px}
 .web-preview-document{flex:1;min-width:0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 8px}
 .web-preview-slot{position:absolute;top:calc(var(--web-top) + 48px);bottom:var(--web-bottom);left:0;right:0;overflow:hidden;background:#fff}
+.web-preview-surface{position:absolute;inset:0}
+.fp-layer[data-device] .web-preview-surface{top:calc(var(--web-top) + 48px);right:0;bottom:var(--web-bottom);left:0;display:grid;place-items:center;background:#ece8de;padding:18px}
+.fp-layer[data-device] .web-preview-surface .web-preview-slot{position:relative;inset:auto;flex:none;max-width:100%;max-height:100%;box-shadow:0 18px 48px #0002}
+.fp-layer[data-device=phone] .web-preview-surface .web-preview-slot{width:min(390px,100%);aspect-ratio:390/844;height:auto;border-radius:36px;box-shadow:0 0 0 10px #1b1b18,0 0 0 12px #4a4a42,0 24px 50px #0004;overflow:hidden}
+.fp-layer[data-device=slide] .web-preview-surface .web-preview-slot{width:min(100%,1280px);aspect-ratio:16/9;border-radius:4px}
+.fp-layer[data-device=page] .web-preview-surface .web-preview-slot{width:min(100%,820px);aspect-ratio:8.5/11;border-radius:6px;background:#fff}
 .web-preview-loading{width:12px;height:12px;margin:0 6px;border:1.5px solid #e0e4e9;border-top-color:#727f90;border-radius:50%;animation:fp-spin 1s linear infinite}
 .fp-layer[data-feedback-capture=true] .web-preview-nav{visibility:hidden}
 @media(prefers-reduced-motion:reduce){.web-preview-loading{animation:none}}

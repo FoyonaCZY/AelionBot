@@ -3,6 +3,8 @@ import {DesignerLoop} from './core/designer-loop';
 import {DesignerFiles} from './core/designer-files';
 import {DesignStore} from './core/design-store';
 import {DesignSystems} from './core/design-systems';
+import {DesignPlugins} from './core/design-plugins';
+import {commentsFromAnnotations} from '../src/designer-canvas';
 import {botType} from '../src/designer-types';
 import {applyDomEdits} from './core/html-preview-edits';
 import {WebPreviewBrowser} from './web-preview';
@@ -152,10 +154,19 @@ async function initialize(){
   cognition=new Cognition(store,model,integrations.skills,changed,()=>Boolean(updatePreparing||harness?.busy||groupChats?.busy),()=>providers.secrets());
   agentPreviews=new AgentPreviews(store,artifacts,attachments,changed,host);
   const generalHarness=new Harness(store,vm,model,changed,computer,(botId,runId)=>artifacts.collect(botId,runId),integrations,host,interactions,cognition,attachments);
-  designSystems=new DesignSystems(join(app.getAppPath(),'assets','design-systems'),join(store.dir,'design-system-cache'));
-  designStore=new DesignStore(store,designSystems,changed,()=>host.workspaceSettings().workspaceDir);
+  designSystems=new DesignSystems(join(app.getAppPath(),'assets','design-systems'),join(store.dir,'design-system-cache'),join(store.dir,'custom-design-systems'));
+  const designPlugins=new DesignPlugins(join(app.getAppPath(),'assets','design-plugins'));
+  designStore=new DesignStore(store,designSystems,changed,()=>host.workspaceSettings().workspaceDir,designPlugins);
   const designerFiles=new DesignerFiles(store,designStore);artifacts.designerFiles=designerFiles;artifacts.openLocal=path=>shell.openPath(path);
-  const designerLoop=new DesignerLoop(store,designStore,designSystems,designerFiles,model,cognition.context,generalHarness,artifacts,attachments,interactions,changed);
+  const renderDesignPdf=async(html:string)=>{
+    const printer=new BrowserWindow({show:false,width:1280,height:900,webPreferences:{sandbox:true,offscreen:true,contextIsolation:true,backgroundThrottling:false}});
+    try{
+      await printer.loadURL('data:text/html;charset=utf-8;base64,'+Buffer.from(html).toString('base64'));
+      const pdf=await printer.webContents.printToPDF({printBackground:true,preferCSSPageSize:true});
+      return Buffer.from(pdf);
+    }finally{if(!printer.isDestroyed())printer.destroy();}
+  };
+  const designerLoop=new DesignerLoop(store,designStore,designSystems,designerFiles,model,cognition.context,generalHarness,artifacts,attachments,interactions,changed,{pdf:{render:renderDesignPdf},plugins:designPlugins});
   harness=new BotRuntime(store,generalHarness,designerLoop,changed,()=>cognition.beforeRun());
   harness.setPreviewGateway(agentPreviews);
   videoInspector=new VideoInspector(join(app.getAppPath(),'assets','video-inspector.html'));
@@ -347,7 +358,7 @@ async function initialize(){
     },
     attach:(scope,name,bytes)=>attachments.importFiles(scope,[{name,bytes}])[0],
     discard:(scope,id)=>attachments.discardUnsentDraft(scope,id),
-    send:(scope,message,attachmentId,previewPrompt,input)=>{const design=input?.designSessionId?designStore.get(input.designSessionId,undefined,{kind:scope.kind,id:scope.id}):undefined;const offset=message.indexOf(previewPrompt,message.indexOf('\n')+1)-(input?.text.length||0)+(input?.text.trimStart().length||0),extras={designSessionId:design?.id,attachmentIds:[...(input?.attachmentIds||[]),attachmentId],mentions:input?.mentions?.map(m=>({...m,start:m.start+offset,end:m.end+offset})),replyToMessageId:input?.replyToMessageId,previewPrompt};if(scope.kind==='bot')chatPins!.send({botId:scope.id,message,...extras});else groupChats!.send({id:scope.id,message,...extras});},
+    send:(scope,message,attachmentId,previewPrompt,input)=>{const design=input?.designSessionId?designStore.get(input.designSessionId,undefined,{kind:scope.kind,id:scope.id}):undefined;if(design&&input?.annotations?.length)designStore.addComments(design.id,commentsFromAnnotations(input.file?.path||input.file?.name||'',input.text,input.annotations,design.comments||[]));const offset=message.indexOf(previewPrompt,message.indexOf('\n')+1)-(input?.text.length||0)+(input?.text.trimStart().length||0),extras={designSessionId:design?.id,attachmentIds:[...(input?.attachmentIds||[]),attachmentId],mentions:input?.mentions?.map(m=>({...m,start:m.start+offset,end:m.end+offset})),replyToMessageId:input?.replyToMessageId,previewPrompt};if(scope.kind==='bot')chatPins!.send({botId:scope.id,message,...extras});else groupChats!.send({id:scope.id,message,...extras});},
     delivered:(scope,id)=>(scope.kind==='bot'?store.data.messages.filter(message=>message.botId===scope.id&&message.role==='user'):store.data.groups.find(room=>room.id===scope.id)?.messages.filter(message=>message.sender.kind==='user')||[]).some(message=>message.attachments?.some(file=>file.id===id))
   });
   handle('preview:feedback',input=>previewFeedback.send(input));
@@ -361,6 +372,14 @@ async function initialize(){
     throw Error('请通过原 Bot 协作私聊继续这个设计任务');
   });
   handle('design:accept',input=>{const session=designStore.get(String(input?.id));if(session.revision!==input.revision||session.activeRunId||!session.artifacts.length||!session.checks.some(check=>check.id==='format'&&check.status==='passed'))throw Error('请先完成当前设计的文件检查并刷新任务');session.status='completed';designStore.touch(session);});
+  handle('design:workspace',id=>designerFiles.list(designStore.get(String(id)).botId,String(id)));
+  handle('design:import-system',async()=>{
+    if(!window||window.isDestroyed())throw Error('窗口不可用');
+    const picked=await dialog.showOpenDialog(window,{properties:['openDirectory'],title:'选择包含 DESIGN.md 的设计系统文件夹'});
+    if(picked.canceled||!picked.filePaths[0])return null;
+    const system=designSystems.importFolder(picked.filePaths[0]);changed();
+    return {id:system.id,name:system.name,category:system.category,description:system.description||'',version:system.version,bytes:system.bytes,colors:system.colors,source:system.source,license:system.license,origin:'custom' as const};
+  });
   handle('chat:send',(input)=>{if(!input||typeof input.botId!=='string'||typeof input.message!=='string')throw new Error('无效消息');if(input.designSessionId)designStore.get(String(input.designSessionId),input.botId,{kind:'bot',id:input.botId});return chatPins!.send(input);});
   handle('chat:resume',input=>{if(typeof input?.botId!=='string'||typeof input.runId!=='string')throw Error('恢复任务参数无效');if(harness.isRunning(input.botId)||chatPins?.hasPending(input.botId))throw Error('Bot 正在处理消息，请稍后继续');const run=resumableRun(store,input.botId,input.runId);greetings?.cancel(input.botId);if(run.groupOrigin)groupChats!.retryRun(run);else if(run.peerOrigin)peerChats!.retryRun(run);else void harness.resume(input.botId,input.runId).catch(error=>{store.message(input.botId,'event',(error as Error).message);changed();});changed();});
   handle('chat:pin',input=>chatPins!.pin(input));

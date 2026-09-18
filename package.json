@@ -43,7 +43,8 @@
       "package.json",
       "docs/THIRD-PARTY-NOTICES.md",
       "docs/licenses/**",
-      "assets/design-systems/**"
+      "assets/design-systems/**",
+      "assets/design-plugins/**"
     ],
     "win": {
       "target": "dir",
@@ -91,6 +92,7 @@
     "asarUnpack": [
       "assets/skills/**",
       "assets/design-systems/**",
+      "assets/design-plugins/**",
       "node_modules/node-pty/**"
     ]
   },

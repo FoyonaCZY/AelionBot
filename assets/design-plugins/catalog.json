@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "plugins": [
+    {
+      "id": "spacing-audit",
+      "name": "Spacing audit",
+      "description": "Keep rhythm on the selected spacing tokens instead of ad-hoc pixels.",
+      "file": "PLUGIN.md"
+    },
+    {
+      "id": "copy-tone",
+      "name": "Copy tone",
+      "description": "Tighten product copy so the first draft already sounds finished.",
+      "file": "PLUGIN.md"
+    }
+  ]
+}

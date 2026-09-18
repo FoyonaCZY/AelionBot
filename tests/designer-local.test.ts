@@ -64,7 +64,7 @@ test('preview-saved HTML cannot be fully overwritten',async t=>{
 });
 test('legacy VM design tasks are kept intact and cannot silently execute on the host',t=>{const f=setup(t),legacy={...f.task,location:undefined,workspaceDir:undefined,workspacePath:'design-projects/'+f.task.id};assert.throws(()=>f.files.absolute(legacy,'index.html'),/旧版 VM/);assert.equal(f.task.location,'host');assert.equal(f.vmCalls(),0);});
 
-for(const kind of ['prototype','ppt','clone'] as const)test('real tool pipeline publishes '+kind+' and opens its preview',async t=>{
+for(const kind of ['prototype','ppt','clone','mobile','document'] as const)test('real tool pipeline publishes '+kind+' and opens its preview',async t=>{
  const f=setup(t),session=f.designs.get(f.task.id);session.kind=kind;
  const paths=kind==='ppt'?['deck.pptx','deck.html']:['index.html'];
  if(kind==='ppt'){const deck=designerDeck('Local slides',[{title:'Editable content'}]);f.files.write(session,'deck.pptx',deck.pptx);f.files.write(session,'deck.html',deck.html);}
@@ -103,3 +103,43 @@ test('designer creates a substantial new file through the real host service with
  await assert.rejects(host.writeFile(f.bot.id,run.id,{path:'index.html',content:'overwrite',reason:'test'},new AbortController().signal,f.task.workspaceDir),/文件已存在/);assert.equal(readFileSync(join(f.task.workspaceDir!,'index.html'),'utf8'),content);
  await assert.rejects(host.writeFile(f.bot.id,run.id,{path:'new.html',content:'new',reason:'test',expectedSha256:'0'.repeat(64)},new AbortController().signal,f.task.workspaceDir),/新建文件请省略/);assert.equal(existsSync(join(f.task.workspaceDir!,'new.html')),false);
 });
+
+test('design_image writes into assets after permission and fails without image bytes',async t=>{
+ const f=setup(t),session=f.designs.get(f.task.id),attachments=new Attachments(f.store,f.vm as any,f.artifacts);
+ f.files.write(session,'index.html',Buffer.from('<html><body><h1 data-design-id="hero">Hero</h1></body></html>'));
+ let permissions=0;const interactions={permission:async()=>{permissions++;},pendingQuestions:()=>[],cancelQuestions:()=>{}};
+ const host=new HostComputer({dataDir:f.store.dir,projectDir:f.root,homeDir:f.root},interactions as any);
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64');
+ let turn=0;
+ const model={complete:async(_messages:any,tools:any)=>!tools?.length?{content:'',calls:[],finishReason:'stop',native:{protocol:'responses',key:'k',data:[{type:'image_generation_call',result:png.toString('base64')}]}}:{content:turn?'Ready':'Saving',calls:turn++===0?[{id:randomUUID(),type:'function',function:{name:'design_image',arguments:JSON.stringify({prompt:'A red mark',reason:'Hero art',filename:'hero.png'})}}]:turn===2?[{id:randomUUID(),type:'function',function:{name:'design_publish',arguments:JSON.stringify({paths:['index.html']})}}]:[],finishReason:'stop'}};
+ const shared=new Harness(f.store,f.vm as any,model as any,()=>{},undefined,undefined,undefined,host,interactions as any,undefined,attachments);t.after(()=>{shared.disposeTools();host.dispose();});
+ const context={observe:()=>{},prepare:async(input:any)=>({messages:[input.system,...input.history],maxOutputTokens:8192,stats:{calibration:1},calibrationEstimate:2000,recordUsage:()=>{}})};
+ const loop=new DesignerLoop(f.store,f.designs,{} as any,f.files,model as any,context as any,shared,f.artifacts,attachments,interactions as any,()=>{});
+ await loop.run(f.bot.id,'Need a hero image',{designSessionId:session.id});
+ const run=f.store.data.runs.at(-1)!;assert.equal(run.status,'completed',run.error||'image run failed');
+ assert.equal(permissions,1);assert.ok(existsSync(join(session.workspaceDir!,'assets','hero.png')));
+ assert.equal(readFileSync(join(session.workspaceDir!,'assets','hero.png')).equals(png),true);
+ let failTurn=0;const failing={complete:async(_m:any,tools:any)=>!tools?.length?{content:'no image',calls:[],finishReason:'stop'}:{content:'Trying',calls:failTurn++===0?[{id:randomUUID(),type:'function',function:{name:'design_image',arguments:JSON.stringify({prompt:'x',reason:'art'})}}]:[],finishReason:'stop'}};
+ const failLoop=new DesignerLoop(f.store,f.designs,{} as any,f.files,failing as any,context as any,shared,f.artifacts,attachments,interactions as any,()=>{});
+ await failLoop.run(f.bot.id,'Need another image',{designSessionId:session.id});
+ assert.match([f.store.data.runs.at(-1)?.error||'',...f.store.data.messages.filter(m=>m.runId===f.store.data.runs.at(-1)?.id).map(m=>m.content)].join('\n'),/生图未返回|假装/);
+});
+
+test('design_export_pdf writes a real PDF beside the HTML preview',async t=>{
+ const f=setup(t),session=f.designs.get(f.task.id);
+ f.files.write(session,'index.html',Buffer.from('<html><body><h1>Print me</h1></body></html>'));
+ const attachments=new Attachments(f.store,f.vm as any,f.artifacts);
+ let permissions=0;const interactions={permission:async()=>{permissions++;},pendingQuestions:()=>[],cancelQuestions:()=>{}};
+ const host=new HostComputer({dataDir:f.store.dir,projectDir:f.root,homeDir:f.root},interactions as any);
+ let turn=0;
+ const model={complete:async()=>({content:turn?'Ready':'Exporting',calls:turn++===0?[{id:randomUUID(),type:'function',function:{name:'design_export_pdf',arguments:JSON.stringify({path:'index.html',reason:'Share a PDF'})}}]:turn===2?[{id:randomUUID(),type:'function',function:{name:'design_publish',arguments:JSON.stringify({paths:['index.html','index.pdf']})}}]:[],finishReason:'stop'})};
+ const shared=new Harness(f.store,f.vm as any,model as any,()=>{},undefined,undefined,undefined,host,interactions as any,undefined,attachments);t.after(()=>{shared.disposeTools();host.dispose();});
+ const context={observe:()=>{},prepare:async(input:any)=>({messages:[input.system,...input.history],maxOutputTokens:8192,stats:{calibration:1},calibrationEstimate:2000,recordUsage:()=>{}})};
+ const pdf=Buffer.from('%PDF-1.4\n%fixture\n');
+ const loop=new DesignerLoop(f.store,f.designs,{} as any,f.files,model as any,context as any,shared,f.artifacts,attachments,interactions as any,()=>{},{pdf:{render:async()=>pdf}});
+ await loop.run(f.bot.id,'Export pdf',{designSessionId:session.id});
+ const run=f.store.data.runs.at(-1)!;assert.equal(run.status,'completed',run.error||'pdf run failed');
+ assert.equal(permissions,1);assert.equal(readFileSync(join(session.workspaceDir!,'index.pdf')).subarray(0,5).toString(),'%PDF-');
+ assert.ok(f.designs.get(session.id).artifacts.some(a=>a.kind==='pdf'));
+});
+
