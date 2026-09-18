@@ -150,6 +150,9 @@ test('studio source keeps docked feedback and portals into the canvas host',()=>
  const studio=read(resolve('src/designer-studio.css'),'utf8');
  assert.match(studio,/\.fp-layer\.is-studio\{[^}]*inset:0/);
  assert.match(studio,/\.fp-layer\.is-studio \.fp-web-frame\{[^}]*height:100%/);
+ assert.match(studio,/grid-template-columns:\s*minmax\(240px,\s*300px\)\s+minmax\(0,\s*1fr\)/);
+ assert.match(studio,/\.designer-workspace\.has-task\.is-studio>\.designer-studio-chat\{[^}]*max-width:\s*300px/);
+ assert.doesNotMatch(studio,/minmax\(280px,38%\)/);
  assert.doesNotMatch(studio,/top:auto;right:auto;bottom:auto/);
  const loop=read(resolve('electron/core/designer-loop.ts'),'utf8');
  assert.match(loop,/hostedImageGeneration:false/);
