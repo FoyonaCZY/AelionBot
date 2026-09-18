@@ -5,7 +5,7 @@ import { Store } from './store';
 import {officeExtensions,officePreview,OFFICE_PREVIEW_LIMIT} from './office-preview';
 import { VmController, shQuote } from './vm';
 import {WORKSPACE_DIRECTORY_SCRIPT} from './workspace-directory';
-import type {WorkspaceDirectory} from '../../src/workspace-files';
+import {isRunArtifact,type WorkspaceDirectory} from '../../src/workspace-files';
 import {sourceTextFile} from '../../src/source-language';
 import type {TextEdit} from '../../src/editable-text';
 import {editableText,editedBytes} from './preview-editing';
@@ -72,8 +72,10 @@ for directory, dirs, names in os.walk(root,followlinks=False):
     for name in names:
         path=pathlib.Path(directory)/name
         if name.startswith('.') or path.is_symlink() or not path.is_file(): continue
+        rel=str(path.relative_to(root)).replace(os.sep,'/')
+        if rel.startswith('Desktop/') and rel.endswith('.desktop') and rel.count('/')==1: continue
         stat=path.stat()
-        files.append({'name':name,'path':str(path.relative_to(root)),'size':stat.st_size,'modifiedAt':datetime.datetime.fromtimestamp(stat.st_mtime,datetime.timezone.utc).isoformat()})
+        files.append({'name':name,'path':rel,'size':stat.st_size,'modifiedAt':datetime.datetime.fromtimestamp(stat.st_mtime,datetime.timezone.utc).isoformat()})
         if len(files)>=200: break
     if len(files)>=200: break
 print(json.dumps(files,ensure_ascii=False))`;
@@ -85,6 +87,7 @@ print(json.dumps(files,ensure_ascii=False))`;
     const run=this.store.data.runs.find(item=>item.id===runId&&item.botId===botId);if(!run)return;
     const files=this.local(botId)?await this.designerFiles!.list(botId,run.designSessionId):await this.list(botId);
     for(const file of files){
+      if(!isRunArtifact(file.path))continue;
       if(file.path.startsWith('attachments/')&&this.store.data.attachments.some(attachment=>file.path.startsWith(`attachments/${attachment.id}/`)))continue;
       if(Date.parse(file.modifiedAt)<Date.parse(run.startedAt)-2000)continue;
       if(this.store.data.artifacts.some(item=>item.botId===botId&&item.path===file.path&&item.modifiedAt===file.modifiedAt))continue;

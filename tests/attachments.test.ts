@@ -46,6 +46,10 @@ test('attachments preserve original bytes and names, and drafts cannot be read b
   const restored=new Attachments(new Store(fx.dir));assert.deepEqual(restored.bytes(file.id),document);assert.match(restored.preview(file.id).content!,/数值/);
 });
 
+test('plain chat replies do not scan the workspace for leftover desktop files',async t=>{
+  let collected=0;const fx=fixture(t,()=>answer('你好，有什么要问的？'));(fx.harness as any).collectArtifacts=async()=>{collected++;};
+  fx.queue.send({botId:fx.a.id,message:'你好'});await until(fx.idle);assert.equal(fx.store.data.runs[0].status,'completed');assert.equal(fx.store.data.runs[0].toolCalls,0);assert.equal(collected,0);
+});
 test('attachment-only messages invoke the Bot once with real content, without duplicate user messages',async t=>{
   const fx=fixture(t,(_run,messages)=>{assert.match([...messages].reverse().find(message=>message.role==='user')?.content||'',/咖啡,42/);assert.match([...messages].reverse().find(message=>message.role==='user')?.content||'',/附件/);return answer('文件里咖啡对应的数值是 42。');});const [file]=fx.attachments.importFiles({kind:'bot',id:fx.a.id},[{name:'数据.csv',bytes:document}]);fx.queue.send({botId:fx.a.id,message:'',attachmentIds:[file.id]});await until(fx.idle);assert.equal(fx.store.data.messages.filter(message=>message.role==='user').length,1);assert.equal(fx.store.data.messages.find(message=>message.role==='user')?.attachments?.[0].id,file.id);assert.equal(fx.store.data.runs[0].status,'completed');
 });

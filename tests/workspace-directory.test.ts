@@ -6,6 +6,8 @@ import {tmpdir} from 'node:os';
 import {join,resolve,dirname} from 'node:path';
 import {WORKSPACE_DIRECTORY_SCRIPT} from '../electron/core/workspace-directory';
 import {ArtifactService} from '../electron/core/artifacts';
+import {isRunArtifact} from '../src/workspace-files';
+import {Store} from '../electron/core/store';
 
 const python=process.env.AELION_TEST_PYTHON||(process.platform==='win32'?'python':'python3');
 const available=spawnSync(python,['--version'],{windowsHide:true,timeout:5000}).status===0;
@@ -17,6 +19,21 @@ test('directory browser reads one level, includes empty folders and supports dee
 test('resolved directories cannot escape through parent paths or links',{skip:!available},t=>{
   const f=fixture(t);const outside=join(f.dir,'outside');mkdirSync(outside);writeFileSync(join(outside,'private.txt'),'private');symlinkSync(outside,join(f.root,'link'),process.platform==='win32'?'junction':'dir');
   assert.notEqual(f.read('../outside').status,0);assert.notEqual(f.read('link').status,0);
+});
+test('desktop launchers are not treated as run deliverables',()=>{
+  assert.equal(isRunArtifact('notes.txt'),true);
+  assert.equal(isRunArtifact('Downloads/report.pdf'),true);
+  assert.equal(isRunArtifact('Desktop/notes.txt'),true);
+  for(const path of ['Desktop/Browser.desktop','Desktop/Work.desktop','Desktop/Writer.desktop','Desktop/Calc.desktop','Desktop/Impress.desktop','.desktop/session','Desktop/.hidden'])assert.equal(isRunArtifact(path),false);
+});
+test('collect skips desktop session shortcuts written during a greeting',async t=>{
+  const parent=resolve(tmpdir()),dir=mkdtempSync(join(parent,'aelion-artifacts-'));t.after(()=>{assert.equal(dirname(resolve(dir)),parent);rmSync(dir,{recursive:true,force:true});});
+  const store=new Store(dir),bot=store.data.bots[0]||store.createBot('归档','整理文件'),now=new Date().toISOString();
+  store.data.runs.push({id:'run',botId:bot.id,status:'completed',startedAt:now,modelCalls:1,toolCalls:0} as any);
+  const service=new ArtifactService(store,{state:{status:'ready'}} as any);
+  service.list=async()=>[{name:'Browser.desktop',path:'Desktop/Browser.desktop',size:155,modifiedAt:now},{name:'Work.desktop',path:'Desktop/Work.desktop',size:135,modifiedAt:now},{name:'Impress.desktop',path:'Desktop/Impress.desktop',size:113,modifiedAt:now},{name:'Calc.desktop',path:'Desktop/Calc.desktop',size:104,modifiedAt:now},{name:'Writer.desktop',path:'Desktop/Writer.desktop',size:110,modifiedAt:now},{name:'notes.txt',path:'notes.txt',size:12,modifiedAt:now}];
+  await service.collect(bot.id,'run');
+  assert.deepEqual(store.data.artifacts.map(file=>file.path),['notes.txt']);
 });
 test('invalid directory paths are rejected before any VM operation',async()=>{
   let calls=0;const service=new ArtifactService({bot:()=>({id:'bot'})} as any,{executePython:async()=>{calls++;return {exitCode:0,stdout:'{"entries":[]}'}}} as any);

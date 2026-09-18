@@ -566,7 +566,7 @@ export class Harness {
       work.finish(run);
       this.streams.dropRun(run.id);
       this.computer?.release(botId);
-      try{if(options.peerOrigin?.kind!=='peer_summary'&&(!options.groupOrigin||run.toolCalls>0&&this.store.data.runs.find(record=>record.id===run.id)?.groupTask)&&(!groupRuntime.updated||run.toolCalls>0))await this.collectArtifacts?.(botId,run.id);}catch(error){this.store.message(botId,'event',`工作文件列表暂未更新：${(error as Error).message}`,{runId:run.id});}
+      try{if(run.toolCalls>0&&options.peerOrigin?.kind!=='peer_summary'&&(!options.groupOrigin||this.store.data.runs.find(record=>record.id===run.id)?.groupTask))await this.collectArtifacts?.(botId,run.id);}catch(error){this.store.message(botId,'event',`工作文件列表暂未更新：${(error as Error).message}`,{runId:run.id});}
       this.groupActive.delete(botId);this.runtimes.delete(botId);this.active.delete(botId);if(cognition)cognition.afterRun(botId,run.id,lastRuntimeMessages,lastTools);else this.cognition?.learning.schedule();this.changed();
     }
   }
