@@ -8,13 +8,14 @@ const flush=()=>new Promise<void>(resolve=>setImmediate(resolve));
 test('computer stays exclusive; file writes lock by path instead of globally',()=>{
   assert.equal(isExclusiveTool('computer'),true);
   assert.equal(isExclusiveTool('computer_execute'),true);
-  assert.equal(isExclusiveTool('host_file_write'),false);
-  assert.equal(isSerialTool('host_file_write'),true);
+  assert.equal(isExclusiveTool('host_file_write'),true);
+  assert.equal(isSerialTool('file_write'),true);
+  assert.equal(isExclusiveTool('file_write'),false);
   assert.equal(isSerialTool('host_file_read'),false);
   assert.equal(isSerialTool('web_search'),false);
   assert.deepEqual(writeLockPaths('file_write',{path:'a/note.md'}),['vm:a/note.md']);
-  assert.deepEqual(writeLockPaths('host_file_write',{path:'C:\\proj\\a.ts'}),['host:C:/proj/a.ts']);
-  assert.deepEqual(writeLockPaths('apply_patch',{patch:'*** Begin Patch\n*** Add File: src/a.ts\n+a\n*** Update File: src/b.ts\n*** End Patch'}),['host:src/a.ts','host:src/b.ts']);
+  assert.deepEqual(writeLockPaths('host_file_write',{path:'C:\\Users\\example\\a.ts'}),[]);
+  assert.deepEqual(writeLockPaths('apply_patch',{patch:'*** Begin Patch\n*** Add File: src/a.ts\n+a\n*** Update File: src/b.ts\n*** End Patch'}),[]);
 });
 
 test('independent steps start together and a serial step waits for them',async()=>{

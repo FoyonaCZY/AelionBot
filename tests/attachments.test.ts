@@ -85,8 +85,8 @@ test('human group attachments notify every member and follow current group membe
 
 test('host attachment paths are detected without treating VM workspace files as host files',()=>{
   const bot='11111111-2222-3333-4444-555555555555';
-  assert.equal(isHostAttachmentPath('C:\\Users\\me\\report.md',bot),true);
-  assert.equal(isHostAttachmentPath('/Users/me/report.md',bot),true);
+  assert.equal(isHostAttachmentPath('C:\\Users\\example\\report.md',bot),true);
+  assert.equal(isHostAttachmentPath('/Users/example/report.md',bot),true);
   assert.equal(isHostAttachmentPath('report.md',bot),false);
   assert.equal(isHostAttachmentPath(`/work/${bot}/report.md`,bot),false);
 });

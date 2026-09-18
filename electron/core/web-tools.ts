@@ -9,6 +9,20 @@ import {boundedInteger,textPage,FileToolError} from './file-text';
 import {abortable} from './abortable';
 
 const LIMIT=2*1024*1024;
+const BOT_UA='AelionBot/0.15 (+https://aelion.chat)';
+const SEARCH_UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+const SEARCH_CACHE_MS=5*60*1000;
+function requestHeaders(url:URL){
+ const search=/(?:^|\.)(?:bing\.com|duckduckgo\.com|brave\.com)$/.test(url.hostname);
+ return {'User-Agent':search?SEARCH_UA:BOT_UA,Accept:'text/html,application/xhtml+xml,application/rss+xml,application/xml,text/plain,application/json','Accept-Language':'en-US,en;q=0.8,zh-CN;q=0.6','Accept-Encoding':'identity'};
+}
+type SearchHit={title:string;url:string;snippet:string};
+function cleanHit(title:string,url:string,snippet:string):SearchHit|undefined{
+ try{return {title:title.replace(/\s+/g,' ').trim().slice(0,300),url:publicWebUrl(url).href,snippet:snippet.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,1000)};}catch{return;}
+}
+function uniqueHits(results:SearchHit[],limit:number){
+ return [...new Map(results.filter(item=>item.url&&item.title).map(item=>[item.url,item])).values()].slice(0,limit);
+}
 export function publicWebUrl(value:unknown){
  if(typeof value!=='string'||value.length>4000)throw new FileToolError('INVALID_URL','请输入有效的网页 URL');
  let url:URL;try{url=new URL(value);}catch{throw new FileToolError('INVALID_URL','请输入包含 https:// 的完整 URL');}
@@ -32,7 +46,7 @@ export async function loadPublicPage(value:string,signal:AbortSignal):Promise<We
   if(!addresses.length||addresses.some(item=>!publicAddress(item.address)))throw new FileToolError('PRIVATE_NETWORK','目标解析到本机或内网地址，已停止请求');
   const selected=addresses[0];
   const response=await new Promise<{status:number;headers:Record<string,any>;bytes:Buffer}>((resolve,reject)=>{
-   const req=(url.protocol==='https:'?httpsRequest:httpRequest)(url,{signal:combined,family:selected.family,headers:{'User-Agent':'AelionBot/0.15 (+https://aelion.chat)','Accept':'text/html,application/xhtml+xml,application/rss+xml,application/xml,text/plain,application/json','Accept-Encoding':'identity'},lookup:((_host:any,_options:any,done:any)=>done(null,selected.address,selected.family)) as any},res=>{
+   const req=(url.protocol==='https:'?httpsRequest:httpRequest)(url,{signal:combined,family:selected.family,headers:requestHeaders(url),lookup:((_host:any,_options:any,done:any)=>done(null,selected.address,selected.family)) as any},res=>{
     const chunks:Buffer[]=[];let size=0;res.on('data',chunk=>{size+=chunk.length;if(size>LIMIT){req.destroy(new FileToolError('WEB_TOO_LARGE','网页超过 2 MB，请缩小读取范围'));return;}chunks.push(chunk);});res.on('error',reject);res.on('end',()=>resolve({status:res.statusCode||0,headers:res.headers,bytes:Buffer.concat(chunks)}));
    });req.on('error',reject);req.end();
   });
@@ -55,8 +69,50 @@ export function extractWebPage(document:WebDocument){
  const text=(main.textContent||'').replace(/[^\S\n]+/g,' ').replace(/ *\n */g,'\n').replace(/\n{3,}/g,'\n\n').trim();
  return {title,text,links};
 }
+const SEARCH_ENGINES=[
+ {name:'bing',url:(q:string)=>`https://www.bing.com/search?format=rss&q=${encodeURIComponent(q)}`,parse:(page:WebDocument)=>parseBingRss(page.body)},
+ {name:'bing',url:(q:string)=>`https://www.bing.com/search?q=${encodeURIComponent(q)}`,parse:(page:WebDocument)=>parseBingHtml(page)},
+ {name:'duckduckgo',url:(q:string)=>`https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`,parse:(page:WebDocument)=>parseDuckDuckGoHtml(page)},
+ {name:'duckduckgo',url:(q:string)=>`https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(q)}`,parse:(page:WebDocument)=>parseDuckDuckGoLite(page)},
+ {name:'brave',url:(q:string)=>`https://search.brave.com/search?q=${encodeURIComponent(q)}`,parse:(page:WebDocument)=>parseBraveHtml(page)},
+] as const;
+function parseBingRss(body:string){
+ const doc=new DOMParser().parseFromString(body,'text/xml');
+ return [...doc.querySelectorAll('item')].flatMap(item=>{const hit=cleanHit(item.querySelector('title')?.textContent||'',item.querySelector('link')?.textContent||'',item.querySelector('description')?.textContent||'');return hit?[hit]:[];});
+}
+function parseBingHtml(page:WebDocument){
+ const {document}=parseHTML(page.body);
+ return [...document.querySelectorAll('li.b_algo')].flatMap(item=>{
+  const link=item.querySelector('h2 a, .b_title a, a[href]');
+  const hit=cleanHit(link?.textContent||'',link?.getAttribute('href')||'',item.querySelector('.b_caption p, .b_lineclamp, p')?.textContent||'');
+  return hit?[hit]:[];
+ });
+}
+function parseDuckDuckGoHtml(page:WebDocument){
+ const {document}=parseHTML(page.body);
+ return [...document.querySelectorAll('.result')].flatMap(item=>{
+  const link=item.querySelector('a.result__a');if(!link)return [];
+  try{const target=new URL(link.getAttribute('href')!,page.url);const hit=cleanHit(link.textContent||'',target.searchParams.get('uddg')||target.href,item.querySelector('.result__snippet')?.textContent||'');return hit?[hit]:[];}catch{return [];}
+ });
+}
+function parseDuckDuckGoLite(page:WebDocument){
+ const {document}=parseHTML(page.body);
+ return [...document.querySelectorAll('a.result-link')].flatMap((link,index)=>{
+  const hit=cleanHit(link.textContent||'',link.getAttribute('href')||'',document.querySelectorAll('.result-snippet')[index]?.textContent||'');
+  return hit?[hit]:[];
+ });
+}
+function parseBraveHtml(page:WebDocument){
+ const {document}=parseHTML(page.body);
+ return [...document.querySelectorAll('[data-type="web"], .snippet')].flatMap(item=>{
+  const link=item.querySelector('a[href^="http"]');if(!link)return [];
+  const hit=cleanHit(link.textContent||'',link.getAttribute('href')||'',item.querySelector('.snippet-description, .snippet-content, p')?.textContent||'');
+  return hit?[hit]:[];
+ });
+}
 export class WebTools {
  private pages=new Map<string,{botId:string;url:string;title:string;text:string;links:Array<{text:string;url:string}>;time:number}>();
+ private searches=new Map<string,{time:number;value:{query:string;engine:string;untrusted:true;results:SearchHit[]}}>();
  constructor(private load:WebLoader=loadPublicPage){}
  async read(botId:string,args:Record<string,unknown>,signal:AbortSignal){
   const maxChars=boundedInteger(args.maxChars,12000,100,32000,'maxChars'),offset=boundedInteger(args.offset,0,0,Number.MAX_SAFE_INTEGER,'offset');
@@ -67,22 +123,21 @@ export class WebTools {
   return {id,url:page.url,title:page.title,source:'web',untrusted:true,...textPage(page.text,{offset,maxChars}),links:page.links};
  }
  private get(botId:string,id:string){const page=this.pages.get(id);if(!page||page.botId!==botId||Date.now()-page.time>30*60000)throw new FileToolError('WEB_PAGE_EXPIRED','网页结果不存在或已过期，请重新打开 URL');return page;}
- async search(_botId:string,args:Record<string,unknown>,signal:AbortSignal){
+ async search(botId:string,args:Record<string,unknown>,signal:AbortSignal){
   if(typeof args.query!=='string'||!args.query.trim()||args.query.length>1000)throw new FileToolError('INVALID_ARGUMENT','搜索词需要 1–1000 字符');
-  const query=args.query.trim(),limit=boundedInteger(args.limit,5,1,10,'limit');let lastError:unknown;
-  for(const engine of ['bing','duckduckgo'] as const){
+  const query=args.query.trim(),limit=boundedInteger(args.limit,5,1,10,'limit'),cacheKey=`${botId}\0${query.toLowerCase()}\0${limit}`;
+  const cached=this.searches.get(cacheKey);if(cached&&Date.now()-cached.time<SEARCH_CACHE_MS)return cached.value;
+  let lastError:unknown;
+  for(const engine of SEARCH_ENGINES){
    signal.throwIfAborted();try{
-    const url=engine==='bing'?`https://www.bing.com/search?format=rss&q=${encodeURIComponent(query)}`:`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,page=await this.load(url,signal);signal.throwIfAborted();let results:Array<{title:string;url:string;snippet:string}>=[];
-    if(engine==='bing'){
-     const doc=new DOMParser().parseFromString(page.body,'text/xml');results=[...doc.querySelectorAll('item')].flatMap(item=>{try{return [{title:item.querySelector('title')?.textContent||'',url:publicWebUrl(item.querySelector('link')?.textContent).href,snippet:item.querySelector('description')?.textContent||''}];}catch{return [];}});
-    }else{
-     const {document}=parseHTML(page.body);results=[...document.querySelectorAll('.result')].flatMap(item=>{const link=item.querySelector('a.result__a');if(!link)return [];try{const target=new URL(link.getAttribute('href')!,page.url);return [{title:link.textContent||'',url:publicWebUrl(target.searchParams.get('uddg')||target.href).href,snippet:item.querySelector('.result__snippet')?.textContent||''}];}catch{return [];}});
-    }
+    const page=await this.load(engine.url(query),signal);signal.throwIfAborted();
+    const results=uniqueHits(engine.parse(page),limit);
     if(!results.length)throw new Error('搜索服务未返回可读取的结果，可能被限流或需要浏览器验证');
-    return {query,engine,untrusted:true,results:[...new Map(results.map(result=>[result.url,{...result,title:result.title.slice(0,300),snippet:result.snippet.slice(0,1000)}])).values()].slice(0,limit)};
+    const value={query,engine:engine.name,untrusted:true as const,results};this.searches.delete(cacheKey);this.searches.set(cacheKey, {time:Date.now(),value});while(this.searches.size>32)this.searches.delete(this.searches.keys().next().value!);
+    return value;
    }catch(error){signal.throwIfAborted();lastError=error;}
   }
   throw new FileToolError('WEB_SEARCH_UNAVAILABLE',`网页搜索暂不可用：${lastError instanceof Error?lastError.message:'网络错误'}。可稍后重试，或使用已配置的搜索 MCP/浏览器。`);
  }
- clearBot(botId:string){for(const [id,page] of this.pages)if(page.botId===botId)this.pages.delete(id);}
+ clearBot(botId:string){for(const [id,page] of this.pages)if(page.botId===botId)this.pages.delete(id);for(const key of this.searches.keys())if(key.startsWith(botId+'\0'))this.searches.delete(key);}
 }

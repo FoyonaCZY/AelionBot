@@ -1,19 +1,19 @@
 export const EXCLUSIVE_TOOLS=new Set([
   'computer','request_user_control','request_user_input','user_input_wait',
-  'host_execute','computer_execute',
+  'host_execute','host_file_write','host_file_patch','apply_patch','computer_execute',
   'python_session','terminal_start','terminal_input','terminal_stop','process_start','process_stop',
   'message_attach','memory','chat_pin','group_pin','bot_send_message','bot_delegate_task',
   'group_send_message','group_create','group_invite','start_main_task','delegation_receipt',
   'checkpoint_restore','skill_materialize'
 ]);
-export const PATH_LOCKED_TOOLS=new Set(['host_file_write','host_file_patch','file_write','file_patch','apply_patch']);
+export const PATH_LOCKED_TOOLS=new Set(['file_write','file_patch']);
 export const SERIAL_TOOLS=new Set([...EXCLUSIVE_TOOLS,...PATH_LOCKED_TOOLS]);
 export const isExclusiveTool=(name:string)=>EXCLUSIVE_TOOLS.has(name)||/^groups?_(send|create|invite|pin)/.test(name);
 export const isSerialTool=(name:string)=>isExclusiveTool(name)||PATH_LOCKED_TOOLS.has(name);
 const normalizeLockPath=(path:string)=>path.replaceAll('\\','/').replace(/^\.\//,'').replace(/\/{2,}/g,'/');
 export function writeLockPaths(name:string,args:Record<string,unknown>){
   if(!PATH_LOCKED_TOOLS.has(name))return [];
-  const scope=name.startsWith('host_')||name==='apply_patch'?'host':'vm';
+  const scope='vm';
   const paths=new Set<string>();
   const add=(value:unknown)=>{if(typeof value==='string'&&value.trim())paths.add(`${scope}:${normalizeLockPath(value.trim())}`);};
   if(name==='apply_patch'&&typeof args.patch==='string'){

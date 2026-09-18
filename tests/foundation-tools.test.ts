@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {HostComputer} from '../electron/core/host';
 import {Interactions,InteractionDenied,respondToInteraction} from '../electron/core/interactions';
 import {applyHostPatch,parsePatch,applyHunks,VM_PATCH_SCRIPT} from '../electron/core/multi-patch';
-import {WebTools,extractWebPage,publicWebUrl,publicAddress} from '../electron/core/web-tools';
+import {WebTools,extractWebPage,publicWebUrl,publicAddress,type WebDocument} from '../electron/core/web-tools';
 import {discoverTools} from '../electron/core/tool-discovery';
 import {CodeOrchestrator} from '../electron/core/code-orchestrator';
 import {TerminalSessions} from '../electron/core/terminal-sessions';
@@ -48,7 +48,25 @@ test('web requests reject private addresses, credentialed URLs, non-HTTP schemes
 });
 test('search returns actual parsed links and clearly fails if services provide no results',async()=>{
  const web=new WebTools(async url=>({url,contentType:'application/rss+xml',body:'<rss><channel><item><title>Guide</title><link>https://example.com/guide</link><description>Read this</description></item></channel></rss>'}));const found=await web.search('a',{query:'guide'},signal());assert.equal(found.results[0].url,'https://example.com/guide');assert.equal(found.engine,'bing');
- await assert.rejects(new WebTools(async url=>({url,contentType:'text/html',body:'<html>captcha</html>'})).search('a',{query:'guide'},signal()),/暂不可用/);
+ await assert.rejects(new WebTools(async ()=>({url:'https://example.com',contentType:'text/html',body:'<html>captcha</html>'})).search('a',{query:'guide'},signal()),/暂不可用/);
+});
+test('search falls back across engines, caches repeats, and isolates bots',async()=>{
+ const bodies:Record<string,WebDocument>={
+  'format=rss':{url:'https://www.bing.com/search',contentType:'text/html',body:'<html>captcha</html>'},
+  'www.bing.com/search?q=':{url:'https://www.bing.com/search',contentType:'text/html',body:'<ol><li class="b_algo"><h2><a href="https://example.com/bing">Bing Guide</a></h2><div class="b_caption"><p>From Bing HTML</p></div></li></ol>'},
+  'html.duckduckgo.com':{url:'https://html.duckduckgo.com/html/',contentType:'text/html',body:'<div class="result"><a class="result__a" href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fddg">DDG Guide</a><div class="result__snippet">From DDG</div></div>'},
+  'lite.duckduckgo.com':{url:'https://lite.duckduckgo.com/lite/',contentType:'text/html',body:'<a class="result-link" href="https://example.com/lite">Lite Guide</a><td class="result-snippet">From lite</td>'},
+  'search.brave.com':{url:'https://search.brave.com/search',contentType:'text/html',body:'<div data-type="web" class="snippet"><a href="https://example.com/brave">Brave Guide</a><p class="snippet-description">From Brave</p></div>'},
+ };
+ const pick=(url:string)=>Object.entries(bodies).find(([key])=>url.includes(key))?.[1]||{url,contentType:'text/html',body:'<html></html>'};
+ let loads=0;const html=new WebTools(async url=>{loads++;return pick(url);});
+ const bingHtml=await html.search('a',{query:'Guide'},signal());assert.equal(bingHtml.engine,'bing');assert.equal(bingHtml.results[0].url,'https://example.com/bing');assert.equal(loads,2);
+ const cached=await html.search('a',{query:'guide'},signal());assert.equal(cached.results[0].url,'https://example.com/bing');assert.equal(loads,2);
+ await html.search('b',{query:'guide'},signal());assert.equal(loads,4);
+ const ddg=new WebTools(async url=>{if(url.includes('bing.com'))return {url,contentType:'text/html',body:'<html>captcha</html>'};return pick(url);});
+ const fromDdg=await ddg.search('a',{query:'guide'},signal());assert.equal(fromDdg.engine,'duckduckgo');assert.equal(fromDdg.results[0].url,'https://example.com/ddg');
+ const brave=new WebTools(async url=>{if(/bing\.com|duckduckgo\.com/.test(url))return {url,contentType:'text/html',body:'<html>captcha</html>'};return pick(url);});
+ const fromBrave=await brave.search('a',{query:'guide'},signal());assert.equal(fromBrave.engine,'brave');assert.equal(fromBrave.results[0].url,'https://example.com/brave');
 });
 test('tool discovery searches beyond the first MCP page and never enables disabled services',async()=>{
  let checked='';const mcp={views:()=>[{id:'yes',enabled:true},{id:'no',enabled:false}],listTools:async(id:string,_query:string,offset:number,limit:number)=>{checked=id;assert.equal(limit,1000);return {tools:[{name:'find_document',description:'Search invoices',inputSchema:{type:'object'}}]};}};

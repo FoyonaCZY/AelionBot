@@ -83,7 +83,7 @@ test('a running or unknown Bot cannot be deleted and failed deletion leaves pers
 test('Harness reports a Bot busy until its final artifact collection has finished',async t=>{
   const store=new Store(temporary(t));let release!:()=>void,collecting!:()=>void;
   const started=new Promise<void>(resolve=>collecting=resolve),finished=new Promise<void>(resolve=>release=resolve);
-  const model={complete:async()=>({content:'完成',finishReason:'stop',calls:[]})} as unknown as ModelClient;
+  let turns=0;const model={complete:async()=>++turns===1?{content:'',finishReason:'tool_calls',calls:[{id:'list',type:'function',function:{name:'skills_list',arguments:'{}'}}]}:{content:'完成',finishReason:'stop',calls:[]}} as unknown as ModelClient;
   const harness=new Harness(store,{} as VmController,model,()=>{},undefined,async()=>{collecting();await finished;});
   const bot=store.data.bots[0],run=harness.run(bot.id,'结束测试');await started;
   assert.equal(store.data.runs[0].status,'completed');assert.equal(harness.isRunning(bot.id),true);

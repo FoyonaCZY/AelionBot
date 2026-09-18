@@ -10,8 +10,7 @@ async function dispatcher(origin:string){
 }
 export async function modelFetch(url:string,init:RequestInit={}):Promise<Response>{
   const agent=await dispatcher(new URL(url).origin);
-  if(agent&&undici)return undici.fetch(url,{...init,dispatcher:agent}) as Promise<Response>;
-  return fetch(url,init);
+  return fetch(url,agent?{...init,dispatcher:agent} as RequestInit:init);
 }
 export async function prewarmModelEndpoint(baseUrl:string,headers:Record<string,string>={}){
   try{
