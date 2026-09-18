@@ -1,13 +1,15 @@
 type Undici={Agent:new(options:object)=>unknown;fetch:(url:string,init?:object)=>Promise<Response>};
 const agents=new Map<string,unknown>();
 let undici:Undici|undefined|null;
+const loading=import('undici').then(mod=>undici=mod as unknown as Undici).catch(()=>{undici=null;});
 async function dispatcher(origin:string){
-  if(undici===null)return;
-  if(undici===undefined)try{undici=await import('undici') as unknown as Undici;}catch{undici=null;return;}
+  if(undici===undefined)await loading;
+  if(!undici)return;
   let agent=agents.get(origin);
   if(!agent){agent=new undici.Agent({connections:8,keepAliveTimeout:60_000,keepAliveMaxTimeout:120_000,pipelining:0});agents.set(origin,agent);}
   return agent;
 }
+export async function prepareModelHttp(url:string){await dispatcher(new URL(url).origin);}
 export async function modelFetch(url:string,init:RequestInit={}):Promise<Response>{
   const agent=await dispatcher(new URL(url).origin);
   return fetch(url,agent?{...init,dispatcher:agent} as RequestInit:init);

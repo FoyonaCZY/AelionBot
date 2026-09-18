@@ -93,7 +93,7 @@ function AppContent(){
   const [command,setCommand]=useState('uname -s; id -u; pwd'),[output,setOutput]=useState(''),[files,setFiles]=useState<FileItem[]>([]);
   const [screen,setScreen]=useState('');
   const sending=useRef(new Set<string>());
-  const bottom=useRef<HTMLDivElement>(null),follow=useRef(true),selectedRef=useRef(selected);selectedRef.current=selected;
+  const bottom=useRef<HTMLDivElement>(null),messagesPane=useRef<HTMLElement>(null),follow=useRef(true),stickLock=useRef(0),paneHeight=useRef(0),selectedRef=useRef(selected);selectedRef.current=selected;
   const bot=state?.bots.find(item=>item.id===selected)||state?.bots[0];
   useEffect(()=>{previewWorkbench?.activate(page==='chat'?(group?{kind:'group',id:group.id}:bot?{kind:'bot',id:bot.id}:undefined):undefined);},[page,bot?.id,group?.id,previewWorkbench?.activate]);
   const currentModel=bot?(state?.botModels?.[bot.id]||state?.model):state?.model;
@@ -155,8 +155,34 @@ function AppContent(){
     void window.aelion.setComputerFullscreen(modal==='computer').catch(error=>setToast(errorText(error)));
     return()=>{void window.aelion.setComputerFullscreen(false).catch(()=>{});};
   },[modal]);
-  useLayoutEffect(()=>{if(group)return;follow.current=true;bottom.current?.scrollIntoView();},[bot?.id,group?.id]);
-  useEffect(()=>{if(follow.current)bottom.current?.scrollIntoView();},[messages.length,messages.at(-1)?.content,state?.artifacts.length,liveSignature]);
+  const stickToBottom=()=>{
+    const pane=messagesPane.current;if(!pane)return;
+    stickLock.current++;
+    pane.scrollTop=pane.scrollHeight;
+    paneHeight.current=pane.scrollHeight;
+    requestAnimationFrame(()=>{
+      const live=messagesPane.current;
+      if(live&&follow.current){live.scrollTop=live.scrollHeight;paneHeight.current=live.scrollHeight;}
+      requestAnimationFrame(()=>{stickLock.current=Math.max(0,stickLock.current-1);});
+    });
+  };
+  const onMessagesScroll=(pane:HTMLElement)=>{
+    if(stickLock.current)return;
+    const gap=pane.scrollHeight-pane.scrollTop-pane.clientHeight,grew=pane.scrollHeight>paneHeight.current+1;
+    paneHeight.current=pane.scrollHeight;
+    if(grew&&follow.current){stickToBottom();return;}
+    follow.current=gap<100;
+  };
+  useLayoutEffect(()=>{if(group)return;follow.current=true;stickToBottom();},[bot?.id,group?.id]);
+  useLayoutEffect(()=>{if(!group&&follow.current)stickToBottom();},[group,messages.length,messages.at(-1)?.content,state?.artifacts.length,liveSignature]);
+  useLayoutEffect(()=>{
+    const pane=messagesPane.current;if(!pane||group)return;
+    const onResize=()=>{if(follow.current)stickToBottom();};
+    const observer=new ResizeObserver(onResize);
+    observer.observe(pane);
+    window.addEventListener('resize',onResize);
+    return()=>{observer.disconnect();window.removeEventListener('resize',onResize);};
+  },[bot?.id,group?.id]);
   useEffect(()=>{if(!bot||!vmReady&&bot.type!=='designer')return;const owner=bot.id;window.aelion.listFiles(owner).then(values=>{if(selectedRef.current===owner)setFiles(values);}).catch(()=>{});},[bot?.id,bot?.type,vmReady]);
   useEffect(()=>{const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'&&modal&&!(modal==='computer'&&controlled)){if(modal==='computer')void computerAction(closeModal);else void act(closeModal);}};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);},[modal,controlled]);
   const openPlugins=(filter:PluginFilter='all')=>{setPluginFilter(filter);setModal(null);setPeerPanel(undefined);setGroupEditor(undefined);setNewMenu(false);setBotMenu(undefined);setPage('plugins');};
@@ -218,7 +244,7 @@ function AppContent(){
     {page==='plugins'&&<PluginsPage key={pluginFilter} initialFilter={pluginFilter} state={state} busy={busy||anyRunning} act={act} onClose={()=>setPage('chat')}/>}
     <main className="conversation">{previewWorkbench?.info?.docked&&<PreviewBotSwitcher bots={state.bots} groups={state.groups?.rooms||[]} value={group?'group:'+group.id:'bot:'+bot?.id} onChange={value=>previewWorkbench.navigate(()=>{const [kind,id]=value.split(':');setPage('chat');setSelectedGroup(kind==='group'?id:'');if(kind==='bot')setSelected(id);setFiles([]);})} onSettings={()=>openSettings()} onPlugins={()=>previewWorkbench.navigate(()=>openPlugins())} onNew={()=>previewWorkbench.navigate(openNewBot)}/>}
       {group?<GroupConversation key={group.id} group={group} state={state} avatarActivities={avatarActivities} draft={groupDrafts[group.id]||{text:'',mentions:[]}} onDraft={draft=>setGroupDrafts(value=>({...value,[group.id]:draft}))} onManage={()=>setGroupEditor(group.id)} onTakeover={startTakeover} onOpenFile={file=>void openPreview(file)} onSaveFile={file=>void saveFile(file)} onOpenPreviewEntry={openHistoryEntry} visible={page==='chat'&&!modal&&!peerPanel&&!groupEditor&&!taskModalOpen}/>:bot?.type==='designer'?<DesignerWorkspace key={bot.id} bot={bot} state={state} onProfile={()=>editBot(bot)} onTakeover={startTakeover}/>:bot?<><header className="chat-header drag"><button className="bot-heading no-drag" onClick={()=>editBot(bot)}><Avatar bot={bot} size={31} activity={avatarActivities[bot.id]}/><strong>{bot.name}</strong></button><div className="header-actions no-drag"><button className="bot-model-button" aria-label={t('选择 Bot 模型')} onClick={()=>editBot(bot)}>{currentModel?.model||t('选择模型')}</button>{(running||greeting||!currentModel?.model)&&<span className={`connection-status ${running||greeting?'working':''}`}>{running?(waiting?.kind==='host_permission'?(waiting.approval?.phase==='reviewing'?t('正在审核'):t('等待许可')):waiting?t('等待接管'):t('正在工作')):greeting?t('正在打招呼…'):t('尚未连接模型')}</span>}</div></header>
-      <ConversationTimeProvider messages={messages}><section key={bot.id} className="messages" onScroll={event=>{const el=event.currentTarget;follow.current=el.scrollHeight-el.scrollTop-el.clientHeight<100;}}>{timeline.map(item=>{
+      <ConversationTimeProvider messages={messages}><section ref={messagesPane} key={bot.id} className="messages" onScroll={event=>onMessagesScroll(event.currentTarget)}>{timeline.map(item=>{
         const key=`${bot.id}:${item.kind}:${item.kind==='run'?item.segmentId:item.id}`;
         if(item.kind==='message')return item.message.groupTaskSource?<GroupTaskMessage key={key} message={item.message} view={state.groups} onOpen={openGroup}/>:item.message.groupLink?<div key={key} className="peer-notice"><button className="peer-notice-open" disabled={!state.groups?.rooms.some(room=>room.id===item.message.groupLink?.groupId)} onClick={()=>openGroup(item.message.groupLink!.groupId)}><Icon name="message" size={16}/>{item.message.content}</button></div>:item.message.taskSource?<PeerTaskMessage key={key} message={item.message} view={state.peers} onOpen={openPrivateChat}/>:item.message.peer?<PeerNotice key={key} message={item.message} view={state.peers} onOpen={openPrivateChat}/>:<Message key={key} message={{...item.message,attachments:firstDeliveryAttachments(item.message,messages)}} onReply={replyTo} allowPins={!state.runs.find(run=>run.id===item.message.runId)?.groupOrigin}/>;
         const run=state.runs.find(run=>run.id===item.id),allRunMessages=runMessages.get(item.id)||[],outputs=item.isLast&&latestRun?.id===item.id?state.artifacts.filter(file=>file.botId===bot.id&&file.runId===item.id&&isRunArtifact(file.path)&&!allRunMessages.some(message=>message.attachments?.some(attachment=>attachment.name===file.name&&attachment.size===file.size))):[];
