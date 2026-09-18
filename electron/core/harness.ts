@@ -14,7 +14,7 @@ import {effectiveWorkspace} from './workspaces';
 import {RunPolicy} from './runtime-policy';
 import {validateToolArguments} from './tool-schema';
 import {readPipeline,READ_TOOLS} from './tool-pipeline';
-import {isSerialTool,runConcurrentTools} from './tool-concurrency';
+import {isExclusiveTool,runConcurrentTools,writeLockPaths} from './tool-concurrency';
 import {READ_PAGE_FIELDS,expectedHash,toolFailure} from './file-text';
 import {readToolResult} from './tool-results';
 import {readVmFile,patchVmFile,VM_WRITE} from './vm-files';
@@ -500,7 +500,10 @@ export class Harness {
         const stopBatch=()=>batch.abort(controller.signal.reason||Error('任务已取消'));
         controller.signal.addEventListener('abort',stopBatch,{once:true});if(controller.signal.aborted)stopBatch();
         try{
-          await runConcurrentTools(jobs,job=>isSerialTool(job.call.function.name),new RunPolicy(this.store).settings().parallelReads,batch.signal,async(job,signal)=>{
+          await runConcurrentTools(jobs,job=>{
+            const name=job.call.function.name;if(isExclusiveTool(name))return true;
+            try{const parsed=JSON.parse(job.call.function.arguments);return Boolean(parsed&&typeof parsed==='object'&&!Array.isArray(parsed)&&writeLockPaths(name,parsed).length===0&&['host_file_write','host_file_patch','file_write','file_patch','apply_patch'].includes(name));}catch{return ['host_file_write','host_file_patch','file_write','file_patch','apply_patch'].includes(name);}
+          },new RunPolicy(this.store).settings().parallelReads,batch.signal,async(job,signal)=>{
             try{
               if(signal.aborted)throw new Error('任务已取消');
               let args:Record<string,unknown>;try{const parsed=JSON.parse(job.call.function.arguments);if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw Error();args=parsed;}catch{job.dispatched=false;job.display.status='failed';job.output={error:'工具参数不是完整 JSON，本次没有执行。请用一个完整 JSON 对象重新调用。',executed:false,invalidArguments:true};return;}
@@ -516,7 +519,7 @@ export class Harness {
               else if(error instanceof InteractionDenied){job.denied=error;job.display.status='cancelled';const denial=operationDenial(error,text=>this.host?.redact(text)||text);if(!error.stopTask)job.display.operationDenial=denial;job.output={error:denial.reason,denied:true,executed:false,operationDenial:denial,next:DENIAL_GUIDANCE,...(['code_exec','tools_batch'].includes(job.call.function.name)?{earlierOperationsMayHaveCompleted:true}:{})};if(error.stopTask)controller.abort(error);batch.abort(error);}
               else{job.output={...toolFailure(error),...((error as any).outcomeUnknown?{outcomeUnknown:true}:{}),...(controller.signal.aborted||signal.aborted?{cancelled:true}:{})};job.display.status=controller.signal.aborted||signal.aborted?'cancelled':'failed';}
             }
-          });
+          },job=>{try{const parsed=JSON.parse(job.call.function.arguments);return parsed&&typeof parsed==='object'&&!Array.isArray(parsed)?writeLockPaths(job.call.function.name,parsed):[];}catch{return [];}});
         }finally{controller.signal.removeEventListener('abort',stopBatch);}
         let halt:InteractionDenied|undefined,groupCut=false;
         for(const [callIndex,job] of jobs.entries()){
