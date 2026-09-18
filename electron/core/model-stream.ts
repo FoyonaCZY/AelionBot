@@ -13,6 +13,7 @@ export function modelEventActivity(protocol:ModelProtocol,event:any):ModelActivi
   if(event.type==='response.output_text.delta'&&nonempty(event.delta))return {kind:'text'};
   if(/reasoning.*delta$/.test(event.type||'')&&nonempty(event.delta))return {kind:'reasoning'};
   if(event.type==='response.output_item.added'&&event.item?.type==='function_call')return {kind:'tool'};
+  if(event.type==='response.output_item.added'&&['web_search_call','image_generation_call'].includes(event.item?.type)||/web_search_call|image_generation_call/.test(event.type||''))return {kind:'response'};
  }else if(protocol==='anthropic'){
   const d=event.delta;if(event.type==='content_block_delta'){
    if(d?.type==='input_json_delta'&&nonempty(d.partial_json))return {kind:'tool',argumentChars:d.partial_json.length};

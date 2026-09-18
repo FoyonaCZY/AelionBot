@@ -6,6 +6,7 @@ import {visibleImages} from '../../src/model-images';
 import {modelUsage} from './model-usage';
 import {anthropicHistoryEndpoints} from './anthropic-cache';
 import {repairToolHistory} from './tool-history';
+import {hiddenClientTools,hostedResponseTools} from './hosted-tools';
 
 export const nativeKey=(cfg:ModelConfig)=>`${cfg.providerId||''}:${cfg.baseUrl.replace(/\/$/,'')}:${cfg.model}`;
 const rawCall=(name:string,args:unknown,id?:string):ToolCall=>({id:id??randomUUID(),type:'function',function:{name,arguments:typeof args==='string'?args:JSON.stringify(args||{})}});
@@ -33,7 +34,8 @@ function buildProtocolRequest(cfg:ModelConfig,messages:WireMessage[],tools:ToolD
    if(m.content||m.images?.length)input.push({role:m.role,content:[{type:m.role==='assistant'?'output_text':'input_text',text:m.content||'图像资料'},...images(m).map(url=>({type:'input_image',image_url:url,detail:'high'}))]});
    for(const call of m.tool_calls||[])input.push({type:'function_call',call_id:call.id,name:call.function.name,arguments:call.function.arguments});
   }
-  return {url:base+'/responses',headers,body:{model:cfg.model,input,stream:true,store:false,include:['reasoning.encrypted_content'],...(cacheKey?{prompt_cache_key:cacheKey}:{}),max_output_tokens:output,...temperature,...(cfg.reasoningEffort?{reasoning:{effort:cfg.reasoningEffort}}:{}),...(tools.length?{tools:tools.map(t=>({type:'function',...t.function,strict:false})),parallel_tool_calls:true}:{})}};
+  const hidden=hiddenClientTools(cfg),hosted=hostedResponseTools(cfg),functionTools=tools.filter(tool=>!hidden.has(tool.function.name)).map(t=>({type:'function',...t.function,strict:false})),responseTools=[...hosted,...functionTools];
+  return {url:base+'/responses',headers,body:{model:cfg.model,input,stream:true,store:false,include:['reasoning.encrypted_content'],...(cacheKey?{prompt_cache_key:cacheKey}:{}),max_output_tokens:output,...temperature,...(cfg.reasoningEffort?{reasoning:{effort:cfg.reasoningEffort}}:{}),...(responseTools.length?{tools:responseTools,parallel_tool_calls:true}:{})}};
  }
  const system:string[]=[],wire:any[]=[],cacheCandidates:any[]=[];
  const cacheEndpoints=protocol==='anthropic'?anthropicHistoryEndpoints(messages,native):new Set<number>();

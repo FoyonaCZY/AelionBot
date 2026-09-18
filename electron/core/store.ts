@@ -252,7 +252,7 @@ export class Store {
     const selection=selectionOverride||this.modelSelection(botId);
     if(!selection)return {baseUrl:'',model:'',hasKey:false,contextTokens:32000};
     const provider=this.data.providers.find(provider=>provider.id===selection.providerId);
-    return {...selection,supportsImages:selection.supportsImages??provider?.models.find(model=>model.id===selection.model)?.supportsImages,protocol:provider?.protocol,responsesTransport:provider?.responsesTransport,temperature:provider?.temperature,reasoningEffort:botId?this.bot(botId).reasoningEffort:selection.reasoningEffort,thinkingBudget:provider?.thinkingBudget,fallbackModel:provider?.fallbackModel,baseUrl:provider?.baseUrl||'',hasKey:Boolean(provider?.encryptedKey),providerName:provider?.name,...(!provider?{issue:'所选 Provider 不存在，请重新选择模型'}:{})};
+    return {...selection,supportsImages:selection.supportsImages??provider?.models.find(model=>model.id===selection.model)?.supportsImages,protocol:provider?.protocol,responsesTransport:provider?.responsesTransport,hostedWebSearch:provider?.protocol==='responses'?provider.hostedWebSearch:undefined,hostedImageGeneration:provider?.protocol==='responses'?provider.hostedImageGeneration:undefined,temperature:provider?.temperature,reasoningEffort:botId?this.bot(botId).reasoningEffort:selection.reasoningEffort,thinkingBudget:provider?.thinkingBudget,fallbackModel:provider?.fallbackModel,baseUrl:provider?.baseUrl||'',hasKey:Boolean(provider?.encryptedKey),providerName:provider?.name,...(!provider?{issue:'所选 Provider 不存在，请重新选择模型'}:{})};
   }
   publicModel(hasKey: boolean): ModelConfig { return {...this.modelFor(),hasKey}; }
 }

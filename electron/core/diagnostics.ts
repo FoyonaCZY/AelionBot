@@ -52,7 +52,7 @@ export class Diagnostics {
     const state=this.options.snapshot(),scrub=this.scrub(),id=randomUUID(),createdAt=new Date(this.now()).toISOString();
     const clean=(value:unknown):any=>typeof value==='string'?scrub(value).slice(0,4000):Array.isArray(value)?value.map(clean):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).map(([key,item])=>[key,clean(item)])):value;
     const botLabel=(id?:string)=>id?`Bot ${state.bots.findIndex(bot=>bot.id===id)+1}`:undefined;
-    const model=(value:Snapshot['model'])=>pick(value,['model','protocol','contextTokens','hasKey','reasoningEffort','thinkingBudget','fallbackModel','supportsImages']);
+    const model=(value:Snapshot['model'])=>pick(value,['model','protocol','contextTokens','hasKey','reasoningEffort','thinkingBudget','fallbackModel','supportsImages','hostedWebSearch','hostedImageGeneration']);
     const runs=state.runs.slice(-50).map(run=>({
       ...pick(run,['id','status','startedAt','endedAt','modelCalls','toolCalls','error','resumedFromRunId','inputUpdated','groupUpdated']),
       bot:botLabel(run.botId),source:run.groupOrigin?'group':run.peerOrigin?'peer':'main',

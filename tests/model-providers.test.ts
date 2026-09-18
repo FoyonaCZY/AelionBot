@@ -24,6 +24,8 @@ import {groupPending} from '../src/group-types';
 import type {VmController} from '../electron/core/vm';
 import type {WireMessage} from '../src/shared';
 import {protocolRequest} from '../electron/core/model-protocol';
+import {hiddenClientTools,hostedGeneratedImages} from '../electron/core/hosted-tools';
+import {TOOLS} from '../electron/core/harness';
 
 test('provider reasoning migrates once to independent Bot settings and the default reviewer',t=>{
   const f=fixture(t),a=f.store.data.bots[0],b=f.store.createBot('Beta','test');
@@ -36,6 +38,21 @@ test('provider reasoning migrates once to independent Bot settings and the defau
   const reopened=new ModelProviders(new Store(f.dir),f.secret);assert.equal(reopened.config(a.id).reasoningEffort,undefined);assert.equal(reopened.config(b.id).reasoningEffort,'custom-ultra');reopened.dispose();
 });
 
+test('responses hosted web search is marked on the provider and replaces the client search tool',t=>{
+  const f=fixture(t),providers=f.router(),bot=f.store.data.bots[0];
+  const provider=providers.save({name:'Hosted search',baseUrl:'https://api.example/v1',protocol:'responses',hostedWebSearch:true,hostedImageGeneration:true});
+  providers.setDefault({providerId:provider.id,model:'gpt-test',contextTokens:128000});
+  const config=providers.config(bot.id);
+  assert.equal(config.hostedWebSearch,true);assert.equal(config.hostedImageGeneration,true);
+  assert.deepEqual(hiddenClientTools(config),new Set(['web_search']));
+  const body=protocolRequest(config,[{role:'user',content:'search'}],TOOLS.filter(tool=>tool.function.name==='web_search'||tool.function.name==='web_read'),1024,'',()=> '').body as any;
+  assert.ok(body.tools.some((tool:any)=>tool.type==='web_search'));
+  assert.ok(body.tools.some((tool:any)=>tool.type==='image_generation'));
+  assert.ok(!body.tools.some((tool:any)=>tool.type==='function'&&tool.name==='web_search'));
+  assert.ok(body.tools.some((tool:any)=>tool.type==='function'&&tool.name==='web_read'));
+  const chat=providers.save({id:provider.id,name:'Hosted search',baseUrl:'https://api.example/v1',protocol:'chat',hostedWebSearch:true,hostedImageGeneration:true});
+  assert.equal(chat.hostedWebSearch,undefined);assert.equal(chat.hostedImageGeneration,undefined);
+});
 test('custom model names and per-Bot reasoning reach the chosen protocol without affecting peers',t=>{
   const f=fixture(t),providers=f.router(),a=f.store.data.bots[0],b=f.store.createBot('Beta','test'),provider=providers.save({name:'Empty list',baseUrl:'https://a.example/v1',protocol:'responses'});
   providers.setDefault({providerId:provider.id,model:'not-in-catalog/v2',contextTokens:64000});
@@ -45,6 +62,11 @@ test('custom model names and per-Bot reasoning reach the chosen protocol without
   body=protocolRequest({...providers.config(a.id),protocol:'chat'},[],[],1024,'',()=> '').body as any;assert.equal(body.reasoning_effort,'ultra-plus');
   const before=JSON.stringify(f.store.data);assert.throws(()=>updateBotProfile(f.store,providers,{id:a.id,name:'changed',role:a.role,reasoningEffort:'bad\nvalue'}),/推理强度/);assert.equal(JSON.stringify(f.store.data),before);
   assert.throws(()=>updateBotProfile(f.store,providers,{id:a.id,name:'changed',role:a.role,reasoningEffort:'low'},()=>{throw Error('busy');}),/busy/);assert.equal(JSON.stringify(f.store.data),before);
+});
+test('hosted generated images are decoded from Responses output items',()=>{
+  const png=Buffer.from('89504e470d0a1a0a','hex');
+  assert.deepEqual(hostedGeneratedImages([{type:'image_generation_call',result:png.toString('base64')}]),[png]);
+  assert.equal(hostedGeneratedImages([{type:'web_search_call'}]).length,0);
 });
 
 const pause=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms));

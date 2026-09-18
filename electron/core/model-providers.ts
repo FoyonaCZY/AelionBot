@@ -10,14 +10,17 @@ import {imageCapability} from './model-vision';
 import {reasoningEffort as cleanReasoning} from '../../src/reasoning';
 
 export function modelParameters(input:ModelParameters):ModelParameters{
- const {protocol,responsesTransport,temperature,reasoningEffort,thinkingBudget,fallbackModel}=input;
+ const {protocol,responsesTransport,hostedWebSearch,hostedImageGeneration,temperature,reasoningEffort,thinkingBudget,fallbackModel}=input;
  if(responsesTransport!==undefined&&!['auto','http','websocket'].includes(responsesTransport))throw Error('Responses 连接方式无效');
  if(protocol!==undefined&&!['chat','responses','anthropic','gemini'].includes(protocol))throw Error('模型协议无效');
+ if(hostedWebSearch!==undefined&&typeof hostedWebSearch!=='boolean')throw Error('服务端网页搜索设置无效');
+ if(hostedImageGeneration!==undefined&&typeof hostedImageGeneration!=='boolean')throw Error('服务端图片生成设置无效');
  if(temperature!==undefined&&(!Number.isFinite(temperature)||temperature<0||temperature>2))throw Error('温度应为 0–2');
  cleanReasoning(reasoningEffort);
  if(thinkingBudget!==undefined&&(!Number.isInteger(thinkingBudget)||thinkingBudget<1024||thinkingBudget>64000))throw Error('思考预算应为 1024–64000');
  if(fallbackModel!==undefined&&(typeof fallbackModel!=='string'||fallbackModel.length>256||/[\u0000-\u001f]/.test(fallbackModel)))throw Error('备用模型无效');
- return {protocol,responsesTransport,temperature,reasoningEffort,thinkingBudget,fallbackModel:fallbackModel?.trim()||undefined};
+ const responses=(protocol||'chat')==='responses';
+ return {protocol,responsesTransport,hostedWebSearch:responses&&hostedWebSearch?true:undefined,hostedImageGeneration:responses&&hostedImageGeneration?true:undefined,temperature,reasoningEffort,thinkingBudget,fallbackModel:fallbackModel?.trim()||undefined};
 }
 
 export interface CredentialCodec {encrypt:(value:string)=>string;decrypt:(value:string)=>string;}
