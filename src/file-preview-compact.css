@@ -1,6 +1,6 @@
 /* One shared row for file identity, format controls and preview actions. */
 .fp-layer{--fp-top-inset:38px}
-.fp-layer.is-docked{--fp-top-inset:0px}
+.fp-layer.is-docked,.fp-layer.is-studio{--fp-top-inset:0px}
 .fp-layer.is-immersive .fp-header{height:calc(var(--fp-top-inset) + 48px);min-height:0;padding:var(--fp-top-inset) 12px 0;gap:10px;align-items:center;background:#fff;border-bottom:1px solid #eceef1}
 .fp-layer .fp-header .fp-title{flex:1 1 140px;min-width:48px;max-width:none;min-height:30px;padding:0 4px;border:0;border-radius:0;background:transparent;box-shadow:none}
 .fp-layer .fp-header .fp-title h2{font-size:12px;line-height:1.5}

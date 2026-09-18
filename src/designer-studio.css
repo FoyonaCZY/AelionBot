@@ -1,18 +1,22 @@
 /* Dual-pane designer Studio: conversation rail + live canvas host. */
 .designer-workspace.has-task.is-studio{
- display:grid;
- /* Canvas is the primary pane; chat is a fixed rail, not a growing 38% column. */
- grid-template-columns:minmax(240px,300px) minmax(0,1fr);
- grid-template-rows:auto minmax(0,1fr);
+ display:flex;
+ flex-direction:column;
  min-height:0;
 }
-.designer-workspace.has-task.is-studio>.designer-header{grid-column:1/-1}
+.designer-workspace.has-task.is-studio>.designer-header{flex-shrink:0}
 .designer-workspace.has-task.is-studio>.designer-studio-chat{
- display:flex;flex-direction:column;min-width:0;max-width:300px;min-height:0;border-right:1px solid var(--design-line, #e3e3dd);
+ display:flex;flex-direction:column;min-width:0;min-height:0;flex:1;border-right:1px solid var(--design-line, #e3e3dd);
 }
 .designer-workspace.has-task.is-studio>.designer-studio-chat>.designer-thread{flex:1;min-height:0}
 .designer-workspace.has-task.is-studio>.designer-canvas{
- position:relative;min-width:0;min-height:0;background:light-dark(#ece8de,#191d19);overflow:hidden;
+ position:relative;min-width:0;min-height:0;flex:1;background:light-dark(#ece8de,#191d19);overflow:hidden;
+}
+@media(min-width:1000px){
+ /* Match docked FilePreview: slim chat rail, no bot list, canvas owns the rest of the window. */
+ .designer-workspace.has-task.is-studio>.designer-canvas{
+  position:fixed;top:0;right:0;bottom:0;left:var(--preview-chat-width,340px);flex:none;width:auto;height:auto;z-index:40;
+ }
 }
 .designer-workspace.has-task.is-studio>.designer-error{grid-column:1/-1}
 .designer-workspace .designer-task-kinds{flex-wrap:wrap}
@@ -45,7 +49,8 @@
 .fp-layer.is-studio.is-immersive .fp-header{padding:10px 12px 0}
 .is-studio .fp-feedback-wrap{bottom:14px;width:calc(100% - 28px);max-width:540px}
 .fp-layer.is-studio:has(.web-preview){--web-chrome-top:0px}
-@media(max-width:900px){
- .designer-workspace.has-task.is-studio{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr) minmax(220px,42vh)}
- .designer-workspace.has-task.is-studio>.designer-studio-chat{border-right:0;border-bottom:1px solid var(--design-line);max-width:none}
+@media(max-width:999px){
+ .designer-workspace.has-task.is-studio{display:grid;grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr) minmax(220px,42vh)}
+ .designer-workspace.has-task.is-studio>.designer-studio-chat{border-right:0;border-bottom:1px solid var(--design-line);max-width:none;flex:none}
+ .designer-workspace.has-task.is-studio>.designer-canvas{position:relative;inset:auto;left:auto;top:auto;right:auto;bottom:auto;width:auto;height:auto;z-index:auto}
 }
