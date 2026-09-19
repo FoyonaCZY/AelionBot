@@ -1,10 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
-import {imageBytesFromGeneration,generateModelImage} from '../electron/core/image-generation';
+import {imageBytesFromGeneration,generateModelImage,imageGenerationKind,geminiImageUrl} from '../electron/core/image-generation';
 import {ModelClient} from '../electron/core/model';
 
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64');
+
+test('image generation routes by model id, not chat reasoning settings',()=>{
+  assert.equal(imageGenerationKind('dall-e-3','chat'),'openai');
+  assert.equal(imageGenerationKind('gpt-image-1','responses'),'responses');
+  assert.equal(imageGenerationKind('gemini-2.5-flash-image','chat'),'gemini');
+  assert.equal(imageGenerationKind('imagen-3.0-generate-002','gemini'),'gemini');
+  assert.match(geminiImageUrl('https://generativelanguage.googleapis.com/v1beta','models/imagen-3.0'),/\/v1beta\/models\/imagen-3\.0:generateContent$/);
+  assert.match(geminiImageUrl('https://api.example/v1','gemini-2.5-flash-image'),/https:\/\/api.example\/v1beta\/models\/gemini-2.5-flash-image:generateContent$/);
+});
 
 test('imageBytesFromGeneration reads hosted calls and OpenAI b64 payloads',()=>{
   assert.deepEqual(imageBytesFromGeneration([{type:'image_generation_call',result:png.toString('base64')}]),png);

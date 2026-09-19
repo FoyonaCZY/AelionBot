@@ -136,6 +136,7 @@ test('studio source keeps docked feedback and portals into the canvas host',()=>
  const workspace=read(resolve('src/DesignerWorkspace.tsx'),'utf8');
  assert.match(workspace,/data-designer-canvas=\{task\.id\}/);
  assert.match(workspace,/emptyCanvasHtml/);
+ assert.match(read(resolve('src/App.tsx'),'utf8'),/purpose="image"/);
  assert.doesNotMatch(workspace,/deviceFrame/);
  assert.doesNotMatch(workspace,/expanded:\s*true/);
  assert.match(workspace,/DESIGN_TASK_KINDS/);

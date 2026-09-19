@@ -153,7 +153,7 @@ async function initialize(){
   hostApprovals=new HostApprovals(store,commandPermissions,defaultPermissionReviewer(approvalModel,()=>providers.approvalConfig(),text=>host.redact(text)),{homeDir,defaultModel:()=>providers.approvalConfig()});interactions.setHostPolicy(hostApprovals);
   cognition=new Cognition(store,model,integrations.skills,changed,()=>Boolean(updatePreparing||harness?.busy||groupChats?.busy),()=>providers.secrets());
   agentPreviews=new AgentPreviews(store,artifacts,attachments,changed,host);
-  const imageModelAccess=(botId:string)=>{const selection=store.bot(botId).imageModel;return selection?{config:providers.config(botId,selection),key:providers.key(botId,selection)}:undefined;};
+  const imageModelAccess=(botId:string)=>{const selection=store.bot(botId).imageModel;if(!selection)return;const config=providers.config(botId,selection);return {config:{...config,reasoningEffort:undefined,thinkingBudget:undefined},key:providers.key(botId,selection)};};
   const generalHarness=new Harness(store,vm,model,changed,computer,(botId,runId)=>artifacts.collect(botId,runId),integrations,host,interactions,cognition,attachments);
   generalHarness.setImageModel(imageModelAccess);
   designSystems=new DesignSystems(join(app.getAppPath(),'assets','design-systems'),join(store.dir,'design-system-cache'),join(store.dir,'custom-design-systems'));
