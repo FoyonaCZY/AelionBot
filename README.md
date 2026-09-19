@@ -96,6 +96,20 @@ Use English, Simplified Chinese or Traditional Chinese, with light/dark themes a
 
 <sub>Product images are screenshots of the current App frontend using fictional conversations and files, without a model or VM connection. The Bot artwork at the top is a brand illustration. This README describes the current source; see release notes for the features in a downloadable build.</sub>
 
+## Development
+
+Use Node.js 24 and pnpm 12.5.1 (pinned in `package.json`). Install pnpm with the [official installation instructions](https://pnpm.io/installation), then run:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm run typecheck
+pnpm test
+pnpm run build
+pnpm run dev
+```
+
+Commit dependency changes together with `pnpm-lock.yaml`; do not generate an npm lockfile. Dependency build permissions are reviewed in `pnpm-workspace.yaml`. Preparing the Linux work computer requires `pnpm run vm:prepare-runtime`; see [release instructions](docs/RELEASING.md) for complete packages.
+
 ## Explore further
 
 [Website](https://aelion.chat/?lang=en) · [Releases](https://github.com/FoyonaCZY/AelionBot/releases) · [Blog](https://aelion.chat/blog/?lang=en) · [Feedback](https://github.com/FoyonaCZY/AelionBot/issues)

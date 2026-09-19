@@ -102,7 +102,7 @@ export class VmController extends EventEmitter {
   }
   async prepare() { return this.exclusive(async()=>{
     const imageProfile=this.platform.image;
-    if(!existsSync(this.executable)) throw new Error('QEMU 运行时尚未安装。开发版请先运行 npm run vm:prepare-runtime。');
+    if(!existsSync(this.executable)) throw new Error('QEMU 运行时尚未安装。开发版请先运行 pnpm run vm:prepare-runtime。');
     if(this.record) { this.checkArchitecture();await this.refresh(); return; }
     this.update({status:'preparing',detail:'准备固定 Linux 镜像',progress:0,lastError:undefined});
     const base=join(this.dir,'base.qcow2');

@@ -1,24 +1,24 @@
 # AelionBot 官网
 
-在仓库根目录运行：
+使用 Node.js 24 和 `package.json` 固定的 pnpm 12.5.1，在仓库根目录运行：
 
 ```sh
-npm ci
-npm run site:dev
+pnpm install --frozen-lockfile
+pnpm run site:dev
 ```
 
 本地地址：<http://127.0.0.1:4173/>。预览服务运行期间，页面会随源码更新。
 
 ```sh
-npm run site:build
-npm run site:preview
+pnpm run site:build
+pnpm run site:preview
 ```
 
 静态构建输出到 `website/dist/`，版本号取自根目录 `package.json`。首页及博客界面默认英文，可切换简体、繁体中文；语言会保存在本机，`?lang=en` / `?lang=zh-CN` / `?lang=zh-TW` 链接优先于保存的选择。博客正文保留作者撰写的语言。
 
 README 英文入口为根目录 `README.md`，中文为 `README.zh-CN.md`。产品画面使用 `docs/assets/screenshots/` 中的实际前端截图：8 个界面、三种语言，共 24 张。截图环境在 `tools/product-capture/`，直接导入当前 App 组件，使用只读示例数据，不读取真实会话、不连接模型或 VM。页面注明“当前界面截图 · 示例数据”。旧矢量界面不再用于首页和 README 的产品展示。
 
-更新截图时，启动 `npm run site:dev`，再通过 Playwright CLI 的 `run-code --filename=website/tools/capture-screens.cjs` 运行截图脚本。截图尺寸为 1400×900。截图是完整组件渲染结果，不手工重绘按钮、布局或桌面内容。
+更新截图时，启动 `pnpm run site:dev`，再通过 Playwright CLI 的 `run-code --filename=website/tools/capture-screens.cjs` 运行截图脚本。截图尺寸为 1400×900。截图是完整组件渲染结果，不手工重绘按钮、布局或桌面内容。
 
 Bot 主视觉和成果插画由网页直接绘制，滚动动效遵循系统的减少动态效果设置。下载、代码与反馈入口指向项目的 GitHub 页面。
 
@@ -49,7 +49,7 @@ draft: true
 - `author` 默认是 `FoyonaCZY`，`tags` 可以省略。
 - 只有明确设置 `draft: false` 才会进入官网构建；省略 `draft` 或设置为 `true` 都不发布。
 
-运行 `npm run site:dev` 后：
+运行 `pnpm run site:dev` 后：
 
 - 已发布文章列表：<http://127.0.0.1:4173/blog/>
 - 模板的草稿预览：<http://127.0.0.1:4173/blog/_preview/my-first-post/>
@@ -57,7 +57,7 @@ draft: true
 
 草稿预览仅存在于本地开发服务。文章支持代码高亮与复制、表格、图片、引用和自动目录。图片放入 `website/public/blog-media/`，正文写 `![说明](/blog-media/图片名.png)`。
 
-准备发布时，把 `draft` 改为 `false`，执行 `npm run site:test` 和 `npm run site:build`，提交文章与图片并推送到 `main`。GitHub Actions 会自动构建并发布到官网。文章上线地址为 `https://aelion.chat/blog/<slug>/`，列表和站点地图一起更新。
+准备发布时，把 `draft` 改为 `false`，执行 `pnpm run site:test` 和 `pnpm run site:build`，提交文章与图片并推送到 `main`。GitHub Actions 会自动构建并发布到官网。文章上线地址为 `https://aelion.chat/blog/<slug>/`，列表和站点地图一起更新。
 
 这里的“草稿”只控制官网展示；本仓库是公开的，提交到 GitHub 的 Markdown 文件仍然可以被查看。需要保密的内容请留在仓库之外。
 
