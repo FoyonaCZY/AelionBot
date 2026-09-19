@@ -1,26 +1,26 @@
-body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]){--preview-chat-width:340px}
+body:has(.fp-panel[data-layout=docked]){--preview-chat-width:340px}
 @media(min-width:1000px){
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat]{width:var(--preview-chat-width);min-width:0;grid-template-columns:minmax(0,1fr)!important}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat]>.sidebar,body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat]>.computer-details{display:none}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat] .chat-header{min-height:28px;height:28px;padding:0 13px 5px;gap:5px}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .chat-header .bot-heading{display:none}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .chat-header .header-actions{width:100%;justify-content:space-between}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .messages{padding:14px 14px;overflow-anchor:none}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .composer-wrap{padding:10px;min-width:0}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .bot-model-button{font-size:11px}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .connection-status{font-size:11px}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat] .conversation{min-width:0}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat] .composer{min-width:0}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .composer-bottom{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;grid-template-rows:auto auto;gap:8px 6px;align-items:center;justify-content:stretch}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .composer-tools{grid-column:1/-1;grid-row:1;width:100%;margin-right:0;min-width:0}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .composer-workspace{max-width:none;flex:1 1 0;min-width:0;overflow:hidden}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .composer-workspace>button:first-of-type{flex:1 1 0;min-width:0;overflow:hidden}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .composer-workspace span{min-width:0}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .permission-mode{grid-column:1;grid-row:2;justify-self:start;min-width:0;max-width:100%;overflow:hidden}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .permission-mode>.aelion-select{min-width:0;max-width:100%;font-size:11px;min-height:28px}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .context-usage-trigger{grid-column:2;grid-row:2}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .composer-bottom>.icon-button{grid-column:3;grid-row:2}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .composer .send-button{grid-column:4;grid-row:2;justify-self:end}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat]{width:var(--preview-chat-width);min-width:0;grid-template-columns:minmax(0,1fr)!important}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat]>.sidebar,body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat]>.computer-details{display:none}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat] .chat-header{min-height:28px;height:28px;padding:0 13px 5px;gap:5px}
+ body:has(.fp-panel[data-layout=docked]) .chat-header .bot-heading{display:none}
+ body:has(.fp-panel[data-layout=docked]) .chat-header .header-actions{width:100%;justify-content:space-between}
+ body:has(.fp-panel[data-layout=docked]) .messages{padding:14px 14px;overflow-anchor:none}
+ body:has(.fp-panel[data-layout=docked]) .composer-wrap{padding:10px;min-width:0}
+ body:has(.fp-panel[data-layout=docked]) .bot-model-button{font-size:11px}
+ body:has(.fp-panel[data-layout=docked]) .connection-status{font-size:11px}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat] .conversation{min-width:0}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat] .composer{min-width:0}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .composer-bottom{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;grid-template-rows:auto auto;gap:8px 6px;align-items:center;justify-content:stretch}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .composer-tools{grid-column:1/-1;grid-row:1;width:100%;margin-right:0;min-width:0}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .composer-workspace{max-width:none;flex:1 1 0;min-width:0;overflow:hidden}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .composer-workspace>button:first-of-type{flex:1 1 0;min-width:0;overflow:hidden}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .composer-workspace span{min-width:0}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .permission-mode{grid-column:1;grid-row:2;justify-self:start;min-width:0;max-width:100%;overflow:hidden}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .permission-mode>.aelion-select{min-width:0;max-width:100%;font-size:11px;min-height:28px}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .context-usage-trigger{grid-column:2;grid-row:2}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .composer-bottom>.icon-button{grid-column:3;grid-row:2}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat]:not([data-bot-type=designer]) .composer .send-button{grid-column:4;grid-row:2;justify-self:end}
 }
 .fp-layer.is-docked{width:calc(100vw - var(--preview-chat-width,340px));top:40px}
 .preview-bot-switcher{height:40px;display:flex;align-items:center;padding:4px 8px;flex-shrink:0}.preview-bot-switcher>.preview-picker{width:100%;font-size:12px;height:32px}.preview-bot-switcher .avatar{flex-shrink:0}

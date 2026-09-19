@@ -150,21 +150,20 @@ test('studio source keeps docked feedback and portals into the canvas host',()=>
  const studio=read(resolve('src/designer-studio.css'),'utf8');
  assert.match(studio,/\.fp-layer\.is-studio\{[^}]*inset:0/);
  assert.match(studio,/\.fp-layer\.is-studio \.fp-web-frame\{[^}]*height:100%/);
- assert.match(studio,/left:var\(--preview-chat-width,340px\)/);
- assert.match(studio,/position:fixed/);
- assert.match(studio,/\.designer-workspace.has-task.is-studio \.designer-delivery\{display:none\}/);
- assert.doesNotMatch(studio,/minmax\(280px,38%\)/);
- assert.doesNotMatch(studio,/minmax\(240px,\s*300px\)/);
- assert.doesNotMatch(studio,/\.fp-layer\.is-studio\{[^}]*top:auto;right:auto;bottom:auto/);
+ assert.match(studio,/grid-template-columns:minmax\(320px,\.85fr\) minmax\(0,1\.25fr\)/);
+ assert.doesNotMatch(studio,/left:var\(--preview-chat-width/);
+ assert.doesNotMatch(studio,/\.designer-canvas\{[^}]*position:fixed/);
+ assert.doesNotMatch(studio,/\.designer-delivery\{display:none\}/);
  const workbench=read(resolve('src/preview-workbench.css'),'utf8');
- assert.match(workbench,/data-layout=studio/);
- assert.match(workbench,/\.app-shell\[data-page=chat\]>\.sidebar/);
- assert.match(preview,/!modal&&<button className="fp-resize-handle"/);
- assert.match(read(resolve('src/preview-workbench.tsx'),'utf8'),/studio\?:boolean/);
- assert.match(read(resolve('src/App.tsx'),'utf8'),/info\?\.studio/);
+ assert.doesNotMatch(workbench,/data-layout=studio/);
+ assert.match(preview,/!modal&&!wantsStudio&&<button className="fp-resize-handle"/);
+ assert.match(preview,/if\(wantsStudio\)return/);
+ const app=read(resolve('src/App.tsx'),'utf8');
+ assert.doesNotMatch(app,/info\?\.studio/);
  const loop=read(resolve('electron/core/designer-loop.ts'),'utf8');
  assert.match(loop,/hostedImageGeneration:false/);
  assert.match(loop,/hostedGeneratedImages/);
+ assert.match(loop,/openLivePreview/);
 });
 
 test('publish records a visible brand check and will not overwrite a user-saved HTML file',async t=>{

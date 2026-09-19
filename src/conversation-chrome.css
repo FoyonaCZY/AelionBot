@@ -14,8 +14,8 @@
 @media(max-width:620px){.app-shell>.sidebar .sidebar-bottom{flex-direction:column}.app-shell>.sidebar .sidebar-link{width:100%;flex:none}}
 /* A docked preview owns the right-hand window controls; chat stays compact. */
 @media(min-width:1000px){
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat]>.conversation{--conversation-caption-space:0px}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat]>.conversation :is(.chat-header,.designer-header){height:40px;min-height:40px;padding:0 12px;gap:8px}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat] .designer-task-top{padding:0;border:0;gap:6px}
- body:has(.fp-panel[data-layout=docked], .fp-panel[data-layout=studio]) .app-shell[data-page=chat] .designer-task-top>button{font-size:11px;min-height:23px;padding:2px 5px}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat]>.conversation{--conversation-caption-space:0px}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat]>.conversation :is(.chat-header,.designer-header){height:40px;min-height:40px;padding:0 12px;gap:8px}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat] .designer-task-top{padding:0;border:0;gap:6px}
+ body:has(.fp-panel[data-layout=docked]) .app-shell[data-page=chat] .designer-task-top>button{font-size:11px;min-height:23px;padding:2px 5px}
 }

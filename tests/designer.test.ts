@@ -89,6 +89,23 @@ test('selected references materialize locally without a full-library copy',async
  assert.equal(f.store.data.runs.at(-1)?.status,'completed');assert.match(readFileSync(join(f.task.workspaceDir!,'.design-system',f.task.systemVersion!,'sample','tokens.css'),'utf8'),/red/);
 });
 
+test('a bound task without a design system does not fail the run when resource or start is misused',async t=>{
+ const f=loopFixture(t);f.designs.setSystem(f.designs.get(f.task.id),null);let step=0;
+ await f.make(async()=>{
+  if(step++===0)return {content:'Trying the package',calls:[call('design_resource',{action:'materialize'}),call('design_start',{kind:'prototype',title:'Retry',brief:'Need a system',systemId:'sample'})],finishReason:'tool_calls'};
+  return {content:'Continuing with the attached system.',calls:[],finishReason:'stop'};
+ }).run(f.bot.id,'Design a site',{designSessionId:f.task.id});
+ assert.equal(f.store.data.runs.at(-1)?.status,'completed');assert.equal(f.designs.get(f.task.id).systemId,'sample');
+ const history=JSON.stringify(f.designs.history(f.bot.id,f.task.origin,f.task.id).history.messages);
+ assert.match(history,/selected\\":false/);assert.match(history,/attached\\":true/);
+});
+
+test('design_system can attach a package while the current run is bound',async t=>{
+ const f=loopFixture(t);f.designs.setSystem(f.designs.get(f.task.id),null);let step=0;
+ await f.make(async()=>({content:step++?'Ready':'Attach',calls:step===1?[call('design_system',{systemId:'sample'})]:[],finishReason:'stop'})).run(f.bot.id,'Use a system',{designSessionId:f.task.id});
+ assert.equal(f.store.data.runs.at(-1)?.status,'completed');assert.equal(f.designs.get(f.task.id).systemId,'sample');
+});
+
 test('real editable PowerPoint output can be published and survives reopening',async t=>{
  const python=process.env.AELION_TEST_PYTHON;if(!python){t.skip('Set AELION_TEST_PYTHON to create and reopen a real PPTX');return;}
  const f=loopFixture(t,'ppt'),path=f.task.workspacePath+'/deck.pptx';mkdirSync(dirname(f.files.absolute(f.task,path)),{recursive:true});
@@ -160,6 +177,7 @@ test('design-system selection is task scoped while another task of the same Bot 
  const a=designs.create({botId:bot.id,kind:'prototype',brief:'Running task',systemId:'sample'}),b=designs.create({botId:bot.id,kind:'ppt',brief:'New task'});
  designs.get(a.id).activeRunId='active-a';designs.get(a.id).status='running';designs.save();
  assert.throws(()=>designs.update({id:a.id,revision:a.revision,systemId:null}),/停止/);
+ assert.equal(designs.setSystem(designs.get(a.id),'sample').systemId,'sample');
  const updated=designs.update({id:b.id,revision:b.revision,systemId:'sample'});assert.equal(updated.systemId,'sample');
  const cleared=designs.update({id:b.id,revision:updated.revision,systemId:null});assert.equal(cleared.systemId,null);assert.equal(designs.get(a.id).systemId,'sample');assert.equal(designs.get(a.id).activeRunId,'active-a');
 });
