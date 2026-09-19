@@ -28,4 +28,4 @@ VM 首选 ACPI 正常关机，15 秒后仍运行则通过 QMP quit 结束；每�
 - 安装包里的 extraResources 会进入自动更新差分；应用代码每次变更都可能让用户重新拉取整份系统盘。
 - 系统镜像版本与客户端版本不同步，现有 `runtime/guest-image.json` 已经按镜像单独固定 URL 和 SHA-512。
 
-正确做法是继续把 guest 镜像当作独立、可校验的下载：在有 HVF/WHPX 的机器上运行 `npm run vm:provision-image`，安装桌面软件后写入 `/var/lib/aelion/provisioned-workstation`，再 `cloud-init clean` 并压缩 qcow2。用户侧首次启动若看到匹配的预装标记，会跳过 APT，只写入当前版本的桌面配置。未预装的官方 Debian genericcloud 行为不变。
+正确做法是继续把 guest 镜像当作独立、可校验的下载：在有 HVF/WHPX 的机器上运行 `pnpm run vm:provision-image`，安装桌面软件后写入 `/var/lib/aelion/provisioned-workstation`，再 `cloud-init clean` 并压缩 qcow2。用户侧首次启动若看到匹配的预装标记，会跳过 APT，只写入当前版本的桌面配置。未预装的官方 Debian genericcloud 行为不变。

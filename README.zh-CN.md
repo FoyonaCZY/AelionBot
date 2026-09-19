@@ -96,6 +96,20 @@ Bot 之间也能互发私信、传递文件。群聊围绕群内上下文工作�
 
 <sub>产品图片直接截取当前 App 前端，使用虚构的示例对话和文件，未连接模型或 VM。顶部 Bot 形象为品牌插画。本文介绍当前源码能力，下载包以对应版本说明为准。</sub>
 
+## 本地开发
+
+使用 Node.js 24 和 pnpm 12.5.1（版本固定在 `package.json`）。按 [pnpm 官方说明](https://pnpm.io/installation) 安装后，在仓库根目录运行：
+
+```sh
+pnpm install --frozen-lockfile
+pnpm run typecheck
+pnpm test
+pnpm run build
+pnpm run dev
+```
+
+修改依赖时一起提交 `pnpm-lock.yaml`，不要生成 npm 锁文件。依赖构建脚本的批准配置在 `pnpm-workspace.yaml`。使用 Linux 工作电脑前还需运行 `pnpm run vm:prepare-runtime`；完整安装包的生成方式见[发布说明](docs/RELEASING.md)。
+
 ## 了解更多
 
 [官网](https://aelion.chat/?lang=zh-CN) · [版本更新](https://github.com/FoyonaCZY/AelionBot/releases) · [博客](https://aelion.chat/blog/?lang=zh-CN) · [反馈建议](https://github.com/FoyonaCZY/AelionBot/issues)

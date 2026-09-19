@@ -4,14 +4,14 @@
 
 ## 生成发行包
 
-在 Windows x64 和 Node.js 24+ 环境运行：
+在 Windows x64、Node.js 24 和 pnpm 12.5.1 环境运行。pnpm 版本由 `package.json` 固定，安装方式见 [pnpm 官方文档](https://pnpm.io/installation)：
 
 ```powershell
-npm ci
-npm run vm:prepare-runtime
-npm run typecheck
-npm test
-npm run package:release
+pnpm install --frozen-lockfile
+pnpm run vm:prepare-runtime
+pnpm run typecheck
+pnpm test
+pnpm run package:release
 ```
 
 输出目录是 `release/github`，更新需要同一构建产生的三个文件：
@@ -27,7 +27,7 @@ npm run package:release
 ## 发布新版本
 
 1. 修改 `package.json` 的版本号，并更新锁文件。
-2. 提交前运行 `npm run audit:publish -- --worktree`；暂存后再运行 `npm run audit:publish` 检查实际暂存内容。
+2. 提交前运行 `pnpm run audit:publish --worktree`；暂存后再运行 `pnpm run audit:publish` 检查实际暂存内容。
 3. 推送代码和匹配的版本标签，例如 `v0.4.1`。
 
 ```powershell

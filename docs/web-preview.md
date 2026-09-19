@@ -31,10 +31,10 @@ The native browser rectangle leaves room for navigation and extends to the botto
 ## Verification
 
 ```sh
-npm run typecheck
-npx tsx --test tests/web-preview.test.ts tests/agent-previews.test.ts tests/preview-feedback.test.ts tests/file-preview.test.ts tests/preview-editing.test.ts
+pnpm run typecheck
+pnpm exec tsx --test tests/web-preview.test.ts tests/agent-previews.test.ts tests/preview-feedback.test.ts tests/file-preview.test.ts tests/preview-editing.test.ts
 node scripts/verify-web-preview.mjs
-npm run build
+pnpm run build
 ```
 
 Set `AELION_TEST_PYTHON` to a Python executable to include VM file-editing fixture checks. The Electron check uses an isolated hidden window and local fixture server, not the user's VM. Native screenshots may be unavailable in a hidden compositor; that check reports a skip explicitly. Verify actual screenshot feedback and the complete VM project flow in a visible desktop window before release.
@@ -49,7 +49,7 @@ Set `AELION_TEST_PYTHON` to a Python executable to include VM file-editing fixtu
 - Running applications and remote sites can be edited in the preview. **Send changes** attaches a JSON change manifest and the current screenshot to the originating conversation so the Bot can update the actual project source. It does not claim to rewrite React/Vue components from a runtime DOM snapshot. Navigation to another page also disables writing back to the original HTML file.
 - Limits: one million characters per edited DOM subtree, 64 changes / eight million characters per editing session, and 100 annotations with bounded point counts. Larger elements remain inspectable and can be edited through the source editor.
 
-Additional checks: `npx tsx --test tests/preview-editor.test.ts tests/preview-feedback.test.ts` and `node scripts/verify-web-preview.mjs`. The latter exercises the isolated native DOM editor, HTML preview/revert, undo/redo, navigation protection and export of source edits.
+Additional checks: `pnpm exec tsx --test tests/preview-editor.test.ts tests/preview-feedback.test.ts` and `node scripts/verify-web-preview.mjs`. The latter exercises the isolated native DOM editor, HTML preview/revert, undo/redo, navigation protection and export of source edits.
 
 ### 字体与画布操作
 

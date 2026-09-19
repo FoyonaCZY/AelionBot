@@ -29,7 +29,7 @@
 
 对于小于 32K 的主会话上下文，直接工具菜单保留常用工具及 `tool_search`、`code_exec`，其余工具通过发现后编排调用。完整的可调用清单仍按会话、功能开关与规划权限过滤。这避免新增工具定义使 8K 模型无法发送首个请求。
 
-`node-pty` 作为原生运行依赖保留并从 ASAR 解包，加载器使用真实解包路径。QuickJS 包及 WASM 作为运行依赖保留，代码 worker 由构建脚本单独生成。包版本与许可证见 `package-lock.json`、`THIRD-PARTY-NOTICES.md`。
+`node-pty` 作为原生运行依赖保留并从 ASAR 解包，加载器使用真实解包路径。QuickJS 包及 WASM 作为运行依赖保留，代码 worker 由构建脚本单独生成。包版本与许可证见 `pnpm-lock.yaml`、`THIRD-PARTY-NOTICES.md`。
 
 ## 验证
 

@@ -4,7 +4,7 @@ $appExecutable = Join-Path $projectRoot 'release\win-unpacked\AelionBot.exe'
 $dataRoot = Join-Path $projectRoot '.local\app'
 $modelExecutable = Join-Path $projectRoot 'runtime\local-model\server\llama-server.exe'
 $modelWeights = Join-Path $projectRoot 'runtime\local-model\Qwen3-1.7B-Q8_0.gguf'
-if (-not (Test-Path -LiteralPath $appExecutable)) { throw '请先运行 npm run package:win 生成 Windows 客户端。' }
+if (-not (Test-Path -LiteralPath $appExecutable)) { throw '请先运行 pnpm run package:win 生成 Windows 客户端。' }
 $statePath = Join-Path $dataRoot 'state.json'
 if (Test-Path -LiteralPath $statePath) {
   $savedState = Get-Content -LiteralPath $statePath -Raw -Encoding UTF8 | ConvertFrom-Json

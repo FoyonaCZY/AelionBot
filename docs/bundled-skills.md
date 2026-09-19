@@ -16,7 +16,7 @@ The office scripts and templates are original AelionBot implementations. No Anth
 
 - `node --import tsx --test tests/bundled-skills.test.ts tests/integrations.test.ts tests/skill-catalog.test.ts`
 - `python tests/bundled_skill_helpers_test.py` with openpyxl and python-pptx available.
-- `npm run typecheck` and `npm run build`.
+- `pnpm run typecheck` and `pnpm run build`.
 - Smoke-test Writer PDF/DOCX export, Impress PPTX/PDF export, Calc formula recalculation, and rendered pages with an isolated LibreOffice profile. Do not use a user's active VM or office profile for fixture tests.
 
 The runtime already supplies LibreOffice, Poppler, openpyxl, pypdf, and python-pptx in its office profile. Skills check availability on older VMs; optional packages such as python-docx, pandas, Matplotlib, and ReportLab are not assumed installed. Helper scripts refuse output overwrite. Skills instruct the model to inspect actual document/browser output and attach selected final deliverables rather than exposing every intermediate file.

@@ -44,13 +44,13 @@ The approved Bauhaus UI is implemented in DesignerWorkspace and designer-bauhaus
 
 ```powershell
 node scripts/verify-design-systems.mjs
-npm run typecheck
+pnpm run typecheck
 # Set this to a usable Python installation with python-pptx for both real-file checks.
 $env:AELION_TEST_PYTHON = '<python executable>'
-npx tsx --test tests/designer.test.ts
-npm test
-npm run build
-npx electron-builder --win dir
+pnpm exec tsx --test tests/designer.test.ts
+pnpm test
+pnpm run build
+pnpm exec electron-builder --win dir
 node scripts/verify-designer-package.mjs '<path to app.asar>'
 ```
 
