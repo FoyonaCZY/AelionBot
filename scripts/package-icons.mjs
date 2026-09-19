@@ -6,7 +6,7 @@ import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 
 const require=createRequire(import.meta.url),asar=require('@electron/asar');
-const {NtExecutable,NtExecutableResource,Resource,Data}=require('resedit');
+const loadResedit=()=>require('resedit');
 const defaultAssets=resolve(dirname(fileURLToPath(import.meta.url)),'../assets');
 export const iconFiles=['icon.svg','icon.png','icon.ico'];
 const hash=bytes=>createHash('sha256').update(Buffer.from(bytes)).digest('hex');
@@ -18,6 +18,7 @@ export function syncIconAssets(appDir,assetsDir=defaultAssets){
 }
 
 export function embedWindowsIcon(bytes,icoBytes=readFileSync(join(defaultAssets,'icon.ico'))){
+  const {NtExecutable,NtExecutableResource,Resource,Data}=loadResedit();
   const executable=NtExecutable.from(bytes),resources=NtExecutableResource.from(executable),icons=Data.IconFile.from(icoBytes).icons.map(item=>item.data);
   assert.ok(icons.length,'Application icon contains no images.');
   const group=Resource.IconGroupEntry.fromEntries(resources.entries)[0];
@@ -26,6 +27,7 @@ export function embedWindowsIcon(bytes,icoBytes=readFileSync(join(defaultAssets,
 }
 
 export function verifyWindowsIcons(appDir,assetsDir=defaultAssets){
+  const {NtExecutable,NtExecutableResource,Resource,Data}=loadResedit();
   const expected=signature(Data.IconFile.from(readFileSync(join(assetsDir,'icon.ico'))).icons.map(item=>item.data));
   const resources=NtExecutableResource.from(NtExecutable.from(readFileSync(join(appDir,'AelionBot.exe')))),groups=Resource.IconGroupEntry.fromEntries(resources.entries);
   assert.ok(groups.some(group=>JSON.stringify(signature(group.getIconItemsFromEntries(resources.entries)))===JSON.stringify(expected)),'EXE icon does not match assets/icon.ico; do not publish this package.');

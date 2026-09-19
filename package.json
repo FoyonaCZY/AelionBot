@@ -1,6 +1,6 @@
 {
   "name": "aelion-bot",
-  "version": "0.27.2",
+  "version": "0.27.3",
   "private": true,
   "description": "Local AI teammates with a managed Linux computer",
   "type": "module",
@@ -144,6 +144,7 @@
     "lightningcss": "1.33.0",
     "markdown-it": "14.3.1",
     "playwright": "1.62.1",
+    "resedit": "1.7.2",
     "postcss": "8.5.28",
     "tsx": "4.23.13",
     "typescript": "7.0.2",

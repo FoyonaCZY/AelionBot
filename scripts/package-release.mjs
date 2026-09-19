@@ -2,10 +2,10 @@ import {createRequire} from 'node:module';
 import {spawn} from 'node:child_process';
 import {readFileSync,existsSync,mkdirSync,realpathSync} from 'node:fs';
 import {resolve,join,relative,isAbsolute} from 'node:path';
-import {verifyWindowsIcons} from './package-icons.mjs';
 import {verifyRelease} from './verify-release.mjs';
 
 if(process.platform==='darwin'){await import('./package-macos-release.mjs');process.exit(0);}
+const {verifyWindowsIcons}=await import('./package-icons.mjs');
 const require=createRequire(import.meta.url),root=resolve(import.meta.dirname,'..'),pkg=JSON.parse(readFileSync(join(root,'package.json'),'utf8'));
 if(process.platform!=='win32')throw Error('Windows releases must be built on Windows.');
 if(process.env.GITHUB_REF_TYPE==='tag'&&process.env.GITHUB_REF_NAME!==`v${pkg.version}`)throw Error('The Git tag must match package.json version.');
