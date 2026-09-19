@@ -15,6 +15,16 @@ if(!existsSync(join(root,'runtime/qemu/qemu-system-x86_64.exe')))throw Error('Ru
 async function run(script){await new Promise((done,fail)=>{const child=spawn(process.execPath,[join(root,script)],{cwd:root,windowsHide:true,stdio:'inherit'});child.on('error',fail);child.on('exit',code=>code===0?done():fail(Error(`${script} failed (${code})`)));});}
 await run('scripts/generate-icons.mjs');await run('scripts/build.mjs');
 const {build,Platform,Arch}=require('electron-builder');
-await build({targets:Platform.WINDOWS.createTarget(['nsis'],Arch.x64),publish:'never',config:{directories:{output}}});
+const transient=/HTTPError|Response code 5\d\d|status code 5\d\d|ECONNRESET|ETIMEDOUT/;
+for(let attempt=0;;attempt++){
+  try{await build({targets:Platform.WINDOWS.createTarget(['nsis'],Arch.x64),publish:'never',config:{directories:{output}}});break;}
+  catch(error){
+    const text=String(error?.message||error);
+    if(attempt>=3||!transient.test(text))throw error;
+    const wait=20_000*(attempt+1);
+    console.warn(`electron-builder download failed (${text.split('\n')[0]}); retrying in ${wait/1000}s`);
+    await new Promise(done=>setTimeout(done,wait));
+  }
+}
 verifyWindowsIcons(join(output,'win-unpacked'));
 console.log(JSON.stringify(await verifyRelease(output,pkg.version),null,2));

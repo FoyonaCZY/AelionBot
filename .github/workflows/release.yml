@@ -91,12 +91,20 @@ jobs:
         run: pnpm run vm:prepare-runtime
       - name: Verify bundled runtime
         run: node scripts/verify-bundled-runtime.mjs
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ github.workspace }}/.cache/electron-builder
+          key: electron-builder-binaries-${{ runner.os }}-${{ runner.arch }}-26
+          restore-keys: electron-builder-binaries-${{ runner.os }}-${{ runner.arch }}-
       - name: Build and verify Windows installer
         if: runner.os == 'Windows'
+        env:
+          ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
         run: pnpm run package:release
       - name: Build and verify Mac installers
         if: runner.os == 'macOS'
         env:
+          ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
