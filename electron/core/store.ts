@@ -224,7 +224,7 @@ export class Store {
     for(const exchange of this.data.peerExchanges.filter(exchange=>exchange.toBotId===id)){delete next.peerContexts[exchange.id];delete next.summaries[`peer:${exchange.id}`];delete next.contextOffsets[`peer:${exchange.id}`];}
     this.replaceData(next);
   }
-  createBot(name: string, role: string, color?: string,avatarStyle?:BotAvatarStyle|null,modelOptions?:Pick<Bot,'model'|'reasoningEffort'|'type'|'defaultDesignSystemId'>): Bot {
+  createBot(name: string, role: string, color?: string,avatarStyle?:BotAvatarStyle|null,modelOptions?:Pick<Bot,'model'|'imageModel'|'reasoningEffort'|'type'|'defaultDesignSystemId'>): Bot {
     if (!name.trim() || name.length > 80 || role.length > 4000) throw new Error('请填写有效的名称与职责');
     const palette=normalizeBotPalette({color:color===undefined?BOT_COLORS[this.data.bots.length%BOT_COLORS.length]:color,avatarStyle});
     const bot:Bot = { id: randomUUID(), name: name.trim(), role: role.trim(), ...palette, createdAt: new Date().toISOString(), memories: [],...modelOptions,type:botType(modelOptions?.type) };

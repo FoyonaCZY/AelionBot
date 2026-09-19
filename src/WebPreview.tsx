@@ -32,7 +32,7 @@ export function WebPreview({source,onSource,fileEditor,editorContent}:{source:We
   const layout=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{
    const node=slot.current;if(!node||!ready||disposed)return;const rect=node.getBoundingClientRect(),layer=node.closest<HTMLElement>('.fp-layer');
    const capture=layer?.dataset.feedbackCapture==='true';
-   const externalModal=layer?.classList.contains('is-docked')&&Boolean(document.querySelector('.modal-backdrop,.group-editor-layer,.scheduled-layer'));
+   const externalModal=Boolean(document.querySelector('.modal-backdrop,.group-editor-layer,.scheduled-layer'));
    const blocked=externalModal||Boolean(layer?.querySelector('.fp-unsaved-backdrop'))||innerWidth<=700&&Boolean(layer?.querySelector('.fp-directory'))||Boolean(node.closest('[inert]'))&&!capture;
    void window.aelion.layoutWebPreview({id:currentId,rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height},visible:!blocked&&document.visibilityState!=='hidden'}).catch(()=>{});
   });};

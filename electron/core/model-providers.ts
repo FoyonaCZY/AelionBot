@@ -80,8 +80,8 @@ export class ModelProviders {
   private keyFor(provider:StoredProvider){const cipher=provider.encryptedKey;if(!cipher)return '';if(this.decrypted.has(cipher))return this.decrypted.get(cipher)!;try{const key=this.codec.decrypt(cipher);this.decrypted.set(cipher,key);return key;}catch{return '';}}
   private public(provider:StoredProvider):ModelProvider{const {encryptedKey,...rest}=provider;return {...structuredClone(rest),hasKey:Boolean(this.keyFor(provider))};}
   list(){return (this.store.data.providers||[]).map(provider=>this.public(provider));}
-  key(botId?:string){const id=this.store.modelFor(botId).providerId;return id?this.keyFor(this.provider(id)):'';}
-  config(botId?:string){const config=this.store.modelFor(botId);return {...config,hasKey:!config.issue&&Boolean(this.key(botId))};}
+  key(botId?:string,selection?:ModelSelection){const id=this.store.modelFor(botId,selection).providerId;return id?this.keyFor(this.provider(id)):'';}
+  config(botId?:string,selection?:ModelSelection){const config=this.store.modelFor(botId,selection);return {...config,hasKey:!config.issue&&Boolean(this.key(botId,selection))};}
   approvalKey(){const config=this.store.modelFor(undefined,this.store.data.approvalModel);return config.providerId&&!config.issue?this.keyFor(this.provider(config.providerId)):'';}
   approvalConfig(){const config=this.store.modelFor(undefined,this.store.data.approvalModel);return {...config,hasKey:!config.issue&&Boolean(this.approvalKey())};}
   setApproval(value:unknown){this.commit({approvalModel:this.selection(value)});}

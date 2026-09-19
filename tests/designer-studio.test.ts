@@ -37,7 +37,7 @@ test('empty canvas and preview helpers cover the five task kinds without writing
  for(const kind of ['prototype','ppt','clone','mobile','document'] as const){
   const html=emptyCanvasHtml(kind,'A <Brand>');
   assert.match(html,/data-design-id="empty-canvas"/);
-  assert.match(html,/A &lt;Brand&gt;/);
+  assert.doesNotMatch(html,/网页画布|文件一写入|A &lt;Brand&gt;|empty-slide|device-frame/);
   assert.equal(deviceFrameKind(kind),kind==='mobile'?'phone':kind==='ppt'?'slide':kind==='document'?'page':undefined);
   assert.equal(primaryDesignArtifact(kind,kind==='ppt'?'deck.pptx':'index.html'),true);
  }
@@ -136,6 +136,8 @@ test('studio source keeps docked feedback and portals into the canvas host',()=>
  const workspace=read(resolve('src/DesignerWorkspace.tsx'),'utf8');
  assert.match(workspace,/data-designer-canvas=\{task\.id\}/);
  assert.match(workspace,/emptyCanvasHtml/);
+ assert.doesNotMatch(workspace,/deviceFrame/);
+ assert.doesNotMatch(workspace,/expanded:\s*true/);
  assert.match(workspace,/DESIGN_TASK_KINDS/);
  assert.match(workspace,/studioFacade/);
  assert.match(workspace,/designer-bauhaus-hero/);

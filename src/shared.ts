@@ -16,8 +16,8 @@ export interface ModelSelection {providerId:string;model:string;contextTokens:nu
 export interface ProviderModel {id:string;contextTokens?:number;reasoningEffort?:string;thinkingBudget?:number;supportsImages?:boolean;}
 export interface ModelProvider extends ModelParameters {id:string;name:string;baseUrl:string;hasKey:boolean;models:ProviderModel[];modelsUpdatedAt?:string;modelsCheckedAt?:string;modelsError?:string;}
 export interface ProviderInput extends ModelParameters {id?:string;name:string;baseUrl:string;apiKey?:string|null;}
-export interface Bot {type?:import('./designer-types').BotType;contextResetAt?:string;defaultDesignSystemId?:string|null; id: string; name: string; role: string; color: string; avatarStyle?:import('./bot-colors').BotAvatarStyle; createdAt: string; memories: string[]; model?:ModelSelection; reasoningEffort?:string; }
-export interface BotUpdateInput {confirmContextReset?:boolean;expectedType?:import('./designer-types').BotType;type?:import('./designer-types').BotType;defaultDesignSystemId?:string|null;id:string;name:string;role:string;model?:ModelSelection|null;reasoningEffort?:string|null;color?:string;avatarStyle?:import('./bot-colors').BotAvatarStyle|null;}
+export interface Bot {type?:import('./designer-types').BotType;contextResetAt?:string;defaultDesignSystemId?:string|null; id: string; name: string; role: string; color: string; avatarStyle?:import('./bot-colors').BotAvatarStyle; createdAt: string; memories: string[]; model?:ModelSelection; imageModel?:ModelSelection; reasoningEffort?:string; }
+export interface BotUpdateInput {confirmContextReset?:boolean;expectedType?:import('./designer-types').BotType;type?:import('./designer-types').BotType;defaultDesignSystemId?:string|null;id:string;name:string;role:string;model?:ModelSelection|null;imageModel?:ModelSelection|null;reasoningEffort?:string|null;color?:string;avatarStyle?:import('./bot-colors').BotAvatarStyle|null;}
 export interface ToolCall { id: string; type: 'function'; function: { name: string; arguments: string }; }
 export interface ScreenReference { id: string; width: number; height: number; attachmentId?:string; }
 export interface WireMessage { native?:NativeAssistant; role: 'system' | 'user' | 'assistant' | 'tool'; content: string | null; tool_calls?: ToolCall[]; tool_call_id?: string; images?: ScreenReference[]; groupMessageId?:string; }
@@ -110,7 +110,7 @@ export interface AelionAPI {
   updateScheduledTask(input:ScheduledTaskUpdate):Promise<ScheduledTask>;
   deleteScheduledTask(id:string):Promise<void>;
   runScheduledTask(id:string):Promise<void>;
-  createBot(input: {type?:import('./designer-types').BotType; name: string; role: string; color?: string;avatarStyle?:import('./bot-colors').BotAvatarStyle|null;model?:ModelSelection|null;reasoningEffort?:string|null }): Promise<Bot>;
+  createBot(input: {type?:import('./designer-types').BotType; name: string; role: string; color?: string;avatarStyle?:import('./bot-colors').BotAvatarStyle|null;model?:ModelSelection|null;imageModel?:ModelSelection|null;reasoningEffort?:string|null }): Promise<Bot>;
   deleteBot(id: string): Promise<void>;
   updateBot(input: BotUpdateInput): Promise<void>;
   send(input: {designSessionId?:string; botId: string; message: string; replyToMessageId?:string; mentions?:BotMention[];attachmentIds?:string[] }): Promise<void>;

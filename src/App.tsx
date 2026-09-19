@@ -82,7 +82,7 @@ function AppContent(){
   const [modal,setModal]=useState<Modal>(null),[settingsTab,setSettingsTab]=useState<SettingsTab>('model'),[scope,setScope]=useState('');
   const [botMenu,setBotMenu]=useState<BotMenuAnchor>(),[editingId,setEditingId]=useState(''),[deletingId,setDeletingId]=useState('');
   const [busy,setBusy]=useState(false),[toast,setToast]=useState(''),[name,setName]=useState(''),[role,setRole]=useState('');
-  const [profileModel,setProfileModel]=useState<ModelSelection|null>(null);
+  const [profileModel,setProfileModel]=useState<ModelSelection|null>(null),[profileImageModel,setProfileImageModel]=useState<ModelSelection|null>(null);
   const [profileReasoning,setProfileReasoning]=useState('');
   const [taskModalOpen,setTaskModalOpen]=useState(false);
   const setupPrompted=useRef('');
@@ -204,8 +204,8 @@ function AppContent(){
     const item=previewItemFromEntry(entry);item.designSessionId=state?.runs.find(run=>run.id===entry.runId)?.designSessionId;
     showPreview([item],0,{scope:entry.scope.kind==='group'?entry.scope:group?{kind:'group',id:group.id}:{kind:'bot',id:entry.botId}});
   };
-  const openNewBot=()=>{setProfileType('general');setPage('chat');if(!newMenu)setNewBotPalette(randomBotPalette(newBotPalette));setName('');setRole('');setProfileModel(null);setProfileReasoning(state?.defaultModel?.reasoningEffort||'');setModal('new');};
-  const editBot=(target:Bot)=>{setProfileType(target.type||'general');setProfileOriginalType(target.type||'general');setBotMenu(undefined);setEditingId(target.id);setName(target.name);setRole(target.role);setProfileModel(target.model?{...target.model}:null);setProfileReasoning(target.reasoningEffort||'');setProfilePalette(displayBotPalette(target));setModal('profile');};
+  const openNewBot=()=>{setProfileType('general');setPage('chat');if(!newMenu)setNewBotPalette(randomBotPalette(newBotPalette));setName('');setRole('');setProfileModel(null);setProfileImageModel(null);setProfileReasoning(state?.defaultModel?.reasoningEffort||'');setModal('new');};
+  const editBot=(target:Bot)=>{setProfileType(target.type||'general');setProfileOriginalType(target.type||'general');setBotMenu(undefined);setEditingId(target.id);setName(target.name);setRole(target.role);setProfileModel(target.model?{...target.model}:null);setProfileImageModel(target.imageModel?{...target.imageModel}:null);setProfileReasoning(target.reasoningEffort||'');setProfilePalette(displayBotPalette(target));setModal('profile');};
   const showBotMenu=(target:Bot,trigger:HTMLButtonElement,x?:number,y?:number)=>{
     const box=trigger.getBoundingClientRect();setBotMenu({id:target.id,trigger,x:x??box.left+24,y:y??box.bottom});
   };
@@ -219,8 +219,8 @@ function AppContent(){
   if(!state)return <div className="launch-note">{t('正在打开工作台…')}</div>;
   const rows=conversationRows(state.bots,state.messages,state.groups?.rooms||[],state.runs);
   const saveProfile=async(confirmContextReset=false)=>{
-    if(modal==='new'){const created=await window.aelion.createBot({type:profileType,name:name||t('新 Bot'),role:role||(profileType==='designer'?(language==='en'?'Create prototypes and editable presentations, follow the selected design system and verify deliverables.':'完成原型和可编辑演示文稿设计，遵循所选设计系统并验证成果。'):t('完成办公和代码任务，使用工作电脑实际执行并核对成果。')),model:profileModel,reasoningEffort:profileReasoning||null,...newBotPalette});setSelected(created.id);}
-    else {await window.aelion.updateBot({id:editingId,name,role,type:profileType,expectedType:profileOriginalType,confirmContextReset,model:profileModel,reasoningEffort:profileReasoning||null,color:profilePalette.color,avatarStyle:profilePalette.avatarStyle??null});if(confirmContextReset){setDrafts(old=>{const next={...old};delete next[editingId];return next;});setDesignTaskId(undefined);setPeerPanel(undefined);}}
+    if(modal==='new'){const created=await window.aelion.createBot({type:profileType,name:name||t('新 Bot'),role:role||(profileType==='designer'?(language==='en'?'Create prototypes and editable presentations, follow the selected design system and verify deliverables.':'完成原型和可编辑演示文稿设计，遵循所选设计系统并验证成果。'):t('完成办公和代码任务，使用工作电脑实际执行并核对成果。')),model:profileModel,imageModel:profileImageModel,reasoningEffort:profileReasoning||null,...newBotPalette});setSelected(created.id);}
+    else {await window.aelion.updateBot({id:editingId,name,role,type:profileType,expectedType:profileOriginalType,confirmContextReset,model:profileModel,imageModel:profileImageModel,reasoningEffort:profileReasoning||null,color:profilePalette.color,avatarStyle:profilePalette.avatarStyle??null});if(confirmContextReset){setDrafts(old=>{const next={...old};delete next[editingId];return next;});setDesignTaskId(undefined);setPeerPanel(undefined);}}
     setModal(null);
   };
   const title=modal==='switch-type'?(language==='en'?'Switch Bot type?':'切换 Bot 类型？'):modal==='computer-setup'?t('工作电脑设置'):modal==='settings'?t('设置'):modal==='new'?t('创建新 Bot'):modal==='profile'?t('Bot 资料'):modal==='delete-bot'?t('删除 Bot'):modal==='terminal'?t('工作终端'):modal==='files'?`${bot?.name||'Bot'} ${t('的文件')}`:modal==='screen'?t('操作截图'):t('工作电脑');
@@ -280,8 +280,9 @@ function AppContent(){
         <label>{t('名称')}<input autoFocus value={name} onChange={event=>setName(event.target.value)} maxLength={80} placeholder={t('给你的新伙伴起个名字')}/></label>
         <label>{t('职责描述')}<textarea rows={modal==='profile'?3:4} maxLength={4000} value={role} onChange={event=>setRole(event.target.value)}/></label>
         <div className="bot-profile-model"><h3>{t('模型')}</h3><ModelSelectionFields providers={state.providers||[]} value={profileModel} onChange={setProfileModel} defaultModel={state.defaultModel} reasoningValue={profileReasoning} onReasoningChange={setProfileReasoning} inheritDefault disabled={busy||modal==='profile'&&profileRunning}/></div>
+        <div className="bot-profile-model"><h3>{t('生图模型')}</h3><p className="settings-note">{t('可选。配置后 Bot 可以使用 generate_image 工具，不必占用对话模型。')}</p><ModelSelectionFields providers={state.providers||[]} value={profileImageModel} onChange={setProfileImageModel} inheritDefault noneLabel={t('不单独配置生图模型')} showInheritedReasoning={false} disabled={busy||modal==='profile'&&profileRunning}/></div>
         {modal==='new'&&<div className="presets">{['整理资料与写作','分析数据与报表','编写代码与测试'].map(value=><button type="button" key={value} onClick={()=>{setName(value.split('与')[0]);setRole(`${t('帮助我')}${t(value)}，${t('使用工作电脑执行并验证成果。')}`);}}>{t(value)}</button>)}</div>}
-        <button className="primary-button full" disabled={busy||!validModelSelection(profileModel,state.providers||[])||modal==='profile'&&(!name.trim()||profileModelChanged&&profileRunning)}>{modal==='new'?t('创建伙伴'):t('保存资料')}</button>
+        <button className="primary-button full" disabled={busy||!validModelSelection(profileModel,state.providers||[])||!validModelSelection(profileImageModel,state.providers||[])||modal==='profile'&&(!name.trim()||profileModelChanged&&profileRunning)}>{modal==='new'?t('创建伙伴'):t('保存资料')}</button>
       </form>}
       {modal==='switch-type'&&<div className="delete-bot-confirmation"><p>{language==='en'?'Switching Bot type will permanently clear all of this Bot’s context: conversations, memory, task history and design sessions.':'切换 Bot 类型将永久清空这个 Bot 的所有上下文，包括对话、记忆、任务历史和设计会话。'}</p><p>{language==='en'?'Workspace files, installed plugins, group membership and shared chat records are retained. This cannot be undone.':'工作文件、已安装插件、群成员关系与共享聊天记录会保留。此操作无法撤销。'}</p><div className="dialog-actions"><button className="secondary-button" autoFocus disabled={busy} onClick={()=>setModal('profile')}>{t('取消')}</button><button className="danger-button" disabled={busy} onClick={()=>previewWorkbench?.navigate(()=>void act(()=>saveProfile(true)))}>{language==='en'?'Clear context and switch':'清空上下文并切换'}</button></div></div>}
       {modal==='delete-bot'&&deletingBot&&<div className="delete-bot-confirmation"><p>{t('删除“{name}”及其对话和记忆？工作文件和私聊记录会保留。',{name:deletingBot.name})}</p><div className="dialog-actions"><button className="secondary-button" autoFocus disabled={busy} onClick={()=>setModal(null)}>{t('取消')}</button><button className="danger-button" disabled={busy} onClick={()=>void removeBot()}>{busy?t('正在删除…'):t('删除 Bot')}</button></div></div>}

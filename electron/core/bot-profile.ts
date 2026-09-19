@@ -19,10 +19,16 @@ export function updateBotProfile(store:Store,providers:ModelProviders,input:BotU
   const typeFields={type};
   const palette=input.color!==undefined||input.avatarStyle!==undefined?normalizeBotPalette({color:input.color===undefined?bot.color:input.color,avatarStyle:input.avatarStyle===undefined?bot.avatarStyle:input.avatarStyle}):undefined;
   const model=input.model===undefined?bot.model:providers.selection(input.model);
+  const imageModel=input.imageModel===undefined?bot.imageModel:input.imageModel===null?undefined:providers.selection(input.imageModel);
   const reasoningEffort=input.reasoningEffort===undefined?bot.reasoningEffort:cleanReasoning(input.reasoningEffort);
   const modelChanged=bot.model?.providerId!==model?.providerId||bot.model?.model!==model?.model||bot.model?.contextTokens!==model?.contextTokens||reasoningEffort!==bot.reasoningEffort;
   if(modelChanged)beforeModelChange(bot.id);
-  const next={...store.data,bots:store.data.bots.map(item=>item.id===bot.id?{...item,name:input.name.trim(),role:input.role,model,reasoningEffort,...typeFields,...(input.defaultDesignSystemId!==undefined?{defaultDesignSystemId:input.defaultDesignSystemId}:{}),...(palette?{color:palette.color,avatarStyle:palette.avatarStyle}:{})}:item)};
+  const next={...store.data,bots:store.data.bots.map(item=>{
+    if(item.id!==bot.id)return item;
+    const updated={...item,name:input.name.trim(),role:input.role,model,reasoningEffort,...typeFields,...(input.defaultDesignSystemId!==undefined?{defaultDesignSystemId:input.defaultDesignSystemId}:{}),...(palette?{color:palette.color,avatarStyle:palette.avatarStyle}:{})};
+    if(imageModel)updated.imageModel=imageModel;else delete updated.imageModel;
+    return updated;
+  })};
   // A rejected model change must not leave a partially updated profile.
   if(typeChanged){
     const id=bot.id,resetAt=new Date().toISOString();next.bots=next.bots.map(b=>b.id===id?{...b,memories:[],contextResetAt:resetAt}:b);

@@ -142,6 +142,10 @@ test('Bot profile saves its name, role and model together, preserves omitted cho
   assert.equal(updateBotProfile(f.store,providers,{id:bot.id,name:'Updated again',role:'same model',model:{...custom}},unexpected),false);
   assert.equal(updateBotProfile(f.store,providers,{id:bot.id,name:'Default again',role:'uses default',model:null},id=>guarded.push(id)),true);
   reopened=new Store(f.dir);assert.equal(reopened.bot(bot.id).model,undefined);assert.equal(reopened.modelFor(bot.id).model,'alpha');assert.deepEqual(guarded,[bot.id,bot.id]);
+  assert.equal(updateBotProfile(f.store,providers,{id:bot.id,name:'Default again',role:'uses default',imageModel:custom},unexpected),false);
+  assert.deepEqual(f.store.bot(bot.id).imageModel,custom);
+  assert.equal(updateBotProfile(f.store,providers,{id:bot.id,name:'Default again',role:'uses default',imageModel:null},unexpected),false);
+  assert.equal(f.store.bot(bot.id).imageModel,undefined);
 });
 
 test('invalid or busy model changes leave all Bot profile fields and persisted state untouched',t=>{

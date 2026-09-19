@@ -23,6 +23,7 @@ const operations:Record<string,{label:string;active:string;icon:string}>={
   user_input_wait:{label:'等待回答',active:'等待你的回答',icon:'message'},
   video_frames:{label:'查看视频画面',active:'正在抽取视频画面',icon:'file'},
   view_image:{label:'查看图片',active:'正在查看图片',icon:'file'},
+  generate_image:{label:'生成图片',active:'正在生成图片',icon:'file'},
   tool_search:{label:'查找工具',active:'正在查找工具',icon:'search'},
   web_search:{label:'搜索网页',active:'正在搜索网页',icon:'globe'},
   web_read:{label:'阅读网页',active:'正在阅读网页',icon:'globe'},
