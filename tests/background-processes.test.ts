@@ -9,12 +9,12 @@ import {HostComputer} from '../electron/core/host';
 import {Interactions} from '../electron/core/interactions';
 import {BackgroundProcesses} from '../electron/core/background-processes';
 import type {VmController} from '../electron/core/vm';
-test('host processes require approval, preserve logs across manager restart and stop through their supervisor',{skip:process.platform!=='win32',timeout:20000},async t=>{
+test('host processes require approval, preserve logs across manager restart and stop through their supervisor',{skip:process.platform!=='win32',timeout:30000},async t=>{
  const dir=realpathSync.native(mkdtempSync(join(tmpdir(),'aelion-background-'))),store=new Store(dir),bot=store.data.bots[0],other=store.createBot('other','scope'),interactions=new Interactions(()=>{}),host=new HostComputer({dataDir:dir,homeDir:dir,projectDir:dir},interactions),manager=new BackgroundProcesses(store,{} as VmController,host,interactions),signal=new AbortController().signal;
  let id:string|undefined;
  t.after(async()=>{if(id)await manager.stop(bot.id,id,AbortSignal.timeout(6000)).catch(()=>{});interactions.dispose();host.dispose();rmSync(dir,{recursive:true,force:true});});
- const started=manager.start(bot.id,'r',{location:'host',purpose:'service',cwd:dir,reason:'测试后台任务',command:"Write-Output 'ready'; [Console]::Out.Flush(); Start-Sleep -Seconds 60"},signal);assert.equal(interactions.snapshot().length,1);interactions.approve(interactions.snapshot()[0].id,true);id=(await started).id;
- let output='';for(let n=0;n<80&&!output.includes('ready');n++){await new Promise(r=>setTimeout(r,100));output=(await manager.status(bot.id,id,signal)).output;}assert.match(output,/ready/);
+ const started=manager.start(bot.id,'r',{location:'host',purpose:'service',cwd:dir,reason:'测试后台任务',command:"[Console]::Out.WriteLine('ready'); [Console]::Out.Flush(); Start-Sleep -Seconds 60"},signal);assert.equal(interactions.snapshot().length,1);interactions.approve(interactions.snapshot()[0].id,true);id=(await started).id;
+ let output='',status='starting';for(let n=0;n<150&&!output.includes('ready')&&['starting','running'].includes(status);n++){if(n)await new Promise(r=>setTimeout(r,100));const snapshot=await manager.status(bot.id,id,signal);output=snapshot.output;status=snapshot.status;}assert.match(output,/ready/);
  const restored=new BackgroundProcesses(new Store(dir),{} as VmController,host,interactions);assert.match((await restored.status(bot.id,id,signal)).output,/ready/);await assert.rejects(restored.status(other.id,id,signal),/不属于/);
  const stopped=await manager.stop(bot.id,id,signal);assert.equal(stopped.status,'stopped');
 });

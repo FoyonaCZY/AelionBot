@@ -20,6 +20,13 @@ test('native host shell preserves code as one argument and POSIX paths keep thei
  assert.equal(hostPathKey('C:\\Work\\A','win32'),hostPathKey('c:/work/a/','win32'));
  assert.ok(hostEnvironment({PATH:'/usr/bin:/bin'},'darwin').PATH?.startsWith('/opt/homebrew/bin:/usr/local/bin:'));
 });
+test('Windows host shell auto-flushes redirected output and keeps the command inside the encoded script',()=>{
+ const command="Write-Output 'ready'",shell=hostShell(command,{SYSTEMROOT:'C:\\Windows'},'win32');
+ assert.equal(shell.executable,'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe');
+ assert.equal(shell.detached,false);assert.equal(shell.args.includes('-EncodedCommand'),true);
+ const script=Buffer.from(shell.args[shell.args.indexOf('-EncodedCommand')+1],'base64').toString('utf16le');
+ assert.match(script,/try\{\[Console\]::Out\.AutoFlush=\$true\}catch\{\}/);assert.ok(script.includes(command));
+});
 test('Mac command grants are bound to shell platform, exact case, and reject shell substitution as a prefix',t=>{
  const file=join(temporary(t),'rules.json'),rules=new CommandPermissions(file,v=>v,'darwin'),details=(command:string,cwd='/Users/example/Project'):HostPermissionDetails=>({operation:'command',command,cwd,reason:'check'});
  const saved=rules.allow(details('git status --short'));assert.equal(saved.pattern,'git status *');assert.ok(rules.match(details('git status --porcelain')));

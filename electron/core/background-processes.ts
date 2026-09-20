@@ -17,7 +17,7 @@ export const HOST_SUPERVISOR=String.raw`
 const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
 const dir=__dirname,cfg=JSON.parse(fs.readFileSync(path.join(dir,'input.json'),'utf8'));let total=0,stopped=false;
 const state=value=>{const file=path.join(dir,'status.json');fs.writeFileSync(file+'.tmp',JSON.stringify({...value,heartbeat:Date.now()}));fs.renameSync(file+'.tmp',file);};
-const script="$ErrorActionPreference='Stop'\n$ProgressPreference='SilentlyContinue'\n[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)\n$global:LASTEXITCODE=0\ntry { . {\n"+cfg.command+"\n}; exit $LASTEXITCODE } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }";
+const script="$ErrorActionPreference='Stop'\n$ProgressPreference='SilentlyContinue'\n[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)\ntry{[Console]::Out.AutoFlush=$true}catch{}\ntry{[Console]::Error.AutoFlush=$true}catch{}\n$global:LASTEXITCODE=0\ntry { . {\n"+cfg.command+"\n}; exit $LASTEXITCODE } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }";
 const unix=cfg.platform&&cfg.platform!=='win32';
 const child=cp.spawn(cfg.shell,cfg.args||['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{cwd:cfg.cwd,detached:Boolean(unix),windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,ELECTRON_RUN_AS_NODE:undefined,GH_PROMPT_DISABLED:'1',GIT_TERMINAL_PROMPT:'0'}});
 const log=bytes=>{if(total<2097152){const part=bytes.subarray(0,2097152-total);fs.appendFileSync(path.join(dir,'output.log'),part);total+=part.length;}};
