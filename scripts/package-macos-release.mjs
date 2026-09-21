@@ -4,6 +4,7 @@ import {readFileSync,writeFileSync,existsSync,mkdirSync,renameSync,createReadStr
 import {resolve,join,basename} from 'node:path';
 import {createHash} from 'node:crypto';
 import {parse} from 'yaml';
+import {verifyMacosLoader} from './verify-macos-loader.mjs';
 const require=createRequire(import.meta.url),root=resolve(import.meta.dirname,'..'),pkg=JSON.parse(readFileSync(join(root,'package.json'),'utf8')),arch=process.arch;
 for(const key of ['CSC_LINK','CSC_NAME','CSC_KEY_PASSWORD','APPLE_ID','APPLE_APP_SPECIFIC_PASSWORD','APPLE_TEAM_ID','APPLE_API_KEY','APPLE_API_KEY_ID','APPLE_API_ISSUER'])if(process.env[key]==='')delete process.env[key];
 if(process.platform!=='darwin'||!['arm64','x64'].includes(arch))throw Error('Build on the target macOS architecture');
@@ -14,10 +15,14 @@ writeFileSync(join(root,'runtime','mac-release.json'),JSON.stringify({arch,versi
 async function run(script){await new Promise((yes,no)=>{const child=spawn(process.execPath,[join(root,script)],{cwd:root,stdio:'inherit'});child.on('error',no);child.on('exit',code=>code===0?yes():no(Error(`${script} failed (${code})`)));});}
 await run('scripts/prepare-native-tools.mjs');await run('scripts/generate-icons.mjs');await run('scripts/build.mjs');
 const {build,Platform,Arch}=require('electron-builder');
-await build({targets:Platform.MAC.createTarget(['dmg','zip'],arch==='arm64'?Arch.arm64:Arch.x64),publish:'never',config:{directories:{output},extraResources:[{from:'runtime/qemu',to:'qemu',filter:['**/*']},{from:'runtime/mac-release.json',to:'mac-release.json'}],mac:{category:'public.app-category.productivity',icon:'assets/icon.png',artifactName:'AelionBot-${version}-mac-${arch}.${ext}',minimumSystemVersion:'15.0',identity:signed?undefined:'-',hardenedRuntime:true,entitlements:'build/entitlements.mac.plist',entitlementsInherit:'build/entitlements.mac.plist',gatekeeperAssess:false,notarize:notarized,forceCodeSigning:signed}}});
+// Ad-hoc signatures have no Team ID; hardened library validation rejects Electron's framework.
+// Keep the exception out of Developer ID builds.
+const signingEntitlements=signed?'build/entitlements.mac.plist':'build/entitlements.mac.adhoc.plist';
+await build({targets:Platform.MAC.createTarget(['dmg','zip'],arch==='arm64'?Arch.arm64:Arch.x64),publish:'never',config:{directories:{output},extraResources:[{from:'runtime/qemu',to:'qemu',filter:['**/*']},{from:'runtime/mac-release.json',to:'mac-release.json'}],mac:{category:'public.app-category.productivity',icon:'assets/icon.png',artifactName:'AelionBot-${version}-mac-${arch}.${ext}',minimumSystemVersion:'15.0',identity:signed?undefined:'-',hardenedRuntime:true,entitlements:signingEntitlements,entitlementsInherit:signingEntitlements,gatekeeperAssess:false,notarize:notarized,forceCodeSigning:signed}}});
 const app=join(output,arch==='arm64'?'mac-arm64':'mac','AelionBot.app');if(!existsSync(app))throw Error('Packaged app missing');
 execFileSync('/usr/bin/codesign',['--verify','--deep','--strict',app],{stdio:'inherit'});
 execFileSync('/usr/bin/lipo',[join(app,'Contents','MacOS','AelionBot'),'-verify_arch',arch==='arm64'?'arm64':'x86_64'],{stdio:'inherit'});
+verifyMacosLoader(app);
 const runtime=join(app,'Contents','Resources','qemu'),emulator=join(runtime,'bin',`qemu-system-${arch==='arm64'?'aarch64':'x86_64'}`);
 const qemuEnv={...process.env,QEMU_MODULE_DIR:join(runtime,'lib','qemu')};delete qemuEnv.DYLD_LIBRARY_PATH;delete qemuEnv.DYLD_FALLBACK_LIBRARY_PATH;delete qemuEnv.DYLD_INSERT_LIBRARIES;
 execFileSync(emulator,['--version'],{stdio:'inherit',env:qemuEnv});
