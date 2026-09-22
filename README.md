@@ -6,56 +6,60 @@
 
   <p><strong>English</strong> · <a href="README.zh-CN.md">简体中文</a></p>
   <h1>A general-purpose multi-agent workspace</h1>
-  <p>Configure agents and work with group chats, a Linux VM and local tools.</p>
+  <p>Configure agents with different roles, models and tools; work through group chats, a local Linux VM and host tools.</p>
   <p>
     <a href="https://aelion.chat/?lang=en"><strong>Explore the website ↗</strong></a> &nbsp; · &nbsp;
     <a href="https://github.com/FoyonaCZY/AelionBot/releases/latest"><strong>Download for Windows and macOS</strong></a> &nbsp; · &nbsp;
     <a href="https://aelion.chat/blog/?lang=en">Blog</a>
   </p>
+  <p><a href="https://github.com/FoyonaCZY/AelionBot/actions/workflows/ci.yml"><img src="https://github.com/FoyonaCZY/AelionBot/actions/workflows/ci.yml/badge.svg" alt="CI"></a></p>
   <img src="docs/assets/product/companions.svg" alt="Three AelionBot partners in blue, violet, and mint" width="100%">
 </div>
 
 <br>
 
-**AelionBot is a general-purpose multi-agent system.** Configure agents with different roles, models and tools. Work with one partner or bring a team into group chat for research, data analysis, coding, writing and office tasks. A VM and local tools handle execution, with files, previews and conversations in one workspace.
+**AelionBot is a general-purpose multi-agent system.** Each agent can be configured with its own role, model and tools. Give research, coding, writing and data analysis one partner each, send tasks to a single partner, or bring several into the same group. Execution runs on a local Linux work computer and host tools, with files, previews and conversations in one workspace.
+
+For example, a product research and comparison report: a research partner gathers sources into `research.md` and data files; a data partner checks the samples, runs the analysis and produces a comparison table; a writing partner turns the results into a report. You can add requirements at any time, or @ a partner to continue.
 
 | Core capability | What it makes possible |
 | --- | --- |
-| **Linux work computer (VM)** | Give General Bots a browser, terminal and desktop apps for real file and application work |
+| **Linux work computer (VM)** | Give General Bots a browser, terminal and desktop apps for file and application work |
 | **Group chats and Bot-to-Bot messages** | Assign roles, exchange files and results, and ask a partner to take the next step |
-| **Specialist roles when needed** | Add a Designer with 152 bundled design systems for webpages, presentations and site clones |
+| **Designer** | Build web prototypes, presentations and site clones with 152 bundled design systems |
+| **AI games** | Play twelve-player Werewolf in group chat with human and AI seats, or watch an all-AI table |
 
 <img src="docs/assets/screenshots/workspace-en.png" alt="Multi-agent workspace illustration: partners, a task conversation, files and a VM" width="100%">
 
-## Multi-agent collaboration: give each partner a role
+## Local execution
 
-Give research, coding, writing and data analysis their own agents. Bring them into the same group to share task-related messages, source material and files. Add a requirement at any time, or **@ a partner** to take the next step.
+Most general-purpose agent products run in a cloud sandbox. AelionBot's execution environment lives on your own computer, which makes a few things different:
 
-For a product research and comparison task:
+- Files, commands and desktop operations run inside the work computer on your machine, not in a third-party cloud sandbox. Model calls go to the service you choose.
+- Each partner's role, progress and output are shown in group chat. You can step in, change requirements or reassign work at any time.
+- Model services use your own API key and can be swapped freely. Local models and MCP tools are supported too.
 
-1. A **research partner (General Bot)** gathers sources in the VM and shares `research.md` and data files.
-2. A **data or coding partner** checks the samples, runs the analysis and produces a comparison table.
-3. A **writing partner** turns the results into a report. **You** review the files, add requirements and continue the discussion.
+## Multi-agent collaboration
 
-Bots can also exchange private messages and files. Group context stays separate from unrelated private conversations. **You choose the roles**; the app does not automatically turn a General Bot into a Designer.
+Give research, coding, writing and data analysis their own agents. Bring them into the same group to share task-related messages, source material and files. Group context stays separate from unrelated private conversations. Partners can also exchange private messages and files. You choose who does what; the app never reassigns a partner's job on its own.
 
 <img src="docs/assets/screenshots/collaboration-en.png" alt="Group collaboration illustration: partners share research, ideas and finished files" width="100%">
 
 <img src="docs/assets/screenshots/handoff-en.png" alt="Bot private messages with source files and analysis results" width="100%">
 
-## A VM for work that needs a computer
+## Work computer (Linux VM)
 
-General Bots can use a managed **Linux VM**. Each Bot has its own workspace and desktop within that VM, with access to webpages, apps, commands and files. Watch the work, pause it, or take over the desktop.
+General Bots can use a managed Linux VM with a browser, a terminal and office apps:
 
-> “Find three industry examples. Save their sources and key data in a brief that a Designer can use.”
+> "Find three industry examples. Save their sources and key data in a brief that a Designer can use."
 
-A browser gathers sources, a terminal processes data, and office apps handle documents. Follow the in-app guide to prepare and start the work computer. A frontend running inside the VM can also open in the app's preview through port forwarding.
+The browser gathers sources, the terminal processes data, and office apps handle documents. Follow the in-app guide to prepare and start the work computer, then chain these steps into one task. A web service running inside the VM can open in the app's preview through port forwarding.
 
-General Bots can also access host files and commands under your permission settings. The VM and host workspace are distinct execution locations; you choose which operations need approval.
+Each Bot has its own workspace and desktop. You can watch the work, pause it, or take over the desktop. General Bots can also use host files and commands under your permission settings; you choose which operations need approval.
 
 <img src="docs/assets/screenshots/computer-en.png" alt="Work computer settings in the actual interface; the example environment is stopped" width="100%">
 
-## Configure roles. Add specialists when needed.
+## General Bots and Designers
 
 | | General Bot | Designer |
 | --- | --- | --- |
@@ -64,37 +68,58 @@ General Bots can also access host files and commands under your permission setti
 | Organization | Conversations, plans, goals and collaboration | Separate design tasks, design directions and deliverables |
 | Collaboration | Group chat and Bot-to-Bot messages | Group chat and Bot-to-Bot messages |
 
-Choose the type when creating a Bot, or change it in the profile. **Changing type clears that Bot's context and requires confirmation.** Running or queued work blocks the switch; existing files remain.
+Choose the type when creating a Bot, or change it later in the profile. Changing type clears that Bot's context and asks for confirmation; existing files remain.
 
-## A specialist role: Designers and 152 design systems
+Designer tasks come in three kinds: prototype, presentation and website clone. Each task can use a design system:
 
-Create a Designer Bot, choose a prototype, presentation or website-clone task, and select its design system. **All 152 references are bundled with the app**, including color, typography, layout guidance and component references. No separate reference download is needed, and you can leave the system unspecified.
-
-- **Choose per task.** Different projects can use different systems. Change the selection while the task is stopped.
-- **Keep editable deliverables.** Prototypes and site clones retain their HTML/CSS/JS. Presentations use editable PPTX files and can include an HTML preview. Clone tasks also write NOTES.md with the source URL and what was not copied.
-- **Refine in the preview.** Mark a region, add an annotation, or select webpage elements and edit their properties or source before saving.
-- **Work locally.** Designers use `designers/<bot>/<task>` under the configured default workspace. They do not require the VM.
+- All 152 design references are bundled with the app: color, typography, layout guidance and component references, with no separate download. You can also leave the system unspecified.
+- Different tasks can use different systems. The selection can be changed while the task is stopped.
+- Prototypes and site clones keep their HTML/CSS/JS. Presentations deliver editable PPTX files and can include an HTML preview. Clone tasks also write NOTES.md with the source URL and what was not copied.
+- In the preview you can mark a region, add an annotation, or select webpage elements and edit their properties or source before saving.
+- Designers work in `designers/<bot>/<task>` under the default workspace. They do not need the VM.
 
 The design references come from OpenDesign, with source and license notices retained. Brand-inspired references do not imply official endorsement. See [third-party notices](docs/THIRD-PARTY-NOTICES.md).
 
 <img src="docs/assets/screenshots/studio-en.png" alt="File preview alongside the conversation in the actual interface" width="100%">
 
-## Keep the result beside the conversation
+## Files and previews
 
-Browse files and preview webpages, images, PDFs and supported documents. Keep chatting in a side panel, or expand the canvas. Edit code and text, select webpage elements, annotate regions, undo changes and save. Message attachments can be saved as new copies.
+Browse the file tree and preview webpages, images, PDFs and supported documents next to the conversation, or expand to a full canvas. Code and text can be edited directly. Webpages support element selection, region annotations, undo and save. Message attachments can be saved as new copies.
 
-Designer presentations can be viewed through their HTML companion. External Office files without an HTML preview do not yet have a faithful local Designer converter; download them to view them in an appropriate app.
+## AI games
+
+Group chats have an "AI games" entry. The first game is twelve-player Werewolf: 12 seats with a sheriff, including sheriff election, badge passing, night actions, speeches, voting and win resolution. Two boards are included: Seer/Witch/Hunter/Idiot and Seer/Witch/Hunter/Guard (each with 4 wolves and 4 villagers).
+
+- Join a seat yourself or watch an all-AI table. Empty seats can be filled with temporary Bots in one click.
+- Each AI player's model can be set individually or in batch. Personalities (MBTI) can be preset or randomized per game.
+- The wolf team holds a three-round night discussion (propose, respond, confirm). A human wolf can speak continuously and press "end discussion" to move on.
+- Games can be paused, resumed and finished, and survive an app restart. If a model call fails, the game pauses and keeps completed choices.
+- Each player only sees what their role should see; night actions never reveal the wolves' seats to other players. Role guides and per-player decision records are included.
+
+Wolf self-detonation is not available in this version.
+
+## More capabilities
+
+- Models: works with OpenAI-compatible APIs, Anthropic, Gemini and other services; local models and MCP tools are supported.
+- Skills: data analysis, spreadsheets, PDF and presentation skills ship with the app.
+- Scheduled tasks: run reminders and routine work on a schedule. Keep the app open while they run.
+- Permissions: you decide which host files, commands and VM operations need approval.
+- Interface: English, Simplified Chinese and Traditional Chinese, light/dark theme, adjustable fonts and display scale.
 
 ## Get started
 
-1. **[Download AelionBot](https://github.com/FoyonaCZY/AelionBot/releases/latest)** for Windows or macOS.
-2. **Connect your AI service** and configure a model. Usage charges depend on the service you choose.
-3. **Choose a partner type:** start with a General Bot task, or create a Designer for a prototype, presentation or website clone.
-4. **Bring in a team when needed:** create a group, add partners, share materials and assign the work.
+1. [Download AelionBot](https://github.com/FoyonaCZY/AelionBot/releases/latest) for Windows or macOS.
+2. Connect a model service and follow the guide. The app itself is free; usage charges come from the service you choose. Local models work too.
+3. Pick a partner type: give a General Bot a task, or create a Designer for a prototype, presentation or website clone.
+4. For group work, create a group chat, add partners, share materials and assign the work.
 
-Use English, Simplified Chinese or Traditional Chinese, with light/dark themes and adjustable fonts and display scale. Save preferences and schedule recurring tasks; the app must remain open while scheduled work runs. Bundled design references can be read offline, while model services and external assets may still need an internet connection.
+System requirements: Windows 10 or later (64-bit), or macOS on Intel and Apple silicon. The work computer (Linux VM) needs about 4 GB of memory and tens of GB of free disk. 16 GB of RAM or more is recommended.
 
-<sub>Product images are screenshots of the current App frontend using fictional conversations and files, without a model or VM connection. The Bot artwork at the top is a brand illustration. This README describes the current source; see release notes for the features in a downloadable build.</sub>
+## FAQ
+
+- Can I preview external Office files? Designer-made presentations can be viewed through their HTML companion. External Office files without an HTML preview do not have a faithful local converter yet; download them to view in a suitable app.
+- Does it work offline? Bundled design references can be read offline. Model services and external assets may still need an internet connection.
+- The download seems different from this page? This README describes the current source. See the release notes for what each build includes.
 
 ## Development
 
@@ -115,3 +140,5 @@ Commit dependency changes together with `pnpm-lock.yaml`; do not generate an npm
 [Website](https://aelion.chat/?lang=en) · [Releases](https://github.com/FoyonaCZY/AelionBot/releases) · [Blog](https://aelion.chat/blog/?lang=en) · [Feedback](https://github.com/FoyonaCZY/AelionBot/issues)
 
 Implementation: [Designer architecture](docs/designer-bots.md) · [VM storage](docs/vm-storage.md) · [Website development](website/README.md)
+
+<sub>Screenshots are taken from the current app frontend; example conversations and files are fictional. The Bot artwork at the top is a brand illustration.</sub>
