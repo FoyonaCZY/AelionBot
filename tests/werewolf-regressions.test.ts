@@ -21,7 +21,8 @@ test('AI response expiry pauses without choosing no and resume only retries unfi
  writeFileSync(join(dir,'matches.json'),JSON.stringify([s]));let retry=false;const calls:string[]=[];
  const runtime=new GameRuntime(dir,async(p,_v,r,signal)=>{calls.push(p.id+':'+r.kind);if(r.kind==='sheriff_join'&&(p.id!=='11'||retry))return {choice:true};return new Promise((_,reject)=>signal.addEventListener('abort',()=>reject(Error('aborted')),{once:true}));},()=>{},{aiTimeoutMs:80});
  try{
- runtime.control(s.id,'resume');await delay(330);
+ runtime.control(s.id,'resume');
+ const deadline=Date.now()+3000;while(runtime.read('timeout')?.status==='running'&&Date.now()<deadline)await delay(20);
  assert.equal(runtime.read('timeout')?.status,'paused');assert.match(runtime.read('timeout')!.error!,/模型响应超时/);
  let disk=JSON.parse((await import('node:fs')).readFileSync(join(dir,'matches.json'),'utf8'))[0];
  assert.equal(disk.requests.length,1);assert.equal(disk.requests[0].id,'join-11');assert.equal(Object.keys(disk.answers).length,11);assert(!disk.accepted.includes('join-11'));assert(!disk.logs.some((l:any)=>l.text.includes('报名超时，按规则')));
