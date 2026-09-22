@@ -6,7 +6,7 @@ export type DesignTaskKind=typeof DESIGN_TASK_KINDS[number];
 export function isDesignTaskKind(value:unknown):value is DesignTaskKind{return typeof value==='string'&&(DESIGN_TASK_KINDS as readonly string[]).includes(value);}
 export type DesignOrigin={kind:'bot';id:string}|{kind:'group';id:string}|{kind:'peer';id:string};
 export type DesignSystemOrigin='bundled'|'custom';
-export interface DesignSystemSummary{id:string;name:string;category:string;description:string;version:string;bytes:number;colors:string[];source:string;license:string;origin?:DesignSystemOrigin;}
+export interface DesignSystemSummary{id:string;name:string;category:string;description:string;version:string;bytes:number;colors:string[];source:string;license:string;origin?:DesignSystemOrigin;display?:string;}
 export interface DesignSystemFile{path:string;sha256:string;bytes:number;}
 export interface DesignSystemManifest extends DesignSystemSummary{files:DesignSystemFile[];}
 export interface DesignSystemCatalog{version:1;sourceCommit:string;sourceUrl:string;systems:DesignSystemManifest[];}
@@ -18,6 +18,11 @@ export interface DesignComment{
  status:'open'|'resolved';designId?:string;selector?:string;page?:number;
 }
 export interface DesignPluginSummary{id:string;name:string;description:string;bytes:number;}
+/** Static design-check results. P0 blocks publication; P1/P2 are advisory and surface as badges. */
+export type DesignFindingLevel='P0'|'P1'|'P2';
+export interface DesignFinding{id:string;level:DesignFindingLevel;message:string;hint:string;craft?:string;}
+/** Findings for one file, refreshed on every write so the workspace shows live quality state. */
+export interface DesignFileFindings{path:string;findings:DesignFinding[];}
 export interface DesignSession{
  location?:'host'|'vm';workspaceDir?:string;workflowVersion?:string;
  id:string;botId:string;origin:DesignOrigin;title:string;kind:DesignTaskKind;brief:string;
@@ -25,7 +30,7 @@ export interface DesignSession{
  status:'draft'|'running'|'awaiting-input'|'review'|'completed'|'paused'|'failed';
  stage:'brief'|'build'|'verify'|'delivery';revision:number;createdAt:string;updatedAt:string;
  designSpec:string;constraints:string[];artifacts:DesignArtifact[];userEdits:DesignUserEdit[];checks:DesignCheck[];
- comments?:DesignComment[];plugins?:string[];
+ comments?:DesignComment[];plugins?:string[];findings?:DesignFileFindings[];
  runIds:string[];activeRunId?:string;workspacePath:string;lastError?:string;
 }
 export interface DesignSessionInput{botId:string;origin?:DesignOrigin;kind:DesignTaskKind;title?:string;brief:string;systemId?:string|null;plugins?:string[];}

@@ -6,6 +6,25 @@ import type {DesignSystemCatalog,DesignSystemDetail,DesignSystemManifest,DesignS
 const ALLOWED=/^(DESIGN\.md|tokens\.css|design-tokens\.json|USAGE\.md|components\.html|components\.manifest\.json|assets\/[A-Za-z0-9._/-]+\.(?:css|html|md|json|svg|woff2|png|jpg|jpeg|webp))$/;
 const inside=(root:string,path:string)=>{const rel=relative(root,path);return rel===''||!isAbsolute(rel)&&rel!=='..'&&!rel.startsWith('..'+String.fromCharCode(92))&&!rel.startsWith('../');};
 function slug(value:string){return (value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,32)||'pack');}
+/**
+ * Pulls a usable font stack out of a package's tokens.css for the picker specimen.
+ * Only families the host can actually resolve are kept — a remote-only face would silently
+ * fall back and make every card look identical again, which is the problem this solves.
+ */
+export function displayFontStack(css:string){
+  // Packages often document a literal ":root { … }" in a comment, so take the longest real block.
+  const blocks=[...css.matchAll(/:root[^{]*\{[\s\S]*?\}/g)].map(match=>match[0]).sort((a,b)=>b.length-a.length);
+  const scope=blocks[0]&&blocks[0].length>60?blocks[0]:css;
+  const pick=(names:RegExp)=>{
+    for(const match of scope.matchAll(/--([\w-]*font[\w-]*)\s*:\s*([^;}]+)/gi)){
+      const [,name,value]=match;
+      if(!names.test(name)||/mono|code/i.test(name))continue;
+      const stack=value.trim().replace(/\s+/g,' ').slice(0,160);
+      if(stack&&!/^var\(/.test(stack))return stack;
+    }
+  };
+  return pick(/display|heading|title|serif/i)||pick(/body|text|sans|base|^font$/i)||pick(/./);
+}
 function walk(root:string,dir:string,files:{path:string;abs:string}[]=[]){
  for(const entry of readdirSync(dir,{withFileTypes:true})){
   if(entry.isSymbolicLink()||entry.name.startsWith('.'))continue;
@@ -25,14 +44,17 @@ export class DesignSystems {
  private summaries?:DesignSystemSummary[];
  private describe(catalog:DesignSystemCatalog,origin:DesignSystemOrigin):DesignSystemSummary[]{
   return catalog.systems.map(({files,...summary})=>{
-   let description=summary.description;
+   let description=summary.description,display:string|undefined;
    try{
     const source=this.read(summary.id,'DESIGN.md').toString('utf8');
     const paragraphs=source.split(/\r?\n\s*\r?\n/).map(p=>p.trim()).filter(p=>p&&!/^(#|>|[-*] |```|\|)/.test(p));
     const text=paragraphs[0]?.replace(/\[([^\]]+)\]\([^)]*\)/g,'$1').replace(/[*`_]/g,'').replace(/\s+/g,' ');
     if(text)description=text.length>260?text.slice(0,257).replace(/\s+\S*$/,'')+'…':text;
    }catch{}
-   return {...summary,description,origin};
+   // The picker's specimen should show the system's own typeface. Prefer the display face,
+   // fall back to the body face; a card rendering every system in the same serif says nothing.
+   try{display=displayFontStack(this.read(summary.id,'tokens.css').toString('utf8'));}catch{}
+   return {...summary,description,origin,...(display?{display}:{})};
   });
  }
  constructor(readonly root:string,readonly archiveRoot?:string,readonly customRoot?:string){
@@ -96,7 +118,10 @@ export class DesignSystems {
   const system=this.get(id,version);
   const text=(path:string,max:number,css=false)=>{const raw=system.files.some(f=>f.path===path)?this.read(id,path,version).toString('utf8'):'';const content=css?raw.replace(/\/\*[\s\S]*?\*\//g,'').trim():raw;return {content:content.slice(0,max),truncated:content.length>max};};
   const design=text('DESIGN.md',24000),tokens=text('tokens.css',12000,true),usage=text('USAGE.md',4000),components=text('components.manifest.json',3500);
-  return {id,version:system.version,origin:this.originOf(id,system.version),source:system.source,license:system.license,design:design.content,tokens:tokens.content,usage:usage.content,components:components.content,referenceTruncated:{design:design.truncated,tokens:tokens.truncated,usage:usage.truncated,components:components.truncated},files:system.files.map(f=>f.path)};
+  // The rendered component reference ships in every package and is the only place the agent can see
+  // how this system's controls are actually built. Markup only — the manifest already lists the names.
+  const markup=text('components.html',14000);
+  return {id,version:system.version,origin:this.originOf(id,system.version),source:system.source,license:system.license,design:design.content,tokens:tokens.content,usage:usage.content,components:components.content,componentMarkup:markup.content,referenceTruncated:{design:design.truncated,tokens:tokens.truncated,usage:usage.truncated,components:components.truncated,componentMarkup:markup.truncated},files:system.files.map(f=>f.path)};
  }
  importFolder(source:string){
   if(!this.customRoot)throw Error('当前环境不能导入自定义设计系统');

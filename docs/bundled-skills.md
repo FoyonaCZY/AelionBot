@@ -10,7 +10,7 @@ Only names/descriptions enter the skill catalog. Bodies and references are read 
 
 `assets/skills/manifest.json` records immutable upstream commits, source URLs and SHA-256 values, and license-file hashes. Each package carries its original upstream license and an explicit modification notice. OpenAI PDF and Anthropic frontend-design use Apache-2.0; OpenAI role-specific analytical workflows, superpowers, and the selected K-Dense literature-review skill use MIT. Check each individual skill's license, not merely the repository license, before adding a new source.
 
-The office scripts and templates are original AelionBot implementations. No Anthropic DOCX/PPTX/XLSX skill content is distributed. Upstream runtime-specific tools and services have been replaced with actual Aelion tools, Writer/Calc/Impress, the real browser, and message attachments. Instructions use one English body and do not impose an output language.
+The office scripts and templates are original AelionBot implementations. No Anthropic DOCX/PPTX/XLSX skill content is distributed. Upstream runtime-specific tools and services have been replaced with actual Aelion tools, Writer/Calc/Impress, the real browser, and message attachments. Instructions use one English body and do not impose an output language. Web research uses hosted Responses search when that provider flag is on, and the client `web_search` tool only when it is not; ordinary pages are then checked with `web_read`. Desktop apps are for tasks that need them, not a substitute for search or host-project edits.
 
 ## Verification
 

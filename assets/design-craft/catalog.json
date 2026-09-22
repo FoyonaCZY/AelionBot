@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "notice": "Brand-agnostic craft references authored for AelionBot. Rules reflect widely established interface practice; the axis separation (skills / templates / design systems / craft) follows OpenDesign's model. No third-party file is reproduced here.",
+  "sections": [
+    {"id": "typography", "file": "typography.md", "title": "排版", "summary": "字号阶、层级、行长、字距与字体族的通用规则。", "requiredFor": "任何输出文字的工作流"},
+    {"id": "color", "file": "color.md", "title": "色彩", "summary": "token 纪律、强调色预算、中性色阶与对比度。", "requiredFor": "任何输出样式的工作流"},
+    {"id": "layout-rhythm", "file": "layout-rhythm.md", "title": "版面与节奏", "summary": "间距阶、栅格、疏密变化、焦点与窄屏适配。", "requiredFor": "页面与多区块版面"},
+    {"id": "anti-ai-slop", "file": "anti-ai-slop.md", "title": "去 AI 味", "summary": "模板化产出的具体特征与替代做法。", "requiredFor": "落地页、营销页、演示与复刻"},
+    {"id": "imagery", "file": "imagery.md", "title": "图像使用", "summary": "画幅选择、优先用构图替代生图、生图失败时的占位契约。", "requiredFor": "需要插图、主视觉或照片的工作流"},
+    {"id": "state-coverage", "file": "state-coverage.md", "title": "状态覆盖", "summary": "控件六态与数据区的空/载入/错误/溢出渲染。", "requiredFor": "含控件、表单、列表或图表的界面"},
+    {"id": "accessibility-baseline", "file": "accessibility-baseline.md", "title": "可访问性底线", "summary": "语义结构、键盘可达、焦点样式、替代文本与触达尺寸。", "requiredFor": "任何可交互界面"},
+    {"id": "motion-discipline", "file": "motion-discipline.md", "title": "动效克制", "summary": "时长预算、缓动、可动画属性与 reduced-motion。", "requiredFor": "包含过渡或微交互的界面"}
+  ]
+}

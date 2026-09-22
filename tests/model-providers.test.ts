@@ -221,3 +221,41 @@ test('private replies and group notifications use each recipient own Provider',a
   groups.send({id:room.id,message:'请回复状态'});await until(()=>!groups.busy&&!harness.busy&&!f.store.data.groupDeliveries.some(delivery=>groupPending(delivery.status)));assert.equal(a.requests.length,1);assert.equal(b.requests.length,1);assert.equal(a.requests[0].body.model,'alpha-model');assert.equal(b.requests[0].body.model,'beta-model');
   const tag='@'+botB.name;groups.send({id:room.id,message:tag+' 也请回复',mentions:[{id:botB.id,name:botB.name,color:botB.color,start:0,end:tag.length}]});await until(()=>!groups.busy&&!harness.busy&&!f.store.data.groupDeliveries.some(delivery=>groupPending(delivery.status)));assert.equal(a.requests.length,2);assert.equal(b.requests.length,2);assert.equal(b.requests[1].body.model,'beta-model');
 });
+
+test('image generation is configured per Provider and per model, and resolves through the Bot image selection',async t=>{
+  const f=fixture(t),providers=f.router();
+  const local=await f.endpoint('local');
+  const saved=providers.save({name:'图片服务',baseUrl:local.url,protocol:'chat',imageProtocol:'openai-images',imageAspect:'16:9',apiKey:'image-key'});
+  assert.equal(saved.imageProtocol,'openai-images');
+  assert.equal(saved.imageAspect,'16:9');
+
+  // Hosted Responses generation is not reachable from a chat Provider and must be refused at save time.
+  assert.throws(()=>providers.save({id:saved.id,name:'图片服务',baseUrl:local.url,protocol:'chat',imageProtocol:'responses-images'}),/托管生图协议/);
+  assert.throws(()=>providers.save({id:saved.id,name:'图片服务',baseUrl:local.url,protocol:'chat',imageProtocol:'nonsense' as never}),/生图协议无效/);
+
+  providers.updateModel(saved.id,{id:'flux-pro',imageOutput:true,imageAspect:'1:1',imageQuality:'high'});
+  providers.updateModel(saved.id,{id:'chat-only'});
+  const catalog=providers.list()[0].models;
+  assert.equal(catalog.find(model=>model.id==='flux-pro')?.imageOutput,true);
+  assert.equal(catalog.find(model=>model.id==='chat-only')?.imageOutput,undefined);
+
+  const bot=f.store.createBot('设计师','出图');
+  updateBotProfile(f.store,providers,{id:bot.id,name:bot.name,role:bot.role,imageModel:{providerId:saved.id,model:'flux-pro',contextTokens:32000}});
+  const access=providers.imageAccess(bot.id)!;
+  assert.equal(access.key,'image-key');
+  assert.equal(access.config.imageProtocol,'openai-images');
+  // The catalog entry overrides the Provider default; chat-only settings never reach the image endpoint.
+  assert.equal(access.config.imageAspect,'1:1');
+  assert.equal(access.config.imageQuality,'high');
+  assert.equal(access.config.reasoningEffort,undefined);
+  assert.equal(access.config.thinkingBudget,undefined);
+
+  // A Bot with no image model configured has no image access at all.
+  const plain=f.store.createBot('助手','写作');
+  assert.equal(providers.imageAccess(plain.id),undefined);
+
+  const reopened=new ModelProviders(new Store(f.dir),f.secret);
+  assert.equal(reopened.list()[0].imageProtocol,'openai-images');
+  assert.equal(reopened.imageAccess(bot.id)?.config.imageAspect,'1:1');
+  reopened.dispose();
+});

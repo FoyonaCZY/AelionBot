@@ -62,6 +62,21 @@ test('stable builtin identities preserve per-Bot state across installation paths
   assert.notEqual(old.fingerprint(bot.id,'aelion-presentation-design'),upgraded.fingerprint(bot.id,'aelion-presentation-design'));
 });
 
+test('bundled skills follow the available search tool and do not default to a desktop app',()=>{
+  const research=readFileSync(join(bundled,'web-research','SKILL.md'),'utf8');
+  assert.match(research,/hosted Responses web search/);
+  assert.match(research,/do not call or look up a separate client `web_search` tool/);
+  assert.match(research,/Do not use that browser for an ordinary static page/);
+  const ui=readFileSync(join(bundled,'web-ui-design','SKILL.md'),'utf8');
+  assert.match(ui,/There is no separate host-browser tool/);
+  assert.doesNotMatch(ui,/available host browser tool/);
+  for(const skill of manifest.skills){
+    const body=readFileSync(join(bundled,skill.directory,'SKILL.md'),'utf8');
+    assert.match(body,/only when this task needs that application/);
+    assert.doesNotMatch(body,/open_app` and `app: writer`, `calc`, `impress`, or `browser` as appropriate/);
+  }
+});
+
 test('every bundled source retains pinned provenance and full license; helpers ship outside ASAR',()=>{
   assert.equal(new Set(manifest.skills.map(s=>s.id)).size,8);
   assert.deepEqual(readdirSync(bundled,{withFileTypes:true}).filter(f=>f.isDirectory()).map(f=>f.name).sort(),manifest.skills.map(s=>s.directory).sort());

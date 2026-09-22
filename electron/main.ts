@@ -4,6 +4,7 @@ import {DesignerFiles} from './core/designer-files';
 import {DesignStore} from './core/design-store';
 import {DesignSystems} from './core/design-systems';
 import {DesignPlugins} from './core/design-plugins';
+import {DesignCraft} from './core/design-craft';
 import {commentsFromAnnotations} from '../src/designer-canvas';
 import {botType} from '../src/designer-types';
 import {applyDomEdits} from './core/html-preview-edits';
@@ -30,6 +31,9 @@ import {updateBotProfile} from './core/bot-profile';
 import { VmController, shQuote } from './core/vm';
 import { ModelClient, validateModelEndpoint } from './core/model';
 import { ModelProviders } from './core/model-providers';
+import {probeImageModel,storeImageRoutes} from './core/image-generation';
+import {imageProtocolCatalog} from './core/image-protocols';
+import {isImageGenerationError} from './core/image-errors';
 import { Harness, safeRelativePath } from './core/harness';
 import { ComputerController } from './core/computer';
 import { installComputerView } from './core/computer-view';
@@ -153,11 +157,12 @@ async function initialize(){
   hostApprovals=new HostApprovals(store,commandPermissions,defaultPermissionReviewer(approvalModel,()=>providers.approvalConfig(),text=>host.redact(text)),{homeDir,defaultModel:()=>providers.approvalConfig()});interactions.setHostPolicy(hostApprovals);
   cognition=new Cognition(store,model,integrations.skills,changed,()=>Boolean(updatePreparing||harness?.busy||groupChats?.busy),()=>providers.secrets());
   agentPreviews=new AgentPreviews(store,artifacts,attachments,changed,host);
-  const imageModelAccess=(botId:string)=>{const selection=store.bot(botId).imageModel;if(!selection)return;const config=providers.config(botId,selection);return {config:{...config,reasoningEffort:undefined,thinkingBudget:undefined},key:providers.key(botId,selection)};};
+  const imageModelAccess=(botId:string)=>providers.imageAccess(botId);
   const generalHarness=new Harness(store,vm,model,changed,computer,(botId,runId)=>artifacts.collect(botId,runId),integrations,host,interactions,cognition,attachments);
   generalHarness.setImageModel(imageModelAccess);
   designSystems=new DesignSystems(join(app.getAppPath(),'assets','design-systems'),join(store.dir,'design-system-cache'),join(store.dir,'custom-design-systems'));
   const designPlugins=new DesignPlugins(join(app.getAppPath(),'assets','design-plugins'));
+  const designCraft=new DesignCraft(join(app.getAppPath(),'assets','design-craft'));
   designStore=new DesignStore(store,designSystems,changed,()=>host.workspaceSettings().workspaceDir,designPlugins);
   const designerFiles=new DesignerFiles(store,designStore);artifacts.designerFiles=designerFiles;artifacts.openLocal=path=>shell.openPath(path);
   const renderDesignPdf=async(html:string)=>{
@@ -168,7 +173,7 @@ async function initialize(){
       return Buffer.from(pdf);
     }finally{if(!printer.isDestroyed())printer.destroy();}
   };
-  const designerLoop=new DesignerLoop(store,designStore,designSystems,designerFiles,model,cognition.context,generalHarness,artifacts,attachments,interactions,changed,{pdf:{render:renderDesignPdf},plugins:designPlugins,imageModel:imageModelAccess});
+  const designerLoop=new DesignerLoop(store,designStore,designSystems,designerFiles,model,cognition.context,generalHarness,artifacts,attachments,interactions,changed,{pdf:{render:renderDesignPdf},plugins:designPlugins,craft:designCraft,imageModel:imageModelAccess});
   harness=new BotRuntime(store,generalHarness,designerLoop,changed,()=>cognition.beforeRun());
   harness.setPreviewGateway(agentPreviews);
   videoInspector=new VideoInspector(join(app.getAppPath(),'assets','video-inspector.html'));
@@ -261,6 +266,20 @@ async function initialize(){
   handle('profile:save',value=>{store.data.userProfile=normalizeUserProfile(value);store.save();greetings?.cancelAll();changed();void greetings?.greetEmpty();});
   handle('runtime:save',value=>{store.data.runtime=runtimeSettings(value);store.save();changed();});
   handle('app:snapshot',snapshot);
+  handle('image:protocols',()=>imageProtocolCatalog());
+  handle('image:test',async input=>{
+    const selection=providers.selection(input?.selection);
+    if(!selection)throw new Error('请先选择生图 Provider 和模型');
+    const access=providers.imageAccessFor(selection);
+    if(access.config.issue)throw new Error(access.config.issue);
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(new Error('生图连接测试超时')),120000);
+    try{return await probeImageModel({model,config:access.config,key:access.key,signal:controller.signal,routes:storeImageRoutes(store)});}
+    catch(error){
+      if(isImageGenerationError(error))throw new Error(`${error.message}${error.detail?`（${error.detail}）`:''}`);
+      throw error;
+    }
+    finally{clearTimeout(timer);}
+  });
   handle('preview:acknowledge',id=>{if(typeof id!=='string'||id.length>100)throw Error('无效预览 ID');agentPreviews?.acknowledge(id);});
   handle('usage:query',input=>usageReport(store.data.modelUsage||[],providers.list(),input));
   handle('app:open-external-url',value=>{const url=externalWebUrl(value);if(!url)throw new Error('只能在浏览器中打开有效的 HTTP 或 HTTPS 链接');return shell.openExternal(url);});

@@ -189,7 +189,10 @@ test('designer task revisions preserve request prefixes and reuse pinned referen
  engine.prepare=async input=>{const result=await prepare(input);requests.push(structuredClone(result.messages));return result;};
  let reads=0;const context=f.systems.context.bind(f.systems);f.systems.context=(...args)=>{reads++;return context(...args);};let step=0;const path=f.task.workspacePath+'/index.html';
  await f.make(async(_messages:any,_tools:any,_signal:any,_text:any,options:any)=>{assert.ok(options.contextStats?.estimatedTokens>0);const calls=step++===0?[call('design_spec',{spec:'New direction after first inference',constraints:[]})]:step===2?[call('host_file_write',{path,content:'<html><body>Ready</body></html>'})]:step===3?[call('design_publish',{paths:[path]})]:[];return {content:calls.length?'Working':'Ready for review',calls,finishReason:calls.length?'tool_calls':'stop'};},engine).run(f.bot.id,'Build a page',{designSessionId:f.task.id});
- assert.equal(f.store.data.runs.at(-1)?.status,'completed');assert.equal(requests.length,4);assert.equal(reads,1);
+ assert.equal(f.store.data.runs.at(-1)?.status,'completed');assert.equal(reads,1);
+ // A published first draft that still carries design findings earns one polish turn before the run ends.
+ assert.equal(requests.length,5);
+ assert.match(JSON.stringify(requests.at(-1)),/design_skill polish/);
  for(let i=1;i<requests.length;i++)assert.deepEqual(requests[i].slice(0,requests[i-1].length),requests[i-1],'progress changes must append context, not rewrite the request prefix');
  assert.doesNotMatch(requests[0][0].content,/activeRunId|updatedAt|New direction/);assert.match(JSON.stringify(requests.at(-1)),/New direction/);
 }finally{storage.close();}

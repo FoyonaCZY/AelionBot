@@ -6,12 +6,14 @@ export function hiddenClientTools(config:Pick<ModelConfig,'protocol'|'hostedWebS
   return hidden;
 }
 
-export function hostedResponseTools(config:Pick<ModelConfig,'protocol'|'hostedWebSearch'|'hostedImageGeneration'>){
-  if((config.protocol||'chat')!=='responses')return [] as Array<{type:string}>;
+export function hostedResponseTools(config:Pick<ModelConfig,'protocol'|'hostedWebSearch'|'hostedImageGeneration'|'hostedImageSize'|'hostedImageQuality'>){
+  if((config.protocol||'chat')!=='responses')return [] as Array<Record<string,unknown>>;
   return [
     ...(config.hostedWebSearch?[{type:'web_search'}]:[]),
-    ...(config.hostedImageGeneration?[{type:'image_generation'}]:[]),
-  ];
+    ...(config.hostedImageGeneration?[{type:'image_generation',
+      ...(config.hostedImageSize?{size:config.hostedImageSize}:{}),
+      ...(config.hostedImageQuality?{quality:config.hostedImageQuality}:{})}]:[]),
+  ] as Array<Record<string,unknown>>;
 }
 
 export function hostedGeneratedImages(output:unknown){

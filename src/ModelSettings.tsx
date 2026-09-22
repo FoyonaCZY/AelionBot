@@ -2,6 +2,7 @@ import {Select} from './Select';
 import {useEffect,useRef,useState} from 'react';
 import type {ModelProvider,ModelSelection,ProviderModel,Snapshot} from './shared';
 import type {ModelParameters,ModelProtocol} from './model-types';
+import {IMAGE_ASPECTS,IMAGE_QUALITIES,type ImageProtocol,type ImageProtocolInfo} from './image-types';
 import {SettingsSection} from './SettingsWindow';
 import {ModelSelectionFields,validModelSelection} from './ModelSelectionFields';
 import {ContextCapacityInput} from './ContextCapacityInput';
@@ -14,6 +15,17 @@ const errorText=(error:unknown)=>(error as Error).message.replace(/^Error invoki
 const same=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
 function protocolName(protocol:string|undefined,t:(value:string)=>string){
   return protocol==='responses'?'Responses':protocol==='anthropic'?'Claude':protocol==='gemini'?'Gemini':t('OpenAI 兼容');
+}
+/** The protocol catalog is owned by the main process so adding an adapter needs no renderer change. */
+export function useImageProtocols(){
+  const [catalog,setCatalog]=useState<ImageProtocolInfo[]>([]);
+  useEffect(()=>{let live=true;void window.aelion.imageProtocols().then(value=>{if(live)setCatalog(value);}).catch(()=>{});return()=>{live=false;};},[]);
+  return catalog;
+}
+function capabilityLabels(info:ImageProtocolInfo|undefined,t:(value:string)=>string){
+  if(!info)return [];
+  const {capabilities}=info;
+  return [capabilities.aspect&&t('画幅'),capabilities.quality&&t('质量'),capabilities.reference&&t('参考图'),capabilities.negativePrompt&&t('负向提示'),capabilities.seed&&t('随机种子')].filter(Boolean) as string[];
 }
 export function ModelSettings({state,onNotify}:{state:Snapshot;onNotify:(text:string)=>void}){
   const {t}=useI18n();
@@ -38,7 +50,7 @@ export function ModelSettings({state,onNotify}:{state:Snapshot;onNotify:(text:st
       <div className="provider-heading"><button className="secondary-button" onClick={()=>setEditing('new')}>{t('添加 Provider')}</button></div>
       <div className="settings-card provider-list">{providers.map(provider=>{
         const used=state.defaultModel?.providerId===provider.id||state.approvalModel?.providerId===provider.id||state.bots.some(bot=>bot.model?.providerId===provider.id);
-        return <div className="provider-row" key={provider.id}><button className="provider-info" aria-label={t('编辑 Provider {name}',{name:provider.name})} onClick={()=>setEditing(provider.id)}><strong>{provider.name}<span className="provider-protocol">{protocolName(provider.protocol,t)}</span></strong><span>{provider.baseUrl}</span></button><span className="provider-model-count">{refreshing.includes(provider.id)?t('拉取中…'):t('{count} 个模型',{count:provider.models.length})}</span><button className="text-button" disabled={refreshing.includes(provider.id)} onClick={()=>void refresh(provider.id)} aria-label={t('刷新 {name} 模型列表',{name:provider.name})}>{t('刷新')}</button><button className="text-button" disabled={used||removing===provider.id} title={used?t('请先切换使用此 Provider 的默认模型、审核模型或 Bot 模型'):''} aria-label={t('删除 Provider {name}',{name:provider.name})} onClick={async()=>{setRemoving(provider.id);try{await window.aelion.removeProvider(provider.id);if(editing===provider.id)setEditing(undefined);}catch(error){onNotify(errorText(error));}finally{setRemoving('');}}}>{t('删除')}</button></div>;
+        return <div className="provider-row" key={provider.id}><button className="provider-info" aria-label={t('编辑 Provider {name}',{name:provider.name})} onClick={()=>setEditing(provider.id)}><strong>{provider.name}<span className="provider-protocol">{protocolName(provider.protocol,t)}</span>{provider.models.some(model=>model.imageOutput)&&<span className="provider-protocol provider-image-tag">{t('生图')}</span>}</strong><span>{provider.baseUrl}</span></button><span className="provider-model-count">{refreshing.includes(provider.id)?t('拉取中…'):t('{count} 个模型',{count:provider.models.length})}</span><button className="text-button" disabled={refreshing.includes(provider.id)} onClick={()=>void refresh(provider.id)} aria-label={t('刷新 {name} 模型列表',{name:provider.name})}>{t('刷新')}</button><button className="text-button" disabled={used||removing===provider.id} title={used?t('请先切换使用此 Provider 的默认模型、审核模型或 Bot 模型'):''} aria-label={t('删除 Provider {name}',{name:provider.name})} onClick={async()=>{setRemoving(provider.id);try{await window.aelion.removeProvider(provider.id);if(editing===provider.id)setEditing(undefined);}catch(error){onNotify(errorText(error));}finally{setRemoving('');}}}>{t('删除')}</button></div>;
       })}{!providers.length&&<div className="provider-empty">{t('还没有 Provider')}</div>}</div>
       {providers.filter(provider=>provider.modelsError).map(provider=><p className="provider-error" role="status" key={provider.id}>{provider.name}：{provider.modelsError}</p>)}
       {editing&&(editing==='new'||editor)&&<ProviderEditor key={editing} provider={editor} disabled={editingBusy} onClose={()=>setEditing(undefined)} onSaved={(provider,close)=>{if(close!==false)setEditing(undefined);onNotify(provider.modelsError?t('Provider 已保存，模型列表拉取失败'):close===false?t('模型目录已更新'):t('Provider 已保存'));}}/>}
@@ -64,10 +76,16 @@ function ProviderEditor({provider,disabled,onClose,onSaved}:{provider?:ModelProv
   const {t}=useI18n();
   const form=useRef<HTMLFormElement>(null);
   useEffect(()=>{form.current?.scrollIntoView({block:'start'});form.current?.querySelector<HTMLInputElement>('input')?.focus({preventScroll:true});},[]);
-  const [parameters,setParameters]=useState<ModelParameters>({protocol:provider?(provider.protocol||'chat'):'responses',responsesTransport:provider?.responsesTransport,temperature:provider?.temperature,thinkingBudget:provider?.thinkingBudget,fallbackModel:provider?.fallbackModel,hostedWebSearch:provider?.hostedWebSearch,hostedImageGeneration:provider?.hostedImageGeneration});
+  const [parameters,setParameters]=useState<ModelParameters>({protocol:provider?(provider.protocol||'chat'):'responses',responsesTransport:provider?.responsesTransport,temperature:provider?.temperature,thinkingBudget:provider?.thinkingBudget,fallbackModel:provider?.fallbackModel,hostedWebSearch:provider?.hostedWebSearch,hostedImageGeneration:provider?.hostedImageGeneration,imageProtocol:provider?.imageProtocol,imageAspect:provider?.imageAspect,imageQuality:provider?.imageQuality});
   const [name,setName]=useState(provider?.name||''),[baseUrl,setBaseUrl]=useState(provider?.baseUrl||''),[apiKey,setApiKey]=useState(''),[clearKey,setClearKey]=useState(false),[pending,setPending]=useState(false),[error,setError]=useState('');
   const save=async()=>{setPending(true);setError('');try{const saved=await window.aelion.saveProvider({id:provider?.id,name,baseUrl,...parameters,apiKey:clearKey?null:apiKey||undefined});setName(saved.name);setBaseUrl(saved.baseUrl);setApiKey('');setClearKey(false);onSaved(saved);}catch(error){setError(errorText(error));}finally{setPending(false);}};
   const responses=parameters.protocol==='responses';
+  const protocols=useImageProtocols();
+  // Hosted generation only exists on a Responses provider; drop it from the menu and from state when the chat protocol moves away.
+  const imageOptions=protocols.filter(info=>info.id!=='responses-images'||responses);
+  const imageProtocol=(parameters.imageProtocol&&imageOptions.some(info=>info.id===parameters.imageProtocol)?parameters.imageProtocol:'auto') as ImageProtocol;
+  const imageInfo=imageOptions.find(info=>info.id===imageProtocol);
+  const capabilities=capabilityLabels(imageInfo,t);
   return <form ref={form} className="provider-editor" onSubmit={event=>{event.preventDefault();void save();}}>
     <h4>{provider?t('编辑 Provider'):t('添加 Provider')}</h4>
     <p className="provider-model-hint">{t('连接只负责协议和密钥。对话默认和模型列表分开设置。')}</p>
@@ -83,6 +101,15 @@ function ProviderEditor({provider,disabled,onClose,onSaved}:{provider?:ModelProv
       <label className="settings-row provider-hosted-row"><span>{t('服务端搜索')}</span><input type="checkbox" checked={Boolean(parameters.hostedWebSearch)} disabled={disabled||pending} onChange={event=>setParameters({...parameters,hostedWebSearch:event.target.checked})} aria-label={t('使用服务端内置搜索，不再提供应用内 web_search')}/></label>
       <label className="settings-row provider-hosted-row"><span>{t('服务端生图')}</span><input type="checkbox" checked={Boolean(parameters.hostedImageGeneration)} disabled={disabled||pending} onChange={event=>setParameters({...parameters,hostedImageGeneration:event.target.checked})} aria-label={t('使用服务端内置生图，由 Responses 直接出图')}/></label>
     </div>}
+    <div className="settings-card provider-image-card">
+      <p className="provider-card-kicker">{t('生图')}</p>
+      <p className="provider-model-hint">{t('这里决定这个 Provider 的图片怎么生成。选好协议后不再逐次探测，失败也不会轮流尝试其他接口而重复计费。')}</p>
+      <label className="settings-row"><span>{t('生图协议')}</span><Select aria-label={t('生图协议')} value={imageProtocol} disabled={disabled||pending} onChange={e=>setParameters({...parameters,imageProtocol:e.target.value as ImageProtocol})}>{imageOptions.map(info=><option key={info.id} value={info.id}>{info.label}</option>)}</Select></label>
+      {imageInfo&&<p className="provider-model-note">{imageInfo.hint}{imageInfo.endpoint?` · ${imageInfo.endpoint}`:''}</p>}
+      {capabilities.length>0&&<p className="provider-image-capabilities">{t('支持')}：{capabilities.join(' · ')}</p>}
+      <label className="settings-row"><span>{t('默认画幅')}</span><Select aria-label={t('默认画幅')} value={parameters.imageAspect||''} disabled={disabled||pending||!imageInfo?.capabilities.aspect} onChange={e=>setParameters({...parameters,imageAspect:e.target.value?e.target.value as ModelParameters['imageAspect']:undefined})}><option value="">{t('模型默认')}</option>{IMAGE_ASPECTS.map(aspect=><option key={aspect} value={aspect}>{aspect}</option>)}</Select></label>
+      <label className="settings-row"><span>{t('默认质量')}</span><Select aria-label={t('默认质量')} value={parameters.imageQuality||'auto'} disabled={disabled||pending||!imageInfo?.capabilities.quality} onChange={e=>setParameters({...parameters,imageQuality:e.target.value==='auto'?undefined:e.target.value as ModelParameters['imageQuality']})}>{IMAGE_QUALITIES.map(quality=><option key={quality} value={quality}>{quality==='auto'?t('模型默认'):quality}</option>)}</Select></label>
+    </div>
     <details className="provider-advanced">
       <summary>{t('对话默认')}</summary>
       <div className="settings-card">
@@ -107,10 +134,15 @@ function ProviderModelCatalog({provider,disabled,onChange}:{provider:ModelProvid
     <h4>{t('模型目录')}</h4>
     <p className="provider-model-hint">{t('这里是拉取到的模型名单，给对话选择器用。上下文和推理在选模型时设置，不必每条都打开。')}</p>
     {provider.models.length>8&&<input className="provider-model-filter" value={query} disabled={disabled} placeholder={t('筛选模型')} onChange={event=>setQuery(event.target.value)}/>}
-    {models.map(model=><details key={model.id} className="provider-model-card"><summary><span className="provider-model-id">{model.id}</span><span className="provider-model-meta">{model.contextTokens?`${Math.round(model.contextTokens/1000)}k`:''}{model.reasoningEffort?` · ${model.reasoningEffort}`:''}{model.thinkingBudget?` · ${model.thinkingBudget}`:''}</span></summary>
+    {models.map(model=><details key={model.id} className="provider-model-card"><summary><span className="provider-model-id">{model.id}</span><span className="provider-model-meta">{model.imageOutput?`${t('生图')} · `:''}{model.contextTokens?`${Math.round(model.contextTokens/1000)}k`:''}{model.reasoningEffort?` · ${model.reasoningEffort}`:''}{model.thinkingBudget?` · ${model.thinkingBudget}`:''}</span></summary>
       <label className="settings-row settings-number"><span>{t('上下文容量')}</span><ContextCapacityInput value={model.contextTokens??32000} disabled={disabled} onChange={contextTokens=>Number.isInteger(contextTokens)&&void save({...model,contextTokens})}/></label>
       {['chat','responses'].includes(provider.protocol||'chat')&&<label className="settings-row"><span>{t('推理强度')}</span><EditableSelect label={t('推理强度')} value={model.reasoningEffort||''} onChange={text=>void save({...model,reasoningEffort:text||undefined})} options={REASONING_PRESETS} maxLength={80} placeholder={t('模型默认，可输入自定义值')} disabled={disabled}/></label>}
       {thinking&&<label className="settings-row"><span>{t('思考预算')}</span><input type="number" min={1024} max={64000} placeholder={t('模型默认')} disabled={disabled} value={model.thinkingBudget??''} onChange={event=>{const text=event.target.value;if(text==='')void save({...model,thinkingBudget:undefined});else if(Number.isInteger(Number(text)))void save({...model,thinkingBudget:Number(text)});}}/></label>}
+      <label className="settings-row provider-hosted-row"><span>{t('可用于生图')}</span><input type="checkbox" checked={Boolean(model.imageOutput)} disabled={disabled} onChange={event=>void save({...model,imageOutput:event.target.checked||undefined})} aria-label={t('把 {model} 标记为生图模型',{model:model.id})}/></label>
+      {model.imageOutput&&<>
+        <label className="settings-row"><span>{t('默认画幅')}</span><Select aria-label={t('{model} 的默认画幅',{model:model.id})} value={model.imageAspect||''} disabled={disabled} onChange={event=>void save({...model,imageAspect:event.target.value?event.target.value as ProviderModel['imageAspect']:undefined})}><option value="">{t('跟随 Provider')}</option>{IMAGE_ASPECTS.map(aspect=><option key={aspect} value={aspect}>{aspect}</option>)}</Select></label>
+        <label className="settings-row"><span>{t('默认质量')}</span><Select aria-label={t('{model} 的默认质量',{model:model.id})} value={model.imageQuality||'auto'} disabled={disabled} onChange={event=>void save({...model,imageQuality:event.target.value==='auto'?undefined:event.target.value as ProviderModel['imageQuality']})}>{IMAGE_QUALITIES.map(quality=><option key={quality} value={quality}>{quality==='auto'?t('跟随 Provider'):quality}</option>)}</Select></label>
+      </>}
     </details>)}
     {!models.length&&<p className="provider-empty">{query.trim()?t('没有匹配的模型'):t('还没有模型，保存连接后会自动拉取。')}</p>}
     <div className="provider-model-add"><input value={customId} disabled={disabled} maxLength={256} placeholder={t('自定义模型名称')} onChange={event=>setCustomId(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();const id=customId.trim();if(!id||provider.models.some(model=>model.id===id))return;setCustomId('');void save({id,contextTokens:32000});}}}/><button type="button" className="secondary-button" disabled={disabled||!customId.trim()||provider.models.some(model=>model.id===customId.trim())} onClick={()=>{const id=customId.trim();setCustomId('');void save({id,contextTokens:32000});}}>{t('添加模型')}</button></div>

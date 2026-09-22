@@ -32,7 +32,7 @@
 .designer-workspace.is-preview-docked .designer-artifact>small{font-size:10px}
 .designer-workspace.is-preview-docked .designer-check-details{margin:9px 0 11px;font-size:10px}
 .designer-workspace.is-preview-docked .designer-checks{font-size:10px}
-.designer-workspace.is-preview-docked .designer-accept{display:block;width:100%;padding:6px 10px;min-height:30px;border-radius:6px;font-size:11px;background:var(--bh-bg)}
+.designer-workspace.is-preview-docked .designer-accept{padding:6px 10px;min-height:30px;border-radius:6px;font-size:11px;background:var(--bh-bg)}
 .designer-workspace.is-preview-docked .designer-failure{margin:16px 0 8px;padding:11px 12px;border-radius:8px;line-height:1.65}
 .designer-workspace.is-preview-docked .designer-failure-heading{gap:8px;font-size:12px}
 .designer-workspace.is-preview-docked .designer-failure-heading button{font-size:11px;padding:4px 7px;min-height:28px;background:var(--design-surface)}

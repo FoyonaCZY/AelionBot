@@ -1,0 +1,453 @@
+{
+  "date": "2026-09-15",
+  "repository": "https://github.com/nexu-io/open-design",
+  "commit": "d465086b2c9264c47c5d3e1cfeb8cfb2864a41d4",
+  "version": "0.22.1",
+  "method": "Static source review; no dependencies installed or upstream code executed",
+  "counts": {
+    "designSystemDirectoriesWithDesignMd": 152,
+    "skillDirectoriesWithSkillMd": 163,
+    "officialScenarios": 14
+  },
+  "scenarios": [
+    {
+      "id": "od-code-migration",
+      "taskKind": "code-migration",
+      "mode": "scenario",
+      "pipeline": {
+        "stages": [
+          {
+            "id": "import",
+            "atoms": [
+              "code-import"
+            ]
+          },
+          {
+            "id": "tokens",
+            "atoms": [
+              "design-extract",
+              "token-map"
+            ]
+          },
+          {
+            "id": "plan",
+            "atoms": [
+              "rewrite-plan"
+            ]
+          },
+          {
+            "id": "verify",
+            "atoms": [
+              "patch-edit",
+              "build-test"
+            ],
+            "repeat": true,
+            "until": "(build.passing && tests.passing) || iterations>=8"
+          },
+          {
+            "id": "review",
+            "atoms": [
+              "diff-review"
+            ]
+          },
+          {
+            "id": "handoff",
+            "atoms": [
+              "handoff"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "od-default",
+      "taskKind": "new-generation",
+      "mode": "scenario",
+      "pipeline": {
+        "stages": [
+          {
+            "id": "discovery",
+            "atoms": [
+              "discovery-question-form"
+            ]
+          },
+          {
+            "id": "plan",
+            "atoms": [
+              "direction-picker",
+              "todo-write"
+            ]
+          },
+          {
+            "id": "generate",
+            "atoms": [
+              "file-write",
+              "media-image",
+              "media-video",
+              "media-audio",
+              "live-artifact"
+            ]
+          },
+          {
+            "id": "critique",
+            "atoms": [
+              "critique-theater"
+            ],
+            "repeat": true,
+            "until": "critique.score>=4 || iterations>=3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "od-design-refine",
+      "taskKind": "tune-collab",
+      "mode": "refine",
+      "pipeline": {
+        "stages": [
+          {
+            "id": "direction",
+            "atoms": [
+              "direction-picker"
+            ]
+          },
+          {
+            "id": "patch",
+            "atoms": [
+              "patch-edit"
+            ]
+          },
+          {
+            "id": "critique",
+            "atoms": [
+              "critique-theater"
+            ],
+            "repeat": true,
+            "until": "critique.score>=4 || iterations>=3"
+          },
+          {
+            "id": "handoff",
+            "atoms": [
+              "handoff"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "od-figma-migration",
+      "taskKind": "figma-migration",
+      "mode": "scenario",
+      "pipeline": {
+        "stages": [
+          {
+            "id": "extract",
+            "atoms": [
+              "figma-extract"
+            ]
+          },
+          {
+            "id": "tokens",
+            "atoms": [
+              "token-map"
+            ]
+          },
+          {
+            "id": "generate",
+            "atoms": [
+              "file-write",
+              "live-artifact"
+            ]
+          },
+          {
+            "id": "critique",
+            "atoms": [
+              "critique-theater"
+            ],
+            "repeat": true,
+            "until": "critique.score>=4 || iterations>=3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "od-media-generation",
+      "taskKind": "new-generation",
+      "mode": "scenario",
+      "pipeline": {
+        "stages": [
+          {
+            "id": "discovery",
+            "atoms": [
+              "discovery-question-form"
+            ]
+          },
+          {
+            "id": "plan",
+            "atoms": [
+              "todo-write"
+            ]
+          },
+          {
+            "id": "generate",
+            "atoms": [
+              "media-image",
+              "media-video",
+              "media-audio",
+              "live-artifact"
+            ]
+          },
+          {
+            "id": "critique",
+            "atoms": [
+              "critique-theater"
+            ],
+            "repeat": true,
+            "until": "critique.score>=4 || iterations>=3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "od-new-generation",
+      "taskKind": "new-generation",
+      "mode": "scenario",
+      "pipeline": {
+        "stages": [
+          {
+            "id": "discovery",
+            "atoms": [
+              "discovery-question-form"
+            ]
+          },
+          {
+            "id": "plan",
+            "atoms": [
+              "direction-picker",
+              "todo-write"
+            ]
+          },
+          {
+            "id": "generate",
+            "atoms": [
+              "file-write",
+              "live-artifact"
+            ]
+          },
+          {
+            "id": "critique",
+            "atoms": [
+              "critique-theater"
+            ],
+            "repeat": true,
+            "until": "critique.score>=4 || iterations>=3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "od-next-strategy",
+      "taskKind": "new-generation",
+      "mode": "scenario",
+      "pipeline": {
+        "stages": [
+          {
+            "id": "discovery",
+            "atoms": [
+              "discovery-question-form"
+            ]
+          },
+          {
+            "id": "plan",
+            "atoms": [
+              "direction-picker",
+              "todo-write"
+            ]
+          },
+          {
+            "id": "generate",
+            "atoms": [
+              "file-write",
+              "live-artifact"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "od-nextjs-export",
+      "taskKind": "tune-collab",
+      "mode": "export",
+      "pipeline": {
+        "stages": [
+          {
+            "id": "handoff",
+            "atoms": [
+              "handoff"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "od-plugin-authoring",
+      "taskKind": "new-generation",
+      "mode": "scenario",
+      "pipeline": {
+        "stages": [
+          {
+            "id": "discovery",
+            "atoms": [
+              "discovery-question-form"
+            ]
+          },
+          {
+            "id": "plan",
+            "atoms": [
+              "direction-picker",
+              "todo-write"
+            ]
+          },
+          {
+            "id": "generate-plugin",
+            "atoms": [
+              "file-write",
+              "live-artifact"
+            ]
+          },
+          {
+            "id": "review-plugin",
+            "atoms": [
+              "critique-theater"
+            ],
+            "repeat": true,
+            "until": "critique.score>=4 || iterations>=3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "od-react-export",
+      "taskKind": "tune-collab",
+      "mode": "export",
+      "pipeline": {
+        "stages": [
+          {
+            "id": "handoff",
+            "atoms": [
+              "handoff"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "od-share-to-community",
+      "taskKind": "new-generation",
+      "mode": "scenario",
+      "pipeline": {
+        "stages": [
+          {
+            "id": "inspect-project",
+            "atoms": [
+              "file-read"
+            ]
+          },
+          {
+            "id": "package-plugin",
+            "atoms": [
+              "file-write"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "od-tune-collab",
+      "taskKind": "tune-collab",
+      "mode": "scenario",
+      "pipeline": {
+        "stages": [
+          {
+            "id": "direction",
+            "atoms": [
+              "direction-picker"
+            ]
+          },
+          {
+            "id": "patch",
+            "atoms": [
+              "patch-edit"
+            ]
+          },
+          {
+            "id": "critique",
+            "atoms": [
+              "critique-theater"
+            ],
+            "repeat": true,
+            "until": "critique.score>=4 || iterations>=3"
+          },
+          {
+            "id": "handoff",
+            "atoms": [
+              "handoff"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "od-vue-export",
+      "taskKind": "tune-collab",
+      "mode": "export",
+      "pipeline": {
+        "stages": [
+          {
+            "id": "handoff",
+            "atoms": [
+              "handoff"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "od-web-effect-extractor",
+      "taskKind": "new-generation",
+      "mode": "prototype",
+      "pipeline": {
+        "stages": [
+          {
+            "id": "capture",
+            "atoms": [
+              "code-import"
+            ]
+          },
+          {
+            "id": "model",
+            "atoms": [
+              "design-extract",
+              "token-map"
+            ]
+          },
+          {
+            "id": "rebuild",
+            "atoms": [
+              "file-write",
+              "live-artifact"
+            ]
+          },
+          {
+            "id": "critique",
+            "atoms": [
+              "critique-theater"
+            ],
+            "repeat": true,
+            "until": "critique.score>=4 || iterations>=3"
+          }
+        ]
+      }
+    }
+  ]
+}

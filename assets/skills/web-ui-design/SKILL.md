@@ -18,7 +18,7 @@ Typography, alignment, and content hierarchy do most of the work. Keep body line
 
 For an existing app, edit the selected host project using its current framework and components. For a standalone artifact, create self-contained HTML/CSS/JS in the Bot workspace. Use available local assets and fonts; avoid adding a network dependency solely for a visual flourish. Do not invent backend success or silently wire a button to a placeholder action.
 
-For a preview server, use the available process tools and bind only the necessary interface. The VM browser's localhost is not the host project's localhost. Use a reachable preview URL provided by the environment, an available host browser tool, or an explicitly copied VM project; never claim to have tested a host site by opening an unrelated VM address.
+For a preview server, use the available process tools and bind only the necessary interface. The VM browser's localhost is not the host project's localhost. Show the Bot's own VM page with `open_preview`, or open that same page in the work-computer browser. Never claim to have tested a host site by opening an unrelated VM address. There is no separate host-browser tool.
 
 ## Inspect and iterate
 
@@ -31,6 +31,6 @@ For a local HTML deliverable, keep assets portable, attach the needed files, and
 - Read incoming files with `attachment_read`; use `attachment_save` for binary files and use its returned path.
 - `computer_execute`, `file_read`, `file_write`, and `file_patch` operate in the Linux work computer, under the current Bot's workspace. `host_*` tools operate on the user's selected local project; these are different filesystems. Never assume a host path exists in the VM.
 - Read supporting files with `skill_file_read`. Before running a bundled script in the VM, call `skill_materialize` for this skill and use its returned `vmPath`; quote that path in shell commands. Keep generated files in the Bot workspace, outside the materialized skill directory.
-- Use `computer` with `action: open_app` and `app: writer`, `calc`, `impress`, or `browser` as appropriate. For a document, pass its workspace-relative `path`. Inspect screenshots before coordinate actions and use the latest returned `observationId`.
+- Open Writer, Calc, Impress, or the work-computer browser with `computer` (`action: open_app`) only when this task needs that application. For an existing document, pass its workspace-relative `path`. Inspect screenshots before coordinate actions and use the latest returned `observationId`. Do not open a desktop app in place of search, `web_read`, file tools, or an edit in the selected host project.
 - Final files belong in `message_attach` using `attachments: [{path: "output/actual-file.ext"}]`. This also works for a final group or private-chat reply. When explicitly sending a separate collaboration message, `bot_send_message` and `group_send_message` accept the same attachment entries. Attach only useful deliverables, not every intermediate preview.
 - Discover an omitted tool with `tool_search`; use only tools actually available. A missing optional library does not justify changing VM networking or using another Bot's files. Prefer existing applications and libraries; report an actual missing dependency if no suitable route exists.

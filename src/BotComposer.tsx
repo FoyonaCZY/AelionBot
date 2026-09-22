@@ -51,7 +51,7 @@ function chip(mention:BotMention){
   const node=document.createElement('span');node.className='bot-mention';node.contentEditable='false';node.dataset.botId=mention.id;node.dataset.botName=mention.name;node.dataset.botColor=mention.color;
   const face=document.createElement('span');face.className='mention-avatar';face.setAttribute('aria-hidden','true');const name=document.createElement('span');name.textContent=`@${mention.name}`;node.append(face,name);paintChip(node,mention);return node;
 }
-export function BotComposer({bot,bots,draft=empty,running,onChange,onSend,onStop,attachmentScope,workspaceDir,workspaceInherited,permissionMode,contextOverview,contextCapacity,contextControl,fixedDesignWorkspace=false,designSessionId}:{designSessionId?:string;fixedDesignWorkspace?:boolean;contextControl?:ReactNode;contextOverview?:ContextOverview;contextCapacity?:number;bot:Pick<Bot,'id'|'name'>;bots:Bot[];draft?:ComposerDraft;running:boolean;attachmentScope?:AttachmentScope;workspaceDir?:string;workspaceInherited?:boolean;permissionMode?:HostPermissionMode;onChange:(draft:ComposerDraft)=>void;onSend:()=>void;onStop:()=>void}){
+export function BotComposer({bot,bots,draft=empty,running,onChange,onSend,onStop,attachmentScope,workspaceDir,workspaceInherited,permissionMode,contextOverview,contextCapacity,contextControl,fixedDesignWorkspace=false,designSessionId,placeholder}:{placeholder?:string;designSessionId?:string;fixedDesignWorkspace?:boolean;contextControl?:ReactNode;contextOverview?:ContextOverview;contextCapacity?:number;bot:Pick<Bot,'id'|'name'>;bots:Bot[];draft?:ComposerDraft;running:boolean;attachmentScope?:AttachmentScope;workspaceDir?:string;workspaceInherited?:boolean;permissionMode?:HostPermissionMode;onChange:(draft:ComposerDraft)=>void;onSend:()=>void;onStop:()=>void}){
   const {t}=useI18n();
   const editor=useRef<HTMLDivElement>(null),list=useRef<HTMLDivElement>(null),last=useRef(''),composing=useRef(false),sendRef=useRef(onSend);sendRef.current=onSend;
   const draftRef=useRef(draft),changeRef=useRef(onChange),uploadCount=useRef(0),uploadChain=useRef(Promise.resolve());draftRef.current=draft;changeRef.current=onChange;
@@ -113,7 +113,7 @@ export function BotComposer({bot,bots,draft=empty,running,onChange,onSend,onStop
     update({...current,text:prefix+current.text.slice(old.length),mentions:current.mentions.filter(m=>m.start>=old.length).map(m=>({...m,start:m.start-old.length+prefix.length,end:m.end-old.length+prefix.length}))});
     setCommandHidden(true);setQuery(undefined);editor.current?.focus({preventScroll:true});
   };
-  const composerPlaceholder=t('给 {name} 发消息',{name:bot.name});
+  const composerPlaceholder=placeholder||t('给 {name} 发消息',{name:bot.name});
   useLayoutEffect(()=>{
     const root=editor.current,key=JSON.stringify({text:draft.text,mentions:draft.mentions});if(!root||last.current===key)return;
     const focused=document.activeElement===root,fragment=document.createDocumentFragment();let at=0;

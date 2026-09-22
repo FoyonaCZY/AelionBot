@@ -6,12 +6,13 @@ import {Store,atomicJson,type StoredProvider} from './store';
 import {validateModelEndpoint} from './model';
 import {redactHost} from './host';
 import type {ModelParameters} from '../../src/model-types';
+import {asImageAspect,asImageProtocol,asImageQuality} from '../../src/image-types';
 import {imageCapability} from './model-vision';
 import {reasoningEffort as cleanReasoning} from '../../src/reasoning';
 import {modelFetch,prewarmModelEndpoint,disposeModelHttp} from './model-http';
 
 export function modelParameters(input:ModelParameters):ModelParameters{
- const {protocol,responsesTransport,temperature,reasoningEffort,thinkingBudget,fallbackModel,hostedWebSearch,hostedImageGeneration}=input;
+ const {protocol,responsesTransport,temperature,reasoningEffort,thinkingBudget,fallbackModel,hostedWebSearch,hostedImageGeneration,imageProtocol,imageAspect,imageQuality}=input;
  if(responsesTransport!==undefined&&!['auto','http','websocket'].includes(responsesTransport))throw Error('Responses 连接方式无效');
  if(protocol!==undefined&&!['chat','responses','anthropic','gemini'].includes(protocol))throw Error('模型协议无效');
  if(temperature!==undefined&&(!Number.isFinite(temperature)||temperature<0||temperature>2))throw Error('温度应为 0–2');
@@ -20,8 +21,14 @@ export function modelParameters(input:ModelParameters):ModelParameters{
  if(fallbackModel!==undefined&&(typeof fallbackModel!=='string'||fallbackModel.length>256||/[\u0000-\u001f]/.test(fallbackModel)))throw Error('备用模型无效');
  if(hostedWebSearch!==undefined&&typeof hostedWebSearch!=='boolean')throw Error('服务端网页搜索设置无效');
  if(hostedImageGeneration!==undefined&&typeof hostedImageGeneration!=='boolean')throw Error('服务端图片生成设置无效');
+ if(imageProtocol!==undefined&&!asImageProtocol(imageProtocol))throw Error('生图协议无效');
+ if(imageAspect!==undefined&&!asImageAspect(imageAspect))throw Error('生图画幅无效');
+ if(imageQuality!==undefined&&!asImageQuality(imageQuality))throw Error('生图质量无效');
  const responses=(protocol||'chat')==='responses';
- return {protocol,responsesTransport,temperature,reasoningEffort,thinkingBudget,fallbackModel:fallbackModel?.trim()||undefined,...(responses&&hostedWebSearch?{hostedWebSearch:true}:{}),...(responses&&hostedImageGeneration?{hostedImageGeneration:true}:{})};
+ // Hosted Responses generation is only reachable on a Responses provider; keep the stored protocol consistent with that.
+ const image=asImageProtocol(imageProtocol)||'auto';
+ if(image==='responses-images'&&!responses)throw Error('托管生图协议只能用于 Responses Provider');
+ return {protocol,responsesTransport,temperature,reasoningEffort,thinkingBudget,fallbackModel:fallbackModel?.trim()||undefined,...(responses&&hostedWebSearch?{hostedWebSearch:true}:{}),...(responses&&hostedImageGeneration?{hostedImageGeneration:true}:{}),...(image!=='auto'?{imageProtocol:image}:{}),...(asImageAspect(imageAspect)?{imageAspect:asImageAspect(imageAspect)}:{}),...(asImageQuality(imageQuality)&&imageQuality!=='auto'?{imageQuality:asImageQuality(imageQuality)}:{})};
 }
 export function providerModelEntry(input:unknown):ProviderModel{
  if(!input||typeof input!=='object'||Array.isArray(input))throw Error('模型配置无效');
@@ -30,7 +37,10 @@ export function providerModelEntry(input:unknown):ProviderModel{
  if(contextTokens!==undefined&&(!Number.isInteger(contextTokens)||contextTokens<8000||contextTokens>1000000))throw Error('上下文容量应为 8000–1000000');
  const effort=cleanReasoning(value.reasoningEffort);
  if(value.thinkingBudget!==undefined&&(!Number.isInteger(value.thinkingBudget)||value.thinkingBudget<1024||value.thinkingBudget>64000))throw Error('思考预算应为 1024–64000');
- return {id,...(contextTokens?{contextTokens}:{}),...(effort?{reasoningEffort:effort}:{}),...(value.thinkingBudget?{thinkingBudget:value.thinkingBudget}:{})};
+ if(value.imageOutput!==undefined&&typeof value.imageOutput!=='boolean')throw Error('生图能力标记无效');
+ if(value.imageAspect!==undefined&&!asImageAspect(value.imageAspect))throw Error('生图画幅无效');
+ if(value.imageQuality!==undefined&&!asImageQuality(value.imageQuality))throw Error('生图质量无效');
+ return {id,...(contextTokens?{contextTokens}:{}),...(effort?{reasoningEffort:effort}:{}),...(value.thinkingBudget?{thinkingBudget:value.thinkingBudget}:{}),...(value.imageOutput?{imageOutput:true}:{}),...(asImageAspect(value.imageAspect)?{imageAspect:value.imageAspect}:{}),...(asImageQuality(value.imageQuality)&&value.imageQuality!=='auto'?{imageQuality:value.imageQuality}:{})};
 }
 
 export interface CredentialCodec {encrypt:(value:string)=>string;decrypt:(value:string)=>string;}
@@ -84,6 +94,28 @@ export class ModelProviders {
   config(botId?:string,selection?:ModelSelection){const config=this.store.modelFor(botId,selection);return {...config,hasKey:!config.issue&&Boolean(this.key(botId,selection))};}
   approvalKey(){const config=this.store.modelFor(undefined,this.store.data.approvalModel);return config.providerId&&!config.issue?this.keyFor(this.provider(config.providerId)):'';}
   approvalConfig(){const config=this.store.modelFor(undefined,this.store.data.approvalModel);return {...config,hasKey:!config.issue&&Boolean(this.approvalKey())};}
+  /**
+   * Effective image-generation access for a Bot. Chat-only reasoning settings are stripped so they
+   * never reach an image endpoint. A Bot with no dedicated image model still works when its chat
+   * provider has hosted Responses generation enabled — that provider already generates images, so
+   * requiring a second identical selection would be redundant. Anything else returns undefined:
+   * guessing an image endpoint from a chat model is what made failures unreadable before.
+   */
+  imageAccess(botId:string){
+    const selection=this.store.bot(botId).imageModel;
+    if(selection){
+      const config=this.config(botId,selection);
+      return {config:{...config,reasoningEffort:undefined,thinkingBudget:undefined},key:this.key(botId,selection)};
+    }
+    const chat=this.config(botId);
+    if(chat.protocol!=='responses'||!chat.hostedImageGeneration||chat.issue)return;
+    return {config:{...chat,reasoningEffort:undefined,thinkingBudget:undefined,imageProtocol:'responses-images' as const},key:this.key(botId)};
+  }
+  /** Image access for an arbitrary selection, used by the settings connection test before anything is assigned to a Bot. */
+  imageAccessFor(selection:ModelSelection){
+    const config=this.config(undefined,selection);
+    return {config:{...config,reasoningEffort:undefined,thinkingBudget:undefined},key:this.key(undefined,selection)};
+  }
   setApproval(value:unknown){this.commit({approvalModel:this.selection(value)});}
   secrets(){return (this.store.data.providers||[]).map(provider=>this.keyFor(provider)).filter(Boolean);}
   using(id:string){return this.store.data.bots.filter(bot=>this.store.modelSelection(bot.id)?.providerId===id).map(bot=>bot.id);}
