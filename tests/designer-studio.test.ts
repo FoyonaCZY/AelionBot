@@ -145,7 +145,7 @@ test('studio source keeps docked feedback and portals into the canvas host',()=>
  assert.match(workspace,/KIND_ICONS/);
  assert.match(workspace,/designer-system-control/);
  assert.match(workspace,/BotComposer/);
- assert.match(workspace,/继续上次的设计/);
+ assert.match(workspace,/最近设计/);
  assert.match(workspace,/DesignPluginPicker/);
  assert.match(workspace,/designer-plugin-control/);
  assert.doesNotMatch(workspace,/className="designer-plugins"/);

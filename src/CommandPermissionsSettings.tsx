@@ -16,6 +16,6 @@ export function CommandPermissionsSettings({rules,busy,act}:{rules:CommandPermis
         <button role="switch" aria-label={t('允许命令模式 {pattern}',{pattern:rule.pattern})} aria-checked={rule.enabled} title={rule.enabled?t('停用此模式'):t('启用此模式')} className={`learning-switch ${rule.enabled?'enabled':''}`} disabled={busy} onClick={()=>act(()=>window.aelion.setCommandPermissionEnabled({id:rule.id,enabled:!rule.enabled}))}><i/></button>
         <button className="icon-button command-rule-delete" aria-label={t('删除命令模式 {pattern}',{pattern:rule.pattern})} title={t('删除模式')} disabled={busy} onClick={()=>act(()=>window.aelion.removeCommandPermission(rule.id))}><Icon name="trash" size={18}/></button>
       </div>
-    </article>)}</div>:<SettingsEmpty icon="shield" title={t('还没有长期授权')} description={t('在权限请求中选择“始终允许”后，可以在这里管理。')}/>}
+    </article>)}</div>:<SettingsEmpty icon="shield" title={t('还没有长期授权')} description={t('选择“始终允许”的命令会保存在此列表。')}/>}
   </SettingsSection>;
 }

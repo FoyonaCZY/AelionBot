@@ -23,6 +23,6 @@ export function FeedbackSettings({onNotify}:{onNotify:(text:string)=>void}){
     </>}
     {error&&<p className="feedback-error" role="alert">{error}</p>}
     <div className="feedback-actions"><button className="secondary-button" disabled={loading||Boolean(action)||!report} onClick={()=>void act('export')}><Icon name="download" size={16}/>{action==='export'?t('正在导出…'):t('导出日志')}</button><button className="primary-button" disabled={loading||Boolean(action)||!report} onClick={()=>void act('issue')}>{action==='issue'?t('正在打开…'):t('在 GitHub 反馈')}</button></div>
-    <p className="feedback-status">{saved?t('已保存 {file}，可拖入 GitHub issue 上传。',{file:report?.fileName||''}):t('GitHub 页面会预填诊断摘要，你可以补充复现步骤和截图后提交。')}</p>
+    <p className="feedback-status">{saved?t('已保存 {file}，可拖入 GitHub issue 上传。',{file:report?.fileName||''}):t('提交前请补充复现步骤和截图。')}</p>
   </div></SettingsSection>;
 }

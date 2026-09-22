@@ -66,20 +66,25 @@ body:has(.fp-panel[data-layout=docked]) .designer-header{height:38px;padding:5px
 .designer-system-facets button.selected{background:light-dark(#e6ece0,#3e4a33);border-color:#81926c;color:light-dark(#3c4634,#dfe8d3)}
 .designer-system-facets em{font-style:normal;font-size:10px;opacity:.6}
 .designer-system-facets button:focus-visible,.designer-system-card:focus-visible{outline:2px solid #81926c;outline-offset:2px}
-.designer-delivery-bar{flex-shrink:0;border-top:1px solid var(--design-line);padding:10px 18px 0}
+.designer-delivery-bar{flex-shrink:0;min-width:0;padding:0 0 9px}
 .designer-delivery-row{display:flex;align-items:center;gap:10px;min-width:0}
-.designer-delivery-primary{display:flex;align-items:center;gap:7px;flex:1;min-width:0;border:0;background:none;color:inherit;font:inherit;font-size:12px;text-align:left;padding:4px 0;cursor:pointer}
-.designer-delivery-primary span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.designer-delivery-primary svg{width:15px;height:15px;flex-shrink:0}
-.designer-delivery-primary:hover span{text-decoration:underline}
-.designer-delivery-empty{flex:1;min-width:0;font-size:11px;color:var(--design-muted)}
-.designer-delivery-summary{flex-shrink:0;font-size:10px;color:var(--design-muted);white-space:nowrap}
-.designer-delivery-summary[data-blocking]{color:#c0392b}
-.designer-delivery-toggle{flex-shrink:0;display:flex;align-items:center;gap:4px;border:0;background:none;color:var(--design-muted);font:inherit;font-size:11px;cursor:pointer;padding:4px 2px}
-.designer-delivery-toggle svg{width:12px;height:12px}
-.designer-delivery-toggle:hover{color:inherit}
-.designer-delivery-bar .designer-accept{flex-shrink:0}
-.designer-delivery-details{max-height:230px;overflow:auto;margin-top:6px;padding-bottom:4px}
+.designer-delivery-primary{display:flex;align-items:center;gap:8px;flex:1;min-width:0;border:0;background:none;color:inherit;font:inherit;font-size:12px;font-weight:500;text-align:left;padding:0;cursor:pointer}
+.designer-delivery-primary>span:not(.designer-delivery-file-icon){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.designer-delivery-file-icon{display:grid;place-items:center;flex:none;width:30px;height:32px;border:1px solid var(--design-line);border-radius:7px;background:var(--design-surface);color:var(--bh-blue)}
+.designer-delivery-file-icon svg{width:15px;height:15px}
+.designer-delivery-primary>small{font-size:10px;font-weight:400;color:var(--design-muted);white-space:nowrap}
+.designer-delivery-primary:hover>span:not(.designer-delivery-file-icon){color:var(--bh-blue)}
+.designer-delivery-label{display:flex;align-items:center;gap:7px;flex:1;font-size:12px;color:var(--design-muted)}
+.designer-delivery-actions{display:flex;align-items:center;gap:6px;flex:none}
+.designer-delivery-toggle{display:flex;align-items:center;gap:4px;min-height:32px;padding:5px 7px;border:0;border-radius:6px;background:none;color:var(--design-muted);font:inherit;font-size:11px;white-space:nowrap;cursor:pointer}
+.designer-delivery-toggle:hover,.designer-delivery-toggle[aria-expanded=true]{background:light-dark(#eceee8,#30362d);color:var(--bh-ink)}
+.designer-delivery-toggle>svg{width:12px;height:12px}
+.designer-delivery-check{display:flex;align-items:center;gap:2px;color:light-dark(#4e7751,#a4c598)}
+.designer-delivery-check b{font-size:10px;font-weight:500}
+.designer-delivery-check[data-warning]{color:light-dark(#aa5837,#edaa83)}
+.designer-delivery-bar .designer-accept{display:flex;align-items:center;justify-content:center;gap:5px;flex:none;white-space:nowrap}
+.designer-delivery-details{max-height:min(230px,28vh);overflow:auto;margin-top:9px;padding:4px 10px;border:1px solid var(--design-line);border-radius:9px;background:var(--design-surface);overscroll-behavior:contain}
 .designer-delivery-details .designer-artifact:first-child{border-top:0}
-.designer-delivery-bar :is(.designer-delivery-primary,.designer-delivery-toggle,.designer-accept):focus-visible{outline:2px solid #81926c;outline-offset:2px;border-radius:5px}
-.designer-delivery-toggle[aria-expanded=true] svg{transform:rotate(180deg)}
+.designer-delivery-details .designer-comments{font-size:12px;line-height:1.6;margin:8px 0}
+.designer-delivery-bar :is(.designer-delivery-primary,.designer-delivery-toggle,.designer-accept):focus-visible{outline:2px solid var(--bh-blue);outline-offset:3px;border-radius:6px}
+.designer-delivery-toggle[aria-expanded=true]>svg{transform:rotate(180deg)}

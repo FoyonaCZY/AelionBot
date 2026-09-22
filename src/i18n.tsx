@@ -152,6 +152,60 @@ Object.assign(zhTW,{'拒绝本次':'拒絕本次','操作已拒绝':'操作已�
 Object.assign(en,{'拒绝本次':'Deny this operation','操作已拒绝':'Operation denied','自动审核未放行':'Automatic review denied this operation','读取文件':'Read file','写入文件':'Write file','删除文件':'Delete file'});
 Object.assign(zhTW,{'本轮操作':'本輪操作','正在运行的任务':'正在執行的工作','已应用补丁':'已套用補丁','终端已启动':'終端已啟動','后台任务已启动':'背景工作已啟動','任务仍在运行，可在输入框上方查看或停止。':'工作仍在執行，可在輸入框上方查看或停止。'});
 Object.assign(en,{'本轮操作':'This run','正在运行的任务':'Running tasks','已应用补丁':'Patch applied','终端已启动':'Terminal started','后台任务已启动':'Background task started','任务仍在运行，可在输入框上方查看或停止。':'The task is still running. You can inspect or stop it above the composer.','本机':'This computer','服务':'Service','停止':'Stop'});
+Object.assign(en,{
+  "未配置时无法生成图片。": "Image generation is unavailable until configured.",
+  "字体预览": "Font preview",
+  "正文示例：今天的工作记录。": "Sample body text: today’s work notes.",
+  "暂无技能": "No skills",
+  "暂无 MCP 服务": "No MCP servers",
+  "选择“始终允许”的命令会保存在此列表。": "Commands approved with “Always allow” are saved here.",
+  "提交前请补充复现步骤和截图。": "Add reproduction steps and screenshots before submitting.",
+  "更新将安装压缩包、表格和演示文稿工具，保留现有文件。": "The update installs archive, spreadsheet and presentation tools. Existing files are kept.",
+  "正在审核操作权限。": "Reviewing operation permissions.",
+  "尚未执行，等待你授权。": "Not executed; waiting for your permission.",
+  "等待你的回答。": "Waiting for your answer.",
+  "完成操作后，请交还电脑控制权。": "Return computer control when you finish.",
+  "工具参数接收完整后开始执行。": "Execution starts after all tool arguments arrive."
+});
+Object.assign(zhTW,{
+  "未配置时无法生成图片。": "未設定時無法產生圖片。",
+  "字体预览": "字型預覽",
+  "正文示例：今天的工作记录。": "內文範例：今天的工作記錄。",
+  "暂无技能": "尚無技能",
+  "暂无 MCP 服务": "尚無 MCP 服務",
+  "选择“始终允许”的命令会保存在此列表。": "選擇「一律允許」的命令會儲存在此清單。",
+  "提交前请补充复现步骤和截图。": "提交前請補充重現步驟與截圖。",
+  "更新将安装压缩包、表格和演示文稿工具，保留现有文件。": "更新將安裝壓縮檔、試算表與簡報工具，保留現有檔案。",
+  "正在审核操作权限。": "正在審核操作權限。",
+  "尚未执行，等待你授权。": "尚未執行，等待你授權。",
+  "等待你的回答。": "等待你的回答。",
+  "完成操作后，请交还电脑控制权。": "完成操作後，請交還電腦控制權。",
+  "工具参数接收完整后开始执行。": "工具參數接收完整後開始執行。"
+});
+Object.assign(en,{
+  "模型设置": "Model settings",
+  "模型分配": "Model assignments",
+  "任务运行中，暂不可修改": "Cannot edit while tasks are running",
+  "Provider 列表": "Providers",
+  "Provider 设置": "Provider settings",
+  "连接": "Connection",
+  "高级": "Advanced",
+  "密钥已保存": "API key saved",
+  "暂无模型": "No models",
+  "暂无消息": "No messages"
+});
+Object.assign(zhTW,{
+  "模型设置": "模型設定",
+  "模型分配": "模型分配",
+  "任务运行中，暂不可修改": "工作執行中，暫不可修改",
+  "Provider 列表": "Provider 清單",
+  "Provider 设置": "Provider 設定",
+  "连接": "連線",
+  "高级": "進階",
+  "密钥已保存": "金鑰已儲存",
+  "暂无模型": "尚無模型",
+  "暂无消息": "尚無訊息"
+});
 let activeLanguage:Language='zh-CN';
 
 export function readLanguage():Language{

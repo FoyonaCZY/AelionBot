@@ -42,14 +42,14 @@ export function aspectDimensions(aspect:ImageAspect='1:1'){return ASPECT_DIMENSI
 
 /** What the user sees when a generation fails. Diagnostics stay in the tool trace; this never names a provider or protocol. */
 export const IMAGE_NEXT_STEP_MESSAGE:Record<ImageNextStep,string>={
-  'revise-request':'这次请求没通过内容审核 —— 换个说法，或者换一张参考图再试。',
-  'switch-model':'这个模型用不了生图 —— 在设置里换一个生图模型再试。',
-  'open-settings':'生图模型还没填 API Key —— 在设置里填好就能用。',
-  'sign-in':'生图服务的登录或密钥已失效 —— 重新填写密钥后再试。',
-  'add-credit':'生图模型的额度用完了 —— 重试不会恢复，去充值或换一个生图模型。',
-  'retry-later':'生图这会儿不稳定 —— 不是你的问题，过一会儿再试通常就好。',
+  'revise-request':'请求未通过内容审核，请修改描述或参考图。',
+  'switch-model':'当前模型不支持生图，请在设置中更换模型。',
+  'open-settings':'生图模型未配置 API Key。',
+  'sign-in':'生图服务凭证已失效，请更新 API Key。',
+  'add-credit':'生图额度用完，请充值或更换模型。',
+  'retry-later':'生图服务暂时不可用，请稍后重试。',
   'unsupported':'当前任务不能生成图片。',
-  'contact-support':'图片没生成出来，也不是参数问题 —— 请查看执行记录中的详细错误。',
+  'contact-support':'图片生成失败，请查看执行记录。',
 };
 /** What the agent should do. Only `retry-later` may be retried automatically; everything else would re-bill without changing the outcome. */
 export const IMAGE_NEXT_STEP_GUIDANCE:Record<ImageNextStep,string>={

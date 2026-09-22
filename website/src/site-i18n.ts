@@ -44,32 +44,32 @@ export const siteCopy:Record<SiteLanguage,{
     ],
     "workDescription": "与单个 Bot 处理任务，或在群聊中分配工作、交换文件。",
     "viewProduct": [
-      "和伙伴聊聊",
-      "让团队一起做"
+      "单个 Bot",
+      "群聊协作"
     ],
     "productAlt": [
       "AelionBot 当前版本的写作对话，展示分享讲稿和可保存的文件。",
       "AelionBot 当前版本的群聊，资料、灵感和写作伙伴共同准备分享讲稿。"
     ],
     "productCaption": "当前版本界面 · 示例任务",
-    "makingKicker": "会想，也会动手",
+    "makingKicker": "文件与应用",
     "makingTitle": [
-      "让成果，",
-      "从对话里",
-      "走出来。"
+      "调研、计算",
+      "与文件",
+      "处理"
     ],
     "makingDescription": [
       "查资料、处理文件、使用应用。",
       "通用 Bot 使用 VM，设计师在本机创作。"
     ],
-    "paperBack": "资料，变得有头绪。",
-    "paperOverline": "写下来的想法",
+    "paperBack": "调研资料",
+    "paperOverline": "讲稿提纲",
     "paperTitle": [
-      "让灵感，",
-      "有处可去。"
+      "产品调研",
+      "分享讲稿"
     ],
     "deliveryTitle": "分享讲稿",
-    "deliverySubtitle": "准备好了，看看吧。",
+    "deliverySubtitle": "已生成",
     "personalityKicker": "Agent 配置",
     "personalityTitle": [
       "按任务配置",
@@ -79,7 +79,7 @@ export const siteCopy:Record<SiteLanguage,{
       "设置名称、职责、模型和配色。",
       "可以创建多个 Bot，分别处理不同类型的工作。"
     ],
-    "paletteAria": "试试伙伴的配色",
+    "paletteAria": "选择 Bot 配色",
     "paletteNames": [
       "暮光紫",
       "晴空蓝",
@@ -94,7 +94,7 @@ export const siteCopy:Record<SiteLanguage,{
       "调研、写作、代码",
       "与日常办公"
     ],
-    "casePrompt": "试着这样开口",
+    "casePrompt": "任务示例",
     "weeklyTitle": "定时任务",
     "weeklyDescription": "安排一次性或周期性任务，执行时需要保持应用开启。",
     "weeklyLink": "了解定时工作",
@@ -112,7 +112,7 @@ export const siteCopy:Record<SiteLanguage,{
     "expandProduct": "放大界面截图",
     "productViewAria": "查看产品界面",
     "sceneAria": "资料、创意和文件成果的视觉演示",
-    "tryPalette": "试试伙伴的配色"
+    "tryPalette": "选择 Bot 配色"
   },
   "zh-TW": {
     "blog": "部落格",
@@ -148,32 +148,32 @@ export const siteCopy:Record<SiteLanguage,{
     ],
     "workDescription": "與單個 Bot 處理工作，或在群組中分工、交換檔案。",
     "viewProduct": [
-      "和夥伴聊聊",
-      "讓團隊一起做"
+      "單個 Bot",
+      "群組協作"
     ],
     "productAlt": [
       "AelionBot 目前版本的寫作對話，展示分享講稿和可儲存的檔案。",
       "AelionBot 目前版本的群組聊天，資料、靈感和寫作夥伴共同準備分享講稿。"
     ],
     "productCaption": "目前版本介面 · 範例工作",
-    "makingKicker": "會想，也會動手",
+    "makingKicker": "檔案與應用程式",
     "makingTitle": [
-      "讓成果，",
-      "從對話裡",
-      "走出來。"
+      "調研、計算",
+      "與檔案",
+      "處理"
     ],
     "makingDescription": [
       "查資料、處理檔案、使用應用程式。",
       "通用 Bot 使用 VM，設計師在本機創作。"
     ],
-    "paperBack": "資料，變得有頭緒。",
-    "paperOverline": "寫下來的想法",
+    "paperBack": "調研資料",
+    "paperOverline": "講稿大綱",
     "paperTitle": [
-      "讓靈感，",
-      "有處可去。"
+      "產品調研",
+      "分享講稿"
     ],
     "deliveryTitle": "分享講稿",
-    "deliverySubtitle": "準備好了，看看吧。",
+    "deliverySubtitle": "已產生",
     "personalityKicker": "Agent 設定",
     "personalityTitle": [
       "按工作設定",
@@ -183,7 +183,7 @@ export const siteCopy:Record<SiteLanguage,{
       "設定名稱、職責、模型和配色。",
       "可以建立多個 Bot，分別處理不同類型的工作。"
     ],
-    "paletteAria": "試試夥伴的配色",
+    "paletteAria": "選擇 Bot 配色",
     "paletteNames": [
       "暮光紫",
       "晴空藍",
@@ -198,7 +198,7 @@ export const siteCopy:Record<SiteLanguage,{
       "調研、寫作、程式",
       "與日常辦公"
     ],
-    "casePrompt": "可以這樣開口",
+    "casePrompt": "工作範例",
     "weeklyTitle": "排程工作",
     "weeklyDescription": "安排一次性或週期性工作，執行時需要保持應用程式開啟。",
     "weeklyLink": "了解排程工作",
@@ -216,7 +216,7 @@ export const siteCopy:Record<SiteLanguage,{
     "expandProduct": "放大介面截圖",
     "productViewAria": "查看產品介面",
     "sceneAria": "資料、創意和檔案成果的視覺演示",
-    "tryPalette": "試試夥伴的配色"
+    "tryPalette": "選擇 Bot 配色"
   },
   "en": {
     "blog": "Blog",
@@ -252,32 +252,32 @@ export const siteCopy:Record<SiteLanguage,{
     ],
     "workDescription": "Work with one Bot, or use group chat to assign tasks and exchange files.",
     "viewProduct": [
-      "Chat with a partner",
-      "Work as a team"
+      "Single Bot",
+      "Group chat"
     ],
     "productAlt": [
       "AelionBot writing conversation showing a shareable talk outline and saved files.",
       "AelionBot group chat where research, ideas, and writing partners prepare a talk outline together."
     ],
     "productCaption": "Current interface · Example task",
-    "makingKicker": "Thinks, then does",
+    "makingKicker": "FILES AND APPS",
     "makingTitle": [
-      "Beyond chat.",
-      "Into the",
-      "real world."
+      "Research,",
+      "calculate,",
+      "create files."
     ],
     "makingDescription": [
       "Research, handle files, use apps.",
-      "Your partner has its own work computer."
+      "General Bots use a VM; Designers work locally."
     ],
-    "paperBack": "Make the material make sense.",
-    "paperOverline": "Ideas, written down",
+    "paperBack": "Research notes",
+    "paperOverline": "Talk outline",
     "paperTitle": [
-      "Give ideas",
-      "somewhere to go."
+      "Product research",
+      "presentation"
     ],
     "deliveryTitle": "Shareable outline",
-    "deliverySubtitle": "Ready when you are.",
+    "deliverySubtitle": "Created",
     "personalityKicker": "AGENT CONFIGURATION",
     "personalityTitle": [
       "Configure models",
@@ -287,7 +287,7 @@ export const siteCopy:Record<SiteLanguage,{
       "Set a name, role, model and color.",
       "Create multiple Bots for different types of work."
     ],
-    "paletteAria": "Try the partner colors",
+    "paletteAria": "Choose Bot colors",
     "paletteNames": [
       "Twilight violet",
       "Clear sky blue",
@@ -302,7 +302,7 @@ export const siteCopy:Record<SiteLanguage,{
       "Research, writing, code",
       "and office tasks"
     ],
-    "casePrompt": "Try saying it this way",
+    "casePrompt": "Example task",
     "weeklyTitle": "Scheduled tasks",
     "weeklyDescription": "Set one-off or recurring tasks. Keep the app open while they run.",
     "weeklyLink": "Explore scheduled work",
@@ -320,36 +320,36 @@ export const siteCopy:Record<SiteLanguage,{
     "expandProduct": "Enlarge interface screenshot",
     "productViewAria": "View product interface",
     "sceneAria": "A visual demonstration of research, ideas, and file results",
-    "tryPalette": "Try the partner colors"
+    "tryPalette": "Choose Bot colors"
   }
 };
 
 export const siteExamples:Record<SiteLanguage,ReadonlyArray<{name:string;prompt:string;result:string;file:string;tone:'violet'|'blue'|'mint'|'peach'}>>={
   'zh-CN':[
-    {name:'准备分享',prompt:'把这些材料，变成一场十分钟的分享。',result:'帮你把重点讲清楚。',file:'分享讲稿.docx',tone:'violet'},
-    {name:'整理资料',prompt:'帮我读完这些资料，留下真正值得看的。',result:'重点与出处，都替你整理好。',file:'主题资料整理.pdf',tone:'blue'},
-    {name:'看懂报表',prompt:'这几份表格里，有哪些变化值得关注？',result:'让一整页数字变得有头绪。',file:'本周数据汇总.xlsx',tone:'mint'},
-    {name:'做个小工具',prompt:'我想做一个自己用着顺手的小工具。',result:'边聊边调整，让想法可以用。',file:'我的小工具.html',tone:'peach'},
+    {name:'准备分享',prompt:'把这些材料，变成一场十分钟的分享。',result:'十分钟讲稿与提纲。',file:'分享讲稿.docx',tone:'violet'},
+    {name:'整理资料',prompt:'帮我读完这些资料，留下真正值得看的。',result:'摘要与来源清单。',file:'主题资料整理.pdf',tone:'blue'},
+    {name:'看懂报表',prompt:'这几份表格里，有哪些变化值得关注？',result:'数据摘要与趋势图。',file:'本周数据汇总.xlsx',tone:'mint'},
+    {name:'做个小工具',prompt:'我想做一个自己用着顺手的小工具。',result:'可在浏览器中打开的工具。',file:'我的小工具.html',tone:'peach'},
   ],
   'zh-TW':[
-    {name:'準備分享',prompt:'把這些資料，變成一場十分鐘的分享。',result:'幫你把重點說清楚。',file:'分享講稿.docx',tone:'violet'},
-    {name:'整理資料',prompt:'幫我讀完這些資料，留下真正值得看的。',result:'重點與出處，都替你整理好。',file:'主題資料整理.pdf',tone:'blue'},
-    {name:'看懂報表',prompt:'這幾份表格裡，有哪些變化值得注意？',result:'讓一整頁數字變得有頭緒。',file:'本週資料彙總.xlsx',tone:'mint'},
-    {name:'做個小工具',prompt:'我想做一個自己用起來順手的小工具。',result:'邊聊邊調整，讓想法可以使用。',file:'我的小工具.html',tone:'peach'},
+    {name:'準備分享',prompt:'把這些資料，變成一場十分鐘的分享。',result:'十分鐘講稿與大綱。',file:'分享講稿.docx',tone:'violet'},
+    {name:'整理資料',prompt:'幫我讀完這些資料，留下真正值得看的。',result:'摘要與來源清單。',file:'主題資料整理.pdf',tone:'blue'},
+    {name:'看懂報表',prompt:'這幾份表格裡，有哪些變化值得注意？',result:'資料摘要與趨勢圖。',file:'本週資料彙總.xlsx',tone:'mint'},
+    {name:'做個小工具',prompt:'我想做一個自己用起來順手的小工具。',result:'可在瀏覽器中開啟的工具。',file:'我的小工具.html',tone:'peach'},
   ],
   en:[
-    {name:'Prepare a talk',prompt:'Turn these materials into a ten-minute talk.',result:'The key points, clearly told.',file:'talk-outline.docx',tone:'violet'},
-    {name:'Research notes',prompt:'Read these materials and keep what is worth my time.',result:'Key points and sources, organized.',file:'research-notes.pdf',tone:'blue'},
-    {name:'Understand a report',prompt:'What changes in these spreadsheets are worth attention?',result:'A page of numbers, made clear.',file:'weekly-summary.xlsx',tone:'mint'},
-    {name:'Build a small tool',prompt:'I want a small tool that feels good to use.',result:'Shape the idea as you talk.',file:'my-small-tool.html',tone:'peach'},
+    {name:'Prepare a talk',prompt:'Turn these materials into a ten-minute talk.',result:'A ten-minute script and outline.',file:'talk-outline.docx',tone:'violet'},
+    {name:'Research notes',prompt:'Read these materials and keep what is worth my time.',result:'A summary and source list.',file:'research-notes.pdf',tone:'blue'},
+    {name:'Understand a report',prompt:'What changes in these spreadsheets are worth attention?',result:'Data summaries and trend charts.',file:'weekly-summary.xlsx',tone:'mint'},
+    {name:'Build a small tool',prompt:'I want a small tool that feels good to use.',result:'A tool that runs in the browser.',file:'my-small-tool.html',tone:'peach'},
   ]
 };
 
 export const siteQuestions:Record<SiteLanguage,ReadonlyArray<{question:string;answer:string}>>={
   "zh-CN": [
     {
-      "question": "怎样开始和伙伴一起工作？",
-      "answer": "下载适合这台电脑的安装包，按引导连接你想使用的 AI 服务。给伙伴起个名字、安排职责，就能交给它第一件事。AI 服务的使用费用按你所选服务计算。"
+      "question": "如何开始使用？",
+      "answer": "安装应用，添加模型服务的 API Key，创建 Bot 后即可发送任务。模型服务单独计费。"
     },
     {
       "question": "可以决定伙伴能做哪些事吗？",
@@ -369,7 +369,7 @@ export const siteQuestions:Record<SiteLanguage,ReadonlyArray<{question:string;an
     },
     {
       "question": "定时工作需要一直开着应用吗？",
-      "answer": "任务执行时需要保持应用开启。你可以安排一次性的事情，也可以让伙伴每天或每周重复处理例行工作。"
+      "answer": "需要。支持一次性、每日或每周任务。"
     },
     {
       "question": "有 Mac 版本吗？",
@@ -378,8 +378,8 @@ export const siteQuestions:Record<SiteLanguage,ReadonlyArray<{question:string;an
   ],
   "zh-TW": [
     {
-      "question": "怎樣開始和夥伴一起工作？",
-      "answer": "下載適合這台電腦的安裝包，依照引導連線你想使用的 AI 服務。替夥伴取名、安排職責，就能交給它第一件事。AI 服務費用依你選擇的服務計算。"
+      "question": "如何開始使用？",
+      "answer": "安裝應用程式，新增模型服務的 API Key，建立 Bot 後即可傳送工作。模型服務另外計費。"
     },
     {
       "question": "可以決定夥伴能做哪些事嗎？",
@@ -399,7 +399,7 @@ export const siteQuestions:Record<SiteLanguage,ReadonlyArray<{question:string;an
     },
     {
       "question": "排程工作需要一直開著應用程式嗎？",
-      "answer": "執行工作時需要保持應用程式開啟。你可以安排一次性工作，也可以讓夥伴每天或每週重複處理例行工作。"
+      "answer": "需要。支援一次性、每日或每週工作。"
     },
     {
       "question": "有 Mac 版本嗎？",
@@ -408,8 +408,8 @@ export const siteQuestions:Record<SiteLanguage,ReadonlyArray<{question:string;an
   ],
   "en": [
     {
-      "question": "How do I start working with a partner?",
-      "answer": "Download the installer for this computer and connect the AI service you want to use. Name your partner, give it a role, and hand it a first task. AI service charges depend on the service you choose."
+      "question": "How do I get started?",
+      "answer": "Install the app, add your model service API key, and create a Bot to start a task. Model services are billed separately."
     },
     {
       "question": "Can I decide what a partner is allowed to do?",
@@ -429,7 +429,7 @@ export const siteQuestions:Record<SiteLanguage,ReadonlyArray<{question:string;an
     },
     {
       "question": "Does scheduled work require the app to stay open?",
-      "answer": "The app needs to stay open while a task runs. Schedule one-off work, or have a partner repeat routine work daily or weekly."
+      "answer": "Yes. Tasks can run once, daily or weekly."
     },
     {
       "question": "Is there a Mac version?",

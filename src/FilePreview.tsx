@@ -76,7 +76,7 @@ function PreviewContent({item,retry,override}:{item:PreviewItem;retry:number;ove
   const kind=previewKind(item.name);
   useEffect(()=>{let active=true;setValue(undefined);setError('');item.load().then(value=>{if(active)setValue(value);}).catch(error=>{if(active)setError(previewErrorText(error));});return()=>{active=false;};},[item,retry]);
   if(error&&!override)return <div className="fp-state" role="alert"><PreviewIcon name="image"/><strong>{t('暂时无法预览')}</strong><p>{error}</p></div>;
-  if(!value)return <div className="fp-state" role="status"><span className="fp-loading"/><strong>{kind==='演示文稿'?t('正在准备演示文稿'):t('正在打开预览')}</strong><p>{kind==='演示文稿'?t('首次打开可能需要一点时间'):t('内容即将出现在这里')}</p></div>;
+  if(!value)return <div className="fp-state" role="status"><span className="fp-loading"/><strong>{kind==='演示文稿'?t('正在准备演示文稿'):t('正在打开预览')}</strong></div>;
   const native=Boolean(window.aelion.openWebPreview);
   if(value.kind==='web')return native&&value.web?<WebPreview source={value.web}/>:<div className="fp-state" role="alert">{t('请在桌面应用中打开网页预览')}</div>;
   if(native&&value.kind==='html'){

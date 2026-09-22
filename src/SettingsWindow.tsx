@@ -23,7 +23,7 @@ export function SettingsWindow({tab,onTabChange,onClose,children}:{tab:SettingsT
     <nav className="settings-sidebar" aria-label={t('设置分类')}>
       {pages.map(page=><button key={page.id} title={t(page.label)} className={tab===page.id?'active':''} aria-current={tab===page.id?'page':undefined} onClick={()=>onTabChange(page.id)}><Icon name={page.icon} size={18}/><span>{t(page.label)}</span></button>)}
     </nav>
-    <div className="settings-pane">
+    <div className={`settings-pane settings-pane-${tab}`}>
       <header className="settings-heading"><h2>{t(pages.find(page=>page.id===tab)?.label||'偏好设置')}</h2></header>
       <button className="settings-close icon-button" aria-label={t('关闭对话框')} onClick={onClose}><Icon name="close" size={21}/></button>
       <div className={`settings-body settings-page-${tab}`} ref={content}>{children}</div>
