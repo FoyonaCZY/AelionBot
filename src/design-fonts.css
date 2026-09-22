@@ -1,0 +1,72 @@
+.modal-backdrop.design-font-backdrop{z-index:65;padding:24px}
+.design-font-dialog{--font-surface:light-dark(#fff,#252923);--font-muted:light-dark(#777d73,#aeb5a8);--font-line:light-dark(#e5e8e1,#41483b);--font-fill:light-dark(#f4f6ef,#30372a);--font-accent:light-dark(#52683d,#bad3a5);width:min(720px,100%);height:min(620px,calc(100dvh - 48px));display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--font-line);border-radius:16px;background:var(--font-surface);color:light-dark(#30362a,#edf1e8);box-shadow:0 22px 80px #0003;font-size:13px}
+.design-font-dialog button,.design-font-dialog input{font:inherit}
+.design-font-dialog button:focus-visible,.design-font-dialog input:focus-visible,.design-font-dialog summary:focus-visible{outline:2px solid var(--font-accent);outline-offset:3px}
+.design-font-header{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 22px 15px;flex-shrink:0}
+.design-font-header h2{margin:0;font-size:19px;font-weight:550}
+.design-font-header>div{display:flex;align-items:center;gap:12px}
+.design-font-import{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--font-line);border-radius:7px;padding:7px 10px;font-size:12px!important;color:inherit;background:var(--font-surface)}
+.design-font-import:hover{background:var(--font-fill)}
+.design-font-tabs{display:flex;gap:22px;padding:0 22px;border-bottom:1px solid var(--font-line);flex-shrink:0}
+.design-font-tabs>button{display:flex;align-items:center;gap:7px;border-bottom:2px solid transparent;margin-bottom:-1px;padding:0 1px 12px;color:var(--font-muted);font-size:12px}
+.design-font-tabs>button[aria-selected=true]{color:inherit;border-bottom-color:var(--font-accent)}
+.design-font-tabs>button>span{min-width:18px;padding:1px 5px;font-size:10px;border-radius:5px;background:var(--font-fill);font-variant-numeric:tabular-nums}
+.design-font-pane{display:flex;flex-direction:column;min-height:0;flex:1}
+.design-font-list{min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;flex:1;padding:9px 22px;scrollbar-width:thin}
+.design-font-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 14px;padding:15px 0 11px;border-bottom:1px solid var(--font-line)}
+.design-font-row:last-child{border-bottom:0}
+.design-font-row-main{display:block;min-width:0}
+.design-font-name{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.design-font-name strong{font-size:15px;line-height:1.5;font-weight:550;overflow-wrap:anywhere}
+.design-font-name>span{font-size:10px;color:var(--font-muted);border:1px solid var(--font-line);border-radius:4px;padding:1px 5px;white-space:nowrap}
+.design-font-meta{display:flex;flex-wrap:wrap;gap:3px 12px;color:var(--font-muted);font-size:11px;line-height:1.7;margin-top:5px;overflow-wrap:anywhere}
+.design-font-row-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px;padding-top:4px;white-space:nowrap}
+.design-font-row-side>small{font-size:10px;color:var(--font-muted);font-variant-numeric:tabular-nums}
+.design-font-status{display:inline-flex;align-items:center;gap:4px;color:var(--font-accent);font-size:11px}
+.design-font-status[data-warning=true],.design-font-check-result[data-warning=true]{color:light-dark(#a95836,#ebba91)}
+.design-font-details{grid-column:1/-1;font-size:11px;color:var(--font-muted);margin-top:3px}
+.design-font-details summary{width:max-content;padding:3px 0;cursor:pointer}
+.design-font-details dl{display:grid;grid-template-columns:80px minmax(0,1fr);gap:6px 12px;margin:8px 0 2px;font-size:11px;line-height:1.65;padding:10px 12px;border-radius:6px;background:var(--font-fill)}
+.design-font-details dt{color:var(--font-muted)}
+.design-font-details dd{color:inherit;text-align:left;overflow-wrap:anywhere}
+.design-font-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;min-height:210px;height:100%;padding:25px 20px;text-align:center;color:var(--font-muted);font-size:12px}
+.design-font-empty>strong{color:inherit;font-size:13px;font-weight:400}
+.design-font-empty-mark{display:grid;place-items:center;width:70px;height:70px;border:1px solid var(--font-line);border-radius:16px;background:var(--font-fill);font:32px Georgia,serif;color:var(--font-accent)}
+.design-font-empty>.primary-button,.design-font-add{display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:12px}
+.design-font-check{padding:14px 22px 17px;border-top:1px solid var(--font-line);flex-shrink:0;background:var(--font-surface)}
+.design-font-check-input{display:flex;gap:10px;align-items:center}
+.design-font-check-input input{flex:1;min-width:0;width:100%;border:1px solid var(--font-line);border-radius:7px;background:var(--font-surface);color:inherit;padding:8px 10px;font-size:12px}
+.design-font-check-input input::placeholder{color:var(--font-muted)}
+.design-font-check-input>button{display:flex;gap:6px;align-items:center;flex-shrink:0;border-radius:7px;border:1px solid var(--font-line);background:var(--font-fill);padding:8px 11px;font-size:12px;white-space:nowrap}
+.design-font-check-result{max-height:110px;overflow-y:auto;color:var(--font-accent);font-size:11px;line-height:1.75;margin-top:10px}
+.design-font-check-result p{display:flex;flex-wrap:wrap;align-items:center;gap:4px 7px;margin:4px 0;overflow-wrap:anywhere}
+.design-font-check-result p>strong{font-weight:550}
+.design-font-check-result p>span{min-width:0;overflow-wrap:anywhere}
+.design-font-check-result b{font-weight:400}
+.design-font-search{display:flex;align-items:center;gap:9px;border:1px solid var(--font-line);border-radius:8px;margin:17px 22px 6px;padding:8px 11px;color:var(--font-muted);flex-shrink:0}
+.design-font-search input{width:100%;min-width:0;border:0;background:transparent;color:inherit;outline:none;font-size:12px;line-height:1.7}
+.design-font-search button{display:grid;place-items:center;padding:0;color:var(--font-muted)}
+.design-font-catalog-row{border-bottom:1px solid var(--font-line)}
+.design-font-catalog-row:last-child{border-bottom:0}
+.design-font-catalog-title{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;padding:14px 0;text-align:left;color:inherit}
+.design-font-catalog-title>svg{color:var(--font-muted)}
+.design-font-catalog-title:hover .design-font-name strong{color:var(--font-accent)}
+.design-font-options{display:flex;flex-direction:column;align-items:flex-start;gap:14px;padding:0 0 17px}
+.design-font-options fieldset{padding:0;margin:0;border:0;width:100%}
+.design-font-options legend{margin-bottom:8px;font-size:11px;color:var(--font-muted)}
+.design-font-options fieldset>div{display:flex;flex-wrap:wrap;gap:6px}
+.design-font-options fieldset button{min-width:43px;border:1px solid var(--font-line);border-radius:6px;padding:5px 9px;font-size:11px;color:var(--font-muted);font-variant-numeric:tabular-nums}
+.design-font-options fieldset button[aria-pressed=true]{background:var(--font-fill);color:var(--font-accent);border-color:var(--font-accent)}
+.design-font-footer{flex-shrink:0;padding:10px 22px;border-top:1px solid var(--font-line);font-size:11px;color:var(--font-muted);background:var(--font-fill)}
+.design-font-footer p{margin:0;line-height:1.7;max-height:74px;overflow:auto;overflow-wrap:anywhere}
+.design-font-error{color:light-dark(#b1563f,#efbba7)}
+@media(max-width:560px){.modal-backdrop.design-font-backdrop{padding:12px}.design-font-dialog{height:min(640px,calc(100dvh - 24px));border-radius:13px}.design-font-header{padding:14px 16px 12px}.design-font-header>div{gap:5px}.design-font-tabs{padding:0 16px;gap:18px}.design-font-list{padding:5px 16px}.design-font-search{margin:14px 16px 4px}.design-font-check{padding:12px 16px}.design-font-check-input{gap:7px}.design-font-check-input>button{padding:8px;font-size:11px}.design-font-check-input>button>svg{display:none}.design-font-row{gap:5px 9px}.design-font-name strong{font-size:14px}.design-font-row-side{font-size:10px}.design-font-meta{gap:3px 8px}.design-font-footer{padding:10px 16px}}
+@media(prefers-reduced-motion:reduce){.design-font-dialog .spinner{animation:none}}
+
+.design-font-export{display:inline-flex;align-items:center;gap:6px;padding:7px 0;font-size:12px!important;color:var(--font-muted)}
+.design-font-export:hover{color:inherit}
+.design-font-apply{grid-column:1/-1;display:flex;align-items:center;gap:6px;margin-top:5px;font-size:11px}
+.design-font-apply>span{color:var(--font-muted);margin-right:3px}
+.design-font-apply>button{font-size:11px;border:1px solid var(--font-line);padding:3px 9px;border-radius:5px}
+.design-font-apply>button:hover{background:var(--font-fill)}
+@media(max-width:420px){.design-font-export>span{display:none}.design-font-export{padding:7px}.design-font-header>div{gap:7px}}

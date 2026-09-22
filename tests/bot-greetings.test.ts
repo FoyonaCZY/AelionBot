@@ -7,6 +7,7 @@ import {createServer} from 'node:http';
 import {Store} from '../electron/core/store';
 import {ModelClient,type Completion} from '../electron/core/model';
 import {BotGreetings} from '../electron/core/bot-greetings';
+import {normalizeUserProfile} from '../src/user-profile';
 
 const answer=(content:string):Completion=>({content,calls:[],finishReason:'stop'});
 function fixture(t:test.TestContext,complete:ModelClient['complete'],configured=true,isRunning=()=>false){
@@ -41,6 +42,16 @@ test('greeting usage has its own purpose and retains native reasoning for later 
  await f.greetings.greet(f.bot.id);assert.deepEqual(f.store.data.conversations[f.bot.id][0].native,native);assert.equal(f.store.data.messages[0].content,'你好。');assert.ok(!f.store.data.messages[0].content.includes('opaque'));
 });
 
+test('a greeting keeps the teammate name and the human displayName on opposite sides',async t=>{
+  let prompt='';
+  const f=fixture(t,async messages=>{prompt=messages.map(message=>message.content||'').join('\n');return answer('我是梁若飞。Wendy，把第一件事告诉我。');});
+  f.bot.name='梁若飞';f.bot.role='腾讯程序员';f.store.data.userProfile=normalizeUserProfile({displayName:'Wendy',role:'Indie Developer',background:'Go/TypeScript'});
+  await f.greetings.greet(f.bot.id);
+  assert.match(prompt,/你的名字："梁若飞"/);assert.match(prompt,/你的职责："腾讯程序员"/);
+  assert.match(prompt,/Wendy/);assert.match(prompt,/描述的是对方，不是你/);
+  assert.doesNotMatch(prompt,/\{"name":"梁若飞"/);
+});
+
 test('the configured ModelClient generates the first message from Bot identity without tools or a VM',async t=>{
   let requests=0,body:any;
   const server=createServer(async(req,res)=>{
@@ -56,7 +67,8 @@ test('the configured ModelClient generates the first message from Bot identity w
   const f=fixture(t,client.complete.bind(client));f.bot.name='代码达人';f.bot.role='编写代码与测试';
   await f.greetings.greet(f.bot.id);
   assert.equal(requests,1);assert.equal(body.model,'selected-model');assert.equal(body.tools,undefined);
-  assert.deepEqual(JSON.parse(body.messages[1].content),{name:'代码达人',role:'编写代码与测试'});
+  assert.match(body.messages[0].content,/你的名字：\"代码达人\"/);assert.match(body.messages[0].content,/你的职责：\"编写代码与测试\"/);
+  assert.equal(body.messages[1].content,'Write the greeting now.');assert.doesNotMatch(body.messages[1].content,/代码达人/);
   assert.equal(f.store.data.messages[0].content,'我是代码达人，把你想实现的功能告诉我吧。');
   assert.equal(f.store.data.messages[0].role,'assistant');
   assert.deepEqual(f.store.data.conversations[f.bot.id].map(({role,content})=>({role,content})),[{role:'assistant',content:f.store.data.messages[0].content}]);

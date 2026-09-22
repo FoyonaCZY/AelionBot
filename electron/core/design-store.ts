@@ -1,4 +1,5 @@
 import {createDesignerDirectory} from './designer-files';
+import {sameOpenDesignComment} from '../../src/designer-canvas';
 import {repairToolHistory} from './tool-history';
 import {existsSync,mkdirSync,readFileSync} from 'node:fs';
 import {join} from 'node:path';
@@ -31,8 +32,8 @@ export class DesignStore {
   const session=this.get(id);if(!comments.length)return structuredClone(session);
   const existing=session.comments||[];
   for(const comment of comments){
-   if(existing.some(item=>item.status==='open'&&item.path===comment.path&&item.text===comment.text&&item.designId===comment.designId))continue;
-   existing.push(comment);
+   if(existing.some(item=>sameOpenDesignComment(item,comment)))continue;
+   existing.push(structuredClone(comment));
   }
   session.comments=existing.slice(-80);this.touch(session);return structuredClone(session);
  }

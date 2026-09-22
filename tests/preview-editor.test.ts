@@ -42,3 +42,17 @@ test('explicit document sections remain part of the source identity',()=>{
  assert.throws(()=>applyDomEdits(source,[patch('<h1>Original</h1>','<h1>Updated</h1>',['html:1','head:1','main:1','h1:1'])]));
  assert.throws(()=>applyDomEdits(source,[{before:{tag:'title',path:['html:1','body:1','title:1'],html:'<title>Demo</title>'},after:'<title>Saved</title>'}]));
 });
+
+test('annotation context retains the selected content and stable CSS-pixel coordinate basis',()=>{
+ const input={id:'region',type:'rect' as const,x:.1,y:.2,w:.3,h:.4,color:'#3975c6',sourceWidth:1440,sourceHeight:8000,elementLabel:'h2.section-title',elementText:'Selected section heading',text:'Increase spacing'};
+ const [mark]=validateAnnotations([input]);assert.deepEqual(mark,input);
+ const context=annotationContext([mark]);assert.match(context,/source 1440×8000 CSS px/);assert.match(context,/content="Selected section heading"/);assert.match(context,/note="Increase spacing"/);
+ assert.throws(()=>validateAnnotations([{...input,sourceHeight:Infinity}]),/尺寸/);assert.throws(()=>validateAnnotations([{...input,sourceWidth:0}]),/尺寸/);
+ assert.throws(()=>validateAnnotations([{...input,elementText:'x'.repeat(1001)}]),/文字/);
+ assert.throws(()=>validateAnnotations([input,input]),/无效/);
+});
+
+test('arrow annotation context identifies the actual endpoint',()=>{
+ const text=annotationContext([{id:'arrow',type:'arrow',x:.8,y:.9,end:{x:.1,y:.2},color:'#3975c6'}]);
+ assert.match(text,/end \[0\.1000, 0\.2000\]/);
+});

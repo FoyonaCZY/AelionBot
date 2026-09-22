@@ -1,4 +1,5 @@
 import type {WireMessage} from './shared';
+import type {PreviewAnnotation} from './preview-editor-types';
 export type BotType='general'|'designer';
 export function botType(value:unknown):BotType{if(value===undefined||value==='general')return 'general';if(value==='designer')return value;throw Error('无效 Bot 类型');}
 export const DESIGN_TASK_KINDS=['prototype','ppt','clone','mobile','document'] as const;
@@ -15,7 +16,7 @@ export interface DesignUserEdit{id:string;path:string;revision:string;time:strin
 export interface DesignCheck{id:string;label:string;status:'pending'|'passed'|'failed';executionId?:string;detail?:string;}
 export interface DesignComment{
  id:string;path:string;text:string;createdAt:string;
- status:'open'|'resolved';designId?:string;selector?:string;page?:number;
+ status:'open'|'resolved';designId?:string;selector?:string;page?:number;annotation?:PreviewAnnotation;
 }
 export interface DesignPluginSummary{id:string;name:string;description:string;bytes:number;}
 /** Static design-check results. P0 blocks publication; P1/P2 are advisory and surface as badges. */

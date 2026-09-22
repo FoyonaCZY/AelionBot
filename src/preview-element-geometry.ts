@@ -7,3 +7,8 @@ export function resizeElementBox(start:ElementGestureRect,handle:string,dx:numbe
  return {width,height,x:handle.includes('w')?start.width-width:0,y:handle.includes('n')?start.height-height:0};
 }
 export function translateComponents(value:string){const parts=value==='none'?[]:value.match(/(?:[^\s(]+|\((?:[^()]|\([^()]*\))*\))+/g)||[];return [parts[0]||'0px',parts[1]||'0px',parts[2]||''] as const;}
+
+/** Keep drawn marks in document CSS pixels when content changes its scroll size. */
+export function annotationDocumentSize(mark:{sourceWidth?:number;sourceHeight?:number},fallback:{width:number;height:number}){
+ return {width:mark.sourceWidth||fallback.width,height:mark.sourceHeight||fallback.height};
+}

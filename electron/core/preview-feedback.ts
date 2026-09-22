@@ -2,6 +2,14 @@ import {validateDomEdits} from '../../src/preview-dom-edits';
 import {validateAnnotations} from '../../src/preview-annotations';
 import type {Attachment,AttachmentScope} from '../../src/attachment-types';
 import {previewFeedbackMessage,type PreviewFeedbackInput} from '../../src/preview-feedback';
+/** A canvas can discuss only files from its selected design task. */
+export function designFeedbackFile(input:PreviewFeedbackInput,session:{botId:string;workspacePath:string}){
+ const source=input.file.path;if(!source)return undefined;
+ const prefix='/work/'+session.botId+'/';if(!source.startsWith(prefix))throw Error('反馈文件不属于当前设计任务');
+ const path=source.slice(prefix.length);
+ if(!path.startsWith(session.workspacePath+'/')||path.split('/').some(part=>!part||part==='.'||part==='..'||part.includes('\\')||part.includes(':')))throw Error('反馈文件不属于当前设计任务');
+ return path;
+}
 interface Receipt {sent:true;attachmentId:string;}
 interface Entry {key:string;attachment?:Attachment;changes?:Attachment;promise?:Promise<Receipt>;receipt?:Receipt;}
 export class PreviewFeedbackService {

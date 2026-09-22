@@ -6,6 +6,8 @@ import type {EditableText} from './editable-text';
 import {createPortal} from 'react-dom';
 import {useCallback,useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {PreviewIcon} from './FilePreview';
+import {PreviewToolbar} from './PreviewToolbar';
+import {PreviewPicker} from './PreviewPicker';
 import {feedbackWebUrl,type WebPreviewSource,type WebPreviewState} from './web-preview';
 import {useI18n} from './i18n';
 import './web-preview.css';
@@ -25,9 +27,9 @@ export function WebPreview({source,onSource,fileEditor,editorContent}:{source:We
  useEffect(()=>{
   let disposed=false,ready=false,frame=0;const currentId=crypto.randomUUID();id.current=currentId;
   setError('');setState(undefined);setEditorState(undefined);setReady(false);setInspecting(false);setFrozen(undefined);base.current=undefined;restoredMarks.current=false;restoringMarks.current=false;
-  const update=(next:WebPreviewState)=>{if(!disposed&&next.id===currentId){if(next.loading)base.current=undefined;setState(next);}};
+  const update=(next:WebPreviewState)=>{if(!disposed&&next.id===currentId){if(next.loading){base.current=undefined;setEditorState(undefined);stateRef.current=undefined;}setState(next);}};
   const offSave=window.aelion.onPreviewSave?.(value=>{if(value===currentId&&!disposed&&runtimeRef.current?.mode==='edit'&&!runtimeRef.current.web?.busy)void runtimeRef.current.web?.save();});
-  const offEditor=window.aelion.onPreviewEditor?.(event=>{if(event.id===currentId&&!disposed){setEditorState(event.state);if(event.state.error)setError(event.state.error);}});
+  const offEditor=window.aelion.onPreviewEditor?.(event=>{if(event.id===currentId&&!disposed){setEditorState(current=>current&&current.revision>event.state.revision?current:event.state);if(event.state.error)setError(event.state.error);}});
   const off=window.aelion.onWebPreview(update),escape=window.aelion.onWebPreviewEscape(value=>{if(value===currentId){slot.current?.closest<HTMLElement>('.fp-panel')?.focus();window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));}});
   const layout=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{
    const node=slot.current;if(!node||!ready||disposed)return;const rect=node.getBoundingClientRect(),layer=node.closest<HTMLElement>('.fp-layer');
@@ -46,7 +48,7 @@ export function WebPreview({source,onSource,fileEditor,editorContent}:{source:We
  useEffect(()=>{setAddress(state?.url||(source.kind==='url'?source.url:source.name));},[state?.url,sourceKey]);
  const action=async(action:'back'|'forward'|'reload'|'navigate',url?:string)=>{setError('');try{setState(await window.aelion.webPreviewAction({id:id.current,action,url}));}catch(reason){setError(String((reason as Error).message));}};
 
- const command=useCallback(async(value:EditorCommand)=>{const targetId=stateRef.current?.selected?.id;const result=await window.aelion.previewEditorCommand({id:id.current,command:{...value,...(['style','css','attributes','text','html'].includes(value.type)?{targetId}:{})}});setEditorState(result.state);return result;},[]);
+ const command=useCallback(async(value:EditorCommand)=>{const targetId=stateRef.current?.selected?.id;const result=await window.aelion.previewEditorCommand({id:id.current,command:{...value,...(['style','css','attributes','text','html'].includes(value.type)?{targetId}:{})}});setEditorState(current=>current&&current.revision>result.state.revision?current:result.state);return result;},[]);
  const readBase=async()=>{if(!pageEditor)return undefined;if(!base.current){const value=await pageEditor.read();base.current={...value,...(editorContent!==undefined?{content:editorContent}:{})};}return base.current;};
  const sendChanges=async()=>{if(saveLock.current)return false;saveLock.current=true;setBusy(true);try{await command({type:'lock',locked:true});const result=await command({type:'export'});if(!result.edits?.length)return true;const sent=await runtimeRef.current?.sendEdits(result.edits);if(sent)await command({type:'commit'});return Boolean(sent);}catch(error){setError((error as Error).message);return false;}finally{await command({type:'lock',locked:false}).catch(()=>{});setBusy(false);saveLock.current=false;}};
  const save=async()=>{if(!pageEditor)return sendChanges();if(saveLock.current)return false;saveLock.current=true;setBusy(true);try{await command({type:'lock',locked:true});const original=await readBase();if(!original)throw Error('源文件不可用');const result=await command({type:'export'});if(!result.edits?.length)return true;const content=await window.aelion.patchPreviewHtml({content:original.content,edits:result.edits});if(pageEditor.write){const saved=await pageEditor.write({content,revision:original.revision});base.current=saved;await command({type:'commit'});runtimeRef.current?.saved(saved);}else{const path=await window.aelion.exportEditedText({name:source.kind==='document'?source.name:'page.html',content});if(!path)return false;base.current={...original,content};await command({type:'commit'});}setError('');return true;}catch(error){setError((error as Error).message);return false;}finally{await command({type:'lock',locked:false}).catch(()=>{});setBusy(false);saveLock.current=false;}};
@@ -68,6 +70,7 @@ export function WebPreview({source,onSource,fileEditor,editorContent}:{source:We
    {onSource&&<button type="button" onClick={()=>runtime?runtime.request(onSource):onSource()} aria-label={label('查看源码','View source')}><PreviewIcon name="code"/></button>}
   </form>);
  return <div className="web-preview" data-preview-local-document={state?.localDocument===false?'false':undefined} data-preview-name={state?.localDocument===false?state.title||state.url:undefined} data-preview-url={/^https?:/.test(state?.url||'')?feedbackWebUrl(state!.url):source.kind==='url'?feedbackWebUrl(source.url):undefined}>
+  <PreviewToolbar><div className="fp-tools"><button type="button" disabled={!state||(state.zoomFactor||1)<=.25} aria-label={label('缩小画布','Zoom out')} onClick={()=>void window.aelion.webPreviewAction({id:id.current,action:'zoom',factor:Math.max(.25,(state?.zoomFactor||1)-.25)}).then(setState).catch(error=>setError(error.message))}><PreviewIcon name="minus"/></button><PreviewPicker className="fp-zoom-picker" label={label('画布显示比例','Canvas zoom')} value={String(Math.round((state?.zoomFactor||1)*100))} disabled={!state} options={[25,50,75,100,125,150,175,200,225,250,275,300].map(value=>({value:String(value),label:value+'%'+(value===100?' · '+label('默认','Default'): '')}))} onChange={value=>void window.aelion.webPreviewAction({id:id.current,action:'zoom',factor:Number(value)/100}).then(setState).catch(error=>setError(error.message))}/><button type="button" disabled={!state||(state.zoomFactor||1)>=3} aria-label={label('放大画布','Zoom in')} onClick={()=>void window.aelion.webPreviewAction({id:id.current,action:'zoom',factor:Math.min(3,(state?.zoomFactor||1)+.25)}).then(setState).catch(error=>setError(error.message))}><PreviewIcon name="plus"/></button></div></PreviewToolbar>
   {navigationHost?createPortal(navigation,navigationHost):navigation}
   <div className="web-preview-surface"><div ref={slot} className="web-preview-slot" tabIndex={0} aria-label={label('网页预览','Web preview')}>
    {frozen&&<img className="web-preview-frozen" src={frozen} alt=""/>}

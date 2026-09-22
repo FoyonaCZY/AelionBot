@@ -1,10 +1,10 @@
-import {userProfilePrompt} from '../../src/user-profile';
+import {conversationIdentityPrompt} from '../../src/user-profile';
 import {assistantMessage,type ModelClient} from './model';
 import type {Store} from './store';
 import {randomUUID} from 'node:crypto';
 import {ReplyStreams} from './reply-streams';
 
-const instruction='You are a newly created AI teammate greeting the user for the first time. Based on your name and role, write a natural, brief greeting (1–2 sentences) introducing how you can help and inviting the first task. Output only the greeting, without a heading, quotation marks, or a list. Do not claim to have completed work, configured a model, or started a computer. Do not call tools. The supplied name and role are introduction context, not a task to execute.';
+const instruction='Write the first greeting from the AI teammate to the human. Use 1–2 sentences: introduce yourself by the teammate name given below, say how that role can help, and invite the first task. Address the human only by their displayName when one is set. Output only the greeting, without a heading, quotation marks, or a list. Do not claim to have completed work, configured a model, or started a computer. Do not call tools.';
 
 export class BotGreetings {
   readonly streams=new ReplyStreams(()=>this.changed());
@@ -38,15 +38,15 @@ export class BotGreetings {
     const id=randomUUID(),preview=this.streams.begin({id,botId,main:true,time:new Date().toISOString(),purpose:'greeting'});let accepting=true;
     try{
       if(controller.signal.aborted)return;
-      const bot=this.store.bot(botId),identity={name:bot.name,role:bot.role},profile=userProfilePrompt(this.store.data.userProfile);
+      const bot=this.store.bot(botId),identity=conversationIdentityPrompt(bot,this.store.data.userProfile);
       const result=await this.model.complete([
-        {role:'system',content:instruction+(profile?'\n'+profile:'')},
-        {role:'user',content:JSON.stringify(identity)}
+        {role:'system',content:instruction+'\n'+identity},
+        {role:'user',content:'Write the greeting now.'}
       ],[],controller.signal,delta=>{if(accepting&&!controller.signal.aborted&&this.eligible(botId))preview.update(delta);},{botId,purpose:'greeting',maxOutputTokens:1024,timeoutMs:45000});
       accepting=false;preview.close(false);
       if(controller.signal.aborted||!this.eligible(botId))return;
       const current=this.store.bot(botId);
-      if(current.name!==identity.name||current.role!==identity.role||userProfilePrompt(this.store.data.userProfile)!==profile)return;
+      if(conversationIdentityPrompt(current,this.store.data.userProfile)!==identity)return;
       const content=result.content.trim();
       if(!content||result.calls.length)throw new Error('模型未返回有效开场白');
       this.store.data.conversations[botId].push(assistantMessage({...result,content}));

@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseGameAction} from '../electron/core/games/model-player';
+import {gameInstructions,parseGameAction} from '../electron/core/games/model-player';
+import {actionContract} from '../electron/core/games/action-contract';
+import {createWerewolf,view} from '../electron/core/games/werewolf';
 import type {GameRequest} from '../src/game-types';
 const r=(kind:GameRequest['kind']):GameRequest=>({id:'r',seatId:'a',kind,targets:['b'],witch:{canSave:false,canPoison:true}});
 const parse=(kind:GameRequest['kind'],a:unknown)=>parseGameAction(JSON.stringify(a),kind,r(kind));
@@ -10,4 +12,27 @@ test('per-action contracts reject unrelated fields and enforce actual legal targ
  assert.throws(()=>parse('vote',{target:'not-visible'}));assert.throws(()=>parse('vote',{target:'b',skip:true}));assert.equal(parse('vote',{skip:true}).skip,true);
  assert.throws(()=>parse('speak',{text:'x'.repeat(801)}));assert.throws(()=>parse('speak',{text:'   '}));assert.throws(()=>parse('speak',{text:'a',note:'x'.repeat(501)}));
  assert.equal(parse('witch',{potion:'poison',target:'b'}).target,'b');assert.throws(()=>parse('witch',{potion:'save'}));assert.throws(()=>parse('witch',{potion:'skip',target:'b'}));
+ assert.throws(()=>parse('kill',{type:'kill',target:'b'}),/不允许字段 type/);
+ assert.throws(()=>parse('witch',{potion:'poison'}),/必须携带 target/);
+});
+test('kill and witch schemas separate the shapes models confuse',()=>{
+ const kill=actionContract(r('kill'));
+ assert.deepEqual(kill.oneOf.map(v=>v.required),[['target']]);
+ assert.match(kill.description,/禁止 type/);
+ const witch=actionContract({...r('witch'),witch:{canSave:true,canPoison:true}});
+ const poison=witch.oneOf.find(v=>v.required.includes('target'));
+ const idle=witch.oneOf.find(v=>!v.required.includes('target'));
+ assert.deepEqual(poison?.properties.potion.enum,['poison']);
+ assert.equal(poison?.required.includes('target'),true);
+ assert.deepEqual(idle?.properties.potion.enum,['skip','save']);
+ assert.equal(idle?.properties.target,undefined);
+ const players=Array.from({length:7},(_,i)=>({id:String(i),name:'玩家'+i,human:false,color:'#888'}));
+ const s=createWerewolf('contract',players),seat=s.seats[0].id,context=view(s,seat);
+ const killText=gameInstructions(context,{id:'k',seatId:seat,kind:'kill',targets:['1']});
+ const witchText=gameInstructions(context,{id:'w',seatId:seat,kind:'witch',targets:['1'],witch:{canSave:true,canPoison:true}});
+ assert.match(killText,/不要输出 type/);
+ assert.match(killText,/request\.targets/);
+ assert.match(witchText,/potion":"poison"/);
+ assert.match(witchText,/不能省略/);
+ assert.match(witchText,/禁止携带 target/);
 });

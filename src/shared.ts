@@ -57,7 +57,16 @@ export interface AelionAPI {
   acceptDesignSession(input:{id:string;revision:number}):Promise<void>;
   listDesignWorkspace(id:string):Promise<Array<{name:string;path:string;size:number;modifiedAt?:string}>>;
   importDesignSystem():Promise<import('./designer-types').DesignSystemSummary|null>;
+  listDesignFonts(input:{id:string}):Promise<import('./design-font-types').DesignFont[]>;
+  searchDesignFonts(input:{query:string}):Promise<import('./design-font-types').DesignFontCatalogEntry[]>;
+  acquireDesignFont(input:{id:string}&import('./design-font-types').DesignFontAcquire):Promise<import('./design-font-types').DesignFont[]>;
+  importDesignFonts(input:{id:string}):Promise<import('./design-font-types').DesignFont[]|null>;
+  applyDesignFont(input:{id:string;fontId:string;role:'body'|'display'|'mono';path?:string}):Promise<{path:string;family:string;role:string;cssPath:string}>;
+  checkDesignFonts(input:{id:string;text?:string;path?:string;family?:string}):Promise<import('./design-font-types').DesignFontCheck>;
+  exportDesignProject(input:{id:string;path?:string}):Promise<string|null>;
 
+
+  focusPreviewFeedback():Promise<void>;
   freezeWebPreview(input:{id:string;frozen:boolean}):Promise<string|null>;
   previewEditorCommand(input:{id:string;command:import('./preview-editor-types').EditorCommand}):Promise<import('./preview-editor-types').EditorResult>;
   onPreviewSave(callback:(id:string)=>void):()=>void;
@@ -67,7 +76,7 @@ export interface AelionAPI {
   onPreviewFeedbackInput(callback:(input:import('./preview-feedback-overlay').FeedbackOverlayInput)=>void):()=>void;
   openWebPreview(input:{id:string;source:import('./web-preview').WebPreviewSource}):Promise<import('./web-preview').WebPreviewState>;
   layoutWebPreview(input:{id:string;rect:{x:number;y:number;width:number;height:number};visible:boolean}):Promise<void>;
-  webPreviewAction(input:{id:string;action:'back'|'forward'|'reload'|'navigate';url?:string}):Promise<import('./web-preview').WebPreviewState>;
+  webPreviewAction(input:{id:string;action:'back'|'forward'|'reload'|'navigate'|'zoom';url?:string;factor?:number}):Promise<import('./web-preview').WebPreviewState>;
   closeWebPreview(id:string):Promise<void>;
   onWebPreview(callback:(state:import('./web-preview').WebPreviewState)=>void):()=>void;
   onWebPreviewEscape(callback:(id:string)=>void):()=>void;

@@ -1,0 +1,15 @@
+fontkit 2.0.4
+Source: https://github.com/foliojs/fontkit/tree/v2.0.4
+Commit: fbf3b9ef21eebd219eb73e666faed573af0fba09
+
+The upstream package.json identifies Devon Govett as the author and declares
+the MIT license.
+
+The upstream README.md license section, reproduced verbatim:
+
+## License
+
+MIT
+
+The v2.0.4 source tree and npm package do not include a separate LICENSE file.
+The original README.md and package.json are retained in the runtime dependency.

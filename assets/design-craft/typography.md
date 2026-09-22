@@ -40,8 +40,16 @@ system supplies the families and the scale; these rules govern how you use them.
 
 - Take families from the design system's tokens. If the system binds a serif to
   display, `h1`–`h3` use `var(--font-display)`; do not silently substitute a sans.
-- Never load remote fonts (Google Fonts, Typekit, remote `@import`). Use the token
-  font stacks, or a local `@font-face` from `assets/`.
+- Use `design_fonts` to search, acquire or import actual font files. Use
+  `design_font_apply` for body/display/mono roles, or link the returned local
+  `cssPath`. Check the actual text for missing characters and required weights.
+- Font names in design tokens are references, not proof that a font is available.
+  Project font tokens may override them for the requested design. Report missing
+  fonts and chosen substitutes instead of silently accepting fallback.
+- Downloaded font assets are allowed. Keep remote Google Fonts, Typekit and
+  remote `@import` out of the final artifact; use project-local font resources.
+- Use `design_export_project` to deliver HTML with its fonts and license files,
+  and `design_export_pdf` for PDF. These tools do not embed fonts into PPTX.
 - Two families maximum: one for display, one for text. A third is a mono for code
   or data, and only when there is code or data.
 - Inherit the chosen family into form controls. Browsers default `input`,

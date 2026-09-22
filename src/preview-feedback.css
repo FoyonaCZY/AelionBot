@@ -11,3 +11,25 @@
 @media(prefers-reduced-motion:reduce){.fp-feedback-spinner{animation:none}}
 .is-docked .fp-feedback-wrap,.is-studio .fp-feedback-wrap{bottom:14px;width:calc(100% - 28px);max-width:540px}
 .is-docked .fp-feedback,.is-studio .fp-feedback{gap:10px;padding-left:15px;min-height:50px}
+/* Reserve a real footer row: native WebContentsView cannot cover DOM inputs. */
+.fp-layer.has-feedback .fp-workspace{padding-bottom:var(--fp-feedback-height,70px)}
+.fp-layer .fp-feedback-wrap{position:absolute;left:0;right:0;bottom:0;transform:none;width:100%;max-width:none;padding:10px 14px;border-top:1px solid light-dark(#e3e5e9,#42424b);background:light-dark(#fafafa,#252529);color-scheme:light dark}
+.fp-layer .fp-feedback{min-height:44px;padding:7px 8px 7px 12px;border-radius:10px;box-shadow:none;background:light-dark(#fff,#303038);border-color:light-dark(#dfe2e8,#494951);color:light-dark(#353945,#efedf5)}
+.fp-layer .fp-feedback textarea{min-height:28px;color:inherit;font-size:13px;line-height:26px}
+.fp-layer .fp-feedback textarea::placeholder{color:light-dark(#9599a3,#aaa8b5)}
+.fp-layer .fp-feedback button{border-radius:7px;width:30px;height:30px;background:light-dark(#344b66,#b9cde6);color:light-dark(#fff,#202935)}
+.fp-layer .fp-feedback button:disabled{background:light-dark(#eceef2,#44434d);color:light-dark(#a0a5af,#848491)}
+.fp-layer .fp-feedback-status{margin:0 0 7px;padding:5px 8px;border-radius:6px;background:light-dark(#fff,#303038);color:light-dark(#586370,#d5d9df);border-color:light-dark(#e1e5ea,#494951);box-shadow:none;font-size:11px;max-height:70px;overflow:auto}
+.fp-layer .fp-feedback-status.is-error{color:light-dark(#ae573f,#f2b29d)}
+.fp-feedback-context{display:flex;align-items:center;gap:6px;margin-bottom:8px;min-width:0}
+.fp-annotation-chips{display:flex;gap:5px;overflow-x:auto;min-width:0;max-width:52%;scrollbar-width:thin;flex:0 1 auto}
+.fp-annotation-chips>button{flex-shrink:0;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid light-dark(#dee2e8,#4a4c55);border-radius:5px;padding:4px 7px;font-size:11px;color:light-dark(#626b7a,#c8ced9);background:transparent}
+.fp-annotation-chips>button[aria-pressed=true]{background:light-dark(#eaf1fa,#34455d);color:light-dark(#2d639a,#cee0fa);border-color:light-dark(#adc5e0,#607c9d)}
+.fp-annotation-remove,.fp-annotation-clear{padding:2px 5px;font-size:11px;color:light-dark(#767e8b,#bcc3cf);flex-shrink:0;white-space:nowrap}
+.fp-annotation-remove{font-size:18px;line-height:22px}
+.fp-annotation-caption{flex:1;min-width:80px;max-width:260px;margin:0 0 0 auto;padding:5px 7px;border:1px solid light-dark(#dfe3e9,#4b4d56);border-radius:5px;font-size:11px;background:light-dark(#fff,#303038);color:light-dark(#4a5565,#e1e5ef)}
+.fp-layer.has-feedback :is(.fp-code-grid,.fp-paper,.fp-source){padding-bottom:32px}
+.fp-layer.has-feedback .fp-editor-host .cm-content{padding-bottom:32px!important}
+.fp-layer.has-feedback .fp-csv-stage{padding-bottom:12px!important}
+.fp-layer[data-feedback-capture=true] .fp-workbench-tools{visibility:hidden!important}
+@media(max-width:700px){.fp-layer .fp-feedback-wrap{padding:8px 10px}.fp-feedback-context{flex-wrap:wrap}.fp-annotation-chips{max-width:calc(100% - 64px);flex:1}.fp-annotation-caption{max-width:none;flex-basis:100%;margin-left:0}.fp-layer .fp-feedback textarea{font-size:12px}}

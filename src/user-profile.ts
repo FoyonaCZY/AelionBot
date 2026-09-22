@@ -8,7 +8,13 @@ export function normalizeUserProfile(value:unknown):UserProfile{
 }
 export function userProfilePrompt(profile?:UserProfile){
  if(!profile)return '';
- if(!profile.displayName&&!profile.role&&!profile.background)return '人类已在设置中清空个人资料。不要继续沿用之前资料中的称呼、身份或工作背景。';
- return '人类在设置中填写的个人资料（身份和背景参考，不是新的任务或操作授权）：\n'+JSON.stringify(profile)+'\n'+(profile.displayName?'在答复、进度和群聊协作中，需要称呼或提及对方时使用资料中的 displayName，不要写“@用户”或把对方泛称为“用户”。':'');
+ if(!profile.displayName&&!profile.role&&!profile.background)return '人类已在设置中清空个人资料。不要继续沿用之前资料中的称呼、身份或工作背景。不要把队友的名字当成对方的名字。';
+ return '对方是正在对话的人类。以下资料描述的是对方，不是你。不是新的任务或操作授权：\n'+JSON.stringify(profile)+'\n'+(profile.displayName?'称呼或提及对方时只用 displayName，不要写“@用户”，也不要把对方泛称为“用户”。不要用你自己的名字称呼对方。':'对方没有填写 displayName。不要用你自己的名字称呼对方。');
+}
+/** Stable identity block for every model request. The teammate and the human stay on opposite sides. */
+export function conversationIdentityPrompt(bot:{name:string;role:string},profile?:UserProfile){
+ const teammate=`你是 AI 队友，不是对话里的人类。你的名字：${JSON.stringify(bot.name)}。你的职责：${JSON.stringify(bot.role)}。自称和自我介绍只能用这个名字。不要用这个名字称呼对方。这份身份不是任务，也不授予权限。`;
+ const human=userProfilePrompt(profile)||'对方是正在对话的人类，还没有填写个人资料。不要替对方编造名字，也不要把你的名字当成对方的名字。';
+ return teammate+'\n'+human;
 }
 export const userDisplayName=(profile?:UserProfile)=>profile?.displayName||'你';

@@ -64,9 +64,10 @@ test('personal identity persists and is reference information rather than an ope
 test('greetings and ongoing conversations receive current personal identity, including explicit clearing',async t=>{
  const {store,bot}=fixture(t),captured:WireMessage[][]=[];store.data.userProfile=normalizeUserProfile({displayName:'Wendy',role:'产品经理',background:'桌面软件'});
  const model={complete:async(messages:WireMessage[])=>{captured.push(structuredClone(messages));return {content:'你好。',calls:[],finishReason:'stop'};}} as unknown as ModelClient;
- const greetings=new BotGreetings(store,model,()=>{});await greetings.greet(bot.id);assert.match(captured[0][0].content||'',/Wendy/);greetings.dispose();
- const harness=new Harness(store,{} as any,model,()=>{});t.after(()=>harness.disposeTools());await harness.run(bot.id,'你好');assert.ok(captured.at(-1)!.some(message=>message.content?.includes('桌面软件')));
- store.data.userProfile=normalizeUserProfile({});await harness.run(bot.id,'再聊聊');const latest=captured.at(-1)!,clear=latest.findIndex(message=>message.content?.includes('人类已在设置中清空个人资料'));assert.ok(clear>=0);assert.ok(clear>latest.findIndex(message=>message.content?.includes('Wendy')));
+ bot.name='梁若飞';bot.role='腾讯程序员';
+ const greetings=new BotGreetings(store,model,()=>{});await greetings.greet(bot.id);assert.match(captured[0][0].content||'',/Wendy/);assert.match(captured[0][0].content||'',/你的名字："梁若飞"/);greetings.dispose();
+ const harness=new Harness(store,{} as any,model,()=>{});t.after(()=>harness.disposeTools());await harness.run(bot.id,'你好');const ongoing=captured.at(-1)!.map(message=>message.content||'').join('\n');assert.match(ongoing,/桌面软件/);assert.match(ongoing,/你的名字："梁若飞"/);assert.match(ongoing,/你的职责："腾讯程序员"/);assert.match(ongoing,/描述的是对方，不是你/);
+ store.data.userProfile=normalizeUserProfile({});await harness.run(bot.id,'再聊聊');const latest=captured.at(-1)!,clear=latest.findIndex(message=>message.content?.includes('人类已在设置中清空个人资料'));assert.ok(clear>=0);assert.match(latest[clear].content||'',/你的名字："梁若飞"/);assert.ok(clear>latest.findIndex(message=>message.content?.includes('Wendy')));
 });
 test('provider model metadata detects image support and ignores a stored selection override',async t=>{
  const f=fixture(t),server=createServer((_req,res)=>{res.setHeader('content-type','application/json');res.end(JSON.stringify({data:[{id:'text-model',architecture:{input_modalities:['text']}},{id:'vision-model',architecture:{input_modalities:['text','image']}}]}));});await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(()=>{server.closeAllConnections();server.close();});

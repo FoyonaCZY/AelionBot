@@ -29,18 +29,32 @@ export function commentDesignId(annotation:Pick<PreviewAnnotation,'selector'|'te
  const match=annotation.selector?.match(/data-design-id\s*=\s*['"]([^'"]+)['"]/i)||annotation.selector?.match(/\[data-design-id=["']([^"']+)["']\]/i);
  return match?.[1];
 }
+/** Keep repeated submissions idempotent without merging different marked regions. */
+export function sameOpenDesignComment(existing:DesignComment,comment:DesignComment){
+ if(existing.status!=='open'||existing.path!==comment.path||existing.text!==comment.text)return false;
+ const a=existing.annotation,b=comment.annotation;
+ if(a?.id&&b?.id)return a.id===b.id;
+ if(a?.id||b?.id)return false;
+ const target=(value:DesignComment)=>{
+  const mark=value.annotation;
+  const geometry=mark?{type:mark.type,x:mark.x,y:mark.y,w:mark.w,h:mark.h,end:mark.end,points:mark.points,sourceWidth:mark.sourceWidth,sourceHeight:mark.sourceHeight}:undefined;
+  return JSON.stringify({designId:value.designId,selector:value.selector,page:value.page,geometry});
+ };
+ return target(existing)===target(comment);
+}
 export function commentsFromAnnotations(path:string,text:string,annotations:PreviewAnnotation[]=[],existing:DesignComment[]=[]):DesignComment[]{
  const now=new Date().toISOString(),comments:DesignComment[]=[];
- for(const [index,item] of annotations.entries()){
-  if(!(item.type==='element'||item.selector||item.text))continue;
-  const designId=commentDesignId(item),selector=item.selector?.slice(0,3000),body=(item.text||text).trim().slice(0,4000);
-  if(!body||existing.concat(comments).some(comment=>comment.status==='open'&&comment.path===path&&comment.designId===designId&&comment.text===body))continue;
-  comments.push({id:`comment-${item.id||index}`,path,text:body,createdAt:now,status:'open',...(designId?{designId}:{}),...(selector?{selector}:{}),...(item.page?{page:item.page}:{})});
+ for(const item of annotations){
+  const designId=commentDesignId(item),selector=item.selector?.slice(0,3000),body=(item.text?.trim()||text).trim().slice(0,4000);
+  if(!body)continue;
+  const comment:DesignComment={id:'comment-'+crypto.randomUUID(),path,text:body,createdAt:now,status:'open',annotation:structuredClone(item),...(designId?{designId}:{}),...(selector?{selector}:{}),...(item.page?{page:item.page}:{})};
+  if(existing.concat(comments).some(previous=>sameOpenDesignComment(previous,comment)))continue;
+  comments.push(comment);
  }
  return comments;
 }
 export function commentScope(comments:DesignComment[]){
- return comments.filter(comment=>comment.status==='open').map(comment=>({id:comment.id,path:comment.path,designId:comment.designId,selector:comment.selector,text:comment.text,page:comment.page}));
+ return comments.filter(comment=>comment.status==='open').map(comment=>({id:comment.id,path:comment.path,designId:comment.designId,selector:comment.selector,text:comment.text,page:comment.page,annotation:comment.annotation}));
 }
 export function deviceFrameKind(kind:DesignTaskKind):'phone'|'slide'|'page'|undefined{
  if(kind==='mobile')return 'phone';

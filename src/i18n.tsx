@@ -206,6 +206,8 @@ Object.assign(zhTW,{
   "暂无模型": "尚無模型",
   "暂无消息": "尚無訊息"
 });
+Object.assign(en,{'图片缩放比例':'Image zoom','适应窗口':'Fit to window','适应宽度':'Fit to width'});
+Object.assign(zhTW,{'图片缩放比例':'圖片縮放比例','适应窗口':'符合視窗','适应宽度':'符合寬度'});
 let activeLanguage:Language='zh-CN';
 
 export function readLanguage():Language{

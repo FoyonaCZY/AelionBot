@@ -12,14 +12,22 @@ context.shared 是全员共享的公开事实与发言，context.personal 是仅
 对外用座位号或玩家名，禁止读出内部 ID。每次 JSON 还可附 personalityNote（不超过 200 字）：用一句话说明本次哪项性格倾向影响了实际选择或表达，例如先试探而非直接站队；关联当前局势和具体行动，不要只复述 MBTI 标签。规则、明确证据或阵营目标主导时，直接说明本次性格影响不明显，不要牵强归因。这是供观察者阅读的简短自述，不是内部思维过程，不会发送给其他玩家。仅返回 JSON。每次都附带 note：这是对局结束后运行记录展示的简短决策摘要，用一两句说明本次目标、依据和主要风险；note 不会说给桌上玩家听，不要输出完整思维过程。
 - 发言：{"text":"自然口语发言","note":"简短决策摘要"}
 - 狼队夜聊：{"text":"只对狼队友说的自然口语计划，讨论刀谁、谁悍跳、谁冲锋或倒钩","note":"简短决策摘要"}
-- 女巫：{"potion":"save 或 poison 或 skip","target":"用毒时的合法目标id","note":"简短决策摘要"}
-- 其他行动：{"target":"合法目标id","note":"简短决策摘要"}
+- 女巫：用毒 {"potion":"poison","target":"合法目标id","note":"简短决策摘要"}；救人 {"potion":"save","note":"简短决策摘要"}；不用药 {"potion":"skip","note":"简短决策摘要"}。save 和 skip 不要带 target，用毒不能省略 target
+- 击杀、查验或其他指定目标：{"target":"合法目标id","note":"简短决策摘要"}。不要添加 type、action 或 kind
 禁止代码块或额外文字。`;
 export function gameInstructions(context:GameView,request:GameRequest){
  const rules=context.board?`你是十二人${BOARDS[context.board].name}的一名玩家。${BOARDS[context.board].description}。${TWELVE_RULES}\n\n`+WEREWOLF_PROMPT.slice(WEREWOLF_PROMPT.indexOf('context.shared')):WEREWOLF_PROMPT;
  const discussion=request.discussionRound?({proposal:'提出一个刀口建议和明天的分工，不要把提议当成已决定。',response:'回应队友刚才的具体提议，指出分歧或表示同意；可以修改自己的建议，不要各说各话。',confirm:'阅读最新夜聊（包括真人补充），明确你最终支持的刀口、谁悍跳、谁配合或倒钩；有分歧明确说出。随后按确认意见提交自己的击杀选择，不要冒称全队一致。'}[request.discussionRound]):'';
  const prompt=rules.slice(0,rules.indexOf('\n- 发言：'));
- return prompt+'\n'+discussion+'\n\n'+gameSkills(context,request).map(s=>`## 已加载技能：${s.title}\n${s.content}`).join('\n\n')+'\n\n本轮只执行 '+request.kind+'。仅返回符合以下结构的 JSON，不要使用其他动作的字段：\n'+JSON.stringify(actionContract(request));
+ return prompt+'\n'+discussion+'\n\n'+gameSkills(context,request).map(s=>`## 已加载技能：${s.title}\n${s.content}`).join('\n\n')+'\n\n本轮只执行 '+request.kind+'。仅返回符合以下结构的 JSON，不要使用其他动作的字段：\n'+JSON.stringify(actionContract(request))+'\n'+actionFormatHint(request);
+}
+function actionFormatHint(request:GameRequest){
+ if(request.kind==='witch')return '女巫本轮只能是这三种之一：用毒 {"potion":"poison","target":"从 request.targets 原样复制的 id"}；救人 {"potion":"save"}；不用药 {"potion":"skip"}。用毒时 target 不能省略，也不能写成座位号或玩家名。save 和 skip 禁止携带 target。不要输出 type、action、kind。';
+ if(['speak','wolf_plan','campaign','pk_speak','last_words'].includes(request.kind))return '本轮只返回 text，可附 note 和 personalityNote。不要输出 type、action、kind。';
+ if(['sheriff_join','withdraw'].includes(request.kind))return '本轮只返回 {"choice":true} 或 {"choice":false}。不要输出 type。';
+ if(request.kind==='sheriff_order')return '本轮只返回 {"direction":"clockwise"} 或 {"direction":"counterclockwise"}。不要输出 type 或 choice。';
+ if(['vote','sheriff_vote','guard','shoot','badge'].includes(request.kind))return '要么只给 target（值必须是 request.targets 里的 id 原文），要么只给 {"skip":true}。不要同时给，不要输出 type、action、kind。';
+ return '本轮只返回 {"target":"从 request.targets 原样复制的 id"}，可附 note 和 personalityNote。不要输出 type、action、kind、role，也不要把动作名写进 JSON。';
 }
 export function gamePrompt(context:GameView,request:GameRequest){
  const self=context.seats.find(p=>p.id===request.seatId);if(!self?.role)throw Error('缺少本人身份');

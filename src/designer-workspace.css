@@ -88,3 +88,8 @@ body:has(.fp-panel[data-layout=docked]) .designer-header{height:38px;padding:5px
 .designer-delivery-details .designer-comments{font-size:12px;line-height:1.6;margin:8px 0}
 .designer-delivery-bar :is(.designer-delivery-primary,.designer-delivery-toggle,.designer-accept):focus-visible{outline:2px solid var(--bh-blue);outline-offset:3px;border-radius:6px}
 .designer-delivery-toggle[aria-expanded=true]>svg{transform:rotate(180deg)}
+
+.designer-header .designer-font-trigger{display:inline-flex;align-items:center;gap:7px;margin-left:auto;flex-shrink:0;padding:7px 10px;border:1px solid var(--designer-line,light-dark(#e5e2dc,#45414a));border-radius:8px;color:inherit;font-size:12px}
+.designer-font-trigger>span{font-family:Georgia,serif;font-size:17px;line-height:1}
+.designer-header .designer-font-trigger:hover{background:light-dark(#f0eee9,#37323b)}
+.designer-header .designer-font-trigger:focus-visible{outline:2px solid light-dark(#867299,#baa1d1);outline-offset:2px}

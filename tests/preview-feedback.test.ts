@@ -66,3 +66,19 @@ test('a failed edit-feedback send cleans up both generated attachments and keeps
  const removed:string[]=[],created:string[]=[];const service=new PreviewFeedbackService({validate:()=>{},capture:async()=>Buffer.from('png'),attach:(_scope,name,bytes)=>{created.push(name);return{id:name,name,size:bytes.length,mime:'application/octet-stream'};},discard:(_scope,id)=>removed.push(id),send:()=>{throw Error('offline');},delivered:()=>false});
  await assert.rejects(service.send({...request({kind:'bot',id:'bot'}),attachmentIds:['original'],edits:[{before:{tag:'p',path:['p:1'],html:'<p>A</p>'},after:'<p>B</p>'}]}),/offline/);assert.equal(created.length,2);assert.deepEqual(removed.sort(),created.sort());assert.ok(!removed.includes('original'));
 });
+
+test('design feedback rejects another task file and parent traversal before attachment capture',async()=>{
+ const {designFeedbackFile}=await import('../electron/core/preview-feedback');
+ const session={botId:'designer',workspacePath:'designers/designer/task-one'};
+ const input={file:{name:'index.html',path:'/work/designer/designers/designer/task-one/index.html'}} as any;
+ assert.equal(designFeedbackFile(input,session),'designers/designer/task-one/index.html');
+ for(const path of ['/work/other/designers/designer/task-one/index.html','/work/designer/designers/designer/task-two/index.html','/work/designer/designers/designer/task-one/../task-two/index.html'])assert.throws(()=>designFeedbackFile({...input,file:{...input.file,path}},session),/当前设计任务/);
+ assert.equal(designFeedbackFile({...input,file:{name:'Blank canvas'}},session),undefined);
+});
+
+test('feedback describes the scrolled canvas independently from screenshot pixel coordinates',()=>{
+ const input={text:'Change this card',file:{name:'index.html'},language:'en',view:{width:900,height:600,scrollX:0,scrollY:740,documentWidth:900,documentHeight:2400},annotations:[{id:'region',type:'rect',x:.1,y:.35,w:.2,h:.1,sourceWidth:900,sourceHeight:2400,color:'#3975c6'}]} as const;
+ const content=previewFeedbackMessage({...input,annotations:[...input.annotations]});
+ assert.match(content,/document 900×2400/);assert.match(content,/scroll 0,740/);assert.match(content,/2400/);
+ assert.throws(()=>previewFeedbackMessage({...input,annotations:[],view:{...input.view,width:NaN}}),/坐标信息/);
+});

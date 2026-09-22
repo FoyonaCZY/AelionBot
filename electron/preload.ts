@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { AelionAPI, AppEvent } from '../src/shared';
 const api:AelionAPI={
+  focusPreviewFeedback:()=>ipcRenderer.invoke('preview:focus-feedback'),
+  listDesignFonts:input=>ipcRenderer.invoke('design:fonts-list',input),searchDesignFonts:input=>ipcRenderer.invoke('design:fonts-search',input),acquireDesignFont:input=>ipcRenderer.invoke('design:fonts-acquire',input),importDesignFonts:input=>ipcRenderer.invoke('design:fonts-import',input),applyDesignFont:input=>ipcRenderer.invoke('design:fonts-apply',input),checkDesignFonts:input=>ipcRenderer.invoke('design:fonts-check',input),exportDesignProject:input=>ipcRenderer.invoke('design:export-project',input),
+
  games:{inspect:input=>ipcRenderer.invoke('games:inspect',input),create:input=>ipcRenderer.invoke('games:create',input),read:input=>ipcRenderer.invoke('games:read',input),act:input=>ipcRenderer.invoke('games:act',input),control:input=>ipcRenderer.invoke('games:control',input)},
   designSystem:id=>ipcRenderer.invoke('design:system',id),createDesignSession:input=>ipcRenderer.invoke('design:create',input),updateDesignSession:input=>ipcRenderer.invoke('design:update',input),sendDesignMessage:input=>ipcRenderer.invoke('design:send',input),acceptDesignSession:input=>ipcRenderer.invoke('design:accept',input),listDesignWorkspace:id=>ipcRenderer.invoke('design:workspace',id),importDesignSystem:()=>ipcRenderer.invoke('design:import-system'),
   freezeWebPreview:input=>ipcRenderer.invoke('web-preview:freeze',input),

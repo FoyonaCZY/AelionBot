@@ -1,5 +1,5 @@
 /* One shared row for file identity, format controls and preview actions. */
-.fp-layer{--fp-top-inset:38px}
+.fp-layer{--fp-top-inset:38px;--fp-header-height:40px;--fp-tools-height:44px;--fp-chrome-height:calc(var(--fp-top-inset) + var(--fp-header-height) + var(--fp-tools-height))}
 .fp-layer.is-docked,.fp-layer.is-studio{--fp-top-inset:0px}
 .fp-layer.is-immersive .fp-header{height:calc(var(--fp-top-inset) + 48px);min-height:0;padding:var(--fp-top-inset) 12px 0;gap:10px;align-items:center;background:#fff;border-bottom:1px solid #eceef1}
 .fp-layer .fp-header .fp-title{flex:1 1 140px;min-width:48px;max-width:none;min-height:30px;padding:0 4px;border:0;border-radius:0;background:transparent;box-shadow:none}
@@ -20,7 +20,7 @@
 .fp-layer .fp-header .fp-segments>span{display:none}
 .fp-layer .fp-header .fp-page-input{width:26px;min-height:26px;font-size:12px;padding:2px}
 .fp-layer .fp-header .fp-page-total{font-size:11px}
-.fp-layer:not(:has(.web-preview)) .fp-workspace{padding-top:calc(var(--fp-top-inset) + 48px)}
+.fp-layer:not(:has(.web-preview)) .fp-workspace{padding-top:var(--fp-chrome-height)}
 .fp-layer:not(:has(.web-preview)) .fp-directory{padding-top:12px}
 .fp-layer .fp-thumbnails{padding:12px 8px;width:132px}
 .fp-layer .fp-code-grid{padding-top:16px;padding-bottom:32px}
@@ -41,3 +41,11 @@
 .fp-csv-pagination{display:flex;flex-shrink:0;align-items:center;justify-content:center;gap:16px;padding:6px;background:#fff;color:#545b66;font-size:12px;color-scheme:light}
 .fp-csv-pagination button{padding:4px 10px;border:1px solid #dfe3e8;border-radius:6px}
 .fp-csv-pagination button:disabled{opacity:.4}
+
+/* A single readable zoom control for image, document and web previews. */
+.fp-layer .fp-zoom-picker{width:auto;min-width:96px;max-width:142px;height:28px;min-height:28px;padding:3px 24px 3px 8px;border:1px solid #dfe4ea;border-radius:6px;background-color:#fff;color:#454d58;font:inherit;font-size:11px;line-height:1.5;color-scheme:light;box-shadow:none}
+.fp-layer .fp-zoom-picker:hover{background-color:#f4f6f8;border-color:#cbd3dd}
+.fp-layer .fp-zoom-picker:focus-visible{outline:2px solid #7eaad2;outline-offset:1px}
+.fp-layer .fp-zoom-picker::picker(select){background:#fff;color:#30343b;border:1px solid #dfe4ea;border-radius:8px;color-scheme:light;box-shadow:0 8px 24px #17202b1c}
+.fp-layer .fp-zoom-picker option{padding:6px 10px;background:#fff;color:#454d58}
+.fp-layer .fp-zoom-picker option:checked,.fp-layer .fp-zoom-picker option:hover{background:#edf2f8;color:#24598e}

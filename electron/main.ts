@@ -8,12 +8,15 @@ import {DesignStore} from './core/design-store';
 import {DesignSystems} from './core/design-systems';
 import {DesignPlugins} from './core/design-plugins';
 import {DesignCraft} from './core/design-craft';
+import {DesignFonts} from './core/design-fonts';
+import {applyDesignFont,designFontText,designHtmlPath} from './core/design-font-application';
+import {prepareDesignHtml,exportDesignHtmlBundle,DESIGN_PDF_READY_SCRIPT} from './core/design-export';
 import {commentsFromAnnotations} from '../src/designer-canvas';
 import {botType} from '../src/designer-types';
 import {applyDomEdits} from './core/html-preview-edits';
 import {WebPreviewBrowser} from './web-preview';
 import {protocol} from 'electron';
-import {PreviewFeedbackService} from './core/preview-feedback';
+import {PreviewFeedbackService,designFeedbackFile} from './core/preview-feedback';
 import {feedbackCaptureRect} from '../src/preview-feedback';
 import {VideoInspector} from './video-inspector';
 import {VideoFrames} from './core/video-frames';
@@ -159,7 +162,7 @@ async function initialize(){
   model=new ModelClient(botId=>providers.config(botId),botId=>providers.key(botId),id=>computer.image(id),()=>new RunPolicy(store).settings(),record=>{record.runId||=store.data.runs.find(run=>run.botId===record.botId&&run.status==='running')?.id;(store.data.modelUsage||=[]).push(record);store.journal('model.usage',record);store.save();changed();});
   const approvalModel=defaultApprovalModel({config:()=>providers.approvalConfig(),key:()=>providers.approvalKey()},()=>new RunPolicy(store).settings(),record=>{(store.data.modelUsage||=[]).push(record);store.journal('model.usage',record);store.save();changed();});
   hostApprovals=new HostApprovals(store,commandPermissions,defaultPermissionReviewer(approvalModel,()=>providers.approvalConfig(),text=>host.redact(text)),{homeDir,defaultModel:()=>providers.approvalConfig()});interactions.setHostPolicy(hostApprovals);
-  games=new GameRuntime(join(store.dir,'games'),async(player,context,request,signal,options)=>{const config=providers.config(undefined,player.model);const key=providers.key(undefined,player.model);if(!config.protocol||['chat','responses'].includes(config.protocol)){const entry={id:'desktop-game',name:'游戏模型',model:config.model,baseUrl:config.baseUrl,apiKey:key,backend:config.protocol==='responses'?'responses' as const:'chat-completions' as const,reasoningEffort:config.reasoningEffort,contextTokens:config.contextTokens};const registry=gameProviders({...entry,additionalProviders:[entry]});return registry.decide({...player,model:{providerId:entry.id,model:entry.model,contextTokens:entry.contextTokens}},context,request,signal,options);}const result=await model.complete([{role:'system',content:gameInstructions(context,request)+(options?.retryFeedback?'\n上次校验失败：'+options.retryFeedback:'')},{role:'user',content:gamePrompt(context,request)}],[],signal,()=>{},{config:{...config,hostedWebSearch:false,hostedImageGeneration:false},key,maxOutputTokens:1600,timeoutMs:60000,retries:0,cacheScope:context.id+':'+player.id});return parseGameAction(result.content||'',request.kind,request);},players=>{for(const p of players.filter(p=>!p.human)){const config=providers.config(undefined,p.model);if(config.issue||!config.model)throw Error('请为所有 AI 配置有效模型');if(!providers.key(undefined,p.model)&&!['localhost','127.0.0.1','[::1]'].includes(new URL(config.baseUrl).hostname))throw Error('模型缺少 API Key');}});
+  games=new GameRuntime(join(store.dir,'games'),async(player,context,request,signal,options)=>{const config=providers.config(undefined,player.model);const key=providers.key(undefined,player.model);const maxOutputTokens=new RunPolicy(store).settings().maxOutputTokens;if(!config.protocol||['chat','responses'].includes(config.protocol)){const entry={id:'desktop-game',name:'游戏模型',model:config.model,baseUrl:config.baseUrl,apiKey:key,backend:config.protocol==='responses'?'responses' as const:'chat-completions' as const,reasoningEffort:config.reasoningEffort,contextTokens:config.contextTokens,maxOutputTokens};const registry=gameProviders({...entry,additionalProviders:[entry]});return registry.decide({...player,model:{providerId:entry.id,model:entry.model,contextTokens:entry.contextTokens}},context,request,signal,options);}const result=await model.complete([{role:'system',content:gameInstructions(context,request)+(options?.retryFeedback?'\n上次校验失败：'+options.retryFeedback:'')},{role:'user',content:gamePrompt(context,request)}],[],signal,()=>{},{config:{...config,hostedWebSearch:false,hostedImageGeneration:false},key,maxOutputTokens,timeoutMs:60000,retries:0,cacheScope:context.id+':'+player.id});return parseGameAction(result.content||'',request.kind,request);},players=>{for(const p of players.filter(p=>!p.human)){const config=providers.config(undefined,p.model);if(config.issue||!config.model)throw Error('请为所有 AI 配置有效模型');if(!providers.key(undefined,p.model)&&!['localhost','127.0.0.1','[::1]'].includes(new URL(config.baseUrl).hostname))throw Error('模型缺少 API Key');}});
   cognition=new Cognition(store,model,integrations.skills,changed,()=>Boolean(updatePreparing||harness?.busy||groupChats?.busy),()=>providers.secrets());
   agentPreviews=new AgentPreviews(store,artifacts,attachments,changed,host);
   const imageModelAccess=(botId:string)=>providers.imageAccess(botId);
@@ -170,15 +173,19 @@ async function initialize(){
   const designCraft=new DesignCraft(join(app.getAppPath(),'assets','design-craft'));
   designStore=new DesignStore(store,designSystems,changed,()=>host.workspaceSettings().workspaceDir,designPlugins);
   const designerFiles=new DesignerFiles(store,designStore);artifacts.designerFiles=designerFiles;artifacts.openLocal=path=>shell.openPath(path);
+  const designFonts=new DesignFonts({cacheDir:join(store.dir,'font-cache'),files:designerFiles,fetch:(url,options)=>net.fetch(url instanceof URL?url.href:url,options)});
   const renderDesignPdf=async(html:string)=>{
     const printer=new BrowserWindow({show:false,width:1280,height:900,webPreferences:{sandbox:true,offscreen:true,contextIsolation:true,backgroundThrottling:false}});
+    printer.webContents.setWindowOpenHandler(()=>({action:'deny'}));
+    printer.webContents.on('will-navigate',event=>event.preventDefault());
     try{
       await printer.loadURL('data:text/html;charset=utf-8;base64,'+Buffer.from(html).toString('base64'));
+      await printer.webContents.executeJavaScript(DESIGN_PDF_READY_SCRIPT);
       const pdf=await printer.webContents.printToPDF({printBackground:true,preferCSSPageSize:true});
       return Buffer.from(pdf);
     }finally{if(!printer.isDestroyed())printer.destroy();}
   };
-  const designerLoop=new DesignerLoop(store,designStore,designSystems,designerFiles,model,cognition.context,generalHarness,artifacts,attachments,interactions,changed,{pdf:{render:renderDesignPdf},plugins:designPlugins,craft:designCraft,imageModel:imageModelAccess});
+  const designerLoop=new DesignerLoop(store,designStore,designSystems,designerFiles,model,cognition.context,generalHarness,artifacts,attachments,interactions,changed,{pdf:{render:renderDesignPdf},fonts:designFonts,plugins:designPlugins,craft:designCraft,imageModel:imageModelAccess});
   harness=new BotRuntime(store,generalHarness,designerLoop,changed,()=>cognition.beforeRun());
   harness.setPreviewGateway(agentPreviews);
   videoInspector=new VideoInspector(join(app.getAppPath(),'assets','video-inspector.html'));
@@ -239,7 +246,7 @@ async function initialize(){
   handle('preview:html-edits',input=>applyDomEdits(input.content,input.edits));
   handle('web-preview:open',input=>webPreview!.open(String(input?.id),input?.source));
   handle('web-preview:layout',input=>webPreview!.bounds(String(input?.id),input?.rect,input?.visible===true));
-  handle('web-preview:action',input=>webPreview!.action(String(input?.id),String(input?.action),input?.url));
+  handle('web-preview:action',input=>webPreview!.action(String(input?.id),String(input?.action),input?.url,input?.factor));
   handle('web-preview:close',id=>webPreview!.close(String(id)));
   window.on('unresponsive',()=>diagnostics?.record('renderer.unresponsive','页面未响应'));
   window.webContents.on('render-process-gone',(_event,details)=>diagnostics?.record('renderer.gone',`${details.reason}; exitCode=${details.exitCode}`));
@@ -372,9 +379,16 @@ async function initialize(){
   handle('attachments:paste',async scope=>{attachments.scope(scope);const data=await readAttachmentClipboard();return data.paths.length?attachments.importPaths(scope,data.paths):data.files.length?attachments.importFiles(scope,data.files):[];});
   handle('attachments:preview',id=>attachments.previewRich(id));
   handle('attachments:save',async id=>{const file=attachments.metadata(id);const result=await dialog.showSaveDialog(window!,{defaultPath:file.name});if(result.canceled||!result.filePath)return null;writeFileSync(result.filePath,attachments.bytes(id));return result.filePath;});
+  const feedbackDesign=(input?:import('../src/preview-feedback').PreviewFeedbackInput)=>{
+    if(!input?.designSessionId)return undefined;
+    const design=designStore.get(input.designSessionId,undefined,{kind:input.scope.kind,id:input.scope.id}),path=designFeedbackFile(input,design);
+    if(path&&design.location==='host')designerFiles.absolute(design,path);
+    return design;
+  };
   const previewFeedback=new PreviewFeedbackService({
     validate:scope=>{attachments.scope(scope);if(scope.kind==='bot'){if(!store.modelFor(scope.id).model)throw Error('请先为这个 Bot 选择模型');}else{const room=store.data.groups.find(room=>room.id===scope.id);if(!room?.members.some(member=>!member.leftAt&&store.data.bots.some(bot=>bot.id===member.id)&&store.modelFor(member.id).model))throw Error('请先为群内 Bot 选择模型');}},
     capture:async input=>{
+      feedbackDesign(input);
       if(!window||window.isDestroyed()||window.isMinimized()||!window.isVisible())throw Error('请保持预览窗口可见后再发送');
       feedbackCaptureRect(input.rect,input.viewport,input.viewport);
       const webCapture=await webPreview?.capture(input.rect);if(webCapture)return webCapture;
@@ -384,15 +398,42 @@ async function initialize(){
     },
     attach:(scope,name,bytes)=>attachments.importFiles(scope,[{name,bytes}])[0],
     discard:(scope,id)=>attachments.discardUnsentDraft(scope,id),
-    send:(scope,message,attachmentId,previewPrompt,input)=>{const design=input?.designSessionId?designStore.get(input.designSessionId,undefined,{kind:scope.kind,id:scope.id}):undefined;if(design&&input?.annotations?.length)designStore.addComments(design.id,commentsFromAnnotations(input.file?.path||input.file?.name||'',input.text,input.annotations,design.comments||[]));const offset=message.indexOf(previewPrompt,message.indexOf('\n')+1)-(input?.text.length||0)+(input?.text.trimStart().length||0),extras={designSessionId:design?.id,attachmentIds:[...(input?.attachmentIds||[]),attachmentId],mentions:input?.mentions?.map(m=>({...m,start:m.start+offset,end:m.end+offset})),replyToMessageId:input?.replyToMessageId,previewPrompt};if(scope.kind==='bot')chatPins!.send({botId:scope.id,message,...extras});else groupChats!.send({id:scope.id,message,...extras});},
+    send:(scope,message,attachmentId,previewPrompt,input)=>{const design=feedbackDesign(input);if(design&&input?.annotations?.length)designStore.addComments(design.id,commentsFromAnnotations(input.file?.path||input.file?.url||input.file?.name||'',input.text,input.annotations,design.comments||[]));const offset=message.indexOf(previewPrompt,message.indexOf('\n')+1)-(input?.text.length||0)+(input?.text.trimStart().length||0),extras={designSessionId:design?.id,attachmentIds:[...(input?.attachmentIds||[]),attachmentId],mentions:input?.mentions?.map(m=>({...m,start:m.start+offset,end:m.end+offset})),replyToMessageId:input?.replyToMessageId,previewPrompt};if(scope.kind==='bot')chatPins!.send({botId:scope.id,message,...extras});else groupChats!.send({id:scope.id,message,...extras});},
     delivered:(scope,id)=>(scope.kind==='bot'?store.data.messages.filter(message=>message.botId===scope.id&&message.role==='user'):store.data.groups.find(room=>room.id===scope.id)?.messages.filter(message=>message.sender.kind==='user')||[]).some(message=>message.attachments?.some(file=>file.id===id))
   });
   handle('preview:feedback',input=>previewFeedback.send(input));
+  handle('preview:focus-feedback',()=>{if(window&&!window.isDestroyed()&&window.isFocused())window.webContents.focus();});
+  const fontMutationSessions=new Set<string>();
+  const fontSession=(id:unknown,write=false)=>{const session=designStore.get(String(id));designerFiles.absolute(session,'.',true);if(write&&(session.activeRunId||harness.isRunning(session.botId)))throw Error('请停止设计任务后修改字体');return session;};
+  const mutateFonts=async<T>(id:unknown,action:(session:import('../src/designer-types').DesignSession,guard:()=>void)=>Promise<T>)=>{
+    const session=fontSession(id,true);if(fontMutationSessions.has(session.id))throw Error('字体正在处理中');fontMutationSessions.add(session.id);
+    const guard=()=>{if(fontSession(id,true)!==session)throw Error('设计任务已更改，请重试');};
+    try{const value=await action(session,guard);if(value===null)return value;guard();session.checks=session.checks.map(check=>({...check,status:'pending' as const}));designStore.touch(session);return value;}finally{fontMutationSessions.delete(session.id);}
+  };
+  handle('design:fonts-list',input=>designFonts.list(fontSession(input?.id)));
+  handle('design:fonts-search',input=>designFonts.catalog(String(input?.query||'')));
+  handle('design:fonts-acquire',input=>mutateFonts(input?.id,(session,guard)=>designFonts.acquire(session,{fontId:input?.fontId,weights:input?.weights,styles:input?.styles,subsets:input?.subsets},undefined,guard)));
+  handle('design:fonts-import',input=>mutateFonts(input?.id,async(session,guard)=>{
+    const selected=await dialog.showOpenDialog(window!,{title:'导入字体',properties:['openFile','multiSelections'],filters:[{name:'字体',extensions:['woff2','woff','ttf','otf']}]});
+    if(selected.canceled)return null;if(selected.filePaths.length>8)throw Error('一次最多导入 8 个字体文件');
+    const imported:import('../src/design-font-types').DesignFont[]=[];
+    for(const path of selected.filePaths){guard();imported.push(...await designFonts.importFile(session,path,{beforeWrite:guard}));}
+    return imported;
+  }));
+  handle('design:fonts-apply',input=>mutateFonts(input?.id,async(session,guard)=>{guard();const result=await applyDesignFont(designerFiles,session,designFonts.list(session),{fontId:input?.fontId,role:input?.role,path:input?.path},guard);guard();designStore.userEdit(session.botId,result.path,result.sha256,'应用项目字体');return result;}));
+  handle('design:fonts-check',async input=>{const session=fontSession(input?.id);let text=input?.text;if(text!==undefined&&(typeof text!=='string'||text.length>20000))throw Error('检测文本最多 20000 字');if(!text)try{text=await designFontText(designerFiles,session,input?.path);}catch{if(input?.path)throw Error('无法读取指定 HTML');text='Aa 0123 中文';}return designFonts.check(session,{text,family:input?.family});});
+  handle('design:export-project',async input=>{
+    const session=fontSession(input?.id),path=await designHtmlPath(designerFiles,session,input?.path);
+    const target=await dialog.showSaveDialog(window!,{title:'导出设计项目',defaultPath:basename(path).replace(/\.html?$/i,'')+'.zip',filters:[{name:'ZIP',extensions:['zip']}]});
+    if(target.canceled||!target.filePath)return null;
+    const bytes=await exportDesignHtmlBundle({rootDir:session.workspaceDir!,htmlPath:designerFiles.absolute(session,path)});writeFileSync(target.filePath,bytes);return target.filePath;
+  });
   handle('design:system',id=>designSystems.detail(String(id)));
   handle('design:create',input=>designStore.create(input));
   handle('design:update',input=>designStore.update(input));
   handle('design:send',input=>{
     const session=designStore.get(String(input?.id)),message=String(input?.message||'');
+    if(fontMutationSessions.has(session.id))throw Error('字体正在处理中，请稍后发送');
     if(session.origin.kind==='bot')return chatPins!.send({botId:session.botId,message,designSessionId:session.id,attachmentIds:input.attachmentIds});
     if(session.origin.kind==='group'){const bot=store.bot(session.botId),text='@'+bot.name+' '+message;return groupChats!.send({id:session.origin.id,message:text,designSessionId:session.id,attachmentIds:input.attachmentIds,mentions:[{id:bot.id,name:bot.name,color:bot.color,start:0,end:bot.name.length+1}]});}
     throw Error('请通过原 Bot 协作私聊继续这个设计任务');
@@ -474,8 +515,12 @@ async function initialize(){
   handle('computer:open-app',async(input)=>{const bot=store.bot(String(input?.botId));if(computer.stateFor(bot.id).ownerBotId)throw new Error('Bot 正在操作桌面，请先接管电脑');await computer.openApp(bot.id,input.app);});
   handle('files:export',async(input)=>{
     store.bot(String(input?.botId));const name=safeRelativePath(String(input?.path||''));
-    const bytes=await artifacts.read(input.botId,name);
+    let bytes=await artifacts.read(input.botId,name);
     const target=await dialog.showSaveDialog(window!,{defaultPath:name.split('/').pop(),title:'保存工作成果'});if(target.canceled||!target.filePath)return null;
+    if(/\.html?$/i.test(name)&&designerFiles.owns(input.botId,name)){
+      const session=designStore.data.sessions.find(item=>item.botId===input.botId&&name.startsWith(item.workspacePath+'/'))!;
+      bytes=Buffer.from(await prepareDesignHtml({rootDir:session.workspaceDir!,htmlPath:designerFiles.absolute(session,name),html:bytes.toString('utf8')}));
+    }
     writeFileSync(target.filePath,bytes);return target.filePath;
   });
   handle('app:open-data',()=>shell.openPath(dataDir));

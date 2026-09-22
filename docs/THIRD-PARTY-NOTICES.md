@@ -19,6 +19,7 @@ AelionBot 的构建和运行依赖以下上游项目；第三方组件的许可�
 | highlight.js | 消息代码块语法高亮 | 固定版本见 `pnpm-lock.yaml`；[上游项目](https://github.com/highlightjs/highlight.js)，BSD 3-Clause 许可保留在 `docs/licenses/highlight.js.txt` |
 | CodeMirror / Lezer | 预览页文本编辑、行号、高亮、撤销与键盘操作 | 固定版本见 `pnpm-lock.yaml`；MIT 许可见 `docs/licenses/codemirror.txt`、`docs/licenses/lezer-highlight.txt` |
 | Inter、Noto Sans SC、JetBrains Mono | 随客户端打包的界面、中文与代码字体，离线加载 | `@fontsource-variable` 固定版本见 `pnpm-lock.yaml`；SIL OFL 1.1 许可见 `docs/licenses/inter.txt`、`docs/licenses/noto-sans-sc.txt`、`docs/licenses/jetbrains-mono.txt` |
+| fontkit | 设计项目字体元数据、格式与字符覆盖解析 | 固定版本 `2.0.4`；[上游项目](https://github.com/foliojs/fontkit/tree/v2.0.4)，上游 MIT 许可声明与作者记录见 `docs/licenses/fontkit.txt`；依赖许可随 npm 运行依赖保留 |
 | ignore | 本机文件检索的 gitignore 规则解析 | 固定版本见 `pnpm-lock.yaml`；[上游项目](https://github.com/kaelzhang/node-ignore)，MIT 许可保留在 `docs/licenses/ignore.txt` |
 | Model Context Protocol TypeScript SDK | 0.3 MCP 客户端，stdio / Streamable HTTP / SSE | [官方 SDK](https://github.com/modelcontextprotocol/typescript-sdk)；`@modelcontextprotocol/sdk@1.30.0` |
 | yaml、smol-toml、jsonc-parser | 0.3 读取 Agent Skills 元数据和各 Agent 的 MCP 配置 | 确切版本见 `pnpm-lock.yaml`；作为运行时依赖随目录包分发 |
