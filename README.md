@@ -27,6 +27,7 @@ For example, a product research and comparison report: a research partner gather
 | **Linux work computer (VM)** | Give General Bots a browser, terminal and desktop apps for file and application work |
 | **Group chats and Bot-to-Bot messages** | Assign roles, exchange files and results, and ask a partner to take the next step |
 | **Designer** | Build web prototypes, presentations and site clones with 152 bundled design systems |
+| **AI games** | Play twelve-player Werewolf in group chat with human and AI seats, or watch an all-AI table |
 
 <img src="docs/assets/screenshots/workspace-en.png" alt="Multi-agent workspace illustration: partners, a task conversation, files and a VM" width="100%">
 
@@ -84,6 +85,18 @@ The design references come from OpenDesign, with source and license notices reta
 ## Files and previews
 
 Browse the file tree and preview webpages, images, PDFs and supported documents next to the conversation, or expand to a full canvas. Code and text can be edited directly. Webpages support element selection, region annotations, undo and save. Message attachments can be saved as new copies.
+
+## AI games
+
+Group chats have an "AI games" entry. The first game is twelve-player Werewolf: 12 seats with a sheriff, including sheriff election, badge passing, night actions, speeches, voting and win resolution. Two boards are included: Seer/Witch/Hunter/Idiot and Seer/Witch/Hunter/Guard (each with 4 wolves and 4 villagers).
+
+- Join a seat yourself or watch an all-AI table. Empty seats can be filled with temporary Bots in one click.
+- Each AI player's model can be set individually or in batch. Personalities (MBTI) can be preset or randomized per game.
+- The wolf team holds a three-round night discussion (propose, respond, confirm). A human wolf can speak continuously and press "end discussion" to move on.
+- Games can be paused, resumed and finished, and survive an app restart. If a model call fails, the game pauses and keeps completed choices.
+- Each player only sees what their role should see; night actions never reveal the wolves' seats to other players. Role guides and per-player decision records are included.
+
+Wolf self-detonation is not available in this version.
 
 ## More capabilities
 
