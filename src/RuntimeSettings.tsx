@@ -32,7 +32,7 @@ export function RuntimeSettings({settings,onNotify}:{settings?:Values;onNotify:(
     catch(error){setError((error as Error).message.replace(/^Error invoking remote method '[^']+': Error: /,''));}
     finally{setSaving(false);}
   }}>
-    <p className="runtime-intro">{t('调整任务的执行边界与响应节奏。')}</p>
+
     <fieldset className="runtime-fields" disabled={saving}><legend className="runtime-sr-only">{t('运行设置')}</legend>
       <div className="runtime-columns">
         <RuntimeGroup title={t('每次任务')}>{number('maxTurns')}{number('maxMinutes')}{number('maxTokens')}</RuntimeGroup>

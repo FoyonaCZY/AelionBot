@@ -299,7 +299,7 @@ function AppContent(){
             <button role="switch" aria-label={t('后台整理经验')} aria-checked={state.cognition.learning.enabled} className={state.cognition.learning.enabled?'learning-switch enabled':'learning-switch'} disabled={busy} onClick={()=>act(()=>window.aelion.setBackgroundLearning(!state.cognition!.learning.enabled))}><i/></button>
           </div></SettingsSection>}
           <SettingsSection title={t('已有记忆')}>
-            {scopeBot?.memories.length?<div className="settings-card">{scopeBot.memories.map((value,i)=><div className="memory-card" key={i}>{value}</div>)}</div>:<SettingsEmpty icon="memory" title={t('还没有记忆')} description={t('相处越久，伙伴就越了解你。')}/>}
+            {scopeBot?.memories.length?<div className="settings-card">{scopeBot.memories.map((value,i)=><div className="memory-card" key={i}>{value}</div>)}</div>:<SettingsEmpty icon="memory" title={t('还没有记忆')}/>}
             {state.cognition?.bots.find(item=>item.botId===scopeBot?.id)?.lastLearning&&<p className="settings-note">{t('最近一次知识更新')}{new Date(state.cognition.bots.find(item=>item.botId===scopeBot?.id)!.lastLearning!.time).toLocaleString(language)}</p>}
           </SettingsSection>
         </>}
