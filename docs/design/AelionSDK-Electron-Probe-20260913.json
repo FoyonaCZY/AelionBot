@@ -1,0 +1,36 @@
+{
+  "time": "2026-09-13T10:53:14.993Z",
+  "electron": "44.2.0",
+  "chromium": "152.0.7977.76",
+  "node": "24.20.0",
+  "secureContext": true,
+  "crossOriginIsolated": false,
+  "offscreenCanvas": true,
+  "videoEncoder": true,
+  "audioEncoder": true,
+  "codecs": {
+    "h264": true,
+    "vp9": true,
+    "av1": true,
+    "hevc": true,
+    "aac": true,
+    "opus": true
+  },
+  "webgl2": true,
+  "webgpuApi": true,
+  "canary": {
+    "aac": {
+      "bytes": 1366,
+      "encoded": true
+    },
+    "opus": {
+      "bytes": 15,
+      "encoded": true
+    },
+    "h264": {
+      "bytes": 8173,
+      "encoded": true
+    }
+  },
+  "note": "API/config support and tiny H.264/AAC/Opus encode canaries (audio aligned with SDK four-block f32 test) only; full SDK rendering, muxed file export, and sustained performance are not validated."
+}

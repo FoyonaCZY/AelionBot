@@ -59,6 +59,7 @@ import {Attachments} from './attachments';
 import {FOUNDATION_TOOLS} from './foundation-tools';
 import {hiddenClientTools,hostedGeneratedImages} from './hosted-tools';
 import {generateModelImage,storeImageRoutes} from './image-generation';
+import {imageFileName,imageJobFromArgs,imageReferences} from './image-tool';
 import {ContentPolicyError,quarantinePolicyContext} from './model-content-policy';
 import {CodeOrchestrator} from './code-orchestrator';
 import {TerminalSessions} from './terminal-sessions';
@@ -624,11 +625,12 @@ export class Harness {
     if(name==='view_image'){if(!this.host)throw Error('本机图像工具不可用');return this.host.viewImage(bot.id,runId,args,signal,workspace);}
     if(name==='generate_image'){
       const access=this.imageModel?.(bot.id);if(!access)throw Error('这个 Bot 没有配置生图模型');
-      const bytes=await generateModelImage({model:this.model,config:access.config,key:access.key,prompt:String(args.prompt||''),signal,botId:bot.id,runId,routes:storeImageRoutes(this.store)});
-      const file=this.attachments.importForBot(bot.id,typeof args.filename==='string'?args.filename:'generated.png',bytes);
+      const job=imageJobFromArgs(args,access.config,ids=>imageReferences(this.attachments.forBot(bot.id,ids),id=>this.attachments.bytes(id)));
+      const {bytes,mediaType,protocol}=await generateModelImage({model:this.model,config:access.config,key:access.key,job,signal,botId:bot.id,runId,routes:storeImageRoutes(this.store)});
+      const file=this.attachments.importForBot(bot.id,imageFileName(args.filename,mediaType),bytes);
       const run=this.store.data.runs.find(item=>item.id===runId&&item.botId===bot.id);
       if(run)run.attachments=this.attachments.forBot(bot.id,[...new Set([...(run.attachments||[]),file].map(item=>item.id))]);
-      return {attachmentId:file.id,name:file.name,bytes:file.size};
+      return {attachmentId:file.id,name:file.name,bytes:file.size,mediaType,protocol,...(job.aspect?{aspect:job.aspect}:{})};
     }
     if(name==='web_search')return this.web.search(bot.id,args,signal);
     if(name==='web_read')return this.web.read(bot.id,args,signal);

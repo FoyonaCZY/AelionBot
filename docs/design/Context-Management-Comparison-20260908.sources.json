@@ -1,0 +1,431 @@
+{
+  "reviewDate": "2026-09-08",
+  "verifiedAt": "2026-09-08T15:20:39.122Z",
+  "concurrentChangesAtFinalCheck": [
+    "electron/core/attachments.ts",
+    "electron/main.ts"
+  ],
+  "concurrentChangeReview": "attachments.ts and main.ts pending changes add user-facing rich previews; inspected diff does not change model attachment wire/read or Cognition initialization. All source hashes use pinned Git blobs.",
+  "method": "Static source trace and existing test review; actual local tokenizer/budget-function measurements. No live provider benchmark or test-suite rerun.",
+  "measured": {
+    "registeredTools": 71,
+    "allRegisteredToolSchemaTokens": 9224,
+    "tokenizer": "o200k_base"
+  },
+  "sources": [
+    {
+      "id": "A0",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/harness.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/harness.ts",
+      "sha256": "6739cdbaad72b6f691c72630173e9c74f32f75cc21d5b2d99ed314e767ac051c"
+    },
+    {
+      "id": "A1",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/context-engine.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/context-engine.ts",
+      "sha256": "9a0b21eea2d39bcea59aac25a9e5c231b39f02a4aa64520ae2805fada372f84a"
+    },
+    {
+      "id": "A2",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/store.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/store.ts",
+      "sha256": "7f051a97de8cd8d1e77ec8caf1085772822e9c4705c1c252c288375e1638f9af"
+    },
+    {
+      "id": "A3",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/cognitive-store.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/cognitive-store.ts",
+      "sha256": "b9f44de736c9fdf11e22226bcbc91f04eaea1e30cf72aa6526ddf426cd05a145"
+    },
+    {
+      "id": "A4",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/memory-service.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/memory-service.ts",
+      "sha256": "5ae5b499fef2524f21f328c729c7360ff4aef35eed0bc27b17b58c546a36394e"
+    },
+    {
+      "id": "A5",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/context-budget.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/context-budget.ts",
+      "sha256": "bddc9c48985ca5192e94951c4a128f8a8e74530f553c5c35bf44c5b40392648e"
+    },
+    {
+      "id": "A6",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/skill-catalog.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/skill-catalog.ts",
+      "sha256": "5be4c1d5e2de87ecc7243140940f666391f884b37350033f60055c9919d612f1"
+    },
+    {
+      "id": "A7",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/skill-library.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/skill-library.ts",
+      "sha256": "c6a6815e8f5d54dad7f002daf462328f1d7e30db977da4f28339f7febfb21c8a"
+    },
+    {
+      "id": "A8",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/tool-results.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/tool-results.ts",
+      "sha256": "f05fa7526bcd1d377d66a9e78bca6996dac4946ab0f51334549b17f956bf8f7d"
+    },
+    {
+      "id": "A9",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/group-history.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/group-history.ts",
+      "sha256": "04371d8a84bdb94849d3e42c54a535e90e54f5b921a4e7d873cfd38f70391fab"
+    },
+    {
+      "id": "A10",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/model-protocol.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/model-protocol.ts",
+      "sha256": "eee77d529aa97cbdd1ca2bed3db1ac578591ba0225a12d8c28bd28719d3570d2"
+    },
+    {
+      "id": "A11",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/model-providers.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/model-providers.ts",
+      "sha256": "6ec50bc0bd4cc069e1d312ec5a95ee9be9f80e314d5dea1d501c5d1f8735e5fd"
+    },
+    {
+      "id": "A12",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/runtime-policy.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/runtime-policy.ts",
+      "sha256": "48f750745bc63692749981cd7f17839eef99d06a48301a597d2d0d5809513079"
+    },
+    {
+      "id": "A13",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/work-items.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/work-items.ts",
+      "sha256": "955affa7a2c7fa8185f384f1c2b1c4323f10fdb2b2eda8b6266191338684b8a8"
+    },
+    {
+      "id": "A14",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/src/runtime-types.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "src/runtime-types.ts",
+      "sha256": "ce7f2a4b63f7fadad6ce7b1529d1fc2a353305316ee74e0fa6db84e32abfee57"
+    },
+    {
+      "id": "A15",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/file-text.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/file-text.ts",
+      "sha256": "7a71120584d3a73c45dbd5b0d2d19f698fb4e89d34bcabd1328cb20ac23fc260"
+    },
+    {
+      "id": "A16",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/attachments.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/attachments.ts",
+      "sha256": "ffabfd1cefa7e6f9ea56d4241c5d1042658b1c9b6d5544b07c60aee503a7cdb1"
+    },
+    {
+      "id": "A17",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/src/model-images.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "src/model-images.ts",
+      "sha256": "89652624914864003c3578c923c506c93a11dca25937a16e581b4ada5d610900"
+    },
+    {
+      "id": "A18",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/mcp-runtime.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/mcp-runtime.ts",
+      "sha256": "76bf629c8476c6cceeabff781dace9313e5efd75be28f366217b2c8795ed588a"
+    },
+    {
+      "id": "A19",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/memory-routing.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/memory-routing.ts",
+      "sha256": "6d657fc8d19827323b22289ca460aa49af4ae59d8615e75fd83351251bb42224"
+    },
+    {
+      "id": "A20",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/cognition.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/cognition.ts",
+      "sha256": "01bf8f7e4ca274399606f16bbd91cdd42fbc9ee201b5fb7be838b8d6f9168813"
+    },
+    {
+      "id": "A21",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/learning-worker.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/learning-worker.ts",
+      "sha256": "1a1a2204edf0015d4ffde805c3a1b9c52cfb94bef5f195df927cd4ac1e121b62"
+    },
+    {
+      "id": "A22",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/group-context.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/group-context.ts",
+      "sha256": "822f4f2f4aa9c5f48167f82f0b0eb0b9ad74553cf921447a255c2dc5cf4b92c8"
+    },
+    {
+      "id": "A23",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/group-chats.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/group-chats.ts",
+      "sha256": "1eb6f0e26b44a29a038e280a6e87450683c08f99aaa67a06823d42dde6286db0"
+    },
+    {
+      "id": "A24",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/peer-chats.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/peer-chats.ts",
+      "sha256": "0ddd29c113acf7884e45731ae975f0ab16b011a5695aa8ef06d03a08fa372475"
+    },
+    {
+      "id": "A25",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/host-approvals.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/host-approvals.ts",
+      "sha256": "b04279e12a67779555646150160914757ee2cd9fe8ea787ab805320b9f0f0bdf"
+    },
+    {
+      "id": "A26",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/model.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/model.ts",
+      "sha256": "e508e35c3639837baeb8e043ae834d8e204f07faab4522cb7764a669e67076ae"
+    },
+    {
+      "id": "A27",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/work-progress.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/work-progress.ts",
+      "sha256": "676d81ad32f266e2a555a19c20961a28c4a4e67deade009ab841bc97596be5e6"
+    },
+    {
+      "id": "A28",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/bot-greetings.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/bot-greetings.ts",
+      "sha256": "d41be6799f43de59adc678dae3e405579c5b03abf4301013224c9f036c0a8dc7"
+    },
+    {
+      "id": "A29",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/src/context-issue.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "src/context-issue.ts",
+      "sha256": "6bc574958557defaba80ea2a5ce2f42940f261750068754ddd1144b3ec626828"
+    },
+    {
+      "id": "A30",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/tests/context-recovery.test.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "tests/context-recovery.test.ts",
+      "sha256": "eca5d806bf6ff77bc09974869b11676fbf0ee12700b88b003100289792b8c42b"
+    },
+    {
+      "id": "A31",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/tests/cognition.test.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "tests/cognition.test.ts",
+      "sha256": "21592516dab9c80ab48099a77e79a899f465bc7c95947cbb620935610376d936"
+    },
+    {
+      "id": "A32",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/tests/group-history.test.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "tests/group-history.test.ts",
+      "sha256": "187f350721339352173ea44fef27e50f6b67f1b4be83830b8d6f6475765958cb"
+    },
+    {
+      "id": "A33",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/core/state-database.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/core/state-database.ts",
+      "sha256": "95906939daad0c72b839aeb28492e4d6858a7403bd43b0ff22e7f08757062a63"
+    },
+    {
+      "id": "A34",
+      "url": "https://github.com/FoyonaCZY/AelionBot/blob/8c11e6fd577e7eb31849792bcc78d7eb7485f294/electron/main.ts",
+      "repository": "FoyonaCZY/AelionBot",
+      "revision": "8c11e6fd577e7eb31849792bcc78d7eb7485f294",
+      "path": "electron/main.ts",
+      "sha256": "9fe9b5347cf842c79eed750d173c0b72f27a4bf68ce0851a6fc3706b2ee4730e"
+    },
+    {
+      "id": "H1",
+      "url": "https://github.com/NousResearch/hermes-agent/blob/c8aa5608c24e3636e77c267650c0f1f52e44adb0/agent/context_engine.py",
+      "repository": "NousResearch/hermes-agent",
+      "revision": "c8aa5608c24e3636e77c267650c0f1f52e44adb0",
+      "path": "agent/context_engine.py",
+      "sha256": "45ca98bbeaab3dbbcb8b9b009275d287b5c2d552d96a4a2fc56ec8616b290cbe"
+    },
+    {
+      "id": "H2",
+      "url": "https://github.com/NousResearch/hermes-agent/blob/c8aa5608c24e3636e77c267650c0f1f52e44adb0/agent/context_compressor.py",
+      "repository": "NousResearch/hermes-agent",
+      "revision": "c8aa5608c24e3636e77c267650c0f1f52e44adb0",
+      "path": "agent/context_compressor.py",
+      "sha256": "53488d29b37adf1814f0f3def89298e69811d4c8e82fb6a5b4ddf9bcbd9e141b"
+    },
+    {
+      "id": "H3",
+      "url": "https://github.com/NousResearch/hermes-agent/blob/c8aa5608c24e3636e77c267650c0f1f52e44adb0/agent/usage_anchor.py",
+      "repository": "NousResearch/hermes-agent",
+      "revision": "c8aa5608c24e3636e77c267650c0f1f52e44adb0",
+      "path": "agent/usage_anchor.py",
+      "sha256": "86c43bc33cd3d46006b46183c9786cd52c0b87ea8e5e2c4a08ebd3e931482773"
+    },
+    {
+      "id": "H4",
+      "url": "https://github.com/NousResearch/hermes-agent/blob/c8aa5608c24e3636e77c267650c0f1f52e44adb0/hermes_cli/config_defaults.py",
+      "repository": "NousResearch/hermes-agent",
+      "revision": "c8aa5608c24e3636e77c267650c0f1f52e44adb0",
+      "path": "hermes_cli/config_defaults.py",
+      "sha256": "b9ec92a45eb46f15fe0d114ddc7f5ee45b404df08e06a331ffdad0311810cd0a"
+    },
+    {
+      "id": "H5",
+      "url": "https://github.com/NousResearch/hermes-agent/blob/c8aa5608c24e3636e77c267650c0f1f52e44adb0/agent/prompt_caching.py",
+      "repository": "NousResearch/hermes-agent",
+      "revision": "c8aa5608c24e3636e77c267650c0f1f52e44adb0",
+      "path": "agent/prompt_caching.py",
+      "sha256": "d58b1d2608c92db63edce585ca5d16eba94a1b94bea87cc419834893579eb2cc"
+    },
+    {
+      "id": "H6",
+      "url": "https://github.com/NousResearch/hermes-agent/blob/c8aa5608c24e3636e77c267650c0f1f52e44adb0/agent/memory_manager.py",
+      "repository": "NousResearch/hermes-agent",
+      "revision": "c8aa5608c24e3636e77c267650c0f1f52e44adb0",
+      "path": "agent/memory_manager.py",
+      "sha256": "9abf3b8610f6abe8d77f30b779ded8fb52a9ba48279453c3f2480a4c2c240194"
+    },
+    {
+      "id": "H7",
+      "url": "https://github.com/NousResearch/hermes-agent/blob/c8aa5608c24e3636e77c267650c0f1f52e44adb0/website/docs/developer-guide/context-compression-and-caching.md",
+      "repository": "NousResearch/hermes-agent",
+      "revision": "c8aa5608c24e3636e77c267650c0f1f52e44adb0",
+      "path": "website/docs/developer-guide/context-compression-and-caching.md",
+      "sha256": "346fc7e675d573815c91ee6113ab9d27dc44b4031147ce616914fb3a35a899e0"
+    },
+    {
+      "id": "C1",
+      "url": "https://github.com/openai/codex/blob/2cbbf0c9b542a36a1c3284b5e804917635b6f666/codex-rs/core/src/tasks/compact.rs",
+      "repository": "openai/codex",
+      "revision": "2cbbf0c9b542a36a1c3284b5e804917635b6f666",
+      "path": "codex-rs/core/src/tasks/compact.rs",
+      "sha256": "1706f1078ad5ed9b8a8e5e018dfc88d80d39917c6b5d41e425f085eea7cdfe54"
+    },
+    {
+      "id": "C2",
+      "url": "https://github.com/openai/codex/blob/2cbbf0c9b542a36a1c3284b5e804917635b6f666/codex-rs/core/src/compact.rs",
+      "repository": "openai/codex",
+      "revision": "2cbbf0c9b542a36a1c3284b5e804917635b6f666",
+      "path": "codex-rs/core/src/compact.rs",
+      "sha256": "8f928f25fc5e870556ceb88669e87bec60d772a233e58d81fa412fc24880e823"
+    },
+    {
+      "id": "C3",
+      "url": "https://github.com/openai/codex/blob/2cbbf0c9b542a36a1c3284b5e804917635b6f666/codex-rs/core/src/compact_remote.rs",
+      "repository": "openai/codex",
+      "revision": "2cbbf0c9b542a36a1c3284b5e804917635b6f666",
+      "path": "codex-rs/core/src/compact_remote.rs",
+      "sha256": "f309fd541d8399696c6f75bb40d9f76a8be6d0b49a12630efadf8d07352f71c5"
+    },
+    {
+      "id": "C4",
+      "url": "https://github.com/openai/codex/blob/2cbbf0c9b542a36a1c3284b5e804917635b6f666/codex-rs/core/src/compact_remote_v2.rs",
+      "repository": "openai/codex",
+      "revision": "2cbbf0c9b542a36a1c3284b5e804917635b6f666",
+      "path": "codex-rs/core/src/compact_remote_v2.rs",
+      "sha256": "cb8c73fae28ef69fac1e6e71a5bf7b5a8a7381277be550c3c588e3dc2ae7cb67"
+    },
+    {
+      "id": "C5",
+      "url": "https://github.com/openai/codex/blob/2cbbf0c9b542a36a1c3284b5e804917635b6f666/codex-rs/core/src/compact_token_budget.rs",
+      "repository": "openai/codex",
+      "revision": "2cbbf0c9b542a36a1c3284b5e804917635b6f666",
+      "path": "codex-rs/core/src/compact_token_budget.rs",
+      "sha256": "274a57e36ee1ca74abe73d088867e9b8bde98b66de53a77d004b194bea571d12"
+    },
+    {
+      "id": "C6",
+      "url": "https://github.com/openai/codex/blob/2cbbf0c9b542a36a1c3284b5e804917635b6f666/codex-rs/core/src/context_manager/history.rs",
+      "repository": "openai/codex",
+      "revision": "2cbbf0c9b542a36a1c3284b5e804917635b6f666",
+      "path": "codex-rs/core/src/context_manager/history.rs",
+      "sha256": "25fe60c3dd785723c953ab134c3bbdeb529833a87dff2f2eed4f37a07a16645b"
+    },
+    {
+      "id": "C7",
+      "url": "https://github.com/openai/codex/blob/2cbbf0c9b542a36a1c3284b5e804917635b6f666/codex-rs/models-manager/src/model_info.rs",
+      "repository": "openai/codex",
+      "revision": "2cbbf0c9b542a36a1c3284b5e804917635b6f666",
+      "path": "codex-rs/models-manager/src/model_info.rs",
+      "sha256": "919883a4a15f6f3cace2ec78388aa7f9f8e042f74f553877843552ed55bf15bf"
+    },
+    {
+      "id": "C8",
+      "url": "https://github.com/openai/codex/blob/2cbbf0c9b542a36a1c3284b5e804917635b6f666/codex-rs/core/src/session/turn.rs",
+      "repository": "openai/codex",
+      "revision": "2cbbf0c9b542a36a1c3284b5e804917635b6f666",
+      "path": "codex-rs/core/src/session/turn.rs",
+      "sha256": "93faeef56b16cd96f2ca50ef339306752bc165964263b2b43a00efbd8ccb3267"
+    },
+    {
+      "id": "C9",
+      "url": "https://github.com/openai/codex/blob/2cbbf0c9b542a36a1c3284b5e804917635b6f666/codex-rs/core/src/context_manager/normalize.rs",
+      "repository": "openai/codex",
+      "revision": "2cbbf0c9b542a36a1c3284b5e804917635b6f666",
+      "path": "codex-rs/core/src/context_manager/normalize.rs",
+      "sha256": "4340c30ef792ac40fe64aa1acebf076eafb44ed65cdcf1bab5a09239c5b73881"
+    }
+  ],
+  "officialDocs": [
+    "https://learn.chatgpt.com/docs/config-file/config-reference",
+    "https://learn.chatgpt.com/docs/agent-configuration/agents-md",
+    "https://learn.chatgpt.com/docs/build-skills",
+    "https://developers.openai.com/api/docs/guides/compaction"
+  ]
+}

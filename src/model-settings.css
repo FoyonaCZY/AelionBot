@@ -54,3 +54,10 @@
 .bot-model-button{max-width:220px;border:0;background:transparent;color:light-dark(#888,#c1bec4);font-size:calc(12px * var(--appearance-text-scale,1));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:5px 8px;cursor:pointer}
 .bot-model-button:hover{color:light-dark(#333,#e0dde3);background:light-dark(#f2f2f2,#222026);border-radius:8px}
 @media(max-width:1050px){.provider-row{gap:9px}.provider-model-count{display:none}.bot-model-button{max-width:140px}}
+.provider-image-card{margin-top:12px}
+.provider-image-tag{margin-left:6px;background:light-dark(#efe6f5,#3a3145);color:light-dark(#6f5487,#cdb9dd)}
+.provider-model-note{margin:0;padding:2px 0 8px;color:light-dark(#777,#c8c5cb);font-size:calc(12px * var(--appearance-text-scale,1));line-height:1.5}
+.provider-image-capabilities{margin:0;padding:0 0 10px;color:light-dark(#8a8a90,#a9a6ae);font-size:calc(11px * var(--appearance-text-scale,1))}
+.image-model-test{display:flex;flex-direction:column;gap:6px;padding:4px 0 10px}
+.image-model-test button{align-self:flex-start}
+.image-model-test .provider-model-note,.image-model-test .provider-error{padding:0;margin:0}

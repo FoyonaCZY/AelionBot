@@ -1,5 +1,7 @@
 import {verifyDesignSystems} from './verify-design-systems.mjs';
 verifyDesignSystems();
+import {verifyDesignCraft} from './verify-design-craft.mjs';
+verifyDesignCraft();
 import { build } from 'esbuild';
 import { build as viteBuild } from 'vite';
 import { mkdirSync,cpSync } from 'node:fs';
