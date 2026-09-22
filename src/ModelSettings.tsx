@@ -88,7 +88,7 @@ function ProviderEditor({provider,disabled,onClose,onSaved}:{provider?:ModelProv
   const capabilities=capabilityLabels(imageInfo,t);
   return <form ref={form} className="provider-editor" onSubmit={event=>{event.preventDefault();void save();}}>
     <h4>{provider?t('编辑 Provider'):t('添加 Provider')}</h4>
-    <p className="provider-model-hint">{t('连接只负责协议和密钥。对话默认和模型列表分开设置。')}</p>
+
     <div className="settings-card">
       <label className="settings-row"><span>{t('协议')}</span><Select aria-label={t('Provider 协议')} value={parameters.protocol} disabled={disabled||pending} onChange={e=>setParameters({...parameters,protocol:e.target.value as ModelProtocol})}><option value="chat">OpenAI {t('兼容')}</option><option value="responses">OpenAI Responses</option><option value="anthropic">Claude Messages</option><option value="gemini">Gemini Generate Content</option></Select></label>
       <label className="settings-row"><span>{t('名称')}</span><input aria-label={t('Provider 名称')} value={name} onChange={event=>setName(event.target.value)} maxLength={80} disabled={disabled||pending} placeholder={t('例如：OpenAI')}/></label>
@@ -103,7 +103,7 @@ function ProviderEditor({provider,disabled,onClose,onSaved}:{provider?:ModelProv
     </div>}
     <div className="settings-card provider-image-card">
       <p className="provider-card-kicker">{t('生图')}</p>
-      <p className="provider-model-hint">{t('这里决定这个 Provider 的图片怎么生成。选好协议后不再逐次探测，失败也不会轮流尝试其他接口而重复计费。')}</p>
+
       <label className="settings-row"><span>{t('生图协议')}</span><Select aria-label={t('生图协议')} value={imageProtocol} disabled={disabled||pending} onChange={e=>setParameters({...parameters,imageProtocol:e.target.value as ImageProtocol})}>{imageOptions.map(info=><option key={info.id} value={info.id}>{info.label}</option>)}</Select></label>
       {imageInfo&&<p className="provider-model-note">{imageInfo.hint}{imageInfo.endpoint?` · ${imageInfo.endpoint}`:''}</p>}
       {capabilities.length>0&&<p className="provider-image-capabilities">{t('支持')}：{capabilities.join(' · ')}</p>}
@@ -132,7 +132,7 @@ function ProviderModelCatalog({provider,disabled,onChange}:{provider:ModelProvid
   const needle=query.trim().toLowerCase(),models=needle?provider.models.filter(model=>model.id.toLowerCase().includes(needle)):provider.models;
   return <div className="provider-model-catalog">
     <h4>{t('模型目录')}</h4>
-    <p className="provider-model-hint">{t('这里是拉取到的模型名单，给对话选择器用。上下文和推理在选模型时设置，不必每条都打开。')}</p>
+
     {provider.models.length>8&&<input className="provider-model-filter" value={query} disabled={disabled} placeholder={t('筛选模型')} onChange={event=>setQuery(event.target.value)}/>}
     {models.map(model=><details key={model.id} className="provider-model-card"><summary><span className="provider-model-id">{model.id}</span><span className="provider-model-meta">{model.imageOutput?`${t('生图')} · `:''}{model.contextTokens?`${Math.round(model.contextTokens/1000)}k`:''}{model.reasoningEffort?` · ${model.reasoningEffort}`:''}{model.thinkingBudget?` · ${model.thinkingBudget}`:''}</span></summary>
       <label className="settings-row settings-number"><span>{t('上下文容量')}</span><ContextCapacityInput value={model.contextTokens??32000} disabled={disabled} onChange={contextTokens=>Number.isInteger(contextTokens)&&void save({...model,contextTokens})}/></label>
