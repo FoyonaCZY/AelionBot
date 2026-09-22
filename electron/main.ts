@@ -1,3 +1,6 @@
+import {gameProviders} from './core/games/providers';
+import {GameRuntime} from './core/games/runtime';
+import {gameInstructions,gamePrompt,parseGameAction} from './core/games/model-player';
 import {BotRuntime} from './core/bot-runtime';
 import {DesignerLoop} from './core/designer-loop';
 import {DesignerFiles} from './core/designer-files';
@@ -86,6 +89,7 @@ let hostApprovals:HostApprovals;
 let cognition:Cognition;
 let peerChats:PeerChats|undefined;
 let groupChats:GroupChats|undefined;
+let games:GameRuntime|undefined;
 let chatPins:ChatPinQueue|undefined;
 let scheduler:TaskScheduler|undefined;
 let greetings:BotGreetings|undefined;
@@ -151,6 +155,7 @@ async function initialize(){
   model=new ModelClient(botId=>providers.config(botId),botId=>providers.key(botId),id=>computer.image(id),()=>new RunPolicy(store).settings(),record=>{record.runId||=store.data.runs.find(run=>run.botId===record.botId&&run.status==='running')?.id;(store.data.modelUsage||=[]).push(record);store.journal('model.usage',record);store.save();changed();});
   const approvalModel=defaultApprovalModel({config:()=>providers.approvalConfig(),key:()=>providers.approvalKey()},()=>new RunPolicy(store).settings(),record=>{(store.data.modelUsage||=[]).push(record);store.journal('model.usage',record);store.save();changed();});
   hostApprovals=new HostApprovals(store,commandPermissions,defaultPermissionReviewer(approvalModel,()=>providers.approvalConfig(),text=>host.redact(text)),{homeDir,defaultModel:()=>providers.approvalConfig()});interactions.setHostPolicy(hostApprovals);
+  games=new GameRuntime(join(store.dir,'games'),async(player,context,request,signal,options)=>{const config=providers.config(undefined,player.model);const key=providers.key(undefined,player.model);if(!config.protocol||['chat','responses'].includes(config.protocol)){const entry={id:'desktop-game',name:'游戏模型',model:config.model,baseUrl:config.baseUrl,apiKey:key,backend:config.protocol==='responses'?'responses' as const:'chat-completions' as const,reasoningEffort:config.reasoningEffort,contextTokens:config.contextTokens};const registry=gameProviders({...entry,additionalProviders:[entry]});return registry.decide({...player,model:{providerId:entry.id,model:entry.model,contextTokens:entry.contextTokens}},context,request,signal,options);}const result=await model.complete([{role:'system',content:gameInstructions(context,request)+(options?.retryFeedback?'\n上次校验失败：'+options.retryFeedback:'')},{role:'user',content:gamePrompt(context,request)}],[],signal,()=>{},{config:{...config,hostedWebSearch:false,hostedImageGeneration:false},key,maxOutputTokens:1600,timeoutMs:60000,retries:0,cacheScope:context.id+':'+player.id});return parseGameAction(result.content||'',request.kind,request);},players=>{for(const p of players.filter(p=>!p.human)){const config=providers.config(undefined,p.model);if(config.issue||!config.model)throw Error('请为所有 AI 配置有效模型');if(!providers.key(undefined,p.model)&&!['localhost','127.0.0.1','[::1]'].includes(new URL(config.baseUrl).hostname))throw Error('模型缺少 API Key');}});
   cognition=new Cognition(store,model,integrations.skills,changed,()=>Boolean(updatePreparing||harness?.busy||groupChats?.busy),()=>providers.secrets());
   agentPreviews=new AgentPreviews(store,artifacts,attachments,changed,host);
   const imageModelAccess=(botId:string)=>{const selection=store.bot(botId).imageModel;if(!selection)return;const config=providers.config(botId,selection);return {config:{...config,reasoningEffort:undefined,thinkingBudget:undefined},key:providers.key(botId,selection)};};
@@ -393,6 +398,11 @@ async function initialize(){
   handle('groups:create',input=>groupChats!.create(input));
   handle('groups:update',input=>groupChats!.update(input));
   handle('groups:delete',id=>{groupChats!.delete(id);scheduler?.removeTarget({kind:'group',id});});
+  handle('games:create',input=>{if(!store.data.groups.some(g=>g.id===input.groupId))throw Error('群聊不存在');return games!.create(input);});
+  handle('games:inspect',input=>games!.inspect(input.id));
+  handle('games:read',input=>games!.read(input.groupId,input.omniscient===true));
+  handle('games:act',input=>games!.act(input.id,input.requestId,input.action));
+  handle('games:control',input=>games!.control(input.id,input.action));
   handle('groups:read',input=>groupChats!.read(input));
   handle('groups:send',input=>{const room=store.data.groups.find(room=>room.id===input?.id);if(room&&!room.members.some(member=>!member.leftAt&&store.data.bots.some(bot=>bot.id===member.id)&&store.modelFor(member.id).model))throw new Error('请先为群内 Bot 选择模型');groupChats!.send(input);});
   handle('groups:read-mark',input=>groupChats!.markRead(input));
@@ -451,7 +461,7 @@ async function initialize(){
   });
   handle('app:open-data',()=>shell.openPath(dataDir));
   const shutdown=new Shutdown({
-    stop:()=>{vm.beginShutdown();if(timer)clearInterval(timer);for(const close of [()=>appUpdates?.dispose(),()=>scheduler?.dispose(),()=>greetings?.dispose(),()=>{for(const bot of store.data.bots)harness.cancel(bot.id);},()=>providers.dispose(),()=>model?.dispose(),()=>harness.disposeTools(),()=>videoInspector?.dispose(),()=>webPreview?.close(),()=>chatPins?.dispose(),()=>peerChats?.dispose(),()=>groupChats?.dispose(),()=>interactions.dispose(),()=>host.dispose()])try{close();}catch(error){diagnostics?.record('app.shutdown-error',error);}},
+    stop:()=>{vm.beginShutdown();if(timer)clearInterval(timer);for(const close of [()=>appUpdates?.dispose(),()=>scheduler?.dispose(),()=>greetings?.dispose(),()=>{for(const bot of store.data.bots)harness.cancel(bot.id);},()=>providers.dispose(),()=>games?.dispose(),()=>model?.dispose(),()=>harness.disposeTools(),()=>videoInspector?.dispose(),()=>webPreview?.close(),()=>chatPins?.dispose(),()=>peerChats?.dispose(),()=>groupChats?.dispose(),()=>interactions.dispose(),()=>host.dispose()])try{close();}catch(error){diagnostics?.record('app.shutdown-error',error);}},
     closeWork:()=>[harness.closeProcesses(),cognition.close(),integrations.close()],
     closeVm:()=>vm.shutdownForExit(),closeState:()=>{vm.dispose();store.close();},
     report:error=>diagnostics?.record('app.shutdown-error',error),exit:()=>{diagnostics?.dispose();app.exit(0);}

@@ -49,6 +49,7 @@ export interface Snapshot {designer?:import('./designer-types').DesignerSnapshot
 export interface AppEvent { type: 'state'; snapshot: Snapshot; }
 export interface CommandResult { stdout: string; stderr: string; exitCode: number; durationMs: number; }
 export interface AelionAPI {
+  games:import('./game-types').GameAPI;
   designSystem(id:string):Promise<import('./designer-types').DesignSystemDetail>;
   createDesignSession(input:import('./designer-types').DesignSessionInput):Promise<import('./designer-types').DesignSession>;
   updateDesignSession(input:import('./designer-types').DesignSessionUpdate):Promise<import('./designer-types').DesignSession>;

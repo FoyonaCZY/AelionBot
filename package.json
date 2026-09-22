@@ -22,7 +22,8 @@
     "verify:vm": "tsx scripts/verify-vm.ts",
     "package:win": "pnpm run icons && pnpm run build && electron-builder --win dir && node scripts/package-icons.mjs",
     "package:release": "node scripts/package-release.mjs",
-    "audit:publish": "node scripts/audit-publication.mjs"
+    "audit:publish": "node scripts/audit-publication.mjs",
+    "games:preview": "tsx scripts/serve-games.ts"
   },
   "build": {
     "appId": "com.aelion.bot",
@@ -38,6 +39,7 @@
       "assets/wallpaper-light.png",
       "assets/video-inspector.html",
       "assets/skills/**",
+      "assets/game-skills/**",
       "!assets/skills/**/__pycache__/**",
       "!assets/skills/**/*.pyc",
       "package.json",
@@ -91,6 +93,7 @@
     },
     "asarUnpack": [
       "assets/skills/**",
+      "assets/game-skills/**",
       "assets/design-systems/**",
       "assets/design-plugins/**",
       "node_modules/node-pty/**"
