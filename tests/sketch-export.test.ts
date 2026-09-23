@@ -42,3 +42,12 @@ test('export identifies the exact local design and bounds renderer dimensions',(
  assert.equal(canvasDesignSource({name:'page.pdf',designSessionId:'task',workspace:{botId:'bot',path:'designers/bot/task/page.pdf'}}),undefined);
  assert.deepEqual(canvasExportViewport({width:99999,height:20}),{width:2560,height:320});assert.throws(()=>canvasExportViewport({width:NaN,height:900}));
 });
+
+
+test('off-canvas skip links do not require missing raster crops or block visible content',async()=>{
+ const outside={id:'skip',kind:'text' as const,name:'Skip to content',text:'Skip to content',x:16,y:-60,width:118,height:19,family:'Unavailable system font',size:14};
+ const page={...scene,nodes:[{id:'offscreen-group',kind:'group' as const,name:'Accessibility',x:16,y:-60,width:118,height:19,children:[outside]},...scene.nodes]};
+ const output=await buildSketchDocument(page,{reference:png,preview:png,rasters:new Map([['text',{bytes:png,frame:scene.nodes[0].children![1]}],['effect',{bytes:png,frame:scene.nodes[0].children![3]}]])});
+ for(const artboard of output.page.layers)assert.ok(!walk(artboard).some(layer=>layer.name.startsWith('Skip to content')));
+ assert.ok(walk(output.page.layers[1]).some(layer=>layer._class==='text'&&layer.attributedString.string==='Hello'));
+});

@@ -90,6 +90,8 @@ export async function buildSketchDocument(scene:CanvasScene,assets:SketchExportA
  const relativeLayer=(layer:ObjectData,origin:SceneRect)=>{layer.frame.x-=origin.x;layer.frame.y-=origin.y;return layer;};
  const build=(node:SceneNode,editable:boolean):ObjectData[]=>{
   if(++layerCount>16000)throw Error('Sketch 图层过多，请拆分设计');
+  // Off-canvas accessibility links have no screenshot pixels and are not visible artboard content.
+  if(['text','raster','path'].includes(node.kind)&&(node.x+node.width<=0||node.y+node.height<=0||node.x>=scene.width||node.y>=scene.height))return[];
   if(node.kind==='group'){
    const children=(node.children||[]).flatMap(child=>build(child,editable));
    if(node.clip){const mask=rectangle({...node,kind:'box',name:'裁切范围',color:[0,0,0,1],children:undefined,shadows:undefined});mask.style.fills=[];mask.hasClippingMask=true;mask.clippingMaskMode=0;children.unshift(mask);}
