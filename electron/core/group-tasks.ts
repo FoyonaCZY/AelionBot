@@ -27,7 +27,10 @@ export function mutateGroupTask(store:Store,room:GroupRoom,run:RunRecord,name:st
    task=tasks.find(t=>t.key===key);
    if(!task){
     const round=store.data.groupRounds.find(r=>r.id===run.groupOrigin!.rootId);
-    const source=room.messages.find(m=>m.id===args.sourceMessageId)||(args.sourceMessageId?undefined:room.messages.find(m=>m.rootId===round?.id&&(m.sender.kind==='user'&&m.kind==='message'||m.scheduled||round?.originKey?.startsWith('task:')&&m.sender.kind==='bot')));
+    const delivered=new Set(store.data.groupDeliveries.filter(d=>d.groupId===room.id&&d.recipientId===run.botId&&d.runId===run.id).map(d=>d.messageId));
+    const eligible=(message:GroupRoom['messages'][number])=>message.sender.kind==='user'&&message.kind==='message'||Boolean(message.scheduled)||Boolean(round?.originKey?.startsWith('task:')&&message.sender.kind==='bot');
+    const source=args.sourceMessageId?room.messages.find(m=>m.id===args.sourceMessageId&&delivered.has(m.id)):room.messages.find(m=>delivered.has(m.id)&&m.rootId===round?.id&&eligible(m));
+    if(!source)throw Error('新任务必须引用当前收件批次中的原始用户任务；旧轮次消息不能新增任务授权');
     const root=source?.rootId?store.data.groupRounds.find(r=>r.id===source.rootId):round;
     const authorized=source&&(source.sender.kind==='user'&&source.kind==='message'||source.scheduled||root?.originKey?.startsWith('task:')&&store.humanRunMessage(root.originKey.slice(5)));
     if(!authorized)throw Error('请引用本群的原始用户任务消息；成员通知和 Bot 发言不能新增操作授权');
