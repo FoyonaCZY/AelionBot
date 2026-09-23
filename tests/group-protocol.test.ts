@@ -15,9 +15,10 @@ function fixture(t:test.TestContext,incremental=false){
  const groups=new GroupChats(store,{isRunning:()=>false,run:async()=>{},cancel:()=>{}},()=>{});
  const id=groups.create({name:'协作',botIds:[a.id,b.id]}).id;groups.send({id,message:'核对报告，保存结果文档。'});const room=store.data.groups[0],source=room.messages.at(-1)!;
  function run(botId:string){const delivery=store.data.groupDeliveries.find(d=>d.recipientId===botId&&d.messageId===source.id)!;const run:RunRecord={id:randomUUID(),botId,status:'running',modelCalls:0,toolCalls:0,startedAt:new Date().toISOString(),groupOrigin:{groupId:id,rootId:source.rootId!,deliveryId:delivery.id}};store.data.runs.push(run);return run;}
+ function deliver(run:RunRecord){const delivery=store.data.groupDeliveries.find(d=>d.id===run.groupOrigin?.deliveryId)!;delivery.status='running';delivery.runId=run.id;}
  const ra=run(a.id),rb=run(b.id);
  const invoke=(run:RunRecord,name:string,args:Record<string,unknown>={})=>groups.invoke(run.botId,run.id,name,{groupId:id,...args},new AbortController().signal,{groupOrigin:run.groupOrigin}) as any;
- t.after(()=>{groups.dispose();store.close();rmSync(dir,{recursive:true,force:true});});return {dir,store,groups,room,a,b,c,ra,rb,run,invoke,source};
+ t.after(()=>{groups.dispose();store.close();rmSync(dir,{recursive:true,force:true});});return {dir,store,groups,room,a,b,c,ra,rb,run,deliver,invoke,source};
 }
 
 test('outbox commit failure publishes nothing; retry and reopen preserve exactly one message and its deliveries',t=>{
@@ -35,6 +36,7 @@ test('outbox commit failure publishes nothing; retry and reopen preserve exactly
 
 test('task claims are exclusive, survive runs, reject foreign updates and allow explicit handoff',async t=>{
  const f=fixture(t),args={key:'report-validation',title:'核对报告',sourceMessageId:f.source.id};
+ f.deliver(f.ra);f.deliver(f.rb);
  const [first,second]=await Promise.all([Promise.resolve().then(()=>f.invoke(f.ra,'group_task_claim',args)),Promise.resolve().then(()=>f.invoke(f.rb,'group_task_claim',args))]);
  assert.equal(first.claimed,true);assert.equal(second.claimed,false);assert.equal(first.task.id,second.task.id);assert.equal(f.room.tasks?.length,1);
  assert.equal(f.groups.unfinished(f.a.id,f.ra.id),true);assert.equal(f.groups.unfinished(f.b.id,f.rb.id),false);
@@ -48,7 +50,7 @@ test('task claims are exclusive, survive runs, reject foreign updates and allow 
 });
 
 test('removing an owner releases unfinished tasks and prevents further reads or publication',t=>{
- const f=fixture(t),claimed=f.invoke(f.ra,'group_task_claim',{key:'report',title:'报告',sourceMessageId:f.source.id});
+ const f=fixture(t);f.deliver(f.ra);const claimed=f.invoke(f.ra,'group_task_claim',{key:'report',title:'报告',sourceMessageId:f.source.id});
  f.groups.update({id:f.room.id,name:f.room.name,botIds:[f.b.id,f.c.id]});assert.equal(f.room.tasks![0].status,'open');assert.equal(f.room.tasks![0].ownerId,undefined);
  for(const name of ['group_read','group_tasks','group_outbox','group_send_message'])assert.throws(()=>f.invoke(f.ra,name,{message:'旧进展'}),/自己加入/);
  assert.equal(f.invoke(f.rb,'group_task_claim',{taskId:claimed.task.id}).claimed,true);
@@ -65,7 +67,7 @@ test('context starts with a bounded public window, expands on demand, and privat
 });
 
 test('new tasks require an actual group user request and restart pauses work without replaying actions',t=>{
- const f=fixture(t);assert.throws(()=>f.invoke(f.ra,'group_task_claim',{key:'invented',title:'新增操作',sourceMessageId:f.room.messages[0].id}),/原始用户/);
+ const f=fixture(t);f.deliver(f.ra);assert.throws(()=>f.invoke(f.ra,'group_task_claim',{key:'invented',title:'新增操作',sourceMessageId:f.room.messages[0].id}),/原始用户/);
  const claimed=f.invoke(f.ra,'group_task_claim',{key:'report',title:'核对报告',sourceMessageId:f.source.id});f.store.message(f.a.id,'tool','PRIVATE_CHECKPOINT_FROM_A',{runId:f.ra.id,tool:'computer_execute',status:'done'});f.invoke(f.ra,'group_task_update',{taskId:claimed.task.id,revision:claimed.task.revision,status:'working',summary:'已保存 /work/report.md，剩余第二部分。'});f.store.save();
  const ownFrame=f.groups.taskFrame(f.a.id,f.ra.id),otherFrame=f.groups.taskFrame(f.b.id,f.rb.id);assert.match(ownFrame,/PRIVATE_CHECKPOINT_FROM_A/);assert.doesNotMatch(otherFrame,/PRIVATE_CHECKPOINT_FROM_A/);
  const restored=new Store(f.dir);assert.equal(restored.data.groups[0].tasks?.find(t=>t.id===claimed.task.id)?.status,'paused');assert.equal(restored.data.groups[0].tasks?.[0].summary,'已保存 /work/report.md，剩余第二部分。');assert.match(restored.data.groups[0].tasks?.[0].reason||'',/应用中断/);assert.equal(restored.data.groups[0].messages.length,f.room.messages.length);restored.close();
@@ -74,8 +76,10 @@ test('new tasks require an actual group user request and restart pauses work wit
 test('new tasks cannot borrow authorization from an unrelated earlier group message',t=>{
  const f=fixture(t);f.groups.send({id:f.room.id,message:'讨论一下周五的会议安排。'});const current=f.room.messages.at(-1)!;
  const delivery=f.store.data.groupDeliveries.find(d=>d.messageId===current.id&&d.recipientId===f.a.id)!;
- const run:RunRecord={id:randomUUID(),botId:f.a.id,status:'running',modelCalls:0,toolCalls:0,startedAt:new Date().toISOString(),groupOrigin:{groupId:f.room.id,rootId:current.rootId!,deliveryId:delivery.id}};f.store.data.runs.push(run);
- assert.throws(()=>f.invoke(run,'group_task_claim',{key:'delete-project',title:'删除整个项目目录',sourceMessageId:f.source.id}),/当前群聊消息/);
+ const run:RunRecord={id:randomUUID(),botId:f.a.id,status:'running',modelCalls:0,toolCalls:0,startedAt:new Date().toISOString(),groupOrigin:{groupId:f.room.id,rootId:current.rootId!,deliveryId:delivery.id}};delivery.status='running';delivery.runId=run.id;f.store.data.runs.push(run);
+ assert.throws(()=>f.invoke(run,'group_task_claim',{key:'delete-project',title:'删除整个项目目录',sourceMessageId:f.source.id}),/当前收件批次/);
+ const earlierDelivery=f.store.data.groupDeliveries.find(d=>d.messageId===f.source.id&&d.recipientId===f.a.id)!;earlierDelivery.status='running';earlierDelivery.runId=run.id;
+ const received=f.invoke(run,'group_task_claim',{key:'report',title:'核对季度报告',sourceMessageId:f.source.id});assert.equal(received.claimed,true);
  const valid=f.invoke(run,'group_task_claim',{key:'meeting-notes',title:'整理周五会议议题',sourceMessageId:current.id});assert.equal(valid.claimed,true);assert.equal(valid.task.sourceMessageId,current.id);
 });
 
