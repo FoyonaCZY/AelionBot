@@ -32,7 +32,7 @@ function fixture(t:test.TestContext,complete:(run:RunRecord,messages:WireMessage
   const attachments=new Attachments(store,vm,artifacts,(bytes,id)=>{mkdirSync(join(dir,'screenshots'),{recursive:true});writeFileSync(join(dir,'screenshots',id+'.png'),bytes);return {id,width:1,height:1};});
   let peers:PeerChats,groups:GroupChats,queue:ChatPinQueue;
   const changed=()=>{queue?.wake();peers?.wake();groups?.wake();};
-  const model={complete:async(messages:WireMessage[])=>{const id=/\/work\/([a-f0-9-]+)/.exec(messages[0].content||'')?.[1],run=store.data.runs.find(run=>run.botId===id&&run.status==='running')!;assert.ok(run);return complete(run,messages);}} as unknown as ModelClient;
+  const model={complete:async(messages:WireMessage[])=>{const prompt=messages.map(message=>typeof message.content==='string'?message.content:'').join('\n'),id=/\/work\/([a-f0-9-]+)/.exec(prompt)?.[1]||store.data.bots.find(bot=>prompt.includes(`You are ${bot.name},`))?.id,run=store.data.runs.find(run=>run.botId===id&&run.status==='running')!;assert.ok(run);return complete(run,messages);}} as unknown as ModelClient;
   const harness=new Harness(store,vm,model,changed,undefined,undefined,undefined,undefined,undefined,undefined,attachments);
   queue=new ChatPinQueue(store,{isRunning:id=>harness.isRunning(id),run:(...args)=>harness.run(...args),refresh:id=>harness.refreshInput(id)},changed,attachments);
   peers=new PeerChats(store,{isRunning:id=>harness.isRunning(id)||queue.hasPending(id),run:(...args)=>harness.run(...args),cancel:id=>harness.cancel(id)},changed,attachments);harness.setPeerGateway(peers);
