@@ -1,7 +1,7 @@
 import type {ScreenReference} from './shared';
 export interface Attachment {id:string;name:string;size:number;mime:string;image?:ScreenReference;}
 export type AttachmentScope={kind:'bot'|'group';id:string};
-export interface StoredAttachment extends Attachment {createdAt:string;sha256:string;draftScope?:AttachmentScope;ownerBotId?:string;}
+export interface StoredAttachment extends Attachment {createdAt:string;sha256:string;sourcePath?:string;draftScope?:AttachmentScope;ownerBotId?:string;}
 export interface AttachmentUpload {name:string;bytes:Uint8Array;}
 export interface DroppedAttachment {id:string;name:string;kind:'file'|'directory';}
 export interface PreparedAttachmentDrop {entries:DroppedAttachment[];virtualIndexes:number[];}

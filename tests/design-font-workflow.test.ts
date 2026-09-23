@@ -59,3 +59,39 @@ test('denied font import has no project font side effect',async t=>{
  const loop=new DesignerLoop(f.store,f.designs,{} as any,f.files,model as any,context as any,shared,artifacts,attachments,interactions as any,()=>{},{fonts:f.fonts});await loop.run(f.bot.id,'Import font',{designSessionId:f.session.id});assert.deepEqual(f.fonts.list(f.session),[]);
  assert.ok(f.store.data.runs.at(-1)?.executions?.some(item=>item.tool==='design_fonts'&&item.status==='failed'));
 });
+
+test('active designer autonomously searches, downloads and applies an open-source font through its tools',async t=>{
+ const f=fixture(t),downloads:string[]=[],permissions:string[]=[];
+ const metadata={id:'inter',family:'Inter',category:'sans-serif',weights:[400],styles:['normal'],subsets:['latin'],defSubset:'latin',license:{type:'OFL-1.1'}};
+ const fonts=new DesignFonts({cacheDir:join(f.root,'remote-cache'),files:f.files,fetch:async(input,init)=>{
+  const url=String(input);downloads.push(url);assert.equal(init?.credentials,'omit');
+  if(url.endsWith('/v1/fonts'))return Response.json([metadata]);
+  assert.ok(permissions.length>0,'downloading font assets requires the task write permission first');
+  if(url.endsWith('/v1/version/inter'))return Response.json({latest:'5.3.0'});
+  if(url.endsWith('/metadata.json'))return Response.json(metadata);
+  if(url.endsWith('/LICENSE'))return new Response('SIL OPEN FONT LICENSE Version 1.1');
+  if(url.endsWith('/400.css'))return new Response("/* inter-latin-400-normal */\n@font-face{font-family:'Inter';font-weight:400;src:url(./files/inter-latin-400-normal.woff2) format('woff2');unicode-range:U+0000-00FF;}");
+  if(url.endsWith('/inter-latin-400-normal.woff2'))return new Response(new Uint8Array(readFileSync(f.fontPath)));
+  throw Error('Unexpected request '+url);
+ }});
+ f.files.write(f.session,'index.html',Buffer.from('<html><head><title>Type</title></head><body><h1>Hello</h1></body></html>'));
+ const vm=new Proxy({},{get(){throw Error('No VM access');}}),artifacts=new ArtifactService(f.store,vm as any);artifacts.designerFiles=f.files;
+ const attachments=new Attachments(f.store,vm as any,artifacts),interactions={permission:async(_bot:string,_run:string,input:any)=>{permissions.push(input.path);},pendingQuestions:()=>[],cancelQuestions:()=>{}};
+ let step=0;const model={complete:async(messages:any[],tools:any[])=>{
+  assert.ok(tools.some(tool=>tool.function.name==='design_fonts'));
+  if(step>0&&step<5)assert.ok(messages.some(message=>message.role==='tool'),'next decision receives the preceding tool result');
+  const added=fonts.list(f.session)[0];
+  const calls=[['design_fonts',{action:'search',query:'Inter'}],['design_fonts',{action:'acquire',fontId:metadata.id,weights:[400],reason:'Use a readable heading font'}],['design_font_apply',{fontId:added?.id,role:'display',path:'index.html',reason:'Apply the downloaded font'}],['design_fonts',{action:'check',family:'Inter',text:'Hello'}],['design_publish',{paths:['index.html']}]];
+  const next=calls[step++] as [string,unknown]|undefined;
+  return {content:'Typography ready',calls:next?[{id:randomUUID(),type:'function',function:{name:next[0],arguments:JSON.stringify(next[1])}}]:[],finishReason:'stop'};
+ }};
+ const shared=new Harness(f.store,vm as any,model as any,()=>{},undefined,undefined,undefined,undefined,interactions as any,undefined,attachments);t.after(()=>shared.disposeTools());shared.setPreviewGateway(new AgentPreviews(f.store,artifacts,attachments,()=>{}));
+ const context={observe:()=>{},prepare:async(input:any)=>({messages:[input.system,...input.history],maxOutputTokens:8192,stats:{calibration:1},calibrationEstimate:2000,recordUsage:()=>{}})};
+ const loop=new DesignerLoop(f.store,f.designs,{} as any,f.files,model as any,context as any,shared,artifacts,attachments,interactions as any,()=>{},{fonts});
+ await loop.run(f.bot.id,'Design a readable page and choose a suitable open-source font',{designSessionId:f.session.id});
+ const run=f.store.data.runs.at(-1)!;assert.equal(run.status,'completed',run.error||'Designer task failed');
+ const [font]=fonts.list(f.session);assert.equal(font.source,'fontsource');assert.equal(font.family,'Inter');assert.equal(font.available,true);assert.ok(downloads.some(url=>url.endsWith('.woff2')));
+ assert.match(readFileSync(f.files.absolute(f.session,'index.html'),'utf8'),/--font-display:"Inter"/);assert.match(readFileSync(f.files.absolute(f.session,font.cssPath),'utf8'),/\.woff2/);
+ assert.ok(!run.executions?.some(execution=>execution.tool==='request_user_input'),'font selection does not require a separate user question');
+ assert.deepEqual(fonts.check(f.session,{text:'Hello'}).fonts[0].missingCharacters,[]);
+});

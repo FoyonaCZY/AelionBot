@@ -59,7 +59,7 @@ function catalogEntry(value: unknown): DesignFontCatalogEntry {
   if (!weights.length || !styles.length || weights.length > 20 || subsets.length > 80) throw Error('字体目录格式无效');
   return {id, family: shortText(x.family), category: typeof x.category === 'string' ? x.category.slice(0,80) : '', weights, styles, subsets};
 }
-function parseFont(bytes: Buffer): Parsed {
+export function parseFont(bytes: Buffer): Parsed {
   if (bytes.length < 32 || bytes.length > MAX_FONT_BYTES) throw Error('字体文件无效或超过 24 MB');
   const signature = bytes.toString('ascii', 0, 4);
   const format: DesignFontFormat = signature === 'wOF2' ? 'woff2' : signature === 'wOFF' ? 'woff' : signature === 'OTTO' ? 'otf' : bytes.readUInt32BE(0) === 0x10000 || signature === 'true' ? 'ttf' : (() => {throw Error('只支持 WOFF2、WOFF、TTF 和 OTF 字体');})();

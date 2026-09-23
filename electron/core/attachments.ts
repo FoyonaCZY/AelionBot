@@ -1,7 +1,7 @@
 import {sourceTextFile} from '../../src/source-language';
 import {randomUUID,createHash} from 'node:crypto';
 import {officeExtensions,officePreview} from './office-preview';
-import {mkdirSync,readFileSync,writeFileSync,statSync,lstatSync,unlinkSync} from 'node:fs';
+import {mkdirSync,readFileSync,writeFileSync,statSync,lstatSync,unlinkSync,realpathSync} from 'node:fs';
 import {join,extname,basename} from 'node:path';
 import type {Store} from './store';
 import type {ArtifactService} from './artifacts';
@@ -22,10 +22,10 @@ export function isHostAttachmentPath(path:string,botId?:string){
 const ref=(file:StoredAttachment):Attachment=>({id:file.id,name:file.name,size:file.size,mime:file.mime,...(file.image?{image:file.image}:{})});
 export class Attachments {
   constructor(private store:Store,private vm?:VmController,private artifacts?:ArtifactService,private image?:(bytes:Buffer,id:string)=>ScreenReference|undefined){}
-  importForBot(botId:string,name:string,bytes:Buffer){
+  importForBot(botId:string,name:string,bytes:Buffer,sourcePath?:string){
     this.store.bot(botId);name=attachmentName(name);
     const same=this.store.data.attachments.find(file=>file.ownerBotId===botId&&file.name===name&&file.sha256===hash(bytes));
-    return same?ref(same):this.import([{name,bytes}],{ownerBotId:botId})[0];
+    const result=same?ref(same):this.import([{name,bytes}],{ownerBotId:botId})[0];if(sourcePath){this.file(result.id).sourcePath=sourcePath;this.store.save();}return result;
   }
   scope(value:AttachmentScope){if(!value||!['bot','group'].includes(value.kind)||typeof value.id!=='string')throw new Error('附件会话无效');if(value.kind==='bot')this.store.bot(value.id);else if(!this.store.data.groups.some(group=>group.id===value.id))throw new Error('群聊不存在');return value;}
   private file(id:string){if(typeof id!=='string'||!/^[a-f0-9-]{36}$/.test(id))throw new Error('附件 ID 无效');const file=this.store.data.attachments.find(file=>file.id===id);if(!file)throw new Error('附件不存在');return file;}
@@ -46,7 +46,7 @@ export class Attachments {
     this.store.data.attachments=this.store.data.attachments.filter(item=>item.id!==id);this.store.save();unlinkSync(this.location(id));
   }
   importFiles(scope:AttachmentScope,files:AttachmentUpload[]){this.scope(scope);return this.import(files,{draftScope:{...scope}});}
-  importPaths(scope:AttachmentScope,paths:string[]){this.scope(scope);if(!Array.isArray(paths)||paths.length>ATTACHMENT_LIMITS.count)throw new Error('一次最多选择 10 个文件');const files=paths.map(path=>{if(typeof path!=='string'||!statSync(path).isFile())throw new Error('请选择文件，文件夹请先压缩');if(statSync(path).size>ATTACHMENT_LIMITS.fileBytes)throw new Error('单个附件不能超过 25 MB');return {name:attachmentName(path),bytes:readFileSync(path)};});return this.importFiles(scope,files);}
+  importPaths(scope:AttachmentScope,paths:string[]){this.scope(scope);if(!Array.isArray(paths)||paths.length>ATTACHMENT_LIMITS.count)throw new Error('一次最多选择 10 个文件');const files=paths.map(path=>{if(typeof path!=='string'||!statSync(path).isFile())throw new Error('请选择文件，文件夹请先压缩');if(statSync(path).size>ATTACHMENT_LIMITS.fileBytes)throw new Error('单个附件不能超过 25 MB');return {name:attachmentName(path),bytes:readFileSync(path)};});const imported=this.importFiles(scope,files);for(let i=0;i<imported.length;i++)this.file(imported[i].id).sourcePath=realpathSync(paths[i]);this.store.save();return imported;}
   private import(files:AttachmentUpload[],origin:Pick<StoredAttachment,'draftScope'|'ownerBotId'>){
     if(!Array.isArray(files)||!files.length||files.length>ATTACHMENT_LIMITS.count)throw new Error('一次请选择 1–10 个附件');
     const prepared=files.map(file=>{if(!file||!(file.bytes instanceof Uint8Array)||file.bytes.byteLength>ATTACHMENT_LIMITS.fileBytes)throw new Error('单个附件不能超过 25 MB');const name=attachmentName(file.name);return {name,bytes:Buffer.from(file.bytes)};});
@@ -101,5 +101,6 @@ export class Attachments {
     return officePreview(this.vm,botId,extension,this.bytes(id));
   }
   videoReference(botId:string,id:string){this.forBot(botId,[id]);this.bytes(id);const file=this.file(id);const path=this.location(id);if(lstatSync(path).isSymbolicLink()||statSync(path).size!==file.size)throw Error('附件文件发生变化');return {path,name:file.name};}
+  originalPath(id:string){const path=this.file(id).sourcePath;if(!path)return;try{if(statSync(path).isFile()&&realpathSync(path)===path)return path;}catch{} }
   metadata(id:string){return ref(this.file(id));}
 }
