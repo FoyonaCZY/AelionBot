@@ -264,7 +264,10 @@ export class GroupChats implements GroupGateway {
   }
   invoke(botId:string,runId:string,name:string,args:Record<string,unknown>,signal:AbortSignal,options:HarnessRunOptions){
     this.store.bot(botId);if(this.closing||signal.aborted)throw new Error('任务已停止');
-    if(name==='groups_list')return this.store.data.groups.filter(room=>this.members(room).some(member=>member.id===botId)).map(room=>({id:room.id,name:room.name,members:this.members(room).map(m=>({id:m.id,name:m.name})),preview:groupReplyContent(room.messages.at(-1)?.content||'',room.messages.at(-1)?.sender.kind==='bot'?room.messages.at(-1)?.sender.id:undefined).slice(0,300)}));
+    if(name==='groups_list'){
+      const inGroup=Boolean(this.store.data.runs.find(run=>run.id===runId&&run.botId===botId)?.groupOrigin);
+      return this.store.data.groups.filter(room=>this.members(room).some(member=>member.id===botId)).map(room=>inGroup?{id:room.id,name:room.name,members:this.members(room).map(m=>({id:m.id,name:m.name})),preview:groupReplyContent(room.messages.at(-1)?.content||'',room.messages.at(-1)?.sender.kind==='bot'?room.messages.at(-1)?.sender.id:undefined).slice(0,300)}:{id:room.id,name:room.name});
+    }
     if(name==='group_read'){
       const room=this.room(required(args.groupId,'群聊 ID',80));this.member(room,botId);
       if(args.messageId){const message=room.messages.find(m=>m.id===args.messageId);if(!message)throw Error('群消息不存在');const offset=Number(args.offset)||0;if(!Number.isInteger(offset)||offset<0||offset>message.content.length)throw Error('消息偏移无效');return {...message,content:message.content.slice(offset,offset+6000),...(offset+6000<message.content.length?{nextOffset:offset+6000}:{})};}
