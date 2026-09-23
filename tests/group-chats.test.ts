@@ -107,7 +107,34 @@ test('group work stays out of the private chat while public progress reaches eve
   assert.equal(fx.store.data.messages.length,0);assert.ok(fx.store.data.groupRunMessages.some(message=>message.content==='这是私有执行草稿'));
   assert.equal(fx.store.data.runs.filter(run=>run.botId===fx.a.id).length,1);assert.equal(fx.store.data.runs.find(run=>run.botId===fx.a.id)?.status,'completed');
   const groupRun=fx.store.data.runs.find(run=>run.botId===fx.a.id&&run.groupOrigin)!;fx.store.data.artifacts.push({id:randomUUID(),botId:fx.a.id,runId:groupRun.id,name:'GROUP_ONLY_ARTIFACT_TOKEN.csv',path:'/groups/work/GROUP_ONLY_ARTIFACT_TOKEN.csv',size:8,modifiedAt:new Date().toISOString()});
-  await fx.harness.run(fx.a.id,'现在帮我处理私聊');assert.doesNotMatch(privateContexts[0],/完成步骤 [1-4]|已完成核对|这是私有执行草稿|GROUP_ONLY_ARTIFACT_TOKEN/);assert.ok(!privateToolNames.includes('groups_list'));assert.ok(!privateToolNames.includes('group_read'));assert.ok(fx.store.data.groupRunMessages.some(message=>message.content.includes('完成步骤 4')));
+  await fx.harness.run(fx.a.id,'现在帮我处理私聊');assert.doesNotMatch(privateContexts[0],/完成步骤 [1-4]|已完成核对|这是私有执行草稿|GROUP_ONLY_ARTIFACT_TOKEN/);assert.ok(privateToolNames.includes('groups_list'));assert.ok(!privateToolNames.includes('group_read'));assert.ok(fx.store.data.groupRunMessages.some(message=>message.content.includes('完成步骤 4')));
+  const privateRun=fx.store.data.runs.find(run=>run.botId===fx.a.id&&!run.groupOrigin)!;
+  assert.deepEqual(fx.groups.invoke(fx.a.id,privateRun.id,'groups_list',{},new AbortController().signal,{}),[{id:room.id,name:'工作进度'}]);
+});
+test('a small-context private run can find a group by name and send without reading its messages',async t=>{
+  let privateTurn=0;
+  const fx=fixture(t,(run,messages,tools)=>{
+    if(run.groupOrigin)return silent();
+    privateTurn++;
+    if(privateTurn===1){
+      assert.ok(tools.some(tool=>tool.function.name==='groups_list'));
+      assert.ok(tools.some(tool=>tool.function.name==='group_send_message'));
+      assert.ok(!tools.some(tool=>tool.function.name==='group_read'));
+      return call('groups_list',{});
+    }
+    const result=JSON.parse(messages.filter(message=>message.role==='tool').at(-1)!.content!).result;
+    if(privateTurn===2){
+      assert.deepEqual(result,[{id:room.id,name:'通知群'}]);
+      return call('group_send_message',{groupId:result[0].id,message:'私聊要求发送的通知'});
+    }
+    assert.ok(result.messageId);
+    return answer('已发送。');
+  });
+  const room=fx.groups.create({name:'通知群',botIds:[fx.a.id,fx.b.id]});await until(fx.settled);
+  fx.store.data.model.contextTokens=8000;
+  await fx.harness.run(fx.a.id,'把通知发到通知群');await until(fx.settled);
+  assert.equal(privateTurn,3);
+  assert.equal(fx.groups.read({id:room.id}).messages.filter(message=>message.sender.id===fx.a.id&&message.content==='私聊要求发送的通知').length,1);
 });
 test('each human or bot message broadcasts equally without aborting busy recipients',async t=>{
   const releases=new Map<string,(result:Completion)=>void>(),signals=new Map<string,AbortSignal>();let first=true;

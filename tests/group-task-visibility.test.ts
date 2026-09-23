@@ -5,6 +5,7 @@ import {tmpdir} from 'node:os';
 import {join,dirname,resolve} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {Store} from '../electron/core/store';
+import {CognitiveStore} from '../electron/core/cognitive-store';
 import type {RunRecord} from '../src/shared';
 import {isGroupWorkTool} from '../src/group-types';
 
@@ -36,6 +37,23 @@ test('legacy group records leave the private chat without losing any execution r
   assert.equal(restored.data.messages.filter(message=>message.groupTaskSource).length,0);assert.ok(restored.data.groupRunMessages.some(message=>message.runId===legitimate.id&&message.tool==='computer_execute'));assert.ok(restored.data.messages.some(message=>message.content==='保留我的单聊消息'));
   assert.deepEqual(records(restored),before);assert.equal(JSON.stringify(restored.data.groups),group);const backup=join(f.dir,'group-task-visibility-backup.json');assert.ok(existsSync(backup));const backupText=readFileSync(backup,'utf8');
   const once=JSON.stringify(restored.data),again=new Store(f.dir);assert.equal(JSON.stringify(again.data),once);assert.equal(readFileSync(backup,'utf8'),backupText);
+});
+
+test('migrating group records removes them from private history search and reading',t=>{
+  const f=fixture(t),groupRun=f.add('computer_execute'),privateMessage=f.store.message(f.bot.id,'user','保留这条私聊历史');
+  f.store.save();
+  const before=new CognitiveStore(f.store),groupMessage=f.store.data.messages.find(message=>message.runId===groupRun.id&&message.role==='tool')!;
+  assert.equal(before.search(f.bot.id,'必须完整保留的原始工具输出')[0]?.messageId,groupMessage.id);
+  before.close();f.store.close();
+
+  const restored=new Store(f.dir),after=new CognitiveStore(restored);
+  try{
+    assert.ok(!restored.data.messages.some(message=>message.id===groupMessage.id));
+    assert.ok(restored.data.groupRunMessages.some(message=>message.id===groupMessage.id));
+    assert.deepEqual(after.search(f.bot.id,'必须完整保留的原始工具输出'),[]);
+    assert.throws(()=>after.readHistory(f.bot.id,groupMessage.id,0,0),/不存在或无权访问/);
+    assert.equal(after.search(f.bot.id,'保留这条私聊历史')[0]?.messageId,privateMessage.id);
+  }finally{after.close();restored.close();}
 });
 
 test('all old group continuations migrate to the isolated group execution log',t=>{

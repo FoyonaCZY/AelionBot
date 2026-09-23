@@ -63,12 +63,21 @@ export class CognitiveStore {
   bump(botId:string){const revision=this.revision(botId)+1;this.set(`knowledge-revision:${botId}`,String(revision));return revision;}
   syncHistory(botId?:string){
     const upsert=this.db.prepare('INSERT INTO history VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET seq=excluded.seq,status=excluded.status,content=excluded.content,stamp=excluded.stamp');
-    const remove=this.db.prepare('DELETE FROM history_fts WHERE id=?'),insert=this.db.prepare('INSERT INTO history_fts VALUES(?,?,?)');
-    this.db.exec('BEGIN');try{for(const [seq,message] of this.store.data.messages.entries()){
-      if(botId&&message.botId!==botId)continue;const stamp=hash(`${seq}:${message.status}:${message.content}`);if(this.synced.get(message.id)===stamp)continue;
-      upsert.run(message.id,message.botId,message.runId||null,seq,message.role,message.tool||null,message.status||null,message.content,stamp);
-      remove.run(message.id);insert.run(message.id,message.botId,`${message.tool||''}\n${message.role==='tool'?resultDigest(message.content,4000):message.content}`);this.synced.set(message.id,stamp);
-    }this.db.exec('COMMIT');}catch(error){this.db.exec('ROLLBACK');this.synced.clear();throw error;}
+    const remove=this.db.prepare('DELETE FROM history_fts WHERE id=?'),insert=this.db.prepare('INSERT INTO history_fts VALUES(?,?,?)'),deleteHistory=this.db.prepare('DELETE FROM history WHERE id=?');
+    // The JSON store is authoritative: migration can move group runs out of private history.
+    const current=new Set(this.store.data.messages.filter(message=>!botId||message.botId===botId).map(message=>message.id));
+    const indexed=(botId?this.db.prepare('SELECT id FROM history WHERE bot_id=?').all(botId):this.db.prepare('SELECT id FROM history').all()) as Array<{id:string}>;
+    this.db.exec('BEGIN');try{
+      const indexedIds=new Set(indexed.map(row=>row.id));
+      for(const {id} of indexed)if(!current.has(id)){deleteHistory.run(id);remove.run(id);this.synced.delete(id);}
+      for(const id of current)if(!indexedIds.has(id))this.synced.delete(id);
+      for(const [seq,message] of this.store.data.messages.entries()){
+        if(botId&&message.botId!==botId)continue;const stamp=hash(`${seq}:${message.status}:${message.content}`);if(this.synced.get(message.id)===stamp)continue;
+        upsert.run(message.id,message.botId,message.runId||null,seq,message.role,message.tool||null,message.status||null,message.content,stamp);
+        remove.run(message.id);insert.run(message.id,message.botId,`${message.tool||''}\n${message.role==='tool'?resultDigest(message.content,4000):message.content}`);this.synced.set(message.id,stamp);
+      }
+      this.db.exec('COMMIT');
+    }catch(error){this.db.exec('ROLLBACK');this.synced.clear();throw error;}
   }
   search(botId:string,query:string,limit=8){
     this.store.bot(botId);this.syncHistory(botId);query=query.trim().slice(0,300);if(!query)throw new Error('请输入要查找的历史内容');limit=Math.max(1,Math.min(20,limit));
