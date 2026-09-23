@@ -229,7 +229,7 @@ test('a group plan runs through broadcast, confirmation, execution and final gro
   const until=async(check:()=>boolean)=>{for(let i=0;i<200;i++){if(check())return;await new Promise(resolve=>setTimeout(resolve,25));}throw Error('Group workflow did not settle: '+JSON.stringify(store.data.runs.map(r=>({status:r.status,error:r.error}))));};
   await until(()=>store.data.workItems?.[0]?.status==='ready');const item=store.data.workItems![0];work.action({id:item.id,action:'start'});groups.startWork(item);
   await until(()=>item.status==='completed'&&store.data.groups[0].messages.some(m=>m.sender.id===bot.id&&m.content.includes('结果已验证')));
-  assert.equal(item.runIds.length,2);assert.ok(store.data.messages.some(m=>m.botId===bot.id&&m.role==='tool'&&m.tool==='file_read'));assert.equal(store.data.workItems?.length,1);
+  assert.equal(item.runIds.length,2);assert.ok(store.runMessages(item.runIds[1]).some(m=>m.botId===bot.id&&m.role==='tool'&&m.tool==='file_read'));assert.equal(store.data.workItems?.length,1);
 });
 
 test('production SQLite storage restores the selected folder and pauses an unfinished goal after restart',t=>{

@@ -14,12 +14,11 @@ import type {PeerExchange,PeerThread} from '../../src/peer-types';
 import {isPrivatePeerOrigin,peerPending} from '../../src/peer-types';
 import type {GroupDelivery,GroupRoom,GroupRound} from '../../src/group-types';
 import type {ScheduledTask} from '../../src/scheduled-types';
-import {isGroupWorkTool} from '../../src/group-types';
 import {BOT_COLORS,normalizeBotPalette,type BotAvatarStyle} from '../../src/bot-colors';
 
 import type {StoredAttachment} from '../../src/attachment-types';
 export interface StoredProvider extends Omit<ModelProvider,'hasKey'> {encryptedKey?:string;}
-interface Persisted {language?:import("../../src/interface-language").Language;appearance?:import("../../src/appearance").AppearanceSettings;userProfile?:import("../../src/user-profile").UserProfile;historyVersions?:Record<string,number>;hostPermissionModes?:Record<string,import("../../src/permission-types").HostPermissionMode>;pythonSessions?:PythonSession[];fileCheckpoints?:FileCheckpoint[];processes?:BackgroundProcess[];workItems?:import("../../src/work-types").WorkItem[];conversationWorkspaces?:Record<string,string>;runtime?:RuntimeSettings;unlimitedTokenBudgetMigrated?:boolean;modelUsage?:UsageRecord[];imageGenerationRoutes?:Record<string,string>;scheduledTasks:ScheduledTask[];attachments:StoredAttachment[]; version: 1; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; conversations: Record<string, WireMessage[]>; summaries: Record<string, string>; contextOffsets:Record<string,number>; model: Omit<ModelConfig, 'hasKey'> & { encryptedKey?: string }; providers?:StoredProvider[];defaultModel?:ModelSelection;approvalModel?:ModelSelection; skills: Skill[]; artifacts: Artifact[]; skillFilesMigrated?: boolean; peerThreads:PeerThread[];peerExchanges:PeerExchange[];peerContexts:Record<string,WireMessage[]>;peerMessages:ChatMessage[];groups:GroupRoom[];groupRounds:GroupRound[];groupDeliveries:GroupDelivery[];groupContexts:Record<string,WireMessage[]>;groupRunMessages:ChatMessage[]; previewHistory?:import("../../src/agent-preview").PreviewHistoryEntry[]; }
+interface Persisted {groupOutbox?:import("../../src/group-types").GroupOutbox[];groupContextVersions?:Record<string,number>;language?:import("../../src/interface-language").Language;appearance?:import("../../src/appearance").AppearanceSettings;userProfile?:import("../../src/user-profile").UserProfile;historyVersions?:Record<string,number>;hostPermissionModes?:Record<string,import("../../src/permission-types").HostPermissionMode>;pythonSessions?:PythonSession[];fileCheckpoints?:FileCheckpoint[];processes?:BackgroundProcess[];workItems?:import("../../src/work-types").WorkItem[];conversationWorkspaces?:Record<string,string>;runtime?:RuntimeSettings;unlimitedTokenBudgetMigrated?:boolean;modelUsage?:UsageRecord[];imageGenerationRoutes?:Record<string,string>;scheduledTasks:ScheduledTask[];attachments:StoredAttachment[]; version: 1; bots: Bot[]; messages: ChatMessage[]; runs: RunRecord[]; conversations: Record<string, WireMessage[]>; summaries: Record<string, string>; contextOffsets:Record<string,number>; model: Omit<ModelConfig, 'hasKey'> & { encryptedKey?: string }; providers?:StoredProvider[];defaultModel?:ModelSelection;approvalModel?:ModelSelection; skills: Skill[]; artifacts: Artifact[]; skillFilesMigrated?: boolean; peerThreads:PeerThread[];peerExchanges:PeerExchange[];peerContexts:Record<string,WireMessage[]>;peerMessages:ChatMessage[];groups:GroupRoom[];groupRounds:GroupRound[];groupDeliveries:GroupDelivery[];groupContexts:Record<string,WireMessage[]>;groupRunMessages:ChatMessage[]; previewHistory?:import("../../src/agent-preview").PreviewHistoryEntry[]; }
 export function atomicJson(path: string, value: unknown) {
   const temp = `${path}.${process.pid}.tmp`;
   const fd = openSync(temp, 'w', 0o600);
@@ -58,6 +57,8 @@ export class Store {
     this.data.previewHistory||=[];for(const entry of this.data.previewHistory)if(!entry.scope)entry.scope={kind:'bot',id:entry.botId};
     this.data.peerThreads ||= [];this.data.peerExchanges ||= [];this.data.peerContexts ||= {};this.data.peerMessages ||= [];
     this.data.groups||=[];this.data.groupRounds||=[];this.data.groupDeliveries||=[];this.data.groupContexts||={};this.data.groupRunMessages||=[];
+    this.data.groupOutbox||=[];this.data.groupContextVersions||={};
+    for(const room of this.data.groups)for(const task of room.tasks||[])if(task.status==='working'){task.status='paused';task.reason='应用中断，请先核对已执行的操作再继续。';task.updatedAt=new Date().toISOString();task.revision++;}
     for(const message of this.data.messages)if(message.inputState==='queued')message.inputState='interrupted';
     this.separatePrivateMessages();
     for(const run of this.data.runs)for(const execution of run.executions||[])if(execution.status==='running'){execution.status='unknown';execution.endedAt=new Date().toISOString();execution.error='应用中断，操作结果未知。继续前先核对实际状态。';}
@@ -66,7 +67,7 @@ export class Store {
     for(const bot of this.data.bots)delete (bot as any).pendingType;
     for (const message of [...this.data.messages,...this.data.peerMessages,...this.data.groupRunMessages]) if (message.status === 'running') message.status = 'failed';
     for(const [key,history] of [...Object.entries(this.data.conversations),...Object.entries(this.data.peerContexts).map(([id,history])=>['peer:'+id,history] as const),...Object.entries(this.data.groupContexts)])this.repairHistory(history,key);
-    this.exposeGroupTasks();
+    this.isolateGroupRuns();
     for(const bot of this.data.bots)if(bot.role==='帮助我处理办公资料与代码工作，直接执行并验证成果，使用中文回复。')bot.role='帮助我处理办公资料与代码工作，直接执行并验证成果。';
     if (isNew) this.createBot('工作伙伴', '帮助我处理办公资料与代码工作，直接执行并验证成果。');
     this.save();
@@ -110,53 +111,15 @@ export class Store {
       if(!id&&run?.workItemId){const work=this.data.workItems?.find(item=>item.id===run.workItemId&&item.botId===run.botId),source=this.data.messages.find(m=>m.id===work?.sourceMessageId&&m.botId===run.botId&&m.role==='user'&&!m.reaction);if(source)return source;}
     }
   }
-  private exposeGroupTasks(){
-    const records=[...this.data.messages,...this.data.groupRunMessages];
-    const work=new Set(records.filter(message=>message.role==='tool'&&isGroupWorkTool(message.tool)).map(message=>message.runId));
-    if(work.size&&!existsSync(join(this.dir,'group-task-migration-backup.json')))atomicJson(join(this.dir,'group-task-migration-backup.json'),this.data);
-    const visibleRuns=new Set(this.data.messages.map(message=>message.runId)),demote=new Set<string>(),promote:Array<{id:string;previous?:string;updated:boolean}>=[],continuations=new Map<string,string>();
-    for(const run of this.data.runs){
-      if(!run.groupOrigin||!this.data.bots.some(bot=>bot.id===run.botId))continue;
-      const key=`${run.botId}:${run.groupOrigin.groupId}:${run.groupOrigin.rootId}`,previous=continuations.get(key);
-      if(!work.has(run.id)&&!previous){
-        if(run.groupTask||visibleRuns.has(run.id))demote.add(run.id);
-        continue;
-      }
-      const updated=Boolean(run.groupUpdated||run.error?.startsWith('有新的群发事件'));
-      promote.push({id:run.id,previous,updated});
-      if(updated)continuations.set(key,run.id);else continuations.delete(key);
-    }
-    if(demote.size){
-      const backup=join(this.dir,'group-task-visibility-backup.json');if(!existsSync(backup))atomicJson(backup,this.data);
-      for(const run of this.data.runs)if(demote.has(run.id))delete run.groupTask;
-      const ids=new Set(this.data.groupRunMessages.map(message=>message.id));
-      // Keep every source card and execution record for inspection, outside the main conversation.
-      for(const message of this.data.messages)if(message.runId&&demote.has(message.runId)&&!ids.has(message.id)){this.data.groupRunMessages.push(message);ids.add(message.id);}
-      this.data.messages=this.data.messages.filter(message=>!message.runId||!demote.has(message.runId));
-    }
-    for(const item of promote){
-      const run=this.data.runs.find(run=>run.id===item.id)!;if(item.updated)run.groupUpdated=true;
-      this.promoteGroupTask(item.id,item.previous,false);
-      const source=this.data.messages.find(message=>message.runId===item.id&&message.groupTaskSource);if(source?.groupTaskSource)source.groupTaskSource.continuation=Boolean(item.previous);
-    }
-  }
-  promoteGroupTask(runId:string,continuationOf?:string,persist=true){
-    const run=this.data.runs.find(run=>run.id===runId);if(!run?.groupOrigin)throw new Error('群聊任务来源无效');
-    if(run.groupTask&&this.data.messages.some(message=>message.runId===run.id&&message.groupTaskSource)&&!this.data.groupRunMessages.some(message=>message.runId===run.id))return;
-    const previous=continuationOf?this.data.runs.find(item=>item.id===continuationOf&&item.botId===run.botId&&item.groupTask&&item.groupOrigin?.groupId===run.groupOrigin!.groupId&&item.groupOrigin.rootId===run.groupOrigin!.rootId):undefined;
-    if(continuationOf&&!previous)throw new Error('群聊任务续接来源无效');
-    const room=this.data.groups.find(room=>room.id===run.groupOrigin!.groupId),round=this.data.groupRounds.find(round=>round.id===run.groupOrigin!.rootId),delivery=this.data.groupDeliveries.find(delivery=>delivery.id===run.groupOrigin!.deliveryId),trigger=room?.messages.find(message=>message.id===delivery?.messageId);
-    run.groupTask=true;
-    if(!this.data.messages.some(message=>message.runId===run.id&&message.groupTaskSource)){
-      const existing=this.data.groupRunMessages.find(message=>message.runId===run.id&&message.groupTaskSource);
-      if(existing)this.data.messages.push(existing);
-      else{
-        const request=round?.request||trigger?.content||'群聊派发的工作';
-        this.data.messages.push({id:randomUUID(),botId:run.botId,role:'event',content:request,mentions:request===trigger?.content?trigger.mentions:undefined,time:run.startedAt,runId:run.id,groupTaskSource:{groupId:run.groupOrigin.groupId,name:room?.name||'已删除的群聊',messageId:trigger?.id,continuation:Boolean(previous)}});
-      }
-    }
-    const ids=new Set(this.data.messages.map(message=>message.id));for(const message of this.data.groupRunMessages.filter(message=>message.runId===run.id))if(!ids.has(message.id))this.data.messages.push(message);
-    this.data.groupRunMessages=this.data.groupRunMessages.filter(message=>message.runId!==run.id);this.data.messages.sort((a,b)=>a.time.localeCompare(b.time));if(persist)this.save();
+  private isolateGroupRuns(){
+    const groupRuns=new Set(this.data.runs.filter(run=>run.groupOrigin).map(run=>run.id));
+    const misplaced=this.data.messages.filter(message=>message.groupTaskSource||groupRuns.has(message.runId||''));
+    if(!misplaced.length){for(const run of this.data.runs)if(run.groupOrigin)delete run.groupTask;return;}
+    const backup=join(this.dir,'group-task-visibility-backup.json');if(!existsSync(backup))atomicJson(backup,this.data);
+    const existing=new Set(this.data.groupRunMessages.map(message=>message.id));
+    for(const message of misplaced)if(!existing.has(message.id)){this.data.groupRunMessages.push(message);existing.add(message.id);}
+    this.data.messages=this.data.messages.filter(message=>!message.groupTaskSource&&!groupRuns.has(message.runId||''));
+    for(const run of this.data.runs)if(run.groupOrigin)delete run.groupTask;
   }
   promotePeerTask(runId:string){
     const run=this.data.runs.find(item=>item.id===runId),origin=run?.peerOrigin;
@@ -210,7 +173,7 @@ export class Store {
       bots:this.data.bots.filter(bot=>bot.id!==id),
       messages:this.data.messages.filter(message=>message.botId!==id),
       peerMessages:this.data.peerMessages.filter(message=>message.botId!==id),
-      groupRunMessages:this.data.groupRunMessages.filter(message=>message.botId!==id),groupContexts:{...this.data.groupContexts},
+      groupRunMessages:this.data.groupRunMessages.filter(message=>message.botId!==id),groupContexts:{...this.data.groupContexts},groupOutbox:this.data.groupOutbox?.filter(item=>item.botId!==id),groupContextVersions:{...this.data.groupContextVersions},
       runs:this.data.runs.filter(run=>run.botId!==id),
       artifacts:this.data.artifacts.filter(artifact=>artifact.botId!==id),
       previewHistory:(this.data.previewHistory||[]).filter(entry=>entry.botId!==id),
@@ -220,7 +183,7 @@ export class Store {
     };
     delete next.conversationWorkspaces!['bot:'+id];delete next.hostPermissionModes!['bot:'+id];
     delete next.conversations[id];delete next.summaries[id];delete next.contextOffsets[id];
-    for(const group of this.data.groups){const key=`group:${group.id}:${id}`;delete next.groupContexts[key];delete next.summaries[key];delete next.contextOffsets[key];}
+    for(const group of this.data.groups){const key=`group:${group.id}:${id}`;delete next.groupContexts[key];delete next.groupContextVersions?.[key];delete next.summaries[key];delete next.contextOffsets[key];}
     for(const delivery of this.data.groupDeliveries.filter(delivery=>delivery.recipientId===id)){delete next.groupContexts[`group:${delivery.id}`];delete next.summaries[`group:${delivery.id}`];delete next.contextOffsets[`group:${delivery.id}`];}
     for(const exchange of this.data.peerExchanges.filter(exchange=>exchange.toBotId===id)){delete next.peerContexts[exchange.id];delete next.summaries[`peer:${exchange.id}`];delete next.contextOffsets[`peer:${exchange.id}`];}
     this.replaceData(next);
@@ -237,7 +200,7 @@ export class Store {
     const {afterId,...fields}=extra;
     const item: ChatMessage = { id: randomUUID(), botId, role, content, time: new Date().toISOString(), ...fields };
     const privateRun=fields.runId&&this.data.runs.some(run=>run.id===fields.runId&&isPrivatePeerOrigin(run.peerOrigin));
-    const groupRun=fields.runId&&this.data.runs.some(run=>run.id===fields.runId&&run.groupOrigin&&!run.groupTask);
+    const groupRun=fields.runId&&this.data.runs.some(run=>run.id===fields.runId&&run.groupOrigin);
     const list=groupRun?this.data.groupRunMessages:privateRun?this.data.peerMessages:this.data.messages;
     const index=afterId?list.findIndex(message=>message.id===afterId):-1;
     if(index>=0){

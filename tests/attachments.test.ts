@@ -32,7 +32,7 @@ function fixture(t:test.TestContext,complete:(run:RunRecord,messages:WireMessage
   const attachments=new Attachments(store,vm,artifacts,(bytes,id)=>{mkdirSync(join(dir,'screenshots'),{recursive:true});writeFileSync(join(dir,'screenshots',id+'.png'),bytes);return {id,width:1,height:1};});
   let peers:PeerChats,groups:GroupChats,queue:ChatPinQueue;
   const changed=()=>{queue?.wake();peers?.wake();groups?.wake();};
-  const model={complete:async(messages:WireMessage[])=>{const id=/\/work\/([a-f0-9-]+)/.exec(messages[0].content||'')?.[1],run=store.data.runs.find(run=>run.botId===id&&run.status==='running')!;assert.ok(run);return complete(run,messages);}} as unknown as ModelClient;
+  const model={complete:async(messages:WireMessage[])=>{const prompt=messages.map(message=>typeof message.content==='string'?message.content:'').join('\n'),id=/\/work\/([a-f0-9-]+)/.exec(prompt)?.[1]||store.data.bots.find(bot=>prompt.includes(`You are ${bot.name},`))?.id,run=store.data.runs.find(run=>run.botId===id&&run.status==='running')!;assert.ok(run);return complete(run,messages);}} as unknown as ModelClient;
   const harness=new Harness(store,vm,model,changed,undefined,undefined,undefined,undefined,undefined,undefined,attachments);
   queue=new ChatPinQueue(store,{isRunning:id=>harness.isRunning(id),run:(...args)=>harness.run(...args),refresh:id=>harness.refreshInput(id)},changed,attachments);
   peers=new PeerChats(store,{isRunning:id=>harness.isRunning(id)||queue.hasPending(id),run:(...args)=>harness.run(...args),cancel:id=>harness.cancel(id)},changed,attachments);harness.setPeerGateway(peers);
@@ -118,7 +118,7 @@ test('chat display keeps the first delivery of a repeated attachment',()=>{
   assert.deepEqual(firstDeliveryAttachments(history[1],history),[]);
 });
 test('a group Bot can attach an actual output file to its final message',async t=>{
-  const fx=fixture(t,(run,messages)=>{if(run.botId!==fx.a.id)return answer('[群聊静默]');return messages.some(message=>message.role==='tool')?answer('请查收核对报告。'):tool('message_attach',{attachments:[{path:'报告.csv'}]});});const room=fx.groups.create({name:'报告群',botIds:[fx.a.id,fx.b.id]});fx.groups.send({id:room.id,message:'发送核对报告'});fx.groups.start();await until(fx.idle);const result=fx.groups.read({id:room.id}).messages.find(message=>message.content==='请查收核对报告。');assert.equal(result?.attachments?.[0].name,'报告.csv');assert.deepEqual(fx.attachments.bytes(result!.attachments![0].id),document);assert.ok(fx.store.data.messages.some(message=>message.botId===fx.a.id&&message.attachments?.[0].id===result!.attachments![0].id));
+  const fx=fixture(t,(run,messages)=>{if(run.botId!==fx.a.id)return answer('[群聊静默]');return messages.some(message=>message.role==='tool')?answer('请查收核对报告。'):tool('message_attach',{attachments:[{path:'报告.csv'}]});});const room=fx.groups.create({name:'报告群',botIds:[fx.a.id,fx.b.id]});fx.groups.send({id:room.id,message:'发送核对报告'});fx.groups.start();await until(fx.idle);const result=fx.groups.read({id:room.id}).messages.find(message=>message.content==='请查收核对报告。');assert.equal(result?.attachments?.[0].name,'报告.csv');assert.deepEqual(fx.attachments.bytes(result!.attachments![0].id),document);assert.ok(fx.store.data.groupRunMessages.some(message=>message.botId===fx.a.id&&message.attachments?.[0].id===result!.attachments![0].id));
 });
 
 test('reading a group attachment stays in the group and does not create work cards in the Bot main chat',async t=>{
@@ -130,12 +130,12 @@ test('reading a group attachment stays in the group and does not create work car
   assert.ok(fx.groups.read({id:room.id}).messages.some(message=>message.content==='附件是表格，数值为 42。'));assert.equal(collected,0);const restored=new Store(fx.dir);assert.equal(restored.data.messages.some(message=>message.groupTaskSource),false);
 });
 
-test('reading then saving a group attachment promotes the actual save and keeps its evidence in the main chat',async t=>{
+test('reading then saving a group attachment keeps its work and evidence in the group',async t=>{
   let attachmentId='';const fx=fixture(t,(run)=>{if(run.botId!==fx.a.id)return answer('[群聊静默]');if(run.toolCalls===0)return tool('attachment_read',{attachmentId});if(run.toolCalls===1){assert.equal(run.groupTask,undefined);return tool('attachment_save',{attachmentId});}return answer('附件已保存到工作电脑。');});
   let collected=0;(fx.harness as any).collectArtifacts=async()=>{collected++;};
   const room=fx.groups.create({name:'保存附件',botIds:[fx.a.id,fx.b.id]}),[file]=fx.attachments.importFiles({kind:'group',id:room.id},[{name:'资料.csv',bytes:document}]);attachmentId=file.id;
   fx.groups.send({id:room.id,message:'读取并保存附件',attachmentIds:[file.id]});fx.groups.start();await until(fx.idle);
-  const run=fx.store.data.runs.find(run=>run.botId===fx.a.id&&run.toolCalls)!;assert.equal(run.groupTask,true);assert.equal(fx.imports.length,1);assert.equal(collected,1);assert.equal(fx.store.data.messages.filter(message=>message.runId===run.id&&message.groupTaskSource).length,1);assert.ok(fx.store.data.messages.some(message=>message.runId===run.id&&message.tool==='attachment_save'));assert.ok(new Store(fx.dir).data.messages.some(message=>message.runId===run.id&&message.tool==='attachment_save'));
+  const run=fx.store.data.runs.find(run=>run.botId===fx.a.id&&run.toolCalls)!;assert.equal(run.groupTask,undefined);assert.equal(fx.imports.length,1);assert.equal(collected,1);assert.equal(fx.store.data.messages.filter(message=>message.runId===run.id).length,0);assert.ok(fx.store.data.groupRunMessages.some(message=>message.runId===run.id&&message.tool==='attachment_save'));assert.ok(new Store(fx.dir).data.groupRunMessages.some(message=>message.runId===run.id&&message.tool==='attachment_save'));
 });
 
 test('Bot group sends forward a received attachment without exposing it to nonmembers',async t=>{

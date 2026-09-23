@@ -5,6 +5,8 @@ import {tmpdir} from 'node:os';
 import {join,resolve,dirname,basename} from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
 import {Store} from '../electron/core/store';
+import {Harness} from '../electron/core/harness';
+import {GroupChats} from '../electron/core/group-chats';
 import {updateBotProfile} from '../electron/core/bot-profile';
 import {DesignSystems} from '../electron/core/design-systems';
 import {DesignStore} from '../electron/core/design-store';
@@ -57,7 +59,7 @@ function loopFixture(t:any,kind:'prototype'|'ppt'|'clone'|'mobile'|'document'='p
  const files=new DesignerFiles(store,designs);const vm:any={},collectRuns:string[]=[];const artifacts={read:(botId:string,path:string)=>files.read(botId,path),collect:async(botId:string,runId:string)=>{collectRuns.push(runId);const run=store.data.runs.find(r=>r.id===runId&&r.botId===botId);for(const file of await files.list(botId,run?.designSessionId))if(!store.data.artifacts.some(a=>a.botId===botId&&a.path===file.path&&a.modifiedAt===file.modifiedAt))store.data.artifacts.push({id:randomUUID(),botId,runId,...file});}};
  const context={observe:()=>{},prepare:async(input:any)=>{requests.push(structuredClone({scopeKey:input.scopeKey,history:input.history,system:input.system,prefixContext:input.prefixContext,taskFrame:input.taskFrame,tools:input.tools}));return {messages:[input.system,...(input.prefixContext||[]),...input.history],maxOutputTokens:8192,stats:{calibration:1,estimatedTokens:2000},calibrationEstimate:2000,recordUsage:()=>{}};}};
  const attachments={wire:(_bot:string,content:string)=>({content})},interactions={pendingQuestions:()=>[],permission:async()=>{}};
- return {...f,systems,designs,task,files,requests,invocations,vm,collectRuns,make:(complete:any,contextOverride:any=context,extras:any={})=>new DesignerLoop(store,designs,systems,files,{complete} as any,contextOverride as any,shared as any,artifacts as any,attachments as any,interactions as any,()=>{},extras)};
+ return {...f,systems,designs,task,files,requests,invocations,vm,collectRuns,shared,make:(complete:any,contextOverride:any=context,extras:any={})=>new DesignerLoop(store,designs,systems,files,{complete} as any,contextOverride as any,shared as any,artifacts as any,attachments as any,interactions as any,()=>{},extras)};
 }
 
 test('independent designer loop writes and verifies a real prototype without default skills or general history',async t=>{
@@ -119,8 +121,8 @@ test('group design context includes only that group and task, never main-chat or
  f.store.data.groups.push({id:gid,name:'Design room',members:[{id:f.bot.id,name:f.bot.name,color:f.bot.color,joinedAt:time}],createdBy:{kind:'user',id:'user',name:'You'},createdAt:time,updatedAt:time,lastReadSeq:0,messages:[{id:'group-input',groupId:gid,seq:1,sender:{kind:'user',id:'user',name:'You'},kind:'message',content:'GROUP_VISIBLE',time,rootId}]});
  f.store.data.groupRounds.push({id:rootId,groupId:gid,request:'GROUP_VISIBLE',status:'active',createdAt:time,botMessages:0,botCounts:{},decisions:0,createdGroups:0});f.store.data.groupDeliveries.push({id:deliveryId,groupId:gid,messageId:'group-input',recipientId:f.bot.id,rootId,status:'running',createdAt:time});
  const task=f.designs.create({botId:f.bot.id,origin:{kind:'group',id:gid},kind:'prototype',brief:'Group design'});
- await f.make(async()=>({content:'Please provide a reference image.',calls:[],finishReason:'stop'})).run(f.bot.id,'GROUP_VISIBLE',{designSessionId:task.id,groupOrigin:{groupId:gid,rootId,deliveryId},groupContext:'MUST_NOT_IMPORT_MAIN_CHAT'});
- const seen=JSON.stringify(f.requests);assert.match(seen,/GROUP_VISIBLE/);assert.doesNotMatch(seen,/MAIN_CHAT_SECRET|MUST_NOT_IMPORT_MAIN_CHAT/);assert.equal(f.store.data.messages.some(m=>m.runId===f.store.data.runs.at(-1)?.id),false);assert.ok(f.store.data.groupRunMessages.some(m=>m.runId===f.store.data.runs.at(-1)?.id));
+ await f.make(async()=>({content:'Please provide a reference image.',calls:[],finishReason:'stop'})).run(f.bot.id,'GROUP_VISIBLE',{designSessionId:task.id,groupOrigin:{groupId:gid,rootId,deliveryId},groupContext:'PUBLIC_GROUP_PROTOCOL'});
+ const seen=JSON.stringify(f.requests);assert.match(seen,/GROUP_VISIBLE/);assert.match(seen,/PUBLIC_GROUP_PROTOCOL/);assert.doesNotMatch(seen,/MAIN_CHAT_SECRET/);assert.equal(f.store.data.messages.some(m=>m.runId===f.store.data.runs.at(-1)?.id),false);assert.ok(f.store.data.groupRunMessages.some(m=>m.runId===f.store.data.runs.at(-1)?.id));
  await assert.rejects(f.make(async()=>{throw Error('should not run');}).run(other.id,'Steal task',{designSessionId:task.id}),/当前会话/);
 });
 
@@ -221,4 +223,29 @@ test('clone tasks inject the clone playbook and refuse publish without a source 
  assert.equal(f.designs.get(f.task.id).artifacts[0]?.kind,'html');
  assert.ok(f.designs.get(f.task.id).artifacts.some(a=>a.name==='NOTES.md'));
  assert.equal(f.designs.get(f.task.id).checks.find(c=>c.id==='format')?.status,'passed');
+});
+
+
+test('new private designer input after a group run does not bind the group design session',async t=>{
+ const f=loopFixture(t),other=f.store.createBot('Other',''),time=new Date().toISOString(),gid=randomUUID(),rootId=randomUUID(),deliveryId=randomUUID();
+ f.store.data.groups.push({id:gid,name:'Group',members:[{...f.bot,joinedAt:time},{...other,joinedAt:time}],createdBy:{kind:'user',id:'user',name:'You'},createdAt:time,updatedAt:time,messages:[],lastReadSeq:0});
+ const task=f.designs.create({botId:f.bot.id,kind:'prototype',brief:'GROUP_ONLY_DESIGN',origin:{kind:'group',id:gid}}),previous:RunRecord={id:randomUUID(),botId:f.bot.id,engine:'designer',status:'cancelled',startedAt:time,modelCalls:1,toolCalls:0,designSessionId:task.id,groupOrigin:{groupId:gid,rootId,deliveryId}};f.store.data.runs.push(previous);
+ await f.make(async()=>({content:'Private reply',calls:[],finishReason:'stop'})).run(f.bot.id,'Private question',{supersedesRunId:previous.id});const current=f.store.data.runs.at(-1)!;
+ assert.equal(current.status,'completed');assert.equal(current.designSessionId,undefined);assert.equal(current.supersedesRunId,undefined);assert.ok(f.requests.every(r=>r.scopeKey.includes(':bot:')));assert.doesNotMatch(JSON.stringify(f.requests),/GROUP_ONLY_DESIGN/);assert.ok(f.requests.every((r:any)=>!r.tools.some((tool:any)=>['groups_list','group_read'].includes(tool.function.name))));
+});
+
+
+test('designer uses the same group inbox, outbox and task claims without importing private design history',async t=>{
+ const f=loopFixture(t),other=f.store.createBot('Observer','');let groups:GroupChats,step=0;const shared=new Harness(f.store,{} as any,{} as any,()=>{});f.shared.openToolSession=shared.openToolSession.bind(shared) as any;
+ const loop=f.make(async(_messages:any,_tools:any,signal:AbortSignal)=>{
+  const room=f.store.data.groups[0],task=room.tasks?.[0];assert.equal(signal.aborted,false);
+  if(step++===0){groups.send({id:room.id,message:'补充：交付时写清文件位置'});return {content:'PRIVATE_DESIGN_DRAFT',calls:[call('group_task_claim',{groupId:room.id,key:'design-review',title:'说明设计交付',sourceMessageId:room.messages.find(m=>m.sender.kind==='user')!.id})],finishReason:'tool_calls'};}
+  if(step===2)return {content:'',calls:[call('group_send_message',{groupId:room.id,message:'正在核对交付说明。',kind:'progress',clientMessageId:'designer-progress'}),call('group_task_update',{groupId:room.id,taskId:task!.id,revision:task!.revision,status:'completed',summary:'已核对交付要求；本次仅说明，无文件修改。'})],finishReason:'tool_calls'};
+  return {content:'交付说明已核对。',calls:[],finishReason:'stop'};
+ });
+ groups=new GroupChats(f.store,{isRunning:id=>id!==f.bot.id||loop.isRunning(id),run:(id,input,options)=>loop.run(id,input,options),cancel:id=>loop.cancel(id)},()=>{});shared.setGroupGateway(groups);loop.setGroupGateway(groups);
+ const room=groups.create({name:'Designer group',botIds:[f.bot.id,other.id]});groups.send({id:room.id,message:'请认领并说明设计交付要求'});groups.start();
+ try{for(let i=0;i<500;i++){if(f.store.data.groups[0].messages.some(m=>m.content==='交付说明已核对。'))break;await new Promise(resolve=>setTimeout(resolve,10));}
+  const page=groups.read({id:room.id});assert.ok(page.messages.some(m=>m.content==='交付说明已核对。'));assert.equal(page.tasks?.[0].status,'completed');assert.equal(f.store.data.runs.filter(r=>r.botId===f.bot.id).length,1);assert.ok(f.requests[1].history.some((m:any)=>m.content?.includes('补充：交付时写清文件位置')));assert.ok(f.requests[0].tools.some((t:any)=>t.function.name==='group_send_message'));assert.doesNotMatch(JSON.stringify(page.messages),/PRIVATE_DESIGN_DRAFT/);assert.equal(f.store.data.groupOutbox?.filter(m=>m.botId===f.bot.id&&m.status==='sent').length,2);
+ }finally{groups.dispose();loop.cancel(f.bot.id);for(let i=0;i<100&&loop.busy;i++)await new Promise(resolve=>setTimeout(resolve,10));shared.disposeTools();}
 });

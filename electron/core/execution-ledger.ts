@@ -11,16 +11,16 @@ import {boundedInteger,FileToolError} from './file-text';
 // Failed reads remain in the ledger and model history, but do not represent
 // unfinished side effects that must be repaired before a task can finish.
 const planTools=new Set(['task_update','plan_update']);
-const controlTools=new Set([...planTools,'goal_set','goal_update','execution_resolve','memory','skill_save','chat_pin','group_pin']);
+const controlTools=new Set([...planTools,'goal_set','goal_update','execution_resolve','memory','skill_save','chat_pin','group_pin','group_task_claim','group_task_update']);
 export const COMMAND_RESULT_TOOLS=new Set(['host_execute','computer_execute','python_execute','python_session','process_start','process_wait','process_stop','terminal_start','terminal_input','terminal_read','terminal_stop']);
-const nonBlockingFailures=new Set([...READ_TOOLS,'tools_batch',...controlTools,...COMMAND_RESULT_TOOLS]);
+const nonBlockingFailures=new Set([...READ_TOOLS,'group_tasks','group_outbox','tools_batch',...controlTools,...COMMAND_RESULT_TOOLS]);
 export const executionBlocksCompletion=(entry:ToolExecution)=>!entry.resolution&&(entry.status==='unknown'||entry.status==='failed'&&!nonBlockingFailures.has(entry.tool));
 const blocksCompletion=executionBlocksCompletion;
 export function commandResultFailed(output:unknown){
   const result=output&&typeof output==='object'?output as {isError?:boolean;exitCode?:number}:undefined;
   return result?.isError===true||Number.isInteger(result?.exitCode)&&result!.exitCode!==0;
 }
-const isEvidence=(entry:ToolExecution)=>entry.status==='succeeded'&&!/^(execution_|task_|plan_|goal_)/.test(entry.tool);
+const isEvidence=(entry:ToolExecution)=>entry.status==='succeeded'&&!/^(execution_|task_|plan_|goal_|group_task_)/.test(entry.tool);
 
 function stable(value:unknown):string {if(Array.isArray(value))return '['+value.map(stable).join(',')+']';if(value&&typeof value==='object')return '{'+Object.entries(value).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>JSON.stringify(key)+':'+stable(item)).join(',')+'}';return JSON.stringify(value)??'null';}
 export function executionTarget(tool:string,args:Record<string,unknown>,botId:string,hostWorkspace=''){

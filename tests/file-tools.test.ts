@@ -77,6 +77,15 @@ test('batch result records are readable by their owner, remain private, and pagi
  store.message(other.id,'user',JSON.stringify({resultId:id}));assert.throws(()=>readToolResult(store,other.id,{id}),/无权/);store.close();
 });
 
+test('private runs cannot read a group tool result by copying its result id',t=>{
+ const f=fixture(t),store=new Store(f.data),bot=store.data.bots[0],groupId=randomUUID(),resultId=randomUUID();mkdirSync(join(f.data,'results'));writeFileSync(join(f.data,'results',resultId+'.json'),JSON.stringify({secret:'GROUP_RESULT'}));
+ store.data.groups.push({id:groupId,name:'临时群',members:[{id:bot.id,name:bot.name,color:bot.color,joinedAt:new Date().toISOString()}],createdBy:{kind:'user',id:'user',name:'你'},createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),messages:[],lastReadSeq:0});
+ const runId=randomUUID();store.data.runs.push({id:runId,botId:bot.id,status:'completed',startedAt:new Date().toISOString(),modelCalls:1,toolCalls:1,groupOrigin:{groupId,rootId:randomUUID(),deliveryId:randomUUID()}});
+ store.message(bot.id,'tool',JSON.stringify({resultId}),{runId,tool:'computer_execute',status:'done'});
+ assert.match(readToolResult(store,bot.id,{id:resultId},{kind:'group',id:groupId}).text,/GROUP_RESULT/);
+ assert.throws(()=>readToolResult(store,bot.id,{id:resultId},{kind:'private'}),/无权/);store.close();
+});
+
 test('execution targets match relative and absolute reads within the selected project',()=>{
  assert.equal(executionTarget('host_file_read',{path:'README.md'},'bot','C:\\Projects\\app').targetKey,executionTarget('host_file_read',{path:'C:\\Projects\\app\\README.md'},'bot').targetKey);
  assert.notEqual(executionTarget('host_file_read',{path:'README.md'},'bot','C:\\Projects\\one').targetKey,executionTarget('host_file_read',{path:'README.md'},'bot','C:\\Projects\\two').targetKey);

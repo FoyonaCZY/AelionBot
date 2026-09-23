@@ -104,9 +104,9 @@ function AppContent(){
   const runMessages=new Map<string,typeof messages>();for(const message of messages)if(message.runId){const list=runMessages.get(message.runId)||[];list.push(message);runMessages.set(message.runId,list);}
   const timeline=conversationTimeline(messages);
   const liveReplies=(state?.streamingReplies||[]).filter(reply=>reply.main&&reply.botId===bot?.id),liveSignature=liveReplies.map(reply=>reply.id+':'+reply.content).join('|');
-  const lastContext=state?.runs.filter(run=>run.botId===bot?.id&&!isPrivatePeerOrigin(run.peerOrigin)&&(!run.groupOrigin||run.groupTask)&&run.contextOverview).at(-1)?.contextOverview;
-  const latestRun=state?.runs.filter(run=>run.botId===bot?.id&&!isPrivatePeerOrigin(run.peerOrigin)&&(!run.groupOrigin||run.groupTask)).at(-1);
-  const running=Boolean(state?.runs.some(run=>run.botId===bot?.id&&run.status==='running')||currentModel?.model&&state!.messages.some(message=>message.botId===bot?.id&&message.inputState==='queued'));
+  const lastContext=state?.runs.filter(run=>run.botId===bot?.id&&!isPrivatePeerOrigin(run.peerOrigin)&&!run.groupOrigin&&run.contextOverview).at(-1)?.contextOverview;
+  const latestRun=state?.runs.filter(run=>run.botId===bot?.id&&!isPrivatePeerOrigin(run.peerOrigin)&&!run.groupOrigin).at(-1);
+  const running=Boolean(state?.runs.some(run=>run.botId===bot?.id&&run.status==='running'&&!run.groupOrigin)||currentModel?.model&&state!.messages.some(message=>message.botId===bot?.id&&message.inputState==='queued'));
   const anyRunning=state?.runs.some(run=>run.status==='running')||false;
   const greeting=state?.greetingBotIds?.includes(bot?.id||'')||false;
   const draft=drafts[bot?.id||'']||{text:'',mentions:[]};
@@ -116,7 +116,7 @@ function AppContent(){
   const controlled=desktop?.manualControl||false;
   const requests=state?.interactions||[];
   const takeover=requests.find((request):request is Extract<InteractionRequest,{kind:'vm_takeover'}>=>request.kind==='vm_takeover'&&request.botId===desktopBot?.id);
-  const waiting=requests.find(request=>request.botId===bot?.id&&(!state?.runs.find(run=>run.id===request.runId)?.groupOrigin||state?.runs.find(run=>run.id===request.runId)?.groupTask));
+  const waiting=requests.find(request=>request.botId===bot?.id&&!state?.runs.find(run=>run.id===request.runId)?.groupOrigin);
   useAgentPreview(state?.previewRequests,group?{kind:'group',id:group.id}:{kind:'bot',id:bot?.id||''},Boolean(page!=='chat'||modal||peerPanel||groupEditor||taskModalOpen),error=>setToast(errorText(error)));
   const scopeBot=state?.bots.find(item=>item.id===scope)||bot;
   const act=async(operation:()=>Promise<unknown>)=>{setBusy(true);try{await operation();}catch(error){setToast(errorText(error));}finally{setBusy(false);}};
@@ -251,7 +251,7 @@ function AppContent(){
         return <React.Fragment key={key}><RunMessage onReply={replyTo} model={currentModel} messages={item.messages.map(message=>({...message,attachments:firstDeliveryAttachments(message,messages)}))} allMessages={allRunMessages} isLast={item.isLast} run={run} stream={item.isLast?liveReplies.find(reply=>reply.runId===item.id&&reply.purpose!=='progress'):undefined} waiting={item.isLast?requests.find(request=>request.runId===item.id)?.kind:undefined} latest={item.isLast&&latestRun?.id===item.id} canContinue={!running&&!busy} reviewing={item.isLast&&requests.some(request=>request.runId===item.id&&request.kind==='host_permission'&&request.approval?.phase==='reviewing')} onContinue={continueWork} onSettings={tab=>tab==='model'&&bot.model?editBot(bot):openSettings(tab)} onScreen={url=>{setScreen(url);setModal('screen');}}/><PreviewHistoryChips entries={(state.previewHistory||[]).filter(entry=>entry.scope.kind==='bot'&&entry.scope.id===bot.id)} runIds={[item.id]} artifactNames={new Set(outputs.map(file=>file.path))} attachmentIds={new Set(allRunMessages.flatMap(message=>message.attachments?.map(attachment=>attachment.id)||[]))} onOpen={openHistoryEntry}/><ArtifactList files={outputs} onOpen={file=>void openPreview(file)} onSave={file=>void saveFile(file)} disabled={busy||!vmReady}/></React.Fragment>;
       })}{liveReplies.filter(reply=>reply.purpose==='progress'||!reply.runId||!timeline.some(item=>item.kind==='run'&&item.id===reply.runId)).map(reply=><StreamingReply key={reply.id} reply={reply}/>)}{(running||greeting)&&<BotWorkingStatus bot={bot} onStop={()=>window.aelion.cancel(bot.id)} onReview={waiting?()=>viewInteraction(waiting):undefined} step={liveBotStep(messages,latestRun,waiting?.kind,waiting?.kind==='host_permission'&&waiting.approval?.phase==='reviewing')||{phase:'thinking',label:greeting?t('正在准备打招呼'):t('正在准备处理')}}/>}<div ref={bottom}/></section></ConversationTimeProvider>
       <div className={`composer-wrap ${waiting?'with-request':''}`}>
-        <ConversationInteractions requests={requests.filter(request=>!state.runs.find(run=>run.id===request.runId)?.groupOrigin||state.runs.find(run=>run.id===request.runId)?.groupTask)} botId={bot.id} onTakeover={startTakeover}/>
+        <ConversationInteractions requests={requests.filter(request=>!state.runs.find(run=>run.id===request.runId)?.groupOrigin)} botId={bot.id} onTakeover={startTakeover}/>
         <WorkItemsPanel items={state.workItems} scope={{kind:'bot',id:bot.id}} bots={state.bots}/>
         <LiveWorkStrip items={(state.liveWork||[]).filter(item=>item.botId===bot.id)}/>
         <BotComposer contextOverview={lastContext?.model===currentModel?.model&&lastContext?.providerId===currentModel?.providerId&&lastContext?.capacity===currentModel?.contextTokens?lastContext:undefined} contextCapacity={currentModel?.contextTokens} permissionMode={state.hostPermissionModes?.[workspaceKey({kind:'bot',id:bot.id})]} workspaceDir={state.conversationWorkspaces?.[workspaceKey({kind:'bot',id:bot.id})]||state.hostWorkspace?.workspaceDir} workspaceInherited={!state.conversationWorkspaces?.[workspaceKey({kind:'bot',id:bot.id})]} key={bot.id} bot={bot} bots={state.bots} draft={draft} running={running} onChange={draft=>setDrafts(value=>({...value,[bot.id]:draft}))} onSend={()=>void send()} onStop={()=>void window.aelion.cancel(bot.id)}/>

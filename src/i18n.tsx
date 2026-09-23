@@ -210,6 +210,9 @@ Object.assign(en,{'图片缩放比例':'Image zoom','适应窗口':'Fit to windo
 Object.assign(zhTW,{'图片缩放比例':'圖片縮放比例','适应窗口':'符合視窗','适应宽度':'符合寬度'});
 let activeLanguage:Language='zh-CN';
 
+Object.assign(en,{'群任务':'Group tasks','待认领':'Unclaimed','有阻碍':'Blocked','未完成':'unfinished','继续任务':'Continue task'});
+Object.assign(zhTW,{'群任务':'群組任務','待认领':'待認領','有阻碍':'有阻礙','未完成':'未完成','继续任务':'繼續任務'});
+
 export function readLanguage():Language{
   if(typeof window==='undefined')return 'zh-CN';
   try{const value=localStorage.getItem(LANGUAGE_STORAGE_KEY);return validLanguage(value)?value:'zh-CN';}catch{return 'zh-CN';}

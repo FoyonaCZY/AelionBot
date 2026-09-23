@@ -75,15 +75,15 @@ test('the SSE completion marker finishes the reply even if the server keeps the 
   const client=new ModelClient(()=>({baseUrl:`http://127.0.0.1:${(server.address() as any).port}/v1`,model:'fixture',contextTokens:32000,hasKey:false}),()=>''),result=await client.complete([{role:'user',content:'回复'}],[],AbortSignal.timeout(2000));assert.equal(result.content,'完整答复');await until(()=>closed);
 });
 
-test('group drafts stay hidden and only completed replies enter the group after superseded generation is discarded',async t=>{
+test('group drafts stay hidden while both concurrent members finish and publish independently',async t=>{
   const first=deferred<Completion>(),second=deferred<Completion>();let late:(text:string)=>void=()=>{},began=0,secondCalls=0;
   const f=fixture(t,async(messages,_tools,_signal,onText)=>{const id=/\/work\/([a-f0-9-]+)/.exec(messages[0].content||'')![1];began++;if(id===f.bot.id){onText?.('甲的半句');return first.promise;}if(++secondCalls===1){late=onText!;onText?.('乙的半句');return second.promise;}return answer('[群聊静默]');});const other=f.store.createBot('乙','协作');
   const groups=new GroupChats(f.store,{isRunning:id=>f.harness.isRunning(id),run:(...args)=>f.harness.run(...args),cancel:id=>f.harness.cancel(id),refresh:id=>f.harness.refreshGroup(id)},()=>{});f.harness.setGroupGateway(groups);f.onChange(()=>groups.wake());groups.start();f.cleanup.push(()=>groups.dispose());
   const room=groups.create({name:'完整回复群',botIds:[f.bot.id,other.id]});groups.send({id:room.id,message:'分别发表观点'});await until(()=>began===2);const revision=groups.snapshot().revision;
   assert.equal(f.harness.streams.snapshot().length,0);assert.equal(groups.read({id:room.id}).messages.filter(message=>message.sender.kind==='bot').length,0);assert.ok(!JSON.stringify(f.store.data.groupContexts).includes('半句'));
   late('后半段');await pause(130);assert.equal(groups.snapshot().revision,revision);assert.equal(began,2);assert.equal(f.harness.streams.snapshot().length,0);
-  first.resolve(answer('甲已完整发表'));await until(()=>secondCalls===2);late('过期文字');second.resolve(answer('乙的旧内容'));await until(()=>!groups.busy&&!f.harness.busy&&!f.store.data.groupDeliveries.some(delivery=>groupPending(delivery.status)));
-  assert.equal(f.harness.streams.snapshot().length,0);assert.deepEqual(groups.read({id:room.id}).messages.filter(message=>message.sender.kind==='bot').map(message=>message.content),['甲已完整发表']);assert.ok(!JSON.stringify(f.store.data.groupContexts).includes('过期文字'));
+  first.resolve(answer('甲已完整发表'));await until(()=>groups.read({id:room.id}).messages.some(message=>message.content==='甲已完整发表'));assert.equal(secondCalls,1);late('尚未公开的后半段');second.resolve(answer('乙已完整发表'));await until(()=>!groups.busy&&!f.harness.busy&&!f.store.data.groupDeliveries.some(delivery=>groupPending(delivery.status)));
+  assert.equal(f.harness.streams.snapshot().length,0);assert.deepEqual(groups.read({id:room.id}).messages.filter(message=>message.sender.kind==='bot').map(message=>message.content),['甲已完整发表','乙已完整发表']);late('过期文字');assert.doesNotMatch(JSON.stringify(f.store.data.groupContexts),/过期文字|半句|尚未公开的后半段/);
 });
 
 test('private reply previews stay in their thread and the sender summary streams in the user conversation',async t=>{

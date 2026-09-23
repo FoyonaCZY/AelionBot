@@ -6,10 +6,12 @@ import {workCommand,type WorkItem} from '../../src/work-types';
 import {botIdentity} from '../../src/bot-colors';
 import {effectiveWorkspace} from './workspaces';
 import type {HostComputer} from './host';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
+import {groupTaskFrame,mutateGroupTask,publicTask} from './group-tasks';
+import type {GroupMessage} from '../../src/group-types';
 import type {Bot,BotMention,RunRecord} from '../../src/shared';
 import {GROUP_LIMITS,groupPending,type GroupDelivery,type GroupLifecycleEvent,type GroupPage,type GroupRoom,type GroupRound,type GroupSender,type GroupSummary,type GroupsView} from '../../src/group-types';
-import {normalized,repeatedGroupResponse,groupAcknowledgment,groupContributionContext,individualGroupResponses} from './group-response';
+import {normalized} from './group-response';
 import {rememberPublished} from './group-history';
 import {pinDescription,updatePins,validPin,type PinInput} from '../../src/reactions';
 import {readableContent} from '../../src/activity';
@@ -23,16 +25,24 @@ import type {GroupGateway} from './group-runtime-types';
 import type {ScheduledTrigger} from '../../src/scheduled-types';
 
 interface Runner {isRunning:(id:string)=>boolean;run:(id:string,input:string,options:HarnessRunOptions)=>Promise<void>;cancel:(id:string)=>void;refresh?:(id:string)=>void;}
-interface Worker {botId:string;groupId:string;rootId:string;deliveries:GroupDelivery[];controller:AbortController;runId?:string;preempted?:boolean;updating?:boolean;seq:number;}
+interface Worker {botId:string;groupId:string;rootId:string;deliveries:GroupDelivery[];controller:AbortController;runId?:string;preempted?:boolean;}
 const now=()=>new Date().toISOString();
 const identity=botIdentity;
 const human:GroupSender={kind:'user',id:'user',name:'你'};
 const system:GroupSender={kind:'system',id:'system',name:'系统'};
 function required(value:unknown,label:string,max:number){if(typeof value!=='string'||!value.trim()||value.length>max||/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value))throw new Error(`${label}无效`);return value.trim();}
+const workLane=(message:GroupMessage|undefined)=>message?.workItemId||((message?.sender.kind==='user'&&workCommand(message.content))?message.id:undefined);
 export class GroupChats implements GroupGateway {
   private revision=0;private enabled=false;private closing=false;private timer?:ReturnType<typeof setTimeout>;
   private workers=new Map<string,Worker>();
   constructor(private store:Store,private runner:Runner,private changed:()=>void,private attachments=new Attachments(store),private host?:HostComputer){
+    // Publication may commit just before the process exits, before the inbox receipt is saved.
+    for(const entry of store.data.groupOutbox||[])if(entry.status==='sent'&&entry.messageId){
+      const run=store.data.runs.find(r=>r.id===entry.runId&&r.botId===entry.botId&&r.groupOrigin?.groupId===entry.groupId&&r.status==='completed');
+      if(!run||!store.data.groups.some(g=>g.id===entry.groupId&&g.messages.some(m=>m.id===entry.messageId)))continue;
+      run.groupReplyMessageId=entry.messageId;
+      for(const delivery of store.data.groupDeliveries)if(delivery.runId===run.id&&delivery.groupId===entry.groupId&&groupPending(delivery.status)){delivery.status='replied';delivery.replyMessageId=entry.messageId;}
+    }
     for(const delivery of store.data.groupDeliveries)if(groupPending(delivery.status)){delivery.status='interrupted';delivery.reason='应用重启，等待用户继续';}
     for(const round of store.data.groupRounds)if(round.status==='active'){round.status='stopped';round.reason='应用重启，等待用户继续';}
     store.save();
@@ -46,6 +56,59 @@ export class GroupChats implements GroupGateway {
   private members(room:GroupRoom){return room.members.filter(member=>!member.leftAt&&this.store.data.bots.some(bot=>bot.id===member.id));}
   private member(room:GroupRoom,id:string){if(!this.members(room).some(member=>member.id===id))throw new Error('只能访问自己加入的群聊');}
   private identities(room:GroupRoom){return this.members(room).map(member=>identity(this.store.bot(member.id)));}
+  receive(botId:string,runId:string){
+    const worker=this.workers.get(botId);if(!worker||worker.runId!==runId||worker.controller.signal.aborted)return [];
+    const room=this.room(worker.groupId);this.member(room,botId);
+    const run=this.store.data.runs.find(r=>r.id===runId),designId=room.messages.find(m=>m.id===worker.deliveries[0]?.messageId)?.designSessionId;
+    const deliveries=this.store.data.groupDeliveries.filter(d=>{
+      if(d.groupId!==room.id||d.recipientId!==botId||d.status!=='queued'||this.round(d.rootId).status!=='active')return false;
+      const message=room.messages.find(m=>m.id===d.messageId);if(message?.designSessionId!==designId||workLane(message)&&(!message?.workItemId||message.workItemId!==run?.workItemId))return false;
+      // A designer handling only a lifecycle event has no design tools yet. Leave a new
+      // human task queued so its next run can establish that task's authorization.
+      if(run?.engine==='designer'&&d.rootId!==worker.rootId&&!room.messages.some(m=>m.rootId===worker.rootId&&(m.sender.kind==='user'&&m.kind==='message'||m.scheduled))&&!this.round(worker.rootId).originKey?.startsWith('task:'))return false;
+      return true;
+    }).slice(0,8);
+    for(const delivery of deliveries){delivery.status='running';delivery.runId=runId;worker.deliveries.push(delivery);}
+    if(deliveries.length)this.touch();
+    return deliveries.map(d=>room.messages.find(m=>m.id===d.messageId)!).filter(Boolean);
+  }
+  taskFrame(botId:string,runId:string){const run=this.store.data.runs.find(r=>r.id===runId&&r.botId===botId);if(!run?.groupOrigin)return '';const room=this.room(run.groupOrigin.groupId);this.member(room,botId);return groupTaskFrame(room,botId,this.store);}
+  unfinished(botId:string,runId:string){return this.store.data.groups.some(room=>room.tasks?.some(t=>t.ownerId===botId&&t.status==='working'&&t.runIds.includes(runId)));}
+  blockUnfinished(botId:string,runId:string,reason:string){
+    const run=this.store.data.runs.find(item=>item.id===runId&&item.botId===botId&&item.groupOrigin);if(!run)return false;
+    const room=this.store.data.groups.find(item=>item.id===run.groupOrigin!.groupId),round=this.store.data.groupRounds.find(item=>item.id===run.groupOrigin!.rootId),tasks=room?.tasks||[];
+    const blocked=tasks.filter(task=>task.ownerId===botId&&task.status==='working'&&task.runIds.includes(runId));if(!room||!blocked.length)return false;
+    for(const task of blocked){task.status='blocked';task.reason=reason;task.updatedAt=now();task.revision++;}
+    if(round?.status==='active')this.append(room,system,`${this.store.bot(botId).name} 暂停了未完成任务：${blocked.map(task=>task.title).join('、')}\n${reason}`,round,undefined,'system',undefined,{runIds:[runId]});
+    this.touch();return true;
+  }
+  private pauseTasks(worker:Worker){
+    for(const task of this.store.data.groups.find(g=>g.id===worker.groupId)?.tasks||[])if(task.ownerId===worker.botId&&task.status==='working'&&task.runIds.includes(worker.runId||'')){task.status='paused';task.reason='执行已暂停；继续前核对自己的工作记录。';task.updatedAt=now();task.revision++;}
+  }
+  /** Persist a private outbox entry first; publish text, delivery records and the receipt together. */
+  private publish(room:GroupRoom,run:RunRecord,round:GroupRound,content:string,mentions:BotMention[],fields:{key:string;kind?:'message'|'progress';replyTo?:string;attachments?:GroupMessage['attachments']}){
+    this.member(room,run.botId);if(round.status!=='active'||!['running','completed'].includes(run.status))throw Error('本轮讨论已停止');
+    const outbox=this.store.data.groupOutbox||=[],kind=fields.kind||'message';
+    const fingerprint=(value:{content:string;mentions?:BotMention[];attachments?:GroupMessage['attachments']})=>JSON.stringify([value.content,value.mentions?.map(m=>m.id)||[],value.attachments?.map(a=>a.id)||[]]);
+    let entry=outbox.find(item=>item.botId===run.botId&&item.groupId===room.id&&item.rootId===round.id&&item.key===fields.key);
+    if(entry&&fingerprint(entry)!==fingerprint({content,mentions,attachments:fields.attachments}))throw Error('同一发件标识不能用于不同内容');
+    // A final reply may repeat an explicitly published message from this run.
+    entry||=outbox.find(item=>item.botId===run.botId&&item.groupId===room.id&&item.runId===run.id&&item.status==='sent'&&fingerprint(item)===fingerprint({content,mentions,attachments:fields.attachments}));
+    if(entry?.messageId){const sent=room.messages.find(m=>m.id===entry!.messageId);if(sent)return sent;throw Error('发件回执对应的消息缺失');}
+    if(!entry){entry={id:randomUUID(),botId:run.botId,groupId:room.id,rootId:round.id,runId:run.id,key:fields.key,content,mentions,attachments:fields.attachments,kind,replyTo:fields.replyTo,status:'pending',createdAt:now(),designSessionId:run.designSessionId};outbox.push(entry);try{this.store.save();}catch(error){outbox.pop();throw error;}}
+    const previous={messages:room.messages.length,deliveries:this.store.data.groupDeliveries.length,updatedAt:room.updatedAt,activeRootId:room.activeRootId,botMessages:round.botMessages,botCount:round.botCounts[run.botId]};
+    let message:GroupMessage;
+    try{
+      message=this.append(room,{kind:'bot',...identity(this.store.bot(run.botId))},entry.content,round,entry.mentions,entry.kind,entry.replyTo,{attachments:entry.attachments,designSessionId:entry.designSessionId,runIds:[run.id]});
+      entry.status='sent';entry.messageId=message.id;this.store.save();
+    }catch(error){
+      const added=new Set(room.messages.slice(previous.messages).map(m=>m.id));
+      room.messages.splice(previous.messages);this.store.data.groupDeliveries.splice(previous.deliveries);room.updatedAt=previous.updatedAt;room.activeRootId=previous.activeRootId;round.botMessages=previous.botMessages;if(previous.botCount===undefined)delete round.botCounts[run.botId];else round.botCounts[run.botId]=previous.botCount;
+      for(const history of Object.values(this.store.data.groupContexts))for(let i=history.length-1;i>=0;i--)if(added.has(history[i].groupMessageId||''))history.splice(i,1);
+      entry.status='pending';delete entry.messageId;throw error;
+    }
+    this.revision++;this.changed();this.wake();return message;
+  }
   prepareReply(botId:string,runId:string,content:string){
     const run=this.store.data.runs.find(run=>run.id===runId&&run.botId===botId&&run.status==='running');if(!run?.groupOrigin)throw new Error('群聊任务已结束');
     const room=this.room(run.groupOrigin.groupId);this.member(room,botId);return botMentions(content,this.identities(room),botId);
@@ -53,28 +116,28 @@ export class GroupChats implements GroupGateway {
   publishProgress(botId:string,runId:string,content:string){
     const run=this.store.data.runs.find(run=>run.id===runId&&run.botId===botId&&run.status==='running');if(!run?.groupOrigin)throw new Error('群任务已结束');
     const room=this.room(run.groupOrigin.groupId),worker=this.workers.get(botId);this.member(room,botId);
-    if(!worker||worker.runId!==runId||worker.updating||worker.controller.signal.aborted)throw new Error('群消息已更新');
+    if(!worker||worker.runId!==runId||worker.controller.signal.aborted)throw new Error('群消息已更新');
     const previous=[...room.messages].reverse().find(message=>message.sender.id===botId&&message.kind==='progress');if(previous?.content===content)return;
     const round=this.round(run.groupOrigin.rootId);if(round.status!=='active')throw new Error('本轮讨论已停止');
-    this.append(room,{kind:'bot',...identity(this.store.bot(botId))},content,round,undefined,'progress',undefined,{runIds:[runId]});worker.seq=room.messages.at(-1)!.seq;this.touch();
+    this.publish(room,run,round,content,[],{key:'progress:'+createHash('sha256').update(content).digest('hex'),kind:'progress'});
   }
   private botIds(value:unknown,min:number){if(!Array.isArray(value)||value.length<min||value.length>GROUP_LIMITS.bots||value.some(id=>typeof id!=='string')||new Set(value).size!==value.length)throw new Error(`请选择 ${min}–${GROUP_LIMITS.bots} 位 Bot`);return value.map(id=>this.store.bot(id));}
   private summary(room:GroupRoom):GroupSummary{
     const round=room.activeRootId?this.store.data.groupRounds.find(item=>item.id===room.activeRootId):undefined,workers=[...this.workers.values()].filter(worker=>worker.groupId===room.id);
-    return {id:room.id,name:room.name,members:room.members.map(member=>{const live=this.store.data.bots.find(bot=>bot.id===member.id);if(!live)return member;const {avatarStyle,...stored}=member;return {...stored,...identity(live)};}),createdBy:room.createdBy,updatedAt:room.updatedAt,preview:groupReplyContent(room.messages.length?previewFeedbackDisplay(room.messages.at(-1)!).content:'',room.messages.at(-1)?.sender.kind==='bot'?room.messages.at(-1)?.sender.id:undefined).slice(0,100)||attachmentSummary(room.messages.at(-1)?.attachments),unread:room.messages.filter(message=>message.seq>room.lastReadSeq&&message.sender.kind==='bot').length,lastSeq:room.messages.at(-1)?.seq||0,pending:this.store.data.groupDeliveries.filter(d=>d.groupId===room.id&&groupPending(d.status)).length,...(round?{round:{id:round.id,status:round.status,botMessages:round.botMessages,reason:round.reason}}:{}),activities:workers.map(worker=>({botId:worker.botId,phase:worker.updating?'updating':'running'}))};
+    return {id:room.id,name:room.name,members:room.members.map(member=>{const live=this.store.data.bots.find(bot=>bot.id===member.id);if(!live)return member;const {avatarStyle,...stored}=member;return {...stored,...identity(live)};}),createdBy:room.createdBy,updatedAt:room.updatedAt,preview:groupReplyContent(room.messages.length?previewFeedbackDisplay(room.messages.at(-1)!).content:'',room.messages.at(-1)?.sender.kind==='bot'?room.messages.at(-1)?.sender.id:undefined).slice(0,100)||attachmentSummary(room.messages.at(-1)?.attachments),unread:room.messages.filter(message=>message.seq>room.lastReadSeq&&message.sender.kind==='bot').length,lastSeq:room.messages.at(-1)?.seq||0,pending:this.store.data.groupDeliveries.filter(d=>d.groupId===room.id&&groupPending(d.status)).length,...(round?{round:{id:round.id,status:round.status,botMessages:round.botMessages,reason:round.reason}}:{}),activities:workers.map(worker=>({botId:worker.botId,phase:'running'}))};
   }
   snapshot():GroupsView{return {revision:this.revision,rooms:this.store.data.groups.map(room=>this.summary(room)).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)),limits:GROUP_LIMITS};}
   read(input:{id:string;before?:string}):GroupPage{
     const room=this.room(required(input?.id,'群聊 ID',80));let end=room.messages.length;if(input.before){end=room.messages.findIndex(message=>message.id===input.before);if(end<0)throw new Error('消息位置已失效');}
     const start=Math.max(0,end-60),messages=room.messages.slice(start,end).map(message=>message.sender.kind==='bot'&&!message.mentions?{...message,...botMentions(message.content,this.identities(room),message.sender.id,false)}:message),ids=new Set(messages.map(message=>message.id));
-    return structuredClone({group:this.summary(room),messages,pins:Object.fromEntries(room.messages.filter(message=>message.pins?.length).map(message=>[message.id,message.pins!])),deliveries:this.store.data.groupDeliveries.filter(delivery=>delivery.groupId===room.id&&ids.has(delivery.messageId)),...(start>0?{before:messages[0].id}:{})});
+    return structuredClone({tasks:room.tasks||[],group:this.summary(room),messages,pins:Object.fromEntries(room.messages.filter(message=>message.pins?.length).map(message=>[message.id,message.pins!])),deliveries:this.store.data.groupDeliveries.filter(delivery=>delivery.groupId===room.id&&ids.has(delivery.messageId)),...(start>0?{before:messages[0].id}:{})});
   }
   markRead(input:{id:string;seq:number}){const room=this.room(required(input?.id,'群聊 ID',80));if(!Number.isInteger(input.seq)||input.seq<0||input.seq>(room.messages.at(-1)?.seq||0))throw new Error('消息位置无效');if(input.seq<=room.lastReadSeq)return;room.lastReadSeq=input.seq;for(const delivery of this.store.data.groupDeliveries.filter(d=>d.groupId===room.id&&d.recipientId==='user'&&d.status==='delivered')){if((room.messages.find(message=>message.id===delivery.messageId)?.seq||0)<=input.seq)delivery.status='read';}this.touch();}
   private newRound(room:GroupRoom,request:string,originKey?:string){const round:GroupRound={id:randomUUID(),groupId:room.id,request:request.slice(0,8000),status:'active',createdAt:now(),botMessages:0,botCounts:{},decisions:0,createdGroups:0,originKey};this.store.data.groupRounds.push(round);room.activeRootId=round.id;return round;}
   private append(room:GroupRoom,sender:GroupSender,content:string,round?:GroupRound,mentions?:BotMention[],kind:import('../../src/group-types').GroupMessage['kind']=sender.kind==='system'?'system':'message',replyTo?:string,extra:Partial<Pick<import('../../src/group-types').GroupMessage,'reaction'|'runIds'|'event'|'attachments'|'scheduled'|'workItemId'|'reply'|'previewPrompt'|'designSessionId'>>={}){
     if(sender.kind==='user')sender={...sender,name:userDisplayName(this.store.data.userProfile)};
     const message:import('../../src/group-types').GroupMessage={...(sender.kind==='user'?{workspaceDir:effectiveWorkspace(this.store,this.host,{kind:'group',id:room.id})}:{}),id:randomUUID(),seq:(room.messages.at(-1)?.seq||0)+1,groupId:room.id,sender,kind,content,time:now(),rootId:round?.id,mentions,replyTo,...extra};room.messages.push(message);rememberPublished(this.store,message);room.updatedAt=message.time;
-    if(round){const current=this.store.data.groupRounds.findIndex(r=>r.id===room.activeRootId);if(current<0||this.store.data.groupRounds.indexOf(round)>=current)room.activeRootId=round.id;for(const recipientId of ['user',...this.members(room).map(member=>member.id)].filter(id=>id!==sender.id))this.store.data.groupDeliveries.push({id:randomUUID(),groupId:room.id,messageId:message.id,recipientId,rootId:round.id,status:recipientId==='user'?'delivered':'queued',createdAt:message.time});if(sender.kind==='bot'){round.botMessages++;round.botCounts[sender.id]=(round.botCounts[sender.id]||0)+1;}this.updated(room,sender.id);}
+    if(round){const current=this.store.data.groupRounds.findIndex(r=>r.id===room.activeRootId);if(current<0||this.store.data.groupRounds.indexOf(round)>=current)room.activeRootId=round.id;for(const recipientId of ['user',...this.members(room).map(member=>member.id)].filter(id=>id!==sender.id))this.store.data.groupDeliveries.push({id:randomUUID(),groupId:room.id,messageId:message.id,recipientId,rootId:round.id,status:recipientId==='user'?'delivered':'queued',createdAt:message.time});if(sender.kind==='bot'){round.botMessages++;round.botCounts[sender.id]=(round.botCounts[sender.id]||0)+1;}}
     return message;
   }
   private lifecycle(room:GroupRoom,content:string,event:Omit<GroupLifecycleEvent,'members'>,round?:GroupRound){
@@ -94,7 +157,7 @@ export class GroupChats implements GroupGateway {
     if(joined.length||left.length){const content=[joined.length?`${joined.map(bot=>bot.name).join('、')} 加入了群聊`:'',left.length?`${left.map(bot=>bot.name).join('、')} 已移出群聊`:''].filter(Boolean).join('；');this.lifecycle(room,content,{type:'members_changed',actor,joined,left},round);}
     this.touch();
   }
-  delete(id:string){const room=this.room(required(id,'群聊 ID',80));this.stop(id);this.store.data.workItems=this.store.data.workItems?.filter(item=>item.scope.kind!=='group'||item.scope.id!==id);if(this.store.data.conversationWorkspaces)delete this.store.data.conversationWorkspaces['group:'+id];if(this.store.data.hostPermissionModes)delete this.store.data.hostPermissionModes['group:'+id];this.store.data.groups=this.store.data.groups.filter(item=>item!==room);this.store.data.groupDeliveries=this.store.data.groupDeliveries.filter(d=>d.groupId!==id);this.touch();}
+  delete(id:string){const room=this.room(required(id,'群聊 ID',80));this.stop(id);this.store.data.workItems=this.store.data.workItems?.filter(item=>item.scope.kind!=='group'||item.scope.id!==id);if(this.store.data.conversationWorkspaces)delete this.store.data.conversationWorkspaces['group:'+id];if(this.store.data.hostPermissionModes)delete this.store.data.hostPermissionModes['group:'+id];this.store.data.groups=this.store.data.groups.filter(item=>item!==room);this.store.data.groupDeliveries=this.store.data.groupDeliveries.filter(d=>d.groupId!==id);this.store.data.groupOutbox=this.store.data.groupOutbox?.filter(item=>item.groupId!==id);this.touch();}
   pinUser(input:PinInput&{groupId:string}){return this.pin(this.room(required(input?.groupId,'群聊 ID',80)),human,input);}
   private pin(room:GroupRoom,sender:GroupSender,input:PinInput,round?:GroupRound,runId?:string){
     validPin(input);if(round&&round.status!=='active')throw new Error('本轮讨论已停止');if(sender.kind==='system')throw new Error('系统消息不能表态');
@@ -105,7 +168,6 @@ export class GroupChats implements GroupGateway {
     if(!updatePins(target,sender,input))return {pinned:!input.remove,alreadyApplied:true,messageId:target.id};
     const content=pinDescription(sender,input,target.content);round||=this.newRound(room,'用户的表情态度（不是新任务或授权）：'+content);
     const event=this.append(room,sender,content,round,undefined,'reaction',target.id,{reaction:{messageId:target.id,emoji:input.emoji,removed:Boolean(input.remove)},...(runId?{runIds:[runId]}:{})});
-    const own=this.workers.get(sender.id);if(own?.groupId===room.id&&!own.updating)own.seq=event.seq;
     this.touch();return {pinned:!input.remove,messageId:target.id,eventId:event.id};
   }
   private mentions(room:GroupRoom,content:string,value?:BotMention[]){if(value===undefined)return [];if(!Array.isArray(value)||value.length>12)throw new Error('提及的成员无效');let end=0;return value.map(mention=>{if(!mention||typeof mention.name!=='string'||!Number.isInteger(mention.start)||!Number.isInteger(mention.end)||mention.start<end||mention.end>content.length||content.slice(mention.start,mention.end)!==`@${mention.name}`)throw new Error('提及的位置已变化，请重新选择');this.member(room,mention.id);end=mention.end;return {...identity(this.store.bot(mention.id)),name:mention.name,start:mention.start,end:mention.end};});}
@@ -129,13 +191,12 @@ export class GroupChats implements GroupGateway {
   }
   continue(id:string){const room=this.room(required(id,'群聊 ID',80)),previous=room.activeRootId?this.round(room.activeRootId):undefined;if(previous?.status==='active')throw new Error('这一轮仍可继续讨论');const round=this.newRound(room,previous?.request||room.messages.filter(m=>m.kind==='message').at(-1)?.content||'继续群聊');this.append(room,human,'继续本轮讨论',round,undefined,'continue');this.touch();}
   stop(id:string){const room=this.room(required(id,'群聊 ID',80)),roots=new Set(this.store.data.groupDeliveries.filter(d=>d.groupId===id&&groupPending(d.status)).map(d=>d.rootId));if(room.activeRootId)roots.add(room.activeRootId);for(const rootId of roots){const round=this.round(rootId);round.status='stopped';round.reason='你停止了本轮讨论';for(const delivery of this.store.data.groupDeliveries.filter(d=>d.rootId===rootId&&groupPending(d.status))){delivery.status='cancelled';delivery.reason=round.reason;}for(const worker of this.workers.values())if(worker.rootId===rootId){worker.controller.abort();if(worker.runId)this.runner.cancel(worker.botId);}}this.touch();}
-  private cancelMember(groupId:string,botId:string,reason:string){for(const delivery of this.store.data.groupDeliveries.filter(d=>d.groupId===groupId&&d.recipientId===botId&&groupPending(d.status))){delivery.status='cancelled';delivery.reason=reason;}const worker=this.workers.get(botId);if(worker?.groupId===groupId){worker.controller.abort();if(worker.runId)this.runner.cancel(botId);}}
+  private cancelMember(groupId:string,botId:string,reason:string){for(const task of this.store.data.groups.find(g=>g.id===groupId)?.tasks||[])if(task.ownerId===botId&&task.status!=='completed'){delete task.ownerId;task.status='open';task.reason=reason+'；重新认领前核对已执行的操作。';task.revision++;task.updatedAt=now();}for(const delivery of this.store.data.groupDeliveries.filter(d=>d.groupId===groupId&&d.recipientId===botId&&groupPending(d.status))){delivery.status='cancelled';delivery.reason=reason;}const worker=this.workers.get(botId);if(worker?.groupId===groupId){worker.controller.abort();if(worker.runId)this.runner.cancel(botId);}}
   deletingBot(id:string){for(const room of this.store.data.groups){const member=room.members.find(member=>member.id===id&&!member.leftAt);if(member){member.leftAt=now();this.cancelMember(room.id,id,'Bot 已删除');this.lifecycle(room,`${member.name} 已删除`,{type:'members_changed',actor:human,joined:[],left:[identity(member)]});}}this.touch();}
   preempt(id:string){for(const worker of this.workers.values())if(worker.botId===id&&!worker.runId){worker.preempted=true;worker.controller.abort();}}
   yieldToUser(botId:string){
     const worker=this.workers.get(botId);if(!worker)return;
-    for(const delivery of this.store.data.groupDeliveries)if(delivery.groupId===worker.groupId&&delivery.recipientId===botId&&groupPending(delivery.status)){delivery.status='cancelled';delivery.reason='用户在主会话发送了新输入';}
-    worker.controller.abort();if(worker.runId)this.runner.refresh?.(botId);this.touch();
+    worker.preempted=true;worker.controller.abort();if(worker.runId)this.runner.refresh?.(botId);this.touch();
   }
   cancelRun(run:RunRecord){if(run.groupOrigin)this.stop(run.groupOrigin.groupId);}
   retryRun(run:RunRecord){
@@ -143,13 +204,6 @@ export class GroupChats implements GroupGateway {
     const delivery=this.store.data.groupDeliveries.find(item=>item.id===origin.deliveryId&&item.recipientId===run.botId&&item.runId===run.id);
     if(!delivery||groupPending(delivery.status)||this.workers.has(run.botId)||this.runner.isRunning(run.botId))throw Error('群任务仍在处理或已有更新，请稍后重试');
     const round=this.round(origin.rootId);round.status='active';delete round.reason;delivery.status='queued';delivery.retryRunId=run.id;delete delivery.reason;this.touch();
-  }
-  private updated(room:GroupRoom,senderId:string){
-    for(const worker of this.workers.values()){
-      if(worker.groupId!==room.id||worker.botId===senderId)continue;
-      worker.updating=true;
-      if(worker.runId)this.runner.refresh?.(worker.botId);else worker.controller.abort();
-    }
   }
   private allowance(round:GroupRound,_botId:string){return round.status==='active';}
   private requeue(worker:Worker){for(const delivery of worker.deliveries)if(groupPending(delivery.status)&&this.round(delivery.rootId).status==='active'){delivery.status='queued';delivery.reason=undefined;}}
@@ -162,13 +216,13 @@ export class GroupChats implements GroupGateway {
       if(round.status!=='active'){delivery.status=round.status==='limited'?'limited':'cancelled';delivery.reason=round.reason;dirty=true;continue;}
       if(this.workers.has(delivery.recipientId)||this.runner.isRunning(delivery.recipientId))continue;
       const batch=this.store.data.groupDeliveries.filter(d=>d.groupId===room.id&&d.recipientId===delivery.recipientId&&d.status==='queued'&&this.round(d.rootId).status==='active').slice(0,8);
-      const designId=room.messages.find(m=>m.id===delivery.messageId)?.designSessionId;for(let i=batch.length-1;i>=0;i--)if(room.messages.find(m=>m.id===batch[i].messageId)?.designSessionId!==designId)batch.splice(i,1);
+      const firstMessage=room.messages.find(m=>m.id===delivery.messageId),designId=firstMessage?.designSessionId,lane=workLane(firstMessage);for(let i=batch.length-1;i>=0;i--){const message=room.messages.find(m=>m.id===batch[i].messageId);if(message?.designSessionId!==designId||workLane(message)!==lane)batch.splice(i,1);}
       const trigger=batch.at(-1)!;
-      const worker:Worker={groupId:room.id,botId:delivery.recipientId,rootId:trigger.rootId,deliveries:batch,controller:new AbortController(),seq:room.messages.at(-1)?.seq||0};this.workers.set(worker.botId,worker);
+      const worker:Worker={groupId:room.id,botId:delivery.recipientId,rootId:trigger.rootId,deliveries:batch,controller:new AbortController()};this.workers.set(worker.botId,worker);
       void this.process(room,worker).catch(error=>{
-        if((worker.preempted||worker.updating)&&this.round(worker.rootId).status==='active')this.requeue(worker);
-        else for(const item of batch)if(groupPending(item.status)){item.status=worker.controller.signal.aborted?'cancelled':'failed';item.reason=String((error as Error).message).slice(0,300);}
-      }).finally(()=>{if(this.workers.get(worker.botId)===worker)this.workers.delete(worker.botId);this.touch();});
+        if(worker.preempted&&this.round(worker.rootId).status==='active')this.requeue(worker);
+        else for(const item of worker.deliveries)if(groupPending(item.status)){item.status=worker.controller.signal.aborted?'cancelled':'failed';item.reason=String((error as Error).message).slice(0,300);}
+      }).finally(()=>{if(worker.preempted)this.requeue(worker);this.pauseTasks(worker);if(this.workers.get(worker.botId)===worker)this.workers.delete(worker.botId);this.touch();});
     }
     if(dirty)this.touch();
   }
@@ -178,24 +232,27 @@ export class GroupChats implements GroupGateway {
     for(const delivery of deliveries)delivery.status='running';
     this.touch();
     const retry=[...deliveries].reverse().map(delivery=>this.store.data.runs.find(run=>run.id===delivery.retryRunId&&run.botId===bot.id)).find(Boolean);for(const delivery of deliveries)delete delivery.retryRunId;
-    const previousTask=retry||[...deliveries].reverse().map(delivery=>this.store.data.runs.find(run=>run.id===delivery.runId&&run.botId===bot.id&&run.groupTask&&run.groupUpdated&&run.groupOrigin?.groupId===room.id&&run.groupOrigin.rootId===round.id)).find(Boolean);
-    const recent=room.messages.filter(m=>!bot.contextResetAt||m.time>=bot.contextResetAt).slice(-8).map(message=>({id:message.id,sender:message.sender,kind:message.kind,reply:message.reply,scheduled:message.scheduled,content:groupReplyContent(message.content,message.sender.kind==='bot'?message.sender.id:undefined).slice(0,1200),event:message.event,mentions:message.mentions?.map(mention=>mention.id)}));
+    const requestedTaskId=deliveries.map(delivery=>room.messages.find(message=>message.id===delivery.messageId)?.content||'').join('\n').match(/taskId\s*[:：]\s*([\da-f-]{36})/i)?.[1];
+    const requestedTask=requestedTaskId?room.tasks?.find(task=>task.id===requestedTaskId&&task.ownerId===bot.id&&task.status!=='completed'):undefined;
+    const requeuedTaskRunId=[...deliveries].reverse().map(delivery=>delivery.runId).find(id=>id&&room.tasks?.some(task=>task.ownerId===bot.id&&task.status!=='completed'&&task.runIds.includes(id)));
+    const previousTask=retry||requestedTask?.runIds.slice().reverse().map(id=>this.store.data.runs.find(run=>run.id===id&&run.botId===bot.id&&run.groupOrigin?.groupId===room.id)).find(Boolean)||this.store.data.runs.find(run=>run.id===requeuedTaskRunId&&run.botId===bot.id&&run.groupOrigin?.groupId===room.id);
+    const recent=room.messages.filter(m=>!bot.contextResetAt||m.time>=bot.contextResetAt).slice(-4).map(message=>({id:message.id,sender:message.sender,kind:message.kind,reply:message.reply,scheduled:message.scheduled,content:groupReplyContent(message.content,message.sender.kind==='bot'?message.sender.id:undefined).slice(0,1200),event:message.event,mentions:message.mentions?.map(mention=>mention.id)}));
     const context=groupEventPrompt(room.name,room.id,bot.name,this.identities(room).map(m=>({id:m.id,name:m.name})),round.request);
     const lastMessage=room.messages.find(m=>m.id===deliveries.at(-1)?.messageId),workItem=lastMessage?.workItemId?this.store.data.workItems?.find(item=>item.id===lastMessage.workItemId&&item.botId===bot.id&&item.scope.id===room.id):undefined;
-    await this.runner.run(bot.id,JSON.stringify({events:deliveries.map(d=>{const message=room.messages.find(message=>message.id===d.messageId)!;return {eventId:d.id,messageId:message.id,sender:message.sender,kind:message.kind,reply:message.reply,event:message.event,scheduled:message.scheduled,content:groupReplyContent(message.content,message.sender.kind==='bot'?message.sender.id:undefined).slice(0,1600),mentions:message.mentions,mentioned:message.mentions?.some(mention=>mention.id===bot.id)||false};}),recent}),{designSessionId:lastMessage?.designSessionId,resumeRunId:retry?.id,workItemId:retry?.workItemId||workItem?.id,workspaceDir:retry?.workspaceDir||workItem?.workspaceDir||lastMessage?.workspaceDir||effectiveWorkspace(this.store,this.host,{kind:'group',id:room.id}),groupOrigin:{groupId:room.id,rootId:round.id,deliveryId:deliveries.at(-1)!.id},groupContext:context+groupContributionContext(bot.contextResetAt?{...room,messages:room.messages.filter(m=>m.time>=bot.contextResetAt!)}:room,round.id,bot.id,deliveries.map(delivery=>delivery.messageId))+GROUP_STATE_EVENT_PROMPT,groupTaskFrom:previousTask?.id,onStarted:id=>{worker.runId=id;for(const delivery of deliveries)delivery.runId=id;this.touch();}});
-    if(worker.updating||worker.seq!==room.messages.at(-1)?.seq){this.requeue(worker);return;}
+    await this.runner.run(bot.id,JSON.stringify({events:deliveries.map(d=>{const message=room.messages.find(message=>message.id===d.messageId)!;return {eventId:d.id,messageId:message.id,sender:message.sender,kind:message.kind,reply:message.reply,event:message.event,scheduled:message.scheduled,content:groupReplyContent(message.content,message.sender.kind==='bot'?message.sender.id:undefined).slice(0,1600),mentions:message.mentions,mentioned:message.mentions?.some(mention=>mention.id===bot.id)||false};}),recent}),{designSessionId:lastMessage?.designSessionId||previousTask?.designSessionId,resumeRunId:retry?.id,workItemId:retry?.workItemId||workItem?.id||previousTask?.workItemId,workspaceDir:retry?.workspaceDir||workItem?.workspaceDir||previousTask?.workspaceDir||lastMessage?.workspaceDir||effectiveWorkspace(this.store,this.host,{kind:'group',id:room.id}),groupOrigin:{groupId:room.id,rootId:round.id,deliveryId:deliveries.at(-1)!.id},groupContext:context+GROUP_STATE_EVENT_PROMPT,groupTaskFrom:previousTask?.id,onStarted:id=>{worker.runId=id;for(const delivery of deliveries)delivery.runId=id;this.touch();}});
     if(controller.signal.aborted||this.round(worker.rootId).status!=='active'||!this.store.data.groups.includes(room))return;
     this.member(room,bot.id);const run=this.store.data.runs.find(run=>run.id===worker.runId);if(run?.status!=='completed')throw new Error(run?.error||'群聊任务未完成');
     const finalMessage=this.store.runMessages(run.id).filter(message=>message.presentation==='answer').at(-1),answer=readableContent(finalMessage?.content||attachmentSummary(finalMessage?.attachments)).trim();
-    const emittedPin=room.messages.find(message=>message.kind==='reaction'&&message.runIds?.includes(run.id));if(emittedPin&&(!answer||answer==='[群聊静默]')){for(const delivery of deliveries){delivery.status='replied';delivery.replyMessageId=emittedPin.id;}return;}
-    const individual=individualGroupResponses(round.request),duplicate=finalMessage?.attachments?.length?room.messages.some(message=>message.rootId===round.id&&message.sender.id===bot.id&&normalized(message.content)===normalized(answer)&&JSON.stringify(message.attachments?.map(file=>file.id))===JSON.stringify(finalMessage.attachments?.map(file=>file.id))):repeatedGroupResponse(room,round.id,answer,finalMessage?.mentions,bot.id,individual),trigger=room.messages.find(message=>message.id===deliveries.at(-1)?.messageId);
-    const acknowledgment=!individual&&!run.toolCalls&&trigger?.sender.kind==='bot'&&groupAcknowledgment(answer);
-    if(!answer||answer==='[群聊静默]'||duplicate||acknowledgment){
-      for(const delivery of deliveries){delivery.status='ignored';delivery.reason=duplicate?'相同内容已有人表达':'无需继续回复';}
-      if(duplicate)round.repetitions=(round.repetitions||0)+1;return;
+    const emitted=[...room.messages].reverse().find(message=>message.sender.id===bot.id&&message.runIds?.includes(run.id));if(emitted&&(!answer||answer==='[群聊静默]')){run.groupReplyMessageId=emitted.id;for(const delivery of deliveries){delivery.status='replied';delivery.replyMessageId=emitted.id;}return;}
+    const trigger=room.messages.find(message=>message.id===deliveries.at(-1)?.messageId);
+    if(!answer||answer==='[群聊静默]'){
+      for(const delivery of deliveries){delivery.status='ignored';delivery.reason='已处理，无需公开回复';}return;
     }
-    round.repetitions=0;const message=this.append(room,{kind:'bot',...identity(bot)},answer,round,finalMessage?.mentions,'message',trigger?.id,{designSessionId:run.designSessionId,attachments:finalMessage?.attachments});run.groupReplyMessageId=message.id;message.runIds=this.store.data.runs.filter(item=>item.botId===bot.id&&item.groupOrigin?.groupId===room.id&&item.startedAt>=deliveries[0].createdAt).map(item=>item.id);for(const delivery of deliveries){delivery.status='replied';delivery.replyMessageId=message.id;}
+    const message=this.publish(room,run,round,answer,finalMessage?.mentions||[],{key:'final:'+createHash('sha256').update(JSON.stringify([answer,finalMessage?.mentions?.map(m=>m.id)||[],finalMessage?.attachments?.map(a=>a.id)||[]])).digest('hex'),replyTo:trigger?.id,attachments:finalMessage?.attachments});
+    run.groupReplyMessageId=message.id;
+    for(const delivery of deliveries){delivery.status='replied';delivery.replyMessageId=message.id;}
   }
+
   private rootFor(botId:string,runId:string){
     const run=this.store.data.runs.find(run=>run.id===runId&&run.botId===botId&&run.status==='running');if(!run)throw new Error('当前任务已结束');
     if(run.groupOrigin)return this.round(run.groupOrigin.rootId);
@@ -208,7 +265,28 @@ export class GroupChats implements GroupGateway {
   invoke(botId:string,runId:string,name:string,args:Record<string,unknown>,signal:AbortSignal,options:HarnessRunOptions){
     this.store.bot(botId);if(this.closing||signal.aborted)throw new Error('任务已停止');
     if(name==='groups_list')return this.store.data.groups.filter(room=>this.members(room).some(member=>member.id===botId)).map(room=>({id:room.id,name:room.name,members:this.members(room).map(m=>({id:m.id,name:m.name})),preview:groupReplyContent(room.messages.at(-1)?.content||'',room.messages.at(-1)?.sender.kind==='bot'?room.messages.at(-1)?.sender.id:undefined).slice(0,300)}));
-    if(name==='group_read'){const room=this.room(required(args.groupId,'群聊 ID',80));this.member(room,botId);const page=this.read({id:room.id,before:typeof args.before==='string'?args.before:undefined});const messages=page.messages.slice(-10);return {groupId:room.id,messages:messages.map(m=>({...m,content:m.content.slice(0,2400)})),before:messages[0]?.id};}
+    if(name==='group_read'){
+      const room=this.room(required(args.groupId,'群聊 ID',80));this.member(room,botId);
+      if(args.messageId){const message=room.messages.find(m=>m.id===args.messageId);if(!message)throw Error('群消息不存在');const offset=Number(args.offset)||0;if(!Number.isInteger(offset)||offset<0||offset>message.content.length)throw Error('消息偏移无效');return {...message,content:message.content.slice(offset,offset+6000),...(offset+6000<message.content.length?{nextOffset:offset+6000}:{})};}
+      const page=this.read({id:room.id,before:typeof args.before==='string'?args.before:undefined}),messages=page.messages.slice(-10),before=messages[0]&&room.messages.findIndex(m=>m.id===messages[0].id)>0?messages[0].id:undefined;
+      return {groupId:room.id,messages:messages.map(m=>({...m,content:m.content.slice(0,2400),...(m.content.length>2400?{truncated:true,offset:2400}:{})})),before};
+    }
+    if(name==='group_outbox'){const room=this.room(required(args.groupId,'群聊 ID',80));this.member(room,botId);return this.store.data.groupOutbox?.filter(m=>m.groupId===room.id&&m.botId===botId).slice(-20).map(m=>({id:m.id,key:m.key,status:m.status,messageId:m.messageId,content:m.content.slice(0,500)}));}
+    if(name==='group_tasks'||name==='group_task_claim'||name==='group_task_update'){
+      const room=this.room(required(args.groupId,'群聊 ID',80));this.member(room,botId);
+      if(name==='group_tasks'){const tasks=room.tasks||[],offset=Number(args.offset)||0;if(!Number.isInteger(offset)||offset<0)throw Error('任务位置无效');return {tasks:tasks.slice(offset,offset+20).map(publicTask),...(offset+20<tasks.length?{nextOffset:offset+20}:{})};}
+      const run=this.store.data.runs.find(r=>r.id===runId&&r.botId===botId&&r.status==='running');
+      if(!run?.groupOrigin||run.groupOrigin.groupId!==room.id||options.groupOrigin?.groupId!==room.id)throw Error('只能在当前群聊认领或更新任务');
+      const round=this.round(run.groupOrigin.rootId);if(round.status!=='active')throw Error('本轮讨论已停止');
+      const previous=structuredClone(room.tasks||[]),count=room.messages.length,deliveries=this.store.data.groupDeliveries.length,updatedAt=room.updatedAt;
+      const result=mutateGroupTask(this.store,room,run,name,args);
+      if('claimed' in result&&result.claimed&&!result.alreadyClaimed||'updated' in result&&result.updated){
+        const task=result.task,label=({open:'释放了任务',working:'正在处理',blocked:'遇到阻碍',paused:'暂停了任务',completed:'完成了任务'} as const)[task.status];
+        this.append(room,system,`${this.store.bot(botId).name} ${label}：${task.title}${task.summary?'\n'+task.summary:''}`,round,undefined,'system',undefined,{runIds:[runId]});
+        try{this.touch();}catch(error){room.tasks=previous;room.messages.splice(count);this.store.data.groupDeliveries.splice(deliveries);room.updatedAt=updatedAt;throw error;}
+      }
+      return result;
+    }
     if(name==='group_pin'){const room=this.room(required(args.groupId,'群聊 ID',80));this.member(room,botId);if(options.groupOrigin&&options.groupOrigin.groupId!==room.id)throw new Error('只能回应当前群聊的消息');return this.pin(room,{kind:'bot',...identity(this.store.bot(botId))},args as unknown as PinInput,this.rootFor(botId,runId),runId);}
     const attachments=this.attachments.forBot(botId,args.attachmentIds),round=this.rootFor(botId,runId);if(round.status!=='active')throw new Error('本轮自动讨论已暂停，等待用户继续');
     if(name==='group_create'){
@@ -220,8 +298,13 @@ export class GroupChats implements GroupGateway {
     const room=this.room(required(args.groupId,'群聊 ID',80));this.member(room,botId);
     if(name==='group_invite'){if(!Array.isArray(args.botIds))throw new Error('请选择群成员');const bots=this.botIds([...new Set([...this.members(room).map(m=>m.id),...args.botIds])],1);this.changeMembers({id:room.id,name:room.name,botIds:bots.map(bot=>bot.id)},{kind:'bot',...identity(this.store.bot(botId))},round);return {invited:true,members:this.members(room)};}
     if(name==='group_send_message'){
-      if(this.store.data.runs.find(run=>run.id===runId)?.groupOrigin)throw new Error('群聊任务的最终答复会自动发送，无需重复调用');
-      const formatted=botMentions(required(args.message,'消息',8000),this.identities(room),botId),content=formatted.content;if(!this.allowance(round,botId))throw new Error('本轮自动回复已达上限');const duplicate=room.messages.find(m=>m.rootId===round.id&&m.sender.id===botId&&normalized(m.content)===normalized(content)&&JSON.stringify(m.mentions?.map(mention=>mention.id)||[])===JSON.stringify(formatted.mentions.map(mention=>mention.id))&&JSON.stringify(m.attachments?.map(file=>file.id)||[])===JSON.stringify(attachments.map(file=>file.id)));if(duplicate)return {sent:true,alreadySent:true,messageId:duplicate.id};const message=this.append(room,{kind:'bot',...identity(this.store.bot(botId))},content,round,formatted.mentions,'message',undefined,{attachments});this.touch();return {sent:true,messageId:message.id,mentions:formatted.mentions.map(mention=>({id:mention.id,name:mention.name}))};
+      const run=this.store.data.runs.find(run=>run.id===runId&&run.botId===botId)!;
+      if(run.groupOrigin&&run.groupOrigin.groupId!==room.id)throw Error('群聊执行只能发布到当前群；跨群分享请由原会话明确发起');
+      const formatted=botMentions(required(args.message,'消息',8000),this.identities(room),botId);
+      if(!run.groupOrigin&&!args.clientMessageId){const duplicate=room.messages.find(m=>m.rootId===round.id&&m.sender.id===botId&&normalized(m.content)===normalized(formatted.content)&&JSON.stringify(m.mentions?.map(m=>m.id)||[])===JSON.stringify(formatted.mentions.map(m=>m.id))&&JSON.stringify(m.attachments?.map(a=>a.id)||[])===JSON.stringify(attachments.map(a=>a.id)));if(duplicate)return {sent:true,alreadySent:true,messageId:duplicate.id};}
+      const key=args.clientMessageId?'explicit:'+required(args.clientMessageId,'发件标识',120):'content:'+createHash('sha256').update(JSON.stringify([formatted.content,formatted.mentions.map(m=>m.id),attachments.map(a=>a.id)])).digest('hex');
+      const message=this.publish(room,run,round,formatted.content,formatted.mentions,{key,kind:args.kind==='progress'?'progress':'message',attachments});
+      return {sent:true,messageId:message.id,mentions:formatted.mentions.map(mention=>({id:mention.id,name:mention.name}))};
     }
     throw new Error('未知群聊工具');
   }

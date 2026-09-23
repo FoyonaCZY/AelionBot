@@ -1,6 +1,6 @@
 import {DatabaseSync} from 'node:sqlite';
 import {join} from 'node:path';
-const collections=new Set(['messages','runs','bots','peerMessages','groupRunMessages','peerExchanges','groupDeliveries','modelUsage','processes','attachments','artifacts','scheduledTasks','workItems','previewHistory']);
+const collections=new Set(['messages','runs','bots','peerMessages','groupRunMessages','peerExchanges','groupDeliveries','groupOutbox','modelUsage','processes','attachments','artifacts','scheduledTasks','workItems','previewHistory']);
 const histories=new Set(['conversations','peerContexts','groupContexts']);
 interface Layout {root:Record<string,unknown>;arrays:Record<string,number>;histories:Record<string,Record<string,number>>;}
 export class StateDatabase {

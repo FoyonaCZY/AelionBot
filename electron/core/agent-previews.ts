@@ -35,7 +35,7 @@ export class AgentPreviews {
     if(!run)throw Error('当前任务已结束，不能发起预览');
     if([args.path,args.attachmentId,args.url].filter(Boolean).length!==1)throw Error('请只填写 path、attachmentId 或 url');
     if(args.placement!==undefined&&!['side','full'].includes(String(args.placement)))throw Error('placement 必须是 side 或 full');
-    const scope:AgentPreviewRequest['scope']=run.groupOrigin&&!run.groupTask?{kind:'group',id:run.groupOrigin.groupId}:{kind:'bot',id:botId};
+    const scope:AgentPreviewRequest['scope']=run.groupOrigin?{kind:'group',id:run.groupOrigin.groupId}:{kind:'bot',id:botId};
     if(scope.kind==='group'&&!this.store.data.groups.some(group=>group.id===scope.id&&group.members.some(member=>member.id===botId&&!member.leftAt)))throw Error('Bot 已不在此群聊中');
     let target:AgentPreviewRequest['target'],name:string,size:number;
     if(args.url){
