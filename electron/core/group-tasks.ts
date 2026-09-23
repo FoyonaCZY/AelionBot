@@ -28,6 +28,7 @@ export function mutateGroupTask(store:Store,room:GroupRoom,run:RunRecord,name:st
    if(!task){
     const round=store.data.groupRounds.find(r=>r.id===run.groupOrigin!.rootId);
     const source=room.messages.find(m=>m.id===args.sourceMessageId)||(args.sourceMessageId?undefined:room.messages.find(m=>m.rootId===round?.id&&(m.sender.kind==='user'&&m.kind==='message'||m.scheduled||round?.originKey?.startsWith('task:')&&m.sender.kind==='bot')));
+    if(source?.rootId!==round?.id)throw Error('新任务必须引用当前群聊消息中的原始用户任务；旧轮次消息不能新增任务授权');
     const root=source?.rootId?store.data.groupRounds.find(r=>r.id===source.rootId):round;
     const authorized=source&&(source.sender.kind==='user'&&source.kind==='message'||source.scheduled||root?.originKey?.startsWith('task:')&&store.humanRunMessage(root.originKey.slice(5)));
     if(!authorized)throw Error('请引用本群的原始用户任务消息；成员通知和 Bot 发言不能新增操作授权');

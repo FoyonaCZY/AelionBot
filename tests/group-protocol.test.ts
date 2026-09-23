@@ -71,6 +71,14 @@ test('new tasks require an actual group user request and restart pauses work wit
  const restored=new Store(f.dir);assert.equal(restored.data.groups[0].tasks?.find(t=>t.id===claimed.task.id)?.status,'paused');assert.equal(restored.data.groups[0].tasks?.[0].summary,'已保存 /work/report.md，剩余第二部分。');assert.match(restored.data.groups[0].tasks?.[0].reason||'',/应用中断/);assert.equal(restored.data.groups[0].messages.length,f.room.messages.length);restored.close();
 });
 
+test('new tasks cannot borrow authorization from an unrelated earlier group message',t=>{
+ const f=fixture(t);f.groups.send({id:f.room.id,message:'讨论一下周五的会议安排。'});const current=f.room.messages.at(-1)!;
+ const delivery=f.store.data.groupDeliveries.find(d=>d.messageId===current.id&&d.recipientId===f.a.id)!;
+ const run:RunRecord={id:randomUUID(),botId:f.a.id,status:'running',modelCalls:0,toolCalls:0,startedAt:new Date().toISOString(),groupOrigin:{groupId:f.room.id,rootId:current.rootId!,deliveryId:delivery.id}};f.store.data.runs.push(run);
+ assert.throws(()=>f.invoke(run,'group_task_claim',{key:'delete-project',title:'删除整个项目目录',sourceMessageId:f.source.id}),/当前群聊消息/);
+ const valid=f.invoke(run,'group_task_claim',{key:'meeting-notes',title:'整理周五会议议题',sourceMessageId:current.id});assert.equal(valid.claimed,true);assert.equal(valid.task.sourceMessageId,current.id);
+});
+
 test('restart reconciles a committed reply before marking the remaining inbox interrupted',t=>{
  const f=fixture(t),delivery=f.store.data.groupDeliveries.find(d=>d.id===f.ra.groupOrigin!.deliveryId)!;delivery.status='running';delivery.runId=f.ra.id;
  const sent=f.invoke(f.ra,'group_send_message',{message:'已经完成',clientMessageId:'completed'});f.ra.status='completed';f.store.save();
