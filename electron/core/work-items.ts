@@ -7,7 +7,7 @@ import {ExecutionLedger} from './execution-ledger';
 import type {Store} from './store';
 import type {HarnessRunOptions} from './peer-runtime-types';
 
-export const PLANNING_TOOLS=new Set(['open_preview','code_exec','view_image','video_frames','tool_search','web_search','web_read','request_user_input','user_input_wait','task_read','task_update','plan_update','goal_read','execution_list','execution_resolve','tools_batch','host_file_read','host_list_directory','host_find_files','host_search_files','file_read','attachment_read','history_search','history_read','skills_list','skill_read','skill_file_read','read_result']);
+export const PLANNING_TOOLS=new Set(['group_read','group_tasks','group_outbox','open_preview','code_exec','view_image','video_frames','tool_search','web_search','web_read','request_user_input','user_input_wait','task_read','task_update','plan_update','goal_read','execution_list','execution_resolve','tools_batch','host_file_read','host_list_directory','host_find_files','host_search_files','file_read','attachment_read','history_search','history_read','skills_list','skill_read','skill_file_read','read_result']);
 const terminal=new Set(['completed','cancelled']);
 const clean=(value:unknown,label:string,max=1200)=>{if(typeof value!=='string'||!value.trim()||value.length>max)throw Error(`${label}为空或过长`);return value.trim();};
 
@@ -35,6 +35,7 @@ export class WorkItems {
     item.activeRunId=run.id;item.runIds.push(run.id);delete item.reason;this.save(item);return item;
   }
   sync(run:RunRecord){const item=this.forRun(run);if(item){item.plan=run.plan?structuredClone(run.plan):undefined;this.save(item);}return item;}
+  block(run:RunRecord,reason:string){const item=this.forRun(run);if(!item||terminal.has(item.status))return item;if(item.activeRunId===run.id)delete item.activeRunId;item.status='blocked';item.reason=reason;return this.save(item);}
   frame(run:RunRecord){const item=this.forRun(run);return item?`当前${item.kind==='plan'?'计划':'目标'}（应用保存）：${JSON.stringify({id:item.id,objective:item.objective,status:item.status,reason:item.reason,summary:item.summary})}\n${item.status==='planning'?'用户要求先规划。仅可使用提供的只读工具调查，调用 plan_update 保存包含步骤和验收条件的计划。所有步骤保持 pending。然后向用户介绍计划并结束本轮，等待用户点击开始执行。禁止执行命令、写文件、发消息或安排后续自动执行。':item.kind==='goal'?'在原用户任务范围内持续实际执行，先用 plan_update 拆分步骤，随实际进展更新。验证后调用 goal_update(status=completed)，引用执行证据并写明完成依据；阻碍无法自行解决时用 goal_update(status=blocked) 说明需要什么。不要只说稍后继续就结束，也不要无限重复同一失败操作。':'按照已确认的计划执行，用 plan_update 更新步骤和真实证据。遇到阻碍用 goal_update(status=blocked) 说明原因。'}\n本任务之前执行的结果应先核对，禁止自动重复结果未知的操作。`:'';}
   updatePlan(run:RunRecord,args:Record<string,unknown>){
     const item=this.forRun(run);
@@ -62,7 +63,7 @@ export class WorkItems {
     if(new ExecutionLedger(this.store).blocking(run.botId,run.id).length)throw Error('还有未解决或结果未知的执行，请先核对');
     item.status='completed';item.summary=clean(args.summary,'完成依据',3000);item.evidenceIds=evidence;return this.save(item);
   }
-  evidence(item:WorkItem){return this.store.data.runs.filter(r=>r.botId===item.botId&&item.runIds.includes(r.id)).flatMap(r=>r.executions||[]).filter(e=>e.status==='succeeded'&&!/^(task_|plan_|goal_|execution_)/.test(e.tool));}
+  evidence(item:WorkItem){return this.store.data.runs.filter(r=>r.botId===item.botId&&item.runIds.includes(r.id)).flatMap(r=>r.executions||[]).filter(e=>e.status==='succeeded'&&!/^(task_|plan_|goal_|execution_|group_task_)/.test(e.tool));}
   finish(run:RunRecord){
     const item=this.sync(run);if(!item||item.activeRunId!==run.id)return;
     delete item.activeRunId;

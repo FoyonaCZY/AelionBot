@@ -13,33 +13,43 @@ import {groupReplyContent} from '../../src/message-envelope';
 import {hasPendingHistoryCalls} from './tool-history';
 
 export const groupContextKey=(groupId:string,botId:string)=>`group:${groupId}:${botId}`;
-function published(store:Store,message:GroupMessage,botId:string):WireMessage{
+export function groupMessageWire(store:Store,message:GroupMessage,botId:string):WireMessage{
   const content=groupReplyContent(message.content,message.sender.kind==='bot'?message.sender.id:undefined);
-  return {role:message.sender.id===botId?'assistant':'user',groupMessageId:message.id,...new Attachments(store).wire(botId,JSON.stringify({messageId:message.id,seq:message.seq,sender:message.sender,kind:message.kind,reply:message.reply,content,attachments:message.attachments,mentions:message.mentions,mentioned:message.mentions?.some(mention=>mention.id===botId)||false,reaction:message.reaction,event:message.event}),message.attachments,true)};
+  return {role:message.sender.id===botId?'assistant':'user',groupMessageId:message.id,...new Attachments(store).wire(botId,JSON.stringify({messageId:message.id,seq:message.seq,sender:message.sender,kind:message.kind,reply:message.reply,content:content.slice(0,1800),...(content.length>1800?{truncated:true,readWith:'group_read',offset:1800}:{}),attachments:message.attachments,mentions:message.mentions,mentioned:message.mentions?.some(mention=>mention.id===botId)||false,reaction:message.reaction,event:message.event}),message.attachments,true)};
 }
-export function groupHistory(store:Store,groupId:string,botId:string){
+export function groupHistory(store:Store,groupId:string,botId:string,messageIds?:string[]){
   const room=store.data.groups.find(room=>room.id===groupId);if(!room)throw new Error('群聊不存在');
   const key=groupContextKey(groupId,botId);let history=store.data.groupContexts[key]||=[];
-  // Old sessions contained generated-but-unpublished answers and repeated event envelopes.
-  // Keep a recoverable copy, retain executed tool exchanges, and rebuild from the actual transcript.
-  if(history.length&&!history.some(message=>message.groupMessageId)){
+  // Migrate only this member's group workspace. Main/peer histories are never copied or reset.
+  const versions=store.data.groupContextVersions||={};
+  if(versions[key]!==2){
+   if(history.length){
     const dir=join(store.dir,'group-context-backups');mkdirSync(dir,{recursive:true});
     const path=join(dir,`${groupId}-${botId}.json`);if(!existsSync(path))writeFileSync(path,JSON.stringify({history,summary:store.data.summaries[key],offset:store.data.contextOffsets[key]},null,2),{flag:'wx'});
-    history=history.filter(message=>message.tool_calls?.length||message.role==='tool'||message.images?.length).map(message=>message.tool_calls?.length?{...message,content:null}:message);
-    store.data.groupContexts[key]=history;delete store.data.summaries[key];store.data.contextOffsets[key]=0;
+    const retained=history.filter(message=>message.tool_calls?.length||message.role==='tool'||message.images?.length).map(message=>message.tool_calls?.length?{...message,content:null}:message);
+    history.splice(0,history.length,...retained);
+   }
+   store.data.groupContexts[key]=history;delete store.data.summaries[key];store.data.contextOffsets[key]=0;versions[key]=2;
   }
-  const seen=new Set(history.map(message=>message.groupMessageId));
-  for(const message of room.messages){if(!seen.has(message.id)){history.push(published(store,message,botId));seen.add(message.id);}else if(groupReplyContent(message.content,message.sender.kind==='bot'?message.sender.id:undefined)!==message.content){const index=history.findIndex(item=>item.groupMessageId===message.id);if(index>=0)history[index]=published(store,message,botId);}}
+  if(hasPendingHistoryCalls(history))return history;
   const resetAt=store.bot(botId).contextResetAt;
+  const deliveries=store.data.groupDeliveries.filter(d=>d.groupId===groupId&&d.recipientId===botId);
+  const selected=new Set(messageIds||deliveries.filter(d=>d.status==='running').map(d=>d.messageId));
+  // A new member gets a small public window; older material stays behind group_read.
+  if(!history.length)for(const message of room.messages.filter(m=>!resetAt||m.time>=resetAt).slice(-4))selected.add(message.id);
+  if(!deliveries.length&&messageIds===undefined)for(const message of room.messages.slice(-4))selected.add(message.id);
+  for(const message of room.messages.filter(m=>m.sender.id===botId).slice(-4))selected.add(message.id);
+  const seen=new Set(history.map(message=>message.groupMessageId));
+  for(const message of room.messages){if(resetAt&&message.time<resetAt)continue;if(!selected.has(message.id))continue;if(!seen.has(message.id)){history.push(groupMessageWire(store,message,botId));seen.add(message.id);}}
   if(!resetAt)return history;
   const allowed=new Set(room.messages.filter(message=>message.time>=resetAt).map(message=>message.id));
-  return history.filter(item=>!item.groupMessageId||allowed.has(item.groupMessageId));
+  const filtered=history.filter(item=>!item.groupMessageId||allowed.has(item.groupMessageId));if(filtered.length!==history.length)history.splice(0,history.length,...filtered);return history;
 
 }
 export function rememberPublished(store:Store,message:GroupMessage){
   if(message.sender.kind!=='bot'||message.kind==='reaction')return;
   const history=store.data.groupContexts[groupContextKey(message.groupId,message.sender.id)];
-  if(history&&!hasPendingHistoryCalls(history)&&!history.some(item=>item.groupMessageId===message.id))history.push(published(store,message,message.sender.id));
+  if(history&&!hasPendingHistoryCalls(history)&&!history.some(item=>item.groupMessageId===message.id))history.push(groupMessageWire(store,message,message.sender.id));
 }
 
 // All scopes share token calibration, atomic epochs, summary repair and tool-pair protection.

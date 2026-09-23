@@ -3,7 +3,7 @@ export const EXCLUSIVE_TOOLS=new Set([
   'host_execute','host_file_write','host_file_patch','apply_patch','computer_execute',
   'python_session','terminal_start','terminal_input','terminal_stop','process_start','process_stop',
   'message_attach','memory','chat_pin','group_pin','bot_send_message','bot_delegate_task',
-  'group_send_message','group_create','group_invite','start_main_task','delegation_receipt',
+  'group_task_claim','group_task_update','group_send_message','group_create','group_invite','start_main_task','delegation_receipt',
   'checkpoint_restore','skill_materialize'
 ]);
 export const PATH_LOCKED_TOOLS=new Set(['file_write','file_patch']);

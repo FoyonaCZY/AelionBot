@@ -1,13 +1,12 @@
 import type {VideoFrames} from './video-frames';
 import type {AgentPreviews} from './agent-previews';
 import {operationDenial,DENIAL_GUIDANCE} from './operation-denial';
-import {conversationIdentityPrompt} from '../../src/user-profile';
+import {conversationIdentityPrompt,userProfilePrompt} from '../../src/user-profile';
 import {QUESTION_ANSWER_PREFIX,questionAnswerText,questionAnswerData,questionToolMessage} from '../../src/question-answers';
 import {TemporarilyUnavailableTool,reactionRestriction,reactionRestrictionContext} from './tool-availability';
 import {botIdentity} from '../../src/bot-colors';
-import {isGroupWorkTool} from '../../src/group-types';
 import {platformName,shellName} from './host-platform';
-import { randomUUID } from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {ExecutionLedger,commandResultFailed,executionBlocksCompletion} from './execution-ledger';
 import {WorkItems,PLANNING_TOOLS} from './work-items';
 import {effectiveWorkspace} from './workspaces';
@@ -48,8 +47,10 @@ import {ContextCapacityError} from './context-error';
 import {contextModelKey,isContextCapacityFailure} from '../../src/context-issue';
 import {resumableRun} from './resume-run';
 import type {GroupGateway} from './group-runtime-types';
-import {groupMainContext,groupWorkContext} from './group-context';
+import {groupMainContext} from './group-context';
+import {isGroupWorkTool} from '../../src/group-types';
 import {groupHistory,prepareGroupContext} from './group-history';
+import {GROUP_PROTOCOL_TOOLS,groupProtocolTool} from './group-protocol-tools';
 import {pinChat} from './chat-pins';
 import {chatInputText,validateChatInput} from './chat-input';
 import {ReplyStreams,type StreamTarget} from './reply-streams';
@@ -78,7 +79,17 @@ const tool=(name:string,description:string,properties:Record<string,unknown>,req
 const string={type:'string'};
 const attachmentList={type:'array',maxItems:10,items:{type:'object',properties:{attachmentId:{type:'string',description:'已有附件 ID'},path:{type:'string',description:'文件路径。默认是 Bot 工作目录相对路径；本机绝对路径或 location=host 读取用户电脑上的文件'},location:{type:'string',enum:['vm','host'],description:'vm 为当前 Bot 工作目录，host 为用户本机。本机绝对路径可省略此项'}},additionalProperties:false}};
 const privateTools=new Set(['bots_list','bot_read_messages','bot_send_message','attachment_read','start_main_task']);
+const groupNonProgressTools=new Set(['group_task_claim','group_task_update','group_tasks','group_outbox','group_send_message','group_pin','chat_pin','execution_list','execution_resolve','task_read','task_update','plan_update','goal_read','goal_set','goal_update','start_main_task','bot_send_message','groups_list']);
 const isReactionTool=(name:string)=>name==='chat_pin'||name==='group_pin';
+function groupProgressFingerprint(name:string,args:unknown,output:unknown){
+  const normalize=(value:unknown):unknown=>{
+    if(Array.isArray(value))return value.map(normalize);
+    if(typeof value==='string'&&value.length>12000)return {length:value.length,sha256:createHash('sha256').update(value).digest('hex')};
+    if(!value||typeof value!=='object')return value;
+    return Object.fromEntries(Object.entries(value as Record<string,unknown>).filter(([key,item])=>!['durationMs','elapsedMs','createdAt','updatedAt','startedAt','endedAt','requestId','resultId','executionId'].includes(key)&&!(key==='id'&&typeof item==='string'&&/^[\da-f-]{36}$/i.test(item))).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>[key,normalize(item)]));
+  };
+  return createHash('sha256').update(JSON.stringify([name,normalize(args),normalize(output)])).digest('hex');
+}
 function reactionOnlyRun(store:Store,run:RunRecord){
   const seen=new Set<string>();let current:RunRecord|undefined=run;
   while(current&&!seen.has(current.id)){
@@ -126,8 +137,9 @@ export const TOOLS:ToolDefinition[]=[
   tool('groups_list','列出自己已加入的群聊及成员；群里每条新消息都会通知其他成员，只有必要时才回复。',{},[]),
   tool('group_create','按当前用户任务需要主动创建群聊。用户自动加入，你自动成为成员；botIds 是其他成员的真实 ID（来自 bots_list）。message 说明具体问题或分工，不要只发问候。共 2–8 位 Bot；可在 message 中用 @{成员ID} 明确 @ 某位成员。',{name:string,botIds:{type:'array',items:string,maxItems:8},message:string,attachments:attachmentList},['name','botIds','message']),
   tool('group_invite','向自己参加的群邀请 Bot。新成员可以查看历史，之后的新消息才通知它；不要为邀请自动发送欢迎或致谢。',{groupId:string,botIds:{type:'array',items:string,maxItems:8}},['groupId','botIds']),
-  tool('group_send_message','向自己参加的群发送一条具体协作消息。其他成员会收到事件并按需回应，无需轮询。message 可以包含 @{成员ID} 来 @ 群成员，唯一名字也可直接写 @名字。当前群聊任务的最终答复由应用自动发出，不调用此工具重复发言。',{groupId:string,message:string,attachments:attachmentList},['groupId','message']),
-  tool('group_read','按需读取自己参加的群聊历史；before 是返回的消息 ID。不能访问未加入的群，不要轮询。',{groupId:string,before:string},['groupId']),
+  tool('group_send_message','向自己参加的群发送一条具体协作消息。其他成员会收到事件并按需回应，无需轮询。message 可以包含 @{成员ID} 来 @ 群成员，唯一名字也可直接写 @名字。在群任务中可明确发布进展、提醒、问题或结果，其他执行草稿不会自动发送。clientMessageId 是本轮稳定的发件标识，重试复用；最终答复也会经发件箱发送，无需重复同一条。',{groupId:string,message:string,attachments:attachmentList,clientMessageId:string,kind:{type:'string',enum:['message','progress']}},['groupId','message']),
+  ...GROUP_PROTOCOL_TOOLS,
+  tool('group_read','按需读取自己参加的群聊历史；before 翻页；messageId 精读一条消息，offset 续读长文。不能访问未加入的群，不要轮询。',{groupId:string,before:string,messageId:string,offset:{type:'integer',minimum:0}},['groupId']),
   tool('start_main_task','把当前收到的私聊请求转入自己的主会话任务。应用将载入你自己的主会话历史、记忆和完整工具，再由你执行。仅聊天或查询协作状态时直接回复；需要保存记忆、操作文件或电脑等任务时先调用此工具。调用本身不代表任务已完成。',{},[]),
   tool('bots_list','查看可私聊的其他 Bot 的准确 ID、职责和当前忙闲状态。先确定身份再发送，不要凭空编造 Bot 或回复。',{},[]),
   tool('bot_send_message','给另一个 Bot 发送私聊请求或协作任务。botId 必须来自 bots_list 或当前用户明确 @ 的身份。消息最长 8000 字符，只共享本次任务所需的内容。调用只确认已排队，不代表对方已经回复；回复会保存在私聊中，并在主会话显示可点击的收到消息事件，不要轮询或重复催问。接到私聊时最终答复会自动回给发起方，不要给它新建回复请求。',{botId:string,message:string,attachments:attachmentList},['botId','message']),
@@ -263,7 +275,7 @@ export class Harness {
   private streamTarget(botId:string,runId:string,id:string,time:string,purpose:StreamTarget['purpose']='reply'):StreamTarget{
     const run=this.store.data.runs.find(run=>run.id===runId),peer=run?.peerOrigin,summary=peer?.kind==='peer_summary'||peer?.kind==='peer_result'&&!peer.sessionId;
     const exchange=peer&&!summary?this.store.data.peerExchanges.find(exchange=>exchange.id===(peer.sessionId||peer.exchangeId)):undefined;
-    return {id,botId,runId,time,purpose,main:purpose==='progress'||Boolean(run?.groupTask)||!run?.groupOrigin&&(!peer||peer.kind==='peer_task'||Boolean(summary)),groupId:run?.groupOrigin?.groupId,peerThreadId:purpose==='reply'?exchange?.threadId:undefined};
+    return {id,botId,runId,time,purpose,main:!run?.groupOrigin&&(purpose==='progress'||!peer||peer.kind==='peer_task'||Boolean(summary)),groupId:run?.groupOrigin?.groupId,peerThreadId:purpose==='reply'?exchange?.threadId:undefined};
   }
   private streamMembers(groupId?:string){return groupId?()=>{const room=this.store.data.groups.find(room=>room.id===groupId);return this.store.data.bots.filter(bot=>room?.members.some(member=>member.id===bot.id&&!member.leftAt)).map(({id,name,color})=>({id,name,color}));}:undefined;}
   private mentions(botId:string,input:string,value?:BotMention[]){
@@ -276,6 +288,8 @@ export class Harness {
   async run(botId:string,input:string,options:HarnessRunOptions={}){
     if(this.active.has(botId))throw new Error('这个 Bot 仍在工作，请等待或停止当前任务');
     if(!input.trim()||input.length>32000)throw new Error('消息为空或过长');
+    const superseded=options.supersedesRunId?this.store.data.runs.find(r=>r.id===options.supersedesRunId&&r.botId===botId):undefined;
+    if(superseded?.groupOrigin?.groupId!==options.groupOrigin?.groupId)options={...options,supersedesRunId:undefined};
     const resumed=options.resumeRunId?resumableRun(this.store,botId,options.resumeRunId):undefined;
     if(resumed&&(resumed.groupOrigin?.groupId!==options.groupOrigin?.groupId||resumed.peerOrigin?.exchangeId!==options.peerOrigin?.exchangeId))throw Error('恢复任务的会话来源不匹配');
     const inputs=options.inputMessageIds?.map(id=>this.store.data.messages.find(message=>message.id===id&&message.botId===botId&&message.role==='user'&&!message.runId&&(message.inputState==='queued'||message.reaction&&!message.inputState)))||[];
@@ -291,7 +305,7 @@ export class Harness {
     const requiredImageIds=new Set([...(initialWire?.images||[]),...[...inputWires.values()].flatMap(wire=>wire.images||[]),...(trigger?.attachments||[]).flatMap(file=>file.image?[file.image]:[])].map(image=>image.id));
     const bot=this.store.bot(botId),mentions=this.mentions(botId,input,options.mentions);const controller=new AbortController();this.active.set(botId,controller);this.cognition?.beforeRun();
     let privateSessionId=options.peerOrigin?(isPrivatePeerOrigin(options.peerOrigin)?options.privateSessionId||`reply:${options.peerOrigin.exchangeId}`:undefined):options.privateSessionId;
-    const groupKey=options.groupOrigin?`group:${options.groupOrigin.groupId}:${botId}${bot.contextResetAt?`:reset:${bot.contextResetAt}`:''}`:undefined;
+    const groupKey=options.groupOrigin?`group:${options.groupOrigin.groupId}:${botId}:v2${bot.contextResetAt?`:reset:${bot.contextResetAt}`:''}`:undefined;
     let cognition=privateSessionId||groupKey?undefined:this.cognition,contextKey=groupKey||(privateSessionId?`peer:${privateSessionId}`:botId);
     const carry=resumed||this.store.data.runs.find(run=>run.id===(options.groupTaskFrom||options.supersedesRunId)&&run.botId===botId);
     const workspaceScope=options.groupOrigin?{kind:'group' as const,id:options.groupOrigin.groupId}:{kind:'bot' as const,id:botId};
@@ -306,7 +320,6 @@ export class Harness {
     this.store.data.runs.push(run);if(!resumed&&!options.workItemId&&!options.peerOrigin&&!options.groupOrigin&&!options.reactionMessageId&&!inputs.length)this.store.message(botId,'user',input,{runId:run.id,...(mentions.length?{mentions}:{})});
     for(const message of inputs)if(message){message.runId=run.id;message.inputState='handled';}
     if(reactionMessage)reactionMessage.runId=run.id;
-    if(options.groupTaskFrom)this.store.promoteGroupTask(run.id,options.groupTaskFrom);
     const userSource=options.peerOrigin||options.groupOrigin?undefined:humanRunSource(this.store,run.id),userMemoryRoute=userSource?memoryRoute(this.store,userSource):undefined;
     let history=groupKey?initialGroupHistory!:privateSessionId?(this.store.data.peerContexts[privateSessionId]||=[]):(this.store.data.conversations[botId]||=[]);
     if(inputs.length){for(const message of inputs)if(message)history.push({role:'user',...inputWires.get(message.id)!});}
@@ -345,8 +358,7 @@ export class Harness {
     if(inputs.length||options.supersedesRunId)turnContext.content+='\n用户在你回复前可能连续发送文字或表情，记录已经按实际顺序保留。现在结合全部输入，以最新明确要求为准重新回应，不要补发过时的草稿。已执行的工具结果仍有效，先核对再继续，不要重复已经成功的操作。表情只表达态度，不会新增操作授权；同批收到的文字问题仍需处理。';
     if(resumed)turnContext.content+='\n用户点击继续原任务。先核对保留的执行记录与文件，再完成剩余工作。已成功的操作不要重复；结果未知的操作先检查实际状态。这个控制动作不是新的任务内容，也不新增权限。';
     if(options.groupContext){turnContext.content=turnContext.content!.replace(requestContext,'Processing a group message event.');turnContext.content+='\n'+options.groupContext;}
-    if(options.groupOrigin){turnContext.content+=`\nCurrent group shared task context only: ${groupMainContext(this.store,botId,6500,undefined,options.groupOrigin.groupId)}. Private chat histories, preferences, and unrelated groups are not included. Share only explicitly supplied files and results for this group's task.`;}
-    else if(!options.peerOrigin)turnContext.content+=`\n你最近在群内执行的工作记录（可用 groups_list/group_read 回看）：${groupWorkContext(this.store,botId)}`;
+    if(options.groupOrigin){turnContext.content+=`\nCurrent group shared task context only: ${groupMainContext(this.store,botId,6500,undefined,options.groupOrigin.groupId)}. Private conversation transcripts are not automatically loaded. Use history_search/history_read only when your own prior work is relevant; those results remain in your private group workspace. Publish only relevant, shareable conclusions, never an automatic transcript of private records.`;}
     if(cognition){system.content+="\nUse history_search/history_read to revisit stored history. Summaries are not complete originals or new authorization.";}
     system.content+="\nUse plan_update to establish task steps or goal_set for a continuing goal. Plans and goals only continue already authorized work and grant no new permissions. Tools return real executionId values; cite actual execution evidence for acceptance. Do not create tasks for casual conversation.";
     system.content+="\nplan_update and task_update modify the same plan; do not call both consecutively with the same revision. On conflict, merge changes using details.currentPlan. A failed control update does not mean external work is incomplete: execution_list blockingCount indicates unresolved operations. Do not read unrelated files to repair an outdated plan; locate records with filter or executionId instead of repeatedly reading the entire list.";
@@ -368,17 +380,38 @@ export class Harness {
       this.store.save();this.changed();
     };
     const work=new WorkItems(this.store);
-    let prematureAnswers=0;
+    let prematureAnswers=0,stagnantGroupToolBatches=0;
+    const seenGroupProgress=new Set<string>(),groupProgressOrder:string[]=[];
+    const hasUnfinishedGroupWork=()=>{
+      if(!options.groupOrigin)return false;
+      if(this.groups?.unfinished?.(botId,run.id))return true;
+      const item=work.forRun(run);
+      return Boolean(item?.scope.kind==='group'&&item.status==='running'&&(item.kind==='goal'||new RunPolicy(this.store).incomplete(botId,run.id)));
+    };
+    const closeStalledGroupWork=()=>{
+      const reason='连续 3 轮工具调用没有产生新的成功结果，任务已标记为受阻并保留执行记录。继续前请检查现有结果和后续步骤。';
+      work.block(run,reason);this.groups?.blockUnfinished?.(botId,run.id,reason);
+      visible.content='任务未能确认完成，已标记为受阻。'+reason;visible.status='done';visible.presentation='answer';
+      const record=this.store.data.runs.find(item=>item.id===run.id)!;record.status='completed';record.endedAt=new Date().toISOString();delete record.error;
+      this.store.save();this.changed();
+    };
     const continueUnfinishedWork=(instruction:string)=>{
       visible.status='done';visible.presentation='progress';if(!readableContent(visible.content))visible.content='';
       if(++prematureAnswers>=3){
         const reason='连续 3 次生成答复但未推进未完成任务，已停止自动重试。工作记录已保留，请检查任务步骤后继续。';
-        if(options.groupOrigin)this.groups?.publishProgress(botId,run.id,reason);
+        if(options.groupOrigin){
+          const blocked=`任务未能确认完成，已标记为受阻并保留执行记录。${reason}`;
+          work.block(run,blocked);
+          this.groups?.blockUnfinished?.(botId,run.id,blocked);
+          visible.content=blocked;visible.status='done';visible.presentation='answer';
+          const record=this.store.data.runs.find(item=>item.id===run.id)!;record.status='completed';record.endedAt=new Date().toISOString();delete record.error;
+          this.store.save();this.changed();return true;
+        }
         throw new Error(reason);
       }
       history.push({role:'system',content:`本次答复尚未交付（连续第 ${prematureAnswers} 次）。${instruction}`});
       visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});
-      this.store.save();this.changed();
+      this.store.save();this.changed();return false;
     };
     let ownedContext:CognitiveStore|undefined;
     try {
@@ -396,6 +429,7 @@ export class Harness {
         for(const reply of this.interactions?.consumeAnswers(botId,run.id)||[]){const content=QUESTION_ANSWER_PREFIX+JSON.stringify(reply);history.push({role:'user',content});const after=questionToolMessage(this.store.runMessages(run.id),botId,reply.id);this.store.message(botId,'user',questionAnswerText(reply)??content,{runId:run.id,questionAnswer:questionAnswerData(reply),afterId:after?.id});}
         new RunPolicy(this.store).check(botId,run.id,iteration);
         checkpoint();
+        if(options.groupOrigin){const incoming=this.groups?.receive?.(botId,run.id)||[];groupHistory(this.store,options.groupOrigin.groupId,botId,incoming.map(m=>m.id));}
         if(controller.signal.aborted)throw new Error('任务已取消');
         if(groupRuntime)groupRuntime.inference=new AbortController();
         const inferenceSignal=groupRuntime?AbortSignal.any([controller.signal,groupRuntime.inference!.signal]):controller.signal;
@@ -403,13 +437,14 @@ export class Harness {
         const memoryDelegation=this.cognition?delegatedMemory(this.store,bot.id,run.id):undefined;
         const baseTools=options.peerOrigin?.kind==='peer_summary'?[]:privateSessionId&&options.peerOrigin?TOOLS.filter(t=>privateTools.has(t.function.name)&&(!t.function.name.startsWith('bot')||this.peers)):TOOLS.filter(t=>(!t.function.name.startsWith('scheduled_')||this.scheduler)&&t.function.name!=='start_main_task'&&(!(t.function.name.startsWith('bot_')||t.function.name==='bots_list')||this.peers)&&(t.function.name!=='memory'||!userMemoryRoute||userMemoryRoute.targetBotIds.includes(botId)&&Boolean(userMemoryRoute.actionsByBot[botId]?.length))&&(!t.function.name.startsWith('history_')||this.cognition)&&(!t.function.name.startsWith('host_')||this.host&&this.interactions)&&(t.function.name!=='request_user_control'||this.computer&&this.interactions)&&(t.function.name!=='computer'||this.computer)&&(!t.function.name.startsWith('mcp_')||this.integrations)&&(!['skill_file_read','skill_materialize','skill_patch','skill_file_write','skill_manage'].includes(t.function.name)||this.integrations));
         const hiddenHosted=hiddenClientTools(this.store.modelFor(botId));
-        let availableTools=baseTools.filter(t=>!hiddenHosted.has(t.function.name)&&(t.function.name!=='video_frames'||Boolean(this.video))&&(t.function.name!=='open_preview'||Boolean(this.previews))&&(t.function.name!=='view_image'||Boolean(this.host?.options.imagePreview))&&(t.function.name!=='generate_image'||Boolean(this.imageModel?.(botId)))&&(!['request_user_input','user_input_wait'].includes(t.function.name)||Boolean(this.interactions))&&(work.forRun(run)?.status!=='planning'||PLANNING_TOOLS.has(t.function.name))&&(t.function.name!=='chat_pin'||!options.groupOrigin&&!options.peerOrigin)&&(!/^groups?_/.test(t.function.name)||this.groups)&&(!options.groupOrigin||!['history_search','history_read','memory','skill_save','skill_patch','skill_file_write','skill_manage','bot_delegate_task','delegation_receipt','bot_send_message','start_main_task','group_send_message'].includes(t.function.name)));
+        let availableTools=baseTools.filter(t=>!hiddenHosted.has(t.function.name)&&(t.function.name!=='video_frames'||Boolean(this.video))&&(t.function.name!=='open_preview'||Boolean(this.previews))&&(t.function.name!=='view_image'||Boolean(this.host?.options.imagePreview))&&(t.function.name!=='generate_image'||Boolean(this.imageModel?.(botId)))&&(!['request_user_input','user_input_wait'].includes(t.function.name)||Boolean(this.interactions))&&(work.forRun(run)?.status!=='planning'||PLANNING_TOOLS.has(t.function.name))&&(t.function.name!=='chat_pin'||!options.groupOrigin&&!options.peerOrigin)&&(!/^groups?_/.test(t.function.name)||this.groups)&&(options.groupOrigin||!groupProtocolTool(t.function.name))&&(!options.groupOrigin||!['history_search','history_read','memory','skill_save','skill_patch','skill_file_write','skill_manage','bot_delegate_task','delegation_receipt','bot_send_message','start_main_task','group_send_message'].includes(t.function.name))&&(options.groupOrigin||!['groups_list','group_read'].includes(t.function.name)));
         if(work.forRun(run)?.status==='planning'){const index=availableTools.findIndex(tool=>tool.function.name==='tools_batch');if(index>=0){const batch=structuredClone(availableTools[index]);(batch.function.parameters as any).properties.steps.items.properties.tool.enum=[...READ_TOOLS].filter(name=>PLANNING_TOOLS.has(name));availableTools[index]=batch;}}
         this.callableTools.set(run.id,availableTools);
         const compactNames=new Set(['open_preview','code_exec','tool_search','read_result','file_read','computer_execute','host_file_read','host_execute','request_user_input','generate_image']);
-        const modelTools=this.store.modelFor(botId).contextTokens<32000&&!privateSessionId?availableTools.filter(tool=>compactNames.has(tool.function.name)):availableTools;
-        const taskFrame=[new RunPolicy(this.store).frame(botId,run.id),work.frame(run),reactionRestrictionContext(Boolean(work.forRun(run)),duplicateReaction)].filter(Boolean).join('\n');
-        const references:WireMessage[]=[{role:'system',content:this.cognition&&!privateSessionId?this.cognition.memory.prompt(botId):`本次记忆快照：\n${this.store.bot(botId).memories.join('\n')||'暂无'}`},reference,{role:'system',content:skillCatalog(this.integrations?.skills||{list:id=>this.store.data.skills.filter(skill=>!skill.botId||skill.botId===id),autoManaged:()=>false},botId,this.store.modelFor(botId).contextTokens,options.groupOrigin?'read-only':'foreground').prompt}];
+        const modelTools=this.store.modelFor(botId).contextTokens<32000&&!privateSessionId?availableTools.filter(tool=>compactNames.has(tool.function.name)||Boolean(options.groupOrigin)&&(/^groups?_/.test(tool.function.name)||tool.function.name.startsWith('history_'))):availableTools;
+        const taskFrame=[options.groupOrigin?this.groups?.taskFrame?.(botId,run.id):'',new RunPolicy(this.store).frame(botId,run.id),work.frame(run),reactionRestrictionContext(Boolean(work.forRun(run)),duplicateReaction)].filter(Boolean).join('\n');
+        const profile=userProfilePrompt(this.store.data.userProfile);
+        const references:WireMessage[]=[...(profile?[{role:'system' as const,content:profile}]:[]),{role:'system',content:this.cognition&&!privateSessionId?this.cognition.memory.prompt(botId):`本次记忆快照：\n${this.store.bot(botId).memories.join('\n')||'暂无'}`},reference,{role:'system',content:skillCatalog(this.integrations?.skills||{list:id=>this.store.data.skills.filter(skill=>!skill.botId||skill.botId===id),autoManaged:()=>false},botId,this.store.modelFor(botId).contextTokens,options.groupOrigin?'read-only':'foreground').prompt}];
         const contextInput={botId,runId:run.id,system,prefixContext:references,dynamicContext:[turnContext],history,tools:modelTools,signal:inferenceSignal,pendingFailures,taskFrame,...(privateSessionId?{scopeKey:contextKey}:{}),legacyHead:{through:contextStart,summary:this.store.data.summaries[contextKey]||''}};
         let prepared=!groupKey?await abortable(inferenceSignal,()=>contextEngine.prepare(contextInput)):undefined;if(prepared)finalContext=prepared.messages;
         const groupInput=groupKey?{...contextInput,key:groupKey}:undefined;
@@ -457,11 +492,9 @@ export class Harness {
           if(files[0].image)visible.screenshotId=files[0].image.id;
         }
         run.modelCalls++;visible.content=silentReaction||standaloneReaction?'':result.content;visible.status='done';visible.presentation=result.calls.length?'progress':'answer';
-        if((!groupKey||result.calls.length)&&!silentReaction)history.push({role:'assistant',native:result.native,content:groupKey||standaloneReaction?null:result.content||null,...(result.calls.length?{tool_calls:result.calls}:{})});this.store.save();if(result.calls.length)this.changed();
-        if(options.groupOrigin&&result.calls.length&&readableContent(visible.content)){this.groups?.publishProgress(botId,run.id,readableContent(visible.content));visible.audience='user';this.store.save();this.changed();}
+        if((!groupKey||result.calls.length)&&!silentReaction)history.push({role:'assistant',native:result.native,content:standaloneReaction?null:result.content||null,...(result.calls.length?{tool_calls:result.calls}:{})});this.store.save();if(result.calls.length)this.changed();
         if(result.calls.length)prematureAnswers=0;
         if(!result.calls.length){
-
           if(this.interactions?.pendingQuestions(botId,run.id).length||this.interactions?.hasAnswers(botId,run.id)){visible.presentation='progress';this.store.save();this.changed();await this.interactions.waitQuestions(botId,run.id,controller.signal);visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});continue;}
           const terminals=this.terminals.list(botId,run.id).filter(session=>session.purpose==='task'&&session.exitCode===undefined);if(terminals.length){visible.presentation='progress';history.push({role:'system',content:'以下终端仍在运行，请 terminal_read 检查或 terminal_stop 停止，不能仅凭启动成功交付：'+JSON.stringify(terminals)});visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});continue;}
           const delegation=run.peerOrigin?.kind==='peer_task'?this.store.data.peerExchanges.find(e=>e.id===(run.peerOrigin!.sessionId||run.peerOrigin!.exchangeId)&&e.toBotId===botId&&e.task):undefined;
@@ -470,9 +503,13 @@ export class Harness {
           const pendingProcesses=this.processes.list(botId,run.id).filter(p=>p.purpose==='task'&&!['completed','failed','stopped'].includes(p.status));
           if(pendingProcesses.length){visible.status='done';visible.presentation='progress';if(!readableContent(visible.content))visible.content='';history.push({role:'system',content:'以下后台任务尚未核对完成，请用 process_wait/status 检查状态、日志与退出码，不能仅凭启动成功交付：'+JSON.stringify(pendingProcesses)});visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});continue;}
           if(!['planning','blocked'].includes(work.forRun(run)?.status||'')&&new RunPolicy(this.store).incomplete(botId,run.id)){continueUnfinishedWork('任务清单仍有未完成步骤，请继续执行并更新 task_update 或 plan_update。不要提前宣称完成；无法继续时用 goal_update(status=blocked) 说明阻碍。');continue;}
+          if(options.groupOrigin&&this.groups?.unfinished?.(botId,run.id)){if(continueUnfinishedWork('你认领的群任务仍为 working。继续执行并用 group_task_update 更新完成依据，或标记 blocked 并说明阻碍；不要只承诺稍后再做。'))return;continue;}
+          if(pendingProcesses.length){visible.status='done';visible.presentation='progress';if(!readableContent(visible.content))visible.content='';history.push({role:'system',content:'以下后台任务尚未核对完成，请用 process_wait/status 检查状态、日志与退出码，不能仅凭启动成功交付：'+JSON.stringify(pendingProcesses)});visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});continue;}
+          if(options.groupOrigin&&this.groups?.unfinished?.(botId,run.id)){if(continueUnfinishedWork('你认领的群任务仍为 working。继续执行并用 group_task_update 更新完成依据，或标记 blocked 并说明阻碍；不要只承诺稍后再做。'))return;continue;}
+          if(!['planning','blocked'].includes(work.forRun(run)?.status||'')&&new RunPolicy(this.store).incomplete(botId,run.id)){if(continueUnfinishedWork('任务清单仍有未完成步骤，请继续执行并更新 task_update 或 plan_update。不要提前宣称完成；无法继续时用 goal_update(status=blocked) 说明阻碍。'))return;continue;}
           const currentWork=work.forRun(run);
           if(currentWork?.status==='planning'&&!run.plan?.steps.length||currentWork?.kind==='goal'&&currentWork.status==='running'){
-            continueUnfinishedWork(currentWork?.status==='planning'?'请先调用 plan_update 保存具体计划，再结束规划。':'目标尚未完成。请继续执行；实际验收后用 goal_update 标记完成，无法继续则报告 blocked 及阻碍。');continue;
+            if(continueUnfinishedWork(currentWork?.status==='planning'?'请先调用 plan_update 保存具体计划，再结束规划。':'目标尚未完成。请继续执行；实际验收后用 goal_update 标记完成，无法继续则报告 blocked 及阻碍。'))return;continue;
           }
           const waitingForPeer=memoryDelegation&&this.store.data.peerExchanges.some(item=>item.parentId===memoryDelegation.exchangeId&&peerPending(item.status));
           if(memoryDelegation&&!memoryConfirmed&&!waitingForPeer){
@@ -500,7 +537,6 @@ export class Harness {
         const observations:WireMessage[]=[];let pinned=false;
         const jobs=result.calls.map(call=>{
           let displayInput:Record<string,unknown>={};try{const parsed=JSON.parse(call.function.arguments);if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed))displayInput=parsed;}catch{/* The normal tool validation reports malformed arguments. */}
-          if(options.groupOrigin&&isGroupWorkTool(call.function.name))this.store.promoteGroupTask(run.id);
           const display=this.store.message(botId,'tool','正在执行…',{tool:call.function.name,status:'running',runId:run.id,activity:describeTool(call.function.name,displayInput)});
           if(this.host&&/^host_(file_|list_directory)/.test(call.function.name)){try{displayInput={...displayInput,path:this.host.resolveFilePath(displayInput.path||run.workspaceDir,run.workspaceDir)};}catch{}}
           const execution=this.ledger.begin(botId,run.id,call,displayInput,run.workspaceDir);display.executionId=execution.id;display.executionTarget=execution.targetKey;
@@ -571,6 +607,20 @@ export class Harness {
             if(sameFailureCount>=3)throw new Error('相同工具操作连续失败 3 次，已暂停以避免无效循环。请查看具体错误后继续。');
           }else{sameFailureCount=0;lastFailure='';}
         }
+        if(hasUnfinishedGroupWork()&&!this.interactions?.pendingQuestions(botId,run.id).length){
+          let madeProgress=false;
+          for(const job of jobs){
+            if(job.display.status!=='done'||groupNonProgressTools.has(job.call.function.name))continue;
+            let args:unknown;try{args=JSON.parse(job.call.function.arguments);}catch{args=job.call.function.arguments;}
+            const fingerprint=groupProgressFingerprint(job.call.function.name,args,job.output);
+            if(seenGroupProgress.has(fingerprint))continue;
+            seenGroupProgress.add(fingerprint);groupProgressOrder.push(fingerprint);
+            if(groupProgressOrder.length>1024)seenGroupProgress.delete(groupProgressOrder.shift()!);
+            madeProgress=true;
+          }
+          stagnantGroupToolBatches=madeProgress?0:stagnantGroupToolBatches+1;
+          if(stagnantGroupToolBatches>=3){closeStalledGroupWork();return;}
+        }else if(!hasUnfinishedGroupWork())stagnantGroupToolBatches=0;
         history.push(...observations);this.store.save();
         if(pinned&&standaloneReaction&&!pendingFailures.size){visible.content='';const record=this.store.data.runs.find(item=>item.id===run.id)!;record.status='completed';record.endedAt=new Date().toISOString();this.store.save();this.changed();return;}
         if(pinned&&!standaloneReaction)history.push({role:'system',content:'表情已经添加，当前工作尚未因此完成。继续处理用户的任务，核对已有工具结果后给出最终答复，不要重复已经执行的操作。'});
@@ -591,20 +641,19 @@ export class Harness {
       work.finish(run);
       this.streams.dropRun(run.id);
       this.computer?.release(botId);
-      try{if(run.toolCalls>0&&options.peerOrigin?.kind!=='peer_summary'&&(!options.groupOrigin||this.store.data.runs.find(record=>record.id===run.id)?.groupTask))await this.collectArtifacts?.(botId,run.id);}catch(error){this.store.message(botId,'event',`工作文件列表暂未更新：${(error as Error).message}`,{runId:run.id});}
+      try{const producedGroupWork=options.groupOrigin&&this.store.runMessages(run.id).some(message=>message.role==='tool'&&isGroupWorkTool(message.tool));if(options.peerOrigin?.kind!=='peer_summary'&&(!options.groupOrigin||producedGroupWork)&&(!groupRuntime.updated||run.toolCalls>0))await this.collectArtifacts?.(botId,run.id);}catch(error){this.store.message(botId,'event',`工作文件列表暂未更新：${(error as Error).message}`,{runId:run.id});}
       this.groupActive.delete(botId);this.runtimes.delete(botId);this.active.delete(botId);if(cognition)cognition.afterRun(botId,run.id,lastRuntimeMessages,lastTools);else this.cognition?.learning.schedule();this.changed();
     }
   }
   /** Shared, permission-checked tool services; execution loops own their own context and lifecycle. */
   openToolSession(botId:string,runId:string,options:HarnessRunOptions,allow:(name:string)=>boolean){
     const hidden=hiddenClientTools(this.store.modelFor(botId));
-    const definitions=TOOLS.filter(tool=>allow(tool.function.name)&&!hidden.has(tool.function.name)).filter(tool=>(!tool.function.name.startsWith('host_')||Boolean(this.host&&this.interactions))&&(!tool.function.name.startsWith('mcp_')||Boolean(this.integrations))&&(!tool.function.name.startsWith('bot_')||Boolean(this.peers))&&(!/^groups?_/.test(tool.function.name)||Boolean(this.groups))&&(!tool.function.name.startsWith('scheduled_')||Boolean(this.scheduler))&&(tool.function.name!=='computer'||Boolean(this.computer))&&(tool.function.name!=='open_preview'||Boolean(this.previews)));
+    const definitions=TOOLS.filter(tool=>allow(tool.function.name)&&!hidden.has(tool.function.name)).filter(tool=>(!tool.function.name.startsWith('history_')||Boolean(this.cognition))&&(!tool.function.name.startsWith('host_')||Boolean(this.host&&this.interactions))&&(!tool.function.name.startsWith('mcp_')||Boolean(this.integrations))&&(!tool.function.name.startsWith('bot_')||Boolean(this.peers))&&(!/^groups?_/.test(tool.function.name)||Boolean(this.groups))&&(!tool.function.name.startsWith('scheduled_')||Boolean(this.scheduler))&&(tool.function.name!=='computer'||Boolean(this.computer))&&(tool.function.name!=='open_preview'||Boolean(this.previews)));
     this.callableTools.set(runId,definitions);
     return {definitions,invoke:(name:string,args:Record<string,unknown>,signal:AbortSignal)=>this.invokeNested(this.store.bot(botId),name,args,signal,runId,options),pending:()=>[...this.terminals.list(botId,runId).filter(s=>s.purpose==='task'&&s.exitCode===undefined),...this.processes.list(botId,runId).filter(p=>p.purpose==='task'&&['starting','running','unknown'].includes(p.status))],close:async()=>{this.callableTools.delete(runId);this.interactions?.cancelQuestions(botId,runId);const run=this.store.data.runs.find(r=>r.id===runId);if(run&&['cancelled','failed','interrupted'].includes(run.status)){this.terminals.cancelRun(botId,runId);for(const process of this.processes.list(botId,runId).filter(p=>p.purpose==='task'&&['starting','running','unknown'].includes(p.status)))try{await this.processes.stop(botId,process.id,AbortSignal.timeout(6000));}catch(error){this.store.message(botId,'event','后台任务停止状态未确认：'+String((error as Error).message).slice(0,200),{runId});}}}};
   }
   private async invokeNested(bot:Bot,name:string,input:Record<string,unknown>,signal:AbortSignal,runId:string,options:HarnessRunOptions){
     const definition=this.callableTools.get(runId)?.find(tool=>tool.function.name===name);if(!definition)throw new TemporarilyUnavailableTool('当前任务不可用的工具：'+name);validateToolArguments(definition,input);
-    if(options.groupOrigin&&isGroupWorkTool(name))this.store.promoteGroupTask(runId);
     const entry=this.ledger.begin(bot.id,runId,{id:randomUUID(),type:'function',function:{name,arguments:JSON.stringify(input)}},input,this.store.data.runs.find(run=>run.id===runId)?.workspaceDir),resultId=randomUUID();this.changed();
     try{const output=await this.executeTool(bot,input,name,signal,runId,options),failed=commandResultFailed(output);const dir=join(this.store.dir,'results');mkdirSync(dir,{recursive:true});writeFileSync(join(dir,resultId+'.json'),JSON.stringify(output??null));this.ledger.finish(entry,failed?'failed':'succeeded',output,resultId);if(failed&&executionBlocksCompletion(entry))throw Error(JSON.stringify(output).slice(0,1200));return {executionId:entry.id,resultId,result:output};}
     catch(error){if(entry.status==='running'){const output={...toolFailure(error),...(error instanceof InteractionDenied?{denied:true,executed:false}:{}),...(signal.aborted?{cancelled:true}:{})};const dir=join(this.store.dir,'results');mkdirSync(dir,{recursive:true});writeFileSync(join(dir,resultId+'.json'),JSON.stringify(output));this.ledger.finish(entry,signal.aborted?'unknown':error instanceof InteractionDenied?'cancelled':'failed',output,resultId);}throw error;}
@@ -778,7 +827,7 @@ export class Harness {
       if(existing){existing.description=description;existing.body=body;}else this.store.data.skills.push({id:randomUUID(),name:skillName,description,body,botId:bot.id});
       this.store.save();return {saved:true,id:this.store.data.skills.find(s=>s.botId===bot.id&&s.name===skillName)!.id,name:skillName,scope:'bot-private'};
     }
-    if(name==='read_result')return readToolResult(this.store,bot.id,args);
+    if(name==='read_result')return readToolResult(this.store,bot.id,args,options.groupOrigin?{kind:'group',id:options.groupOrigin.groupId}:{kind:'private'});
     throw new Error(`未注册工具：${name}`);
   }
 }

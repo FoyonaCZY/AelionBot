@@ -56,12 +56,12 @@ test('attachment ownership is checked and source formats share the code preview 
  f.store.message(f.bot.id,'user','Please read',{attachments:[file]});await f.previews.open(f.bot.id,f.run.id,{attachmentId:file.id,reason:'show'},signal());
  assert.equal(f.attachments.preview(file.id).kind,'text');assert.equal(f.previews.snapshot()[0].target.kind,'attachment');
 });
-test('group requests stay in their group, while promoted main tasks target their Bot conversation',async t=>{
+test('a group origin always keeps previews in the group, even for legacy promoted runs',async t=>{
  const f=fixture(t),groupId=randomUUID();f.store.data.groups.push({id:groupId,members:[{id:f.bot.id}],messages:[]} as any);
  f.run.groupOrigin={groupId} as any;await f.previews.open(f.bot.id,f.run.id,args,signal());assert.deepEqual(f.previews.snapshot()[0].scope,{kind:'group',id:groupId});
  assert.equal(previewForConversation(f.previews.snapshot(),{kind:'bot',id:f.bot.id}),undefined);
- f.run.groupTask=true;await f.previews.open(f.bot.id,f.run.id,args,signal());assert.ok(previewForConversation(f.previews.snapshot(),{kind:'bot',id:f.bot.id}));
- f.store.data.groups[0].members[0].leftAt=new Date().toISOString();assert.equal(f.previews.snapshot().length,1);
+ f.run.groupTask=true;await f.previews.open(f.bot.id,f.run.id,args,signal());assert.deepEqual(f.previews.snapshot().at(-1)?.scope,{kind:'group',id:groupId});assert.equal(previewForConversation(f.previews.snapshot(),{kind:'bot',id:f.bot.id}),undefined);
+ f.store.data.groups[0].members[0].leftAt=new Date().toISOString();assert.equal(f.previews.snapshot().length,0);
 });
 test('host previews honor permission, freeze a copy, and reject files changed during approval',async t=>{
  const f=fixture(t);let decision='allow',permissions=0;const file=join(f.dir,'result.ts');writeFileSync(file,'const answer=42;');
