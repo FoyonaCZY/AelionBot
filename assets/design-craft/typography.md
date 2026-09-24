@@ -40,6 +40,9 @@ system supplies the families and the scale; these rules govern how you use them.
 
 - Take families from the design system's tokens. If the system binds a serif to
   display, `h1`–`h3` use `var(--font-display)`; do not silently substitute a sans.
+- Choose needed open-source fonts autonomously within the requested design,
+  respecting explicit font and brand constraints. Reuse available project fonts
+  first. Do not require the user to download files or operate the Fonts panel.
 - Use `design_fonts` to search, acquire or import actual font files. Use
   `design_font_apply` for body/display/mono roles, or link the returned local
   `cssPath`. Check the actual text for missing characters and required weights.

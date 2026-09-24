@@ -1,0 +1,17 @@
+.fp-layer.has-export-status{--fp-export-status-height:64px;--fp-chrome-height:calc(var(--fp-top-inset,0px) + var(--fp-header-height) + var(--fp-tools-height) + var(--fp-export-status-height))}
+.fp-export-status{position:absolute;z-index:10;left:0;right:0;top:calc(var(--fp-top-inset,0px) + var(--fp-header-height) + var(--fp-tools-height));height:var(--fp-export-status-height);display:flex;align-items:center;gap:10px;padding:8px 14px;background:#f4f8fd;border-bottom:1px solid #dce6f1;color:#365c83;color-scheme:light}
+.fp-export-status-copy{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.fp-export-status-copy strong{font-size:12px;font-weight:550;line-height:17px}
+.fp-export-status-copy>span{font-size:11px;line-height:16px;max-height:32px;overflow:auto;overflow-wrap:anywhere;color:#657487;scrollbar-width:thin}
+.fp-export-status.is-error{background:#fff4f1;border-color:#eedbd5;color:#9b4634}.fp-export-status.is-error .fp-export-status-copy>span{color:#8b6056}
+.fp-export-status.is-success{background:#f2f8f4;border-color:#dbe9df;color:#386d49}
+.fp-export-status.is-cancelled{background:#f7f8fa;border-color:#e4e8ed;color:#697583}
+.fp-export-status>button{flex-shrink:0;border:1px solid currentColor;border-radius:6px;background:transparent;color:inherit;padding:4px 9px;font-size:12px;cursor:pointer}
+.fp-export-status>button:hover{background:#ffffffa6}.fp-export-status>button:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+.fp-export-status>.fp-export-dismiss{border:0;font-size:20px;padding:2px 5px;line-height:24px}
+.fp-export-status-symbol{width:16px;text-align:center;flex-shrink:0;font-size:17px}
+.fp-export-spinner{display:inline-block;flex-shrink:0;width:14px;height:14px;border:1.5px solid #b8cde2;border-top-color:#376894;border-radius:50%;animation:fp-export-spin .8s linear infinite}
+.fp-layer .fp-header .fp-actions .fp-export-trigger[aria-busy=true]{opacity:1;color:#365c83;background:#f1f6fc}
+@keyframes fp-export-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.fp-export-spinner{animation:none}}
+@media(forced-colors:active){.fp-export-status{background:Canvas;color:CanvasText;border-color:CanvasText}.fp-export-status-copy>span{color:CanvasText}}

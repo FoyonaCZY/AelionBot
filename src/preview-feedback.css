@@ -13,7 +13,7 @@
 .is-docked .fp-feedback,.is-studio .fp-feedback{gap:10px;padding-left:15px;min-height:50px}
 /* Reserve a real footer row: native WebContentsView cannot cover DOM inputs. */
 .fp-layer.has-feedback .fp-workspace{padding-bottom:var(--fp-feedback-height,70px)}
-.fp-layer .fp-feedback-wrap{position:absolute;left:0;right:0;bottom:0;transform:none;width:100%;max-width:none;padding:10px 14px;border-top:1px solid light-dark(#e3e5e9,#42424b);background:light-dark(#fafafa,#252529);color-scheme:light dark}
+.fp-layer .fp-feedback-wrap{position:absolute;left:0;right:0;bottom:0;transform:none;width:100%;max-width:none;padding:10px 14px;border-top:1px solid light-dark(#e3e5e9,#42424b);background:light-dark(#fafafa,#252529);color-scheme:light}
 .fp-layer .fp-feedback{min-height:44px;padding:7px 8px 7px 12px;border-radius:10px;box-shadow:none;background:light-dark(#fff,#303038);border-color:light-dark(#dfe2e8,#494951);color:light-dark(#353945,#efedf5)}
 .fp-layer .fp-feedback textarea{min-height:28px;color:inherit;font-size:13px;line-height:26px}
 .fp-layer .fp-feedback textarea::placeholder{color:light-dark(#9599a3,#aaa8b5)}

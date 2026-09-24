@@ -1,3 +1,5 @@
+import {PreviewFileOpener} from './core/preview-open';
+import {choosePreviewApplication} from './preview-open';
 import {gameProviders} from './core/games/providers';
 import {GameRuntime} from './core/games/runtime';
 import {gameInstructions,gamePrompt,parseGameAction} from './core/games/model-player';
@@ -9,8 +11,10 @@ import {DesignSystems} from './core/design-systems';
 import {DesignPlugins} from './core/design-plugins';
 import {DesignCraft} from './core/design-craft';
 import {DesignFonts} from './core/design-fonts';
+import {renderCanvasExport} from './canvas-export-renderer';
+import {CanvasExports} from './core/canvas-export-service';
 import {applyDesignFont,designFontText,designHtmlPath} from './core/design-font-application';
-import {prepareDesignHtml,exportDesignHtmlBundle,DESIGN_PDF_READY_SCRIPT} from './core/design-export';
+import {prepareDesignHtml,exportDesignHtmlBundle} from './core/design-export';
 import {commentsFromAnnotations} from '../src/designer-canvas';
 import {botType} from '../src/designer-types';
 import {applyDomEdits} from './core/html-preview-edits';
@@ -184,17 +188,7 @@ async function initialize(){
   designStore=new DesignStore(store,designSystems,changed,()=>host.workspaceSettings().workspaceDir,designPlugins);
   const designerFiles=new DesignerFiles(store,designStore);artifacts.designerFiles=designerFiles;artifacts.openLocal=path=>shell.openPath(path);
   const designFonts=new DesignFonts({cacheDir:join(store.dir,'font-cache'),files:designerFiles,fetch:(url,options)=>net.fetch(url instanceof URL?url.href:url,options)});
-  const renderDesignPdf=async(html:string)=>{
-    const printer=new BrowserWindow({show:false,width:1280,height:900,webPreferences:{sandbox:true,offscreen:true,contextIsolation:true,backgroundThrottling:false}});
-    printer.webContents.setWindowOpenHandler(()=>({action:'deny'}));
-    printer.webContents.on('will-navigate',event=>event.preventDefault());
-    try{
-      await printer.loadURL('data:text/html;charset=utf-8;base64,'+Buffer.from(html).toString('base64'));
-      await printer.webContents.executeJavaScript(DESIGN_PDF_READY_SCRIPT);
-      const pdf=await printer.webContents.printToPDF({printBackground:true,preferCSSPageSize:true});
-      return Buffer.from(pdf);
-    }finally{if(!printer.isDestroyed())printer.destroy();}
-  };
+  const renderDesignPdf=async(html:string)=>(await renderCanvasExport(html,'pdf')).bytes;
   const designerLoop=new DesignerLoop(store,designStore,designSystems,designerFiles,model,cognition.context,generalHarness,artifacts,attachments,interactions,changed,{pdf:{render:renderDesignPdf},fonts:designFonts,plugins:designPlugins,craft:designCraft,imageModel:imageModelAccess});
   harness=new BotRuntime(store,generalHarness,designerLoop,changed,()=>cognition.beforeRun());
   harness.setPreviewGateway(agentPreviews);
@@ -432,6 +426,8 @@ async function initialize(){
   }));
   handle('design:fonts-apply',input=>mutateFonts(input?.id,async(session,guard)=>{guard();const result=await applyDesignFont(designerFiles,session,designFonts.list(session),{fontId:input?.fontId,role:input?.role,path:input?.path},guard);guard();designStore.userEdit(session.botId,result.path,result.sha256,'应用项目字体');return result;}));
   handle('design:fonts-check',async input=>{const session=fontSession(input?.id);let text=input?.text;if(text!==undefined&&(typeof text!=='string'||text.length>20000))throw Error('检测文本最多 20000 字');if(!text)try{text=await designFontText(designerFiles,session,input?.path);}catch{if(input?.path)throw Error('无法读取指定 HTML');text='Aa 0123 中文';}return designFonts.check(session,{text,family:input?.family});});
+  const canvasExports=new CanvasExports({getSession:id=>designStore.get(id),files:designerFiles,fonts:designFonts,render:renderCanvasExport,choosePath:async input=>{const result=await dialog.showSaveDialog(window!,{title:input.title,defaultPath:input.name,filters:[{name:input.title,extensions:[input.extension]}]});return result.canceled?null:result.filePath||null;}});
+  handle('design:export-file',input=>canvasExports.export(input));
   handle('design:export-project',async input=>{
     const session=fontSession(input?.id),path=await designHtmlPath(designerFiles,session,input?.path);
     const target=await dialog.showSaveDialog(window!,{title:'导出设计项目',defaultPath:basename(path).replace(/\.html?$/i,'')+'.zip',filters:[{name:'ZIP',extensions:['zip']}]});
@@ -518,6 +514,12 @@ async function initialize(){
   handle('files:edit-export',async input=>{if(typeof input?.name!=='string'||input.name.length>256||!sourceTextFile(input.name))throw Error('无效文件名称');const bytes=editedBytes(input.content);previewWrites++;try{const target=await dialog.showSaveDialog(window!,{title:'保存编辑后的文件',defaultPath:basename(input.name)});if(target.canceled||!target.filePath)return null;await writeFile(target.filePath,bytes);return target.filePath;}finally{previewWrites--;}});
 
   handle('files:directory',input=>{if(typeof input?.botId!=='string'||input.path!==undefined&&typeof input.path!=='string')throw Error('无效目录请求');return artifacts.directory(input.botId,input.path||'');});
+  const previewOpener=new PreviewFileOpener({cacheDir:join(store.dir,'opened-files'),open:path=>shell.openPath(path),choose:path=>choosePreviewApplication(window!,path),reveal:path=>shell.showItemInFolder(path),resolve:async target=>{
+    if(target.kind==='attachment'){const original=attachments.originalPath(target.id);if(original)return {path:original};const file=attachments.metadata(target.id);return {name:file.name,bytes:attachments.bytes(target.id),key:'attachment:'+target.id};}
+    store.bot(target.botId);if(designerFiles.owns(target.botId,target.path))return {path:designerFiles.hostPath(target.botId,target.path)};
+    return {name:basename(target.path),bytes:await artifacts.read(target.botId,target.path),key:'workspace:'+target.botId+':'+target.path};
+  }});
+  handle('files:open-with',input=>previewOpener.open(input));
   handle('files:open',async(input)=>{const bot=store.bot(String(input?.botId));if(computer.stateFor(bot.id).ownerBotId)throw new Error('Bot 正在操作桌面，请先接管电脑');await computer.ensure(bot.id);return artifacts.open(bot.id,String(input?.path));});
   handle('computer:screenshot',(id)=>{if(![...store.data.messages,...store.data.peerMessages,...store.data.groupRunMessages].some(message=>message.screenshotId===id))throw new Error('截图不存在');return computer.image(String(id));});
   handle('computer:ensure',id=>{const bot=store.bot(String(id));if(bot.type==='designer')throw Error('设计师使用本机设计目录，不创建工作电脑');return computer.ensure(bot.id);});

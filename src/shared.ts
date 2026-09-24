@@ -63,6 +63,7 @@ export interface AelionAPI {
   importDesignFonts(input:{id:string}):Promise<import('./design-font-types').DesignFont[]|null>;
   applyDesignFont(input:{id:string;fontId:string;role:'body'|'display'|'mono';path?:string}):Promise<{path:string;family:string;role:string;cssPath:string}>;
   checkDesignFonts(input:{id:string;text?:string;path?:string;family?:string}):Promise<import('./design-font-types').DesignFontCheck>;
+  exportDesignFile(input:import('./canvas-export').CanvasExportInput):Promise<import('./canvas-export').CanvasExportResult|null>;
   exportDesignProject(input:{id:string;path?:string}):Promise<string|null>;
 
 
@@ -174,6 +175,7 @@ export interface AelionAPI {
   saveHostWorkspace(path:string):Promise<void>;
   pickHostWorkspace():Promise<string|null>;
   openComputerApp(input: { botId: string; app: 'browser' | 'files' | 'editor' | 'writer' | 'calc' | 'impress' | 'terminal' }): Promise<void>;
+  openPreviewFile(input:import('./preview-open').PreviewOpenInput):Promise<boolean>;
   openFile(input: { botId: string; path: string }): Promise<void>;
   openData(): Promise<void>;
   openExternalUrl(url:string):Promise<void>;

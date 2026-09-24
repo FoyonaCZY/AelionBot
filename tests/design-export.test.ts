@@ -91,7 +91,7 @@ function printEnvironment(fail=false){
  const face={family:'Brand',status:'unloaded'};
  const fonts={load:async(font:string,text:string)=>{loaded.push({font,text});if(fail)throw Error('Font decode failed');face.status='loaded';return [face];},check:()=>!fail,ready:Promise.resolve(),*[Symbol.iterator](){yield face;}};
  let current=0,decoded=0;
- const document={body:{},documentElement:{},fonts,createTreeWalker:()=>({nextNode:()=>current++?null:{parentElement:{tagName:'H1'},textContent:'实际文本'}}),querySelectorAll:()=>[],images:[{getAttribute:()=>'image.png',decode:async()=>{decoded++;},naturalWidth:32}]};
+ const document={body:{},documentElement:{},fonts,createTreeWalker:()=>({nextNode:()=>current++?null:{parentElement:{tagName:'H1'},textContent:'实际文本'}}),querySelectorAll:()=>[],images:[{loading:'lazy',getAttribute:()=>'image.png',async decode(){assert.equal(this.loading,'eager','export must trigger below-fold lazy images');decoded++;},naturalWidth:32}]};
  const context={document,NodeFilter:{SHOW_TEXT:4},getComputedStyle:()=>({fontStyle:'normal',fontWeight:'700',fontSize:'24px',fontFamily:'Brand, sans-serif'}),setTimeout,clearTimeout,requestAnimationFrame:(callback:()=>void)=>callback()};
  return {context,loaded,decoded:()=>decoded};
 }

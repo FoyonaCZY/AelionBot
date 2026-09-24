@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { AelionAPI, AppEvent } from '../src/shared';
 const api:AelionAPI={
+  exportDesignFile:input=>ipcRenderer.invoke('design:export-file',input),
   focusPreviewFeedback:()=>ipcRenderer.invoke('preview:focus-feedback'),
   listDesignFonts:input=>ipcRenderer.invoke('design:fonts-list',input),searchDesignFonts:input=>ipcRenderer.invoke('design:fonts-search',input),acquireDesignFont:input=>ipcRenderer.invoke('design:fonts-acquire',input),importDesignFonts:input=>ipcRenderer.invoke('design:fonts-import',input),applyDesignFont:input=>ipcRenderer.invoke('design:fonts-apply',input),checkDesignFonts:input=>ipcRenderer.invoke('design:fonts-check',input),exportDesignProject:input=>ipcRenderer.invoke('design:export-project',input),
 
@@ -109,6 +110,7 @@ const api:AelionAPI={
   saveHostWorkspace:path=>ipcRenderer.invoke('host:workspace-save',path),
   pickHostWorkspace:()=>ipcRenderer.invoke('host:workspace-pick'),
   openComputerApp:input=>ipcRenderer.invoke('computer:open-app',input),
+  openPreviewFile:input=>ipcRenderer.invoke('files:open-with',input),
   openFile:input=>ipcRenderer.invoke('files:open',input),
   openData:()=>ipcRenderer.invoke('app:open-data'),
   openExternalUrl:url=>ipcRenderer.invoke('app:open-external-url',url),

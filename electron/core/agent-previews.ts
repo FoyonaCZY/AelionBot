@@ -55,7 +55,7 @@ export class AgentPreviews {
       }else if(args.location==='host'){
         if(!this.host)throw Error('本机文件服务尚未就绪');
         const source=await this.host.readPreviewFile(botId,runId,args,signal,run.workspaceDir);
-        signal.throwIfAborted();const file=this.attachments.importForBot(botId,basename(source.path),source.bytes);
+        signal.throwIfAborted();const file=this.attachments.importForBot(botId,basename(source.path),source.bytes,source.path);
         target={kind:'attachment',file};name=file.name;size=file.size;
       }else if(args.location==='vm'){
         const prefix='/work/'+botId+'/',path=artifactPath(args.path.startsWith(prefix)?args.path.slice(prefix.length):args.path);

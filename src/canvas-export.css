@@ -1,0 +1,9 @@
+.fp-layer .fp-header .fp-actions .fp-export-trigger{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border:1px solid #dfe3e9;background:#fff;color:#43536a;font-size:12px;white-space:nowrap}
+.fp-layer .fp-header .fp-actions .fp-export-trigger:hover{background:#edf2f8}
+.fp-export-menu{position:fixed;inset:auto;margin:0;width:260px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);padding:6px;background:#fff;border:1px solid #e1e6ed;border-radius:11px;box-shadow:0 10px 32px #182a4426;color:#34445c;color-scheme:light;overflow:auto}
+.fp-export-menu>button{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;text-align:left;padding:11px 10px;border-radius:7px;background:none;color:inherit}
+.fp-export-menu>button:hover,.fp-export-menu>button:focus{background:#edf3fa;outline:none}
+.fp-export-menu>button:focus-visible{box-shadow:inset 0 0 0 2px #89abd2}
+.fp-export-menu strong{display:block;font-size:13px;font-weight:550;line-height:1.5}
+.fp-export-menu small{display:block;font-size:11px;line-height:1.5;margin-top:2px;color:#788397}
+.fp-export-menu code{font-size:10px;color:#8a94a3;flex-shrink:0}

@@ -16,6 +16,8 @@ async function waitForDesignResources(){
  let timeout:ReturnType<typeof setTimeout>|undefined;
  try{return await Promise.race([
   (async()=>{
+   // Exports include the entire page; below-fold lazy images must load without scrolling.
+   for(const image of document.images)image.loading='eager';
    // Trigger font loads for the actual text and requested weights, including print-only text.
    const requests=new Map<string,{font:string;text:string}>();
    const walker=document.createTreeWalker(document.body||document.documentElement,NodeFilter.SHOW_TEXT);
