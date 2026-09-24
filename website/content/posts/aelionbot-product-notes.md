@@ -228,7 +228,7 @@ Claude Cowork 这类面向非程序员的产品（Wikipedia 的说法是"a simil
 
 ## 附：截图与来源说明
 
-- 四张界面截图取自产品前端（仓库 `docs/assets/screenshots/`，同款文件在 仓库 `docs/assets/screenshots/`）。采集元数据见 `product-capture.json`：生产版 App 组件、示例对话与文件为虚构只读数据、应用版本 0.27.9、视口 1400×900、未连接模型与 VM。
+- 四张界面截图取自产品前端（仓库 `docs/assets/screenshots/`，站内副本在 `website/public/blog-media/`）。采集元数据见 `product-capture.json`：生产版 App 组件、示例对话与文件为虚构只读数据、应用版本 0.27.9、视口 1400×900、未连接模型与 VM。
 - 文中不含 VM 桌面实拍照片：我们的开发机配置有限，这一步省去了。"工作电脑"相关描述依据源码与文档（`electron/core/bot-desktop-profile.ts`、`electron/core/preview-tunnel.ts`、`docs/vm-storage.md`、`README.zh-CN.md`），不依赖实拍图。
 - 外部参考（2026-09-24 访问）：Claude Code 子代理文档 <https://code.claude.com/docs/en/sub-agents>、Claude Code agent teams <https://code.claude.com/docs/en/agent-teams>、Claude (AI) - Wikipedia <https://en.wikipedia.org/wiki/Claude_(AI)>、Devin Desktop <https://devin.ai/desktop>、nexu-io/open-design <https://github.com/nexu-io/open-design>。
 - 第二类竞品里"不少方案把执行放在云端沙箱"是对公开产品形态的概括，没有逐家核对官方文档，正文已带限定语。
