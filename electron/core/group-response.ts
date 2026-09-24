@@ -1,6 +1,7 @@
 import type {BotMention} from '../../src/peer-types';
 import type {GroupRoom} from '../../src/group-types';
 export const normalized=(value:string)=>value.toLowerCase().replace(/[\s\p{P}\p{S}]/gu,'');
+export const hasSilenceMarker=(value:string)=>/\[(?:群聊|表情)静默\]/.test(value);
 const segmenter=new Intl.Segmenter('zh',{granularity:'word'});
 // These describe the act of explaining; they are not evidence of an additional fact.
 const framing=new Set('这个 这是 那个 一个 一种 名为 名叫 标题 主要 内容 包含 具有 提供 支持 基本 实现 使用 通过 它是 其中 此外 以及 并且 然后 已经 可以 能够 就能 即可 直接 附件 文件 页面 绘制 显示 查看 观看 效果 大家 我们 你们'.split(' '));

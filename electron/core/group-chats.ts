@@ -11,7 +11,7 @@ import {groupTaskFrame,mutateGroupTask,publicTask} from './group-tasks';
 import type {GroupMessage} from '../../src/group-types';
 import type {Bot,BotMention,RunRecord} from '../../src/shared';
 import {GROUP_LIMITS,groupPending,type GroupDelivery,type GroupLifecycleEvent,type GroupPage,type GroupRoom,type GroupRound,type GroupSender,type GroupSummary,type GroupsView} from '../../src/group-types';
-import {normalized} from './group-response';
+import {hasSilenceMarker,normalized} from './group-response';
 import {rememberPublished} from './group-history';
 import {pinDescription,updatePins,validPin,type PinInput} from '../../src/reactions';
 import {readableContent} from '../../src/activity';
@@ -243,9 +243,9 @@ export class GroupChats implements GroupGateway {
     if(controller.signal.aborted||this.round(worker.rootId).status!=='active'||!this.store.data.groups.includes(room))return;
     this.member(room,bot.id);const run=this.store.data.runs.find(run=>run.id===worker.runId);if(run?.status!=='completed')throw new Error(run?.error||'群聊任务未完成');
     const finalMessage=this.store.runMessages(run.id).filter(message=>message.presentation==='answer').at(-1),answer=readableContent(finalMessage?.content||attachmentSummary(finalMessage?.attachments)).trim();
-    const emitted=[...room.messages].reverse().find(message=>message.sender.id===bot.id&&message.runIds?.includes(run.id));if(emitted&&(!answer||answer==='[群聊静默]')){run.groupReplyMessageId=emitted.id;for(const delivery of deliveries){delivery.status='replied';delivery.replyMessageId=emitted.id;}return;}
+    const emitted=[...room.messages].reverse().find(message=>message.sender.id===bot.id&&message.runIds?.includes(run.id)),silent=!answer||hasSilenceMarker(answer);if(emitted&&silent){run.groupReplyMessageId=emitted.id;for(const delivery of deliveries){delivery.status='replied';delivery.replyMessageId=emitted.id;}return;}
     const trigger=room.messages.find(message=>message.id===deliveries.at(-1)?.messageId);
-    if(!answer||answer==='[群聊静默]'){
+    if(silent){
       for(const delivery of deliveries){delivery.status='ignored';delivery.reason='已处理，无需公开回复';}return;
     }
     const message=this.publish(room,run,round,answer,finalMessage?.mentions||[],{key:'final:'+createHash('sha256').update(JSON.stringify([answer,finalMessage?.mentions?.map(m=>m.id)||[],finalMessage?.attachments?.map(a=>a.id)||[]])).digest('hex'),replyTo:trigger?.id,attachments:finalMessage?.attachments});
@@ -303,7 +303,8 @@ export class GroupChats implements GroupGateway {
     if(name==='group_send_message'){
       const run=this.store.data.runs.find(run=>run.id===runId&&run.botId===botId)!;
       if(run.groupOrigin&&run.groupOrigin.groupId!==room.id)throw Error('群聊执行只能发布到当前群；跨群分享请由原会话明确发起');
-      const formatted=botMentions(required(args.message,'消息',8000),this.identities(room),botId);
+      const body=required(args.message,'消息',8000);if(hasSilenceMarker(body))throw Error('静默标记是内部控制文本，不能作为群消息发布');
+      const formatted=botMentions(body,this.identities(room),botId);
       if(!run.groupOrigin&&!args.clientMessageId){const duplicate=room.messages.find(m=>m.rootId===round.id&&m.sender.id===botId&&normalized(m.content)===normalized(formatted.content)&&JSON.stringify(m.mentions?.map(m=>m.id)||[])===JSON.stringify(formatted.mentions.map(m=>m.id))&&JSON.stringify(m.attachments?.map(a=>a.id)||[])===JSON.stringify(attachments.map(a=>a.id)));if(duplicate)return {sent:true,alreadySent:true,messageId:duplicate.id};}
       const key=args.clientMessageId?'explicit:'+required(args.clientMessageId,'发件标识',120):'content:'+createHash('sha256').update(JSON.stringify([formatted.content,formatted.mentions.map(m=>m.id),attachments.map(a=>a.id)])).digest('hex');
       const message=this.publish(room,run,round,formatted.content,formatted.mentions,{key,kind:args.kind==='progress'?'progress':'message',attachments});

@@ -34,6 +34,11 @@ test('outbox commit failure publishes nothing; retry and reopen preserve exactly
  f.store.close();const restored=new Store(f.dir,{incremental:true});assert.equal(restored.data.groupOutbox?.[0].messageId,first.messageId);assert.equal(restored.data.groups[0].messages.filter(m=>m.id===first.messageId).length,1);restored.close();
 });
 
+test('group outbox rejects internal silence markers',t=>{
+ const f=fixture(t);assert.throws(()=>f.invoke(f.ra,'group_send_message',{message:'没有新内容。[群聊静默]'}),/内部控制文本/);
+ assert.ok(!f.room.messages.some(message=>message.content.includes('[群聊静默]')));
+});
+
 test('task claims are exclusive, survive runs, reject foreign updates and allow explicit handoff',async t=>{
  const f=fixture(t),args={key:'report-validation',title:'核对报告',sourceMessageId:f.source.id};
  f.deliver(f.ra);f.deliver(f.rb);

@@ -281,6 +281,23 @@ test('a Bot pin is one broadcast utterance, retains tool pairing, and replaces a
   assert.ok(!fx.store.data.runs.some(r=>r.botId===fx.a.id&&r.groupTask));
 });
 
+test('wrapped group-silence markers suppress reaction chatter instead of publishing the explanation',async t=>{
+  const fx=fixture(t,(run,messages)=>{
+    const latest=publishedMessages(messages).at(-1);
+    if(latest?.kind==='reaction')return answer(run.botId===fx.a.id?'介绍已经发出，没有新问题，先不补话。[群聊静默]':'Mi 只是点了赞，没有新问题，不必再回。[群聊静默]');
+    if(run.botId===fx.a.id&&latest?.sender.kind==='user'&&latest.kind==='message')return answer('盖世游戏是一个跨平台游戏服务。');
+    return silent();
+  });
+  const room=fx.groups.create({name:'静默标记',botIds:[fx.a.id,fx.b.id]});fx.groups.send({id:room.id,message:'介绍一下盖世游戏是什么平台'});await until(fx.settled);
+  const before=fx.groups.read({id:room.id}).messages,reply=before.find(message=>message.sender.id===fx.a.id&&message.kind==='message')!;assert.ok(reply);
+  fx.groups.pinUser({groupId:room.id,messageId:reply.id,emoji:'👍'});await until(fx.settled);
+  const page=fx.groups.read({id:room.id}),botMessages=page.messages.filter(message=>message.sender.kind==='bot');
+  assert.equal(botMessages.length,before.filter(message=>message.sender.kind==='bot').length);
+  assert.ok(!page.messages.some(message=>message.content.includes('[群聊静默]')));
+  const reaction=page.messages.find(message=>message.kind==='reaction')!;
+  assert.ok(page.deliveries.filter(delivery=>delivery.messageId===reaction.id&&delivery.recipientId!=='user').every(delivery=>delivery.status==='ignored'));
+});
+
 test('user group pins add and remove once, refresh old message badges and cannot target reactions or foreign groups',async t=>{
   let reactionsSeen=0;const fx=fixture(t,(_run,messages)=>{if(publishedMessages(messages).at(-1)?.kind==='reaction')reactionsSeen++;return silent();});
   const room=fx.groups.create({name:'用户表态',botIds:[fx.a.id,fx.b.id]});fx.groups.send({id:room.id,message:'先讨论一下'});await until(fx.settled);const target=fx.groups.read({id:room.id}).messages.find(m=>m.kind==='message')!;
