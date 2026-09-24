@@ -7,6 +7,7 @@ const api:AelionAPI={
 
  games:{inspect:input=>ipcRenderer.invoke('games:inspect',input),create:input=>ipcRenderer.invoke('games:create',input),read:input=>ipcRenderer.invoke('games:read',input),act:input=>ipcRenderer.invoke('games:act',input),control:input=>ipcRenderer.invoke('games:control',input)},
   designSystem:id=>ipcRenderer.invoke('design:system',id),createDesignSession:input=>ipcRenderer.invoke('design:create',input),updateDesignSession:input=>ipcRenderer.invoke('design:update',input),sendDesignMessage:input=>ipcRenderer.invoke('design:send',input),acceptDesignSession:input=>ipcRenderer.invoke('design:accept',input),listDesignWorkspace:id=>ipcRenderer.invoke('design:workspace',id),importDesignSystem:()=>ipcRenderer.invoke('design:import-system'),
+  captureWebPreviewMenu:input=>ipcRenderer.invoke('web-preview:menu-capture',input),
   freezeWebPreview:input=>ipcRenderer.invoke('web-preview:freeze',input),
   previewEditorCommand:input=>ipcRenderer.invoke('web-preview:editor',input),patchPreviewHtml:input=>ipcRenderer.invoke('preview:html-edits',input),
   onPreviewSave:callback=>{const handler=(_event:unknown,id:string)=>callback(id);ipcRenderer.on('web-preview:save',handler);return()=>ipcRenderer.removeListener('web-preview:save',handler);},

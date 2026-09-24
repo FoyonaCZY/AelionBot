@@ -1,3 +1,4 @@
+export interface PreviewFreezeFrame{image:string;revision:number;}
 export type WebPreviewSource={kind:'url';url:string;location?:'vm'|'host';botId?:string}|{kind:'document';format:'html'|'pdf';name:string;attachmentId?:string;content?:string;dataUrl?:string;workspace?:{botId:string;path:string}};
 export interface WebPreviewState{zoomFactor?:number;localDocument?:boolean;id:string;url:string;title:string;loading:boolean;canBack:boolean;canForward:boolean;error?:string;}
 export function webPreviewUrl(value:unknown){if(typeof value!=='string'||value.length>4096)throw Error('网页地址无效');const url=new URL(value);if(!['http:','https:'].includes(url.protocol)||url.username||url.password)throw Error('网页预览仅支持不含账号密码的 HTTP/HTTPS 地址');return url;}

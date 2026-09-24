@@ -235,7 +235,8 @@ async function initialize(){
   installComputerView(window);
   webPreview=new WebPreviewBrowser(window,vm,artifacts,attachments,join(__dirname,'preview-feedback-preload.cjs'),join(__dirname,'web-preview-preload.cjs'));
   handle('preview-feedback:overlay',input=>webPreview!.feedback(input));
-  handle('web-preview:freeze',input=>webPreview!.freeze(input.id,input.frozen));
+  handle('web-preview:menu-capture',input=>webPreview!.captureMenu(input.id));
+  handle('web-preview:freeze',input=>webPreview!.freeze(input.id,input.frozen,input.revision));
   handle('web-preview:editor',input=>webPreview!.editor.command(input.id,input.command));
   handle('preview:html-edits',input=>applyDomEdits(input.content,input.edits));
   handle('web-preview:open',input=>webPreview!.open(String(input?.id),input?.source));

@@ -68,7 +68,8 @@ export interface AelionAPI {
 
 
   focusPreviewFeedback():Promise<void>;
-  freezeWebPreview(input:{id:string;frozen:boolean}):Promise<string|null>;
+  captureWebPreviewMenu(input:{id:string}):Promise<import('./web-preview').PreviewFreezeFrame|null>;
+  freezeWebPreview(input:{id:string;frozen:boolean;revision?:number}):Promise<boolean>;
   previewEditorCommand(input:{id:string;command:import('./preview-editor-types').EditorCommand}):Promise<import('./preview-editor-types').EditorResult>;
   onPreviewSave(callback:(id:string)=>void):()=>void;
   onPreviewEditor(callback:(event:{id:string;state:import('./preview-editor-types').PreviewEditorState})=>void):()=>void;

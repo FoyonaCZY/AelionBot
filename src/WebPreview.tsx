@@ -3,7 +3,8 @@ import {usePreviewRuntime} from './preview-runtime';
 import type {EditorCommand,PreviewEditorState} from './preview-editor-types';
 import type {PreviewItem} from './FilePreviewContext';
 import type {EditableText} from './editable-text';
-import {createPortal} from 'react-dom';
+import {createPortal,flushSync} from 'react-dom';
+import {PreviewMenuTransition,previewSurfacePaint} from './preview-menu-transition';
 import {useCallback,useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {PreviewIcon} from './FilePreview';
 import {PreviewToolbar} from './PreviewToolbar';
@@ -54,7 +55,18 @@ export function WebPreview({source,onSource,fileEditor,editorContent}:{source:We
  const save=async()=>{if(!pageEditor)return sendChanges();if(saveLock.current)return false;saveLock.current=true;setBusy(true);try{await command({type:'lock',locked:true});const original=await readBase();if(!original)throw Error('源文件不可用');const result=await command({type:'export'});if(!result.edits?.length)return true;const content=await window.aelion.patchPreviewHtml({content:original.content,edits:result.edits});if(pageEditor.write){const saved=await pageEditor.write({content,revision:original.revision});base.current=saved;await command({type:'commit'});runtimeRef.current?.saved(saved);}else{const path=await window.aelion.exportEditedText({name:source.kind==='document'?source.name:'page.html',content});if(!path)return false;base.current={...original,content};await command({type:'commit'});}setError('');return true;}catch(error){setError((error as Error).message);return false;}finally{await command({type:'lock',locked:false}).catch(()=>{});setBusy(false);saveLock.current=false;}};
  useEffect(()=>{if(!ready||state?.loading||!runtime)return;let disposed=false;void(async()=>{if(runtime.mode==='edit'){await readBase();if(disposed)return;}else setInspecting(false);await command({type:'mode',mode:runtime.mode,tool:runtime.tool});})().catch(error=>setError(error.message));return()=>{disposed=true;};},[ready,state?.loading,runtime?.mode,runtime?.tool,command]);
  useEffect(()=>{if(!ready||state?.loading||!editorState||!runtime)return;runtime.setWeb({state:editorState,command,save,discard:async()=>{if(saveLock.current)throw Error('正在保存，请稍候');try{await command({type:'cancel'});}catch{await command({type:'reset'});restoredMarks.current=false;restoringMarks.current=false;await window.aelion.webPreviewAction({id:id.current,action:'reload'});}runtimeRef.current?.setMode('browse');},sendChanges,busy,canWrite:Boolean(pageEditor?.write),inspect:()=>{setInspectorTab('tree');setInspecting(true);if(runtimeRef.current?.mode==='edit'&&stateRef.current?.mode!=='edit')void readBase().then(()=>command({type:'mode',mode:'edit'})).catch(e=>setError(e.message));},primaryLabel:pageEditor?(pageEditor.write?label('保存修改','Save changes'):label('另存为','Save copy')):label('发送修改','Send changes'),saveLabel:pageEditor?(pageEditor.write?label('保存并继续','Save and continue'):label('另存为并继续','Save copy and continue')):label('发送修改并继续','Send changes and continue')});return()=>runtime.setWeb(undefined);},[ready,state?.loading,state?.localDocument,editorState,command,fileEditor,busy]);
- useEffect(()=>{let sequence=0;const listener=(event:Event)=>{const detail=(event as CustomEvent).detail,request=++sequence;if(!ready||!window.aelion.freezeWebPreview){detail.done();return;}void window.aelion.freezeWebPreview({id:id.current,frozen:detail.open}).then(async image=>{if(request===sequence)setFrozen(image||undefined);await new Promise(resolve=>requestAnimationFrame(resolve));detail.done();}).catch(()=>detail.done());};window.addEventListener('aelion-preview-menu',listener);return()=>{sequence++;window.removeEventListener('aelion-preview-menu',listener);};},[ready]);
+ useEffect(()=>{
+  const currentId=id.current;
+  const transition=new PreviewMenuTransition({
+   capture:()=>window.aelion.captureWebPreviewMenu({id:currentId}),
+   present:async(image,current)=>{const decoded=new Image();decoded.src=image;await decoded.decode();if(!current())return;flushSync(()=>setFrozen(image));await previewSurfacePaint();},
+   hide:revision=>window.aelion.freezeWebPreview({id:currentId,frozen:true,revision}),
+   restore:()=>window.aelion.freezeWebPreview({id:currentId,frozen:false}),
+   painted:previewSurfacePaint,clear:()=>setFrozen(undefined)
+  });
+  const listener=(event:Event)=>{const detail=(event as CustomEvent).detail;if(!ready||!window.aelion.captureWebPreviewMenu){detail.done();return;}void transition.change(detail.open).then(()=>detail.done()).catch(()=>detail.done());};
+  window.addEventListener('aelion-preview-menu',listener);return()=>{transition.dispose();window.removeEventListener('aelion-preview-menu',listener);};
+ },[ready,sourceKey]);
 
  useEffect(()=>{if(runtime?.mode==='edit'&&editorState?.selected){if(!inspecting)setInspectorTab('style');setInspecting(true);}},[editorState?.selected?.id,runtime?.mode]);
  useEffect(()=>{if(!ready||state?.loading||!editorState||restoredMarks.current||restoringMarks.current)return;let live=true;restoringMarks.current=true;const initial=runtimeRef.current?.initialAnnotations||[];void command({type:'annotations',annotations:initial}).then(result=>{if(!live)return;restoringMarks.current=false;restoredMarks.current=true;runtimeRef.current?.rememberAnnotations(result.state.annotations);setEditorState(result.state);}).catch(error=>{if(live){restoringMarks.current=false;setError(error.message);}});return()=>{live=false;};},[ready,state?.loading,Boolean(editorState)]);

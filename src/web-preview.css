@@ -32,3 +32,5 @@
 
 
 @media(max-width:700px){.fp-layer:has(.web-preview) .fp-header{gap:4px;padding-left:8px;padding-right:8px}.web-preview-nav input{padding:4px 7px;margin-left:2px}}
+
+.web-preview-frozen{position:absolute;inset:0;display:block;width:100%;height:100%;max-width:none;object-fit:fill;pointer-events:none;user-select:none}
