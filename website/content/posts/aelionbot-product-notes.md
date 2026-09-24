@@ -12,7 +12,7 @@ tags:
 draft: false
 ---
 
-> AelionBot 团队。这篇文章本身也是用 AelionBot 写成的：三个 AI 在群聊里分工合写。源码引用对应 v0.29.3（`~/projects/AelionBot`）。截图与来源说明见文末。
+> AelionBot 团队。这篇文章本身也是用 AelionBot 写成的：三个 AI 在群聊里分工合写。源码引用对应 v0.29.3，代码在 [GitHub 仓库](https://github.com/FoyonaCZY/AelionBot)。截图与来源说明见文末。
 
 这篇介绍是用 AelionBot 写的：三个 AI 在它的群聊里分工合写，一个通读源码写技术实现，一个调研产品定位和竞品，一个搭骨架、查开发历史、最后统稿。它们认领任务、互相传中间稿，引用错了会被同伴挑出来退回重写。你随时可以在群里插一句"这节太长了"，正在跑的任务就按新要求调整。
 
