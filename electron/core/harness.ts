@@ -46,6 +46,7 @@ import {groupReplyContent} from '../../src/message-envelope';
 import {ContextCapacityError} from './context-error';
 import {contextModelKey,isContextCapacityFailure} from '../../src/context-issue';
 import {resumableRun} from './resume-run';
+import {textTokens} from './context-budget';
 import type {GroupGateway} from './group-runtime-types';
 import {groupMainContext} from './group-context';
 import {isGroupWorkTool} from '../../src/group-types';
@@ -441,7 +442,9 @@ export class Harness {
         if(work.forRun(run)?.status==='planning'){const index=availableTools.findIndex(tool=>tool.function.name==='tools_batch');if(index>=0){const batch=structuredClone(availableTools[index]);(batch.function.parameters as any).properties.steps.items.properties.tool.enum=[...READ_TOOLS].filter(name=>PLANNING_TOOLS.has(name));availableTools[index]=batch;}}
         this.callableTools.set(run.id,availableTools);
         const compactNames=new Set(['open_preview','code_exec','tool_search','groups_list','group_send_message','read_result','file_read','computer_execute','host_file_read','host_execute','request_user_input','generate_image']);
-        const modelTools=this.store.modelFor(botId).contextTokens<32000&&!privateSessionId?availableTools.filter(tool=>compactNames.has(tool.function.name)||Boolean(options.groupOrigin)&&(/^groups?_/.test(tool.function.name)||tool.function.name.startsWith('history_'))):availableTools;
+        const modelCapacity=this.store.modelFor(botId).contextTokens;
+        const compactForBudget=!privateSessionId&&textTokens(JSON.stringify(availableTools))>Math.max(3000,Math.floor(modelCapacity*.12));
+        const modelTools=compactForBudget?availableTools.filter(tool=>compactNames.has(tool.function.name)||Boolean(options.groupOrigin)&&(/^groups?_/.test(tool.function.name)||tool.function.name.startsWith('history_'))):availableTools;
         const taskFrame=[options.groupOrigin?this.groups?.taskFrame?.(botId,run.id):'',new RunPolicy(this.store).frame(botId,run.id),work.frame(run),reactionRestrictionContext(Boolean(work.forRun(run)),duplicateReaction)].filter(Boolean).join('\n');
         const profile=userProfilePrompt(this.store.data.userProfile);
         const references:WireMessage[]=[...(profile?[{role:'system' as const,content:profile}]:[]),{role:'system',content:this.cognition&&!privateSessionId?this.cognition.memory.prompt(botId):`本次记忆快照：\n${this.store.bot(botId).memories.join('\n')||'暂无'}`},reference,{role:'system',content:skillCatalog(this.integrations?.skills||{list:id=>this.store.data.skills.filter(skill=>!skill.botId||skill.botId===id),autoManaged:()=>false},botId,this.store.modelFor(botId).contextTokens,options.groupOrigin?'read-only':'foreground').prompt}];

@@ -38,6 +38,7 @@
       "assets/icon.*",
       "assets/wallpaper-light.png",
       "assets/video-inspector.html",
+      "assets/laya/**",
       "assets/skills/**",
       "assets/game-skills/**",
       "!assets/skills/**/__pycache__/**",
@@ -93,6 +94,7 @@
       "artifactName": "AelionBot-Setup-${version}-${arch}.${ext}"
     },
     "asarUnpack": [
+      "assets/laya/**",
       "assets/skills/**",
       "assets/game-skills/**",
       "assets/design-systems/**",

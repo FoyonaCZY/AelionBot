@@ -16,7 +16,7 @@ import {WorkItemsPanel} from './WorkItems';
 import {workspaceKey} from './work-types';
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import type {Bot,ChatMessage,InteractionRequest,Snapshot} from './shared';
-import {GROUP_LIMITS,type GroupPage,type GroupSummary,type GroupTask,type GroupsView} from './group-types';
+import {GROUP_LIMITS,type GroupDelivery,type GroupPage,type GroupSummary,type GroupTask,type GroupsView} from './group-types';
 import {Avatar,Icon,time,MentionContent,type FileItem} from './ui';
 import {groupReplyContent} from './message-envelope';
 import {botMentions} from './mentions';
@@ -28,6 +28,7 @@ import {attachmentSummary} from './attachment-types';
 import {MessageActions} from './MessagePins';
 import type {BotActivities} from './bot-activity';
 import {useI18n} from './i18n';
+import {DECISION_MODELS,type LayaFeatureState} from './laya-types';
 
 const errorText=(error:unknown)=>(error as Error).message.replace(/^Error invoking remote method '[^']+': Error: /,'');
 const merge=<T extends {id:string}>(older:T[],newer:T[])=>[...new Map([...older,...newer].map(item=>[item.id,item])).values()];
@@ -41,24 +42,57 @@ export function GroupTaskMessage({message,view,onOpen}:{message:ChatMessage;view
   const source=message.groupTaskSource!,room=view?.rooms.find(room=>room.id===source.groupId);
   return <><MessageTime id={message.id} time={message.time}/><div className="peer-task-message group-task-message"><button className="peer-task-source" disabled={!room} onClick={()=>onOpen(source.groupId)}><Icon name="message" size={17}/><span>{source.continuation?t('继续来自'):t('来自')} <strong>{room?.name||source.name}</strong> {t('的群任务')}</span><Icon name="arrow" size={12}/></button><p><MentionContent content={message.content} mentions={message.mentions}/></p></div></>;
 }
-export function GroupEditor({bots,group,onClose,onSaved,onDeleted}:{bots:Bot[];group?:GroupSummary;onClose:()=>void;onSaved:(id:string)=>void;onDeleted:(id:string)=>void}){
+export function GroupEditor({bots,group,laya,onClose,onSaved,onDeleted}:{bots:Bot[];group?:GroupSummary;laya?:LayaFeatureState;onClose:()=>void;onSaved:(id:string)=>void;onDeleted:(id:string)=>void}){
   const {t}=useI18n();
   const [name,setName]=useState(group?.name||''),[ids,setIds]=useState(group?.members.filter(m=>!m.leftAt&&bots.some(b=>b.id===m.id)).map(m=>m.id)||[]),[error,setError]=useState(''),[pending,setPending]=useState(false),[deleting,setDeleting]=useState(false);
+  const [layaPending,setLayaPending]=useState(false),[layaError,setLayaError]=useState('');
   const root=useRef<HTMLElement>(null);
   useEffect(()=>{const previous=document.activeElement as HTMLElement|null;root.current?.querySelector('input')?.focus();return()=>{previous?.isConnected&&previous.focus();};},[]);
   const save=async()=>{if(pending)return;setPending(true);setError('');try{if(group){await window.aelion.updateGroup({id:group.id,name,botIds:ids});onSaved(group.id);}else{const result=await window.aelion.createGroup({name,botIds:ids});onSaved(result.id);}}catch(error){setError(t(errorText(error)));}finally{setPending(false);}};
+  const downloading=Boolean(laya?.downloading),cancelling=laya?.phase==='cancelling',variant=laya?.active||laya?.recommended,installed=Boolean(variant&&laya?.installed.includes(variant)),active=Boolean(variant&&laya?.active===variant&&laya.enabled);
+  const modelName=DECISION_MODELS.find(model=>model.id===variant)?.name||'Laya';
+  const changeLaya=async()=>{if(!laya||layaPending&&!downloading)return;setLayaError('');setLayaPending(true);try{
+    if(downloading)await window.aelion.cancelLayaInstall();
+    else if(active)await window.aelion.setLayaEnabled(false);
+    else if(laya.active&&installed)await window.aelion.setLayaEnabled(true);
+    else if(variant&&installed)await window.aelion.selectLaya(variant);
+    else await window.aelion.installLaya();
+  }catch(error){setLayaError(errorText(error));}finally{setLayaPending(false);}};
+  const layaStatus=cancelling?'正在取消下载…':downloading?({preparing:'正在准备下载组件…',installing:'正在安装模型环境…',loading:'正在加载模型…'} as Record<string,string>)[laya?.phase||'']||'正在下载…':active&&laya?.phase==='ready'?`${modelName} 已启用，适用于所有群聊`:active&&laya?.phase==='loading'?`${modelName} 正在加载…`:active&&laya?.phase==='error'?laya.error||'模型加载失败':installed?`${modelName} 已下载，当前未启用`:undefined;
   return <div className="peer-chat-layer group-editor-layer" onMouseDown={event=>{if(event.target===event.currentTarget&&!pending)onClose();}}><section ref={root} className="group-editor" role="dialog" aria-modal="true" aria-label={group?t('群聊设置'):t('创建群聊')} onKeyDown={event=>{
     if(event.key==='Escape'&&!pending){event.preventDefault();event.stopPropagation();onClose();}
-    if(event.key==='Tab'){const items=[...event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled)')];const index=items.indexOf(document.activeElement as HTMLElement);if(event.shiftKey&&index<=0){event.preventDefault();items.at(-1)?.focus();}else if(!event.shiftKey&&index===items.length-1){event.preventDefault();items[0]?.focus();}}
+    if(event.key==='Tab'){const items=[...event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled)')];const index=items.indexOf(document.activeElement as HTMLElement);if(event.shiftKey&&index<=0){event.preventDefault();items.at(-1)?.focus();}else if(!event.shiftKey&&index===items.length-1){event.preventDefault();items[0]?.focus();}}
   }}>
     <header><h2>{group?t('群聊设置'):t('创建群聊')}</h2><button className="icon-button" aria-label={t('关闭群聊设置')} disabled={pending} onClick={onClose}><Icon name="close"/></button></header>
     <label className="group-name">{t('群名称')}<input value={name} maxLength={80} placeholder={t('例如：项目协作')} onChange={event=>setName(event.target.value)}/></label>
     <div className="group-member-title"><span>{t('成员')}</span><small>{t('你')} + {ids.length} Bot</small></div>
     <div className="group-member-picker">{bots.map(bot=><label key={bot.id}><input type="checkbox" checked={ids.includes(bot.id)} disabled={pending||!ids.includes(bot.id)&&ids.length>=GROUP_LIMITS.bots} onChange={event=>setIds(value=>event.target.checked?[...value,bot.id]:value.filter(id=>id!==bot.id))}/><Avatar bot={bot} size={32}/><span><strong>{bot.name}</strong><small>{bot.role||'Bot'}</small></span></label>)}{bots.length<2&&!group&&<p className="subtle">{t('至少需要两位 Bot 才能建群。')}</p>}</div>
+    {group&&laya&&<div className="group-laya-setting"><div className="group-laya-setting-row"><div className="group-laya-setting-copy"><strong>{t('实验 · 决策模型')}</strong><small>{t('本地判断 Bot 是否需要参与群聊')}</small></div><button type="button" className="secondary-button" disabled={cancelling||layaPending&&!downloading||!laya.supported} onClick={()=>void changeLaya()}>{cancelling?t('取消中…'):downloading?t('取消下载'):active?t('暂停'):installed?t('启用'):t('一键下载并启用')}</button></div>{(layaError||!laya.supported||layaStatus)&&<small role="status">{layaError||(!laya.supported?'当前系统暂不支持本地决策模型':layaStatus)}</small>}</div>}
     {error&&<p className="group-error" role="alert">{error}</p>}
     {deleting&&<div className="group-delete-confirm"><p>{t('删除「{name}」及群聊记录？群内正在处理的任务也会停止。',{name:group?.name||''})}</p><button className="secondary-button" disabled={pending} onClick={()=>setDeleting(false)}>{t('取消')}</button><button className="danger-button" disabled={pending} onClick={async()=>{setPending(true);try{await window.aelion.deleteGroup(group!.id);onDeleted(group!.id);}catch(error){setError(t(errorText(error)));}finally{setPending(false);}}}>{t('确认删除')}</button></div>}
     <footer>{group&&<button className="group-delete" disabled={pending} onClick={()=>setDeleting(true)}>{t('删除群聊')}</button>}<button className="secondary-button" disabled={pending} onClick={onClose}>{t('取消')}</button><button className="primary-button" disabled={pending||!name.trim()||ids.length<(group?1:2)} onClick={()=>void save()}>{pending?t('保存中…'):group?t('保存'):t('创建群聊')}</button></footer>
   </section></div>;
+}
+
+function GroupDecisionTrail({deliveries,page,bots}:{deliveries:GroupDelivery[];page:GroupPage;bots:Bot[]}){
+  if(!page.laya?.enabled)return null;
+  const decisions=new Map(page.laya?.decisions.map(decision=>[decision.sourceId,decision]));
+  const entries=deliveries.flatMap(delivery=>{
+    const bot=bots.find(item=>item.id===delivery.recipientId),decision=decisions.get(delivery.layaDecisionId||delivery.id);
+    return bot&&(decision||['queued','deciding'].includes(delivery.status))?[{bot,delivery,decision}]:[];
+  });
+  if(!entries.length)return null;
+  const percent=(value:number|undefined)=>Number.isFinite(value)?`${Math.round((value||0)*100)}%`:'—';
+  return <div className="group-decision-trail" aria-label="各 Bot 的参与判断">{entries.map(({bot,delivery,decision})=>{
+    const rawChoice=decision?.appliedChoice||decision?.choice;
+    const choice=rawChoice==='observe'?'observe':rawChoice?'participate':'pending';
+    const observe=decision?.probabilities?.observe;
+    const participate=decision?.probabilities?.participate??(decision?.probabilities?.reply!==undefined||decision?.probabilities?.act!==undefined?(decision.probabilities.reply||0)+(decision.probabilities.act||0):undefined);
+    return <div key={delivery.id} className="group-decision-card" data-choice={choice}>
+      <div className="group-decision-card-head"><Avatar bot={bot} size={24}/><strong title={bot.name}>{bot.name}</strong><span>{choice==='pending'?'判断中':choice==='observe'?'旁听':'参与'}</span></div>
+      <div className="group-decision-card-scores"><span data-selected={choice==='observe'}>旁听 {percent(observe)}</span><span data-selected={choice==='participate'}>参与 {percent(participate)}</span></div>
+    </div>;
+  })}</div>;
 }
 
 export function GroupConversation({group,state,avatarActivities,draft,onDraft,onManage,onTakeover,onOpenFile,onSaveFile,onOpenPreviewEntry,visible}:{group:GroupSummary;state:Snapshot;avatarActivities?:BotActivities;draft:ComposerDraft;onDraft:(draft:ComposerDraft)=>void;onManage:()=>void;onTakeover:(request:Extract<InteractionRequest,{kind:'vm_takeover'}>)=>Promise<void>;onOpenFile:(file:FileItem&{botId:string})=>void;onSaveFile:(file:FileItem&{botId:string})=>void;onOpenPreviewEntry:(entry:PreviewHistoryEntry)=>void;visible:boolean}){
@@ -114,7 +148,7 @@ export function GroupConversation({group,state,avatarActivities,draft,onDraft,on
       if(message.kind==='system'||message.kind==='continue')return <div key={message.id} className="event-message group-system">{message.content}</div>;
       const bot=message.sender.kind==='bot'?state.bots.find(b=>b.id===message.sender.id)||message.sender:undefined,runId=page.deliveries.find(d=>d.replyMessageId===message.id)?.runId,artifacts=state.artifacts.filter(file=>isRunArtifact(file.path)&&(file.runId===runId||message.runIds?.includes(file.runId))&&!message.attachments?.some(attachment=>attachment.name===file.name&&attachment.size===file.size)),previewEntries=(state.previewHistory||[]).filter(entry=>entry.scope.kind==='group'&&entry.scope.id===group.id&&(entry.runId===runId||message.runIds?.includes(entry.runId)));
       const presentation=previewFeedbackDisplay(message),body=groupReplyContent(presentation.content,bot?.id),formatted=body===presentation.content?{content:body,mentions:presentation.mentions}:botMentions(body,members,bot?.id,false);
-      return <Fragment key={message.id}><MessageTime id={message.id} time={message.time}/><article className={`group-message ${message.sender.kind==='user'?'from-user':''}`} data-group-message-id={message.id}>{bot&&<Avatar bot={bot} size={31}/>}<div className="group-message-copy"><div className="group-message-author">{(message.sender.kind==='user'?displayName:bot?.name||message.sender.name)}</div><MessageActions messageId={message.id} content={formatted.content||attachmentSummary(message.attachments)} pins={message.pins} bubbleClassName="group-message-bubble markdown" onReply={()=>onDraft({...draftRef.current,reply:messageReply({...message,content:formatted.content},(message.sender.kind==='user'?displayName:bot?.name||message.sender.name),message.sender.id)})} onPin={input=>window.aelion.pinGroup({...input,groupId:group.id})}>{message.reply&&<MessageQuote reply={message.reply}/>}<MentionContent content={formatted.content} mentions={formatted.mentions} markdown/><AttachmentList files={message.attachments}/></MessageActions>{message.sender.kind==='bot'&&message.designSessionId&&state.designer?.sessions.filter(s=>s.id===message.designSessionId).map(s=><DesignerTaskCard key={s.id} session={s}/>)}<PreviewHistoryChips entries={previewEntries} runIds={[...(runId?[runId]:[]),...(message.runIds||[])]} artifactNames={new Set(artifacts.map(file=>file.path))} attachmentIds={new Set(message.attachments?.map(attachment=>attachment.id)||[])} onOpen={onOpenPreviewEntry}/><ArtifactList files={artifacts} onOpen={onOpenFile} onSave={onSaveFile} disabled={state.vm.status!=='ready'}/></div></article></Fragment>;
+      return <Fragment key={message.id}><MessageTime id={message.id} time={message.time}/><article className={`group-message ${message.sender.kind==='user'?'from-user':''}`} data-group-message-id={message.id}>{bot&&<Avatar bot={bot} size={31}/>}<div className="group-message-copy"><div className="group-message-author">{(message.sender.kind==='user'?displayName:bot?.name||message.sender.name)}</div><MessageActions messageId={message.id} content={formatted.content||attachmentSummary(message.attachments)} pins={message.pins} bubbleClassName="group-message-bubble markdown" onReply={()=>onDraft({...draftRef.current,reply:messageReply({...message,content:formatted.content},(message.sender.kind==='user'?displayName:bot?.name||message.sender.name),message.sender.id)})} onPin={input=>window.aelion.pinGroup({...input,groupId:group.id})}>{message.reply&&<MessageQuote reply={message.reply}/>}<MentionContent content={formatted.content} mentions={formatted.mentions} markdown/><AttachmentList files={message.attachments}/></MessageActions>{message.sender.kind==='user'&&page&&<GroupDecisionTrail deliveries={page.deliveries.filter(item=>item.messageId===message.id)} page={page} bots={members}/>}{message.sender.kind==='bot'&&message.designSessionId&&state.designer?.sessions.filter(s=>s.id===message.designSessionId).map(s=><DesignerTaskCard key={s.id} session={s}/>)}<PreviewHistoryChips entries={previewEntries} runIds={[...(runId?[runId]:[]),...(message.runIds||[])]} artifactNames={new Set(artifacts.map(file=>file.path))} attachmentIds={new Set(message.attachments?.map(attachment=>attachment.id)||[])} onOpen={onOpenPreviewEntry}/><ArtifactList files={artifacts} onOpen={onOpenFile} onSave={onSaveFile} disabled={state.vm.status!=='ready'}/></div></article></Fragment>;
     })}{page&&!page.messages.some(message=>message.kind==='message'||message.kind==='progress')&&!group.activities?.length&&<div className="group-empty">{t('暂无消息')}</div>}</section></ConversationTimeProvider>
     <div className={`composer-wrap ${requests.length?'with-request':''}`}>{error&&<div className="group-error" role="alert">{error}</div>}{owner&&<div className="group-permission"><div className="group-request-owner"><Avatar bot={owner} size={19}/>{owner.name}{requests.length>1&&<span>{t(' · 共 {count} 项请求',{count:requests.length})}</span>}</div><ConversationInteractions requests={requests} botId={owner.id} onTakeover={onTakeover}/></div>}<WorkItemsPanel items={state.workItems} scope={{kind:'group',id:group.id}} bots={state.bots}/><LiveWorkStrip items={(state.liveWork||[]).filter(item=>members.some(bot=>bot.id===item.botId))}/><BotComposer extraTools={<GroupGames key={group.id} groupId={group.id} groupName={group.name} members={members} providers={state.providers} defaultModel={state.defaultModel} cardContainer={body.current}/>} workspaceDir={state.conversationWorkspaces?.[workspaceKey({kind:'group',id:group.id})]||state.hostWorkspace?.workspaceDir} workspaceInherited={!state.conversationWorkspaces?.[workspaceKey({kind:'group',id:group.id})]} attachmentScope={{kind:'group',id:group.id}} bot={group} bots={members} draft={draft} running={false} onChange={onDraft} onSend={()=>{if(!sending)void send();}} onStop={()=>{}}/></div>
   </>;
