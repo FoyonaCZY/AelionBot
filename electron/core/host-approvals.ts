@@ -52,7 +52,6 @@ export class HostApprovals implements HostApprovalPolicy {
   }
   assess(request:HostPermissionRequest):ApprovalAssessment{
     const mode=this.modeFor(request);
-    if(request.details.permissionScope==='remote')return {kind:'ask',mode,reason:'远程 MCP 操作需要单独确认'};
     if(mode==='ask')return {kind:'ask',mode,reason:''};
     if(mode==='full')return {kind:'allow',mode,source:'full',reason:'当前会话已由你设置为完全访问'};
     const run=this.store.data.runs.find(run=>run.id===request.runId&&run.botId===request.botId),risk=classifyHostOperation(request.details,{workspaceDir:run?.workspaceDir,dataDir:this.store.dir,homeDir:this.options.homeDir,platform:this.options.platform||process.platform});

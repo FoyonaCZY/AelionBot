@@ -114,10 +114,44 @@ test('manual denial and run cancellation withdraw reviews and discard late appro
   const other=f.permission(command(f.project)),cancelled=assert.rejects(other,/取消/);f.controller.abort();await cancelled;assert.equal(f.interactions.snapshot().length,0);
 });
 
-test('full access performs host writes immediately but does not dismiss VM takeovers or remote actions',async t=>{
+test('full access performs host writes and MCP calls immediately but does not dismiss VM takeovers',async t=>{
   const f=fixture(t);f.mode('full');await f.host.writeFile(f.bot.id,f.run.id,{path:'full.txt',content:'written',reason:'写入项目'},f.controller.signal,f.project);assert.equal(readFileSync(join(f.project,'full.txt'),'utf8'),'written');assert.equal(f.reviews(),0);
   const takeover=f.interactions.requestTakeover(f.bot.id,f.run.id,'登录账号',false,f.controller.signal),id=f.interactions.snapshot()[0].id;f.interactions.refreshHostPolicy();assert.equal(f.interactions.snapshot()[0].kind,'vm_takeover');f.interactions.startTakeover(id);f.interactions.completeTakeover(id);await takeover;
-  const remote=f.permission({operation:'mcp',permissionScope:'remote',server:'remote',tool:'publish',reason:'远程发布'});assert.equal(f.interactions.snapshot().length,1);f.interactions.approve(f.interactions.snapshot()[0].id,true);await remote;
+  await f.permission({operation:'mcp',permissionScope:'host',server:'local',tool:'write',reason:'本机 MCP'});
+  await f.permission({operation:'mcp',permissionScope:'remote',server:'remote',tool:'publish',reason:'远程发布'});
+  assert.equal(f.reviews(),0);assert.equal(f.interactions.snapshot().length,0);assert.deepEqual(f.records.slice(-2).map(record=>record.decision),['auto-full','auto-full']);
+});
+
+test('automatic mode reviews host and remote MCP calls instead of asking each time',async t=>{
+  const f=fixture(t);f.mode('auto');
+  await f.permission({operation:'mcp',permissionScope:'host',server:'local',tool:'write',arguments:{path:'src/app.ts'},reason:'按任务修改'});
+  await f.permission({operation:'mcp',permissionScope:'remote',server:'remote',tool:'publish',arguments:{id:'demo'},reason:'按任务发布'});
+  assert.equal(f.reviews(),2);assert.equal(f.interactions.snapshot().length,0);assert.deepEqual(f.records.map(record=>record.decision),['auto-model','auto-model']);
+});
+
+test('ask mode still requires a decision for every MCP call',async t=>{
+  const f=fixture(t);f.mode('ask');
+  for(const scope of ['host','remote'] as const){
+    const pending=f.permission({operation:'mcp',permissionScope:scope,server:scope,tool:'publish',reason:'调用 MCP'});
+    assert.equal(f.interactions.snapshot().length,1);assert.equal((f.interactions.snapshot()[0] as HostPermissionRequest).approval?.mode,'ask');assert.equal(f.reviews(),0);
+    f.interactions.approve(f.interactions.snapshot()[0].id,true);await pending;
+  }
+});
+
+test('an inconclusive MCP review falls back to the user',async t=>{
+  const f=fixture(t,async()=>({decision:'ask',reason:'范围不清'}));f.mode('auto');
+  const pending=f.permission({operation:'mcp',permissionScope:'remote',server:'remote',tool:'publish',reason:'发布'});
+  await until(()=>(f.interactions.snapshot()[0] as HostPermissionRequest)?.approval?.phase==='waiting');
+  assert.equal((f.interactions.snapshot()[0] as HostPermissionRequest).approval?.decision,'ask');assert.equal(f.reviews(),1);
+  f.interactions.approve(f.interactions.snapshot()[0].id,true);await pending;
+});
+
+test('switching to full allows a pending remote MCP review without using its result',async t=>{
+  const wait=deferred<ModelApproval>(),f=fixture(t,async()=>wait.promise);f.mode('auto');
+  const pending=f.permission({operation:'mcp',permissionScope:'remote',server:'remote',tool:'publish',reason:'发布'});
+  await until(()=>(f.interactions.snapshot()[0] as HostPermissionRequest)?.approval?.phase==='reviewing');
+  f.mode('full');await pending;assert.equal(f.calls[0].signal.aborted,true);assert.equal(f.records.at(-1)?.decision,'auto-full');
+  wait.resolve({decision:'deny',reason:'late'});await tick();assert.equal(f.interactions.snapshot().length,0);
 });
 
 test('manual command rules apply in auto only, and changing modes persists independently per scope',async t=>{
