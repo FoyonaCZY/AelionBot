@@ -23,6 +23,7 @@ import {Store} from './store';
 import type {HarnessRunOptions} from './peer-runtime-types';
 import type {GroupGateway} from './group-runtime-types';
 import type {ScheduledTrigger} from '../../src/scheduled-types';
+import type {LayaShadow} from './laya-shadow';
 
 interface Runner {isRunning:(id:string)=>boolean;run:(id:string,input:string,options:HarnessRunOptions)=>Promise<void>;cancel:(id:string)=>void;refresh?:(id:string)=>void;}
 interface Worker {botId:string;groupId:string;rootId:string;deliveries:GroupDelivery[];controller:AbortController;runId?:string;preempted?:boolean;}
@@ -36,7 +37,7 @@ const workLane=(message:GroupMessage|undefined)=>message?.workItemId||((message?
 export class GroupChats implements GroupGateway {
   private revision=0;private enabled=false;private closing=false;private timer?:ReturnType<typeof setTimeout>;
   private workers=new Map<string,Worker>();
-  constructor(private store:Store,private runner:Runner,private changed:()=>void,private attachments=new Attachments(store),private host?:HostComputer){
+  constructor(private store:Store,private runner:Runner,private changed:()=>void,private attachments=new Attachments(store),private host?:HostComputer,private laya?:LayaShadow){
     // Publication may commit just before the process exits, before the inbox receipt is saved.
     for(const entry of store.data.groupOutbox||[])if(entry.status==='sent'&&entry.messageId){
       const run=store.data.runs.find(r=>r.id===entry.runId&&r.botId===entry.botId&&r.groupOrigin?.groupId===entry.groupId&&r.status==='completed');
@@ -49,6 +50,7 @@ export class GroupChats implements GroupGateway {
     store.save();
   }
   get busy(){return this.workers.size>0;}
+  layaChanged(){this.revision++;this.changed();}
   start(){this.enabled=true;this.wake();}
   wake(){if(!this.enabled||this.closing||this.timer||!this.store.data.groupDeliveries.some(d=>d.status==='queued'))return;this.timer=setTimeout(()=>{this.timer=undefined;this.pump();},100);}
   private touch(){this.revision++;this.store.save();this.changed();this.wake();}
@@ -135,7 +137,10 @@ export class GroupChats implements GroupGateway {
   read(input:{id:string;before?:string}):GroupPage{
     const room=this.room(required(input?.id,'群聊 ID',80));let end=room.messages.length;if(input.before){end=room.messages.findIndex(message=>message.id===input.before);if(end<0)throw new Error('消息位置已失效');}
     const start=Math.max(0,end-60),messages=room.messages.slice(start,end).map(message=>message.sender.kind==='bot'&&!message.mentions?{...message,...botMentions(message.content,this.identities(room),message.sender.id,false)}:message),ids=new Set(messages.map(message=>message.id));
-    return structuredClone({tasks:room.tasks||[],group:this.summary(room),messages,pins:Object.fromEntries(room.messages.filter(message=>message.pins?.length).map(message=>[message.id,message.pins!])),deliveries:this.store.data.groupDeliveries.filter(delivery=>delivery.groupId===room.id&&ids.has(delivery.messageId)),...(start>0?{before:messages[0].id}:{})});
+    const deliveries=this.store.data.groupDeliveries.filter(delivery=>delivery.groupId===room.id&&ids.has(delivery.messageId));
+    const decisionIds=new Set(deliveries.map(delivery=>delivery.layaDecisionId||delivery.id));
+    const laya=this.laya?.isReady?{runtime:this.laya.runtimeName,enabled:true,ready:true,decisions:this.laya.groupDecisions(decisionIds).flatMap(event=>{const delivery=this.store.data.groupDeliveries.find(item=>item.id===event.sourceId&&item.groupId===room.id);return delivery?[{...event,messageId:delivery.messageId,deliveryStatus:delivery.status,replyMessageId:delivery.replyMessageId,runId:delivery.runId,reason:delivery.reason}]:[];})}:undefined;
+    return structuredClone({tasks:room.tasks||[],group:this.summary(room),messages,pins:Object.fromEntries(room.messages.filter(message=>message.pins?.length).map(message=>[message.id,message.pins!])),deliveries:laya?deliveries:deliveries.map(({layaMode:_,layaDecisionId:__,...delivery})=>delivery),laya,...(start>0?{before:messages[0].id}:{})});
   }
   markRead(input:{id:string;seq:number}){const room=this.room(required(input?.id,'群聊 ID',80));if(!Number.isInteger(input.seq)||input.seq<0||input.seq>(room.messages.at(-1)?.seq||0))throw new Error('消息位置无效');if(input.seq<=room.lastReadSeq)return;room.lastReadSeq=input.seq;for(const delivery of this.store.data.groupDeliveries.filter(d=>d.groupId===room.id&&d.recipientId==='user'&&d.status==='delivered')){if((room.messages.find(message=>message.id===delivery.messageId)?.seq||0)<=input.seq)delivery.status='read';}this.touch();}
   private newRound(room:GroupRoom,request:string,originKey?:string){const round:GroupRound={id:randomUUID(),groupId:room.id,request:request.slice(0,8000),status:'active',createdAt:now(),botMessages:0,botCounts:{},decisions:0,createdGroups:0,originKey};this.store.data.groupRounds.push(round);room.activeRootId=round.id;return round;}
@@ -235,26 +240,48 @@ export class GroupChats implements GroupGateway {
   private async process(room:GroupRoom,worker:Worker){
     const round=this.round(worker.rootId),bot=this.store.bot(worker.botId),{deliveries,controller}=worker;
     this.member(room,bot.id);if(round.status!=='active')return;
-    for(const delivery of deliveries)delivery.status='running';
+    const trigger=deliveries.at(-1)!;
+    for(const delivery of deliveries){delivery.status=this.laya?.isReady?'deciding':'running';if(this.laya?.isReady){delivery.layaMode='v2';delivery.layaDecisionId=trigger.id;}}
     this.touch();
     const retry=[...deliveries].reverse().map(delivery=>this.store.data.runs.find(run=>run.id===delivery.retryRunId&&run.botId===bot.id)).find(Boolean);for(const delivery of deliveries)delete delivery.retryRunId;
     const requestedTaskId=deliveries.map(delivery=>room.messages.find(message=>message.id===delivery.messageId)?.content||'').join('\n').match(/taskId\s*[:：]\s*([\da-f-]{36})/i)?.[1];
     const requestedTask=requestedTaskId?room.tasks?.find(task=>task.id===requestedTaskId&&task.ownerId===bot.id&&task.status!=='completed'):undefined;
     const requeuedTaskRunId=[...deliveries].reverse().map(delivery=>delivery.runId).find(id=>id&&room.tasks?.some(task=>task.ownerId===bot.id&&task.status!=='completed'&&task.runIds.includes(id)));
     const previousTask=retry||requestedTask?.runIds.slice().reverse().map(id=>this.store.data.runs.find(run=>run.id===id&&run.botId===bot.id&&run.groupOrigin?.groupId===room.id)).find(Boolean)||this.store.data.runs.find(run=>run.id===requeuedTaskRunId&&run.botId===bot.id&&run.groupOrigin?.groupId===room.id);
-    const recent=room.messages.filter(m=>!bot.contextResetAt||m.time>=bot.contextResetAt).slice(-4).map(message=>({id:message.id,sender:message.sender,kind:message.kind,reply:message.reply,scheduled:message.scheduled,content:groupReplyContent(message.content,message.sender.kind==='bot'?message.sender.id:undefined).slice(0,1200),event:message.event,mentions:message.mentions?.map(mention=>mention.id)}));
+    const firstCurrentSeq=Math.min(...deliveries.map(delivery=>room.messages.find(message=>message.id===delivery.messageId)?.seq||Infinity));
+    const layaPriorMessages=room.messages.filter(message=>(!bot.contextResetAt||message.time>=bot.contextResetAt)&&message.seq<firstCurrentSeq).slice(-2);
+    const decisionRecent=layaPriorMessages.map(message=>({from:{kind:message.sender.kind,name:message.sender.name},text:groupReplyContent(message.content,message.sender.kind==='bot'?message.sender.id:undefined).slice(0,300)}));
+    const recent=room.messages.filter(message=>!bot.contextResetAt||message.time>=bot.contextResetAt).slice(-4).map(message=>({id:message.id,sender:message.sender,kind:message.kind,reply:message.reply,scheduled:message.scheduled,content:groupReplyContent(message.content,message.sender.kind==='bot'?message.sender.id:undefined).slice(0,1200),event:message.event,mentions:message.mentions?.map(mention=>mention.id)}));
+    const ownedTask=room.tasks?.find(task=>task.ownerId===bot.id&&task.status!=='completed');
+    const rootRequestMessage=room.messages.find(message=>message.rootId===round.id&&message.sender.kind==='user'&&message.kind==='message');
+    const decisionDeliveries=deliveries.slice(-3);
+    const decisionEvents=decisionDeliveries.map(delivery=>{const message=room.messages.find(item=>item.id===delivery.messageId)!;return {from:{kind:message.sender.kind,name:message.sender.name},text:groupReplyContent(message.content,message.sender.kind==='bot'?message.sender.id:undefined).slice(0,600),mentioned:message.mentions?.some(mention=>mention.id===bot.id)||false};});
+    const rootRequestPrefix=round.request.trim().slice(0,400);
+    const rootRequestIsPresent=Boolean(rootRequestPrefix&&[...decisionEvents,...decisionRecent].some(item=>item.text.includes(rootRequestPrefix)));
+    const followupNeedsRootRequest=deliveries.some(delivery=>{const message=room.messages.find(item=>item.id===delivery.messageId);return Boolean(message&&(message.kind==='continue'||message.scheduled||rootRequestMessage&&message.id!==rootRequestMessage.id));});
+    const currentUserText=[...deliveries].reverse().map(d=>room.messages.find(m=>m.id===d.messageId)).find(m=>m?.sender.kind==='user')?.content||'';
+    const explicitQuiet=/(?:不|无需|不要|别)(?:再|继续)?(?:执行|做|认领|处理|开发|调用工具|动手)/.test(currentUserText)&&/(?:旁听|静默|安静|不要回复|无需回复|保持沉默)/.test(currentUserText);
+    const decisionInput={botRole:bot.role.slice(0,500),events:decisionEvents,recent:decisionRecent,...(ownedTask?{myTask:{title:ownedTask.title,status:ownedTask.status}}:{}),...(followupNeedsRootRequest&&!rootRequestIsPresent?{rootRequest:round.request.slice(0,400)}:{})};
+    const choice=this.laya?.isReady?await this.laya.group(trigger.id,bot.id,decisionInput,explicitQuiet,controller.signal):undefined;
+    if(controller.signal.aborted||round.status!=='active')return;
+    if(explicitQuiet||choice==='observe'&&!retry&&!requestedTask&&!previousTask){
+      for(const delivery of deliveries){delivery.status='ignored';delivery.reason='已看过，本轮旁听';}
+      this.touch();return;
+    }
+    for(const delivery of deliveries)delivery.status='running';
+    this.touch();
     const context=groupEventPrompt(room.name,room.id,bot.name,this.identities(room).map(m=>({id:m.id,name:m.name})),round.request);
     const lastMessage=room.messages.find(m=>m.id===deliveries.at(-1)?.messageId),workItem=lastMessage?.workItemId?this.store.data.workItems?.find(item=>item.id===lastMessage.workItemId&&item.botId===bot.id&&item.scope.id===room.id):undefined;
-    await this.runner.run(bot.id,JSON.stringify({events:deliveries.map(d=>{const message=room.messages.find(message=>message.id===d.messageId)!;return {eventId:d.id,messageId:message.id,sender:message.sender,kind:message.kind,reply:message.reply,event:message.event,scheduled:message.scheduled,content:groupReplyContent(message.content,message.sender.kind==='bot'?message.sender.id:undefined).slice(0,1600),mentions:message.mentions,mentioned:message.mentions?.some(mention=>mention.id===bot.id)||false};}),recent}),{designSessionId:lastMessage?.designSessionId||previousTask?.designSessionId,resumeRunId:retry?.id,workItemId:retry?.workItemId||workItem?.id||previousTask?.workItemId,workspaceDir:retry?.workspaceDir||workItem?.workspaceDir||previousTask?.workspaceDir||lastMessage?.workspaceDir||effectiveWorkspace(this.store,this.host,{kind:'group',id:room.id}),groupOrigin:{groupId:room.id,rootId:round.id,deliveryId:deliveries.at(-1)!.id},groupContext:context+GROUP_STATE_EVENT_PROMPT,groupTaskFrom:previousTask?.id,onStarted:id=>{worker.runId=id;for(const delivery of deliveries)delivery.runId=id;this.touch();}});
+    await this.runner.run(bot.id,JSON.stringify({events:deliveries.map(d=>{const message=room.messages.find(message=>message.id===d.messageId)!;return {eventId:d.id,messageId:message.id,sender:message.sender,kind:message.kind,reply:message.reply,event:message.event,scheduled:message.scheduled,content:groupReplyContent(message.content,message.sender.kind==='bot'?message.sender.id:undefined).slice(0,1600),mentions:message.mentions,mentioned:message.mentions?.some(mention=>mention.id===bot.id)||false};}),recent,...(choice?{layaDecision:{choice,meaning:'参与本轮；根据用户需求决定回复或执行，遵守群任务认领规则',revisionAllowed:true}}:{})}),{designSessionId:lastMessage?.designSessionId||previousTask?.designSessionId,resumeRunId:retry?.id,workItemId:retry?.workItemId||workItem?.id||previousTask?.workItemId,workspaceDir:retry?.workspaceDir||workItem?.workspaceDir||previousTask?.workspaceDir||lastMessage?.workspaceDir||effectiveWorkspace(this.store,this.host,{kind:'group',id:room.id}),groupOrigin:{groupId:room.id,rootId:round.id,deliveryId:deliveries.at(-1)!.id},groupContext:context+GROUP_STATE_EVENT_PROMPT+(choice?'\nLaya 给出的本轮参与方式已在用户事件中标注。先按它行动；读到更多上下文后可以调整，并在发言或执行记录中说明调整。':'')+(this.laya?.enabled&&!choice?'\n本地决策暂不可用，请自行判断是否需要旁听或参与。':''),groupTaskFrom:previousTask?.id,onStarted:id=>{worker.runId=id;for(const delivery of deliveries)delivery.runId=id;this.touch();}});
     if(controller.signal.aborted||this.round(worker.rootId).status!=='active'||!this.store.data.groups.includes(room))return;
     this.member(room,bot.id);const run=this.store.data.runs.find(run=>run.id===worker.runId);if(run?.status!=='completed')throw new Error(run?.error||'群聊任务未完成');
     const finalMessage=this.store.runMessages(run.id).filter(message=>message.presentation==='answer').at(-1),answer=readableContent(finalMessage?.content||attachmentSummary(finalMessage?.attachments)).trim();
     const finalReply=this.beforeFinalReplyPublish(answer),emitted=[...room.messages].reverse().find(message=>message.sender.id===bot.id&&message.runIds?.includes(run.id));if(emitted&&finalReply.kind==='silent'){run.groupReplyMessageId=emitted.id;for(const delivery of deliveries){delivery.status='replied';delivery.replyMessageId=emitted.id;}return;}
-    const trigger=room.messages.find(message=>message.id===deliveries.at(-1)?.messageId);
+    const triggerMessage=room.messages.find(message=>message.id===deliveries.at(-1)?.messageId);
     if(finalReply.kind==='silent'){
       for(const delivery of deliveries){delivery.status='ignored';delivery.reason='已处理，无需公开回复';}return;
     }
-    const message=this.publish(room,run,round,finalReply.content,finalMessage?.mentions||[],{key:'final:'+createHash('sha256').update(JSON.stringify([finalReply.content,finalMessage?.mentions?.map(m=>m.id)||[],finalMessage?.attachments?.map(a=>a.id)||[]])).digest('hex'),replyTo:trigger?.id,attachments:finalMessage?.attachments});
+    const message=this.publish(room,run,round,finalReply.content,finalMessage?.mentions||[],{key:'final:'+createHash('sha256').update(JSON.stringify([finalReply.content,finalMessage?.mentions?.map(m=>m.id)||[],finalMessage?.attachments?.map(a=>a.id)||[]])).digest('hex'),replyTo:triggerMessage?.id,attachments:finalMessage?.attachments});
     run.groupReplyMessageId=message.id;
     for(const delivery of deliveries){delivery.status='replied';delivery.replyMessageId=message.id;}
   }

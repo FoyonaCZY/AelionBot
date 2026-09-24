@@ -53,6 +53,16 @@ function fixture(t:test.TestContext,complete:(run:RunRecord,messages:WireMessage
   return {store,groups,harness,a,b,c,busy,dir,interactions,settled};
 }
 
+test('an explicit user request to stay quiet closes receipts without starting a Bot run',async t=>{
+  let calls=0;const fx=fixture(t,()=>{calls++;return silent();});
+  const room=fx.groups.create({name:'安静处理',botIds:[fx.a.id,fx.b.id]});await until(fx.settled);
+  const before=calls;
+  fx.groups.send({id:room.id,message:'这轮不要执行任务，也不用回复；请旁听并安静处理。'});await until(fx.settled);
+  assert.equal(calls,before);
+  const message=fx.groups.read({id:room.id}).messages.find(item=>item.sender.kind==='user'&&item.kind==='message')!;
+  assert(fx.groups.read({id:room.id}).deliveries.filter(item=>item.messageId===message.id&&item.recipientId!=='user').every(item=>item.status==='ignored'));
+});
+
 test('group tool results remain available across multiple model turns',async t=>{
   const calls:string[]=[];let turns=0;
   const fx=fixture(t,(run,messages,tools)=>{

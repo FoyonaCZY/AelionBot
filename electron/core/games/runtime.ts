@@ -6,6 +6,7 @@ import {join} from 'node:path';
 import type {GameCreate,GameAction,GameView,GameRequest,GamePlayer,GameTrace} from '../../../src/game-types';
 import {acceptAction,createWerewolf,view,validateAction,log,type WerewolfState} from './werewolf';
 import {gamePrompt,gameInstructions,GameModelError} from './model-player';
+import type {LayaShadow} from '../laya-shadow';
 export interface DecisionOptions {retryFeedback?:string;onResponse:(metrics:import('../../../src/game-types').ResponseMetrics)=>void;}
 export type Decide=(player:GamePlayer,context:GameView,request:GameRequest,signal:AbortSignal,options?:DecisionOptions)=>Promise<GameAction>;
 export class GameRuntime {
@@ -13,7 +14,7 @@ export class GameRuntime {
  private closed=false;
  private states=new Map<string,WerewolfState>();
  private jobs=new Map<string,AbortController>();
- constructor(private dir:string,private decide:Decide,private check:(players:GamePlayer[])=>void=()=>{},private timing={aiTimeoutMs:90000}){
+ constructor(private dir:string,private decide:Decide,private check:(players:GamePlayer[])=>void=()=>{},private timing={aiTimeoutMs:90000},private laya?:LayaShadow){
   mkdirSync(dir,{recursive:true});const file=join(dir,'matches.json');
   if(existsSync(file)){
    for(const s of JSON.parse(readFileSync(file,'utf8')) as WerewolfState[]){
@@ -117,6 +118,7 @@ export class GameRuntime {
    const queuedAt=Date.now();for(const r of requests)this.annotate(id,'model_queued',{requestId:r.id,seatId:r.seatId,kind:r.kind,detail:'进入请求队列，排队不占模型响应预算'});
    const results=await settleLimited(requests,3,signal,async r=>{
     const seat=snapshot.seats.find(p=>p.id===r.seatId)!,context=view(snapshot,seat.id);
+    if(this.laya?.isReady)void this.laya.game(r.id,seat.id,context,r);
     const dispatched=structuredClone(this.state(id)),pending=dispatched.requests.find(p=>p.id===r.id);if(!pending)return;pending.deadlineAt=Date.now()+this.timing.aiTimeoutMs;this.commit(dispatched,false);
     let retryFeedback:string|undefined;
     for(let attempt=1;attempt<=2;attempt++){
@@ -139,7 +141,9 @@ export class GameRuntime {
      }
      this.tick();const current=this.state(id);
      if(signal.aborted||current.status!=='running'||!current.requests.some(p=>p.id===r.id)){this.annotate(id,'reply_discarded',{requestId:r.id,seatId:r.seatId,detail:'阶段或请求已失效'});return;}
-     const next=structuredClone(current);acceptAction(next,r.id,result);this.record(next,'action_accepted',{requestId:r.id,seatId:r.seatId,kind:r.kind,action:result});this.commitTransition(current,next);return;
+     const next=structuredClone(current);acceptAction(next,r.id,result);this.record(next,'action_accepted',{requestId:r.id,seatId:r.seatId,kind:r.kind,action:result});this.commitTransition(current,next);
+     if(this.laya?.isReady&&result.text&&['speak','campaign','pk_speak','last_words'].includes(r.kind))void this.laya.speech(r.id,r.seatId,result.text);
+     return;
     }
    });
    signal.throwIfAborted();if(results.some(r=>r.status==='rejected'))throw Error('AI decision failed');
