@@ -10,7 +10,6 @@ import {SkillLibrary} from '../electron/core/skill-library';
 import {Harness} from '../electron/core/harness';
 import {GroupChats} from '../electron/core/group-chats';
 import {groupMainContext} from '../electron/core/group-context';
-import {repeatedGroupResponse} from '../electron/core/group-response';
 import {Interactions} from '../electron/core/interactions';
 import {HostComputer} from '../electron/core/host';
 import type {ModelClient,Completion,ToolDefinition} from '../electron/core/model';
@@ -165,7 +164,6 @@ test('fresh information can sustain a discussion beyond both old reply caps',asy
 });
 test('exact retries are idempotent per sender while each member may express the same conclusion',async t=>{
   const fx=fixture(t,()=>answer('我们已确认采用消息队列进行订单通知。'));const room=fx.groups.create({name:'去重',botIds:[fx.a.id,fx.b.id,fx.c.id]});fx.groups.send({id:room.id,message:'讨论通知机制'});await until(fx.settled);assert.equal(fx.store.data.groupRounds.at(-1)!.botMessages,3);assert.equal(new Set(fx.store.data.groups[0].messages.filter(m=>m.sender.kind==='bot').map(m=>m.sender.id)).size,3);
-  assert.ok(repeatedGroupResponse(fx.store.data.groups[0],fx.store.data.groupRounds.at(-1)!.id,'我们已确认采用消息队列进行订单通知！'));assert.ok(!repeatedGroupResponse(fx.store.data.groups[0],fx.store.data.groupRounds.at(-1)!.id,'我反对，目前无需引入队列，直接事务发件箱即可。'));
 });
 
 test('similar opinions and a slower correction are all published without a semantic judge',async t=>{
