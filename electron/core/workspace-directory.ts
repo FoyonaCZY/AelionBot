@@ -1,4 +1,4 @@
-export const WORKSPACE_DIRECTORY_SCRIPT=String.raw`
+export const WORKSPACE_DIRECTORY_SCRIPT = String.raw`
 import os,sys,json,pathlib,datetime
 a=json.load(sys.stdin)
 root=pathlib.Path.cwd().resolve()

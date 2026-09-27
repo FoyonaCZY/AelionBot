@@ -1,9 +1,33 @@
-export interface PinEmojiOption {emoji:string;label:string;keywords:string;}
-export interface PinEmojiCategory {id:string;name:string;icon:string;items:PinEmojiOption[];}
-const category=(id:string,name:string,icon:string,source:string):PinEmojiCategory=>({id,name,icon,items:source.trim().split('\n').map(line=>{const [emoji,label,...words]=line.trim().split(/\s+/);return {emoji,label,keywords:`${label} ${words.join(' ')}`.toLowerCase()};})});
+export interface PinEmojiOption {
+  emoji: string;
+  label: string;
+  keywords: string;
+}
+export interface PinEmojiCategory {
+  id: string;
+  name: string;
+  icon: string;
+  items: PinEmojiOption[];
+}
+const category = (id: string, name: string, icon: string, source: string): PinEmojiCategory => ({
+  id,
+  name,
+  icon,
+  items: source
+    .trim()
+    .split('\n')
+    .map((line) => {
+      const [emoji, label, ...words] = line.trim().split(/\s+/);
+      return { emoji, label, keywords: `${label} ${words.join(' ')}`.toLowerCase() };
+    }),
+});
 
-export const PIN_EMOJI_CATEGORIES:PinEmojiCategory[]=[
-  category('faces','表情','😀',`
+export const PIN_EMOJI_CATEGORIES: PinEmojiCategory[] = [
+  category(
+    'faces',
+    '表情',
+    '😀',
+    `
 😀 笑脸 开心 happy smile
 😃 大笑 开心 smile
 😄 开怀大笑 happy
@@ -120,8 +144,13 @@ export const PIN_EMOJI_CATEGORIES:PinEmojiCategory[]=[
 🙈 不敢看 猴 monkey
 🙉 不想听 猴 monkey
 🙊 不说话 猴 monkey
-`),
-  category('gestures','手势与人物','👋',`
+`,
+  ),
+  category(
+    'gestures',
+    '手势与人物',
+    '👋',
+    `
 👍 赞同 好棒 点赞 yes thumbs up
 👎 不赞同 反对 no thumbs down
 👏 鼓掌 掌声 clap
@@ -186,8 +215,13 @@ export const PIN_EMOJI_CATEGORIES:PinEmojiCategory[]=[
 🏃 跑步 run
 🚶 散步 walk
 🧘 冥想 放松 meditate
-`),
-  category('hearts','爱心与符号','❤️',`
+`,
+  ),
+  category(
+    'hearts',
+    '爱心与符号',
+    '❤️',
+    `
 ❤️ 喜欢 爱心 love heart
 🧡 橙色爱心 orange heart
 💛 黄色爱心 yellow heart
@@ -240,8 +274,13 @@ export const PIN_EMOJI_CATEGORIES:PinEmojiCategory[]=[
 🟣 紫色圆点 purple
 ⚫ 黑色圆点 black
 ⚪ 白色圆点 white
-`),
-  category('nature','动物与自然','🐱',`
+`,
+  ),
+  category(
+    'nature',
+    '动物与自然',
+    '🐱',
+    `
 🐱 猫咪 cat
 🐶 狗狗 dog
 🐭 老鼠 mouse
@@ -328,8 +367,13 @@ export const PIN_EMOJI_CATEGORIES:PinEmojiCategory[]=[
 ✨ 闪亮 魔法 sparkles
 💫 眩晕 星光 dizzy
 ☄️ 彗星 comet
-`),
-  category('food','食物与饮品','🍔',`
+`,
+  ),
+  category(
+    'food',
+    '食物与饮品',
+    '🍔',
+    `
 🍎 苹果 apple
 🍏 青苹果 apple
 🍐 梨 pear
@@ -408,8 +452,13 @@ export const PIN_EMOJI_CATEGORIES:PinEmojiCategory[]=[
 🍸 鸡尾酒 cocktail
 🍹 热带饮料 cocktail
 🍾 香槟 champagne
-`),
-  category('activity','活动与出行','🚀',`
+`,
+  ),
+  category(
+    'activity',
+    '活动与出行',
+    '🚀',
+    `
 🎉 庆祝 彩带 party
 🎊 彩球 庆贺 confetti
 🎁 礼物 gift
@@ -488,8 +537,13 @@ export const PIN_EMOJI_CATEGORIES:PinEmojiCategory[]=[
 🌉 大桥 bridge
 🎡 摩天轮 ferris
 🎢 过山车 rollercoaster
-`),
-  category('objects','物品与工作','💡',`
+`,
+  ),
+  category(
+    'objects',
+    '物品与工作',
+    '💡',
+    `
 💡 灵感 灯泡 idea
 🔦 手电 flashlight
 🕯️ 蜡烛 candle
@@ -595,13 +649,19 @@ export const PIN_EMOJI_CATEGORIES:PinEmojiCategory[]=[
 💬 聊天 对话 chat
 💭 想法 思考 thought
 🗯️ 发言 speech
-`)
+`,
+  ),
 ];
-export const PIN_EMOJI_OPTIONS=PIN_EMOJI_CATEGORIES.flatMap(category=>category.items);
-export const PIN_EMOJI_BY_VALUE=new Map(PIN_EMOJI_OPTIONS.map(option=>[option.emoji,option]));
-export const QUICK_PIN_EMOJIS=['👍','👎','❤️','😂','🎉','🤔'];
-export function searchPinEmojis(query:string,categoryId='all'){
-  const words=query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const options=words.length||categoryId==='all'?PIN_EMOJI_OPTIONS:PIN_EMOJI_CATEGORIES.find(category=>category.id===categoryId)?.items||[];
-  return words.length?options.filter(option=>words.every(word=>`${option.emoji} ${option.keywords}`.includes(word))):options;
+export const PIN_EMOJI_OPTIONS = PIN_EMOJI_CATEGORIES.flatMap((category) => category.items);
+export const PIN_EMOJI_BY_VALUE = new Map(PIN_EMOJI_OPTIONS.map((option) => [option.emoji, option]));
+export const QUICK_PIN_EMOJIS = ['👍', '👎', '❤️', '😂', '🎉', '🤔'];
+export function searchPinEmojis(query: string, categoryId = 'all') {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const options =
+    words.length || categoryId === 'all'
+      ? PIN_EMOJI_OPTIONS
+      : PIN_EMOJI_CATEGORIES.find((category) => category.id === categoryId)?.items || [];
+  return words.length
+    ? options.filter((option) => words.every((word) => `${option.emoji} ${option.keywords}`.includes(word)))
+    : options;
 }

@@ -1,115 +1,653 @@
-import {useEffect,useRef,useState,type CSSProperties,type ReactNode} from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import logoLight from '../../docs/assets/logo-light.svg';
 import logoDark from '../../docs/assets/logo-dark.svg';
-import {CapabilitySections} from './CapabilitySections';
-import {capabilityCopy} from './capability-content';
-import {productScenes,sceneCopy,teamShowcaseCopy} from './product-scenes';
-import {readSiteLanguage,rememberSiteLanguage} from './locale.mjs';
-import {version} from '../../package.json';
-import {BotSculpture,tones,type BotTone} from './BotSculpture';
-import {siteCopy,siteExamples,siteLanguages,siteQuestions,type SiteLanguage} from './site-i18n';
-import {detectDownloadPlatform,downloadHref,downloadIcon,navigatorHints,readBrowserDownloadHints,recommendDownload} from './download-platform.mjs';
-import {resetSurface,trackSurface,useMotionPreference,useSiteMotion} from './useSiteMotion';
+import { CapabilitySections } from './CapabilitySections';
+import { capabilityCopy } from './capability-content';
+import { productScenes, sceneCopy, teamShowcaseCopy } from './product-scenes';
+import { readSiteLanguage, rememberSiteLanguage } from './locale.mjs';
+import { version } from '../../package.json';
+import { BotSculpture, tones, type BotTone } from './BotSculpture';
+import { siteCopy, siteExamples, siteLanguages, siteQuestions, type SiteLanguage } from './site-i18n';
+import {
+  detectDownloadPlatform,
+  downloadHref,
+  downloadIcon,
+  navigatorHints,
+  readBrowserDownloadHints,
+  recommendDownload,
+} from './download-platform.mjs';
+import { resetSurface, trackSurface, useMotionPreference, useSiteMotion } from './useSiteMotion';
 import site from '../site.json';
 import './site-i18n.css';
 
-type IconName='arrow'|'down'|'plus'|'close'|'menu'|'expand'|'file'|'check'|'windows'|'mac';
-function Icon({name,size=20}:{name:IconName;size?:number}){
-  const paths:Record<IconName,ReactNode>={arrow:<path d="M4 12h15m-6-6 6 6-6 6"/>,down:<path d="M12 4v15m-6-6 6 6 6-6"/>,plus:<path d="M5 12h14M12 5v14"/>,close:<path d="m6 6 12 12M18 6 6 18"/>,menu:<path d="M4 8h16M4 16h16"/>,expand:<path d="M4 9V4h5m6 0h5v5M4 15v5h5m6 0h5v-5"/>,file:<><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6"/><path d="M8 13h8M8 17h5"/></>,check:<path d="m5 12 4 4L19 6"/>,windows:<path d="m3 5 8-1v7H3zm10-1 8-1v8h-8zM3 13h8v7l-8-1zm10 0h8v8l-8-1z" fill="currentColor" stroke="none"/>,mac:<><path d="M6 5h12a1 1 0 0 1 1 1v8H5V6a1 1 0 0 1 1-1z"/><path d="M3 17h18"/></>};
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
+type IconName = 'arrow' | 'down' | 'plus' | 'close' | 'menu' | 'expand' | 'file' | 'check' | 'windows' | 'mac';
+function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
+  const paths: Record<IconName, ReactNode> = {
+    arrow: <path d="M4 12h15m-6-6 6 6-6 6" />,
+    down: <path d="M12 4v15m-6-6 6 6 6-6" />,
+    plus: <path d="M5 12h14M12 5v14" />,
+    close: <path d="m6 6 12 12M18 6 6 18" />,
+    menu: <path d="M4 8h16M4 16h16" />,
+    expand: <path d="M4 9V4h5m6 0h5v5M4 15v5h5m6 0h5v-5" />,
+    file: (
+      <>
+        <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6" />
+        <path d="M8 13h8M8 17h5" />
+      </>
+    ),
+    check: <path d="m5 12 4 4L19 6" />,
+    windows: <path d="m3 5 8-1v7H3zm10-1 8-1v8h-8zM3 13h8v7l-8-1zm10 0h8v8l-8-1z" fill="currentColor" stroke="none" />,
+    mac: (
+      <>
+        <path d="M6 5h12a1 1 0 0 1 1 1v8H5V6a1 1 0 0 1 1-1z" />
+        <path d="M3 17h18" />
+      </>
+    ),
+  };
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {paths[name]}
+    </svg>
+  );
 }
 
-function downloadLabel(copy:typeof siteCopy['zh-CN'],id:string){
-  return id==='windows-x64'?copy.downloadWindows:id==='mac-arm64'?copy.downloadMacArm:id==='mac-x64'?copy.downloadMacIntel:copy.downloadAll;
+function downloadLabel(copy: (typeof siteCopy)['zh-CN'], id: string) {
+  return id === 'windows-x64'
+    ? copy.downloadWindows
+    : id === 'mac-arm64'
+      ? copy.downloadMacArm
+      : id === 'mac-x64'
+        ? copy.downloadMacIntel
+        : copy.downloadAll;
 }
-function downloadShort(copy:typeof siteCopy['zh-CN'],id:string){
-  return id==='windows-x64'?copy.downloadWindowsShort:id==='mac-arm64'?copy.downloadMacArmShort:copy.downloadMacIntelShort;
-}
-
-function DownloadPanel({copy}:{copy:typeof siteCopy['zh-CN']}){
-  const [platform,setPlatform]=useState(()=>detectDownloadPlatform(navigatorHints()));
-  useEffect(()=>{let live=true;readBrowserDownloadHints().then(hints=>{if(live)setPlatform(detectDownloadPlatform(hints));});return()=>{live=false;};},[]);
-  const {primary,alternatives}=recommendDownload(platform);
-  const hint=platform.os==='ios'||platform.os==='android'?copy.downloadMobileHint:platform.os==='linux'?copy.downloadLinuxHint:'';
-  return <>
-    <a className="button button-primary" href={downloadHref(primary,site.repository,version)} target="_blank" rel="noopener noreferrer"><Icon name={downloadIcon(primary) as IconName} size={18}/>{downloadLabel(copy,primary)}<Icon name="arrow" size={18}/></a>
-    {hint?<p className="download-hint">{hint}</p>:null}
-    <p className="download-meta"><span>v{version}</span>{alternatives.map((id:string)=><a key={id} href={downloadHref(id,site.repository,version)} target="_blank" rel="noopener noreferrer">{downloadShort(copy,id)}</a>)}</p>
-  </>;
+function downloadShort(copy: (typeof siteCopy)['zh-CN'], id: string) {
+  return id === 'windows-x64'
+    ? copy.downloadWindowsShort
+    : id === 'mac-arm64'
+      ? copy.downloadMacArmShort
+      : copy.downloadMacIntelShort;
 }
 
-export default function App(){
-  const root=useRef<HTMLDivElement>(null),gallery=useRef<HTMLDialogElement>(null),menuButton=useRef<HTMLButtonElement>(null);
-  const motion=useMotionPreference();useSiteMotion(root,motion.enabled);
-  const [language,setLanguage]=useState<SiteLanguage>(()=>readSiteLanguage() as SiteLanguage),[menuOpen,setMenuOpen]=useState(false),[view,setView]=useState(0),[detail,setDetail]=useState(2),[shot,setShot]=useState<number|null>(null),[tone,setTone]=useState<BotTone>('violet'),[example,setExample]=useState(0);
-  const copy=siteCopy[language],capabilities=capabilityCopy[language],showcase=teamShowcaseCopy[language],scenes=sceneCopy[language],workExamples=siteExamples[language],questions=siteQuestions[language],screenshots=productScenes(language).map((src,index)=>({src,title:index<2?copy.viewProduct[index]:scenes.tabs[index-2],alt:scenes.alt[index]}));
-  const current=workExamples[example];
-  useEffect(()=>{document.documentElement.lang=language;document.title=language==='en'?'AelionBot · A general-purpose multi-agent workspace':language==='zh-TW'?'AelionBot · 通用多 Agent 工作空間':'AelionBot · 通用多 Agent 工作空间';document.querySelector('meta[name="description"]')?.setAttribute('content',copy.heroDescription);rememberSiteLanguage(language);document.querySelector('meta[property="og:title"]')?.setAttribute('content',document.title);document.querySelector('meta[property="og:description"]')?.setAttribute('content',copy.heroDescription);},[language,copy.heroDescription]);
-  useEffect(()=>{
-    if(!menuOpen)return;
-    const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){setMenuOpen(false);menuButton.current?.focus();}};
-    const outside=(event:PointerEvent)=>{if(!(event.target as Element).closest('.site-header'))setMenuOpen(false);};
-    document.addEventListener('keydown',escape);document.addEventListener('pointerdown',outside);
-    return()=>{document.removeEventListener('keydown',escape);document.removeEventListener('pointerdown',outside);};
-  },[menuOpen]);
-  useEffect(()=>{
-    const dialog=gallery.current;if(!dialog)return;
-    if(shot===null){if(dialog.open)dialog.close();return;}
-    if(!dialog.open)dialog.showModal();
-    const overflow=document.body.style.overflow;document.body.style.overflow='hidden';
-    return()=>{document.body.style.overflow=overflow;};
-  },[shot]);
-  const changeShot=(step:number)=>setShot(index=>index===null?0:(index+step+screenshots.length)%screenshots.length);
-  return <div ref={root} className="site-app product-site" data-motion={motion.enabled?'on':'off'}>
-    <div className="reading-progress" aria-hidden="true"/><a className="skip-link" href="#main">{copy.skip}</a>
-    <header className="site-header"><div className="nav-shell"><a className="brand-link" href="#" aria-label={copy.home}><img className="brand-on-light" src={logoLight} width="144" height="41" alt="AelionBot"/><img className="brand-on-dark" src={logoDark} width="144" height="41" alt=""/></a>
-      <nav id="main-navigation" className={`main-nav ${menuOpen?'is-open':''}`} aria-label={copy.mainNav}>{capabilities.nav.map((label,index)=><a key={label} href={'#'+['group-chat','vm','design-systems'][index]} onClick={()=>setMenuOpen(false)}>{label}</a>)}{site.navigation.map(link=><a key={link.href} href={link.href==='/blog/'?`/blog/?lang=${language}`:link.href} onClick={()=>setMenuOpen(false)} {...(link.external?{target:'_blank',rel:'noopener noreferrer'}:{})}>{link.href==='/blog/'?copy.blog:copy.github}</a>)}</nav>
-      <a className="button nav-download" href="#download">{copy.download}</a><select className="site-language-switcher" aria-label={language==='en'?'Language':language==='zh-TW'?'語言':'语言'} value={language} onChange={event=>setLanguage(event.target.value as SiteLanguage)}>{siteLanguages.map(option=><option value={option.value} key={option.value}>{option.label}</option>)}</select><button ref={menuButton} className="mobile-menu-button" aria-label={menuOpen?copy.closeNav:copy.openNav} aria-controls="main-navigation" aria-expanded={menuOpen} onClick={()=>setMenuOpen(value=>!value)}><Icon name={menuOpen?'close':'menu'}/></button>
-    </div></header>
-    <main id="main">
-      <section className="hero-section" aria-labelledby="hero-title" data-motion-region data-scroll-scene="hero">
-        <div className="hero-spotlight" aria-hidden="true"/><div className="hero-copy"><p className="eyebrow" data-reveal>{copy.heroEyebrow}</p><h1 id="hero-title" data-reveal data-delay="1">{copy.heroTitle[0]}<br/><span>{copy.heroTitle[1]}</span></h1><p className="hero-description" data-reveal data-delay="2">{copy.heroDescription}</p><div className="hero-actions" data-reveal data-delay="3"><a href="#download" className="button button-primary">{copy.meet}<Icon name="arrow" size={17}/></a><a href="#workspace" className="hero-more">{copy.seeCollab}<Icon name="down" size={16}/></a></div></div>
-        <div className="hero-cast" aria-hidden="true"><div className="cast-floor"/><div className="cast-member cast-blue"><BotSculpture tone="blue"/></div><div className="cast-member cast-mint"><BotSculpture tone="mint"/></div><div className="cast-member cast-violet"><BotSculpture/></div><span className="cast-caption">{copy.castCaption}</span></div>
-      </section>
+function DownloadPanel({ copy }: { copy: (typeof siteCopy)['zh-CN'] }) {
+  const [platform, setPlatform] = useState(() => detectDownloadPlatform(navigatorHints()));
+  useEffect(() => {
+    let live = true;
+    readBrowserDownloadHints().then((hints) => {
+      if (live) setPlatform(detectDownloadPlatform(hints));
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  const { primary, alternatives } = recommendDownload(platform);
+  const hint =
+    platform.os === 'ios' || platform.os === 'android'
+      ? copy.downloadMobileHint
+      : platform.os === 'linux'
+        ? copy.downloadLinuxHint
+        : '';
+  return (
+    <>
+      <a
+        className="button button-primary"
+        href={downloadHref(primary, site.repository, version)}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <Icon name={downloadIcon(primary) as IconName} size={18} />
+        {downloadLabel(copy, primary)}
+        <Icon name="arrow" size={18} />
+      </a>
+      {hint ? <p className="download-hint">{hint}</p> : null}
+      <p className="download-meta">
+        <span>v{version}</span>
+        {alternatives.map((id: string) => (
+          <a key={id} href={downloadHref(id, site.repository, version)} target="_blank" rel="noopener noreferrer">
+            {downloadShort(copy, id)}
+          </a>
+        ))}
+      </p>
+    </>
+  );
+}
 
-      <section className="team-overview section-shell" id="workspace" aria-labelledby="workspace-title"><div className="section-heading centered"><p className="section-kicker">{showcase.kicker}</p><h2 id="workspace-title">{showcase.title}</h2><p>{showcase.description}</p></div><button className="team-overview-image" onClick={()=>setShot(6)} aria-label={copy.expandProduct+': '+screenshots[6].title}><img src={screenshots[6].src} alt={screenshots[6].alt} width="1400" height="900" loading="lazy"/><span className="studio-expand"><Icon name="expand" size={18}/></span></button><p className="product-caption">{scenes.caption}</p></section>
-      <CapabilitySections language={language} part="core" onOpen={setShot}/>
-      <section className="team-picture-section section-shell" aria-labelledby="team-picture-title"><h2 id="team-picture-title">{showcase.gallery}</h2><div className="team-picture-grid">{[4,5].map((index,i)=><figure key={index}><button onClick={()=>setShot(index)} aria-label={copy.expandProduct+': '+screenshots[index].title}><img src={screenshots[index].src} alt={screenshots[index].alt} width="1400" height="900" loading="lazy"/><span className="studio-expand"><Icon name="expand" size={18}/></span></button><figcaption><strong>{screenshots[index].title}</strong><p>{showcase.captions[i]}</p></figcaption></figure>)}</div><p className="product-caption">{scenes.caption}</p></section>
+export default function App() {
+  const root = useRef<HTMLDivElement>(null),
+    gallery = useRef<HTMLDialogElement>(null),
+    menuButton = useRef<HTMLButtonElement>(null);
+  const motion = useMotionPreference();
+  useSiteMotion(root, motion.enabled);
+  const [language, setLanguage] = useState<SiteLanguage>(() => readSiteLanguage() as SiteLanguage),
+    [menuOpen, setMenuOpen] = useState(false),
+    [view, setView] = useState(0),
+    [detail, setDetail] = useState(2),
+    [shot, setShot] = useState<number | null>(null),
+    [tone, setTone] = useState<BotTone>('violet'),
+    [example, setExample] = useState(0);
+  const copy = siteCopy[language],
+    capabilities = capabilityCopy[language],
+    showcase = teamShowcaseCopy[language],
+    scenes = sceneCopy[language],
+    workExamples = siteExamples[language],
+    questions = siteQuestions[language],
+    screenshots = productScenes(language).map((src, index) => ({
+      src,
+      title: index < 2 ? copy.viewProduct[index] : scenes.tabs[index - 2],
+      alt: scenes.alt[index],
+    }));
+  const current = workExamples[example];
+  useEffect(() => {
+    document.documentElement.lang = language;
+    document.title =
+      language === 'en'
+        ? 'AelionBot · A general-purpose multi-agent workspace'
+        : language === 'zh-TW'
+          ? 'AelionBot · 通用多 Agent 工作空間'
+          : 'AelionBot · 通用多 Agent 工作空间';
+    document.querySelector('meta[name="description"]')?.setAttribute('content', copy.heroDescription);
+    rememberSiteLanguage(language);
+    document.querySelector('meta[property="og:title"]')?.setAttribute('content', document.title);
+    document.querySelector('meta[property="og:description"]')?.setAttribute('content', copy.heroDescription);
+  }, [language, copy.heroDescription]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+        menuButton.current?.focus();
+      }
+    };
+    const outside = (event: PointerEvent) => {
+      if (!(event.target as Element).closest('.site-header')) setMenuOpen(false);
+    };
+    document.addEventListener('keydown', escape);
+    document.addEventListener('pointerdown', outside);
+    return () => {
+      document.removeEventListener('keydown', escape);
+      document.removeEventListener('pointerdown', outside);
+    };
+  }, [menuOpen]);
+  useEffect(() => {
+    const dialog = gallery.current;
+    if (!dialog) return;
+    if (shot === null) {
+      if (dialog.open) dialog.close();
+      return;
+    }
+    if (!dialog.open) dialog.showModal();
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = overflow;
+    };
+  }, [shot]);
+  const changeShot = (step: number) =>
+    setShot((index) => (index === null ? 0 : (index + step + screenshots.length) % screenshots.length));
+  return (
+    <div ref={root} className="site-app product-site" data-motion={motion.enabled ? 'on' : 'off'}>
+      <div className="reading-progress" aria-hidden="true" />
+      <a className="skip-link" href="#main">
+        {copy.skip}
+      </a>
+      <header className="site-header">
+        <div className="nav-shell">
+          <a className="brand-link" href="#" aria-label={copy.home}>
+            <img className="brand-on-light" src={logoLight} width="144" height="41" alt="AelionBot" />
+            <img className="brand-on-dark" src={logoDark} width="144" height="41" alt="" />
+          </a>
+          <nav id="main-navigation" className={`main-nav ${menuOpen ? 'is-open' : ''}`} aria-label={copy.mainNav}>
+            {capabilities.nav.map((label, index) => (
+              <a
+                key={label}
+                href={'#' + ['group-chat', 'vm', 'design-systems'][index]}
+                onClick={() => setMenuOpen(false)}
+              >
+                {label}
+              </a>
+            ))}
+            {site.navigation.map((link) => (
+              <a
+                key={link.href}
+                href={link.href === '/blog/' ? `/blog/?lang=${language}` : link.href}
+                onClick={() => setMenuOpen(false)}
+                {...(link.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+              >
+                {link.href === '/blog/' ? copy.blog : copy.github}
+              </a>
+            ))}
+          </nav>
+          <a className="button nav-download" href="#download">
+            {copy.download}
+          </a>
+          <select
+            className="site-language-switcher"
+            aria-label={language === 'en' ? 'Language' : language === 'zh-TW' ? '語言' : '语言'}
+            value={language}
+            onChange={(event) => setLanguage(event.target.value as SiteLanguage)}
+          >
+            {siteLanguages.map((option) => (
+              <option value={option.value} key={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <button
+            ref={menuButton}
+            className="mobile-menu-button"
+            aria-label={menuOpen ? copy.closeNav : copy.openNav}
+            aria-controls="main-navigation"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((value) => !value)}
+          >
+            <Icon name={menuOpen ? 'close' : 'menu'} />
+          </button>
+        </div>
+      </header>
+      <main id="main">
+        <section className="hero-section" aria-labelledby="hero-title" data-motion-region data-scroll-scene="hero">
+          <div className="hero-spotlight" aria-hidden="true" />
+          <div className="hero-copy">
+            <p className="eyebrow" data-reveal>
+              {copy.heroEyebrow}
+            </p>
+            <h1 id="hero-title" data-reveal data-delay="1">
+              {copy.heroTitle[0]}
+              <br />
+              <span>{copy.heroTitle[1]}</span>
+            </h1>
+            <p className="hero-description" data-reveal data-delay="2">
+              {copy.heroDescription}
+            </p>
+            <div className="hero-actions" data-reveal data-delay="3">
+              <a href="#download" className="button button-primary">
+                {copy.meet}
+                <Icon name="arrow" size={17} />
+              </a>
+              <a href="#workspace" className="hero-more">
+                {copy.seeCollab}
+                <Icon name="down" size={16} />
+              </a>
+            </div>
+          </div>
+          <div className="hero-cast" aria-hidden="true">
+            <div className="cast-floor" />
+            <div className="cast-member cast-blue">
+              <BotSculpture tone="blue" />
+            </div>
+            <div className="cast-member cast-mint">
+              <BotSculpture tone="mint" />
+            </div>
+            <div className="cast-member cast-violet">
+              <BotSculpture />
+            </div>
+            <span className="cast-caption">{copy.castCaption}</span>
+          </div>
+        </section>
 
-      <section className="work-section section-shell" id="work" data-scroll-scene="showcase">
-        <div className="section-heading centered" data-reveal><p className="section-kicker">{copy.fromOne}</p><h2>{copy.workTitle.join(' ')}</h2><p>{copy.workDescription}</p></div>
-        <div className="product-view-tabs" role="tablist" aria-label={copy.productViewAria}>{copy.viewProduct.map((label,index)=><button key={label} id={`view-tab-${index}`} role="tab" aria-selected={view===index} aria-controls="product-view" tabIndex={view===index?0:-1} onClick={()=>setView(index)} onKeyDown={event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?1:1-index;setView(next);document.getElementById(`view-tab-${next}`)?.focus();}}}>{label}</button>)}</div>
-        <div className="product-stage" data-reveal><div className="product-stage-light" aria-hidden="true"/><div className="product-device" id="product-view" role="tabpanel" aria-labelledby={`view-tab-${view}`}><img key={view} src={screenshots[view].src} alt={screenshots[view].alt} width="1400" height="900" loading="lazy"/><button className="product-expand" onClick={()=>setShot(view)} aria-label={copy.expandProduct}><Icon name="expand" size={18}/></button></div></div>
-        <p className="product-caption">{scenes.caption}</p>
-      </section>
+        <section className="team-overview section-shell" id="workspace" aria-labelledby="workspace-title">
+          <div className="section-heading centered">
+            <p className="section-kicker">{showcase.kicker}</p>
+            <h2 id="workspace-title">{showcase.title}</h2>
+            <p>{showcase.description}</p>
+          </div>
+          <button
+            className="team-overview-image"
+            onClick={() => setShot(6)}
+            aria-label={copy.expandProduct + ': ' + screenshots[6].title}
+          >
+            <img src={screenshots[6].src} alt={screenshots[6].alt} width="1400" height="900" loading="lazy" />
+            <span className="studio-expand">
+              <Icon name="expand" size={18} />
+            </span>
+          </button>
+          <p className="product-caption">{scenes.caption}</p>
+        </section>
+        <CapabilitySections language={language} part="core" onOpen={setShot} />
+        <section className="team-picture-section section-shell" aria-labelledby="team-picture-title">
+          <h2 id="team-picture-title">{showcase.gallery}</h2>
+          <div className="team-picture-grid">
+            {[4, 5].map((index, i) => (
+              <figure key={index}>
+                <button
+                  onClick={() => setShot(index)}
+                  aria-label={copy.expandProduct + ': ' + screenshots[index].title}
+                >
+                  <img
+                    src={screenshots[index].src}
+                    alt={screenshots[index].alt}
+                    width="1400"
+                    height="900"
+                    loading="lazy"
+                  />
+                  <span className="studio-expand">
+                    <Icon name="expand" size={18} />
+                  </span>
+                </button>
+                <figcaption>
+                  <strong>{screenshots[index].title}</strong>
+                  <p>{showcase.captions[i]}</p>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+          <p className="product-caption">{scenes.caption}</p>
+        </section>
 
+        <section className="work-section section-shell" id="work" data-scroll-scene="showcase">
+          <div className="section-heading centered" data-reveal>
+            <p className="section-kicker">{copy.fromOne}</p>
+            <h2>{copy.workTitle.join(' ')}</h2>
+            <p>{copy.workDescription}</p>
+          </div>
+          <div className="product-view-tabs" role="tablist" aria-label={copy.productViewAria}>
+            {copy.viewProduct.map((label, index) => (
+              <button
+                key={label}
+                id={`view-tab-${index}`}
+                role="tab"
+                aria-selected={view === index}
+                aria-controls="product-view"
+                tabIndex={view === index ? 0 : -1}
+                onClick={() => setView(index)}
+                onKeyDown={(event) => {
+                  if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+                    event.preventDefault();
+                    const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : 1 - index;
+                    setView(next);
+                    document.getElementById(`view-tab-${next}`)?.focus();
+                  }
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="product-stage" data-reveal>
+            <div className="product-stage-light" aria-hidden="true" />
+            <div className="product-device" id="product-view" role="tabpanel" aria-labelledby={`view-tab-${view}`}>
+              <img
+                key={view}
+                src={screenshots[view].src}
+                alt={screenshots[view].alt}
+                width="1400"
+                height="900"
+                loading="lazy"
+              />
+              <button className="product-expand" onClick={() => setShot(view)} aria-label={copy.expandProduct}>
+                <Icon name="expand" size={18} />
+              </button>
+            </div>
+          </div>
+          <p className="product-caption">{scenes.caption}</p>
+        </section>
 
-      <section className="personality-section section-shell" data-motion-region>
-        <div className="personality-visual" style={{'--tone-light':tones[tone][0],'--tone-main':tones[tone][1]} as CSSProperties}><div className="personality-halo" aria-hidden="true"/><BotSculpture key={tone} tone={tone} className="personality-bot"/><div className="palette-options" role="group" aria-label={copy.paletteAria}>{(Object.keys(tones) as BotTone[]).map((value,index)=><button key={value} aria-label={copy.paletteNames[index]} aria-pressed={tone===value} onClick={()=>setTone(value)} style={{'--swatch':`linear-gradient(140deg,${tones[value][0]},${tones[value][2]})`} as CSSProperties}/>)}</div><span className="palette-hint">{copy.paletteHint}</span></div>
-        <div className="personality-copy" data-reveal><p className="section-kicker">{copy.personalityKicker}</p><h2>{copy.personalityTitle[0]}<br/><span>{copy.personalityTitle[1]}</span></h2><p>{copy.personalityDescription[0]}<br/>{copy.personalityDescription[1]}</p><div className="memory-note"><BotSculpture tone={tone} flat/><div><p>{copy.memoryQuote}</p><span>{copy.memoryDescription}</span></div></div></div>
-      </section>
+        <section className="personality-section section-shell" data-motion-region>
+          <div
+            className="personality-visual"
+            style={{ '--tone-light': tones[tone][0], '--tone-main': tones[tone][1] } as CSSProperties}
+          >
+            <div className="personality-halo" aria-hidden="true" />
+            <BotSculpture key={tone} tone={tone} className="personality-bot" />
+            <div className="palette-options" role="group" aria-label={copy.paletteAria}>
+              {(Object.keys(tones) as BotTone[]).map((value, index) => (
+                <button
+                  key={value}
+                  aria-label={copy.paletteNames[index]}
+                  aria-pressed={tone === value}
+                  onClick={() => setTone(value)}
+                  style={
+                    { '--swatch': `linear-gradient(140deg,${tones[value][0]},${tones[value][2]})` } as CSSProperties
+                  }
+                />
+              ))}
+            </div>
+            <span className="palette-hint">{copy.paletteHint}</span>
+          </div>
+          <div className="personality-copy" data-reveal>
+            <p className="section-kicker">{copy.personalityKicker}</p>
+            <h2>
+              {copy.personalityTitle[0]}
+              <br />
+              <span>{copy.personalityTitle[1]}</span>
+            </h2>
+            <p>
+              {copy.personalityDescription[0]}
+              <br />
+              {copy.personalityDescription[1]}
+            </p>
+            <div className="memory-note">
+              <BotSculpture tone={tone} flat />
+              <div>
+                <p>{copy.memoryQuote}</p>
+                <span>{copy.memoryDescription}</span>
+              </div>
+            </div>
+          </div>
+        </section>
 
-      <section className="possibilities-section" id="possibilities"><div className="section-shell"><div className="section-heading" data-reveal><p className="section-kicker">{copy.possibilitiesKicker}</p><h2>{copy.possibilitiesTitle[0]}<br/><span>{copy.possibilitiesTitle[1]}</span></h2></div>
-        <div className="possibility-tabs" role="tablist" aria-label={copy.possibilitiesKicker}>{workExamples.map((item,index)=><button key={item.name} id={`case-tab-${index}`} role="tab" aria-selected={example===index} aria-controls="case-panel" tabIndex={example===index?0:-1} onClick={()=>setExample(index)} onKeyDown={event=>{let next=index;if(event.key==='ArrowRight')next=(index+1)%workExamples.length;else if(event.key==='ArrowLeft')next=(index+workExamples.length-1)%workExamples.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=workExamples.length-1;else return;event.preventDefault();setExample(next);document.getElementById(`case-tab-${next}`)?.focus();}}>{item.name}</button>)}</div>
-        <div id="case-panel" role="tabpanel" aria-labelledby={`case-tab-${example}`} className="case-panel" data-motion-region onPointerMove={trackSurface} onPointerLeave={resetSurface}><div className="case-copy" key={example}><span>{copy.casePrompt}</span><h3>{current.prompt}</h3><p>{current.result}</p></div><div className={`case-art case-${current.tone}`} aria-hidden="true"><BotSculpture tone={current.tone}/><div className="case-file"><Icon name="file" size={30}/><span>{current.file}</span><i><Icon name="check" size={15}/></i></div></div></div>
-        <div className="everyday-note" data-reveal><span className="calendar-mini" aria-hidden="true"><span>{language==='en'?'Week':language==='zh-TW'?'每週':'每周'}</span><strong>{language==='en'?'F': '五'}</strong></span><div><h3>{copy.weeklyTitle}</h3><p>{copy.weeklyDescription}</p></div><a className="text-link" href="#questions">{copy.weeklyLink}<Icon name="arrow" size={17}/></a></div>
-      </div></section>
+        <section className="possibilities-section" id="possibilities">
+          <div className="section-shell">
+            <div className="section-heading" data-reveal>
+              <p className="section-kicker">{copy.possibilitiesKicker}</p>
+              <h2>
+                {copy.possibilitiesTitle[0]}
+                <br />
+                <span>{copy.possibilitiesTitle[1]}</span>
+              </h2>
+            </div>
+            <div className="possibility-tabs" role="tablist" aria-label={copy.possibilitiesKicker}>
+              {workExamples.map((item, index) => (
+                <button
+                  key={item.name}
+                  id={`case-tab-${index}`}
+                  role="tab"
+                  aria-selected={example === index}
+                  aria-controls="case-panel"
+                  tabIndex={example === index ? 0 : -1}
+                  onClick={() => setExample(index)}
+                  onKeyDown={(event) => {
+                    let next = index;
+                    if (event.key === 'ArrowRight') next = (index + 1) % workExamples.length;
+                    else if (event.key === 'ArrowLeft') next = (index + workExamples.length - 1) % workExamples.length;
+                    else if (event.key === 'Home') next = 0;
+                    else if (event.key === 'End') next = workExamples.length - 1;
+                    else return;
+                    event.preventDefault();
+                    setExample(next);
+                    document.getElementById(`case-tab-${next}`)?.focus();
+                  }}
+                >
+                  {item.name}
+                </button>
+              ))}
+            </div>
+            <div
+              id="case-panel"
+              role="tabpanel"
+              aria-labelledby={`case-tab-${example}`}
+              className="case-panel"
+              data-motion-region
+              onPointerMove={trackSurface}
+              onPointerLeave={resetSurface}
+            >
+              <div className="case-copy" key={example}>
+                <span>{copy.casePrompt}</span>
+                <h3>{current.prompt}</h3>
+                <p>{current.result}</p>
+              </div>
+              <div className={`case-art case-${current.tone}`} aria-hidden="true">
+                <BotSculpture tone={current.tone} />
+                <div className="case-file">
+                  <Icon name="file" size={30} />
+                  <span>{current.file}</span>
+                  <i>
+                    <Icon name="check" size={15} />
+                  </i>
+                </div>
+              </div>
+            </div>
+            <div className="everyday-note" data-reveal>
+              <span className="calendar-mini" aria-hidden="true">
+                <span>{language === 'en' ? 'Week' : language === 'zh-TW' ? '每週' : '每周'}</span>
+                <strong>{language === 'en' ? 'F' : '五'}</strong>
+              </span>
+              <div>
+                <h3>{copy.weeklyTitle}</h3>
+                <p>{copy.weeklyDescription}</p>
+              </div>
+              <a className="text-link" href="#questions">
+                {copy.weeklyLink}
+                <Icon name="arrow" size={17} />
+              </a>
+            </div>
+          </div>
+        </section>
 
-      <section className="studio-section section-shell" aria-labelledby="studio-title">
-        <div className="section-heading centered" data-reveal><p className="section-kicker">{scenes.kicker}</p><h2 id="studio-title">{scenes.title[0]}<br/><span>{scenes.title[1]}</span></h2><p>{scenes.description}</p></div>
-        <div className="studio-tabs" role="group" aria-label={scenes.kicker}>{scenes.tabs.map((label,index)=><button key={label} aria-pressed={detail===index+2} onClick={()=>setDetail(index+2)}>{label}</button>)}</div>
-        <button className="studio-visual" onClick={()=>setShot(detail)} aria-label={`${copy.expandProduct}: ${scenes.tabs[detail-2]}`}><img src={screenshots[detail].src} alt={screenshots[detail].alt} width="1400" height="900" loading="lazy"/><span className="studio-expand"><Icon name="expand" size={18}/></span></button><p className="product-caption">{scenes.caption}</p>
-      </section>
+        <section className="studio-section section-shell" aria-labelledby="studio-title">
+          <div className="section-heading centered" data-reveal>
+            <p className="section-kicker">{scenes.kicker}</p>
+            <h2 id="studio-title">
+              {scenes.title[0]}
+              <br />
+              <span>{scenes.title[1]}</span>
+            </h2>
+            <p>{scenes.description}</p>
+          </div>
+          <div className="studio-tabs" role="group" aria-label={scenes.kicker}>
+            {scenes.tabs.map((label, index) => (
+              <button key={label} aria-pressed={detail === index + 2} onClick={() => setDetail(index + 2)}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            className="studio-visual"
+            onClick={() => setShot(detail)}
+            aria-label={`${copy.expandProduct}: ${scenes.tabs[detail - 2]}`}
+          >
+            <img src={screenshots[detail].src} alt={screenshots[detail].alt} width="1400" height="900" loading="lazy" />
+            <span className="studio-expand">
+              <Icon name="expand" size={18} />
+            </span>
+          </button>
+          <p className="product-caption">{scenes.caption}</p>
+        </section>
 
-      <CapabilitySections language={language} part="design" onOpen={setShot}/>
+        <CapabilitySections language={language} part="design" onOpen={setShot} />
 
-      <section className="questions-section section-shell" id="questions"><h2 data-reveal>{copy.questionsTitle}</h2><div className="question-list">{questions.map(item=><details className="question-item" key={item.question}><summary>{item.question}<Icon name="plus" size={18}/></summary><p>{item.answer}</p></details>)}</div></section>
+        <section className="questions-section section-shell" id="questions">
+          <h2 data-reveal>{copy.questionsTitle}</h2>
+          <div className="question-list">
+            {questions.map((item) => (
+              <details className="question-item" key={item.question}>
+                <summary>
+                  {item.question}
+                  <Icon name="plus" size={18} />
+                </summary>
+                <p>{item.answer}</p>
+              </details>
+            ))}
+          </div>
+        </section>
 
-      <section className="download-section" id="download" data-motion-region><div className="download-glow" aria-hidden="true"/><BotSculpture className="download-bot"/><div className="download-cta" data-reveal><p className="section-kicker">{copy.downloadKicker}</p><h2>{copy.downloadTitle.join(' ')}</h2><DownloadPanel copy={copy}/></div></section>
-    </main>
-    <footer className="site-footer"><div className="section-shell footer-inner"><a href="#" aria-label={copy.home}><img src={logoLight} width="136" height="39" alt="AelionBot"/></a><p>{copy.footerTagline}</p><nav aria-label={copy.footerNav}><a href={`/blog/?lang=${language}`}>{copy.blog}</a><a href={site.repository} target="_blank" rel="noopener noreferrer">GitHub</a><a href={`${site.repository}/releases`} target="_blank" rel="noopener noreferrer">{language==='en'?'Releases':language==='zh-TW'?'版本更新':'版本更新'}</a><a href={`${site.repository}/issues`} target="_blank" rel="noopener noreferrer">{language==='en'?'Feedback':language==='zh-TW'?'回報建議':'反馈建议'}</a></nav><span>© {new Date().getFullYear()} AelionBot</span></div></footer>
-    <dialog ref={gallery} className="screenshot-dialog" aria-labelledby="gallery-title" onClose={()=>setShot(null)} onClick={event=>{if(event.target===event.currentTarget)setShot(null);}} onKeyDown={event=>{if(event.key==='ArrowLeft'){event.preventDefault();changeShot(-1);}else if(event.key==='ArrowRight'){event.preventDefault();changeShot(1);}}}>
-      {shot!==null&&<div className="gallery-content"><header><div><span>{scenes.caption}</span><h2 id="gallery-title">{screenshots[shot].title}</h2></div><button className="icon-button" autoFocus onClick={()=>setShot(null)} aria-label={copy.closeScreenshot}><Icon name="close"/></button></header><div className="gallery-artwork" tabIndex={0} role="region" aria-label={screenshots[shot].alt}><img src={screenshots[shot].src} alt={screenshots[shot].alt}/></div><p className="gallery-pan-hint">{language==='en'?'Swipe to explore the details':language==='zh-TW'?'滑動查看細節':'滑动查看细节'}</p><footer><button className="icon-button previous-shot" onClick={()=>changeShot(-1)} aria-label={copy.previousScreenshot}><Icon name="arrow"/></button><span>{shot+1} / {screenshots.length}</span><button className="icon-button" onClick={()=>changeShot(1)} aria-label={copy.nextScreenshot}><Icon name="arrow"/></button></footer></div>}
-    </dialog>
-  </div>;
+        <section className="download-section" id="download" data-motion-region>
+          <div className="download-glow" aria-hidden="true" />
+          <BotSculpture className="download-bot" />
+          <div className="download-cta" data-reveal>
+            <p className="section-kicker">{copy.downloadKicker}</p>
+            <h2>{copy.downloadTitle.join(' ')}</h2>
+            <DownloadPanel copy={copy} />
+          </div>
+        </section>
+      </main>
+      <footer className="site-footer">
+        <div className="section-shell footer-inner">
+          <a href="#" aria-label={copy.home}>
+            <img src={logoLight} width="136" height="39" alt="AelionBot" />
+          </a>
+          <p>{copy.footerTagline}</p>
+          <nav aria-label={copy.footerNav}>
+            <a href={`/blog/?lang=${language}`}>{copy.blog}</a>
+            <a href={site.repository} target="_blank" rel="noopener noreferrer">
+              GitHub
+            </a>
+            <a href={`${site.repository}/releases`} target="_blank" rel="noopener noreferrer">
+              {language === 'en' ? 'Releases' : language === 'zh-TW' ? '版本更新' : '版本更新'}
+            </a>
+            <a href={`${site.repository}/issues`} target="_blank" rel="noopener noreferrer">
+              {language === 'en' ? 'Feedback' : language === 'zh-TW' ? '回報建議' : '反馈建议'}
+            </a>
+          </nav>
+          <span>© {new Date().getFullYear()} AelionBot</span>
+        </div>
+      </footer>
+      <dialog
+        ref={gallery}
+        className="screenshot-dialog"
+        aria-labelledby="gallery-title"
+        onClose={() => setShot(null)}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) setShot(null);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowLeft') {
+            event.preventDefault();
+            changeShot(-1);
+          } else if (event.key === 'ArrowRight') {
+            event.preventDefault();
+            changeShot(1);
+          }
+        }}
+      >
+        {shot !== null && (
+          <div className="gallery-content">
+            <header>
+              <div>
+                <span>{scenes.caption}</span>
+                <h2 id="gallery-title">{screenshots[shot].title}</h2>
+              </div>
+              <button className="icon-button" autoFocus onClick={() => setShot(null)} aria-label={copy.closeScreenshot}>
+                <Icon name="close" />
+              </button>
+            </header>
+            <div className="gallery-artwork" tabIndex={0} role="region" aria-label={screenshots[shot].alt}>
+              <img src={screenshots[shot].src} alt={screenshots[shot].alt} />
+            </div>
+            <p className="gallery-pan-hint">
+              {language === 'en'
+                ? 'Swipe to explore the details'
+                : language === 'zh-TW'
+                  ? '滑動查看細節'
+                  : '滑动查看细节'}
+            </p>
+            <footer>
+              <button
+                className="icon-button previous-shot"
+                onClick={() => changeShot(-1)}
+                aria-label={copy.previousScreenshot}
+              >
+                <Icon name="arrow" />
+              </button>
+              <span>
+                {shot + 1} / {screenshots.length}
+              </span>
+              <button className="icon-button" onClick={() => changeShot(1)} aria-label={copy.nextScreenshot}>
+                <Icon name="arrow" />
+              </button>
+            </footer>
+          </div>
+        )}
+      </dialog>
+    </div>
+  );
 }

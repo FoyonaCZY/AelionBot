@@ -1,18 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {spawnSync} from 'node:child_process';
-import {BOT_DESKTOP_SCRIPT} from '../electron/core/bot-desktop-profile';
-import {SESSION_LAUNCHER} from '../electron/core/desktop-profile';
+import { spawnSync } from 'node:child_process';
+import { BOT_DESKTOP_SCRIPT } from '../electron/core/bot-desktop-profile';
+import { SESSION_LAUNCHER } from '../electron/core/desktop-profile';
 
-const python=process.env.AELION_TEST_PYTHON||(process.platform==='win32'?'python':'python3');
-const probe=spawnSync(python,['--version'],{windowsHide:true,timeout:25000});
-if(process.env.AELION_TEST_PYTHON)assert.equal(probe.status,0,`Configured test Python could not start: ${String(probe.error||probe.stderr)}`);
-const available=probe.status===0;
+const python = process.env.AELION_TEST_PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
+const probe = spawnSync(python, ['--version'], { windowsHide: true, timeout: 25000 });
+if (process.env.AELION_TEST_PYTHON)
+  assert.equal(probe.status, 0, `Configured test Python could not start: ${String(probe.error || probe.stderr)}`);
+const available = probe.status === 0;
 // The script's fake clock asserts the desktop deadlines. This separate guard
 // allows a loaded CI host to start/import Python, below node:test's 30 s limit.
-function run(code:string){const result=spawnSync(python,['-c',code],{input:JSON.stringify({desktop:BOT_DESKTOP_SCRIPT,launcher:SESSION_LAUNCHER}),encoding:'utf8',windowsHide:true,timeout:25000});assert.equal(result.status,0,result.stderr||String(result.error));}
+function run(code: string) {
+  const result = spawnSync(python, ['-c', code], {
+    input: JSON.stringify({ desktop: BOT_DESKTOP_SCRIPT, launcher: SESSION_LAUNCHER }),
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 25000,
+  });
+  assert.equal(result.status, 0, result.stderr || String(result.error));
+}
 
-test('desktop readiness tolerates a slow startup and transient probes, but fails boundedly',{skip:!available},()=>run(String.raw`
+test('desktop readiness tolerates a slow startup and transient probes, but fails boundedly', { skip: !available }, () =>
+  run(String.raw`
 import ast,json,sys,types,subprocess
 p=json.load(sys.stdin)
 tree=ast.parse(p['desktop'])
@@ -52,9 +62,11 @@ ns['signal']=types.SimpleNamespace(SIGTERM=15,SIGKILL=9)
 ns['stop_child'](types.SimpleNamespace(pid=42,poll=lambda:None,wait=blocked_wait))
 ns['stop_child'](types.SimpleNamespace(pid=99,poll=lambda:0))
 assert kills==[(42,15),(42,9)]
-`));
+`),
+);
 
-test('desktop autostart reuses its own session without reacquiring the startup lock',{skip:!available},()=>run(String.raw`
+test('desktop autostart reuses its own session without reacquiring the startup lock', { skip: !available }, () =>
+  run(String.raw`
 import json,sys,os
 p=json.load(sys.stdin)
 class Routed(Exception): pass
@@ -80,4 +92,5 @@ for context,expected in [('alpha','direct'),('beta','ensure'),('','ensure')]:
  else:
   assert routes[-1][1]=='/usr/local/bin/aelion-bot-desktop'
   assert routes[-1][2][2]=='alpha'
-`));
+`),
+);

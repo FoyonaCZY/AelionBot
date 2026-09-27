@@ -1,14 +1,17 @@
-import {STORAGE_POLICY_BOOTSTRAP} from './storage-policy';
-import {BOT_DESKTOP_SCRIPT,BOT_DESKTOP_VERSION} from './bot-desktop-profile';
-import {PACKAGE_INSTALLER_BOOTSTRAP} from './package-installer';
-import {DESKTOP_APPEARANCE_SCRIPT} from './desktop-appearance';
-import {WORKSTATION_VERSION} from '../../src/shared';
-export {WORKSTATION_VERSION};
+import { STORAGE_POLICY_BOOTSTRAP } from './storage-policy';
+import { BOT_DESKTOP_SCRIPT, BOT_DESKTOP_VERSION } from './bot-desktop-profile';
+import { PACKAGE_INSTALLER_BOOTSTRAP } from './package-installer';
+import { DESKTOP_APPEARANCE_SCRIPT } from './desktop-appearance';
+import { WORKSTATION_VERSION } from '../../src/shared';
+export { WORKSTATION_VERSION };
 export const PROVISIONED_WORKSTATION_PATH = '/var/lib/aelion/provisioned-workstation';
-const preferChromium=process.platform==='darwin';
-export const GUEST_IMAGE_SEAL_SCRIPT = String.raw`#!/bin/sh
+const preferChromium = process.platform === 'darwin';
+export const GUEST_IMAGE_SEAL_SCRIPT =
+  String.raw`#!/bin/sh
 set -eu
-printf '`+WORKSTATION_VERSION+String.raw`' > /var/lib/aelion/provisioned-workstation
+printf '` +
+  WORKSTATION_VERSION +
+  String.raw`' > /var/lib/aelion/provisioned-workstation
 rm -f /var/lib/aelion/desktop-ready /var/lib/aelion/desktop.lock /var/lib/aelion/desktop-error /var/lib/aelion/desktop-needs-reboot /var/lib/aelion/work-ready /var/lib/aelion/workstation-version /var/lib/aelion/desktop-progress.json /var/lib/aelion/desktop-stage /var/lib/aelion/apt-source.json
 cloud-init clean --logs --machine-id
 rm -rf /home/aelion/.ssh /root/.ssh
@@ -113,30 +116,64 @@ if '--arrange' in run('xfdesktop','--help').stdout: run('xfdesktop','--arrange')
 run('/usr/local/bin/aelion-appearance')
 `;
 
-const launcher=(name:string,exec:string,icon:string)=>`[Desktop Entry]\nVersion=1.0\nType=Application\nName=${name}\nExec=${exec}\nIcon=${icon}\nTerminal=false\nStartupNotify=true\n`;
-const files:Record<string,string>={
-  '/usr/local/bin/aelion-session':SESSION_LAUNCHER,
-  '/usr/local/bin/aelion-bot-desktop':BOT_DESKTOP_SCRIPT,
-  '/var/lib/aelion/bot-desktop-version':BOT_DESKTOP_VERSION,
-  '/usr/local/bin/aelion-style':styleScript,
-  '/usr/local/bin/aelion-appearance':DESKTOP_APPEARANCE_SCRIPT,
-  '/usr/local/share/aelion/wallpaper.svg':wallpaper,
-  '/usr/local/share/aelion/start.html':homePage,
-  '/home/aelion/.config/xfce4/helpers.rc':'WebBrowser=custom\nWebBrowserCustom=/usr/local/bin/aelion-browser\nFileManager=Thunar\nTerminalEmulator=xfce4-terminal\n',
-  '/home/aelion/Desktop/Chrome.desktop':launcher('浏览器','/usr/local/bin/aelion-session /usr/local/bin/aelion-browser --no-first-run --no-default-browser-check file:///usr/local/share/aelion/start.html','web-browser'),
-  '/usr/share/applications/aelion-browser.desktop':launcher('浏览器','/usr/local/bin/aelion-browser %U','web-browser'),
-  '/usr/local/bin/aelion-browser':preferChromium?'#!/bin/sh\nexec chromium "$@"\n':'#!/bin/sh\nif command -v google-chrome-stable >/dev/null 2>&1; then exec google-chrome-stable "$@"; fi\nexec chromium "$@"\n',
-  '/home/aelion/Desktop/Work.desktop':launcher('工作文件','/usr/local/bin/aelion-session thunar /work','folder-documents'),
-  '/home/aelion/Desktop/Writer.desktop':launcher('文档','/usr/local/bin/aelion-session libreoffice --writer','libreoffice-writer'),
-  '/home/aelion/Desktop/Calc.desktop':launcher('表格','/usr/local/bin/aelion-session libreoffice --calc','libreoffice-calc'),
-  '/home/aelion/Desktop/Impress.desktop':launcher('演示','/usr/local/bin/aelion-session libreoffice --impress','libreoffice-impress'),
-  '/etc/X11/Xsession.d/90aelion-im':'export GTK_IM_MODULE=ibus\nexport QT_IM_MODULE=ibus\nexport XMODIFIERS=@im=ibus\n',
-  '/etc/xdg/autostart/aelion-ibus.desktop':launcher('IBus','ibus-daemon --xim --replace --daemonize','ibus'),
-  '/etc/xdg/autostart/aelion-style.desktop':launcher('Aelion desktop','/usr/local/bin/aelion-session /usr/local/bin/aelion-style','preferences-desktop-theme')
+const launcher = (name: string, exec: string, icon: string) =>
+  `[Desktop Entry]\nVersion=1.0\nType=Application\nName=${name}\nExec=${exec}\nIcon=${icon}\nTerminal=false\nStartupNotify=true\n`;
+const files: Record<string, string> = {
+  '/usr/local/bin/aelion-session': SESSION_LAUNCHER,
+  '/usr/local/bin/aelion-bot-desktop': BOT_DESKTOP_SCRIPT,
+  '/var/lib/aelion/bot-desktop-version': BOT_DESKTOP_VERSION,
+  '/usr/local/bin/aelion-style': styleScript,
+  '/usr/local/bin/aelion-appearance': DESKTOP_APPEARANCE_SCRIPT,
+  '/usr/local/share/aelion/wallpaper.svg': wallpaper,
+  '/usr/local/share/aelion/start.html': homePage,
+  '/home/aelion/.config/xfce4/helpers.rc':
+    'WebBrowser=custom\nWebBrowserCustom=/usr/local/bin/aelion-browser\nFileManager=Thunar\nTerminalEmulator=xfce4-terminal\n',
+  '/home/aelion/Desktop/Chrome.desktop': launcher(
+    '浏览器',
+    '/usr/local/bin/aelion-session /usr/local/bin/aelion-browser --no-first-run --no-default-browser-check file:///usr/local/share/aelion/start.html',
+    'web-browser',
+  ),
+  '/usr/share/applications/aelion-browser.desktop': launcher(
+    '浏览器',
+    '/usr/local/bin/aelion-browser %U',
+    'web-browser',
+  ),
+  '/usr/local/bin/aelion-browser': preferChromium
+    ? '#!/bin/sh\nexec chromium "$@"\n'
+    : '#!/bin/sh\nif command -v google-chrome-stable >/dev/null 2>&1; then exec google-chrome-stable "$@"; fi\nexec chromium "$@"\n',
+  '/home/aelion/Desktop/Work.desktop': launcher(
+    '工作文件',
+    '/usr/local/bin/aelion-session thunar /work',
+    'folder-documents',
+  ),
+  '/home/aelion/Desktop/Writer.desktop': launcher(
+    '文档',
+    '/usr/local/bin/aelion-session libreoffice --writer',
+    'libreoffice-writer',
+  ),
+  '/home/aelion/Desktop/Calc.desktop': launcher(
+    '表格',
+    '/usr/local/bin/aelion-session libreoffice --calc',
+    'libreoffice-calc',
+  ),
+  '/home/aelion/Desktop/Impress.desktop': launcher(
+    '演示',
+    '/usr/local/bin/aelion-session libreoffice --impress',
+    'libreoffice-impress',
+  ),
+  '/etc/X11/Xsession.d/90aelion-im':
+    'export GTK_IM_MODULE=ibus\nexport QT_IM_MODULE=ibus\nexport XMODIFIERS=@im=ibus\n',
+  '/etc/xdg/autostart/aelion-ibus.desktop': launcher('IBus', 'ibus-daemon --xim --replace --daemonize', 'ibus'),
+  '/etc/xdg/autostart/aelion-style.desktop': launcher(
+    'Aelion desktop',
+    '/usr/local/bin/aelion-session /usr/local/bin/aelion-style',
+    'preferences-desktop-theme',
+  ),
 };
-const assets=Buffer.from(JSON.stringify(files)).toString('base64');
+const assets = Buffer.from(JSON.stringify(files)).toString('base64');
 
-export const DESKTOP_SCRIPT = String.raw`#!/bin/sh
+export const DESKTOP_SCRIPT =
+  String.raw`#!/bin/sh
 set -eu
 export DEBIAN_FRONTEND=noninteractive
 mkdir -p /var/lib/aelion
@@ -146,18 +183,25 @@ rm -f /var/lib/aelion/desktop-error
 trap 'echo "Desktop preparation failed at $(date -Iseconds), stage $(cat /var/lib/aelion/desktop-stage 2>/dev/null)" > /var/lib/aelion/desktop-error' EXIT
 printf system > /var/lib/aelion/desktop-stage
 timeout 600 dpkg --configure -a || echo 'Pending package dependencies will be repaired by APT'
-`+STORAGE_POLICY_BOOTSTRAP+PACKAGE_INSTALLER_BOOTSTRAP+String.raw`
+` +
+  STORAGE_POLICY_BOOTSTRAP +
+  PACKAGE_INSTALLER_BOOTSTRAP +
+  String.raw`
 arch=$(dpkg --print-architecture)
 case "$arch" in amd64|arm64) ;; *) echo "Unsupported guest architecture: $arch" >&2; exit 1 ;; esac
 provisioned=$(cat /var/lib/aelion/provisioned-workstation 2>/dev/null || true)
 kernel=$(find /boot -maxdepth 1 -name "vmlinuz-*-$arch" ! -name '*cloud*' | sort -V | tail -n 1 | sed 's|.*/vmlinuz-||')
 has_browser=0
-if [ "$arch" = arm64 ] || [ '`+(preferChromium?'1':'0')+String.raw`' = 1 ]; then
+if [ "$arch" = arm64 ] || [ '` +
+  (preferChromium ? '1' : '0') +
+  String.raw`' = 1 ]; then
   if command -v chromium >/dev/null; then has_browser=1; fi
 elif command -v google-chrome-stable >/dev/null || command -v chromium >/dev/null; then
   has_browser=1
 fi
-if [ "$provisioned" = '`+WORKSTATION_VERSION+String.raw`' ] && [ -n "$kernel" ] && [ "$has_browser" = 1 ] && command -v thunar >/dev/null && command -v libreoffice >/dev/null && command -v xclip >/dev/null && command -v xdotool >/dev/null && command -v unzip >/dev/null && command -v pdftotext >/dev/null && command -v ibus >/dev/null; then
+if [ "$provisioned" = '` +
+  WORKSTATION_VERSION +
+  String.raw`' ] && [ -n "$kernel" ] && [ "$has_browser" = 1 ] && command -v thunar >/dev/null && command -v libreoffice >/dev/null && command -v xclip >/dev/null && command -v xdotool >/dev/null && command -v unzip >/dev/null && command -v pdftotext >/dev/null && command -v ibus >/dev/null; then
   printf provisioned > /var/lib/aelion/desktop-stage
   echo "Guest image already contains workstation $provisioned packages"
 else
@@ -165,7 +209,9 @@ printf desktop > /var/lib/aelion/desktop-stage
 /usr/local/sbin/aelion-packages desktop "linux-image-$arch" git python3-venv ca-certificates curl locales xserver-xorg-core xserver-xorg-video-all xserver-xorg-input-libinput x11-xserver-utils xinit xfce4-session xfce4-settings xfwm4 xfdesktop4 xfce4-panel xfce4-appfinder xfce4-terminal dbus-x11 dbus-user-session lightdm lightdm-gtk-greeter thunar thunar-archive-plugin gvfs gvfs-backends xdg-utils mousepad ristretto evince xclip xdotool arc-theme adwaita-icon-theme fonts-noto-core fonts-noto-cjk fonts-liberation fonts-crosextra-carlito fonts-crosextra-caladea librsvg2-bin librsvg2-common tigervnc-standalone-server python3-pil xauth x11-utils zip unzip xarchiver ibus ibus-gtk3 ibus-libpinyin libglib2.0-bin
 /usr/local/sbin/aelion-packages office libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-gtk3 libreoffice-l10n-zh-cn python3-pip python3-openpyxl python3-pypdf poppler-utils hunspell-en-us
 python3 -c 'import pptx' 2>/dev/null || python3 -m pip install --break-system-packages --disable-pip-version-check --no-cache-dir 'python-pptx==1.0.2'
-if [ "$arch" = arm64 ] || [ '`+(preferChromium?'1':'0')+String.raw`' = 1 ] || ! command -v google-chrome-stable >/dev/null 2>&1; then
+if [ "$arch" = arm64 ] || [ '` +
+  (preferChromium ? '1' : '0') +
+  String.raw`' = 1 ] || ! command -v google-chrome-stable >/dev/null 2>&1; then
   printf browser > /var/lib/aelion/desktop-stage
   /usr/local/sbin/aelion-packages browser chromium chromium-l10n
 fi
@@ -177,7 +223,9 @@ mkdir -p /etc/lightdm/lightdm.conf.d
 printf '[Seat:*]\nautologin-user=aelion\nautologin-user-timeout=0\nuser-session=xfce\n' > /etc/lightdm/lightdm.conf.d/50-aelion.conf
 python3 - <<'PY'
 import base64,json,pathlib,os
-files=json.loads(base64.b64decode('`+assets+String.raw`'))
+files=json.loads(base64.b64decode('` +
+  assets +
+  String.raw`'))
 for name, content in files.items():
     path=pathlib.Path(name); path.parent.mkdir(parents=True,exist_ok=True)
     backup=pathlib.Path('/var/lib/aelion/profile-backups') / name.lstrip('/')
@@ -215,8 +263,12 @@ systemctl is-active --quiet lightdm
 pgrep -u aelion -x xfce4-session >/dev/null
 runuser -u aelion -- /usr/local/bin/aelion-session /usr/local/bin/aelion-style
 command -v aelion-browser thunar libreoffice xclip xdotool
-if [ "$arch" = arm64 ] || [ '`+(preferChromium?'1':'0')+String.raw`' = 1 ]; then command -v chromium; else command -v google-chrome-stable || command -v chromium; fi
+if [ "$arch" = arm64 ] || [ '` +
+  (preferChromium ? '1' : '0') +
+  String.raw`' = 1 ]; then command -v chromium; else command -v google-chrome-stable || command -v chromium; fi
 touch /var/lib/aelion/desktop-ready
-printf '`+WORKSTATION_VERSION+String.raw`' > /var/lib/aelion/workstation-version
+printf '` +
+  WORKSTATION_VERSION +
+  String.raw`' > /var/lib/aelion/workstation-version
 trap - EXIT
 `;

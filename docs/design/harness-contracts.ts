@@ -2,15 +2,13 @@
  * Hermes 风格精简 Harness 的拟议契约；不是已实现 SDK。
  * 配合 contracts.ts；事务、权限与来源校验必须由运行时服务执行。
  */
-import type { ArtifactRef, Capability, Digest, Epoch, Id, Revision, Timestamp } from "./contracts.ts";
+import type { ArtifactRef, Capability, Digest, Epoch, Id, Revision, Timestamp } from './contracts.ts';
 
 export type KnowledgeScope =
-  | { kind: "user"; userId: Id }
-  | { kind: "bot-private"; botId: Id }
-  | { kind: "project-shared"; projectId: Id };
+  { kind: 'user'; userId: Id } | { kind: 'bot-private'; botId: Id } | { kind: 'project-shared'; projectId: Id };
 
 export interface KnowledgeSource {
-  kind: "user-message" | "tool-receipt" | "artifact" | "bot-message";
+  kind: 'user-message' | 'tool-receipt' | 'artifact' | 'bot-message';
   eventId: Id;
   streamId: Id;
   seq: Epoch;
@@ -23,10 +21,10 @@ export interface MemoryFact {
   scope: KnowledgeScope;
   revision: Revision;
   text: string;
-  category: "preference" | "project-convention" | "environment" | "verified-lesson";
-  evidence: "user-explicit" | "tool-verified" | "inferred";
+  category: 'preference' | 'project-convention' | 'environment' | 'verified-lesson';
+  evidence: 'user-explicit' | 'tool-verified' | 'inferred';
   sources: KnowledgeSource[];
-  status: "candidate" | "active" | "retracted";
+  status: 'candidate' | 'active' | 'retracted';
   supersedesFactId?: Id;
   validUntil?: Timestamp;
 }
@@ -35,7 +33,7 @@ export interface MemoryMutation {
   id: Id;
   actorBotId: Id;
   scope: KnowledgeScope;
-  operation: "add" | "replace" | "remove";
+  operation: 'add' | 'replace' | 'remove';
   factId?: Id;
   expectedScopeRevision: Revision;
   expectedFactRevision?: Revision;
@@ -56,10 +54,10 @@ export interface SkillVersion {
   supportFiles: ArtifactRef[];
   sources: KnowledgeSource[];
   requiredCapabilities: Capability[];
-  computerKinds: Array<"host" | "managed-vm">;
-  platforms: Array<"windows" | "linux" | "macos">;
-  status: "draft" | "active" | "deprecated";
-  verification: "static-only" | "source-task-verified" | "replayed-on-new-input";
+  computerKinds: Array<'host' | 'managed-vm'>;
+  platforms: Array<'windows' | 'linux' | 'macos'>;
+  status: 'draft' | 'active' | 'deprecated';
+  verification: 'static-only' | 'source-task-verified' | 'replayed-on-new-input';
   verificationReceiptIds: Id[];
   replacesVersionId?: Id;
   // requiredCapabilities 是要求声明，不是权限授予。
@@ -102,7 +100,7 @@ export interface ContextBudget {
   hardLimitTokens: number;
   protectedTailTokens: number;
   summaryTargetTokens: number;
-  countingMethod: "provider-tokenizer" | "provider-usage-calibrated" | "estimated";
+  countingMethod: 'provider-tokenizer' | 'provider-usage-calibrated' | 'estimated';
 }
 
 export interface EpisodeSummary {
@@ -115,7 +113,7 @@ export interface EpisodeSummary {
   exactAnchorRefs: ArtifactRef[];
   sourceFactIds: Id[];
   sourceSkillVersionIds: Id[];
-  status: "valid" | "invalidated";
+  status: 'valid' | 'invalidated';
   // 当前任务事实从 TaskState 读取，summary 不能决定权限或恢复已完成任务。
 }
 
@@ -131,7 +129,7 @@ export interface CompactionCandidate {
   beforeInputTokens: number;
   afterInputTokens: number;
   completeSummaryOutput: boolean;
-  protocolValidation: "passed" | "failed";
+  protocolValidation: 'passed' | 'failed';
   // 提交需要 CAS、token 缩减检查、来源可用性及授权撤销检查。
 }
 
@@ -140,7 +138,7 @@ export interface LessonCandidate {
   taskId: Id;
   episodeId: Id;
   ownerBotId: Id;
-  trigger: "user-correction" | "verified-workflow" | "resolved-failure" | "explicit-save";
+  trigger: 'user-correction' | 'verified-workflow' | 'resolved-failure' | 'explicit-save';
   sources: KnowledgeSource[];
   evidenceDigest: Digest;
   sourceIsLearningJob: false;
@@ -155,8 +153,8 @@ export interface LearningJob {
   policyRevision: Revision;
   budgetReservationId: Id;
   maxModelCalls: 2;
-  allowedOperations: Array<"read-authorized-evidence" | "propose-memory" | "propose-skill">;
-  state: "queued" | "running" | "paused" | "completed" | "failed" | "cancelled";
+  allowedOperations: Array<'read-authorized-evidence' | 'propose-memory' | 'propose-skill'>;
+  state: 'queued' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
   proposedMutationIds: Id[];
   proposedSkillVersionIds: Id[];
   // 执行验证由 ToolGateway 承接；学习进程没有直接系统执行能力。

@@ -1,7 +1,42 @@
-export const blogLabels={
-  blog:['Blog','博客','部落格'],download:['Download app','下载应用','下載應用程式'],home:['AelionBot home','AelionBot 首页','AelionBot 首頁'],tagline:['AelionBot product blog','AelionBot 产品博客','AelionBot 產品部落格'],releases:['Releases','版本更新','版本更新'],feedback:['Feedback','反馈建议','回報建議'],skip:['Skip to content','跳至主要内容','跳至主要內容'],topics:['Ideas / Practice / Notes','想法 / 实践 / 记录','想法 / 實踐 / 記錄'],heading:['Product updates','产品更新','產品更新'],headingEnd:['and notes.','与使用记录','與使用記錄'],description:['AelionBot releases and usage notes.','AelionBot 版本更新与使用记录。','AelionBot 版本更新與使用記錄。'],latest:['Latest stories','最新文章','最新文章'],count:['{n} stories','{n} 篇记录','{n} 篇記錄'],readTime:['{n} min read','{n} 分钟阅读','{n} 分鐘閱讀'],empty:['No published posts.','暂无公开文章','尚無公開文章'],meet:['AelionBot home','AelionBot 首页','AelionBot 首頁'],all:['All stories','全部文章','全部文章'],contents:['On this page','本文目录','本文目錄'],back:['Back to the blog','返回博客','返回部落格'],related:['Keep reading','继续阅读','繼續閱讀'],missing:['Page not found.','没有找到这个页面。','沒有找到這個頁面。'],missingDescription:['This link may be out of date, or the story is not published yet.','链接可能有误，或内容还未公开。','連結可能有誤，或內容還未公開。'],draft:['Local draft preview','本地草稿预览','本機草稿預覽'],draftDescription:['Only posts with draft: false are published.','只有明确设置 draft: false 的文章才会发布。','只有明確設定 draft: false 的文章才會發佈。']
+export const blogLabels = {
+  blog: ['Blog', '博客', '部落格'],
+  download: ['Download app', '下载应用', '下載應用程式'],
+  home: ['AelionBot home', 'AelionBot 首页', 'AelionBot 首頁'],
+  tagline: ['AelionBot product blog', 'AelionBot 产品博客', 'AelionBot 產品部落格'],
+  releases: ['Releases', '版本更新', '版本更新'],
+  feedback: ['Feedback', '反馈建议', '回報建議'],
+  skip: ['Skip to content', '跳至主要内容', '跳至主要內容'],
+  topics: ['Ideas / Practice / Notes', '想法 / 实践 / 记录', '想法 / 實踐 / 記錄'],
+  heading: ['Product updates', '产品更新', '產品更新'],
+  headingEnd: ['and notes.', '与使用记录', '與使用記錄'],
+  description: [
+    'AelionBot releases and usage notes.',
+    'AelionBot 版本更新与使用记录。',
+    'AelionBot 版本更新與使用記錄。',
+  ],
+  latest: ['Latest stories', '最新文章', '最新文章'],
+  count: ['{n} stories', '{n} 篇记录', '{n} 篇記錄'],
+  readTime: ['{n} min read', '{n} 分钟阅读', '{n} 分鐘閱讀'],
+  empty: ['No published posts.', '暂无公开文章', '尚無公開文章'],
+  meet: ['AelionBot home', 'AelionBot 首页', 'AelionBot 首頁'],
+  all: ['All stories', '全部文章', '全部文章'],
+  contents: ['On this page', '本文目录', '本文目錄'],
+  back: ['Back to the blog', '返回博客', '返回部落格'],
+  related: ['Keep reading', '继续阅读', '繼續閱讀'],
+  missing: ['Page not found.', '没有找到这个页面。', '沒有找到這個頁面。'],
+  missingDescription: [
+    'This link may be out of date, or the story is not published yet.',
+    '链接可能有误，或内容还未公开。',
+    '連結可能有誤，或內容還未公開。',
+  ],
+  draft: ['Local draft preview', '本地草稿预览', '本機草稿預覽'],
+  draftDescription: [
+    'Only posts with draft: false are published.',
+    '只有明确设置 draft: false 的文章才会发布。',
+    '只有明確設定 draft: false 的文章才會發佈。',
+  ],
 };
-export function blogText(key,language='en',n=''){
-  const index=language==='zh-CN'?1:language==='zh-TW'?2:0;
-  return blogLabels[key][index].replace('{n}',String(n));
+export function blogText(key, language = 'en', n = '') {
+  const index = language === 'zh-CN' ? 1 : language === 'zh-TW' ? 2 : 0;
+  return blogLabels[key][index].replace('{n}', String(n));
 }

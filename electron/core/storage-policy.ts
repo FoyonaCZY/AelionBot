@@ -1,5 +1,5 @@
 // Managed guest policy: bounded diagnostic logs and expendable installation caches only.
-export const STORAGE_MAINTENANCE=String.raw`#!/usr/bin/python3
+export const STORAGE_MAINTENANCE = String.raw`#!/usr/bin/python3
 import pathlib,subprocess,json,fcntl,os,stat
 
 def regular(path):
@@ -42,15 +42,21 @@ def main():
  print(json.dumps(result))
 if __name__=='__main__': main()
 `;
-export const STORAGE_POLICY_FILES={
-  '/etc/systemd/journald.conf.d/60-aelion-storage.conf':'[Journal]\nSystemMaxUse=128M\nSystemMaxFileSize=16M\nSystemKeepFree=512M\nRuntimeMaxUse=32M\nMaxRetentionSec=7day\nMaxFileSec=1day\n',
-  '/usr/local/sbin/aelion-storage-maintenance':STORAGE_MAINTENANCE,
-  '/etc/systemd/system/aelion-storage.service':'[Unit]\nDescription=Aelion managed cache and log maintenance\nAfter=local-fs.target\n[Service]\nType=oneshot\nExecStart=/usr/local/sbin/aelion-storage-maintenance\nNice=19\nIOSchedulingClass=idle\nTimeoutStartSec=5min\n',
-  '/etc/systemd/system/aelion-storage.timer':'[Unit]\nDescription=Bound Aelion guest storage\n[Timer]\nOnCalendar=daily\nRandomizedDelaySec=15min\nPersistent=true\n[Install]\nWantedBy=timers.target\n'
+export const STORAGE_POLICY_FILES = {
+  '/etc/systemd/journald.conf.d/60-aelion-storage.conf':
+    '[Journal]\nSystemMaxUse=128M\nSystemMaxFileSize=16M\nSystemKeepFree=512M\nRuntimeMaxUse=32M\nMaxRetentionSec=7day\nMaxFileSec=1day\n',
+  '/usr/local/sbin/aelion-storage-maintenance': STORAGE_MAINTENANCE,
+  '/etc/systemd/system/aelion-storage.service':
+    '[Unit]\nDescription=Aelion managed cache and log maintenance\nAfter=local-fs.target\n[Service]\nType=oneshot\nExecStart=/usr/local/sbin/aelion-storage-maintenance\nNice=19\nIOSchedulingClass=idle\nTimeoutStartSec=5min\n',
+  '/etc/systemd/system/aelion-storage.timer':
+    '[Unit]\nDescription=Bound Aelion guest storage\n[Timer]\nOnCalendar=daily\nRandomizedDelaySec=15min\nPersistent=true\n[Install]\nWantedBy=timers.target\n',
 };
-export const STORAGE_POLICY_BOOTSTRAP=String.raw`python3 - <<'AELION_STORAGE_POLICY'
+export const STORAGE_POLICY_BOOTSTRAP =
+  String.raw`python3 - <<'AELION_STORAGE_POLICY'
 import pathlib,base64,json,subprocess,os
-files=json.loads(base64.b64decode('`+Buffer.from(JSON.stringify(STORAGE_POLICY_FILES)).toString('base64')+String.raw`'));changed=False
+files=json.loads(base64.b64decode('` +
+  Buffer.from(JSON.stringify(STORAGE_POLICY_FILES)).toString('base64') +
+  String.raw`'));changed=False
 for name,content in files.items():
  path=pathlib.Path(name);data=content.encode()
  if path.exists() and path.read_bytes()==data: continue

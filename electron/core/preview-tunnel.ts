@@ -1,19 +1,70 @@
-import {createServer,type Server,type Socket} from 'node:net';
-import type {ClientChannel} from 'ssh2';
+import { createServer, type Server, type Socket } from 'node:net';
+import type { ClientChannel } from 'ssh2';
 export class PreviewTunnel {
- private server?:Server;private sockets=new Set<Socket>();private channels=new Set<ClientChannel>();private closed=false;
- constructor(private forward:(port:number)=>Promise<ClientChannel>,private targetPort:number){}
- async start(){
-  if(this.closed)throw Error('转发已关闭');const server=createServer(socket=>{
-   if(this.closed||this.sockets.size>=32){socket.destroy();return;}this.sockets.add(socket);socket.once('close',()=>this.sockets.delete(socket));socket.on('error',()=>{});const timer=setTimeout(()=>socket.destroy(),10000);socket.once('close',()=>clearTimeout(timer));
-   void this.forward(this.targetPort).then(channel=>{clearTimeout(timer);if(this.closed||socket.destroyed){channel.destroy();return;}this.channels.add(channel);channel.once('close',()=>{this.channels.delete(channel);socket.destroy();});channel.on('error',()=>socket.destroy());socket.once('close',()=>channel.destroy());socket.pipe(channel).pipe(socket);}).catch(()=>{clearTimeout(timer);socket.destroy();});
-  });this.server=server;
-  await new Promise<void>((ok,fail)=>{server.once('error',fail);server.listen(0,'127.0.0.1',()=>ok());});if(this.closed){server.close();throw Error('转发已关闭');}
-  const address=server.address();if(!address||typeof address==='string')throw Error('转发端口不可用');return address.port;
- }
- close(){this.closed=true;for(const socket of this.sockets)socket.destroy();for(const channel of this.channels)channel.destroy();this.server?.close();this.sockets.clear();this.channels.clear();}
+  private server?: Server;
+  private sockets = new Set<Socket>();
+  private channels = new Set<ClientChannel>();
+  private closed = false;
+  constructor(
+    private forward: (port: number) => Promise<ClientChannel>,
+    private targetPort: number,
+  ) {}
+  async start() {
+    if (this.closed) throw Error('转发已关闭');
+    const server = createServer((socket) => {
+      if (this.closed || this.sockets.size >= 32) {
+        socket.destroy();
+        return;
+      }
+      this.sockets.add(socket);
+      socket.once('close', () => this.sockets.delete(socket));
+      socket.on('error', () => {});
+      const timer = setTimeout(() => socket.destroy(), 10000);
+      socket.once('close', () => clearTimeout(timer));
+      void this.forward(this.targetPort)
+        .then((channel) => {
+          clearTimeout(timer);
+          if (this.closed || socket.destroyed) {
+            channel.destroy();
+            return;
+          }
+          this.channels.add(channel);
+          channel.once('close', () => {
+            this.channels.delete(channel);
+            socket.destroy();
+          });
+          channel.on('error', () => socket.destroy());
+          socket.once('close', () => channel.destroy());
+          socket.pipe(channel).pipe(socket);
+        })
+        .catch(() => {
+          clearTimeout(timer);
+          socket.destroy();
+        });
+    });
+    this.server = server;
+    await new Promise<void>((ok, fail) => {
+      server.once('error', fail);
+      server.listen(0, '127.0.0.1', () => ok());
+    });
+    if (this.closed) {
+      server.close();
+      throw Error('转发已关闭');
+    }
+    const address = server.address();
+    if (!address || typeof address === 'string') throw Error('转发端口不可用');
+    return address.port;
+  }
+  close() {
+    this.closed = true;
+    for (const socket of this.sockets) socket.destroy();
+    for (const channel of this.channels) channel.destroy();
+    this.server?.close();
+    this.sockets.clear();
+    this.channels.clear();
+  }
 }
-export const VM_LISTENER_OWNER=String.raw`import os,pathlib,json,sys
+export const VM_LISTENER_OWNER = String.raw`import os,pathlib,json,sys
 bot=sys.argv[1];port=int(sys.argv[2]);root=pathlib.Path('/work')/bot;listeners={}
 for family in ['tcp','tcp6']:
  for line in pathlib.Path('/proc/net/'+family).read_text().splitlines()[1:]:

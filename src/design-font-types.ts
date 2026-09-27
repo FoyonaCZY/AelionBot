@@ -26,7 +26,7 @@ export interface DesignFont {
   subsets: string[];
   files: DesignFontFile[];
   cssPath: string;
-  license: {name: string; path?: string; url?: string; note?: string};
+  license: { name: string; path?: string; url?: string; note?: string };
   addedAt: string;
 }
 export interface DesignFontCatalogEntry {
@@ -45,7 +45,14 @@ export interface DesignFontAcquire {
   subsets?: string[];
 }
 export interface DesignFontCheck {
-  fonts: Array<{id: string; family: string; valid: boolean; missingFiles: string[]; missingCharacters: string[]; checkedCharacters: number}>;
+  fonts: Array<{
+    id: string;
+    family: string;
+    valid: boolean;
+    missingFiles: string[];
+    missingCharacters: string[];
+    checkedCharacters: number;
+  }>;
   cssPath: string;
   cssValid: boolean;
 }

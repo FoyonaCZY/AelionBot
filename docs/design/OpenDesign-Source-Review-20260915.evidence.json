@@ -18,43 +18,29 @@
         "stages": [
           {
             "id": "import",
-            "atoms": [
-              "code-import"
-            ]
+            "atoms": ["code-import"]
           },
           {
             "id": "tokens",
-            "atoms": [
-              "design-extract",
-              "token-map"
-            ]
+            "atoms": ["design-extract", "token-map"]
           },
           {
             "id": "plan",
-            "atoms": [
-              "rewrite-plan"
-            ]
+            "atoms": ["rewrite-plan"]
           },
           {
             "id": "verify",
-            "atoms": [
-              "patch-edit",
-              "build-test"
-            ],
+            "atoms": ["patch-edit", "build-test"],
             "repeat": true,
             "until": "(build.passing && tests.passing) || iterations>=8"
           },
           {
             "id": "review",
-            "atoms": [
-              "diff-review"
-            ]
+            "atoms": ["diff-review"]
           },
           {
             "id": "handoff",
-            "atoms": [
-              "handoff"
-            ]
+            "atoms": ["handoff"]
           }
         ]
       }
@@ -67,32 +53,19 @@
         "stages": [
           {
             "id": "discovery",
-            "atoms": [
-              "discovery-question-form"
-            ]
+            "atoms": ["discovery-question-form"]
           },
           {
             "id": "plan",
-            "atoms": [
-              "direction-picker",
-              "todo-write"
-            ]
+            "atoms": ["direction-picker", "todo-write"]
           },
           {
             "id": "generate",
-            "atoms": [
-              "file-write",
-              "media-image",
-              "media-video",
-              "media-audio",
-              "live-artifact"
-            ]
+            "atoms": ["file-write", "media-image", "media-video", "media-audio", "live-artifact"]
           },
           {
             "id": "critique",
-            "atoms": [
-              "critique-theater"
-            ],
+            "atoms": ["critique-theater"],
             "repeat": true,
             "until": "critique.score>=4 || iterations>=3"
           }
@@ -107,29 +80,21 @@
         "stages": [
           {
             "id": "direction",
-            "atoms": [
-              "direction-picker"
-            ]
+            "atoms": ["direction-picker"]
           },
           {
             "id": "patch",
-            "atoms": [
-              "patch-edit"
-            ]
+            "atoms": ["patch-edit"]
           },
           {
             "id": "critique",
-            "atoms": [
-              "critique-theater"
-            ],
+            "atoms": ["critique-theater"],
             "repeat": true,
             "until": "critique.score>=4 || iterations>=3"
           },
           {
             "id": "handoff",
-            "atoms": [
-              "handoff"
-            ]
+            "atoms": ["handoff"]
           }
         ]
       }
@@ -142,28 +107,19 @@
         "stages": [
           {
             "id": "extract",
-            "atoms": [
-              "figma-extract"
-            ]
+            "atoms": ["figma-extract"]
           },
           {
             "id": "tokens",
-            "atoms": [
-              "token-map"
-            ]
+            "atoms": ["token-map"]
           },
           {
             "id": "generate",
-            "atoms": [
-              "file-write",
-              "live-artifact"
-            ]
+            "atoms": ["file-write", "live-artifact"]
           },
           {
             "id": "critique",
-            "atoms": [
-              "critique-theater"
-            ],
+            "atoms": ["critique-theater"],
             "repeat": true,
             "until": "critique.score>=4 || iterations>=3"
           }
@@ -178,30 +134,19 @@
         "stages": [
           {
             "id": "discovery",
-            "atoms": [
-              "discovery-question-form"
-            ]
+            "atoms": ["discovery-question-form"]
           },
           {
             "id": "plan",
-            "atoms": [
-              "todo-write"
-            ]
+            "atoms": ["todo-write"]
           },
           {
             "id": "generate",
-            "atoms": [
-              "media-image",
-              "media-video",
-              "media-audio",
-              "live-artifact"
-            ]
+            "atoms": ["media-image", "media-video", "media-audio", "live-artifact"]
           },
           {
             "id": "critique",
-            "atoms": [
-              "critique-theater"
-            ],
+            "atoms": ["critique-theater"],
             "repeat": true,
             "until": "critique.score>=4 || iterations>=3"
           }
@@ -216,29 +161,19 @@
         "stages": [
           {
             "id": "discovery",
-            "atoms": [
-              "discovery-question-form"
-            ]
+            "atoms": ["discovery-question-form"]
           },
           {
             "id": "plan",
-            "atoms": [
-              "direction-picker",
-              "todo-write"
-            ]
+            "atoms": ["direction-picker", "todo-write"]
           },
           {
             "id": "generate",
-            "atoms": [
-              "file-write",
-              "live-artifact"
-            ]
+            "atoms": ["file-write", "live-artifact"]
           },
           {
             "id": "critique",
-            "atoms": [
-              "critique-theater"
-            ],
+            "atoms": ["critique-theater"],
             "repeat": true,
             "until": "critique.score>=4 || iterations>=3"
           }
@@ -253,23 +188,15 @@
         "stages": [
           {
             "id": "discovery",
-            "atoms": [
-              "discovery-question-form"
-            ]
+            "atoms": ["discovery-question-form"]
           },
           {
             "id": "plan",
-            "atoms": [
-              "direction-picker",
-              "todo-write"
-            ]
+            "atoms": ["direction-picker", "todo-write"]
           },
           {
             "id": "generate",
-            "atoms": [
-              "file-write",
-              "live-artifact"
-            ]
+            "atoms": ["file-write", "live-artifact"]
           }
         ]
       }
@@ -282,9 +209,7 @@
         "stages": [
           {
             "id": "handoff",
-            "atoms": [
-              "handoff"
-            ]
+            "atoms": ["handoff"]
           }
         ]
       }
@@ -297,29 +222,19 @@
         "stages": [
           {
             "id": "discovery",
-            "atoms": [
-              "discovery-question-form"
-            ]
+            "atoms": ["discovery-question-form"]
           },
           {
             "id": "plan",
-            "atoms": [
-              "direction-picker",
-              "todo-write"
-            ]
+            "atoms": ["direction-picker", "todo-write"]
           },
           {
             "id": "generate-plugin",
-            "atoms": [
-              "file-write",
-              "live-artifact"
-            ]
+            "atoms": ["file-write", "live-artifact"]
           },
           {
             "id": "review-plugin",
-            "atoms": [
-              "critique-theater"
-            ],
+            "atoms": ["critique-theater"],
             "repeat": true,
             "until": "critique.score>=4 || iterations>=3"
           }
@@ -334,9 +249,7 @@
         "stages": [
           {
             "id": "handoff",
-            "atoms": [
-              "handoff"
-            ]
+            "atoms": ["handoff"]
           }
         ]
       }
@@ -349,15 +262,11 @@
         "stages": [
           {
             "id": "inspect-project",
-            "atoms": [
-              "file-read"
-            ]
+            "atoms": ["file-read"]
           },
           {
             "id": "package-plugin",
-            "atoms": [
-              "file-write"
-            ]
+            "atoms": ["file-write"]
           }
         ]
       }
@@ -370,29 +279,21 @@
         "stages": [
           {
             "id": "direction",
-            "atoms": [
-              "direction-picker"
-            ]
+            "atoms": ["direction-picker"]
           },
           {
             "id": "patch",
-            "atoms": [
-              "patch-edit"
-            ]
+            "atoms": ["patch-edit"]
           },
           {
             "id": "critique",
-            "atoms": [
-              "critique-theater"
-            ],
+            "atoms": ["critique-theater"],
             "repeat": true,
             "until": "critique.score>=4 || iterations>=3"
           },
           {
             "id": "handoff",
-            "atoms": [
-              "handoff"
-            ]
+            "atoms": ["handoff"]
           }
         ]
       }
@@ -405,9 +306,7 @@
         "stages": [
           {
             "id": "handoff",
-            "atoms": [
-              "handoff"
-            ]
+            "atoms": ["handoff"]
           }
         ]
       }
@@ -420,29 +319,19 @@
         "stages": [
           {
             "id": "capture",
-            "atoms": [
-              "code-import"
-            ]
+            "atoms": ["code-import"]
           },
           {
             "id": "model",
-            "atoms": [
-              "design-extract",
-              "token-map"
-            ]
+            "atoms": ["design-extract", "token-map"]
           },
           {
             "id": "rebuild",
-            "atoms": [
-              "file-write",
-              "live-artifact"
-            ]
+            "atoms": ["file-write", "live-artifact"]
           },
           {
             "id": "critique",
-            "atoms": [
-              "critique-theater"
-            ],
+            "atoms": ["critique-theater"],
             "repeat": true,
             "until": "critique.score>=4 || iterations>=3"
           }

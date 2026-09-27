@@ -1,8 +1,9 @@
-import {DESKTOP_APPEARANCE_SCRIPT,DESKTOP_APPEARANCE_VERSION} from './desktop-appearance';
+import { DESKTOP_APPEARANCE_SCRIPT, DESKTOP_APPEARANCE_VERSION } from './desktop-appearance';
 
 // Update the wallpaper and managed panel appearance, preserving desktop files.
 // PNG bytes travel over SSH stdin, never through a shell argument.
-export const WALLPAPER_INSTALL_SCRIPT = String.raw`
+export const WALLPAPER_INSTALL_SCRIPT =
+  String.raw`
 import base64, hashlib, os, pathlib, pwd, subprocess, sys, tempfile
 
 image = sys.stdin.buffer.read(8 * 1024 * 1024 + 1)
@@ -27,7 +28,9 @@ finally:
     if os.path.exists(temporary): os.unlink(temporary)
 
 appearance=pathlib.Path('/usr/local/bin/aelion-appearance')
-appearance.write_bytes(base64.b64decode('`+Buffer.from(DESKTOP_APPEARANCE_SCRIPT).toString('base64')+String.raw`'))
+appearance.write_bytes(base64.b64decode('` +
+  Buffer.from(DESKTOP_APPEARANCE_SCRIPT).toString('base64') +
+  String.raw`'))
 appearance.chmod(0o755)
 style=pathlib.Path('/usr/local/bin/aelion-style')
 if style.is_file() and '/usr/local/bin/aelion-appearance' not in style.read_text():
@@ -61,6 +64,8 @@ for process in pathlib.Path('/proc').iterdir():
         if result.returncode: sys.exit('Desktop appearance update failed')
     except (OSError, UnicodeError, subprocess.TimeoutExpired):
         continue
-pathlib.Path('/var/lib/aelion/desktop-appearance-version').write_text('`+DESKTOP_APPEARANCE_VERSION+String.raw`')
+pathlib.Path('/var/lib/aelion/desktop-appearance-version').write_text('` +
+  DESKTOP_APPEARANCE_VERSION +
+  String.raw`')
 print('Wallpaper and appearance installed')
 `;

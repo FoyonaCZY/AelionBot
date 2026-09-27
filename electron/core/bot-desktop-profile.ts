@@ -1,7 +1,7 @@
-export const BOT_DESKTOP_VERSION='6';
+export const BOT_DESKTOP_VERSION = '6';
 
 // One X server and D-Bus session per Bot. Reattaching never changes another desktop.
-export const BOT_DESKTOP_SCRIPT=String.raw`#!/usr/bin/python3
+export const BOT_DESKTOP_SCRIPT = String.raw`#!/usr/bin/python3
 import fcntl, json, os, pathlib, re, secrets, shutil, signal, socket, subprocess, sys, time
 
 ROOT=pathlib.Path('/home/aelion/.aelion-desktops')

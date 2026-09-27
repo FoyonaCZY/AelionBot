@@ -1,99 +1,289 @@
-import {randomUUID} from 'node:crypto';
-import {existsSync} from 'node:fs';
-import {join} from 'node:path';
-import type {ModelProvider,ModelSelection,ProviderInput,ProviderModel} from '../../src/shared';
-import {Store,atomicJson,type StoredProvider} from './store';
-import {validateModelEndpoint} from './model';
-import {redactHost} from './host';
-import type {ModelParameters} from '../../src/model-types';
-import {asImageAspect,asImageProtocol,asImageQuality} from '../../src/image-types';
-import {imageCapability} from './model-vision';
-import {reasoningEffort as cleanReasoning} from '../../src/reasoning';
-import {modelFetch,prewarmModelEndpoint,disposeModelHttp} from './model-http';
+import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import type { ModelProvider, ModelSelection, ProviderInput, ProviderModel } from '../../src/shared';
+import { Store, atomicJson, type StoredProvider } from './store';
+import { validateModelEndpoint } from './model';
+import { redactHost } from './host';
+import type { ModelParameters } from '../../src/model-types';
+import { asImageAspect, asImageProtocol, asImageQuality } from '../../src/image-types';
+import { imageCapability } from './model-vision';
+import { reasoningEffort as cleanReasoning } from '../../src/reasoning';
+import { modelFetch, prewarmModelEndpoint, disposeModelHttp } from './model-http';
 
-export function modelParameters(input:ModelParameters):ModelParameters{
- const {protocol,responsesTransport,temperature,reasoningEffort,thinkingBudget,fallbackModel,hostedWebSearch,hostedImageGeneration,imageProtocol,imageAspect,imageQuality}=input;
- if(responsesTransport!==undefined&&!['auto','http','websocket'].includes(responsesTransport))throw Error('Responses 连接方式无效');
- if(protocol!==undefined&&!['chat','responses','anthropic','gemini'].includes(protocol))throw Error('模型协议无效');
- if(temperature!==undefined&&(!Number.isFinite(temperature)||temperature<0||temperature>2))throw Error('温度应为 0–2');
- cleanReasoning(reasoningEffort);
- if(thinkingBudget!==undefined&&(!Number.isInteger(thinkingBudget)||thinkingBudget<1024||thinkingBudget>64000))throw Error('思考预算应为 1024–64000');
- if(fallbackModel!==undefined&&(typeof fallbackModel!=='string'||fallbackModel.length>256||/[\u0000-\u001f]/.test(fallbackModel)))throw Error('备用模型无效');
- if(hostedWebSearch!==undefined&&typeof hostedWebSearch!=='boolean')throw Error('服务端网页搜索设置无效');
- if(hostedImageGeneration!==undefined&&typeof hostedImageGeneration!=='boolean')throw Error('服务端图片生成设置无效');
- if(imageProtocol!==undefined&&!asImageProtocol(imageProtocol))throw Error('生图协议无效');
- if(imageAspect!==undefined&&!asImageAspect(imageAspect))throw Error('生图画幅无效');
- if(imageQuality!==undefined&&!asImageQuality(imageQuality))throw Error('生图质量无效');
- const responses=(protocol||'chat')==='responses';
- // Hosted Responses generation is only reachable on a Responses provider; keep the stored protocol consistent with that.
- const image=asImageProtocol(imageProtocol)||'auto';
- if(image==='responses-images'&&!responses)throw Error('托管生图协议只能用于 Responses Provider');
- return {protocol,responsesTransport,temperature,reasoningEffort,thinkingBudget,fallbackModel:fallbackModel?.trim()||undefined,...(responses&&hostedWebSearch?{hostedWebSearch:true}:{}),...(responses&&hostedImageGeneration?{hostedImageGeneration:true}:{}),...(image!=='auto'?{imageProtocol:image}:{}),...(asImageAspect(imageAspect)?{imageAspect:asImageAspect(imageAspect)}:{}),...(asImageQuality(imageQuality)&&imageQuality!=='auto'?{imageQuality:asImageQuality(imageQuality)}:{})};
+export function modelParameters(input: ModelParameters): ModelParameters {
+  const {
+    protocol,
+    responsesTransport,
+    temperature,
+    reasoningEffort,
+    thinkingBudget,
+    fallbackModel,
+    hostedWebSearch,
+    hostedImageGeneration,
+    imageProtocol,
+    imageAspect,
+    imageQuality,
+  } = input;
+  if (responsesTransport !== undefined && !['auto', 'http', 'websocket'].includes(responsesTransport))
+    throw Error('Responses 连接方式无效');
+  if (protocol !== undefined && !['chat', 'responses', 'anthropic', 'gemini'].includes(protocol))
+    throw Error('模型协议无效');
+  if (temperature !== undefined && (!Number.isFinite(temperature) || temperature < 0 || temperature > 2))
+    throw Error('温度应为 0–2');
+  cleanReasoning(reasoningEffort);
+  if (
+    thinkingBudget !== undefined &&
+    (!Number.isInteger(thinkingBudget) || thinkingBudget < 1024 || thinkingBudget > 64000)
+  )
+    throw Error('思考预算应为 1024–64000');
+  if (
+    fallbackModel !== undefined &&
+    (typeof fallbackModel !== 'string' || fallbackModel.length > 256 || /[\u0000-\u001f]/.test(fallbackModel))
+  )
+    throw Error('备用模型无效');
+  if (hostedWebSearch !== undefined && typeof hostedWebSearch !== 'boolean') throw Error('服务端网页搜索设置无效');
+  if (hostedImageGeneration !== undefined && typeof hostedImageGeneration !== 'boolean')
+    throw Error('服务端图片生成设置无效');
+  if (imageProtocol !== undefined && !asImageProtocol(imageProtocol)) throw Error('生图协议无效');
+  if (imageAspect !== undefined && !asImageAspect(imageAspect)) throw Error('生图画幅无效');
+  if (imageQuality !== undefined && !asImageQuality(imageQuality)) throw Error('生图质量无效');
+  const responses = (protocol || 'chat') === 'responses';
+  // Hosted Responses generation is only reachable on a Responses provider; keep the stored protocol consistent with that.
+  const image = asImageProtocol(imageProtocol) || 'auto';
+  if (image === 'responses-images' && !responses) throw Error('托管生图协议只能用于 Responses Provider');
+  return {
+    protocol,
+    responsesTransport,
+    temperature,
+    reasoningEffort,
+    thinkingBudget,
+    fallbackModel: fallbackModel?.trim() || undefined,
+    ...(responses && hostedWebSearch ? { hostedWebSearch: true } : {}),
+    ...(responses && hostedImageGeneration ? { hostedImageGeneration: true } : {}),
+    ...(image !== 'auto' ? { imageProtocol: image } : {}),
+    ...(asImageAspect(imageAspect) ? { imageAspect: asImageAspect(imageAspect) } : {}),
+    ...(asImageQuality(imageQuality) && imageQuality !== 'auto' ? { imageQuality: asImageQuality(imageQuality) } : {}),
+  };
 }
-export function providerModelEntry(input:unknown):ProviderModel{
- if(!input||typeof input!=='object'||Array.isArray(input))throw Error('模型配置无效');
- const value=input as ProviderModel,id=text(value.id,'模型 ID',256);
- const contextTokens=value.contextTokens;
- if(contextTokens!==undefined&&(!Number.isInteger(contextTokens)||contextTokens<8000||contextTokens>1000000))throw Error('上下文容量应为 8000–1000000');
- const effort=cleanReasoning(value.reasoningEffort);
- if(value.thinkingBudget!==undefined&&(!Number.isInteger(value.thinkingBudget)||value.thinkingBudget<1024||value.thinkingBudget>64000))throw Error('思考预算应为 1024–64000');
- if(value.imageOutput!==undefined&&typeof value.imageOutput!=='boolean')throw Error('生图能力标记无效');
- if(value.imageAspect!==undefined&&!asImageAspect(value.imageAspect))throw Error('生图画幅无效');
- if(value.imageQuality!==undefined&&!asImageQuality(value.imageQuality))throw Error('生图质量无效');
- return {id,...(contextTokens?{contextTokens}:{}),...(effort?{reasoningEffort:effort}:{}),...(value.thinkingBudget?{thinkingBudget:value.thinkingBudget}:{}),...(value.imageOutput?{imageOutput:true}:{}),...(asImageAspect(value.imageAspect)?{imageAspect:value.imageAspect}:{}),...(asImageQuality(value.imageQuality)&&value.imageQuality!=='auto'?{imageQuality:value.imageQuality}:{})};
+export function providerModelEntry(input: unknown): ProviderModel {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw Error('模型配置无效');
+  const value = input as ProviderModel,
+    id = text(value.id, '模型 ID', 256);
+  const contextTokens = value.contextTokens;
+  if (
+    contextTokens !== undefined &&
+    (!Number.isInteger(contextTokens) || contextTokens < 8000 || contextTokens > 1000000)
+  )
+    throw Error('上下文容量应为 8000–1000000');
+  const effort = cleanReasoning(value.reasoningEffort);
+  if (
+    value.thinkingBudget !== undefined &&
+    (!Number.isInteger(value.thinkingBudget) || value.thinkingBudget < 1024 || value.thinkingBudget > 64000)
+  )
+    throw Error('思考预算应为 1024–64000');
+  if (value.imageOutput !== undefined && typeof value.imageOutput !== 'boolean') throw Error('生图能力标记无效');
+  if (value.imageAspect !== undefined && !asImageAspect(value.imageAspect)) throw Error('生图画幅无效');
+  if (value.imageQuality !== undefined && !asImageQuality(value.imageQuality)) throw Error('生图质量无效');
+  return {
+    id,
+    ...(contextTokens ? { contextTokens } : {}),
+    ...(effort ? { reasoningEffort: effort } : {}),
+    ...(value.thinkingBudget ? { thinkingBudget: value.thinkingBudget } : {}),
+    ...(value.imageOutput ? { imageOutput: true } : {}),
+    ...(asImageAspect(value.imageAspect) ? { imageAspect: value.imageAspect } : {}),
+    ...(asImageQuality(value.imageQuality) && value.imageQuality !== 'auto'
+      ? { imageQuality: value.imageQuality }
+      : {}),
+  };
 }
 
-export interface CredentialCodec {encrypt:(value:string)=>string;decrypt:(value:string)=>string;}
-function text(value:unknown,label:string,max:number){if(typeof value!=='string'||!value.trim()||value.length>max||/[\u0000-\u001f]/.test(value))throw new Error(`${label}无效`);return value.trim();}
-async function jsonBody(response:Response){
-  if(!response.body)throw new Error('Provider 返回空响应');const reader=response.body.getReader();let length=0;const chunks:Uint8Array[]=[];
-  try{for(;;){const {value,done}=await reader.read();if(done)break;length+=value.length;if(length>2*1024*1024)throw new Error('模型列表超过 2 MB');chunks.push(value);}return JSON.parse(Buffer.concat(chunks).toString('utf8'));}finally{await reader.cancel().catch(()=>{});}
+export interface CredentialCodec {
+  encrypt: (value: string) => string;
+  decrypt: (value: string) => string;
+}
+function text(value: unknown, label: string, max: number) {
+  if (typeof value !== 'string' || !value.trim() || value.length > max || /[\u0000-\u001f]/.test(value))
+    throw new Error(`${label}无效`);
+  return value.trim();
+}
+async function jsonBody(response: Response) {
+  if (!response.body) throw new Error('Provider 返回空响应');
+  const reader = response.body.getReader();
+  let length = 0;
+  const chunks: Uint8Array[] = [];
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      length += value.length;
+      if (length > 2 * 1024 * 1024) throw new Error('模型列表超过 2 MB');
+      chunks.push(value);
+    }
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
 }
 export class ModelProviders {
-  private requests=new Map<string,{revision:string;controller:AbortController;promise:Promise<ModelProvider>}>();
-  private decrypted=new Map<string,string>();
-  constructor(readonly store:Store,private codec:CredentialCodec,private changed:()=>void=()=>{}){
-    if(store.data.providers!==undefined){this.migrateReasoning();this.migrateHostedTools();return;}
-    const legacy=store.data.model,providers:StoredProvider[]=[];let defaultModel:ModelSelection|undefined;
-    if(legacy.model||legacy.encryptedKey||legacy.baseUrl!=='https://api.openai.com/v1'){
-      const backup=join(store.dir,'providers-migration-backup.json');if(!existsSync(backup))atomicJson(backup,store.data);
-      const provider:StoredProvider={id:randomUUID(),name:'默认 Provider',baseUrl:legacy.baseUrl,models:legacy.model?[{id:legacy.model}]:[],...(legacy.encryptedKey?{encryptedKey:legacy.encryptedKey}:{})};providers.push(provider);
-      if(legacy.model)defaultModel={providerId:provider.id,model:legacy.model,contextTokens:legacy.contextTokens,...(legacy.reasoningEffort?{reasoningEffort:cleanReasoning(legacy.reasoningEffort)}:{})};
+  private requests = new Map<
+    string,
+    { revision: string; controller: AbortController; promise: Promise<ModelProvider> }
+  >();
+  private decrypted = new Map<string, string>();
+  constructor(
+    readonly store: Store,
+    private codec: CredentialCodec,
+    private changed: () => void = () => {},
+  ) {
+    if (store.data.providers !== undefined) {
+      this.migrateReasoning();
+      this.migrateHostedTools();
+      return;
     }
-    this.commit({providers,defaultModel,...(legacy.reasoningEffort?{bots:store.data.bots.map(bot=>({...bot,reasoningEffort:bot.reasoningEffort??cleanReasoning(legacy.reasoningEffort)}))}:{})});
+    const legacy = store.data.model,
+      providers: StoredProvider[] = [];
+    let defaultModel: ModelSelection | undefined;
+    if (legacy.model || legacy.encryptedKey || legacy.baseUrl !== 'https://api.openai.com/v1') {
+      const backup = join(store.dir, 'providers-migration-backup.json');
+      if (!existsSync(backup)) atomicJson(backup, store.data);
+      const provider: StoredProvider = {
+        id: randomUUID(),
+        name: '默认 Provider',
+        baseUrl: legacy.baseUrl,
+        models: legacy.model ? [{ id: legacy.model }] : [],
+        ...(legacy.encryptedKey ? { encryptedKey: legacy.encryptedKey } : {}),
+      };
+      providers.push(provider);
+      if (legacy.model)
+        defaultModel = {
+          providerId: provider.id,
+          model: legacy.model,
+          contextTokens: legacy.contextTokens,
+          ...(legacy.reasoningEffort ? { reasoningEffort: cleanReasoning(legacy.reasoningEffort) } : {}),
+        };
+    }
+    this.commit({
+      providers,
+      defaultModel,
+      ...(legacy.reasoningEffort
+        ? {
+            bots: store.data.bots.map((bot) => ({
+              ...bot,
+              reasoningEffort: bot.reasoningEffort ?? cleanReasoning(legacy.reasoningEffort),
+            })),
+          }
+        : {}),
+    });
   }
-  private migrateReasoning(){
-    const providers=this.store.data.providers!;if(!providers.some(provider=>provider.reasoningEffort!==undefined))return;
-    const backup=join(this.store.dir,'reasoning-migration-backup.json');if(!existsSync(backup))atomicJson(backup,{version:1,providers:providers.filter(provider=>provider.reasoningEffort!==undefined).map(provider=>({id:provider.id,reasoningEffort:provider.reasoningEffort}))});
-    const inherited=(selection?:ModelSelection)=>selection?.reasoningEffort??providers.find(provider=>provider.id===selection?.providerId)?.reasoningEffort;
-    const bots=this.store.data.bots.map(bot=>{const effort=bot.reasoningEffort??inherited(bot.model||this.store.data.defaultModel);return effort?{...bot,reasoningEffort:cleanReasoning(effort)}:bot;});
-    const selection=this.store.data.defaultModel,effort=inherited(selection),defaultModel=selection&&effort?{...selection,reasoningEffort:cleanReasoning(effort)}:selection;
-    this.commit({bots,defaultModel,providers:providers.map(({reasoningEffort,...provider})=>provider)});
+  private migrateReasoning() {
+    const providers = this.store.data.providers!;
+    if (!providers.some((provider) => provider.reasoningEffort !== undefined)) return;
+    const backup = join(this.store.dir, 'reasoning-migration-backup.json');
+    if (!existsSync(backup))
+      atomicJson(backup, {
+        version: 1,
+        providers: providers
+          .filter((provider) => provider.reasoningEffort !== undefined)
+          .map((provider) => ({ id: provider.id, reasoningEffort: provider.reasoningEffort })),
+      });
+    const inherited = (selection?: ModelSelection) =>
+      selection?.reasoningEffort ??
+      providers.find((provider) => provider.id === selection?.providerId)?.reasoningEffort;
+    const bots = this.store.data.bots.map((bot) => {
+      const effort = bot.reasoningEffort ?? inherited(bot.model || this.store.data.defaultModel);
+      return effort ? { ...bot, reasoningEffort: cleanReasoning(effort) } : bot;
+    });
+    const selection = this.store.data.defaultModel,
+      effort = inherited(selection),
+      defaultModel = selection && effort ? { ...selection, reasoningEffort: cleanReasoning(effort) } : selection;
+    this.commit({ bots, defaultModel, providers: providers.map(({ reasoningEffort, ...provider }) => provider) });
   }
-  private migrateHostedTools(){
-    type LegacyModel=ProviderModel&{hostedWebSearch?:boolean;hostedImageGeneration?:boolean};
-    const providers=this.store.data.providers;if(!providers?.some(provider=>provider.models.some(model=>{const entry=model as LegacyModel;return entry.hostedWebSearch||entry.hostedImageGeneration;})))return;
-    this.commit({providers:providers.map(provider=>{
-      const models=provider.models as LegacyModel[];
-      const hostedWebSearch=Boolean(provider.hostedWebSearch||models.some(model=>model.hostedWebSearch));
-      const hostedImageGeneration=Boolean(provider.hostedImageGeneration||models.some(model=>model.hostedImageGeneration));
-      return {...provider,models:models.map(({hostedWebSearch:_search,hostedImageGeneration:_image,...model})=>model),...(hostedWebSearch?{hostedWebSearch:true}:{}),...(hostedImageGeneration?{hostedImageGeneration:true}:{})};
-    })});
+  private migrateHostedTools() {
+    type LegacyModel = ProviderModel & { hostedWebSearch?: boolean; hostedImageGeneration?: boolean };
+    const providers = this.store.data.providers;
+    if (
+      !providers?.some((provider) =>
+        provider.models.some((model) => {
+          const entry = model as LegacyModel;
+          return entry.hostedWebSearch || entry.hostedImageGeneration;
+        }),
+      )
+    )
+      return;
+    this.commit({
+      providers: providers.map((provider) => {
+        const models = provider.models as LegacyModel[];
+        const hostedWebSearch = Boolean(provider.hostedWebSearch || models.some((model) => model.hostedWebSearch));
+        const hostedImageGeneration = Boolean(
+          provider.hostedImageGeneration || models.some((model) => model.hostedImageGeneration),
+        );
+        return {
+          ...provider,
+          models: models.map(({ hostedWebSearch: _search, hostedImageGeneration: _image, ...model }) => model),
+          ...(hostedWebSearch ? { hostedWebSearch: true } : {}),
+          ...(hostedImageGeneration ? { hostedImageGeneration: true } : {}),
+        };
+      }),
+    });
   }
-  private commit(patch:Partial<Store['data']>){
-    const next={...this.store.data,...patch},selection=next.defaultModel,provider=next.providers?.find(item=>item.id===selection?.providerId);
+  private commit(patch: Partial<Store['data']>) {
+    const next = { ...this.store.data, ...patch },
+      selection = next.defaultModel,
+      provider = next.providers?.find((item) => item.id === selection?.providerId);
     // Retain an encrypted default-config mirror for older clients and rollback.
-    next.model=provider&&selection?{baseUrl:provider.baseUrl,model:selection.model,contextTokens:selection.contextTokens,...(provider.encryptedKey?{encryptedKey:provider.encryptedKey}:{})}:{baseUrl:'https://api.openai.com/v1',model:'',contextTokens:32000};
-    this.store.replaceData(next);this.changed();
+    next.model =
+      provider && selection
+        ? {
+            baseUrl: provider.baseUrl,
+            model: selection.model,
+            contextTokens: selection.contextTokens,
+            ...(provider.encryptedKey ? { encryptedKey: provider.encryptedKey } : {}),
+          }
+        : { baseUrl: 'https://api.openai.com/v1', model: '', contextTokens: 32000 };
+    this.store.replaceData(next);
+    this.changed();
   }
-  private provider(id:string){const provider=this.store.data.providers?.find(provider=>provider.id===id);if(!provider)throw new Error('Provider 不存在');return provider;}
-  private keyFor(provider:StoredProvider){const cipher=provider.encryptedKey;if(!cipher)return '';if(this.decrypted.has(cipher))return this.decrypted.get(cipher)!;try{const key=this.codec.decrypt(cipher);this.decrypted.set(cipher,key);return key;}catch{return '';}}
-  private public(provider:StoredProvider):ModelProvider{const {encryptedKey,...rest}=provider;return {...structuredClone(rest),hasKey:Boolean(this.keyFor(provider))};}
-  list(){return (this.store.data.providers||[]).map(provider=>this.public(provider));}
-  key(botId?:string,selection?:ModelSelection){const id=this.store.modelFor(botId,selection).providerId;return id?this.keyFor(this.provider(id)):'';}
-  config(botId?:string,selection?:ModelSelection){const config=this.store.modelFor(botId,selection);return {...config,hasKey:!config.issue&&Boolean(this.key(botId,selection))};}
-  approvalKey(){const config=this.store.modelFor(undefined,this.store.data.approvalModel);return config.providerId&&!config.issue?this.keyFor(this.provider(config.providerId)):'';}
-  approvalConfig(){const config=this.store.modelFor(undefined,this.store.data.approvalModel);return {...config,hasKey:!config.issue&&Boolean(this.approvalKey())};}
+  private provider(id: string) {
+    const provider = this.store.data.providers?.find((provider) => provider.id === id);
+    if (!provider) throw new Error('Provider 不存在');
+    return provider;
+  }
+  private keyFor(provider: StoredProvider) {
+    const cipher = provider.encryptedKey;
+    if (!cipher) return '';
+    if (this.decrypted.has(cipher)) return this.decrypted.get(cipher)!;
+    try {
+      const key = this.codec.decrypt(cipher);
+      this.decrypted.set(cipher, key);
+      return key;
+    } catch {
+      return '';
+    }
+  }
+  private public(provider: StoredProvider): ModelProvider {
+    const { encryptedKey, ...rest } = provider;
+    return { ...structuredClone(rest), hasKey: Boolean(this.keyFor(provider)) };
+  }
+  list() {
+    return (this.store.data.providers || []).map((provider) => this.public(provider));
+  }
+  key(botId?: string, selection?: ModelSelection) {
+    const id = this.store.modelFor(botId, selection).providerId;
+    return id ? this.keyFor(this.provider(id)) : '';
+  }
+  config(botId?: string, selection?: ModelSelection) {
+    const config = this.store.modelFor(botId, selection);
+    return { ...config, hasKey: !config.issue && Boolean(this.key(botId, selection)) };
+  }
+  approvalKey() {
+    const config = this.store.modelFor(undefined, this.store.data.approvalModel);
+    return config.providerId && !config.issue ? this.keyFor(this.provider(config.providerId)) : '';
+  }
+  approvalConfig() {
+    const config = this.store.modelFor(undefined, this.store.data.approvalModel);
+    return { ...config, hasKey: !config.issue && Boolean(this.approvalKey()) };
+  }
   /**
    * Effective image-generation access for a Bot. Chat-only reasoning settings are stripped so they
    * never reach an image endpoint. A Bot with no dedicated image model still works when its chat
@@ -101,108 +291,276 @@ export class ModelProviders {
    * requiring a second identical selection would be redundant. Anything else returns undefined:
    * guessing an image endpoint from a chat model is what made failures unreadable before.
    */
-  imageAccess(botId:string){
-    const selection=this.store.bot(botId).imageModel;
-    if(selection){
-      const config=this.config(botId,selection);
-      return {config:{...config,reasoningEffort:undefined,thinkingBudget:undefined},key:this.key(botId,selection)};
+  imageAccess(botId: string) {
+    const selection = this.store.bot(botId).imageModel;
+    if (selection) {
+      const config = this.config(botId, selection);
+      return {
+        config: { ...config, reasoningEffort: undefined, thinkingBudget: undefined },
+        key: this.key(botId, selection),
+      };
     }
-    const chat=this.config(botId);
-    if(chat.protocol!=='responses'||!chat.hostedImageGeneration||chat.issue)return;
-    return {config:{...chat,reasoningEffort:undefined,thinkingBudget:undefined,imageProtocol:'responses-images' as const},key:this.key(botId)};
+    const chat = this.config(botId);
+    if (chat.protocol !== 'responses' || !chat.hostedImageGeneration || chat.issue) return;
+    return {
+      config: {
+        ...chat,
+        reasoningEffort: undefined,
+        thinkingBudget: undefined,
+        imageProtocol: 'responses-images' as const,
+      },
+      key: this.key(botId),
+    };
   }
   /** Image access for an arbitrary selection, used by the settings connection test before anything is assigned to a Bot. */
-  imageAccessFor(selection:ModelSelection){
-    const config=this.config(undefined,selection);
-    return {config:{...config,reasoningEffort:undefined,thinkingBudget:undefined},key:this.key(undefined,selection)};
+  imageAccessFor(selection: ModelSelection) {
+    const config = this.config(undefined, selection);
+    return {
+      config: { ...config, reasoningEffort: undefined, thinkingBudget: undefined },
+      key: this.key(undefined, selection),
+    };
   }
-  setApproval(value:unknown){this.commit({approvalModel:this.selection(value)});}
-  secrets(){return (this.store.data.providers||[]).map(provider=>this.keyFor(provider)).filter(Boolean);}
-  using(id:string){return this.store.data.bots.filter(bot=>this.store.modelSelection(bot.id)?.providerId===id).map(bot=>bot.id);}
-  catalog(providerId:string,modelId:string){return this.provider(providerId).models.find(model=>model.id===modelId);}
-  updateModel(providerId:string,input:unknown){
-    const entry=providerModelEntry(input),provider=this.provider(providerId);
-    const models=[...provider.models];const index=models.findIndex(model=>model.id===entry.id),prior=index>=0?models[index]:undefined;
-    const next={...entry,...(prior?.supportsImages!==undefined?{supportsImages:prior.supportsImages}:{})};
-    if(index>=0)models[index]=next;else models.push(next);
-    models.sort((a,b)=>a.id.localeCompare(b.id));
-    this.commit({providers:this.store.data.providers!.map(item=>item.id===provider.id?{...item,models}:item)});
+  setApproval(value: unknown) {
+    this.commit({ approvalModel: this.selection(value) });
+  }
+  secrets() {
+    return (this.store.data.providers || []).map((provider) => this.keyFor(provider)).filter(Boolean);
+  }
+  using(id: string) {
+    return this.store.data.bots
+      .filter((bot) => this.store.modelSelection(bot.id)?.providerId === id)
+      .map((bot) => bot.id);
+  }
+  catalog(providerId: string, modelId: string) {
+    return this.provider(providerId).models.find((model) => model.id === modelId);
+  }
+  updateModel(providerId: string, input: unknown) {
+    const entry = providerModelEntry(input),
+      provider = this.provider(providerId);
+    const models = [...provider.models];
+    const index = models.findIndex((model) => model.id === entry.id),
+      prior = index >= 0 ? models[index] : undefined;
+    const next = { ...entry, ...(prior?.supportsImages !== undefined ? { supportsImages: prior.supportsImages } : {}) };
+    if (index >= 0) models[index] = next;
+    else models.push(next);
+    models.sort((a, b) => a.id.localeCompare(b.id));
+    this.commit({
+      providers: this.store.data.providers!.map((item) => (item.id === provider.id ? { ...item, models } : item)),
+    });
     return this.public(this.provider(provider.id));
   }
-  async prewarm(id:string){
-    const provider=this.provider(id),headers:Record<string,string>={Accept:'application/json'};
-    const key=this.keyFor(provider);
-    if(provider.protocol==='anthropic'){headers['anthropic-version']='2023-06-01';if(key)headers['x-api-key']=key;}
-    else if(provider.protocol==='gemini'){if(key)headers['x-goog-api-key']=key;}
-    else if(key)headers.Authorization=`Bearer ${key}`;
-    await prewarmModelEndpoint(provider.baseUrl,headers);
+  async prewarm(id: string) {
+    const provider = this.provider(id),
+      headers: Record<string, string> = { Accept: 'application/json' };
+    const key = this.keyFor(provider);
+    if (provider.protocol === 'anthropic') {
+      headers['anthropic-version'] = '2023-06-01';
+      if (key) headers['x-api-key'] = key;
+    } else if (provider.protocol === 'gemini') {
+      if (key) headers['x-goog-api-key'] = key;
+    } else if (key) headers.Authorization = `Bearer ${key}`;
+    await prewarmModelEndpoint(provider.baseUrl, headers);
   }
-  selection(value:unknown):ModelSelection|undefined{
-    if(value===null)return undefined;
-    if(!value||typeof value!=='object')throw new Error('请选择 Provider 和模型');
-    const input=value as ModelSelection,providerId=text(input.providerId,'Provider',80),model=text(input.model,'模型名称',256),contextTokens=input.contextTokens;
-    this.provider(providerId);if(!Number.isInteger(contextTokens)||contextTokens<8000||contextTokens>1000000)throw new Error('上下文容量应为 8000–1000000');
-    const effort=cleanReasoning(input.reasoningEffort);return {providerId,model,contextTokens,...(effort?{reasoningEffort:effort}:{})};
+  selection(value: unknown): ModelSelection | undefined {
+    if (value === null) return undefined;
+    if (!value || typeof value !== 'object') throw new Error('请选择 Provider 和模型');
+    const input = value as ModelSelection,
+      providerId = text(input.providerId, 'Provider', 80),
+      model = text(input.model, '模型名称', 256),
+      contextTokens = input.contextTokens;
+    this.provider(providerId);
+    if (!Number.isInteger(contextTokens) || contextTokens < 8000 || contextTokens > 1000000)
+      throw new Error('上下文容量应为 8000–1000000');
+    const effort = cleanReasoning(input.reasoningEffort);
+    return { providerId, model, contextTokens, ...(effort ? { reasoningEffort: effort } : {}) };
   }
-  setDefault(value:unknown){this.commit({defaultModel:this.selection(value)});}
-  setBot(botId:string,value:unknown){this.store.bot(botId);const selection=this.selection(value);this.commit({bots:this.store.data.bots.map(bot=>bot.id===botId?{...bot,model:selection}:bot)});}
-  save(input:ProviderInput){
-    const name=text(input?.name,'Provider 名称',80),baseUrl=validateModelEndpoint(text(input.baseUrl,'Base URL',2000));
-    const previous=input.id?this.provider(text(input.id,'Provider',80)):undefined;
-    if(this.store.data.providers?.some(provider=>provider.id!==previous?.id&&provider.name===name))throw new Error('已有同名 Provider，请使用不同名称');
-    if(input.apiKey!==undefined&&input.apiKey!==null&&typeof input.apiKey!=='string')throw new Error('API Key 无效');
-    if(input.apiKey&&input.apiKey.length>4000)throw new Error('API Key 过长');
-    const changedOrigin=previous&&new URL(previous.baseUrl).origin!==new URL(baseUrl).origin;
-    const supplied=typeof input.apiKey==='string'?input.apiKey.trim():'';
-    if(/[\u0000-\u001f\u007f]/.test(supplied))throw new Error('API Key 不能包含换行或控制字符');
-    if(changedOrigin&&previous.encryptedKey&&!supplied&&input.apiKey!==null)throw new Error('更换服务地址后请重新填写 API Key');
-    const encryptedKey=supplied?this.codec.encrypt(supplied):input.apiKey===null?undefined:previous?.encryptedKey;
-    const parameters=modelParameters({...previous,...input});
+  setDefault(value: unknown) {
+    this.commit({ defaultModel: this.selection(value) });
+  }
+  setBot(botId: string, value: unknown) {
+    this.store.bot(botId);
+    const selection = this.selection(value);
+    this.commit({ bots: this.store.data.bots.map((bot) => (bot.id === botId ? { ...bot, model: selection } : bot)) });
+  }
+  save(input: ProviderInput) {
+    const name = text(input?.name, 'Provider 名称', 80),
+      baseUrl = validateModelEndpoint(text(input.baseUrl, 'Base URL', 2000));
+    const previous = input.id ? this.provider(text(input.id, 'Provider', 80)) : undefined;
+    if (this.store.data.providers?.some((provider) => provider.id !== previous?.id && provider.name === name))
+      throw new Error('已有同名 Provider，请使用不同名称');
+    if (input.apiKey !== undefined && input.apiKey !== null && typeof input.apiKey !== 'string')
+      throw new Error('API Key 无效');
+    if (input.apiKey && input.apiKey.length > 4000) throw new Error('API Key 过长');
+    const changedOrigin = previous && new URL(previous.baseUrl).origin !== new URL(baseUrl).origin;
+    const supplied = typeof input.apiKey === 'string' ? input.apiKey.trim() : '';
+    if (/[\u0000-\u001f\u007f]/.test(supplied)) throw new Error('API Key 不能包含换行或控制字符');
+    if (changedOrigin && previous.encryptedKey && !supplied && input.apiKey !== null)
+      throw new Error('更换服务地址后请重新填写 API Key');
+    const encryptedKey = supplied
+      ? this.codec.encrypt(supplied)
+      : input.apiKey === null
+        ? undefined
+        : previous?.encryptedKey;
+    const parameters = modelParameters({ ...previous, ...input });
     delete parameters.reasoningEffort;
-    const connectionChanged=!previous||previous.baseUrl!==baseUrl||previous.encryptedKey!==encryptedKey||previous.protocol!==parameters.protocol;
-    const provider:StoredProvider={id:previous?.id||randomUUID(),name,baseUrl,models:connectionChanged?[]:previous.models,...(!connectionChanged?{modelsUpdatedAt:previous.modelsUpdatedAt,modelsCheckedAt:previous.modelsCheckedAt,modelsError:previous.modelsError}:{}),...(encryptedKey?{encryptedKey}:{})};
-    Object.assign(provider,parameters);
-    this.requests.get(provider.id)?.controller.abort();this.requests.delete(provider.id);if(previous?.encryptedKey&&previous.encryptedKey!==encryptedKey)this.decrypted.delete(previous.encryptedKey);
-    this.commit({providers:previous?this.store.data.providers!.map(item=>item.id===provider.id?provider:item):[...this.store.data.providers!,provider]});return this.public(provider);
+    const connectionChanged =
+      !previous ||
+      previous.baseUrl !== baseUrl ||
+      previous.encryptedKey !== encryptedKey ||
+      previous.protocol !== parameters.protocol;
+    const provider: StoredProvider = {
+      id: previous?.id || randomUUID(),
+      name,
+      baseUrl,
+      models: connectionChanged ? [] : previous.models,
+      ...(!connectionChanged
+        ? {
+            modelsUpdatedAt: previous.modelsUpdatedAt,
+            modelsCheckedAt: previous.modelsCheckedAt,
+            modelsError: previous.modelsError,
+          }
+        : {}),
+      ...(encryptedKey ? { encryptedKey } : {}),
+    };
+    Object.assign(provider, parameters);
+    this.requests.get(provider.id)?.controller.abort();
+    this.requests.delete(provider.id);
+    if (previous?.encryptedKey && previous.encryptedKey !== encryptedKey) this.decrypted.delete(previous.encryptedKey);
+    this.commit({
+      providers: previous
+        ? this.store.data.providers!.map((item) => (item.id === provider.id ? provider : item))
+        : [...this.store.data.providers!, provider],
+    });
+    return this.public(provider);
   }
-  remove(id:string){
-    const previous=this.provider(id);if(this.store.data.defaultModel?.providerId===id||this.store.data.approvalModel?.providerId===id||this.using(id).length)throw new Error('此 Provider 仍被默认模型、自动审核模型或 Bot 使用，请先切换模型');
-    this.requests.get(id)?.controller.abort();this.requests.delete(id);this.commit({providers:this.store.data.providers!.filter(provider=>provider.id!==id)});if(previous.encryptedKey)this.decrypted.delete(previous.encryptedKey);
+  remove(id: string) {
+    const previous = this.provider(id);
+    if (
+      this.store.data.defaultModel?.providerId === id ||
+      this.store.data.approvalModel?.providerId === id ||
+      this.using(id).length
+    )
+      throw new Error('此 Provider 仍被默认模型、自动审核模型或 Bot 使用，请先切换模型');
+    this.requests.get(id)?.controller.abort();
+    this.requests.delete(id);
+    this.commit({ providers: this.store.data.providers!.filter((provider) => provider.id !== id) });
+    if (previous.encryptedKey) this.decrypted.delete(previous.encryptedKey);
   }
-  refresh(id:string):Promise<ModelProvider>{
-    const provider=this.provider(id),revision=JSON.stringify([provider.baseUrl,provider.encryptedKey,provider.protocol]);
-    const existing=this.requests.get(id);if(existing?.revision===revision)return existing.promise;
-    existing?.controller.abort();const controller=new AbortController();
-    const pending=(async()=>{
-      let models:ModelProvider['models']|undefined,error:string|undefined;
-      try{
-        const key=this.keyFor(provider),headers:Record<string,string>={Accept:'application/json'};
-        if(provider.protocol==='anthropic'){headers['anthropic-version']='2023-06-01';if(key)headers['x-api-key']=key;}else if(provider.protocol==='gemini'){if(key)headers['x-goog-api-key']=key;}else if(key)headers.Authorization=`Bearer ${key}`;
-        const response=await modelFetch(`${validateModelEndpoint(provider.baseUrl)}/models`,{headers,redirect:'error',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])});
-        if(!response.ok){await response.body?.cancel();throw new Error(`获取模型列表失败 HTTP ${response.status}`);}
-        let body=await jsonBody(response);const all:any[]=[],cursors=new Set<string>();
-        for(let page=0;;page++){
-          if(provider.protocol==='gemini'&&Array.isArray(body.models))body.data=body.models.filter((m:any)=>!m.supportedGenerationMethods||m.supportedGenerationMethods.includes('generateContent')).map((m:any)=>({id:m.name?.replace(/^models\//,'')}));if(!Array.isArray(body?.data))throw new Error('模型列表格式不兼容，需要 data 数组');
-          all.push(...body.data);if(all.length>5000)throw Error('模型列表超过 5000 项');
-          const cursor=provider.protocol==='gemini'?body.nextPageToken:provider.protocol==='anthropic'&&body.has_more?body.last_id:undefined;if(!cursor)break;
-          if(typeof cursor!=='string'||cursor.length>4000||page>=19||cursors.has(cursor))throw Error('Provider 模型列表分页异常');cursors.add(cursor);
-          const url=new URL(`${validateModelEndpoint(provider.baseUrl)}/models`);url.searchParams.set(provider.protocol==='gemini'?'pageToken':'after_id',cursor);const next=await modelFetch(url.href,{headers,redirect:'error',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])});if(!next.ok){await next.body?.cancel();throw Error(`获取模型列表失败 HTTP ${next.status}`);}body=await jsonBody(next);
-        }body={data:all};
-        if(body.data.length>5000)throw new Error('模型列表超过 5000 项');
-        const secrets=this.secrets(),ids=new Set<string>();for(const item of body.data){if(typeof item?.id!=='string')throw new Error('模型列表缺少模型 ID');const id=text(item.id,'模型 ID',256);if(secrets.some(secret=>id.includes(secret)))throw new Error('模型列表包含凭据信息');ids.add(id);}
-        const previous=new Map(provider.models.map(model=>[model.id,model]));
-        models=[...ids].sort((a,b)=>a.localeCompare(b)).map(id=>{
-          const prior=previous.get(id),capability=imageCapability(body.data.find((item:any)=>item.id===id));
-          return {id,...prior,...(capability!==undefined?{supportsImages:capability}:{})};
+  refresh(id: string): Promise<ModelProvider> {
+    const provider = this.provider(id),
+      revision = JSON.stringify([provider.baseUrl, provider.encryptedKey, provider.protocol]);
+    const existing = this.requests.get(id);
+    if (existing?.revision === revision) return existing.promise;
+    existing?.controller.abort();
+    const controller = new AbortController();
+    const pending = (async () => {
+      let models: ModelProvider['models'] | undefined, error: string | undefined;
+      try {
+        const key = this.keyFor(provider),
+          headers: Record<string, string> = { Accept: 'application/json' };
+        if (provider.protocol === 'anthropic') {
+          headers['anthropic-version'] = '2023-06-01';
+          if (key) headers['x-api-key'] = key;
+        } else if (provider.protocol === 'gemini') {
+          if (key) headers['x-goog-api-key'] = key;
+        } else if (key) headers.Authorization = `Bearer ${key}`;
+        const response = await modelFetch(`${validateModelEndpoint(provider.baseUrl)}/models`, {
+          headers,
+          redirect: 'error',
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
         });
-        for(const model of provider.models)if(!ids.has(model.id))models.push(model);
-      }catch(caught){error=redactHost((caught as Error).message,this.secrets()).slice(0,400);}
-      const current=this.store.data.providers?.find(provider=>provider.id===id);
-      if(!current)throw new Error('Provider 已删除');
-      if(controller.signal.aborted||JSON.stringify([current.baseUrl,current.encryptedKey,current.protocol])!==revision)return this.public(current);
-      const stamp=new Date().toISOString(),next={...current,models:models||current.models,modelsCheckedAt:stamp,modelsUpdatedAt:models?stamp:current.modelsUpdatedAt,modelsError:error};
-      this.commit({providers:this.store.data.providers!.map(provider=>provider.id===id?next:provider)});return this.public(next);
-    })();this.requests.set(id,{revision,controller,promise:pending});void pending.finally(()=>{if(this.requests.get(id)?.promise===pending)this.requests.delete(id);}).catch(()=>{});return pending;
+        if (!response.ok) {
+          await response.body?.cancel();
+          throw new Error(`获取模型列表失败 HTTP ${response.status}`);
+        }
+        let body = await jsonBody(response);
+        const all: any[] = [],
+          cursors = new Set<string>();
+        for (let page = 0; ; page++) {
+          if (provider.protocol === 'gemini' && Array.isArray(body.models))
+            body.data = body.models
+              .filter(
+                (m: any) => !m.supportedGenerationMethods || m.supportedGenerationMethods.includes('generateContent'),
+              )
+              .map((m: any) => ({ id: m.name?.replace(/^models\//, '') }));
+          if (!Array.isArray(body?.data)) throw new Error('模型列表格式不兼容，需要 data 数组');
+          all.push(...body.data);
+          if (all.length > 5000) throw Error('模型列表超过 5000 项');
+          const cursor =
+            provider.protocol === 'gemini'
+              ? body.nextPageToken
+              : provider.protocol === 'anthropic' && body.has_more
+                ? body.last_id
+                : undefined;
+          if (!cursor) break;
+          if (typeof cursor !== 'string' || cursor.length > 4000 || page >= 19 || cursors.has(cursor))
+            throw Error('Provider 模型列表分页异常');
+          cursors.add(cursor);
+          const url = new URL(`${validateModelEndpoint(provider.baseUrl)}/models`);
+          url.searchParams.set(provider.protocol === 'gemini' ? 'pageToken' : 'after_id', cursor);
+          const next = await modelFetch(url.href, {
+            headers,
+            redirect: 'error',
+            signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
+          });
+          if (!next.ok) {
+            await next.body?.cancel();
+            throw Error(`获取模型列表失败 HTTP ${next.status}`);
+          }
+          body = await jsonBody(next);
+        }
+        body = { data: all };
+        if (body.data.length > 5000) throw new Error('模型列表超过 5000 项');
+        const secrets = this.secrets(),
+          ids = new Set<string>();
+        for (const item of body.data) {
+          if (typeof item?.id !== 'string') throw new Error('模型列表缺少模型 ID');
+          const id = text(item.id, '模型 ID', 256);
+          if (secrets.some((secret) => id.includes(secret))) throw new Error('模型列表包含凭据信息');
+          ids.add(id);
+        }
+        const previous = new Map(provider.models.map((model) => [model.id, model]));
+        models = [...ids]
+          .sort((a, b) => a.localeCompare(b))
+          .map((id) => {
+            const prior = previous.get(id),
+              capability = imageCapability(body.data.find((item: any) => item.id === id));
+            return { id, ...prior, ...(capability !== undefined ? { supportsImages: capability } : {}) };
+          });
+        for (const model of provider.models) if (!ids.has(model.id)) models.push(model);
+      } catch (caught) {
+        error = redactHost((caught as Error).message, this.secrets()).slice(0, 400);
+      }
+      const current = this.store.data.providers?.find((provider) => provider.id === id);
+      if (!current) throw new Error('Provider 已删除');
+      if (
+        controller.signal.aborted ||
+        JSON.stringify([current.baseUrl, current.encryptedKey, current.protocol]) !== revision
+      )
+        return this.public(current);
+      const stamp = new Date().toISOString(),
+        next = {
+          ...current,
+          models: models || current.models,
+          modelsCheckedAt: stamp,
+          modelsUpdatedAt: models ? stamp : current.modelsUpdatedAt,
+          modelsError: error,
+        };
+      this.commit({ providers: this.store.data.providers!.map((provider) => (provider.id === id ? next : provider)) });
+      return this.public(next);
+    })();
+    this.requests.set(id, { revision, controller, promise: pending });
+    void pending
+      .finally(() => {
+        if (this.requests.get(id)?.promise === pending) this.requests.delete(id);
+      })
+      .catch(() => {});
+    return pending;
   }
-  dispose(){for(const request of this.requests.values())request.controller.abort();this.requests.clear();this.decrypted.clear();disposeModelHttp();}
+  dispose() {
+    for (const request of this.requests.values()) request.controller.abort();
+    this.requests.clear();
+    this.decrypted.clear();
+    disposeModelHttp();
+  }
 }

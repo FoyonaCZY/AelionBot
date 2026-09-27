@@ -1,7 +1,7 @@
-export const DESKTOP_APPEARANCE_VERSION='2';
+export const DESKTOP_APPEARANCE_VERSION = '2';
 
 // Runs as the desktop owner, preserving unrelated GTK customizations.
-export const DESKTOP_APPEARANCE_SCRIPT=String.raw`#!/usr/bin/python3
+export const DESKTOP_APPEARANCE_SCRIPT = String.raw`#!/usr/bin/python3
 import os, pathlib, re, subprocess
 
 config=pathlib.Path(os.environ.get('XDG_CONFIG_HOME',str(pathlib.Path.home()/'.config')))

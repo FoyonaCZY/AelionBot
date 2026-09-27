@@ -1,12 +1,12 @@
 import React from 'react';
-import {createRoot} from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
 import App from './App';
 import './style.css';
 import './settings.css';
 import './typography.css';
 import './theme.css';
-import {initializeAppearance} from './use-appearance';
-import {initializeI18n} from './i18n';
+import { initializeAppearance } from './use-appearance';
+import { initializeI18n } from './i18n';
 initializeAppearance();
 initializeI18n();
-createRoot(document.getElementById('root')!).render(<App/>);
+createRoot(document.getElementById('root')!).render(<App />);

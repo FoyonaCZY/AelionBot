@@ -1,6 +1,6 @@
 // Uses APT's existing proxy settings and signed repositories. Mirror overrides
 // are local to these installation commands; system sources/proxy files stay intact.
-export const PACKAGE_INSTALLER=String.raw`#!/usr/bin/python3
+export const PACKAGE_INSTALLER = String.raw`#!/usr/bin/python3
 import json,os,pathlib,re,signal,subprocess,sys,tempfile,time
 
 SOURCES=[('current',None),('tuna','https://mirrors.tuna.tsinghua.edu.cn'),('ustc','https://mirrors.ustc.edu.cn'),('debian','https://deb.debian.org')]
@@ -144,8 +144,11 @@ if __name__=='__main__':
     except Exception as error: print(str(error),file=sys.stderr);sys.exit(1)
 `;
 
-export const PACKAGE_INSTALLER_BOOTSTRAP=String.raw`python3 - <<'AELION_PACKAGE_HELPER'
+export const PACKAGE_INSTALLER_BOOTSTRAP =
+  String.raw`python3 - <<'AELION_PACKAGE_HELPER'
 import base64,pathlib,os
-path=pathlib.Path('/usr/local/sbin/aelion-packages');temporary=path.with_suffix('.new');temporary.write_bytes(base64.b64decode('`+Buffer.from(PACKAGE_INSTALLER).toString('base64')+String.raw`'));temporary.chmod(0o755);temporary.replace(path)
+path=pathlib.Path('/usr/local/sbin/aelion-packages');temporary=path.with_suffix('.new');temporary.write_bytes(base64.b64decode('` +
+  Buffer.from(PACKAGE_INSTALLER).toString('base64') +
+  String.raw`'));temporary.chmod(0o755);temporary.replace(path)
 AELION_PACKAGE_HELPER
 `;

@@ -1,92 +1,342 @@
-import {createHash,randomUUID} from 'node:crypto';
-import {existsSync,readFileSync,writeFileSync,mkdirSync,renameSync,unlinkSync,statSync,realpathSync,chmodSync,linkSync,copyFileSync,constants} from 'node:fs';
-import {dirname,join,resolve} from 'node:path';
-import {decodeText,FileToolError,indentOf,reindent,seekLines,similarLines} from './file-text';
-import type {HostComputer} from './host';
-import type {Interactions} from './interactions';
-import type {VmController} from './vm';
-import {vmPython} from './vm-python';
-interface HunkOp {op:' '|'-'|'+';text:string;}
-interface Hunk {before:string[];after:string[];eof:boolean;ops?:HunkOp[];anchor?:string;}
-export interface FilePatch {kind:'add'|'update'|'delete';path:string;moveTo?:string;content?:string;hunks:Hunk[];}
-const hash=(bytes:Buffer)=>createHash('sha256').update(bytes).digest('hex');
-export function parsePatch(value:unknown):FilePatch[]{
- if(typeof value!=='string'||value.length>256000)throw new FileToolError('INVALID_PATCH','补丁需要最多 256000 字符的文本');
- const lines=value.replace(/\r\n/g,'\n').trimEnd().split('\n');if(lines.shift()!=='*** Begin Patch'||lines.pop()!=='*** End Patch')throw new FileToolError('INVALID_PATCH','补丁需要 *** Begin Patch 和 *** End Patch');
- const files:FilePatch[]=[];let index=0;
- while(index<lines.length){
-  const match=/^\*\*\* (Add|Update|Delete) File: (.+)$/.exec(lines[index++]);if(!match)throw new FileToolError('INVALID_PATCH','缺少 Add/Update/Delete File 文件头');
-  const kind=match[1].toLowerCase() as FilePatch['kind'],file:FilePatch={kind,path:match[2],hunks:[]};if(/[\0\r\n]/.test(file.path)||file.path.length>1500)throw Error('补丁路径无效');
-  if(kind==='add'){const content:string[]=[];while(index<lines.length&&!lines[index].startsWith('*** ')){const line=lines[index++];if(!line.startsWith('+'))throw new FileToolError('INVALID_PATCH','新增文件内容每行必须以 + 开头');content.push(line.slice(1));}file.content=content.join('\n')+(content.length?'\n':'');}
-  if(kind==='update'){
-   if(lines[index]?.startsWith('*** Move to: '))file.moveTo=lines[index++].slice(13);
-   while(index<lines.length&&(!lines[index].startsWith('*** ')||lines[index]==='*** End of File')){
-    if(!lines[index].startsWith('@@'))throw new FileToolError('INVALID_PATCH','修改片段需要 @@ 标记');const anchor=lines[index++].slice(2).trim();
-    const hunk:Hunk={before:[],after:[],eof:false,ops:[],...(anchor?{anchor}:{})};
-    // A bare empty line is an empty context line; patch generators often drop its leading space.
-    while(index<lines.length&&!lines[index].startsWith('@@')&&!lines[index].startsWith('*** ')){const line=lines[index++],prefix=line===''?' ':line[0],text=line.slice(1);if(![' ','+','-'].includes(prefix))throw new FileToolError('INVALID_PATCH','片段行需要空格、+ 或 - 前缀');if(prefix!=='+')hunk.before.push(text);if(prefix!=='-')hunk.after.push(text);hunk.ops!.push({op:prefix as HunkOp['op'],text});}
-    if(lines[index]==='*** End of File'){hunk.eof=true;index++;}if(!hunk.before.length&&!hunk.after.length)throw Error('补丁片段为空');file.hunks.push(hunk);
-   }
-   if(!file.hunks.length&&!file.moveTo)throw new FileToolError('INVALID_PATCH','修改文件需要片段或重命名目标');
+import { createHash, randomUUID } from 'node:crypto';
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  renameSync,
+  unlinkSync,
+  statSync,
+  realpathSync,
+  chmodSync,
+  linkSync,
+  copyFileSync,
+  constants,
+} from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { decodeText, FileToolError, indentOf, reindent, seekLines, similarLines } from './file-text';
+import type { HostComputer } from './host';
+import type { Interactions } from './interactions';
+import type { VmController } from './vm';
+import { vmPython } from './vm-python';
+interface HunkOp {
+  op: ' ' | '-' | '+';
+  text: string;
+}
+interface Hunk {
+  before: string[];
+  after: string[];
+  eof: boolean;
+  ops?: HunkOp[];
+  anchor?: string;
+}
+export interface FilePatch {
+  kind: 'add' | 'update' | 'delete';
+  path: string;
+  moveTo?: string;
+  content?: string;
+  hunks: Hunk[];
+}
+const hash = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
+export function parsePatch(value: unknown): FilePatch[] {
+  if (typeof value !== 'string' || value.length > 256000)
+    throw new FileToolError('INVALID_PATCH', '补丁需要最多 256000 字符的文本');
+  const lines = value.replace(/\r\n/g, '\n').trimEnd().split('\n');
+  if (lines.shift() !== '*** Begin Patch' || lines.pop() !== '*** End Patch')
+    throw new FileToolError('INVALID_PATCH', '补丁需要 *** Begin Patch 和 *** End Patch');
+  const files: FilePatch[] = [];
+  let index = 0;
+  while (index < lines.length) {
+    const match = /^\*\*\* (Add|Update|Delete) File: (.+)$/.exec(lines[index++]);
+    if (!match) throw new FileToolError('INVALID_PATCH', '缺少 Add/Update/Delete File 文件头');
+    const kind = match[1].toLowerCase() as FilePatch['kind'],
+      file: FilePatch = { kind, path: match[2], hunks: [] };
+    if (/[\0\r\n]/.test(file.path) || file.path.length > 1500) throw Error('补丁路径无效');
+    if (kind === 'add') {
+      const content: string[] = [];
+      while (index < lines.length && !lines[index].startsWith('*** ')) {
+        const line = lines[index++];
+        if (!line.startsWith('+')) throw new FileToolError('INVALID_PATCH', '新增文件内容每行必须以 + 开头');
+        content.push(line.slice(1));
+      }
+      file.content = content.join('\n') + (content.length ? '\n' : '');
+    }
+    if (kind === 'update') {
+      if (lines[index]?.startsWith('*** Move to: ')) file.moveTo = lines[index++].slice(13);
+      while (index < lines.length && (!lines[index].startsWith('*** ') || lines[index] === '*** End of File')) {
+        if (!lines[index].startsWith('@@')) throw new FileToolError('INVALID_PATCH', '修改片段需要 @@ 标记');
+        const anchor = lines[index++].slice(2).trim();
+        const hunk: Hunk = { before: [], after: [], eof: false, ops: [], ...(anchor ? { anchor } : {}) };
+        // A bare empty line is an empty context line; patch generators often drop its leading space.
+        while (index < lines.length && !lines[index].startsWith('@@') && !lines[index].startsWith('*** ')) {
+          const line = lines[index++],
+            prefix = line === '' ? ' ' : line[0],
+            text = line.slice(1);
+          if (![' ', '+', '-'].includes(prefix))
+            throw new FileToolError('INVALID_PATCH', '片段行需要空格、+ 或 - 前缀');
+          if (prefix !== '+') hunk.before.push(text);
+          if (prefix !== '-') hunk.after.push(text);
+          hunk.ops!.push({ op: prefix as HunkOp['op'], text });
+        }
+        if (lines[index] === '*** End of File') {
+          hunk.eof = true;
+          index++;
+        }
+        if (!hunk.before.length && !hunk.after.length) throw Error('补丁片段为空');
+        file.hunks.push(hunk);
+      }
+      if (!file.hunks.length && !file.moveTo) throw new FileToolError('INVALID_PATCH', '修改文件需要片段或重命名目标');
+    }
+    files.push(file);
+    if (files.length > 40) throw Error('一次补丁最多修改 40 个文件');
   }
-  files.push(file);if(files.length>40)throw Error('一次补丁最多修改 40 个文件');
- }
- if(!files.length)throw Error('补丁没有文件操作');return files;
+  if (!files.length) throw Error('补丁没有文件操作');
+  return files;
 }
-type Row={text:string;eol:string};
-const hunkOps=(hunk:Hunk)=>hunk.ops||[...hunk.before.map(text=>({op:'-' as const,text})),...hunk.after.map(text=>({op:'+' as const,text}))];
-const patternOf=(ops:HunkOp[])=>ops.filter(item=>item.op!=='+').map(item=>item.text);
-export function applyHunks(bytes:Buffer,hunks:Hunk[]){
- const decoded=decodeText(bytes),parts=decoded.text?decoded.text.split(/(?<=\n)/):[];
- // Each line keeps its own ending, so a patch never rewrites the endings of untouched lines.
- const rows:Row[]=parts.map(part=>{const eol=part.endsWith('\r\n')?'\r\n':part.endsWith('\n')?'\n':'';return {text:part.slice(0,part.length-eol.length),eol};});
- const trailing=rows.length>0&&rows.at(-1)!.eol!=='',newline=rows.filter(row=>row.eol==='\r\n').length>rows.filter(row=>row.eol==='\n').length?'\r\n':'\n';let cursor=0;
- for(const hunk of hunks){
-  // An @@ anchor line (e.g. a function signature) narrows where the hunk starts, as in Codex.
-  const anchored=hunk.anchor?seekLines(rows.map(row=>row.text),[hunk.anchor],cursor):undefined;if(anchored)cursor=anchored.matches[0]+1;
-  let ops=hunkOps(hunk),seek=seekLines(rows.map(row=>row.text),patternOf(ops),cursor,hunk.eof);
-  // A bare blank line closing a hunk is often a separator rather than real context.
-  while(!seek&&ops.length>1&&ops.at(-1)!.op===' '&&ops.at(-1)!.text===''){ops=ops.slice(0,-1);seek=seekLines(rows.map(row=>row.text),patternOf(ops),cursor,hunk.eof);}
-  if(!seek||seek.matches.length!==1)throw new FileToolError(seek?'PATCH_AMBIGUOUS':'PATCH_NOT_FOUND',seek?'补丁上下文匹配多处，请增加上下文':'补丁上下文与当前文件不匹配（已尝试忽略空白和常见 Unicode 标点差异），请重新读取',seek?undefined:{similarLines:similarLines(rows.map(row=>row.text),patternOf(ops))});
-  const at=seek.matches[0],pattern=patternOf(ops),first=pattern.findIndex(line=>line.trim()),fuzzy=first>=0&&(seek.strategy==='trim'||seek.strategy==='unicode');
-  const from=fuzzy?indentOf(pattern[first]):'',to=fuzzy?indentOf(rows[at+first].text):'',replaced:Row[]=[];let source=at;
-  // Context keeps the file's exact text; only added lines come from the patch.
-  for(const item of ops){if(item.op===' ')replaced.push(rows[source++]);else if(item.op==='-')source++;else replaced.push({text:reindent([item.text],from,to)[0],eol:newline});}
-  rows.splice(at,pattern.length,...replaced);cursor=at+replaced.length;
- }
- rows.forEach((row,index)=>{if(index<rows.length-1&&!row.eol)row.eol=newline;});
- if(rows.length)rows.at(-1)!.eol=trailing?rows.at(-1)!.eol||newline:'';
- return Buffer.from((decoded.bom?'\uFEFF':'')+rows.map(row=>row.text+row.eol).join(''),'utf8');
+type Row = { text: string; eol: string };
+const hunkOps = (hunk: Hunk) =>
+  hunk.ops || [
+    ...hunk.before.map((text) => ({ op: '-' as const, text })),
+    ...hunk.after.map((text) => ({ op: '+' as const, text })),
+  ];
+const patternOf = (ops: HunkOp[]) => ops.filter((item) => item.op !== '+').map((item) => item.text);
+export function applyHunks(bytes: Buffer, hunks: Hunk[]) {
+  const decoded = decodeText(bytes),
+    parts = decoded.text ? decoded.text.split(/(?<=\n)/) : [];
+  // Each line keeps its own ending, so a patch never rewrites the endings of untouched lines.
+  const rows: Row[] = parts.map((part) => {
+    const eol = part.endsWith('\r\n') ? '\r\n' : part.endsWith('\n') ? '\n' : '';
+    return { text: part.slice(0, part.length - eol.length), eol };
+  });
+  const trailing = rows.length > 0 && rows.at(-1)!.eol !== '',
+    newline =
+      rows.filter((row) => row.eol === '\r\n').length > rows.filter((row) => row.eol === '\n').length ? '\r\n' : '\n';
+  let cursor = 0;
+  for (const hunk of hunks) {
+    // An @@ anchor line (e.g. a function signature) narrows where the hunk starts, as in Codex.
+    const anchored = hunk.anchor
+      ? seekLines(
+          rows.map((row) => row.text),
+          [hunk.anchor],
+          cursor,
+        )
+      : undefined;
+    if (anchored) cursor = anchored.matches[0] + 1;
+    let ops = hunkOps(hunk),
+      seek = seekLines(
+        rows.map((row) => row.text),
+        patternOf(ops),
+        cursor,
+        hunk.eof,
+      );
+    // A bare blank line closing a hunk is often a separator rather than real context.
+    while (!seek && ops.length > 1 && ops.at(-1)!.op === ' ' && ops.at(-1)!.text === '') {
+      ops = ops.slice(0, -1);
+      seek = seekLines(
+        rows.map((row) => row.text),
+        patternOf(ops),
+        cursor,
+        hunk.eof,
+      );
+    }
+    if (!seek || seek.matches.length !== 1)
+      throw new FileToolError(
+        seek ? 'PATCH_AMBIGUOUS' : 'PATCH_NOT_FOUND',
+        seek
+          ? '补丁上下文匹配多处，请增加上下文'
+          : '补丁上下文与当前文件不匹配（已尝试忽略空白和常见 Unicode 标点差异），请重新读取',
+        seek
+          ? undefined
+          : {
+              similarLines: similarLines(
+                rows.map((row) => row.text),
+                patternOf(ops),
+              ),
+            },
+      );
+    const at = seek.matches[0],
+      pattern = patternOf(ops),
+      first = pattern.findIndex((line) => line.trim()),
+      fuzzy = first >= 0 && (seek.strategy === 'trim' || seek.strategy === 'unicode');
+    const from = fuzzy ? indentOf(pattern[first]) : '',
+      to = fuzzy ? indentOf(rows[at + first].text) : '',
+      replaced: Row[] = [];
+    let source = at;
+    // Context keeps the file's exact text; only added lines come from the patch.
+    for (const item of ops) {
+      if (item.op === ' ') replaced.push(rows[source++]);
+      else if (item.op === '-') source++;
+      else replaced.push({ text: reindent([item.text], from, to)[0], eol: newline });
+    }
+    rows.splice(at, pattern.length, ...replaced);
+    cursor = at + replaced.length;
+  }
+  rows.forEach((row, index) => {
+    if (index < rows.length - 1 && !row.eol) row.eol = newline;
+  });
+  if (rows.length) rows.at(-1)!.eol = trailing ? rows.at(-1)!.eol || newline : '';
+  return Buffer.from((decoded.bom ? '\uFEFF' : '') + rows.map((row) => row.text + row.eol).join(''), 'utf8');
 }
-function canonical(path:string):string{if(existsSync(path))return realpathSync.native(path);const parent=dirname(path);if(parent===path)return path;return join(canonical(parent),path.slice(parent.length).replace(/^[\\/]+/,''));}
-export async function applyHostPatch(host:HostComputer,interactions:Interactions,botId:string,runId:string,args:Record<string,unknown>,signal:AbortSignal,workspace?:string){
- const files=parsePatch(args.patch);if(typeof args.reason!=='string'||!args.reason.trim())throw Error('本机补丁需要操作原因');
- const operations=files.map(file=>({...file,path:canonical(host.resolveFilePath(file.path,workspace)),moveTo:file.moveTo?canonical(host.resolveFilePath(file.moveTo,workspace)):undefined})),targets=new Set<string>();
- for(const file of operations)for(const path of [file.path,...(file.moveTo?[file.moveTo]:[])]){const key=process.platform==='win32'?path.toLowerCase():path;if(targets.has(key))throw new FileToolError('PATCH_OVERLAP','同一批补丁不能多次操作同一路径，请合并片段或拆分重命名链');targets.add(key);}
- for(const file of operations){await interactions.permission(botId,runId,{operation:file.kind==='delete'||file.moveTo?'delete_file':'write_file',reason:args.reason,path:file.path,overwrite:file.kind!=='add',content:String(args.patch),tool:'apply_patch'},signal);if(file.moveTo)await interactions.permission(botId,runId,{operation:'write_file',reason:args.reason,path:file.moveTo,overwrite:false,content:String(args.patch),tool:'apply_patch'},signal);}
- signal.throwIfAborted();const before=new Map<string,Buffer|null>(),after=new Map<string,Buffer|null>(),modes=new Map<string,number>();let total=0;
- for(const file of operations){
-  if(canonical(file.path)!==file.path||file.moveTo&&canonical(file.moveTo)!==file.moveTo)throw Error('补丁路径在确认后变化');
-  const exists=existsSync(file.path);if(file.kind==='add'?exists:!exists)throw new FileToolError('PATCH_FILE_STATE',file.kind==='add'?'新增文件已存在':'要修改或删除的文件不存在');
-  if(exists&&(!statSync(file.path).isFile()||statSync(file.path).size>2*1024*1024))throw Error('补丁仅支持 2 MB 以内的普通文件');
-  const bytes=exists?readFileSync(file.path):null;total+=bytes?.length||0;if(total>8*1024*1024)throw Error('本次补丁原文件总量超过 8 MB');before.set(file.path,bytes);if(exists)modes.set(file.path,statSync(file.path).mode);
-  if(file.moveTo){if(existsSync(file.moveTo))throw Error('重命名目标已存在');before.set(file.moveTo,null);modes.set(file.moveTo,modes.get(file.path)!);}
-  const content=file.kind==='delete'?null:file.kind==='add'?Buffer.from(file.content!):applyHunks(bytes!,file.hunks);
-  if(content&&host.redact(content.toString())!==content.toString()&&content.toString().includes('[redacted'))throw Error('不能将脱敏占位符写回文件');
-  after.set(file.path,file.moveTo?null:content);if(file.moveTo)after.set(file.moveTo,content);
- }
- const snapshots=new Map([...before].map(([path])=>[path,host.options.beforeWrite?.(botId,runId,path)])),applied:string[]=[];
- const matches=(path:string,bytes:Buffer|null)=>canonical(path)===path&&(bytes?existsSync(path)&&statSync(path).isFile()&&hash(readFileSync(path))===hash(bytes):!existsSync(path));
- const write=(path:string,bytes:Buffer|null,exclusive=false)=>{if(bytes===null){if(existsSync(path))unlinkSync(path);return;}mkdirSync(dirname(path),{recursive:true});const tmp=join(dirname(path),'.aelion-patch-'+randomUUID());try{writeFileSync(tmp,bytes,{flag:'wx',mode:modes.get(path)});if(modes.has(path)&&process.platform!=='win32')chmodSync(tmp,modes.get(path)!);if(exclusive){try{linkSync(tmp,path);}catch(error){if(!['EPERM','ENOTSUP','EOPNOTSUPP','EXDEV'].includes((error as NodeJS.ErrnoException).code||''))throw error;copyFileSync(tmp,path,constants.COPYFILE_EXCL);}}else renameSync(tmp,path);}finally{if(existsSync(tmp))unlinkSync(tmp);}};
- try{
-  for(const [path,bytes] of before)if(!matches(path,bytes))throw new FileToolError('FILE_CHANGED','文件在补丁准备期间变化，未写入');
-  for(const [path,bytes] of after){signal.throwIfAborted();if(!matches(path,before.get(path)!))throw new FileToolError('FILE_CHANGED','文件在补丁写入前变化');write(path,bytes,before.get(path)===null);applied.push(path);}
- }catch(error){const incomplete:string[]=[];for(const path of applied.reverse())try{if(!matches(path,after.get(path)!)){incomplete.push(path);continue;}write(path,before.get(path)!,after.get(path)===null);}catch{incomplete.push(path);}if(incomplete.length)throw Object.assign(new Error('补丁未完成，部分文件在回滚时发生变化：'+incomplete.join(', ')),{outcomeUnknown:true});throw error;}
- for(const [path,bytes] of after)host.options.afterWrite?.(snapshots.get(path),path,bytes?.toString('utf8')??null);
- return {applied:true,location:'host',files:[...after].map(([path,bytes])=>({path,operation:bytes===null?'deleted':before.get(path)===null?'created':'updated',sha256:bytes?hash(bytes):null}))};
+function canonical(path: string): string {
+  if (existsSync(path)) return realpathSync.native(path);
+  const parent = dirname(path);
+  if (parent === path) return path;
+  return join(canonical(parent), path.slice(parent.length).replace(/^[\\/]+/, ''));
+}
+export async function applyHostPatch(
+  host: HostComputer,
+  interactions: Interactions,
+  botId: string,
+  runId: string,
+  args: Record<string, unknown>,
+  signal: AbortSignal,
+  workspace?: string,
+) {
+  const files = parsePatch(args.patch);
+  if (typeof args.reason !== 'string' || !args.reason.trim()) throw Error('本机补丁需要操作原因');
+  const operations = files.map((file) => ({
+      ...file,
+      path: canonical(host.resolveFilePath(file.path, workspace)),
+      moveTo: file.moveTo ? canonical(host.resolveFilePath(file.moveTo, workspace)) : undefined,
+    })),
+    targets = new Set<string>();
+  for (const file of operations)
+    for (const path of [file.path, ...(file.moveTo ? [file.moveTo] : [])]) {
+      const key = process.platform === 'win32' ? path.toLowerCase() : path;
+      if (targets.has(key))
+        throw new FileToolError('PATCH_OVERLAP', '同一批补丁不能多次操作同一路径，请合并片段或拆分重命名链');
+      targets.add(key);
+    }
+  for (const file of operations) {
+    await interactions.permission(
+      botId,
+      runId,
+      {
+        operation: file.kind === 'delete' || file.moveTo ? 'delete_file' : 'write_file',
+        reason: args.reason,
+        path: file.path,
+        overwrite: file.kind !== 'add',
+        content: String(args.patch),
+        tool: 'apply_patch',
+      },
+      signal,
+    );
+    if (file.moveTo)
+      await interactions.permission(
+        botId,
+        runId,
+        {
+          operation: 'write_file',
+          reason: args.reason,
+          path: file.moveTo,
+          overwrite: false,
+          content: String(args.patch),
+          tool: 'apply_patch',
+        },
+        signal,
+      );
+  }
+  signal.throwIfAborted();
+  const before = new Map<string, Buffer | null>(),
+    after = new Map<string, Buffer | null>(),
+    modes = new Map<string, number>();
+  let total = 0;
+  for (const file of operations) {
+    if (canonical(file.path) !== file.path || (file.moveTo && canonical(file.moveTo) !== file.moveTo))
+      throw Error('补丁路径在确认后变化');
+    const exists = existsSync(file.path);
+    if (file.kind === 'add' ? exists : !exists)
+      throw new FileToolError('PATCH_FILE_STATE', file.kind === 'add' ? '新增文件已存在' : '要修改或删除的文件不存在');
+    if (exists && (!statSync(file.path).isFile() || statSync(file.path).size > 2 * 1024 * 1024))
+      throw Error('补丁仅支持 2 MB 以内的普通文件');
+    const bytes = exists ? readFileSync(file.path) : null;
+    total += bytes?.length || 0;
+    if (total > 8 * 1024 * 1024) throw Error('本次补丁原文件总量超过 8 MB');
+    before.set(file.path, bytes);
+    if (exists) modes.set(file.path, statSync(file.path).mode);
+    if (file.moveTo) {
+      if (existsSync(file.moveTo)) throw Error('重命名目标已存在');
+      before.set(file.moveTo, null);
+      modes.set(file.moveTo, modes.get(file.path)!);
+    }
+    const content =
+      file.kind === 'delete' ? null : file.kind === 'add' ? Buffer.from(file.content!) : applyHunks(bytes!, file.hunks);
+    if (content && host.redact(content.toString()) !== content.toString() && content.toString().includes('[redacted'))
+      throw Error('不能将脱敏占位符写回文件');
+    after.set(file.path, file.moveTo ? null : content);
+    if (file.moveTo) after.set(file.moveTo, content);
+  }
+  const snapshots = new Map([...before].map(([path]) => [path, host.options.beforeWrite?.(botId, runId, path)])),
+    applied: string[] = [];
+  const matches = (path: string, bytes: Buffer | null) =>
+    canonical(path) === path &&
+    (bytes
+      ? existsSync(path) && statSync(path).isFile() && hash(readFileSync(path)) === hash(bytes)
+      : !existsSync(path));
+  const write = (path: string, bytes: Buffer | null, exclusive = false) => {
+    if (bytes === null) {
+      if (existsSync(path)) unlinkSync(path);
+      return;
+    }
+    mkdirSync(dirname(path), { recursive: true });
+    const tmp = join(dirname(path), '.aelion-patch-' + randomUUID());
+    try {
+      writeFileSync(tmp, bytes, { flag: 'wx', mode: modes.get(path) });
+      if (modes.has(path) && process.platform !== 'win32') chmodSync(tmp, modes.get(path)!);
+      if (exclusive) {
+        try {
+          linkSync(tmp, path);
+        } catch (error) {
+          if (!['EPERM', 'ENOTSUP', 'EOPNOTSUPP', 'EXDEV'].includes((error as NodeJS.ErrnoException).code || ''))
+            throw error;
+          copyFileSync(tmp, path, constants.COPYFILE_EXCL);
+        }
+      } else renameSync(tmp, path);
+    } finally {
+      if (existsSync(tmp)) unlinkSync(tmp);
+    }
+  };
+  try {
+    for (const [path, bytes] of before)
+      if (!matches(path, bytes)) throw new FileToolError('FILE_CHANGED', '文件在补丁准备期间变化，未写入');
+    for (const [path, bytes] of after) {
+      signal.throwIfAborted();
+      if (!matches(path, before.get(path)!)) throw new FileToolError('FILE_CHANGED', '文件在补丁写入前变化');
+      write(path, bytes, before.get(path) === null);
+      applied.push(path);
+    }
+  } catch (error) {
+    const incomplete: string[] = [];
+    for (const path of applied.reverse())
+      try {
+        if (!matches(path, after.get(path)!)) {
+          incomplete.push(path);
+          continue;
+        }
+        write(path, before.get(path)!, after.get(path) === null);
+      } catch {
+        incomplete.push(path);
+      }
+    if (incomplete.length)
+      throw Object.assign(new Error('补丁未完成，部分文件在回滚时发生变化：' + incomplete.join(', ')), {
+        outcomeUnknown: true,
+      });
+    throw error;
+  }
+  for (const [path, bytes] of after)
+    host.options.afterWrite?.(snapshots.get(path), path, bytes?.toString('utf8') ?? null);
+  return {
+    applied: true,
+    location: 'host',
+    files: [...after].map(([path, bytes]) => ({
+      path,
+      operation: bytes === null ? 'deleted' : before.get(path) === null ? 'created' : 'updated',
+      sha256: bytes ? hash(bytes) : null,
+    })),
+  };
 }
 
-export const VM_PATCH_SCRIPT=String.raw`
+export const VM_PATCH_SCRIPT = String.raw`
 import pathlib,hashlib,os,uuid,json,re
 root=pathlib.Path.cwd().resolve(); before={}; after={}; modes={}
 def path(value):
@@ -160,4 +410,14 @@ except Exception:
  raise
 print(json.dumps({'applied':True,'location':'vm','files':[{'path':str(p),'operation':'deleted' if b is None else 'created' if before[p] is None else 'updated','sha256':hashlib.sha256(b).hexdigest() if b is not None else None} for p,b in after.items()]}))
 `;
-export async function applyVmPatch(vm:VmController,botId:string,args:Record<string,unknown>,signal:AbortSignal){const files=parsePatch(args.patch),result=await vmPython(vm,botId,{files},VM_PATCH_SCRIPT,signal);if(result.exitCode!==0)throw new FileToolError('PATCH_FAILED',result.stderr||result.stdout||'补丁未应用');return JSON.parse(result.stdout);}
+export async function applyVmPatch(
+  vm: VmController,
+  botId: string,
+  args: Record<string, unknown>,
+  signal: AbortSignal,
+) {
+  const files = parsePatch(args.patch),
+    result = await vmPython(vm, botId, { files }, VM_PATCH_SCRIPT, signal);
+  if (result.exitCode !== 0) throw new FileToolError('PATCH_FAILED', result.stderr || result.stdout || '补丁未应用');
+  return JSON.parse(result.stdout);
+}
