@@ -159,8 +159,14 @@ test('invalid model action records returned value, rejection reason and retry be
   try {
     const s = runtime.create({ groupId: 'trace', players });
     await until(() => runtime.read('trace')?.status !== 'running');
-    const trace = runtime.inspect(s.id);
-    assert.equal(runtime.read('trace')?.status, 'paused');
+    const trace = runtime.inspect(s.id),
+      paused = runtime.read('trace')!;
+    assert.equal(paused.status, 'paused');
+    assert(
+      paused.seats.every((p) => p.alive),
+      'no invented action was applied',
+    );
+    assert.equal(paused.winner, undefined);
     assert.equal(trace.filter((t) => t.type === 'model_failed').length, 2);
     assert(
       trace.some(

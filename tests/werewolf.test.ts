@@ -206,24 +206,6 @@ test('late model replies after stop cannot modify the saved result', async () =>
     rmSync(dir, { recursive: true, force: true });
   }
 });
-test('repeated model failure pauses instead of inventing a legal action', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'werewolf-'));
-  const runtime = new GameRuntime(dir, async () => ({ target: 'invalid' }));
-  try {
-    runtime.create({
-      groupId: 'g',
-      players: [...players.map((p) => ({ ...p, human: false })), { ...players[0], id: '6', human: false }],
-    });
-    await until(() => runtime.read('g')?.status !== 'running');
-    const s = runtime.read('g')!;
-    assert.equal(s.status, 'paused');
-    assert(s.seats.every((p) => p.alive));
-    assert.equal(s.winner, undefined);
-  } finally {
-    runtime.dispose();
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
 test('requests have per-player speech budgets and timeout voting does not invent a target', () => {
   const s = create();
   wolfPlans(s);
