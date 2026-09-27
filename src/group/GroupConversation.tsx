@@ -14,14 +14,8 @@ import { MessageQuote } from '../chat/MessageQuote';
 import { WorkItemsPanel } from '../chat/WorkItems';
 import { workspaceKey } from '../../shared/types/work-types';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { Bot, ChatMessage, InteractionRequest, Snapshot } from '../../shared/types/core';
-import {
-  GROUP_LIMITS,
-  type GroupPage,
-  type GroupSummary,
-  type GroupTask,
-  type GroupsView,
-} from '../../shared/types/group-types';
+import type { InteractionRequest, Snapshot } from '../../shared/types/core';
+import type { GroupPage, GroupSummary, GroupTask } from '../../shared/types/group-types';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
 import { MentionContent } from '../ui/MentionContent';
@@ -30,6 +24,8 @@ import { groupReplyContent } from '../../shared/chat/message-envelope';
 import { botMentions } from '../../shared/chat/mentions';
 import { BotComposer, type ComposerDraft } from '../chat/BotComposer';
 import { ConversationInteractions } from '../chat/InteractionPrompts';
+import { GroupAvatar } from './GroupAvatar';
+import { ipcErrorText } from '../ui/ipc-error';
 import './group-chats.css';
 import { AttachmentList } from '../files/Attachments';
 import { attachmentSummary } from '../../shared/types/attachment-types';
@@ -37,229 +33,9 @@ import { MessageActions } from '../chat/MessagePins';
 import type { BotActivities } from '../bots/bot-activity';
 import { useI18n } from '../i18n';
 
-const errorText = (error: unknown) =>
-  (error as Error).message.replace(/^Error invoking remote method '[^']+': Error: /, '');
 const merge = <T extends { id: string }>(older: T[], newer: T[]) => [
   ...new Map([...older, ...newer].map((item) => [item.id, item])).values(),
 ];
-export function GroupAvatar({ group, activities = {} }: { group: GroupSummary; activities?: BotActivities }) {
-  const { t } = useI18n();
-  const members = group.members.filter((member) => !member.leftAt).slice(0, 4);
-  return (
-    <span className="group-avatar" data-count={members.length} role="img" aria-label={t('群聊')}>
-      {members.length ? (
-        members.map((member) => <Avatar key={member.id} bot={member} activity={activities[member.id]} />)
-      ) : (
-        <Icon name="message" size={23} />
-      )}
-    </span>
-  );
-}
-export function GroupTaskMessage({
-  message,
-  view,
-  onOpen,
-}: {
-  message: ChatMessage;
-  view?: GroupsView;
-  onOpen: (id: string) => void;
-}) {
-  const { t } = useI18n();
-  const source = message.groupTaskSource!,
-    room = view?.rooms.find((room) => room.id === source.groupId);
-  return (
-    <>
-      <MessageTime id={message.id} time={message.time} />
-      <div className="peer-task-message group-task-message">
-        <button className="peer-task-source" disabled={!room} onClick={() => onOpen(source.groupId)}>
-          <Icon name="message" size={17} />
-          <span>
-            {source.continuation ? t('继续来自') : t('来自')} <strong>{room?.name || source.name}</strong>{' '}
-            {t('的群任务')}
-          </span>
-          <Icon name="arrow" size={12} />
-        </button>
-        <p>
-          <MentionContent content={message.content} mentions={message.mentions} />
-        </p>
-      </div>
-    </>
-  );
-}
-export function GroupEditor({
-  bots,
-  group,
-  onClose,
-  onSaved,
-  onDeleted,
-}: {
-  bots: Bot[];
-  group?: GroupSummary;
-  onClose: () => void;
-  onSaved: (id: string) => void;
-  onDeleted: (id: string) => void;
-}) {
-  const { t } = useI18n();
-  const [name, setName] = useState(group?.name || ''),
-    [ids, setIds] = useState(
-      group?.members.filter((m) => !m.leftAt && bots.some((b) => b.id === m.id)).map((m) => m.id) || [],
-    ),
-    [error, setError] = useState(''),
-    [pending, setPending] = useState(false),
-    [deleting, setDeleting] = useState(false);
-  const root = useRef<HTMLElement>(null);
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    root.current?.querySelector('input')?.focus();
-    return () => {
-      previous?.isConnected && previous.focus();
-    };
-  }, []);
-  const save = async () => {
-    if (pending) return;
-    setPending(true);
-    setError('');
-    try {
-      if (group) {
-        await window.aelion.updateGroup({ id: group.id, name, botIds: ids });
-        onSaved(group.id);
-      } else {
-        const result = await window.aelion.createGroup({ name, botIds: ids });
-        onSaved(result.id);
-      }
-    } catch (error) {
-      setError(t(errorText(error)));
-    } finally {
-      setPending(false);
-    }
-  };
-  return (
-    <div
-      className="peer-chat-layer group-editor-layer"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !pending) onClose();
-      }}
-    >
-      <section
-        ref={root}
-        className="group-editor"
-        role="dialog"
-        aria-modal="true"
-        aria-label={group ? t('群聊设置') : t('创建群聊')}
-        onKeyDown={(event) => {
-          if (event.key === 'Escape' && !pending) {
-            event.preventDefault();
-            event.stopPropagation();
-            onClose();
-          }
-          if (event.key === 'Tab') {
-            const items = [
-              ...event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled)'),
-            ];
-            const index = items.indexOf(document.activeElement as HTMLElement);
-            if (event.shiftKey && index <= 0) {
-              event.preventDefault();
-              items.at(-1)?.focus();
-            } else if (!event.shiftKey && index === items.length - 1) {
-              event.preventDefault();
-              items[0]?.focus();
-            }
-          }
-        }}
-      >
-        <header>
-          <h2>{group ? t('群聊设置') : t('创建群聊')}</h2>
-          <button className="icon-button" aria-label={t('关闭群聊设置')} disabled={pending} onClick={onClose}>
-            <Icon name="close" />
-          </button>
-        </header>
-        <label className="group-name">
-          {t('群名称')}
-          <input
-            value={name}
-            maxLength={80}
-            placeholder={t('例如：项目协作')}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </label>
-        <div className="group-member-title">
-          <span>{t('成员')}</span>
-          <small>
-            {t('你')} + {ids.length} Bot
-          </small>
-        </div>
-        <div className="group-member-picker">
-          {bots.map((bot) => (
-            <label key={bot.id}>
-              <input
-                type="checkbox"
-                checked={ids.includes(bot.id)}
-                disabled={pending || (!ids.includes(bot.id) && ids.length >= GROUP_LIMITS.bots)}
-                onChange={(event) =>
-                  setIds((value) => (event.target.checked ? [...value, bot.id] : value.filter((id) => id !== bot.id)))
-                }
-              />
-              <Avatar bot={bot} size={32} />
-              <span>
-                <strong>{bot.name}</strong>
-                <small>{bot.role || 'Bot'}</small>
-              </span>
-            </label>
-          ))}
-          {bots.length < 2 && !group && <p className="subtle">{t('至少需要两位 Bot 才能建群。')}</p>}
-        </div>
-        {error && (
-          <p className="group-error" role="alert">
-            {error}
-          </p>
-        )}
-        {deleting && (
-          <div className="group-delete-confirm">
-            <p>{t('删除「{name}」及群聊记录？群内正在处理的任务也会停止。', { name: group?.name || '' })}</p>
-            <button className="secondary-button" disabled={pending} onClick={() => setDeleting(false)}>
-              {t('取消')}
-            </button>
-            <button
-              className="danger-button"
-              disabled={pending}
-              onClick={async () => {
-                setPending(true);
-                try {
-                  await window.aelion.deleteGroup(group!.id);
-                  onDeleted(group!.id);
-                } catch (error) {
-                  setError(t(errorText(error)));
-                } finally {
-                  setPending(false);
-                }
-              }}
-            >
-              {t('确认删除')}
-            </button>
-          </div>
-        )}
-        <footer>
-          {group && (
-            <button className="group-delete" disabled={pending} onClick={() => setDeleting(true)}>
-              {t('删除群聊')}
-            </button>
-          )}
-          <button className="secondary-button" disabled={pending} onClick={onClose}>
-            {t('取消')}
-          </button>
-          <button
-            className="primary-button"
-            disabled={pending || !name.trim() || ids.length < (group ? 1 : 2)}
-            onClick={() => void save()}
-          >
-            {pending ? t('保存中…') : group ? t('保存') : t('创建群聊')}
-          </button>
-        </footer>
-      </section>
-    </div>
-  );
-}
-
 export function GroupConversation({
   group,
   state,
@@ -354,7 +130,7 @@ export function GroupConversation({
           );
       })
       .catch((error) => {
-        if (live) setError(errorText(error));
+        if (live) setError(ipcErrorText(error));
       });
     return () => {
       live = false;
@@ -424,7 +200,7 @@ export function GroupConversation({
       if (active.current) setError('');
     } catch (error) {
       if (!draftRef.current.text && !draftRef.current.attachments?.length && !draftRef.current.reply) onDraft(saved);
-      if (active.current) setError(errorText(error));
+      if (active.current) setError(ipcErrorText(error));
     } finally {
       sendLock.current = false;
       if (active.current) setSending(false);
@@ -441,7 +217,7 @@ export function GroupConversation({
       });
       if (active.current) setError('');
     } catch (error) {
-      if (active.current) setError(errorText(error));
+      if (active.current) setError(ipcErrorText(error));
     } finally {
       sendLock.current = false;
       if (active.current) setSending(false);
@@ -465,7 +241,7 @@ export function GroupConversation({
           : result,
       );
     } catch (error) {
-      setError(errorText(error));
+      setError(ipcErrorText(error));
     } finally {
       setLoading(false);
     }
@@ -712,62 +488,5 @@ export function GroupConversation({
         />
       </div>
     </>
-  );
-}
-
-export function GroupNotifications({
-  view,
-  selected,
-  onView,
-}: {
-  view?: GroupsView;
-  selected?: string;
-  onView: (id: string) => void;
-}) {
-  const { t } = useI18n();
-  const seen = useRef<Map<string, number> | undefined>(undefined),
-    [visible, setVisible] = useState<string>();
-  useEffect(() => {
-    if (!view) return;
-    const current = new Map(view.rooms.map((room) => [room.id, room.lastSeq]));
-    if (seen.current) {
-      const incoming = view.rooms.find(
-        (room) => room.id !== selected && room.unread > 0 && room.lastSeq > (seen.current?.get(room.id) || 0),
-      );
-      if (incoming) setVisible(incoming.id);
-    }
-    seen.current = current;
-  }, [view?.revision]);
-  useEffect(() => {
-    if (!visible) return;
-    const timer = setTimeout(() => setVisible(undefined), 6500);
-    return () => clearTimeout(timer);
-  }, [visible]);
-  const room = view?.rooms.find((room) => room.id === visible);
-  if (!room || room.id === selected) return null;
-  return (
-    <aside className="interaction-notification group-notification" role="status">
-      <button
-        className="interaction-notification-open"
-        onClick={() => {
-          setVisible(undefined);
-          onView(room.id);
-        }}
-      >
-        <GroupAvatar group={room} />
-        <span>
-          <strong>{room.name}</strong>
-          <small>{room.preview}</small>
-        </span>
-        <span className="notification-view">{t('查看')}</span>
-      </button>
-      <button
-        className="icon-button notification-close"
-        aria-label={t('关闭群聊通知')}
-        onClick={() => setVisible(undefined)}
-      >
-        <Icon name="close" size={16} />
-      </button>
-    </aside>
   );
 }

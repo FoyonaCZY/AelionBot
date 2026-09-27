@@ -60,7 +60,11 @@ import { BotComposer, type ComposerDraft } from '../chat/BotComposer';
 import { PeerNotice, PeerTaskMessage, PeerNotifications, PrivateChatWindow, type PeerPanel } from '../group/PeerChats';
 import { isPrivatePeerOrigin } from '../../shared/types/peer-types';
 import { conversationRows } from './conversation-list';
-import { GroupAvatar, GroupConversation, GroupEditor, GroupNotifications, GroupTaskMessage } from '../group/GroupChats';
+import { GroupConversation } from '../group/GroupConversation';
+import { GroupAvatar } from '../group/GroupAvatar';
+import { GroupEditor } from '../group/GroupEditor';
+import { GroupNotifications } from '../group/GroupNotifications';
+import { GroupTaskMessage } from '../group/GroupTaskMessage';
 import {
   randomBotPalette,
   displayBotPalette,
