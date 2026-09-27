@@ -1,4 +1,4 @@
-export const EXCLUSIVE_TOOLS = new Set([
+const EXCLUSIVE_TOOLS = new Set([
   'computer',
   'request_user_control',
   'request_user_input',
@@ -30,8 +30,7 @@ export const EXCLUSIVE_TOOLS = new Set([
   'checkpoint_restore',
   'skill_materialize',
 ]);
-export const PATH_LOCKED_TOOLS = new Set(['file_write', 'file_patch']);
-export const SERIAL_TOOLS = new Set([...EXCLUSIVE_TOOLS, ...PATH_LOCKED_TOOLS]);
+const PATH_LOCKED_TOOLS = new Set(['file_write', 'file_patch']);
 export const isExclusiveTool = (name: string) =>
   EXCLUSIVE_TOOLS.has(name) || /^groups?_(send|create|invite|pin)/.test(name);
 export const isSerialTool = (name: string) => isExclusiveTool(name) || PATH_LOCKED_TOOLS.has(name);

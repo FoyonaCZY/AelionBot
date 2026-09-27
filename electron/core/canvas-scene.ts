@@ -10,7 +10,7 @@ export interface SceneGradient {
   to: [number, number];
   stops: Array<{ offset: number; color: SceneColor }>;
 }
-export interface SceneShadow {
+interface SceneShadow {
   x: number;
   y: number;
   blur: number;
@@ -44,7 +44,7 @@ export interface SceneNode extends SceneRect {
   fillRule?: string;
   reason?: string;
 }
-export interface SceneFont {
+interface SceneFont {
   family: string;
   weight: string;
   style: string;

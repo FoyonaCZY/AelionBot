@@ -38,7 +38,7 @@ function globArgs(glob: string, platform: NodeJS.Platform) {
     platform === 'win32' ? name.replace(/[a-z]/gi, (char) => `[${char.toLowerCase()}${char.toUpperCase()}]`) : name;
   return ['--type-add', `aelion:${pattern}`, '--type', 'aelion'];
 }
-export function ripgrepArgs(request: FileSearchRequest, platform = process.platform) {
+function ripgrepArgs(request: FileSearchRequest, platform = process.platform) {
   // No config file, and no ignore sources the JS walker does not read either: the list must stay a superset.
   const args = [
     '--no-config',

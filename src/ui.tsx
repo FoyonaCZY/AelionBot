@@ -286,33 +286,7 @@ export function Vnc({ url, control = false }: { url?: string; control?: boolean 
   );
 }
 
-export function ScreenImage({ id, onOpen }: { id: string; onOpen: (url: string) => void }) {
-  const { t } = useI18n();
-  const [url, setUrl] = useState(''),
-    [error, setError] = useState('');
-  useEffect(() => {
-    let active = true;
-    window.aelion
-      .screenshot(id)
-      .then((value) => {
-        if (active) setUrl(value);
-      })
-      .catch((error) => {
-        if (active) setError(error.message);
-      });
-    return () => {
-      active = false;
-    };
-  }, [id]);
-  return url ? (
-    <button className="screen-evidence" onClick={() => onOpen(url)} aria-label={t('查看操作截图')}>
-      <img src={url} alt={t('Bot 操作后的工作电脑截图')} />
-    </button>
-  ) : (
-    <p className="subtle">{error || t('加载截图…')}</p>
-  );
-}
-export function MentionTag({ mention }: { mention: BotMention }) {
+function MentionTag({ mention }: { mention: BotMention }) {
   return (
     <span className="bot-mention" data-bot-id={mention.id} title={`${mention.name} · ${mention.id.slice(0, 8)}`}>
       <Avatar bot={mention} size={16} />@{mention.name}

@@ -24,14 +24,14 @@ export interface ImageJob {
   seed?: number;
   reference?: ImageReference[];
 }
-export interface ImageEndpoint {
+interface ImageEndpoint {
   baseUrl: string;
   model: string;
 }
 export type ImagePlan =
   | { kind: 'http'; url: string; method: string; headers: Record<string, string>; body: BodyInit }
   | { kind: 'hosted'; size?: string; quality?: ImageQuality };
-export interface ImageAdapter extends ImageProtocolInfo {
+interface ImageAdapter extends ImageProtocolInfo {
   plan(job: ImageJob, endpoint: ImageEndpoint, key: string): ImagePlan;
   parse(body: unknown): Buffer | undefined;
 }
@@ -262,9 +262,6 @@ export function imageAdapter(protocol: ImageProtocol) {
   const adapter = BY_ID.get(protocol);
   if (!adapter) throw Error('未知的生图协议');
   return adapter;
-}
-export function imageAdapters() {
-  return ADAPTERS;
 }
 /** Descriptors for the settings UI, including the `auto` entry that has no wire format of its own. */
 export function imageProtocolCatalog(): ImageProtocolInfo[] {

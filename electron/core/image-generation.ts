@@ -3,17 +3,9 @@ import type { ModelClient } from './model';
 import { validateModelEndpoint } from './model';
 import { modelFetch } from './model-http';
 import { asImageProtocol, probesNextProtocol, retryableImageFailure, type ImageProtocol } from '../../src/image-types';
-import {
-  autoProtocolOrder,
-  geminiImageUrl,
-  imageAdapter,
-  openAiSize,
-  type ImageJob,
-  type ImagePlan,
-} from './image-protocols';
+import { autoProtocolOrder, imageAdapter, type ImageJob, type ImagePlan } from './image-protocols';
 import { ImageGenerationError, classifyImageResponse, classifyImageTransport } from './image-errors';
 
-export { geminiImageUrl, openAiSize };
 export type { ImageJob };
 
 const MAX_IMAGE_BYTES = 24 * 1024 * 1024;
@@ -35,7 +27,7 @@ export function migrateImageRoute(value: unknown): ImageProtocol | undefined {
   if (typeof value === 'string' && LEGACY_ROUTES[value]) return LEGACY_ROUTES[value];
   return asImageProtocol(value);
 }
-export function imageRouteKey(config: Pick<ModelConfig, 'providerId' | 'baseUrl' | 'model'>) {
+function imageRouteKey(config: Pick<ModelConfig, 'providerId' | 'baseUrl' | 'model'>) {
   return `${config.providerId || ''}|${(config.baseUrl || '').replace(/\/$/, '')}|${config.model}`;
 }
 export function storeImageRoutes(store: {

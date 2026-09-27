@@ -1,7 +1,7 @@
 import { reportedTotal, type UsageRecord } from '../../src/runtime-types';
 import type { UsageQuery, UsageReport, UsageTotals, UsageGroup } from '../../src/usage-types';
 
-export const localDay = (date: Date) =>
+const localDay = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 function dateValue(value: unknown) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw Error('请选择有效日期');

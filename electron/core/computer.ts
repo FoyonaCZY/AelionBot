@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { ComputerState, ComputerDesktopState, ScreenReference } from '../../src/shared';
 import { VmController, shQuote } from './vm';
 
-export type ComputerAction =
+type ComputerAction =
   'screenshot' | 'click' | 'double_click' | 'move' | 'drag' | 'scroll' | 'key' | 'type' | 'wait' | 'open_app';
 export interface ComputerInput {
   action: ComputerAction;

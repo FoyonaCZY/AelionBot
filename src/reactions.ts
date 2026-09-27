@@ -1,5 +1,5 @@
 import { PIN_EMOJI_OPTIONS, PIN_EMOJI_BY_VALUE } from './emoji-catalog';
-export const PIN_EMOJIS = PIN_EMOJI_OPTIONS.map((option) => option.emoji);
+const PIN_EMOJIS = PIN_EMOJI_OPTIONS.map((option) => option.emoji);
 export type PinEmoji = (typeof PIN_EMOJIS)[number];
 export interface PinActor {
   id: string;

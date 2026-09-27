@@ -1,6 +1,6 @@
 export type PreviewMode = 'browse' | 'annotate' | 'edit';
 export type AnnotationTool = 'rect' | 'arrow' | 'pen' | 'text' | 'element';
-export interface AnnotationPoint {
+interface AnnotationPoint {
   x: number;
   y: number;
 }

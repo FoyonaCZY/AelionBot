@@ -8,7 +8,7 @@ import {
 } from './appearance';
 
 const CACHE = 'aelion-appearance';
-export function applyAppearance(value: AppearanceSettings) {
+function applyAppearance(value: AppearanceSettings) {
   const root = document.documentElement;
   for (const [name, v] of Object.entries(appearanceVariables(value))) root.style.setProperty(name, v);
   const theme = resolvedTheme(value.theme, window.matchMedia('(prefers-color-scheme: dark)').matches);

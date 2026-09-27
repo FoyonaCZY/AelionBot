@@ -13,7 +13,7 @@ import { hostEnvironment, hostShell } from './host-platform';
 import { bytePage } from './bounded-output';
 const LIMIT = 2 * 1024 * 1024;
 // The supervisor owns the child handle; stopping uses a per-job flag, never an unverified persisted PID.
-export const HOST_SUPERVISOR = String.raw`
+const HOST_SUPERVISOR = String.raw`
 const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
 const dir=__dirname,cfg=JSON.parse(fs.readFileSync(path.join(dir,'input.json'),'utf8'));let total=0,stopped=false;
 const state=value=>{const file=path.join(dir,'status.json');fs.writeFileSync(file+'.tmp',JSON.stringify({...value,heartbeat:Date.now()}));fs.renameSync(file+'.tmp',file);};

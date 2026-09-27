@@ -31,7 +31,7 @@ const runFile = promisify(execFile);
 const { Client, utils } = ssh2;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export const shQuote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
-export function processAlive(pid?: number) {
+function processAlive(pid?: number) {
   if (!pid) return false;
   try {
     process.kill(pid, 0);

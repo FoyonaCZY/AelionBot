@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import x64Image from '../../runtime/guest-image.json';
 import armImage from '../../runtime/guest-image-arm64.json';
 export type GuestArch = 'x64' | 'arm64';
-export type GuestImage = typeof x64Image & { provisionedWorkstation?: string };
+type GuestImage = typeof x64Image & { provisionedWorkstation?: string };
 export function vmPlatform(platform: NodeJS.Platform = process.platform, arch: string = process.arch) {
   if (!['x64', 'arm64'].includes(arch) || (platform === 'win32' && arch !== 'x64'))
     throw Error('此操作系统与 CPU 组合尚未提供工作电脑运行时');

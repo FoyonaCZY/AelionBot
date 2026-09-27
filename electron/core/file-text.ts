@@ -140,7 +140,7 @@ export function expectedHash(value: unknown, required = false) {
 // Progressive line matching, after Codex apply_patch seek_sequence: models often
 // drift on trailing spaces, indentation or typographic punctuation. Each pass is
 // tried only when the stricter one found nothing; a match must stay unique.
-export function normalizeLine(line: string) {
+function normalizeLine(line: string) {
   return line
     .trim()
     .replace(/[\u2010-\u2015\u2212]/g, '-')
@@ -148,7 +148,7 @@ export function normalizeLine(line: string) {
     .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
     .replace(/[\u00A0\u2002-\u200A\u202F\u205F\u3000]/g, ' ');
 }
-export type MatchStrategy = 'exact' | 'trim-end' | 'trim' | 'unicode';
+type MatchStrategy = 'exact' | 'trim-end' | 'trim' | 'unicode';
 const LINE_PASSES: Array<[MatchStrategy, (line: string) => string]> = [
   ['exact', (line) => line],
   ['trim-end', (line) => line.trimEnd()],

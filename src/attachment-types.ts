@@ -27,11 +27,6 @@ export interface PreparedAttachmentDrop {
   entries: DroppedAttachment[];
   virtualIndexes: number[];
 }
-export interface BotAttachmentInput {
-  attachmentId?: string;
-  path?: string;
-  location?: 'vm' | 'host';
-}
 export const ATTACHMENT_LIMITS = { count: 10, fileBytes: 25 * 1024 * 1024, totalBytes: 100 * 1024 * 1024 } as const;
 export const attachmentSummary = (attachments?: Attachment[]) =>
   attachments?.length ? attachments.map((file) => `[附件] ${file.name}`).join('、') : '';

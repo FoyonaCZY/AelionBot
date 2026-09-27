@@ -1,4 +1,4 @@
-export interface FeedbackOverlayState {
+interface FeedbackOverlayState {
   id: string;
   editVersion: number;
   text: string;

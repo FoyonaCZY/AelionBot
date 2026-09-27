@@ -35,7 +35,7 @@ export function estimateRequest(messages: WireMessage[], tools: ToolDefinition[]
     calibration: Math.max(1, calibration),
   };
 }
-export const DEFAULT_COMPACT_PERCENT = 85;
+const DEFAULT_COMPACT_PERCENT = 85;
 export function contextBudget(capacity: number, compactPercent = DEFAULT_COMPACT_PERCENT) {
   // Large windows reserve up to 8k so a turn just below the trigger still has room for reasoning and a sizeable patch.
   const output = capacity >= 160000 ? 8192 : Math.min(4096, Math.max(1024, Math.floor(capacity * 0.2))),

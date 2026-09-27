@@ -13,7 +13,7 @@ export interface GamePlayer {
   personality?: string;
   model?: ModelSelection;
 }
-export interface GameSeat extends GamePlayer {
+interface GameSeat extends GamePlayer {
   alive: boolean;
   role?: GameRole;
   revealed?: boolean;

@@ -78,7 +78,7 @@ export function parseMcpSnippet(text: string) {
 function strings(value: any) {
   return Array.isArray(value) ? value.filter((item: unknown) => typeof item === 'string') : undefined;
 }
-export function expandConfigString(value: string, options: IntegrationPaths, missing: Set<string>) {
+function expandConfigString(value: string, options: IntegrationPaths, missing: Set<string>) {
   const replacement = (name: string, fallback?: string) => {
     if (name === 'userHome') return options.homeDir;
     if (name === 'workspaceFolder' || name === 'CLAUDE_PROJECT_DIR') return options.projectDir;

@@ -34,7 +34,7 @@ import type {
 } from '../../src/shared';
 import type { PeerExchange, PeerThread } from '../../src/peer-types';
 import { isPrivatePeerOrigin, peerPending } from '../../src/peer-types';
-import type { GroupDelivery, GroupRoom, GroupRound } from '../../src/group-types';
+import type { GroupDelivery, GroupOutbox, GroupRoom, GroupRound } from '../../src/group-types';
 import type { ScheduledTask } from '../../src/scheduled-types';
 import { BOT_COLORS, normalizeBotPalette, type BotAvatarStyle } from '../../src/bot-colors';
 
@@ -43,7 +43,7 @@ export interface StoredProvider extends Omit<ModelProvider, 'hasKey'> {
   encryptedKey?: string;
 }
 interface Persisted {
-  groupOutbox?: import('../../src/group-types').GroupOutbox[];
+  groupOutbox?: GroupOutbox[];
   groupContextVersions?: Record<string, number>;
   language?: import('../../src/interface-language').Language;
   appearance?: import('../../src/appearance').AppearanceSettings;

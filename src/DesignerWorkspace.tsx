@@ -47,7 +47,7 @@ const lastDesign = (botId: string) => {
 };
 const cleanError = (error: unknown) =>
   (error as Error).message.replace(/^Error invoking remote method '[^']+': Error: /, '');
-export function DesignSystemPicker({
+function DesignSystemPicker({
   systems,
   value,
   onSelect,
@@ -216,7 +216,7 @@ export function DesignSystemPicker({
     document.body,
   );
 }
-export function DesignPluginPicker({
+function DesignPluginPicker({
   plugins,
   selected,
   onChange,

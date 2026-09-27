@@ -1,5 +1,5 @@
 /** Image generation contract shared by the renderer and the main process. Adding a protocol means adding one descriptor, not editing heuristics. */
-export const IMAGE_PROTOCOLS = ['openai-images', 'gemini-images', 'responses-images', 'sd-webui'] as const;
+const IMAGE_PROTOCOLS = ['openai-images', 'gemini-images', 'responses-images', 'sd-webui'] as const;
 export type ImageProtocol = (typeof IMAGE_PROTOCOLS)[number];
 
 export const IMAGE_ASPECTS = ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'] as const;
@@ -21,7 +21,7 @@ export const IMAGE_NEXT_STEPS = [
 ] as const;
 export type ImageNextStep = (typeof IMAGE_NEXT_STEPS)[number];
 
-export interface ImageCapabilities {
+interface ImageCapabilities {
   aspect: boolean;
   size: boolean;
   quality: boolean;
@@ -35,13 +35,6 @@ export interface ImageProtocolInfo {
   hint: string;
   endpoint: string;
   capabilities: ImageCapabilities;
-}
-
-/** Per-model image defaults stored in the provider catalog. */
-export interface ImageModelDefaults {
-  aspect?: ImageAspect;
-  quality?: ImageQuality;
-  negativePrompt?: string;
 }
 
 export function asImageProtocol(value: unknown): ImageProtocol | undefined {
@@ -61,7 +54,7 @@ export function asImageQuality(value: unknown): ImageQuality | undefined {
 }
 
 /** Well-known bucket resolutions. Exact where the ratio divides evenly, otherwise the nearest standard diffusion bucket. */
-export const ASPECT_DIMENSIONS: Record<ImageAspect, { width: number; height: number }> = {
+const ASPECT_DIMENSIONS: Record<ImageAspect, { width: number; height: number }> = {
   '1:1': { width: 1024, height: 1024 },
   '16:9': { width: 1344, height: 768 },
   '9:16': { width: 768, height: 1344 },

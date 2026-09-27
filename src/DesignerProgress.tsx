@@ -20,10 +20,10 @@ const designLabels: Record<string, [string, string]> = {
   design_export_pdf: ['导出 PDF', 'Export PDF'],
   design_plugin: ['读取设计插件', 'Read a design plugin'],
 };
-export function designOperationLabel(tool: string, en = false) {
+function designOperationLabel(tool: string, en = false) {
   return designLabels[tool]?.[en ? 1 : 0] || toolOperation(tool).label;
 }
-export function designRecentOperations(messages: ChatMessage[], run: RunRecord) {
+function designRecentOperations(messages: ChatMessage[], run: RunRecord) {
   return messages
     .filter(
       (m) =>

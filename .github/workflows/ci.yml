@@ -69,6 +69,15 @@ jobs:
       - name: Audit source
         if: runner.os == 'Linux'
         run: pnpm run audit:publish
+      - name: Check formatting
+        if: runner.os == 'Linux'
+        run: pnpm run format:check
+      - name: Lint
+        if: runner.os == 'Linux'
+        run: pnpm run lint
+      - name: Find unused files, exports and dependencies
+        if: runner.os == 'Linux'
+        run: pnpm run knip
       - name: Typecheck
         run: pnpm run typecheck
       - name: Test

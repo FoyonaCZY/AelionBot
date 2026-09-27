@@ -1,4 +1,4 @@
-export interface PinEmojiOption {
+interface PinEmojiOption {
   emoji: string;
   label: string;
   keywords: string;

@@ -10,7 +10,7 @@ import type {
 import { Icon } from './ui';
 import './design-fonts.css';
 
-export interface DesignFontsApi {
+interface DesignFontsApi {
   listDesignFonts(input: { id: string }): Promise<DesignFont[]>;
   searchDesignFonts(input: { query: string }): Promise<DesignFontCatalogEntry[]>;
   acquireDesignFont(input: { id: string } & DesignFontAcquire): Promise<unknown>;

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AttachmentUpload } from '../../src/attachment-types';
 
-export function dropFilePaths(bytes: Buffer) {
+function dropFilePaths(bytes: Buffer) {
   if (bytes.length < 20 || bytes.length > 1024 * 1024) return [];
   const offset = bytes.readUInt32LE(0),
     wide = bytes.readUInt32LE(16) !== 0;

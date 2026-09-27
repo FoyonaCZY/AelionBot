@@ -24,7 +24,7 @@ function protocolName(protocol: string | undefined, t: (value: string) => string
         : t('OpenAI 兼容');
 }
 /** The protocol catalog is owned by the main process so adding an adapter needs no renderer change. */
-export function useImageProtocols() {
+function useImageProtocols() {
   const [catalog, setCatalog] = useState<ImageProtocolInfo[]>([]);
   useEffect(() => {
     let live = true;

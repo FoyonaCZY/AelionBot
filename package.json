@@ -20,6 +20,7 @@
     "lint": "oxlint src electron tests scripts website/src website/tests website/scripts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "knip": "knip --no-progress",
     "test": "tsx --test --test-concurrency=2 --test-timeout=30000 tests/*.test.ts",
     "vm:prepare-runtime": "node scripts/prepare-runtime.mjs",
     "vm:provision-image": "tsx scripts/provision-guest-image.ts",

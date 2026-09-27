@@ -6,7 +6,7 @@
  * P1 and P2 are advisory. Rules mirror the craft references in assets/design-craft so the
  * guidance the model reads and the check it must pass agree.
  */
-export type { DesignFinding, DesignFindingLevel } from '../../src/designer-types';
+export type { DesignFinding } from '../../src/designer-types';
 import type { DesignFinding, DesignFindingLevel } from '../../src/designer-types';
 
 const AI_INDIGO = /#(?:6366f1|4f46e5|4338ca|3730a3|8b5cf6|7c3aed|a855f7)\b/i;

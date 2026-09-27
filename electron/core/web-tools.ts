@@ -96,7 +96,7 @@ export interface WebDocument {
   contentType: string;
 }
 export type WebLoader = (url: string, signal: AbortSignal) => Promise<WebDocument>;
-export async function loadPublicPage(value: string, signal: AbortSignal): Promise<WebDocument> {
+async function loadPublicPage(value: string, signal: AbortSignal): Promise<WebDocument> {
   let url = publicWebUrl(value);
   const combined = AbortSignal.any([signal, AbortSignal.timeout(20000)]);
   for (let redirects = 0; redirects <= 5; redirects++) {

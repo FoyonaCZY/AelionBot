@@ -443,4 +443,3 @@ export async function prepareDesignHtml(input: DesignHtmlExportInput) {
 export async function exportDesignHtmlBundle(input: DesignHtmlExportInput) {
   return new HtmlResources(input, false).bundle();
 }
-export { DESIGN_PDF_READY_SCRIPT } from './design-pdf';

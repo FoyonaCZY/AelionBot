@@ -14,10 +14,12 @@ import type { BotMention, PeerChatPage, PeerNotice, PeerRunOrigin, PeerView } fr
 import type { GroupLink, GroupPage, GroupRunOrigin, GroupSummary, GroupsView } from './group-types';
 import type { MessagePin, PinEvent, PinInput } from './reactions';
 import type { UpdateState } from './update-types';
+import type { GameAPI } from './game-types';
+import type { MentionFileSearch } from './file-mentions';
 import type { DiagnosticPreview } from './diagnostic-types';
 import type { ScheduledTask, ScheduledTaskInput, ScheduledTaskUpdate, ScheduledTrigger } from './scheduled-types';
 import type { ToolExecution } from './execution-types';
-export type { BotMention, PeerChatPage, PeerNotice, PeerRunOrigin, PeerView } from './peer-types';
+export type { BotMention } from './peer-types';
 export interface ModelSelection {
   providerId: string;
   model: string;
@@ -343,7 +345,7 @@ export type InteractionRequest = { id: string; botId: string; runId: string; cre
   | { kind: 'user_input'; questions: UserQuestion[]; phase: 'waiting' }
 );
 export type InteractionAction = 'allow' | 'allow-always' | 'deny' | 'takeover' | 'resume' | 'cancel' | 'answer';
-export interface CognitionView {
+interface CognitionView {
   learning: { enabled: boolean; runningBotId?: string; queued: number };
   bots: Array<{
     botId: string;
@@ -407,7 +409,7 @@ export interface CommandResult {
   durationMs: number;
 }
 export interface AelionAPI {
-  games: import('./game-types').GameAPI;
+  games: GameAPI;
   designSystem(id: string): Promise<import('./designer-types').DesignSystemDetail>;
   createDesignSession(
     input: import('./designer-types').DesignSessionInput,
@@ -593,7 +595,7 @@ export interface AelionAPI {
     designSessionId?: string;
     scope: import('./attachment-types').AttachmentScope;
     query: string;
-  }): Promise<import('./file-mentions').MentionFileSearch>;
+  }): Promise<MentionFileSearch>;
   listWorkspaceDirectory(input: {
     botId: string;
     path?: string;

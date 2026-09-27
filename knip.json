@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "electron/main.ts",
+    "electron/cli.ts",
+    "electron/preload.ts",
+    "electron/web-preview-preload.ts",
+    "electron/preview-feedback-preload.ts",
+    "electron/core/file-search-worker.ts",
+    "electron/core/code-worker.ts",
+    "scripts/*.{mjs,ts}",
+    "tests/*.test.ts"
+  ],
+  "project": ["src/**/*.{ts,tsx}", "electron/**/*.ts", "scripts/**/*.{mjs,ts}", "tests/**/*.ts"],
+  "ignoreDependencies": ["@fontsource-variable/*", "markdown-it"]
+}

@@ -16,7 +16,7 @@ export interface ReviewPayload {
   revision: number;
   model: string;
 }
-export const REVIEW_TOOL_NAMES = new Set([
+const REVIEW_TOOL_NAMES = new Set([
   'memory',
   'skills_list',
   'skill_read',

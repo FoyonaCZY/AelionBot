@@ -1,10 +1,9 @@
 import { WORKSTATION_VERSION, type VmState } from './shared';
 
-export const COMPUTER_SETUP_ESTIMATE = '首次初始化通常需要 5～15 分钟，网络较慢时可能更久。';
 export function computerDesktopReady(vm: VmState) {
   return vm.status === 'ready' && !vm.operationPending && Boolean(vm.appsReady) && !vm.maintenance && !vm.needsReboot;
 }
-export function computerNeedsAppUpdate(vm: VmState) {
+function computerNeedsAppUpdate(vm: VmState) {
   return (
     !vm.operationPending &&
     vm.appsReady === false &&

@@ -41,7 +41,7 @@ function slug(value: string) {
  * Only families the host can actually resolve are kept — a remote-only face would silently
  * fall back and make every card look identical again, which is the problem this solves.
  */
-export function displayFontStack(css: string) {
+function displayFontStack(css: string) {
   // Packages often document a literal ":root { … }" in a comment, so take the longest real block.
   const blocks = [...css.matchAll(/:root[^{]*\{[\s\S]*?\}/g)]
     .map((match) => match[0])

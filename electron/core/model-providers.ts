@@ -66,7 +66,7 @@ export function modelParameters(input: ModelParameters): ModelParameters {
     ...(asImageQuality(imageQuality) && imageQuality !== 'auto' ? { imageQuality: asImageQuality(imageQuality) } : {}),
   };
 }
-export function providerModelEntry(input: unknown): ProviderModel {
+function providerModelEntry(input: unknown): ProviderModel {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw Error('模型配置无效');
   const value = input as ProviderModel,
     id = text(value.id, '模型 ID', 256);

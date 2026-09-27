@@ -3639,7 +3639,7 @@ Object.assign(en, {
 });
 Object.assign(zhTW, { 群任务: '群組任務', 待认领: '待認領', 有阻碍: '有阻礙', 未完成: '未完成', 继续任务: '繼續任務' });
 
-export function readLanguage(): Language {
+function readLanguage(): Language {
   if (typeof window === 'undefined') return 'zh-CN';
   try {
     const value = localStorage.getItem(LANGUAGE_STORAGE_KEY);
@@ -3648,7 +3648,7 @@ export function readLanguage(): Language {
     return 'zh-CN';
   }
 }
-export function applyLanguage(language: Language) {
+function applyLanguage(language: Language) {
   activeLanguage = language;
   if (typeof document !== 'undefined') document.documentElement.lang = language;
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('aelion-language-change'));

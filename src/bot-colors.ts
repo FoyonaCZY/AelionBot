@@ -147,10 +147,6 @@ export function randomBotPalette(previous?: BotPalette): BotPalette {
     choices = BOT_PALETTES.filter((palette) => botPaletteKey(palette) !== key);
   return normalizeBotPalette(choices[Math.floor(Math.random() * choices.length)]);
 }
-export function randomBotColor(previous?: string) {
-  const choices = BOT_COLORS.filter((color) => color !== previous);
-  return choices[Math.floor(Math.random() * choices.length)];
-}
 export function botIdentity(bot: { id: string; name: string; color: string; avatarStyle?: BotAvatarStyle }) {
   return {
     id: bot.id,

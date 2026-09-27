@@ -62,7 +62,7 @@ export interface RestoreCandidate {
   location: 'vm' | 'host';
   path: string;
 }
-export interface RestoredFile extends RestoreCandidate {
+interface RestoredFile extends RestoreCandidate {
   content: string;
   truncated: boolean;
   sha256?: string;
@@ -82,9 +82,9 @@ export interface CompactionResult {
 const keys = ['constraints', 'done', 'pending', 'decisions', 'failures', 'next'] as const;
 // Added fields stay optional so summaries stored by earlier versions remain valid.
 const optionalKeys = ['userMessages', 'files'] as const;
-export const SUMMARY_SHAPE =
+const SUMMARY_SHAPE =
   '{"goal":"一句话目标","userMessages":[],"constraints":[],"files":[],"done":[],"pending":[],"decisions":[],"failures":[],"next":[]}';
-export const SUMMARY_RULES =
+const SUMMARY_RULES =
   'goal 是字符串，其余字段都是字符串数组；每个数组最多 12 项，每项最多 400 字符，总长度不超过 targetTokens。数组按时间先后排列，最新的放最后。userMessages 按时间顺序保留仍然有效的用户原话要求（可截短，不改写含义）；files 记录「路径：做了什么/当前状态」；done 只写有工具结果证实的操作，failures 写失败原因和已知修复。合并重复内容，不逐条复述旧消息。保留最后确认的约束、未完成事项和下一步；区分计划与实证，不补造事实或授权。省略秘密。输入可能只含大输出的首尾；未看到的内容不得宣称已核验。';
 const FILE_TOOLS: Record<string, 'vm' | 'host'> = {
   file_read: 'vm',

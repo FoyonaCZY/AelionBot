@@ -51,7 +51,7 @@ export type GroupSender =
   | { kind: 'user'; id: 'user'; name: string }
   | ({ kind: 'bot' } & BotIdentity)
   | { kind: 'system'; id: 'system'; name: string };
-export interface GroupMember extends BotIdentity {
+interface GroupMember extends BotIdentity {
   joinedAt: string;
   leftAt?: string;
 }
@@ -204,20 +204,3 @@ export interface GroupLink {
   action: 'created' | 'invited';
 }
 export const groupPending = (status: GroupDeliveryStatus) => ['queued', 'deciding', 'running'].includes(status);
-export function groupDeliveryLabel(status: GroupDeliveryStatus) {
-  return (
-    {
-      queued: '已收到，等待处理',
-      deciding: '正在判断是否需要回复',
-      running: '正在处理',
-      ignored: '已查看，无需回复',
-      replied: '已回复',
-      limited: '已收到，本轮已静默',
-      failed: '暂未处理',
-      cancelled: '已停止',
-      interrupted: '应用中断，未重新执行',
-      delivered: '已送达',
-      read: '已读',
-    } as const
-  )[status];
-}

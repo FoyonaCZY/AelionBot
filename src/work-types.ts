@@ -2,7 +2,7 @@ import type { AttachmentScope } from './attachment-types';
 import type { TaskPlan } from './runtime-types';
 
 export type WorkMode = 'plan' | 'goal';
-export type WorkStatus = 'planning' | 'ready' | 'running' | 'paused' | 'blocked' | 'completed' | 'cancelled';
+type WorkStatus = 'planning' | 'ready' | 'running' | 'paused' | 'blocked' | 'completed' | 'cancelled';
 export interface WorkItem {
   id: string;
   botId: string;

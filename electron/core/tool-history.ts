@@ -1,6 +1,6 @@
 import type { ToolCall, WireMessage } from '../../src/shared';
 
-export function historyCalls(message: WireMessage): ToolCall[] {
+function historyCalls(message: WireMessage): ToolCall[] {
   if (message.tool_calls?.length) return message.tool_calls;
   if (message.role !== 'assistant' || !Array.isArray(message.native?.data)) return [];
   return message.native.data.flatMap((item: any) => {

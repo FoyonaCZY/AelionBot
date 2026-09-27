@@ -31,7 +31,7 @@ import type { VmController } from './vm';
 // workspace: ordinary project reads/edits and saved command rules only. auto: plus the approval model.
 // full: everything. Whatever would wait for a person is denied, because nobody is there to answer.
 export type HeadlessPermission = 'workspace' | 'auto' | 'full';
-export interface HeadlessModel {
+interface HeadlessModel {
   baseUrl: string;
   model: string;
   protocol?: ModelProtocol;

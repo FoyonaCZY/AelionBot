@@ -1,4 +1,4 @@
-export type UsageGranularity = 'hour' | 'day' | 'month';
+type UsageGranularity = 'hour' | 'day' | 'month';
 export interface UsageQuery {
   from: string;
   to: string;

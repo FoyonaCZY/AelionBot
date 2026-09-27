@@ -14,7 +14,7 @@ export interface VideoSheet {
   videoHeight: number;
   timestamps: number[];
 }
-export const VIDEO_FRAME_LIMIT = 24;
+const VIDEO_FRAME_LIMIT = 24;
 export function videoFrameRequest(args: VideoFrameRequest): VideoFrameRequest {
   const result: VideoFrameRequest = {};
   if (args.frameWidth !== undefined) {

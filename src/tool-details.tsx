@@ -234,15 +234,7 @@ function DataView({ value, depth = 0 }: { value: unknown; depth?: number }) {
     </dl>
   );
 }
-export function ErrorDetails({
-  error,
-  exitCode,
-  compact = false,
-}: {
-  error: string;
-  exitCode?: number;
-  compact?: boolean;
-}) {
+function ErrorDetails({ error, exitCode, compact = false }: { error: string; exitCode?: number; compact?: boolean }) {
   const { t } = useI18n();
   const detail = errorExplanation(error);
   if (compact)

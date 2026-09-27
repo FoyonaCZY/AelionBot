@@ -1,7 +1,7 @@
 export const CONTEXT_PARTS = ['system', 'conversation', 'skills', 'tools', 'mcp'] as const;
 export type ContextPart = (typeof CONTEXT_PARTS)[number];
 export type ContextEstimateSource = 'tokenizer' | 'usage-anchor' | 'calibrated';
-export type ContextCountSource = ContextEstimateSource | 'provider-usage';
+type ContextCountSource = ContextEstimateSource | 'provider-usage';
 export interface ContextOverview {
   model: string;
   providerId?: string;

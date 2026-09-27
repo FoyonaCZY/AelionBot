@@ -26,7 +26,7 @@ export interface DesignSystemSummary {
   origin?: DesignSystemOrigin;
   display?: string;
 }
-export interface DesignSystemFile {
+interface DesignSystemFile {
   path: string;
   sha256: string;
   bytes: number;
@@ -48,14 +48,14 @@ export interface DesignArtifact {
   bytes: number;
   verifiedAt: string;
 }
-export interface DesignUserEdit {
+interface DesignUserEdit {
   id: string;
   path: string;
   revision: string;
   time: string;
   summary: string;
 }
-export interface DesignCheck {
+interface DesignCheck {
   id: string;
   label: string;
   status: 'pending' | 'passed' | 'failed';
@@ -89,7 +89,7 @@ export interface DesignFinding {
   craft?: string;
 }
 /** Findings for one file, refreshed on every write so the workspace shows live quality state. */
-export interface DesignFileFindings {
+interface DesignFileFindings {
   path: string;
   findings: DesignFinding[];
 }

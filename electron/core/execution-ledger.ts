@@ -23,7 +23,7 @@ const controlTools = new Set([
   'group_task_claim',
   'group_task_update',
 ]);
-export const COMMAND_RESULT_TOOLS = new Set([
+const COMMAND_RESULT_TOOLS = new Set([
   'host_execute',
   'computer_execute',
   'python_execute',

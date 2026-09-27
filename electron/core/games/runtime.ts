@@ -1,3 +1,4 @@
+import type { ResponseMetrics } from '../../../src/game-types';
 import { settleLimited } from './request-pool';
 import { gameSkills } from './skills';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
@@ -8,7 +9,7 @@ import { acceptAction, createWerewolf, view, validateAction, log, type WerewolfS
 import { gamePrompt, gameInstructions, GameModelError } from './model-player';
 export interface DecisionOptions {
   retryFeedback?: string;
-  onResponse: (metrics: import('../../../src/game-types').ResponseMetrics) => void;
+  onResponse: (metrics: ResponseMetrics) => void;
 }
 export type Decide = (
   player: GamePlayer,

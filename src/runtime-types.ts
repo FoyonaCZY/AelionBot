@@ -20,7 +20,7 @@ export const DEFAULT_RUNTIME: RuntimeSettings = {
   compactPercent: 85,
   fileCheckpoints: false,
 };
-export interface TaskStep {
+interface TaskStep {
   id: string;
   title: string;
   acceptance: string;

@@ -14,7 +14,7 @@ interface Anchor {
   returnFocus: HTMLElement | null;
 }
 
-export function MessagePins({
+function MessagePins({
   messageId,
   pins,
   pending,

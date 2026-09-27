@@ -10,7 +10,7 @@ export const DECK_LAYOUTS = [
   'agenda',
   'cta',
 ] as const;
-export type DeckLayout = (typeof DECK_LAYOUTS)[number];
+type DeckLayout = (typeof DECK_LAYOUTS)[number];
 export interface DeckSlide {
   title: string;
   body?: string;

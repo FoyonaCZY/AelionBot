@@ -21,7 +21,7 @@ export const SKILLS_LIST_TOOL: ToolDefinition = {
     },
   },
 };
-export const SKILL_SAVE_DECISION =
+const SKILL_SAVE_DECISION =
   '沉淀前先比较已有技能的用途，而不只比较名称。已有技能足以覆盖且没有新的可验证改进时，不保存。确有改进时先用 skill_read 读取正文，再更新可修改的同类技能并保留原名称；只有尚无覆盖且经过实际验证的可复用流程才新增。只读技能已能满足需求时直接复用，不要换名复制。由你判断是否值得沉淀，允许什么都不保存。';
 export function skillCatalog(
   library: Pick<SkillLibrary, 'list' | 'autoManaged'>,
