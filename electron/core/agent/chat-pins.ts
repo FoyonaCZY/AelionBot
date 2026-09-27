@@ -9,6 +9,7 @@ import type { BotMention, ChatMessage } from '../../../shared/types/core';
 import type { ScheduledTrigger } from '../../../shared/types/scheduled-types';
 import { chatInputText, validateChatInput } from './chat-input';
 import { pinDescription, updatePins, validPin, type PinActor, type PinInput } from '../../../shared/chat/reactions';
+import { AppError } from '../../../shared/errors';
 
 export function pinChat(store: Store, botId: string, actor: PinActor, input: PinInput, runId?: string) {
   validPin(input);
@@ -23,7 +24,7 @@ export function pinChat(store: Store, botId: string, actor: PinActor, input: Pin
       (!message.status || message.status === 'done') &&
       (!message.runId || !store.data.runs.find((run) => run.id === message.runId)?.groupOrigin),
   );
-  if (!target) throw new Error('只能回应当前聊天里已发送的文字消息');
+  if (!target) throw new AppError('chat.reaction_target_invalid', '只能回应当前聊天里已发送的文字消息');
   const reactingUser =
     actor.kind === 'bot' &&
     runId &&
@@ -38,7 +39,7 @@ export function pinChat(store: Store, botId: string, actor: PinActor, input: Pin
         target.pins?.some((pin) => pin.actor.id === 'user' && pin.emoji === message.reaction!.emoji),
     );
   if (actor.kind === 'bot' && target.role !== 'user' && !reactingUser)
-    throw new Error('请选择用户的消息，或当前用户表态所指向的原消息');
+    throw new AppError('chat.reaction_target_ambiguous', '请选择用户的消息，或当前用户表态所指向的原消息');
   if (!updatePins(target, actor, input)) return { pinned: !input.remove, alreadyApplied: true, messageId: target.id };
   const event = store.message(
     botId,
@@ -113,7 +114,8 @@ export class ChatPinQueue {
       );
     if (!this.store.modelFor(input.botId).model) throw new Error('请先为这个 Bot 选择模型');
     const command = workCommand(input.message);
-    if (command && !command.objective) throw Error(`请在 /${command.kind} 后填写任务内容`);
+    if (command && !command.objective)
+      throw new AppError('task.objective_missing', `请在 /${command.kind} 后填写任务内容`);
     const reply = resolveChatReply(this.store, input.botId, input.replyToMessageId);
     this.store.message(input.botId, 'user', input.message, {
       mentions,

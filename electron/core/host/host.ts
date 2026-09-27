@@ -39,6 +39,7 @@ import { FileSearch } from '../tools/file-search';
 import { findRipgrep } from '../tools/ripgrep';
 import type { FileSearchRequest } from '../tools/file-search-types';
 import { BoundedOutput } from '../tools/bounded-output';
+import { AppError } from '../../../shared/errors';
 export { redactHost } from './host-redaction';
 
 export interface HostOptions {
@@ -56,11 +57,11 @@ export interface HostOptions {
 const forbidden = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\u202a-\u202e\u2066-\u2069]/;
 function text(value: unknown, name: string, max: number) {
   if (typeof value !== 'string' || !value.trim() || value.length > max || forbidden.test(value))
-    throw new Error(`无效参数：${name}`);
+    throw new AppError('input.invalid', `无效参数：${name}`);
   return value;
 }
 function aborted(signal: AbortSignal) {
-  if (signal.aborted) throw new Error('任务已取消，未执行本机操作');
+  if (signal.aborted) throw new AppError('task.cancelled', '任务已取消，未执行本机操作');
 }
 export class HostComputer {
   private executions = new Map<number, () => void>();
@@ -101,14 +102,15 @@ export class HostComputer {
       if (parent === ancestor) throw new Error('工作目录所在位置不可用');
       ancestor = parent;
     }
-    if (!statSync(ancestor).isDirectory()) throw new Error('工作目录必须是文件夹');
+    if (!statSync(ancestor).isDirectory()) throw new AppError('host.workspace_not_directory', '工作目录必须是文件夹');
     const override = path === this.defaultWorkspaceDir ? undefined : path;
     atomicJson(this.settingsFile, { version: 1, ...(override ? { workspaceDir: override } : {}) });
     this.workspaceOverride = override;
   }
   validateWorkspace(value: unknown) {
     const path = this.workspacePath(value);
-    if (!existsSync(path) || !statSync(path).isDirectory()) throw new Error('工作目录不存在或不是文件夹');
+    if (!existsSync(path) || !statSync(path).isDirectory())
+      throw new AppError('host.workspace_missing', '工作目录不存在或不是文件夹');
     return realpathSync.native(path);
   }
   resolveFilePath(value: unknown, workspace?: string) {
@@ -124,7 +126,7 @@ export class HostComputer {
       /[\r\n\t\0]/.test(expanded) ||
       (process.platform === 'win32' && (/[<>"|?*]/.test(expanded) || expanded.replace(/^[a-z]:/i, '').includes(':')))
     )
-      throw new Error('请输入有效的绝对目录路径，也可以使用 ~ 表示用户目录');
+      throw new AppError('host.workspace_path_invalid', '请输入有效的绝对目录路径，也可以使用 ~ 表示用户目录');
     return resolve(expanded);
   }
   workspace(botId: string) {
@@ -457,8 +459,11 @@ export class HostComputer {
       throw new FileToolError(
         'INVALID_ARGUMENT',
         '新建文件请省略 expectedSha256；它只用于核对已经存在且已读取的文件，不要填写零或猜测哈希。未写入任何内容。',
+        undefined,
+        'file.expected_hash_for_new_file',
       );
-    if (stamp !== 'missing' && !overwrite) throw new Error('文件已存在；确认内容后使用 overwrite=true');
+    if (stamp !== 'missing' && !overwrite)
+      throw new AppError('file.exists', '文件已存在；确认内容后使用 overwrite=true');
     await this.interactions.permission(
       botId,
       runId,
@@ -467,13 +472,13 @@ export class HostComputer {
     );
     aborted(signal);
     if (this.canonical(path) !== path || this.stamp(path) !== stamp)
-      throw new Error('文件在确认期间发生变化，请重新确认');
+      throw new AppError('file.changed_during_approval', '文件在确认期间发生变化，请重新确认');
     if (expected && (stamp === 'missing' || createHash('sha256').update(readFileSync(path)).digest('hex') !== expected))
       throw new FileToolError('FILE_CHANGED', '文件自上次读取后已变化，请重新读取后再修改');
     if (overwrite && stamp !== 'missing' && content.includes('[redacted') && statSync(path).size <= 2 * 1024 * 1024) {
       const original = readFileSync(path, 'utf8');
       if (this.redact(original) !== original)
-        throw new Error('不能把凭据占位符写回原文件，请用本机命令定点修改非敏感字段');
+        throw new AppError('host.secret_placeholder', '不能把凭据占位符写回原文件，请用本机命令定点修改非敏感字段');
     }
     return this.commitFile(botId, runId, path, content, stamp, signal);
   }

@@ -3,6 +3,7 @@ import { mkdirSync, lstatSync, writeFileSync, realpathSync, statSync } from 'nod
 import { join, resolve } from 'node:path';
 import { attachmentName } from '../attachments/attachments';
 import type { PreviewOpenInput, PreviewOpenTarget } from '../../../shared/preview/preview-open';
+import { AppError } from '../../../shared/errors';
 export type PreviewOpenSource = { path: string } | { name: string; bytes: Buffer; key: string };
 export class PreviewFileOpener {
   constructor(
@@ -21,7 +22,7 @@ export class PreviewFileOpener {
       !input.target ||
       !['workspace', 'attachment'].includes(input.target.kind)
     )
-      throw Error('无效的打开方式');
+      throw new AppError('preview.open_action_invalid', '无效的打开方式');
     const target = input.target;
     if (
       (target.kind === 'workspace' && (typeof target.botId !== 'string' || typeof target.path !== 'string')) ||
@@ -47,7 +48,8 @@ export class PreviewFileOpener {
         writeFileSync(path, source.bytes, { flag: 'wx', mode: 0o600 });
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-        if (lstatSync(path).isSymbolicLink() || !statSync(path).isFile()) throw Error('打开文件无效');
+        if (lstatSync(path).isSymbolicLink() || !statSync(path).isFile())
+          throw new AppError('preview.open_file_invalid', '打开文件无效');
       }
     }
     if (input.action === 'folder') {

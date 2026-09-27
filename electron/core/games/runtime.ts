@@ -14,6 +14,7 @@ import type {
 } from '../../../shared/types/game-types';
 import { acceptAction, createWerewolf, view, validateAction, log, type WerewolfState } from './werewolf';
 import { gamePrompt, gameInstructions, GameModelError } from './model-player';
+import { AppError } from '../../../shared/errors';
 export interface DecisionOptions {
   retryFeedback?: string;
   onResponse: (metrics: ResponseMetrics) => void;
@@ -182,7 +183,8 @@ export class GameRuntime {
   }
   inspect(id: string) {
     const s = this.state(id);
-    if (s.status !== 'finished' && s.seats.some((p) => p.human)) throw Error('真人对局结束后才能查看完整运行记录');
+    if (s.status !== 'finished' && s.seats.some((p) => p.human))
+      throw new AppError('game.record_locked', '真人对局结束后才能查看完整运行记录');
     return structuredClone(s.trace || []);
   }
   create(input: GameCreate) {

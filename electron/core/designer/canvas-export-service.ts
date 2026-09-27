@@ -12,6 +12,7 @@ import type { DesignerFiles } from './designer-files';
 import type { DesignFonts } from './design-fonts';
 import { designHtmlPath } from './design-font-application';
 import { prepareDesignHtml, exportDesignHtmlBundle } from './design-export';
+import { AppError } from '../../../shared/errors';
 export class CanvasExports {
   constructor(
     private ops: {
@@ -34,7 +35,7 @@ export class CanvasExports {
       typeof input.id !== 'string' ||
       typeof input.path !== 'string'
     )
-      throw Error('导出参数无效');
+      throw new AppError('design.export_input_invalid', '导出参数无效');
     const session = this.ops.getSession(input.id),
       path = await designHtmlPath(this.ops.files, session, input.path),
       viewport = canvasExportViewport(input.viewport),
@@ -54,7 +55,8 @@ export class CanvasExports {
     });
     if (!target) return null;
     if (!target.toLowerCase().endsWith('.' + format)) throw Error('文件扩展名必须为 .' + format);
-    if (this.ops.getSession(input.id) !== session) throw Error('设计任务已更改，请重新导出');
+    if (this.ops.getSession(input.id) !== session)
+      throw new AppError('design.session_changed', '设计任务已更改，请重新导出');
     const source = { rootDir: session.workspaceDir!, htmlPath: this.ops.files.absolute(session, path) };
     let bytes: Buffer,
       warnings: string[] = [];

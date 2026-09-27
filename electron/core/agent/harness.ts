@@ -111,6 +111,7 @@ import {
 } from './prompts/continuations';
 import { dispatchTool } from './tools/handlers';
 import type { ToolDeps } from './tools/context';
+import { AppError } from '../../../shared/errors';
 
 export { TOOLS };
 export { safeRelativePath, workspacePath } from './tools/validation';
@@ -572,7 +573,7 @@ export class Harness {
         mention.end > input.length ||
         input.slice(mention.start, mention.end) !== `@${mention.name}`
       )
-        throw new Error('Bot 提及的位置已变化，请重新选择');
+        throw new AppError('mention.position_changed', 'Bot 提及的位置已变化，请重新选择');
       const target = this.store.bot(mention.id);
       if (target.id === botId) throw new Error('请选择其他 Bot');
       end = mention.end;

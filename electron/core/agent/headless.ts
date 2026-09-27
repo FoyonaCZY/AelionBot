@@ -27,6 +27,7 @@ import type { HostPermissionMode } from '../../../shared/types/permission-types'
 import type { ModelProtocol } from '../../../shared/types/model-types';
 import type { RunRecord } from '../../../shared/types/core';
 import type { VmController } from '../vm/vm';
+import { AppError } from '../../../shared/errors';
 
 // workspace: ordinary project reads/edits and saved command rules only. auto: plus the approval model.
 // full: everything. Whatever would wait for a person is denied, because nobody is there to answer.
@@ -99,7 +100,11 @@ export function acquireHeadlessLock(dataDir: string) {
       } catch (probe) {
         alive = (probe as NodeJS.ErrnoException).code === 'EPERM';
       }
-      if (alive) throw Error(`另一个 headless 任务（PID ${owner}）正在使用数据目录 ${dataDir}`);
+      if (alive)
+        throw new AppError(
+          'headless.data_dir_in_use',
+          `另一个 headless 任务（PID ${owner}）正在使用数据目录 ${dataDir}`,
+        );
       rmSync(file, { force: true });
     }
   }

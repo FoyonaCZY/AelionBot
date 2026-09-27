@@ -18,6 +18,7 @@ import { atomicJson } from '../storage/store';
 import type { DesignSystems } from './design-systems';
 import type { DesignPlugins } from './design-plugins';
 import type { HarnessRunOptions } from '../agent/peer-runtime-types';
+import { AppError } from '../../../shared/errors';
 interface DesignData {
   contextResets?: Record<string, string>;
   version: 1;
@@ -32,7 +33,7 @@ function pluginIds(value: unknown) {
     value.length > 8 ||
     value.some((id) => typeof id !== 'string' || !/^[a-z0-9-]{1,40}$/.test(id))
   )
-    throw Error('设计插件无效');
+    throw new AppError('design.plugin_invalid', '设计插件无效');
   return [...new Set(value as string[])];
 }
 export class DesignStore {
@@ -152,7 +153,7 @@ export class DesignStore {
   get(id: string, botId?: string, origin?: DesignOrigin) {
     const session = this.data.sessions.find((s) => s.id === id);
     if (!session || (botId && session.botId !== botId) || (origin && originKey(session.origin) !== originKey(origin)))
-      throw Error('设计任务不存在或不属于当前会话');
+      throw new AppError('design.session_not_found', '设计任务不存在或不属于当前会话');
     this.validateOrigin(session.botId, session.origin);
     return session;
   }
@@ -171,8 +172,8 @@ export class DesignStore {
   update(input: DesignSessionUpdate) {
     const current = this.get(input.id),
       session = structuredClone(current);
-    if (session.activeRunId) throw Error('设计任务正在执行，请停止后修改配置');
-    if (input.revision !== session.revision) throw Error('设计任务已更新，请重新读取');
+    if (session.activeRunId) throw new AppError('design.session_running', '设计任务正在执行，请停止后修改配置');
+    if (input.revision !== session.revision) throw new AppError('design.session_stale', '设计任务已更新，请重新读取');
     if (input.title !== undefined) {
       if (typeof input.title !== 'string' || !input.title.trim() || input.title.length > 80)
         throw Error('任务名称无效');

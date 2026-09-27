@@ -1,6 +1,7 @@
 import { annotationContext } from './preview-annotations';
 import { feedbackWebUrl } from './web-preview';
 import type { AttachmentScope } from '../types/attachment-types';
+import { AppError } from '../errors';
 export interface PreviewFeedbackInput {
   view?: import('../types/preview-editor-types').PreviewViewport;
   designSessionId?: string;
@@ -50,7 +51,8 @@ export function feedbackCaptureRect(
     throw Error('预览截图范围无效');
   const sx = image.width / viewport.width,
     sy = image.height / viewport.height;
-  if (Math.abs(sx / sy - 1) > 0.025) throw Error('窗口尺寸已变化，请重新发送');
+  if (Math.abs(sx / sy - 1) > 0.025)
+    throw new AppError('preview.feedback_viewport_changed', '窗口尺寸已变化，请重新发送');
   const x = Math.max(0, Math.ceil(rect.x * sx - 1e-7)),
     y = Math.max(0, Math.ceil(rect.y * sy - 1e-7));
   const width = Math.min(image.width, Math.floor((rect.x + rect.width) * sx + 1e-7)) - x,
@@ -80,7 +82,8 @@ export function previewFeedbackMessage(
   if (input.view) {
     const view = input.view;
     for (const key of ['width', 'height', 'scrollX', 'scrollY', 'documentWidth', 'documentHeight'] as const)
-      if (!Number.isFinite(view[key]) || Math.abs(view[key]) > 10000000) throw Error('画布坐标信息无效');
+      if (!Number.isFinite(view[key]) || Math.abs(view[key]) > 10000000)
+        throw new AppError('preview.feedback_coordinates_invalid', '画布坐标信息无效');
     if (view.width < 1 || view.height < 1 || view.documentWidth < 1 || view.documentHeight < 1)
       throw Error('画布尺寸无效');
   }

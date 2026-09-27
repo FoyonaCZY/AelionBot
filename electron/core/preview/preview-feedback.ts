@@ -2,18 +2,19 @@ import { validateDomEdits } from '../../../shared/preview/preview-dom-edits';
 import { validateAnnotations } from '../../../shared/preview/preview-annotations';
 import type { Attachment, AttachmentScope } from '../../../shared/types/attachment-types';
 import { previewFeedbackMessage, type PreviewFeedbackInput } from '../../../shared/preview/preview-feedback';
+import { AppError } from '../../../shared/errors';
 /** A canvas can discuss only files from its selected design task. */
 export function designFeedbackFile(input: PreviewFeedbackInput, session: { botId: string; workspacePath: string }) {
   const source = input.file.path;
   if (!source) return undefined;
   const prefix = '/work/' + session.botId + '/';
-  if (!source.startsWith(prefix)) throw Error('反馈文件不属于当前设计任务');
+  if (!source.startsWith(prefix)) throw new AppError('preview.feedback_file_outside', '反馈文件不属于当前设计任务');
   const path = source.slice(prefix.length);
   if (
     !path.startsWith(session.workspacePath + '/') ||
     path.split('/').some((part) => !part || part === '.' || part === '..' || part.includes('\\') || part.includes(':'))
   )
-    throw Error('反馈文件不属于当前设计任务');
+    throw new AppError('preview.feedback_file_outside', '反馈文件不属于当前设计任务');
   return path;
 }
 interface Receipt {
@@ -61,7 +62,8 @@ export class PreviewFeedbackService {
     this.ops.validate(input.scope);
     const key = JSON.stringify(input),
       previous = this.entries.get(input.requestId);
-    if (previous && previous.key !== key) return Promise.reject(Error('反馈请求已变化，请重新发送'));
+    if (previous && previous.key !== key)
+      return Promise.reject(new AppError('preview.feedback_changed', '反馈请求已变化，请重新发送'));
     if (previous?.receipt) return Promise.resolve(previous.receipt);
     if (previous?.promise) return previous.promise;
     if (!previous && this.entries.size >= 64) {

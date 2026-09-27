@@ -1,12 +1,15 @@
 import { reportedTotal, type UsageRecord } from '../../../shared/types/runtime-types';
 import type { UsageQuery, UsageReport, UsageTotals, UsageGroup } from '../../../shared/types/usage-types';
+import { AppError } from '../../../shared/errors';
 
 const localDay = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 function dateValue(value: unknown) {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw Error('请选择有效日期');
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value))
+    throw new AppError('usage.date_invalid', '请选择有效日期');
   const date = new Date(value + 'T00:00:00');
-  if (!Number.isFinite(date.getTime()) || localDay(date) !== value) throw Error('请选择有效日期');
+  if (!Number.isFinite(date.getTime()) || localDay(date) !== value)
+    throw new AppError('usage.date_invalid', '请选择有效日期');
   return date;
 }
 const empty = (): UsageTotals => ({
@@ -77,7 +80,8 @@ export function usageReport(
     last = dateValue(input.to),
     end = new Date(last);
   end.setDate(end.getDate() + 1);
-  if (start > last || end.getTime() - start.getTime() > 3661 * 86400000) throw Error('日期范围需按先后顺序，最长十年');
+  if (start > last || end.getTime() - start.getTime() > 3661 * 86400000)
+    throw new AppError('usage.date_range_invalid', '日期范围需按先后顺序，最长十年');
   if (
     !['hour', 'day', 'month'].includes(input.granularity) ||
     (input.granularity === 'hour' && end.getTime() - start.getTime() > 32 * 86400000)

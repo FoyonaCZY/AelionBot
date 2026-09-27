@@ -18,6 +18,7 @@ import type {
   DesignSystemOrigin,
   DesignSystemSummary,
 } from '../../../shared/types/designer-types';
+import { AppError } from '../../../shared/errors';
 const ALLOWED =
   /^(DESIGN\.md|tokens\.css|design-tokens\.json|USAGE\.md|components\.html|components\.manifest\.json|assets\/[A-Za-z0-9._/-]+\.(?:css|html|md|json|svg|woff2|png|jpg|jpeg|webp))$/;
 const inside = (root: string, path: string) => {
@@ -171,11 +172,9 @@ export class DesignSystems {
       throw Error('设计资源路径越界');
     const bytes = readFileSync(target);
     if (bytes.length !== file.bytes || createHash('sha256').update(bytes).digest('hex') !== file.sha256)
-      throw Error(
-        this.originOf(id, system.version) === 'custom'
-          ? '自定义设计系统文件已变化，请重新导入'
-          : '设计系统资源已变化，请修复应用安装',
-      );
+      throw this.originOf(id, system.version) === 'custom'
+        ? new AppError('design.custom_system_changed', '自定义设计系统文件已变化，请重新导入')
+        : new AppError('design.system_changed', '设计系统资源已变化，请修复应用安装');
     return bytes;
   }
   pin(id: string, version?: string) {

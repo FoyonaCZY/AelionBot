@@ -34,6 +34,7 @@ import { Store } from '../storage/store';
 import type { HarnessRunOptions } from '../agent/peer-runtime-types';
 import type { GroupGateway } from './group-runtime-types';
 import type { ScheduledTrigger } from '../../../shared/types/scheduled-types';
+import { AppError } from '../../../shared/errors';
 
 interface Runner {
   isRunning: (id: string) => boolean;
@@ -154,7 +155,8 @@ export class GroupChats implements GroupGateway {
     return room.members.filter((member) => !member.leftAt && this.store.data.bots.some((bot) => bot.id === member.id));
   }
   private member(room: GroupRoom, id: string) {
-    if (!this.members(room).some((member) => member.id === id)) throw new Error('只能访问自己加入的群聊');
+    if (!this.members(room).some((member) => member.id === id))
+      throw new AppError('group.not_member', '只能访问自己加入的群聊');
   }
   private identities(room: GroupRoom) {
     return this.members(room).map((member) => identity(this.store.bot(member.id)));
@@ -287,7 +289,7 @@ export class GroupChats implements GroupGateway {
         item.botId === run.botId && item.groupId === room.id && item.rootId === round.id && item.key === fields.key,
     );
     if (entry && fingerprint(entry) !== fingerprint({ content, mentions, attachments: fields.attachments }))
-      throw Error('同一发件标识不能用于不同内容');
+      throw new AppError('group.outbox_conflict', '同一发件标识不能用于不同内容');
     // A final reply may repeat an explicitly published message from this run.
     entry ||= outbox.find(
       (item) =>
@@ -672,7 +674,7 @@ export class GroupChats implements GroupGateway {
     const target = room.messages.find(
       (message) => message.id === input.messageId && ['message', 'progress'].includes(message.kind),
     );
-    if (!target) throw new Error('只能回应群里已发送的文字消息');
+    if (!target) throw new AppError('group.reaction_target_invalid', '只能回应群里已发送的文字消息');
     if (sender.kind === 'bot' && target.sender.id === sender.id) throw new Error('请选择其他成员的消息进行回应');
     if (!updatePins(target, sender, input))
       return { pinned: !input.remove, alreadyApplied: true, messageId: target.id };
@@ -1343,7 +1345,8 @@ export class GroupChats implements GroupGateway {
       if (run.groupOrigin && run.groupOrigin.groupId !== room.id)
         throw Error('群聊执行只能发布到当前群；跨群分享请由原会话明确发起');
       const body = required(args.message, '消息', 8000);
-      if (hasSilenceMarker(body)) throw Error('静默标记是内部控制文本，不能作为群消息发布');
+      if (hasSilenceMarker(body))
+        throw new AppError('group.silence_marker', '静默标记是内部控制文本，不能作为群消息发布');
       const formatted = botMentions(body, this.identities(room), botId);
       if (!run.groupOrigin && !args.clientMessageId) {
         const duplicate = room.messages.find(

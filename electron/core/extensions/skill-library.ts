@@ -23,6 +23,7 @@ import {
 } from './integration-paths';
 import { Store, atomicJson } from '../storage/store';
 import { knowledgeTextSafe } from '../memory/memory-service';
+import { AppError } from '../../../shared/errors';
 
 export interface SkillFile {
   path: string;
@@ -339,14 +340,15 @@ export class SkillLibrary {
     if (botId !== undefined) this.store.bot(botId);
     const visible = this.entries.filter((entry) => !entry.summary.botId || entry.summary.botId === botId);
     const available = (entry: Entry) => {
-      if (!inspect && this.enabled[entry.summary.id] === false) throw Error('技能已停用，请在插件页面启用');
+      if (!inspect && this.enabled[entry.summary.id] === false)
+        throw new AppError('skill.disabled', '技能已停用，请在插件页面启用');
       return entry;
     };
     const exact = visible.find((entry) => entry.summary.id === id);
     if (exact) return available(exact);
     const named = visible.filter((entry) => entry.summary.name === id);
-    if (named.length > 1) throw new Error('存在同名技能，请使用 skills_list 返回的来源 ID');
-    if (!named.length) throw new Error('技能不存在或无权访问');
+    if (named.length > 1) throw new AppError('skill.name_ambiguous', '存在同名技能，请使用 skills_list 返回的来源 ID');
+    if (!named.length) throw new AppError('skill.not_found', '技能不存在或无权访问');
     return available(named[0]);
   }
   private fileList(entry: Entry, includeBytes = false): SkillFile[] {
@@ -363,7 +365,7 @@ export class SkillLibrary {
           continue;
         const file = join(dir, item.name);
         const real = realpathSync.native(file);
-        if (!isWithin(entry.root, real)) throw new Error('技能资源链接超出了技能目录');
+        if (!isWithin(entry.root, real)) throw new AppError('skill.resource_link_escape', '技能资源链接超出了技能目录');
         if (item.isSymbolicLink()) {
           if (statSync(real).isDirectory()) continue;
         }
@@ -420,7 +422,8 @@ export class SkillLibrary {
     )
       throw new Error('请使用技能目录内的相对资源路径');
     const file = realpathSync.native(resolve(entry.root, path));
-    if (!isWithin(entry.root, file) || !statSync(file).isFile()) throw new Error('资源不在技能目录内');
+    if (!isWithin(entry.root, file) || !statSync(file).isFile())
+      throw new AppError('skill.resource_outside', '资源不在技能目录内');
     if (statSync(file).size > 256 * 1024) throw new Error('资源过大，可将技能包同步到工作电脑后处理');
     const content = readFileSync(file, 'utf8');
     return { path, content, hash: hashId(content) };
@@ -468,7 +471,7 @@ export class SkillLibrary {
       provenance.expectedHash &&
       (!existing || this.fingerprint(botId, existing.summary.id) !== provenance.expectedHash)
     )
-      throw new Error('技能在读取后发生了变化，请重新读取再保存');
+      throw new AppError('skill.stale', '技能在读取后发生了变化，请重新读取再保存');
     if (existing) {
       const current = this.read(botId, existing.summary.id);
       if (current.description === description.trim() && current.body === body.trim())
@@ -532,12 +535,12 @@ export class SkillLibrary {
   }
   writeResource(botId: string, id: string, path: string, content: string, expectedHash?: string) {
     const entry = this.find(botId, id);
-    if (entry.summary.botId !== botId) throw Error('只能修改自己的私有技能');
+    if (entry.summary.botId !== botId) throw new AppError('skill.not_owned', '只能修改自己的私有技能');
     if (
       !/^(scripts|references|assets)\/[A-Za-z0-9_./\-\u4e00-\u9fff]+$/.test(path) ||
       path.split('/').some((p) => !p || p === '.' || p === '..' || p.startsWith('.') || sensitiveFile(p))
     )
-      throw Error('只可写技能 scripts、references、assets 内的普通相对路径');
+      throw new AppError('skill.path_invalid', '只可写技能 scripts、references、assets 内的普通相对路径');
     if (content.length > 128000) throw Error('技能资源过大');
     knowledgeTextSafe(content, []);
     const file = resolve(entry.root, path);

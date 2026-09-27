@@ -39,6 +39,7 @@ import type { ScheduledTask } from '../../../shared/types/scheduled-types';
 import { BOT_COLORS, normalizeBotPalette, type BotAvatarStyle } from '../../../shared/chat/bot-colors';
 
 import type { StoredAttachment } from '../../../shared/types/attachment-types';
+import { AppError } from '../../../shared/errors';
 export interface StoredProvider extends Omit<ModelProvider, 'hasKey'> {
   encryptedKey?: string;
 }
@@ -475,7 +476,7 @@ export class Store {
   }
   bot(id: string) {
     const bot = this.data.bots.find((b) => b.id === id);
-    if (!bot) throw new Error('Bot 不存在');
+    if (!bot) throw new AppError('bot.not_found', 'Bot 不存在');
     return bot;
   }
   readToolResult(botId: string, messageId: string): unknown {
@@ -483,11 +484,11 @@ export class Store {
     const message = [...this.data.messages, ...this.data.peerMessages, ...this.data.groupRunMessages].find(
       (item) => item.id === messageId && item.botId === botId && item.role === 'tool',
     );
-    if (!message) throw new Error('执行记录不存在');
+    if (!message) throw new AppError('execution.record_not_found', '执行记录不存在');
     const envelope = JSON.parse(message.content);
     if (!envelope.truncated) return envelope.result ?? envelope;
     if (typeof envelope.resultId !== 'string' || !/^[a-f0-9-]{36}$/.test(envelope.resultId))
-      throw new Error('执行记录无效');
+      throw new AppError('execution.record_invalid', '执行记录无效');
     const root = realpathSync(join(this.dir, 'results')),
       file = realpathSync(join(root, `${envelope.resultId}.json`)),
       path = relative(root, file);
@@ -498,7 +499,7 @@ export class Store {
   deleteBot(id: string) {
     this.bot(id);
     if (this.data.runs.some((run) => run.botId === id && run.status === 'running'))
-      throw new Error('请先停止这个 Bot 的任务，再删除');
+      throw new AppError('bot.busy', '请先停止这个 Bot 的任务，再删除');
     const next: Persisted = {
       ...this.data,
       hostPermissionModes: { ...this.data.hostPermissionModes },

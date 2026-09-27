@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, mkdirSync } from 'node:fs';
 import { join, resolve, isAbsolute, relative } from 'node:path';
 import { atomicJson } from '../storage/store';
+import { AppError } from '../../../shared/errors';
 
 export interface UpdateLaunchContext {
   version: 1;
@@ -15,7 +16,7 @@ const same = (a: string, b: string) => resolve(a).toLowerCase() === resolve(b).t
 export function assertUpdateDataOutsideApp(dataDir: string, appDir: string) {
   const child = relative(resolve(appDir).toLowerCase(), resolve(dataDir).toLowerCase());
   if (child === '' || (child !== '..' && !child.startsWith('../') && !child.startsWith('..\\') && !isAbsolute(child)))
-    throw new Error('工作数据位于程序目录内，请先将数据移到程序目录外再更新。');
+    throw new AppError('update.data_inside_app', '工作数据位于程序目录内，请先将数据移到程序目录外再更新。');
 }
 export function loadUpdateLaunchContext(profileDir: string, executable: string): UpdateLaunchContext | undefined {
   const file = join(profileDir, 'update-launch-context.json');
@@ -27,7 +28,8 @@ export function loadUpdateLaunchContext(profileDir: string, executable: string):
     typeof value.resumeComputer !== 'boolean'
   )
     throw new Error('更新后的启动配置无效，请使用原来的启动方式打开应用。');
-  if (!existsSync(value.dataDir)) throw new Error('更新前的数据目录已移动，请使用原来的启动方式打开应用。');
+  if (!existsSync(value.dataDir))
+    throw new AppError('update.data_dir_moved', '更新前的数据目录已移动，请使用原来的启动方式打开应用。');
   return value;
 }
 export function saveUpdateLaunchContext(profileDir: string, value: UpdateLaunchContext) {

@@ -13,6 +13,7 @@ import { PLANNING_HANDLERS } from './planning';
 import { PROCESS_HANDLERS, TERMINAL_HANDLERS } from './processes';
 import { SCHEDULED_HANDLER } from './scheduling';
 import { WEB_HANDLERS } from './web';
+import { AppError } from '../../../../../shared/errors';
 
 /** Handlers for exact tool names. Names never overlap with a prefix handler (see tests/tool-registry.test.ts). */
 export const TOOL_HANDLERS: Record<string, ToolHandler> = {
@@ -39,7 +40,7 @@ export function dispatchTool(context: ToolContext) {
   if (Object.hasOwn(TOOL_HANDLERS, name)) return TOOL_HANDLERS[name](context);
   const prefix = PREFIX_HANDLERS.find((entry) => entry.matches(name));
   if (prefix?.unregistered) return prefix.handler(context);
-  if (!TOOLS.some((tool) => tool.function.name === name)) throw new Error('未注册工具');
+  if (!TOOLS.some((tool) => tool.function.name === name)) throw new AppError('tool.unknown', '未注册工具');
   if (prefix) return prefix.handler(context);
   throw unregisteredTool(name);
 }

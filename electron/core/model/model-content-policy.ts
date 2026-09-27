@@ -1,8 +1,10 @@
 import type { WireMessage } from '../../../shared/types/core';
+import { AppError } from '../../../shared/errors';
 
-export class ContentPolicyError extends Error {
+export class ContentPolicyError extends AppError {
   constructor(readonly sanitized: boolean) {
     super(
+      'model.content_policy',
       sanitized
         ? '当前模型拒绝了这次输入（内容审核）。已从会话中移除可能触发审核的工具输出，请再发一条消息；若仍失败请更换模型。'
         : '当前模型拒绝了这次输入（内容审核）。可以更换模型，或发送新消息继续。',

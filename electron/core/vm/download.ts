@@ -3,6 +3,7 @@ import { createReadStream, createWriteStream, existsSync, mkdirSync, renameSync,
 import { dirname } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import { AppError } from '../../../shared/errors';
 
 export async function fileHash(path: string, algorithm = 'sha512') {
   const hash = createHash(algorithm);
@@ -19,13 +20,14 @@ export interface DownloadOptions {
   retryDelayMs?: number;
   signal?: AbortSignal;
 }
-class DownloadFailure extends Error {
+class DownloadFailure extends AppError {
   constructor(
     message: string,
     readonly retry = true,
     readonly reset = false,
+    code = 'vm.download_failed',
   ) {
-    super(message);
+    super(code, message);
   }
 }
 export async function verifiedDownload(
@@ -50,7 +52,8 @@ export async function verifiedDownload(
   const partial = `${destination}.part`;
   const sources = [...new Set([url, ...(options.mirrors || [])])],
     attempts = Math.max(1, Math.min(5, options.attempts ?? 3));
-  let lastError = '网络连接失败';
+  let lastError = '网络连接失败',
+    lastCode = 'vm.download_failed';
   for (const source of sources) {
     if (!['https:', 'http:'].includes(new URL(source).protocol)) throw Error('镜像地址必须使用 HTTP 或 HTTPS');
     for (let attempt = 0; attempt < attempts; attempt++) {
@@ -105,7 +108,7 @@ export async function verifiedDownload(
         const idle = () => {
           clearTimeout(idleTimer);
           idleTimer = setTimeout(
-            () => controller.abort(Error('镜像下载长时间没有收到数据')),
+            () => controller.abort(new AppError('vm.download_stalled', '镜像下载长时间没有收到数据')),
             options.idleTimeoutMs ?? 60000,
           );
         };
@@ -126,7 +129,7 @@ export async function verifiedDownload(
         if (total && bytes !== total) throw new DownloadFailure('镜像传输未完成');
         progress(1, '正在校验镜像完整性');
         if ((await fileHash(partial, algorithm)) !== expectedHash)
-          throw new DownloadFailure('镜像完整性校验失败', false, true);
+          throw new DownloadFailure('镜像完整性校验失败', false, true, 'vm.download_hash_mismatch');
         renameSync(partial, destination);
         return;
       } catch (error) {
@@ -134,6 +137,8 @@ export async function verifiedDownload(
         lastError = controller.signal.aborted
           ? String(controller.signal.reason?.message || '连接超时')
           : (error as Error).message;
+        const cause = controller.signal.aborted ? controller.signal.reason : error;
+        lastCode = cause instanceof AppError ? cause.code : 'vm.download_failed';
         if (['ENOSPC', 'EACCES', 'EPERM'].includes((error as NodeJS.ErrnoException).code || ''))
           throw Error('无法保存系统镜像，请检查磁盘空间和下载目录的访问权限。');
         if (error instanceof DownloadFailure && error.reset && existsSync(partial)) unlinkSync(partial);
@@ -146,5 +151,5 @@ export async function verifiedDownload(
       }
     }
   }
-  throw Error(`系统镜像下载失败：${lastError}。已保留可续传的数据，请检查网络或系统代理后重试。`);
+  throw new AppError(lastCode, `系统镜像下载失败：${lastError}。已保留可续传的数据，请检查网络或系统代理后重试。`);
 }

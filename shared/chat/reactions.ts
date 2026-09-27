@@ -1,4 +1,5 @@
 import { PIN_EMOJI_OPTIONS, PIN_EMOJI_BY_VALUE } from './emoji-catalog';
+import { AppError } from '../errors';
 const PIN_EMOJIS = PIN_EMOJI_OPTIONS.map((option) => option.emoji);
 export type PinEmoji = (typeof PIN_EMOJIS)[number];
 export interface PinActor {
@@ -31,7 +32,7 @@ export function validPin(input: PinInput) {
     !PIN_EMOJI_BY_VALUE.has(input.emoji) ||
     (input.remove !== undefined && typeof input.remove !== 'boolean')
   )
-    throw new Error('无效的 emoji 回应');
+    throw new AppError('chat.reaction_invalid', '无效的 emoji 回应');
 }
 export function updatePins(target: { pins?: MessagePin[] }, actor: PinActor, input: PinInput) {
   validPin(input);

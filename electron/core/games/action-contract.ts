@@ -1,4 +1,5 @@
 import type { GameRequest } from '../../../shared/types/game-types';
+import { AppError } from '../../../shared/errors';
 type Field = { type: 'string' | 'boolean'; enum?: string[]; minLength?: number; maxLength?: number };
 export function actionContract(r: GameRequest) {
   const properties: Record<string, Field> = {
@@ -66,7 +67,8 @@ export function checkActionContract(a: Record<string, unknown>, r: GameRequest) 
   const schema = actionContract(r);
   for (const [key, value] of Object.entries(a)) {
     const f = schema.properties[key];
-    if (!f) throw Error(`本轮 ${r.kind} 不允许字段 ${key}。不要输出 type、action 或 kind`);
+    if (!f)
+      throw new AppError('game.field_not_allowed', `本轮 ${r.kind} 不允许字段 ${key}。不要输出 type、action 或 kind`);
     if (typeof value !== f.type) throw Error(`${key} 必须为 ${f.type}`);
     if (
       typeof value === 'string' &&
@@ -81,7 +83,10 @@ export function checkActionContract(a: Record<string, unknown>, r: GameRequest) 
     throw Error('缺少本轮动作字段，或同时提交了多个动作');
   if ('skip' in a && a.skip !== true) throw Error('跳过动作必须为 skip:true');
   if (r.kind === 'witch' && a.potion === 'poison' && !('target' in a))
-    throw Error('仅使用毒药时必须携带 target，写成 {"potion":"poison","target":"request.targets 中的 id"}');
+    throw new AppError(
+      'game.target_required',
+      '仅使用毒药时必须携带 target，写成 {"potion":"poison","target":"request.targets 中的 id"}',
+    );
   if (r.kind === 'witch' && a.potion !== 'poison' && 'target' in a)
     throw Error('save 和 skip 不能携带 target，只有 poison 才带 target');
 }

@@ -1,13 +1,14 @@
 import { createHash } from 'node:crypto';
 import type { VmController } from '../vm/vm';
 import type { ArtifactPreview } from '../../../shared/types/core';
+import { AppError } from '../../../shared/errors';
 
 export const officeExtensions = new Set(['.ppt', '.pptx', '.odp', '.doc', '.docx', '.odt', '.xls', '.xlsx', '.ods']);
 export const OFFICE_PREVIEW_LIMIT = 8 * 1024 * 1024;
 // Separate profiles keep previews away from the user's open LibreOffice session.
 // Conversion uses a temporary copy, blocks document macros and cleans up afterward.
 export function officePreviewScript(extension: string) {
-  if (!officeExtensions.has(extension)) throw new Error('不支持的文档格式');
+  if (!officeExtensions.has(extension)) throw new AppError('preview.format_unsupported', '不支持的文档格式');
   return `import sys,pathlib,tempfile,subprocess,shutil,base64
 tool=shutil.which('libreoffice') or shutil.which('soffice')
 if not tool: raise RuntimeError('请先完成工作电脑的办公应用安装，再预览此文档')
@@ -36,7 +37,9 @@ export function officePreview(
   if (bytes.length > OFFICE_PREVIEW_LIMIT)
     return Promise.reject(new Error('此文档超过 8 MB，请保存原文件或在工作电脑中打开。'));
   if (vm.state.status !== 'ready')
-    return Promise.reject(new Error('启动工作电脑后，即可预览此文档。也可以先保存原文件。'));
+    return Promise.reject(
+      new AppError('preview.computer_required', '启动工作电脑后，即可预览此文档。也可以先保存原文件。'),
+    );
   const key = extension + createHash('sha256').update(bytes).digest('hex');
   const existing = cache.get(key);
   if (existing) return existing;
@@ -56,7 +59,7 @@ export function officePreview(
         !/^[A-Za-z0-9+/=]+$/.test(encoded) ||
         !Buffer.from(encoded.slice(0, 12), 'base64').toString().startsWith('%PDF-')
       )
-        throw new Error('没有生成可读取的文档预览');
+        throw new AppError('preview.output_missing', '没有生成可读取的文档预览');
       return { kind: 'pdf' as const, dataUrl: 'data:application/pdf;base64,' + encoded };
     })
     .catch((error) => {

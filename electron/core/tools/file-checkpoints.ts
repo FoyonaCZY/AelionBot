@@ -6,6 +6,7 @@ import { VmController, shQuote } from '../vm/vm';
 import type { Interactions } from '../agent/interactions';
 import { RunPolicy } from '../agent/runtime-policy';
 import { vmPython } from '../vm/vm-python';
+import { AppError } from '../../../shared/errors';
 export interface FileCheckpoint {
   id: string;
   botId: string;
@@ -127,7 +128,8 @@ export class FileCheckpoints {
         if (exists && realpathSync.native(record.path) !== record.path) throw Error('文件路径已变化');
         return exists ? hash(readFileSync(record.path)) : null;
       };
-      if (matches() !== record.afterHash) throw Error('文件在任务之后被修改，不能用旧检查点覆盖');
+      if (matches() !== record.afterHash)
+        throw new AppError('file.checkpoint_stale', '文件在任务之后被修改，不能用旧检查点覆盖');
       if (!this.interactions) throw Error('恢复本机文件需要用户确认');
       await this.interactions.permission(
         botId,

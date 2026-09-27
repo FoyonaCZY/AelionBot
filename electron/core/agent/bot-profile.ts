@@ -6,6 +6,7 @@ import { normalizeBotPalette } from '../../../shared/chat/bot-colors';
 import type { ModelProviders } from '../model/model-providers';
 import type { Store } from '../storage/store';
 import { reasoningEffort as cleanReasoning } from '../../../shared/chat/reasoning';
+import { AppError } from '../../../shared/errors';
 
 export function updateBotProfile(
   store: Store,
@@ -21,13 +22,13 @@ export function updateBotProfile(
     typeof input.role !== 'string' ||
     input.role.length > 4000
   )
-    throw new Error('无效资料');
+    throw new AppError('bot.profile_invalid', '无效资料');
   const type = botType(input.type === undefined ? bot.type : input.type),
     running = store.data.runs.some((run) => run.botId === bot.id && run.status === 'running');
   const typeChanged = type !== botType(bot.type);
   if (typeChanged) {
     if (input.confirmContextReset !== true || input.expectedType !== botType(bot.type))
-      throw Error('切换 Bot 类型会丢失所有上下文，请重新确认');
+      throw new AppError('bot.type_change_unconfirmed', '切换 Bot 类型会丢失所有上下文，请重新确认');
     if (
       running ||
       store.data.messages.some((m) => m.botId === bot.id && m.inputState === 'queued') ||
@@ -36,7 +37,7 @@ export function updateBotProfile(
       ) ||
       store.data.groupDeliveries.some((d) => d.recipientId === bot.id && groupPending(d.status))
     )
-      throw Error('请先结束当前任务和待处理协作，再切换 Bot 类型');
+      throw new AppError('bot.type_change_busy', '请先结束当前任务和待处理协作，再切换 Bot 类型');
   }
   const typeFields = { type };
   const palette =

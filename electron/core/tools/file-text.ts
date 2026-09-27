@@ -14,10 +14,12 @@ export const READ_PAGE_FIELDS = {
   withLineNumbers: { type: 'boolean' },
 };
 export class FileToolError extends Error {
+  // `code` is the model-facing errorCode category; `reason` optionally names the exact `<domain>.<reason>` failure.
   constructor(
     readonly code: string,
     message: string,
     readonly details?: Record<string, unknown>,
+    readonly reason?: string,
   ) {
     super(message);
     this.name = 'FileToolError';
@@ -76,7 +78,12 @@ export function textPage(text: string, args: Record<string, unknown> = {}) {
   const numbered = args.withLineNumbers === true,
     lineMode = args.startLine !== undefined || args.lineCount !== undefined || numbered;
   if (lineMode && offset !== 0)
-    throw new FileToolError('INVALID_ARGUMENT', '非零 offset 与按行读取参数不能同时使用；按行读取时省略 offset 或传 0');
+    throw new FileToolError(
+      'INVALID_ARGUMENT',
+      '非零 offset 与按行读取参数不能同时使用；按行读取时省略 offset 或传 0',
+      undefined,
+      'file.offset_with_lines',
+    );
   if (numbered && maxChars < 64) throw new FileToolError('INVALID_ARGUMENT', '带行号读取时 maxChars 至少为 64');
   const starts: number[] = [];
   if (text.length) starts.push(0);

@@ -1,4 +1,5 @@
 import { RequestIdleTimeout } from './request-idle-timeout';
+import { AppError } from '../../../shared/errors';
 import { readModelResponse, modelEventActivity } from './model-stream';
 import { RequestTiming } from './request-timing';
 import { contextOverview, countedContextOverview } from '../context/context-overview';
@@ -75,6 +76,7 @@ class RequestError extends Error {
     readonly retryable = false,
     readonly retryAfterMs = 0,
     readonly truncated = false,
+    readonly code?: string,
   ) {
     super(message);
   }
@@ -470,7 +472,13 @@ export class ModelClient {
         if (imagesOmitted) result.inputImagesOmitted = true;
         if (toolOutputsOmitted) result.toolOutputsOmitted = true;
         if (!accumulator.ended || !result.finishReason)
-          throw new RequestError('模型连接在完整响应之前断开，未执行不完整工具调用', true);
+          throw new RequestError(
+            '模型连接在完整响应之前断开，未执行不完整工具调用',
+            true,
+            0,
+            false,
+            'model.response_incomplete',
+          );
         if (['length', 'incomplete'].includes(result.finishReason) && !result.calls.length && !result.content.trim())
           throw new RequestError('模型输出达到上限，未执行不完整响应，请拆分任务后继续', true, 0, true);
         if (['content_filter', 'SAFETY', 'RECITATION', 'BLOCKLIST', 'PROHIBITED_CONTENT'].includes(result.finishReason))
@@ -549,13 +557,16 @@ export class ModelClient {
           throw error;
         const retryable =
           error instanceof RequestError ? error.retryable : error instanceof TypeError || timeout.aborted;
-        if (!retryable || (emitted && !options.onReset)) throw Error(safe);
+        // The rethrown error carries only the redacted message; keep the failure's code with it.
+        const code = error instanceof RequestError ? error.code : timeout.aborted ? 'model.idle_timeout' : undefined;
+        const failure = () => (code ? new AppError(code, safe) : Error(safe));
+        if (!retryable || (emitted && !options.onReset)) throw failure();
         if (attempt >= retries) {
           if (!fallback && cfg.fallbackModel?.trim() && cfg.fallbackModel !== cfg.model) {
             cfg = { ...cfg, model: cfg.fallbackModel };
             fallback = true;
             attempt = -1;
-          } else throw Error(safe);
+          } else throw failure();
         }
         if (timeout.aborted && options.splitOnTimeout && !timeoutAdjusted && accumulator) {
           const partial = accumulator.result();

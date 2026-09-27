@@ -10,6 +10,7 @@ import { asImageAspect, asImageProtocol, asImageQuality } from '../../../shared/
 import { imageCapability } from './model-vision';
 import { reasoningEffort as cleanReasoning } from '../../../shared/chat/reasoning';
 import { modelFetch, prewarmModelEndpoint, disposeModelHttp } from './model-http';
+import { AppError } from '../../../shared/errors';
 
 export function modelParameters(input: ModelParameters): ModelParameters {
   const {
@@ -45,13 +46,15 @@ export function modelParameters(input: ModelParameters): ModelParameters {
   if (hostedWebSearch !== undefined && typeof hostedWebSearch !== 'boolean') throw Error('服务端网页搜索设置无效');
   if (hostedImageGeneration !== undefined && typeof hostedImageGeneration !== 'boolean')
     throw Error('服务端图片生成设置无效');
-  if (imageProtocol !== undefined && !asImageProtocol(imageProtocol)) throw Error('生图协议无效');
+  if (imageProtocol !== undefined && !asImageProtocol(imageProtocol))
+    throw new AppError('provider.image_protocol_invalid', '生图协议无效');
   if (imageAspect !== undefined && !asImageAspect(imageAspect)) throw Error('生图画幅无效');
   if (imageQuality !== undefined && !asImageQuality(imageQuality)) throw Error('生图质量无效');
   const responses = (protocol || 'chat') === 'responses';
   // Hosted Responses generation is only reachable on a Responses provider; keep the stored protocol consistent with that.
   const image = asImageProtocol(imageProtocol) || 'auto';
-  if (image === 'responses-images' && !responses) throw Error('托管生图协议只能用于 Responses Provider');
+  if (image === 'responses-images' && !responses)
+    throw new AppError('provider.image_protocol_unsupported', '托管生图协议只能用于 Responses Provider');
   return {
     protocol,
     responsesTransport,
@@ -250,7 +253,7 @@ export class ModelProviders {
   }
   private provider(id: string) {
     const provider = this.store.data.providers?.find((provider) => provider.id === id);
-    if (!provider) throw new Error('Provider 不存在');
+    if (!provider) throw new AppError('provider.not_found', 'Provider 不存在');
     return provider;
   }
   private keyFor(provider: StoredProvider) {
@@ -374,7 +377,7 @@ export class ModelProviders {
       contextTokens = input.contextTokens;
     this.provider(providerId);
     if (!Number.isInteger(contextTokens) || contextTokens < 8000 || contextTokens > 1000000)
-      throw new Error('上下文容量应为 8000–1000000');
+      throw new AppError('model.context_tokens_invalid', '上下文容量应为 8000–1000000');
     const effort = cleanReasoning(input.reasoningEffort);
     return { providerId, model, contextTokens, ...(effort ? { reasoningEffort: effort } : {}) };
   }
@@ -399,7 +402,7 @@ export class ModelProviders {
     const supplied = typeof input.apiKey === 'string' ? input.apiKey.trim() : '';
     if (/[\u0000-\u001f\u007f]/.test(supplied)) throw new Error('API Key 不能包含换行或控制字符');
     if (changedOrigin && previous.encryptedKey && !supplied && input.apiKey !== null)
-      throw new Error('更换服务地址后请重新填写 API Key');
+      throw new AppError('provider.api_key_required', '更换服务地址后请重新填写 API Key');
     const encryptedKey = supplied
       ? this.codec.encrypt(supplied)
       : input.apiKey === null
@@ -444,7 +447,7 @@ export class ModelProviders {
       this.store.data.approvalModel?.providerId === id ||
       this.using(id).length
     )
-      throw new Error('此 Provider 仍被默认模型、自动审核模型或 Bot 使用，请先切换模型');
+      throw new AppError('provider.in_use', '此 Provider 仍被默认模型、自动审核模型或 Bot 使用，请先切换模型');
     this.requests.get(id)?.controller.abort();
     this.requests.delete(id);
     this.commit({ providers: this.store.data.providers!.filter((provider) => provider.id !== id) });
@@ -536,7 +539,7 @@ export class ModelProviders {
         error = redactHost((caught as Error).message, this.secrets()).slice(0, 400);
       }
       const current = this.store.data.providers?.find((provider) => provider.id === id);
-      if (!current) throw new Error('Provider 已删除');
+      if (!current) throw new AppError('provider.deleted', 'Provider 已删除');
       if (
         controller.signal.aborted ||
         JSON.stringify([current.baseUrl, current.encryptedKey, current.protocol]) !== revision

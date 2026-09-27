@@ -17,6 +17,7 @@ import type { DesignSession } from '../../../shared/types/designer-types';
 import type { WorkspaceDirectory } from '../../../shared/preview/workspace-files';
 import type { TextEdit } from '../../../shared/chat/editable-text';
 import { editableText, editedBytes } from '../preview/preview-editing';
+import { AppError } from '../../../shared/errors';
 
 const inside = (root: string, path: string) => {
   const rel = relative(root, path);
@@ -82,7 +83,7 @@ export class DesignerFiles {
   }
   absolute(session: DesignSession, input: string, allowRoot = false) {
     if (session.location !== 'host' || !session.workspaceDir)
-      throw Error('这是旧版 VM 任务，请新建本机设计任务；原文件与记录仍保留');
+      throw new AppError('design.legacy_vm_session', '这是旧版 VM 任务，请新建本机设计任务；原文件与记录仍保留');
     const root = resolve(session.workspaceDir),
       value = relativeFile(input);
     if (
@@ -103,7 +104,7 @@ export class DesignerFiles {
               : value,
         );
     if (!inside(root, path) || !inside(root, canonical(path)) || (!allowRoot && path === root))
-      throw Error('文件必须位于当前设计任务目录');
+      throw new AppError('design.path_outside_session', '文件必须位于当前设计任务目录');
     if (canonical(root) !== root) throw Error('设计任务目录链接已改变，请核对工作目录');
     return path;
   }
@@ -152,7 +153,7 @@ export class DesignerFiles {
       source = await this.read(botId, path, 8 * 1024 * 1024),
       current = editableText(source, path);
     if (current.revision !== edit.revision)
-      throw Error('文件已被其他操作修改，未覆盖原文件。请保留草稿或重新加载后再编辑。');
+      throw new AppError('preview.edit_conflict', '文件已被其他操作修改，未覆盖原文件。请保留草稿或重新加载后再编辑。');
     const bytes = editedBytes(edit.content, source);
     this.write(session, path, bytes, createHash('sha256').update(source).digest('hex'));
     return editableText(bytes, path);

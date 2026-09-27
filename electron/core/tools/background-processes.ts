@@ -11,6 +11,7 @@ import { backoff } from '../model/model';
 import { vmPython } from '../vm/vm-python';
 import { hostEnvironment, hostShell } from '../host/host-platform';
 import { bytePage } from './bounded-output';
+import { AppError } from '../../../shared/errors';
 const LIMIT = 2 * 1024 * 1024;
 // The supervisor owns the child handle; stopping uses a per-job flag, never an unverified persisted PID.
 const HOST_SUPERVISOR = String.raw`
@@ -66,7 +67,7 @@ export class BackgroundProcesses {
   }
   private get(botId: string, id: string) {
     const record = this.store.data.processes!.find((p) => p.botId === botId && p.id === id);
-    if (!record || !/^[a-f0-9-]{36}$/.test(id)) throw Error('进程不存在或不属于当前 Bot');
+    if (!record || !/^[a-f0-9-]{36}$/.test(id)) throw new AppError('process.not_found', '进程不存在或不属于当前 Bot');
     return record;
   }
   private dir(record: BackgroundProcess) {

@@ -26,6 +26,7 @@ import { workstationProgress, workstationFailure, installationProgress } from '.
 import { PACKAGE_INSTALLER_BOOTSTRAP } from '../host/package-installer';
 import { shutdownOwnedVm } from './vm-shutdown';
 import { stopOwnedQemuWindows, inspectOwnedQemuWindows } from './owned-qemu';
+import { AppError } from '../../../shared/errors';
 
 const runFile = promisify(execFile);
 const { Client, utils } = ssh2;
@@ -156,7 +157,7 @@ export class VmController extends EventEmitter {
     if (changed) this.emit('state', this.state);
   }
   private assertOpen() {
-    if (this.closing) throw Error('客户端正在退出，已取消工作电脑操作');
+    if (this.closing) throw new AppError('app.disposing', '客户端正在退出，已取消工作电脑操作');
   }
   private persist() {
     atomicJson(join(this.dir, 'machine.json'), this.record);
@@ -624,7 +625,8 @@ export class VmController extends EventEmitter {
             else if (mutating) socket.write(JSON.stringify({ execute: 'query-uuid', id: 'identity' }) + '\n');
             else sendCommand();
           } else if (msg.id === 'identity') {
-            if (msg.error || msg.return?.UUID !== expectedId) finish(new Error('拒绝操作身份不匹配的 QEMU'));
+            if (msg.error || msg.return?.UUID !== expectedId)
+              finish(new AppError('vm.identity_mismatch', '拒绝操作身份不匹配的 QEMU'));
             else {
               identityVerified = true;
               sendCommand();

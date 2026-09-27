@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { CognitiveStore, normalizedFact } from './cognitive-store';
 import { assertMemoryOwner, delegatedMemory, humanRunSource, peerTaskUserSource } from './memory-routing';
+import { AppError } from '../../../shared/errors';
 
 export function knowledgeTextSafe(text: string, secrets: string[] = []) {
   if (
@@ -41,9 +42,10 @@ export class MemoryService {
       delegation = delegatedMemory(this.storage.store, botId, runId),
       taskSource = peerTaskUserSource(this.storage.store, botId, runId, options.background);
     if (run && run.botId !== botId) throw new Error('不能写入其他 Bot 的记忆');
-    if (run?.peerOrigin && !taskSource) throw new Error('这次私聊没有转入已核验来源的主会话任务');
+    if (run?.peerOrigin && !taskSource)
+      throw new AppError('memory.peer_source_unverified', '这次私聊没有转入已核验来源的主会话任务');
     if (options.expectedRevision !== undefined && options.expectedRevision !== this.storage.revision(botId))
-      throw new Error('长期知识已被更新，需要重新读取后再保存');
+      throw new AppError('memory.stale', '长期知识已被更新，需要重新读取后再保存');
     const action = args.action,
       target = args.target === 'user' ? 'user' : 'memory',
       content = (args.content || '').trim();
@@ -55,7 +57,10 @@ export class MemoryService {
       action !== 'remove' &&
       /(?:本次|这次|最近|已验证的|受控样例).{0,90}(?:\d+\s*项测试|测试通过|成功读回|生成了|合计)/s.test(content)
     )
-      throw new Error('这是一次性执行记录，请改写为长期规则；测试数量与本次结果保留在历史中');
+      throw new AppError(
+        'memory.one_off_execution',
+        '这是一次性执行记录，请改写为长期规则；测试数量与本次结果保留在历史中',
+      );
     const facts = this.storage.memories(botId),
       refs = Array.isArray(args.sourceRefs)
         ? args.sourceRefs.map((ref) => this.storage.sourceMessage(botId, ref)?.id || ref)
@@ -82,7 +87,7 @@ export class MemoryService {
           (target === 'user' && message.role !== 'user') ||
           (message.role === 'tool' && message.status !== 'done'))
       )
-        throw new Error('用户偏好必须来自用户消息，工作事实必须来自用户或成功工具证据');
+        throw new AppError('memory.provenance_invalid', '用户偏好必须来自用户消息，工作事实必须来自用户或成功工具证据');
     }
     const normalized = normalizedFact(content),
       duplicate = facts.find((fact) => normalizedFact(fact.content) === normalized);
@@ -92,7 +97,7 @@ export class MemoryService {
       options.background &&
       this.storage.db.prepare('SELECT 1 FROM memory_tombstones WHERE bot_id=? AND fingerprint=?').get(botId, normalized)
     )
-      throw new Error('这条记忆曾被删除，不会自动重新保存');
+      throw new AppError('memory.previously_deleted', '这条记忆曾被删除，不会自动重新保存');
     const old = args.oldContent || content,
       matches = facts.filter((fact) => fact.content === old || fact.content.includes(old));
     if (action !== 'add' && matches.length !== 1)

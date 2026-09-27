@@ -1,3 +1,4 @@
+import { AppError } from '../../../shared/errors';
 /** First-party workflows, informed by OpenDesign d465086; reference prompts are not executed. */
 
 /** Craft sections injected above each workflow. A workflow only pays for what it needs. */
@@ -122,6 +123,6 @@ export function designerPlaybookCraft(name: string) {
   return CRAFT[name] || CRAFT.prototype;
 }
 export function designerPlaybook(name: string) {
-  if (!bodies[name]) throw Error('未知的设计工作流');
+  if (!bodies[name]) throw new AppError('design.workflow_unknown', '未知的设计工作流');
   return bodies[name];
 }

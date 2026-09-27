@@ -15,6 +15,7 @@ import type { HostComputer } from '../host/host';
 import type { Attachments } from '../attachments/attachments';
 import { atomicJson } from '../storage/store';
 import { videoFrameRequest, type VideoSheet, type VideoFrameRequest } from '../../../shared/preview/video-frames';
+import { AppError } from '../../../shared/errors';
 interface CacheEntry {
   id: string;
   bytes: number;
@@ -139,10 +140,10 @@ export class VideoFrames {
     }
     index = index.filter((e) => existsSync(join(this.imageDir, e.id + '.png')));
     if (fileCount >= MAX_FILES || usedBytes >= MAX_BYTES)
-      throw Error('视频拼图缓存已达到上限，请清理不再需要的会话后重试');
+      throw new AppError('preview.video_cache_full', '视频拼图缓存已达到上限，请清理不再需要的会话后重试');
     const rendered = await this.render(path, request, signal);
     signal.throwIfAborted();
-    if (signature() !== stamp) throw Error('抽帧期间原视频发生变化，请重新读取');
+    if (signature() !== stamp) throw new AppError('preview.video_changed', '抽帧期间原视频发生变化，请重新读取');
     if (!rendered.dataUrl.startsWith('data:image/png;base64,')) throw Error('视频检查器未返回有效拼图');
     const bytes = Buffer.from(rendered.dataUrl.slice('data:image/png;base64,'.length), 'base64');
     if (bytes.length > 8 * 1024 * 1024 || usedBytes + bytes.length > MAX_BYTES) throw Error('视频拼图超过缓存预算');

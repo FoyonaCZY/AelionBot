@@ -12,6 +12,7 @@ import {
   type IntegrationPaths,
   type SourceDescriptor,
 } from './integration-paths';
+import { AppError } from '../../../shared/errors';
 
 export interface McpConfig {
   id: string;
@@ -70,7 +71,8 @@ export function parseMcpSnippet(text: string) {
   if (Object.keys(servers).length) return servers;
   if (isServer(value)) {
     const name = typeof value.name === 'string' ? value.name.trim() : '';
-    if (!name || name.length > 80) throw Error('请为这项配置加上名称，例如 "my-node-tool": { ... }');
+    if (!name || name.length > 80)
+      throw new AppError('mcp.config_name_missing', '请为这项配置加上名称，例如 "my-node-tool": { ... }');
     return { [name]: value };
   }
   throw Error('没有找到 MCP 服务，请包含名称和 command 或 url');

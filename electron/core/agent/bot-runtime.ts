@@ -8,6 +8,7 @@ import type { GroupGateway } from '../group/group-runtime-types';
 import type { TaskScheduler } from '../scheduler/task-scheduler';
 import type { AgentPreviews } from '../preview/agent-previews';
 import type { VideoFrames } from '../preview/video-frames';
+import { AppError } from '../../../shared/errors';
 /** One dispatch boundary for private chat, groups, delegated work and schedules. */
 export class BotRuntime {
   private dispatching = new Set<string>();
@@ -50,7 +51,7 @@ export class BotRuntime {
     const run = this.store.data.runs.find((r) => r.id === runId && r.botId === botId);
     if (!run) throw Error('任务不存在');
     if ((run.engine || 'general') !== botType(this.store.bot(botId).type))
-      throw Error('Bot 类型已改变，不能恢复旧类型的任务');
+      throw new AppError('bot.type_changed', 'Bot 类型已改变，不能恢复旧类型的任务');
     if (run.engine === 'designer') {
       this.beforeDesignerRun();
       return this.designer.resume(botId, runId);

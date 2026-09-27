@@ -23,6 +23,7 @@ import type {
   DesignFontStyle,
 } from '../../../shared/types/design-font-types';
 import type { DesignerFiles } from './designer-files';
+import { AppError } from '../../../shared/errors';
 
 const CSS_PATH = 'assets/fonts/fonts.css';
 const MANIFEST_PATH = 'assets/fonts/fonts.json';
@@ -70,12 +71,13 @@ function validateFontDirectory(value: unknown, bytes: Buffer, format: DesignFont
     expanded = 0;
   for (const table of entries) {
     if (!Number.isSafeInteger(table.length) || table.length < 0 || table.length > MAX_EXPANDED_FONT)
-      throw Error('字体表超过解压大小限制');
+      throw new AppError('font.expanded_too_large', '字体表超过解压大小限制');
     sfntSize += Math.ceil(table.length / 4) * 4;
     const size = format === 'woff2' ? (table.transformLength ?? table.length) : table.length;
     if (!Number.isSafeInteger(size) || size < 0) throw Error('字体表长度无效');
     expanded += size;
-    if (expanded > MAX_EXPANDED_FONT || sfntSize > MAX_EXPANDED_FONT) throw Error('字体表超过解压大小限制');
+    if (expanded > MAX_EXPANDED_FONT || sfntSize > MAX_EXPANDED_FONT)
+      throw new AppError('font.expanded_too_large', '字体表超过解压大小限制');
     if (format !== 'woff2') {
       const stored = format === 'woff' ? table.compLength : table.length;
       if (
@@ -145,7 +147,7 @@ export function parseFont(bytes: Buffer): Parsed {
           : bytes.readUInt32BE(0) === 0x10000 || signature === 'true'
             ? 'ttf'
             : (() => {
-                throw Error('只支持 WOFF2、WOFF、TTF 和 OTF 字体');
+                throw new AppError('font.format_unsupported', '只支持 WOFF2、WOFF、TTF 和 OTF 字体');
               })();
   // Check the expanded size before WOFF decompression and reject collections.
   if (
@@ -154,7 +156,7 @@ export function parseFont(bytes: Buffer): Parsed {
       bytes.readUInt32BE(16) > 64 * 1024 * 1024 ||
       bytes.toString('ascii', 4, 8) === 'ttcf')
   )
-    throw Error('压缩字体结构或大小无效');
+    throw new AppError('font.compressed_invalid', '压缩字体结构或大小无效');
   try {
     const font = create(bytes);
     validateFontDirectory(font, bytes, format);
@@ -176,7 +178,10 @@ export function parseFont(bytes: Buffer): Parsed {
       format,
     };
   } catch (error) {
-    throw Error('无法解析字体文件：' + (error instanceof Error ? error.message : String(error)));
+    throw new AppError(
+      error instanceof AppError ? error.code : 'font.unreadable',
+      '无法解析字体文件：' + (error instanceof Error ? error.message : String(error)),
+    );
   }
 }
 function styleSheet(fonts: DesignFont[]) {
@@ -442,7 +447,7 @@ export class DesignFonts {
       }
       return { data, sha256: hash(bytes) };
     } catch {
-      throw Error('项目字体记录无效，请检查 assets/fonts/fonts.json');
+      throw new AppError('font.manifest_invalid', '项目字体记录无效，请检查 assets/fonts/fonts.json');
     }
   }
   list(session: DesignSession): DesignFont[] {
@@ -480,7 +485,7 @@ export class DesignFonts {
       cssPath = this.files.absolute(session, CSS_PATH);
     const existingCSS = existsSync(cssPath) ? hash(this.projectRead(session, CSS_PATH, 2 * 1024 * 1024)) : null;
     if (existingCSS !== (previous.data.cssSha256 || null))
-      throw Error('字体样式已被修改，未覆盖 assets/fonts/fonts.css');
+      throw new AppError('font.stylesheet_modified', '字体样式已被修改，未覆盖 assets/fonts/fonts.css');
     // Preserve all immutable font/license bytes, and only replace our tracked generated files.
     for (const asset of assets) this.files.preserve(session, asset.path, asset.bytes);
     this.files.write(session, CSS_PATH, css, existingCSS);
@@ -496,7 +501,7 @@ export class DesignFonts {
   ): Promise<DesignFont[]> {
     this.files.absolute(session, MANIFEST_PATH);
     if (!input || typeof input.fontId !== 'string' || input.fontId.length > 100 || !ID.test(input.fontId))
-      throw Error('无效的 Fontsource 字体 ID');
+      throw new AppError('font.fontsource_id_invalid', '无效的 Fontsource 字体 ID');
     const id = input.fontId,
       pin = 'pins/' + id + '.json';
     let version: string;
@@ -536,7 +541,7 @@ export class DesignFonts {
       subsets.length > 40 ||
       subsets.some((subset) => !entry.subsets.includes(subset))
     )
-      throw Error('所选字重、样式或语言不受该字体支持');
+      throw new AppError('font.variant_unsupported', '所选字重、样式或语言不受该字体支持');
     const downloads: FontDownload[] = [];
     for (const weight of weights)
       for (const style of styles) {
@@ -651,7 +656,7 @@ export class DesignFonts {
     const target = resolve(path);
     let parent = target;
     while (dirname(parent) !== parent) {
-      if (lstatSync(parent).isSymbolicLink()) throw Error('不支持导入符号链接字体');
+      if (lstatSync(parent).isSymbolicLink()) throw new AppError('font.symlink', '不支持导入符号链接字体');
       parent = dirname(parent);
     }
     const stat = lstatSync(target);

@@ -4,6 +4,7 @@ import { mkdirSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import type { Store } from '../storage/store';
 import { excerpt, resultDigest } from '../context/context-budget';
+import { AppError } from '../../../shared/errors';
 
 export interface ContextHead {
   revision: number;
@@ -256,7 +257,7 @@ export class CognitiveStore {
     this.store.bot(botId);
     this.syncHistory(botId);
     const hit = this.db.prepare('SELECT seq FROM history WHERE id=? AND bot_id=?').get(id, botId) as any;
-    if (!hit) throw new Error('历史记录不存在或无权访问');
+    if (!hit) throw new AppError('memory.history_not_found', '历史记录不存在或无权访问');
     const rows = this.db.prepare('SELECT * FROM history WHERE bot_id=? ORDER BY seq').all(botId) as any[],
       index = rows.findIndex((row) => row.id === id);
     return rows

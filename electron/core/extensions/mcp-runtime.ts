@@ -7,6 +7,7 @@ import { ToolListChangedNotificationSchema, type Tool } from '@modelcontextproto
 import type { HostPermissionDetails, McpServerView, ScreenReference } from '../../../shared/types/core';
 import { publicEndpoint, redactMcp, type McpConfig } from './mcp-config';
 import { hostname, networkInterfaces } from 'node:os';
+import { AppError } from '../../../shared/errors';
 
 type Transport = StdioClientTransport | StreamableHTTPClientTransport | SSEClientTransport;
 interface Connection {
@@ -118,7 +119,7 @@ export class McpRuntime {
     const config = this.find(id);
     if (this.closing) throw new Error('应用正在关闭');
     if (config.issue) throw new Error(config.issue);
-    if (!this.enabled(config)) throw new Error('此 MCP 尚未启用，请先在设置的 MCP 页面启用一次');
+    if (!this.enabled(config)) throw new AppError('mcp.not_enabled', '此 MCP 尚未启用，请先在设置的 MCP 页面启用一次');
     const existing = this.connections.get(config.id);
     if (existing) return existing;
     const running = this.pending.get(config.id);
@@ -333,9 +334,9 @@ export class McpRuntime {
       connection.fingerprint !== config.fingerprint ||
       (expectedFingerprint && expectedFingerprint !== connection.fingerprint)
     )
-      throw new Error('MCP 配置已变化，请重新核对工具');
+      throw new AppError('mcp.config_changed', 'MCP 配置已变化，请重新核对工具');
     if (!connection.tools.some((tool) => tool.name === name) || !this.allowed(config, name))
-      throw new Error('工具不存在或已被来源配置禁用');
+      throw new AppError('mcp.tool_unavailable', '工具不存在或已被来源配置禁用');
     validateSchema(
       connection.tools.find((tool) => tool.name === name)!.inputSchema as Record<string, unknown>,
       args,

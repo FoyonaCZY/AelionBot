@@ -1,5 +1,6 @@
 import { fromMarkdown } from 'mdast-util-from-markdown';
 import type { BotIdentity, BotMention } from '../types/peer-types';
+import { AppError } from '../errors';
 
 interface Range {
   start: number;
@@ -81,7 +82,8 @@ export function botMentions(
     if (explicit && !inside(at, at + explicit[0].length)) {
       target = members.find((member) => member.id === explicit[1] && member.id !== senderId);
       length = explicit[0].length;
-      if (!target && strict) throw new Error('提及的 Bot 不在当前群中或是你自己；请使用当前群成员的准确 ID');
+      if (!target && strict)
+        throw new AppError('mention.not_member', '提及的 Bot 不在当前群中或是你自己；请使用当前群成员的准确 ID');
     } else {
       const name = names.find(
         (name) =>
@@ -92,7 +94,8 @@ export function botMentions(
       if (name) {
         const candidates = members.filter((member) => member.name === name);
         length = name.length + 1;
-        if (candidates.length > 1 && strict) throw new Error(`群里有同名的「${name}」，请用 @{Bot ID} 明确选择成员`);
+        if (candidates.length > 1 && strict)
+          throw new AppError('mention.ambiguous', `群里有同名的「${name}」，请用 @{Bot ID} 明确选择成员`);
         if (candidates.length === 1 && candidates[0].id !== senderId) target = candidates[0];
       }
     }

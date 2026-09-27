@@ -7,6 +7,7 @@ import { redactHost } from '../host/host';
 import { hostPathKey } from '../host/host-platform';
 import { READ_TOOLS } from '../tools/tool-pipeline';
 import { boundedInteger, FileToolError } from '../tools/file-text';
+import { AppError } from '../../../shared/errors';
 
 // Failed reads remain in the ledger and model history, but do not represent
 // unfinished side effects that must be repaired before a task can finish.
@@ -322,7 +323,7 @@ export class ExecutionLedger {
           ),
       )
     )
-      throw Error('处理依据必须是当前 Bot、本次任务的后续成功执行记录');
+      throw new AppError('execution.resolution_evidence_invalid', '处理依据必须是当前 Bot、本次任务的后续成功执行记录');
     this.resolveEntry(entry, args.kind as 'resolved' | 'unnecessary', reason, ids as string[]);
     this.store.save();
     this.store.journal('execution.resolved', { id: entry.id, resolution: entry.resolution });

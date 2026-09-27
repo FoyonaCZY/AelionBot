@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { GroupRoom, GroupTask } from '../../../shared/types/group-types';
 import type { RunRecord } from '../../../shared/types/core';
 import type { Store } from '../storage/store';
+import { AppError } from '../../../shared/errors';
 
 const text = (value: unknown, label: string, max: number) => {
   if (typeof value !== 'string' || !value.trim() || value.length > max) throw Error(`${label}为空或过长`);
@@ -71,7 +72,11 @@ export function mutateGroupTask(
         const source = args.sourceMessageId
           ? room.messages.find((m) => m.id === args.sourceMessageId && delivered.has(m.id))
           : room.messages.find((m) => delivered.has(m.id) && m.rootId === round?.id && eligible(m));
-        if (!source) throw Error('新任务必须引用当前收件批次中的原始用户任务；旧轮次消息不能新增任务授权');
+        if (!source)
+          throw new AppError(
+            'group.task_source_missing',
+            '新任务必须引用当前收件批次中的原始用户任务；旧轮次消息不能新增任务授权',
+          );
         const root = source?.rootId ? store.data.groupRounds.find((r) => r.id === source.rootId) : round;
         const authorized =
           source &&
@@ -109,7 +114,7 @@ export function mutateGroupTask(
   }
   const task = tasks.find((t) => t.id === args.taskId);
   if (!task) throw Error('群任务不存在');
-  if (task.ownerId !== run.botId) throw Error('只能更新自己认领的任务');
+  if (task.ownerId !== run.botId) throw new AppError('group.task_not_owned', '只能更新自己认领的任务');
   if (args.revision !== task.revision) return { updated: false, conflict: true, task: publicTask(task) };
   if (task.status === 'completed') throw Error('任务已经完成，请另建后续任务');
   if (!['working', 'blocked', 'open', 'completed'].includes(String(args.status))) throw Error('无效任务状态');

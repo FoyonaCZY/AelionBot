@@ -1,4 +1,5 @@
 import type { PreviewAnnotation } from '../types/preview-editor-types';
+import { AppError } from '../errors';
 export function validateAnnotations(value: unknown): PreviewAnnotation[] {
   if (!Array.isArray(value) || value.length > 100 || JSON.stringify(value).length > 1_000_000) throw Error('标注过多');
   const ids = new Set<string>();
@@ -12,7 +13,7 @@ export function validateAnnotations(value: unknown): PreviewAnnotation[] {
       !['rect', 'arrow', 'pen', 'text', 'element'].includes(raw.type) ||
       !/^#[\da-f]{6}$/i.test(raw.color)
     )
-      throw Error('标注无效');
+      throw new AppError('preview.annotation_invalid', '标注无效');
     ids.add(raw.id);
     const point = (p: any) => {
       if (!p || ![p.x, p.y].every((n) => Number.isFinite(n) && n >= -1 && n <= 100)) throw Error('标注坐标无效');
@@ -26,7 +27,7 @@ export function validateAnnotations(value: unknown): PreviewAnnotation[] {
       throw Error('标注范围无效');
     for (const key of ['sourceWidth', 'sourceHeight'] as const)
       if (raw[key] !== undefined && (!Number.isFinite(raw[key]) || raw[key] < 1 || raw[key] > 10_000_000))
-        throw Error('标注画布尺寸无效');
+        throw new AppError('preview.annotation_canvas_invalid', '标注画布尺寸无效');
     if (raw.points !== undefined && (!Array.isArray(raw.points) || raw.points.length > 3000))
       throw Error('画笔点数过多');
     for (const [key, limit] of [
@@ -37,7 +38,7 @@ export function validateAnnotations(value: unknown): PreviewAnnotation[] {
       ['elementText', 1000],
     ] as const)
       if (raw[key] !== undefined && (typeof raw[key] !== 'string' || raw[key].length > limit))
-        throw Error('标注文字过长');
+        throw new AppError('preview.annotation_text_too_long', '标注文字过长');
     return {
       id: raw.id,
       type: raw.type,

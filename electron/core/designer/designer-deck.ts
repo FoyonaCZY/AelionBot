@@ -1,4 +1,5 @@
 import { zipSync, strToU8 } from 'fflate';
+import { AppError } from '../../../shared/errors';
 export const DECK_LAYOUTS = [
   'title',
   'split',
@@ -81,7 +82,8 @@ export function designerDeck(
     const items = Array.isArray(slide.items) ? slide.items.map((item) => text(item, 120)) : undefined;
     if (items && (items.length < 2 || items.length > 6)) throw Error('时间线或列表需要 2–6 条');
     const layout = slide.layout || 'title';
-    if (!(DECK_LAYOUTS as readonly string[]).includes(layout)) throw Error('不支持的幻灯片布局');
+    if (!(DECK_LAYOUTS as readonly string[]).includes(layout))
+      throw new AppError('design.deck_layout_unsupported', '不支持的幻灯片布局');
     if (layout === 'compare' && !left && !right && !body) throw Error('对比页需要左右文案');
     if ((layout === 'timeline' || layout === 'agenda') && !items) throw Error('时间线或目录页需要 items');
     if (layout === 'stat' && !metric.trim()) throw Error('数据页需要 metric，没有真实数据时写成占位如「—」');

@@ -6,6 +6,7 @@ import { RunPolicy } from './runtime-policy';
 import { ExecutionLedger } from './execution-ledger';
 import type { Store } from '../storage/store';
 import type { HarnessRunOptions } from './peer-runtime-types';
+import { AppError } from '../../../shared/errors';
 
 export const PLANNING_TOOLS = new Set([
   'groups_list',
@@ -216,7 +217,7 @@ export class WorkItems {
           ['starting', 'running', 'unknown'].includes(p.status),
       )
     )
-      throw Error('后台任务尚未核对完成，请先检查进程状态和结果');
+      throw new AppError('task.background_unverified', '后台任务尚未核对完成，请先检查进程状态和结果');
     const evidence = args.evidenceIds;
     if (
       !Array.isArray(evidence) ||
@@ -224,9 +225,9 @@ export class WorkItems {
       evidence.length > 10 ||
       evidence.some((id) => typeof id !== 'string' || !this.evidence(item).some((e) => e.id === id))
     )
-      throw Error('完成目标需要引用本目标内实际成功执行的证据');
+      throw new AppError('task.goal_evidence_missing', '完成目标需要引用本目标内实际成功执行的证据');
     if (new ExecutionLedger(this.store).blocking(run.botId, run.id).length)
-      throw Error('还有未解决或结果未知的执行，请先核对');
+      throw new AppError('execution.unresolved', '还有未解决或结果未知的执行，请先核对');
     item.status = 'completed';
     item.summary = clean(args.summary, '完成依据', 3000);
     item.evidenceIds = evidence;

@@ -4,15 +4,17 @@ import type { ComputerController } from '../vm/computer';
 import type { CommandPermissions } from '../host/command-permissions';
 import type { HostApprovalPolicy } from '../host/host-approval-types';
 import { abortable } from '../app/abortable';
+import { AppError } from '../../../shared/errors';
 
-export class InteractionDenied extends Error {
+export class InteractionDenied extends AppError {
   constructor(
     message = '用户拒绝了本次操作',
     readonly details?: HostPermissionDetails,
     readonly source: 'user' | 'model' = 'user',
     readonly stopTask = false,
+    code = source === 'model' ? 'permission.auto_review_denied' : 'permission.denied',
   ) {
-    super(message);
+    super(code, message);
     this.name = 'InteractionDenied';
   }
 }
@@ -52,7 +54,7 @@ export class Interactions {
   }
   get(id: string) {
     const item = this.pending.get(id);
-    if (!item) throw new Error('请求已结束或已取消');
+    if (!item) throw new AppError('interaction.closed', '请求已结束或已取消');
     return structuredClone(item.request);
   }
   takeover(botId: string) {
@@ -62,9 +64,9 @@ export class Interactions {
     );
   }
   private enqueue(request: InteractionRequest, signal: AbortSignal): Promise<void> {
-    if (signal.aborted) return Promise.reject(new Error('任务已取消'));
+    if (signal.aborted) return Promise.reject(new AppError('task.cancelled', '任务已取消'));
     return new Promise((resolve, reject) => {
-      const abort = () => this.finish(request.id, new Error('任务已取消'), 'cancelled');
+      const abort = () => this.finish(request.id, new AppError('task.cancelled', '任务已取消'), 'cancelled');
       this.pending.set(request.id, {
         request: structuredClone(request),
         resolve,
@@ -91,7 +93,7 @@ export class Interactions {
     return Boolean(this.commands?.match(details));
   }
   permission(botId: string, runId: string, details: HostPermissionDetails, signal: AbortSignal) {
-    if (signal.aborted) return Promise.reject(new Error('任务已取消'));
+    if (signal.aborted) return Promise.reject(new AppError('task.cancelled', '任务已取消'));
     if (Buffer.byteLength(JSON.stringify(details), 'utf8') > 1024 * 1024)
       return Promise.reject(new Error('操作内容过大，无法展示权限请求'));
     const captured = structuredClone(details);
@@ -290,7 +292,8 @@ export class Interactions {
   approve(id: string, allow: boolean) {
     const request = this.get(id);
     if (request.kind !== 'host_permission') throw new Error('请求类型不匹配');
-    if (allow && request.approval?.phase === 'reviewing') throw new Error('自动审核尚未结束');
+    if (allow && request.approval?.phase === 'reviewing')
+      throw new AppError('permission.review_pending', '自动审核尚未结束');
     this.finish(
       id,
       allow ? undefined : new InteractionDenied('用户拒绝了本次操作', request.details),
@@ -301,15 +304,19 @@ export class Interactions {
   deny(id: string, message: string) {
     const request = this.get(id);
     if (request.kind !== 'host_permission') throw new Error('请求类型不匹配');
-    this.finish(id, new InteractionDenied(message, request.details), 'denied-unattended');
+    this.finish(
+      id,
+      new InteractionDenied(message, request.details, 'user', false, 'permission.denied_unattended'),
+      'denied-unattended',
+    );
   }
   approveAlways(id: string) {
     const request = this.get(id);
     if (request.kind !== 'host_permission' || request.details.operation !== 'command' || !this.commands)
-      throw new Error('此请求不支持始终允许');
-    if (request.approval?.phase === 'reviewing') throw new Error('自动审核尚未结束');
+      throw new AppError('permission.always_allow_unsupported', '此请求不支持始终允许');
+    if (request.approval?.phase === 'reviewing') throw new AppError('permission.review_pending', '自动审核尚未结束');
     if (this.hostPolicy && this.hostPolicy.modeFor(request) !== 'auto')
-      throw new Error('每次询问模式不能保存自动放行规则');
+      throw new AppError('permission.ask_mode_rule', '每次询问模式不能保存自动放行规则');
     const rule = this.commands.allow(request.details);
     this.finish(id, undefined, 'always-allowed', rule.id);
     this.applyCommandRules();
@@ -425,12 +432,23 @@ export class Interactions {
   }
   completeTakeover(id: string) {
     const item = this.get(id);
-    if (item.kind !== 'vm_takeover' || item.phase !== 'controlling') throw new Error('请先接管并完成操作，再交还继续');
+    if (item.kind !== 'vm_takeover' || item.phase !== 'controlling')
+      throw new AppError('interaction.takeover_not_active', '请先接管并完成操作，再交还继续');
     this.finish(id, undefined, 'resumed');
   }
   cancelTakeover(id: string) {
     if (this.get(id).kind !== 'vm_takeover') throw new Error('请求类型不匹配');
-    this.finish(id, new InteractionDenied('用户取消了人工接管，任务已停止', undefined, 'user', true), 'denied');
+    this.finish(
+      id,
+      new InteractionDenied(
+        '用户取消了人工接管，任务已停止',
+        undefined,
+        'user',
+        true,
+        'interaction.takeover_cancelled',
+      ),
+      'denied',
+    );
   }
   private finish(id: string, error: Error | undefined, decision: string, ruleId?: string) {
     const item = this.pending.get(id);

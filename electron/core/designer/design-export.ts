@@ -6,6 +6,7 @@ import postcss from 'postcss';
 import { zipSync, strToU8 } from 'fflate';
 import { mime } from '../preview/web-preview-resources';
 import { printReadyHtml } from './design-pdf';
+import { AppError } from '../../../shared/errors';
 
 export interface DesignHtmlExportInput {
   rootDir: string;
@@ -125,7 +126,7 @@ function cssUrls(text: string, rewrite: (url: string) => string) {
       }
       // String image-set sources need their own grammar; fail visibly instead of losing an asset.
       if (/^(?:-webkit-)?image-set$/.test(name) && text[next] === '(')
-        throw Error('导出前请将 image-set() 改为普通 url() 图片引用');
+        throw new AppError('design.export_image_set', '导出前请将 image-set() 改为普通 url() 图片引用');
       out += word;
       i = next;
       continue;
@@ -176,13 +177,14 @@ class HtmlResources {
   }
   private check(path: string, license = false) {
     this.input.signal?.throwIfAborted();
-    if (!within(this.root, path)) throw Error('导出资源必须位于当前设计目录');
+    if (!within(this.root, path)) throw new AppError('design.resource_outside_root', '导出资源必须位于当前设计目录');
     const rel = relative(this.root, path).replaceAll('\\', '/');
     if (!rel || rel.split('/').some((p) => p.startsWith('.') || p.includes(':')) || /\0|[\r\n]/.test(rel))
-      throw Error('不能导出隐藏文件或无效路径');
+      throw new AppError('design.resource_path_invalid', '不能导出隐藏文件或无效路径');
     if (!license && !allowed.has(extname(path).slice(1).toLowerCase())) throw Error('不支持的导出资源：' + rel);
-    if (!existsSync(path)) throw Error('导出资源不存在：' + rel);
-    if (!within(this.root, realpathSync(path))) throw Error('导出资源链接越过设计目录：' + rel);
+    if (!existsSync(path)) throw new AppError('design.resource_missing', '导出资源不存在：' + rel);
+    if (!within(this.root, realpathSync(path)))
+      throw new AppError('design.resource_link_escape', '导出资源链接越过设计目录：' + rel);
     return path;
   }
   private name(path: string) {
@@ -194,7 +196,8 @@ class HtmlResources {
     this.check(path, license);
     const stat = statSync(path),
       limit = /\.(?:html?|css|js|mjs|svg)$/i.test(path) || license ? MAX_TEXT : MAX_FILE;
-    if (!stat.isFile() || stat.size > limit) throw Error('导出资源超过大小限制：' + this.name(path));
+    if (!stat.isFile() || stat.size > limit)
+      throw new AppError('design.resource_too_large', '导出资源超过大小限制：' + this.name(path));
     const bytes = readFileSync(path);
     this.total += bytes.length;
     if (bytes.length > limit || this.total > MAX_TOTAL || this.raw.size >= MAX_FILES)
@@ -219,7 +222,7 @@ class HtmlResources {
       return value;
     }
     if (/^[a-z][a-z\d+.-]*:|^\/\//i.test(value))
-      throw Error('请先将远程或 file: 资源保存到设计目录：' + value.slice(0, 180));
+      throw new AppError('design.resource_remote', '请先将远程或 file: 资源保存到设计目录：' + value.slice(0, 180));
     const cut = value.search(/[?#]/),
       pathname = decodeURIComponent(cut < 0 ? value : value.slice(0, cut)),
       fragment = value.includes('#') ? value.slice(value.indexOf('#')) : '';
@@ -230,7 +233,7 @@ class HtmlResources {
       pathname.includes('\0') ||
       pathname.includes(':')
     )
-      throw Error('资源必须使用设计目录内的相对路径：' + value);
+      throw new AppError('design.resource_absolute_path', '资源必须使用设计目录内的相对路径：' + value);
     const path = this.check(resolve(dirname(from), pathname)),
       bytes = this.asset(path, depth + 1, inline),
       type = mime[extname(path).slice(1).toLowerCase()];
@@ -269,9 +272,10 @@ class HtmlResources {
   }
   private html(source: string, path: string, depth: number, svg = false, inline = this.inline) {
     const { document } = parseHTML(svg ? source : printReadyHtml(source));
-    if (document.querySelector('base[href]')) throw Error('导出前请移除 HTML 的 base 标签，并使用相对资源路径');
+    if (document.querySelector('base[href]'))
+      throw new AppError('design.export_base_tag', '导出前请移除 HTML 的 base 标签，并使用相对资源路径');
     if (document.querySelector('iframe,frame,object,embed'))
-      throw Error('导出暂不支持嵌入的子页面；请将内容放入当前 HTML');
+      throw new AppError('design.export_subpage', '导出暂不支持嵌入的子页面；请将内容放入当前 HTML');
     for (const node of document.querySelectorAll('style'))
       node.textContent = this.css(node.textContent || '', path, depth, inline);
     for (const node of document.querySelectorAll('*')) {
@@ -279,7 +283,7 @@ class HtmlResources {
         node.setAttribute('style', this.css(node.getAttribute('style')!, path, depth, inline));
       const tag = node.tagName.toLowerCase();
       if (tag === 'script' && node.getAttribute('type')?.toLowerCase() === 'module')
-        throw Error('导出前请将 JavaScript 模块打包为一个普通脚本');
+        throw new AppError('design.export_module_script', '导出前请将 JavaScript 模块打包为一个普通脚本');
       for (const attr of ['src', 'poster', 'background', 'srcset', 'imagesrcset'])
         if (node.hasAttribute(attr))
           node.setAttribute(
@@ -305,7 +309,7 @@ class HtmlResources {
           (attr) => node.hasAttribute(attr) && !node.getAttribute(attr)!.trim().startsWith('#'),
         )
       )
-        throw Error('导出前请将外部 SVG 图标内嵌到 HTML 中');
+        throw new AppError('design.export_external_svg', '导出前请将外部 SVG 图标内嵌到 HTML 中');
       if (
         ['image', 'use', 'feimage'].includes(tag) ||
         (tag === 'script' && (svg || node.namespaceURI === 'http://www.w3.org/2000/svg'))
@@ -340,7 +344,7 @@ class HtmlResources {
     const output = inline ? this.embedded : this.files,
       cached = output.get(this.name(path));
     if (cached) return cached;
-    if (this.pending.has(path)) throw Error('资源存在循环引用：' + this.name(path));
+    if (this.pending.has(path)) throw new AppError('design.resource_cycle', '资源存在循环引用：' + this.name(path));
     this.pending.add(path);
     try {
       let bytes = path === this.entry && this.input.html !== undefined ? Buffer.from(this.input.html) : this.read(path);
@@ -382,7 +386,7 @@ class HtmlResources {
             !/^assets\/fonts\/[a-zA-Z0-9_-]+\/LICENSE\.txt$/.test(license) ||
             !files.some((file: any) => posix.dirname(file.path) === posix.dirname(license))
           )
-            throw Error('字体授权文件必须位于对应字体目录');
+            throw new AppError('design.font_license_outside', '字体授权文件必须位于对应字体目录');
           const path = this.check(resolve(this.root, license), true);
           this.files.set(this.name(path), this.read(path, true));
         }

@@ -5,6 +5,7 @@ import { hostPathKey } from './host-platform';
 import type { CommandPattern, CommandPermissionRule, HostPermissionDetails } from '../../../shared/types/core';
 import { atomicJson } from '../storage/store';
 import { argumentLeavesProject } from './permission-risk';
+import { AppError } from '../../../shared/errors';
 
 type Token = { value: string; bare: boolean };
 type StoredRule = CommandPermissionRule & { platform?: NodeJS.Platform; prefix?: string[]; commandHash?: string };
@@ -286,7 +287,8 @@ export class CommandPermissions {
     this.commit(this.rules.filter((rule) => rule.id !== id));
   }
   private require(id: string) {
-    if (typeof id !== 'string' || !this.rules.some((rule) => rule.id === id)) throw new Error('命令模式不存在或已删除');
+    if (typeof id !== 'string' || !this.rules.some((rule) => rule.id === id))
+      throw new AppError('permission.command_rule_not_found', '命令模式不存在或已删除');
   }
   private commit(rules: StoredRule[]) {
     atomicJson(this.file, { version: 1, rules });

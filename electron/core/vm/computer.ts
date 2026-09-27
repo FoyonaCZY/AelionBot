@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ComputerState, ComputerDesktopState, ScreenReference } from '../../../shared/types/core';
 import { VmController, shQuote } from './vm';
+import { AppError } from '../../../shared/errors';
 
 type ComputerAction =
   'screenshot' | 'click' | 'double_click' | 'move' | 'drag' | 'scroll' | 'key' | 'type' | 'wait' | 'open_app';
@@ -42,7 +43,7 @@ function workFile(botId: string, value: string) {
     relative.split('/').includes('..') ||
     relative.includes('\0')
   )
-    throw new Error('文件必须位于当前 Bot 工作目录');
+    throw new AppError('computer.path_outside_workspace', '文件必须位于当前 Bot 工作目录');
   return prefix + relative;
 }
 export function absolutePoint(x: number, y: number, width: number, height: number) {
@@ -181,7 +182,7 @@ export class ComputerController {
   }
   setManual(botId: string, enabled: boolean) {
     const desktop = this.desktop(botId);
-    if (desktop.acting) throw new Error('正在完成一次电脑操作，请稍后再接管');
+    if (desktop.acting) throw new AppError('computer.busy', '正在完成一次电脑操作，请稍后再接管');
     desktop.view.manualControl = enabled;
     desktop.view.ownerBotId = enabled ? undefined : desktop.humanHold ? botId : undefined;
     desktop.last = undefined;
@@ -256,8 +257,9 @@ export class ComputerController {
   }
   private acquire(botId: string) {
     const desktop = this.desktop(botId);
-    if (desktop.view.manualControl) throw new Error('用户正在接管这个 Bot 的桌面。请等待用户交还控制。');
-    if (desktop.acting) throw new Error('前一次电脑操作尚未结束');
+    if (desktop.view.manualControl)
+      throw new AppError('computer.user_in_control', '用户正在接管这个 Bot 的桌面。请等待用户交还控制。');
+    if (desktop.acting) throw new AppError('computer.busy', '前一次电脑操作尚未结束');
     desktop.view.ownerBotId = botId;
     desktop.acting = true;
     this.changed();
@@ -267,7 +269,7 @@ export class ComputerController {
       throw new Error('工作电脑应用尚未就绪或正在维护');
     const file = path ? workFile(botId, path) : undefined;
     if (file && !['files', 'editor', 'writer', 'calc', 'impress'].includes(app))
-      throw new Error('只有文件管理器和办公应用可以打开工作区文件');
+      throw new AppError('computer.app_not_allowed', '只有文件管理器和办公应用可以打开工作区文件');
     const applications: Record<string, string[]> = {
       browser: [
         'aelion-browser',
@@ -306,7 +308,7 @@ export class ComputerController {
     const desktop = this.desktop(botId),
       passive = ['screenshot', 'wait', 'open_app'].includes(input.action);
     if (!passive && (!desktop.last || input.observationId !== desktop.last.id || desktop.view.ownerBotId !== botId))
-      throw new Error('请先截取最新屏幕，再用返回的 observationId 操作');
+      throw new AppError('computer.observation_stale', '请先截取最新屏幕，再用返回的 observationId 操作');
     this.acquire(botId);
     try {
       await this.ensure(botId);

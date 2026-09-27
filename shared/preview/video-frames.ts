@@ -1,3 +1,4 @@
+import { AppError } from '../errors';
 export interface VideoFrameRequest {
   frameWidth?: number;
   count?: number;
@@ -73,6 +74,7 @@ export function videoFrameLayout(count: number, requestedWidth?: number) {
     rows = Math.ceil(count / columns),
     width = columns * tileWidth,
     height = rows * tileHeight;
-  if (width * height > 4_000_000 || height > 4096) throw Error('拼图过大，请减少帧数或降低 frameWidth');
+  if (width * height > 4_000_000 || height > 4096)
+    throw new AppError('preview.video_sheet_too_large', '拼图过大，请减少帧数或降低 frameWidth');
   return { tileWidth, tileHeight, columns, rows, width, height };
 }

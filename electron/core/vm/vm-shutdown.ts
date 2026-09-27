@@ -1,3 +1,4 @@
+import { AppError } from '../../../shared/errors';
 export interface VmShutdownTarget {
   id: string;
   pid: number;
@@ -27,7 +28,8 @@ export async function shutdownOwnedVm(target: VmShutdownTarget, ops: ShutdownOps
     verified = true;
   } catch (error) {
     if (!ops.alive(target.pid)) return { method: 'already-stopped' };
-    if ((error as Error).message === 'QEMU identity mismatch') throw Error('拒绝关闭身份不匹配的 QEMU 进程');
+    if ((error as Error).message === 'QEMU identity mismatch')
+      throw new AppError('vm.identity_mismatch', '拒绝关闭身份不匹配的 QEMU 进程');
   }
   if (verified) {
     try {
@@ -42,5 +44,5 @@ export async function shutdownOwnedVm(target: VmShutdownTarget, ops: ShutdownOps
   }
   if (ops.force && (await ops.force()) && (await wait(2000))) return { method: 'verified-process' };
   if (!ops.alive(target.pid)) return { method: 'stopped' };
-  throw Error('无法确认工作电脑已退出，拒绝结束身份未核验的进程');
+  throw new AppError('vm.identity_unverified', '无法确认工作电脑已退出，拒绝结束身份未核验的进程');
 }

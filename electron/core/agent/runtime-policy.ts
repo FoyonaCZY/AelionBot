@@ -8,6 +8,7 @@ import type { Store } from '../storage/store';
 import { ExecutionLedger } from './execution-ledger';
 import { FileToolError } from '../tools/file-text';
 import { isDeepStrictEqual } from 'node:util';
+import { AppError } from '../../../shared/errors';
 export function runtimeSettings(value: unknown): RuntimeSettings {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw Error('运行设置无效');
   // Older profiles contain this retired setting. It no longer triggers model requests.
@@ -45,9 +46,12 @@ export class RunPolicy {
     const run = this.run(botId, runId),
       cfg = this.settings();
     if (cfg.maxTurns && iteration >= cfg.maxTurns)
-      throw Error(`达到 ${cfg.maxTurns} 轮执行预算，任务与执行记录已保留，可检查后继续`);
+      throw new AppError(
+        'budget.turns_exhausted',
+        `达到 ${cfg.maxTurns} 轮执行预算，任务与执行记录已保留，可检查后继续`,
+      );
     if (cfg.maxMinutes > 0 && Date.now() - Date.parse(run.startedAt) >= cfg.maxMinutes * 60000)
-      throw Error('达到本次执行时间预算，任务与执行记录已保留');
+      throw new AppError('budget.time_exhausted', '达到本次执行时间预算，任务与执行记录已保留');
     if (cfg.maxTokens > 0) {
       const used =
         this.store.data.modelUsage
@@ -60,7 +64,8 @@ export class RunPolicy {
                 (x.usage?.inputTokens ?? 0) + (x.usage?.outputTokens ?? 0)),
             0,
           ) || 0;
-      if (used >= cfg.maxTokens) throw Error('达到本次模型用量预算，任务与执行记录已保留');
+      if (used >= cfg.maxTokens)
+        throw new AppError('budget.tokens_exhausted', '达到本次模型用量预算，任务与执行记录已保留');
     }
   }
   private run(botId: string, id: string) {
@@ -124,7 +129,7 @@ export class RunPolicy {
               ),
           ))
       )
-        throw Error('已完成步骤必须引用本任务的实际成功执行证据');
+        throw new AppError('plan.step_evidence_missing', '已完成步骤必须引用本任务的实际成功执行证据');
       if (step.status === 'skipped' && (!step.note || step.note.length < 8)) throw Error('跳过步骤需要说明原因');
     }
     if (prior.steps.some((s) => !ids.has(s.id))) throw Error('保留已有步骤，取消时标记 skipped 并说明原因');

@@ -8,6 +8,7 @@ import {
   type AttachmentScope,
   type DroppedAttachment,
 } from '../../../shared/types/attachment-types';
+import { AppError } from '../../../shared/errors';
 
 export async function directoryAttachment(path: string, expected?: { dev: number; ino: number }) {
   const root = await realpath(path),
@@ -48,7 +49,7 @@ export async function directoryAttachment(path: string, expected?: { dev: number
         actual = await realpath(child),
         within = relative(root, actual);
       if (before.isSymbolicLink() || within === '..' || within.startsWith('..' + sep) || isAbsolute(within))
-        throw Error('文件夹包含符号链接，请移除链接后重试');
+        throw new AppError('attachment.drop_symlink', '文件夹包含符号链接，请移除链接后重试');
       if (before.isDirectory()) {
         await walk(child, prefix + '/' + entry.name, depth + 1);
         continue;
@@ -158,7 +159,7 @@ export class AttachmentDrops {
         entry.scope.kind !== scope.kind ||
         entry.scope.id !== scope.id
       )
-        throw Error('拖入内容已过期或不属于当前会话，请重新拖入');
+        throw new AppError('attachment.drop_expired', '拖入内容已过期或不属于当前会话，请重新拖入');
       return entry;
     });
     if (action === 'workspace' && (entries.length !== 1 || entries[0].kind !== 'directory'))

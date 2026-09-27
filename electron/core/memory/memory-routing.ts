@@ -1,6 +1,7 @@
 import type { ChatMessage } from '../../../shared/types/core';
 import { peerPending } from '../../../shared/types/peer-types';
 import type { Store } from '../storage/store';
+import { AppError } from '../../../shared/errors';
 
 type MemoryAction = 'add' | 'replace' | 'remove';
 export interface MemoryRoute {
@@ -178,11 +179,9 @@ export function assertMemoryOwner(store: Store, botId: string, source: ChatMessa
       .map((id) => store.data.bots.find((bot) => bot.id === id)?.name)
       .filter(Boolean)
       .join('、');
-    throw new Error(
-      names
-        ? `这条记忆属于 ${names}，不能保存到当前 Bot；请由目标 Bot 处理。`
-        : '这条记忆请求的对象尚不明确，不能先保存到当前 Bot。',
-    );
+    throw names
+      ? new AppError('memory.owned_by_other_bot', `这条记忆属于 ${names}，不能保存到当前 Bot；请由目标 Bot 处理。`)
+      : new AppError('memory.target_unclear', '这条记忆请求的对象尚不明确，不能先保存到当前 Bot。');
   }
   if (action && !route.actionsByBot[botId]?.includes(action as MemoryAction))
     throw new Error('这项记忆修改不在用户请求范围内');

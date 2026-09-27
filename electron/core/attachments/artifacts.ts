@@ -28,6 +28,7 @@ export function artifactPath(value: string) {
   return value;
 }
 import type { DesignerFiles } from '../designer/designer-files';
+import { AppError } from '../../../shared/errors';
 export class ArtifactService {
   designerFiles?: DesignerFiles;
   openLocal?: (path: string) => Promise<string>;
@@ -47,7 +48,7 @@ export class ArtifactService {
   async readEditable(botId: string, path: string) {
     this.store.bot(botId);
     path = artifactPath(path);
-    if (!sourceTextFile(path)) throw Error('此格式暂不支持文本编辑');
+    if (!sourceTextFile(path)) throw new AppError('preview.edit_unsupported', '此格式暂不支持文本编辑');
     const local = this.local(botId, path);
     if (local) return local.readEditable(botId, path);
     const source = await readVmBytes(this.vm, botId, path, new AbortController().signal);
@@ -63,7 +64,7 @@ export class ArtifactService {
     const signal = new AbortController().signal,
       source = await readVmBytes(this.vm, botId, path, signal);
     if (editableText(source.bytes, source.path).revision !== edit.revision)
-      throw Error('文件已被其他操作修改，未覆盖原文件。请保留草稿或重新加载后再编辑。');
+      throw new AppError('preview.edit_conflict', '文件已被其他操作修改，未覆盖原文件。请保留草稿或重新加载后再编辑。');
     const bytes = editedBytes(edit.content, source.bytes),
       checkpoints = new FileCheckpoints(this.store, this.vm),
       checkpoint = await checkpoints.vmBefore(botId, 'preview-edit-' + randomUUID(), source.path, signal);
@@ -81,7 +82,10 @@ export class ArtifactService {
     );
     if (result.exitCode !== 0) {
       if (/FILE_CHANGED|PATH_CHANGED/.test(result.stderr))
-        throw Error('文件在保存前发生变化，未覆盖原文件。请保留草稿或重新加载后再编辑。');
+        throw new AppError(
+          'preview.edit_changed_during_save',
+          '文件在保存前发生变化，未覆盖原文件。请保留草稿或重新加载后再编辑。',
+        );
       throw Error('保存失败，请确认工作电脑连接正常且文件可写。');
     }
     const receipt = JSON.parse(result.stdout);

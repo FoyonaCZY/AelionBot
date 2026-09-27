@@ -140,6 +140,7 @@ export function gameProviders(
         throw new GameModelError(
           'format',
           p.name + ' 输出被截断：达到生成上限（推理 token ' + (reasoningTokens ?? '未知') + '）',
+          'game.output_truncated',
         );
       if (typeof text !== 'string' || !text.trim()) throw new GameModelError('empty', p.name + ' 没有返回行动');
       return parseGameAction(text, request.kind, request);

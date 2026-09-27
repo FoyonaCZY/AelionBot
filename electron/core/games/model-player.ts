@@ -1,4 +1,5 @@
 import { actionContract, checkActionContract } from './action-contract';
+import { errorCode } from '../../../shared/errors';
 import { createHash } from 'node:crypto';
 import { BOARDS, TWELVE_RULES } from '../../../shared/games/game-boards';
 import { gameSkills } from './skills';
@@ -136,9 +137,11 @@ export function gamePrompt(context: GameView, request: GameRequest) {
   });
 }
 export class GameModelError extends Error {
+  // `code` is the retry category the runtime branches on; `reason` is the stable `<domain>.<reason>` code of the failure.
   constructor(
     public code: 'http' | 'empty' | 'format',
     message: string,
+    readonly reason?: string,
   ) {
     super(message);
     this.name = 'GameModelError';
@@ -171,7 +174,7 @@ export function parseGameAction(text: string, kind?: GameRequest['kind'], reques
     try {
       checkActionContract(parsed, request);
     } catch (e) {
-      throw new GameModelError('format', (e as Error).message);
+      throw new GameModelError('format', (e as Error).message, errorCode(e));
     }
   }
   return {

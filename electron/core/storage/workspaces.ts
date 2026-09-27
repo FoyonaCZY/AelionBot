@@ -2,11 +2,13 @@ import type { AttachmentScope } from '../../../shared/types/attachment-types';
 import { workspaceKey } from '../../../shared/types/work-types';
 import type { Store } from './store';
 import type { HostComputer } from '../host/host';
+import { AppError } from '../../../shared/errors';
 
 export function assertWorkspaceScope(store: Store, scope: AttachmentScope) {
   if (!scope || typeof scope.id !== 'string' || !['bot', 'group'].includes(scope.kind)) throw Error('无效会话');
   if (scope.kind === 'bot') store.bot(scope.id);
-  else if (!store.data.groups.some((group) => group.id === scope.id)) throw Error('群聊不存在');
+  else if (!store.data.groups.some((group) => group.id === scope.id))
+    throw new AppError('group.not_found', '群聊不存在');
   return scope;
 }
 export function conversationWorkspace(store: Store, scope: AttachmentScope) {

@@ -1,3 +1,4 @@
+import { AppError } from '../../../shared/errors';
 export const READ_TOOLS = new Set([
   'view_image',
   'tool_search',
@@ -56,7 +57,7 @@ function references(value: unknown, step: Step, depth = 0) {
     if (typeof ref.$from !== 'string' || !step.dependsOn.includes(ref.$from))
       throw Error(`步骤 ${step.id} 的结果引用 ${String(ref.$from)} 必须声明在 dependsOn 中`);
     if (ref.path !== undefined && (typeof ref.path !== 'string' || ref.path.split('.').some(blockedKey)))
-      throw Error(`步骤 ${step.id} 的结果引用路径无效`);
+      throw new AppError('pipeline.reference_path_invalid', `步骤 ${step.id} 的结果引用路径无效`);
     if (Object.keys(ref).some((key) => key !== '$from' && key !== 'path'))
       throw Error(`步骤 ${step.id} 的结果引用只支持 $from 和 path`);
     return;
@@ -77,10 +78,11 @@ function validatedSteps(value: unknown, allowed?: ReadonlySet<string>): Step[] {
     if (typeof entry.id !== 'string' || !/^[\w-]{1,40}$/.test(entry.id))
       throw Error(`第 ${index + 1} 个步骤的 ID 需要 1–40 个字母、数字、下划线或连字符`);
     const id = entry.id;
-    if (ids.has(id)) throw Error(`批处理步骤 ID 重复：${id}`);
+    if (ids.has(id)) throw new AppError('pipeline.duplicate_step', `批处理步骤 ID 重复：${id}`);
     if (typeof entry.tool !== 'string' || !READ_TOOLS.has(entry.tool))
-      throw Error(`步骤 ${id} 的 ${String(entry.tool)} 不在批处理读取工具列表中`);
-    if (allowed && !allowed.has(entry.tool)) throw Error(`步骤 ${id} 的工具 ${entry.tool} 在当前任务模式下不可用`);
+      throw new AppError('pipeline.tool_not_allowed', `步骤 ${id} 的 ${String(entry.tool)} 不在批处理读取工具列表中`);
+    if (allowed && !allowed.has(entry.tool))
+      throw new AppError('pipeline.tool_unavailable', `步骤 ${id} 的工具 ${entry.tool} 在当前任务模式下不可用`);
     if (!object(entry.args)) throw Error(`步骤 ${id} 的 args 必须是参数对象`);
     const deps = entry.dependsOn ?? [];
     if (!Array.isArray(deps) || deps.some((dep) => typeof dep !== 'string'))

@@ -1,5 +1,6 @@
 import type { Store } from '../storage/store';
 import { contextNeedsChange } from '../../../shared/chat/context-issue';
+import { AppError } from '../../../shared/errors';
 
 export function resumableRun(store: Store, botId: string, runId: string) {
   store.bot(botId);
@@ -12,6 +13,9 @@ export function resumableRun(store: Store, botId: string, runId: string) {
   if (latest && latest.id !== run.id) throw Error('已有更新的任务，请从最新任务继续');
   if (!store.modelFor(botId).model) throw Error('请先选择模型');
   if (contextNeedsChange(run.contextIssue, store.modelFor(botId)))
-    throw Error('上下文容量仍不足，请先调整并保存模型设置，或发送新的任务范围；重复继续不会释放空间。');
+    throw new AppError(
+      'context.capacity_still_insufficient',
+      '上下文容量仍不足，请先调整并保存模型设置，或发送新的任务范围；重复继续不会释放空间。',
+    );
   return run;
 }

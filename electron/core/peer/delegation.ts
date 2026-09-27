@@ -1,5 +1,6 @@
 import type { Store } from '../storage/store';
 import type { DelegationContract, DelegationReceipt } from '../../../shared/types/peer-types';
+import { AppError } from '../../../shared/errors';
 export function delegationContract(value: unknown): DelegationContract {
   const v = value as DelegationContract;
   if (
@@ -24,7 +25,7 @@ export function delegationContract(value: unknown): DelegationContract {
 }
 export function delegationStatus(store: Store, botId: string, id: string) {
   const exchange = store.data.peerExchanges.find((e) => e.id === id && [e.fromBotId, e.toBotId].includes(botId));
-  if (!exchange) throw Error('委托任务不存在或无权访问');
+  if (!exchange) throw new AppError('delegation.not_found', '委托任务不存在或无权访问');
   const runs = store.data.runs.filter(
       (run) =>
         run.botId === exchange.toBotId && (run.peerOrigin?.sessionId || run.peerOrigin?.exchangeId) === exchange.id,
@@ -72,7 +73,7 @@ export function recordDelegationReceipt(store: Store, botId: string, runId: stri
       ['running', 'completed'].includes(root.status),
     );
   if (!run || (origin?.kind !== 'peer_task' && !designerAccepted) || !exchange?.task)
-    throw Error('只有已接下结构化委托的接收方可以提交回执');
+    throw new AppError('delegation.receiver_only', '只有已接下结构化委托的接收方可以提交回执');
   const status = args.status,
     summary = args.summary,
     evidenceIds = args.evidenceIds;
@@ -99,7 +100,7 @@ export function recordDelegationReceipt(store: Store, botId: string, runId: stri
       evidence.some((e) => ['failed', 'unknown'].includes(e.status) && !e.resolution) ||
       run.plan?.steps.some((s) => ['pending', 'working'].includes(s.status)))
   )
-    throw Error('完成回执需要真实执行证据，并先处理未完成步骤及失败');
+    throw new AppError('delegation.evidence_missing', '完成回执需要真实执行证据，并先处理未完成步骤及失败');
   exchange.receipt = {
     status: status as DelegationReceipt['status'],
     summary,

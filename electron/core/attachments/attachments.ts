@@ -15,6 +15,7 @@ import {
   type AttachmentUpload,
   type StoredAttachment,
 } from '../../../shared/types/attachment-types';
+import { AppError } from '../../../shared/errors';
 
 const hash = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 const mimeTypes: Record<string, string> = {
@@ -115,7 +116,7 @@ export class Attachments {
       path = this.location(file.id);
     if (lstatSync(path).isSymbolicLink() || statSync(path).size !== file.size) throw new Error('附件文件发生变化');
     const bytes = readFileSync(path);
-    if (hash(bytes) !== file.sha256) throw new Error('附件文件发生变化');
+    if (hash(bytes) !== file.sha256) throw new AppError('attachment.changed', '附件文件发生变化');
     return bytes;
   }
   private batch(value: unknown): string[] {
@@ -181,7 +182,7 @@ export class Attachments {
       ...this.store.data.groups.flatMap((group) => group.messages),
       ...this.store.data.peerThreads.flatMap((thread) => thread.messages),
     ].some((message) => message.attachments?.some((item) => item.id === id));
-    if (referenced) throw Error('已发送的附件不能移除');
+    if (referenced) throw new AppError('attachment.sent_immutable', '已发送的附件不能移除');
     this.store.data.attachments = this.store.data.attachments.filter((item) => item.id !== id);
     this.store.save();
     unlinkSync(this.location(id));

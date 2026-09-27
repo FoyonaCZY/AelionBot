@@ -6,6 +6,7 @@ import { zipSync, strToU8 } from 'fflate';
 import type { Snapshot } from '../../../shared/types/core';
 import type { DiagnosticPreview } from '../../../shared/types/diagnostic-types';
 import { diagnosticRedactor } from './diagnostic-redaction';
+import { AppError } from '../../../shared/errors';
 
 interface Environment {
   appVersion: string;
@@ -124,7 +125,7 @@ export class Diagnostics {
     }
   }
   prepare(): Promise<DiagnosticPreview> {
-    if (this.disposed) return Promise.reject(Error('客户端正在退出'));
+    if (this.disposed) return Promise.reject(new AppError('app.disposing', '客户端正在退出'));
     if (this.pending) return this.pending;
     const pending = this.collect().finally(() => {
       if (this.pending === pending) this.pending = undefined;
@@ -452,7 +453,8 @@ export class Diagnostics {
     return { fileName: report.preview.fileName, bytes: report.archive };
   }
   issueUrl(id: unknown, repository: string) {
-    if (!/^[\w.-]+\/[\w.-]+$/.test(repository)) throw Error('反馈仓库配置无效');
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repository))
+      throw new AppError('diagnostics.repository_invalid', '反馈仓库配置无效');
     const report = this.get(id),
       url = new URL(`https://github.com/${repository}/issues/new`);
     url.searchParams.set('title', `[问题反馈] AelionBot ${this.options.environment.appVersion}`);
@@ -470,9 +472,10 @@ export class Diagnostics {
     return url.href;
   }
   private get(id: unknown) {
-    if (this.disposed) throw Error('客户端正在退出');
+    if (this.disposed) throw new AppError('app.disposing', '客户端正在退出');
     const report = typeof id === 'string' ? this.reports.get(id) : undefined;
-    if (!report || report.expires <= this.now()) throw Error('诊断信息已过期，请刷新诊断后重试');
+    if (!report || report.expires <= this.now())
+      throw new AppError('diagnostics.report_expired', '诊断信息已过期，请刷新诊断后重试');
     return report;
   }
   dispose() {

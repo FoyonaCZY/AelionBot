@@ -1,7 +1,9 @@
 import type { ModelConfig, WireMessage } from '../../../shared/types/core';
-export class ModelImageUnsupportedError extends Error {
+import { AppError } from '../../../shared/errors';
+export class ModelImageUnsupportedError extends AppError {
   constructor(model: string, detail?: string) {
     super(
+      'model.image_unsupported',
       `当前模型或服务不支持图片输入（${model}）。请为这个 Bot 选择支持图片的模型；图片附件和原始对话已保留。${detail ? '\n服务返回：' + detail : ''}`,
     );
     this.name = 'ModelImageUnsupportedError';

@@ -14,6 +14,7 @@ import {
   type ScheduledExecution,
 } from '../../../shared/types/scheduled-types';
 import type { HarnessRunOptions } from '../agent/peer-runtime-types';
+import { AppError } from '../../../shared/errors';
 
 interface Dispatcher {
   ready: (target: TaskTarget) => boolean;
@@ -114,7 +115,7 @@ export class TaskScheduler {
       prompt = required(input.prompt, '任务内容', 8000),
       schedule = validateTaskSchedule(input.schedule);
     const nextRunAt = nextTaskTime(schedule, this.clock());
-    if (!nextRunAt) throw new Error('执行时间应晚于当前时间');
+    if (!nextRunAt) throw new AppError('schedule.time_passed', '执行时间应晚于当前时间');
     const existing = this.store.data.scheduledTasks.find(
       (task) =>
         sameTaskTarget(task.target, target) &&
@@ -154,7 +155,7 @@ export class TaskScheduler {
     let nextRunAt = task.nextRunAt;
     if (status === 'enabled' && (status !== task.status || scheduleChanged || (!nextRunAt && !taskExecuting(task)))) {
       nextRunAt = nextTaskTime(schedule, this.clock());
-      if (!nextRunAt) throw new Error('请先将执行时间改到未来');
+      if (!nextRunAt) throw new AppError('schedule.time_passed', '请先将执行时间改到未来');
     }
     if (status !== 'enabled') nextRunAt = undefined;
     Object.assign(task, { title, prompt, schedule, status, nextRunAt, updatedAt: this.now(), error: undefined });
@@ -306,7 +307,7 @@ export class TaskScheduler {
     _options: HarnessRunOptions,
   ) {
     const run = this.store.data.runs.find((run) => run.id === runId && run.botId === botId && run.status === 'running');
-    if (signal.aborted || !run) throw new Error('当前任务已结束');
+    if (signal.aborted || !run) throw new AppError('schedule.run_ended', '当前任务已结束');
     const bot = this.store.bot(botId),
       target: TaskTarget = run.groupOrigin
         ? { kind: 'group', id: run.groupOrigin.groupId }
@@ -325,7 +326,8 @@ export class TaskScheduler {
         { kind: 'bot', id: botId, name: bot.name },
       );
     const task = this.get(required(args.id, '任务 ID', 80));
-    if (!sameTaskTarget(task.target, target)) throw new Error('只能管理当前会话的定时任务');
+    if (!sameTaskTarget(task.target, target))
+      throw new AppError('schedule.target_mismatch', '只能管理当前会话的定时任务');
     if (name === 'scheduled_task_update')
       return this.update({
         id: task.id,

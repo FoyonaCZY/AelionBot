@@ -1,6 +1,7 @@
 import ssh2 from 'ssh2';
 import type { ConnectConfig, Client, ClientChannel } from 'ssh2';
 import type { CommandResult } from '../../../shared/types/core';
+import { AppError } from '../../../shared/errors';
 // One SSH session for health checks. Task commands retain their own cancellation boundary.
 export const VM_HEALTH_SCRIPT = String.raw`import pathlib,subprocess,json,time,fcntl
 state=pathlib.Path('/var/lib/aelion')
@@ -69,7 +70,7 @@ export class VmHealthChannel {
             if (this.client !== client) return;
             this.buffer += data.toString('utf8');
             if (this.buffer.length > 65536) {
-              this.close(Error('VM 状态响应过大'));
+              this.close(new AppError('vm.health_response_too_large', 'VM 状态响应过大'));
               return;
             }
             let newline;

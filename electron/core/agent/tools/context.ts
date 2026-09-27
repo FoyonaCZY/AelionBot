@@ -20,6 +20,7 @@ import type { GroupGateway } from '../../group/group-runtime-types';
 import type { ExecutionLedger } from '../execution-ledger';
 import type { Interactions } from '../interactions';
 import type { HarnessRunOptions, PeerGateway } from '../peer-runtime-types';
+import { AppError } from '../../../../shared/errors';
 
 /** The Harness collaborators tool handlers may use; optional ones depend on how the app was wired. */
 export interface ToolDeps {
@@ -94,4 +95,4 @@ export interface PrefixHandler {
   unregistered?: boolean;
 }
 
-export const unregisteredTool = (name: string) => new Error(`未注册工具：${name}`);
+export const unregisteredTool = (name: string) => new AppError('tool.unregistered', `未注册工具：${name}`);

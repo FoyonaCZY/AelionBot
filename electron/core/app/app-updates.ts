@@ -1,4 +1,5 @@
 import type { UpdateState, UpdatePhase } from '../../../shared/types/update-types';
+import { AppError } from '../../../shared/errors';
 
 export type UpdateDriverEvent =
   | 'update-available'
@@ -180,10 +181,11 @@ export class AppUpdates {
     this.automaticTimer.unref?.();
   }
   download() {
-    if (this.driver.manualInstall) throw new Error('此 Mac 预览版请从 GitHub Release 下载更新');
+    if (this.driver.manualInstall)
+      throw new AppError('update.manual_install_required', '此 Mac 预览版请从 GitHub Release 下载更新');
     if (this.operation) return this.operation;
     if (!['available', 'error'].includes(this.state.phase) || !this.state.latestVersion)
-      throw new Error('请先检查是否有新版本');
+      throw new AppError('update.not_checked', '请先检查是否有新版本');
     return this.perform('downloading', async () => {
       await this.driver.downloadUpdate();
       if (this.cancelled) this.set({ phase: 'available', progress: undefined });
@@ -197,11 +199,12 @@ export class AppUpdates {
     this.driver.cancelDownload();
   }
   async install() {
-    if (this.disposed) throw new Error('客户端正在退出');
+    if (this.disposed) throw new AppError('app.disposing', '客户端正在退出');
     if (this.operation) return;
-    if (this.state.phase !== 'downloaded' || !this.state.latestVersion) throw new Error('更新包尚未下载完成');
+    if (this.state.phase !== 'downloaded' || !this.state.latestVersion)
+      throw new AppError('update.not_downloaded', '更新包尚未下载完成');
     const blocked = this.hooks.blockedReason();
-    if (blocked) throw new Error(blocked);
+    if (blocked) throw new AppError('update.install_blocked', blocked);
     this.set({ phase: 'installing', error: undefined });
     try {
       await this.hooks.prepareInstall(this.state.latestVersion);

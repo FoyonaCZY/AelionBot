@@ -20,6 +20,7 @@ import {
   tailBoundary,
   textTokens,
 } from './context-budget';
+import { AppError } from '../../../shared/errors';
 
 export interface ContextStats {
   displayTokens?: number;
@@ -586,7 +587,8 @@ export class ContextEngine {
       files: RestoredFile[] = [],
       local = false,
     ) => {
-      if (sourceHash(input.history.slice(head.through, through)) !== hash) throw new Error('压缩期间原始历史发生变化');
+      if (sourceHash(input.history.slice(head.through, through)) !== hash)
+        throw new AppError('context.history_changed', '压缩期间原始历史发生变化');
       const anchors = this.anchors(input, through),
         next = { revision: head.revision + 1, through, summary, anchors },
         expectedRevision = head.revision,
@@ -663,7 +665,9 @@ export class ContextEngine {
     };
     while ((estimate.tokens > budget.trigger || (input.force && compactions === 0)) && compactions < 8) {
       if (input.signal.aborted)
-        throw input.signal.reason?.name === 'AbortError' ? new Error('任务已取消') : input.signal.reason;
+        throw input.signal.reason?.name === 'AbortError'
+          ? new AppError('task.cancelled', '任务已取消')
+          : input.signal.reason;
       const raw = input.history.slice(head.through);
       let cut = tailBoundary(raw, 0, budget.tail);
       if (cut === 0 && (estimate.tokens > budget.input || input.force) && raw.length > 1) {
@@ -761,7 +765,9 @@ export class ContextEngine {
         if (run) run.modelCalls++;
         this.observe(input.botId, input.runId, 'compaction', result, summaryEstimate, calibration);
         if (input.signal.aborted)
-          throw input.signal.reason?.name === 'AbortError' ? new Error('任务已取消') : input.signal.reason;
+          throw input.signal.reason?.name === 'AbortError'
+            ? new AppError('task.cancelled', '任务已取消')
+            : input.signal.reason;
         // With tools visible the model may still try to act; fall back to the tool-free serialized request once.
         if (result.calls.length && summaryTools.length) {
           summaryRequest = serializedRequest;
@@ -771,7 +777,9 @@ export class ContextEngine {
           if (run) run.modelCalls++;
           this.observe(input.botId, input.runId, 'compaction', result, summaryEstimate, calibration);
           if (input.signal.aborted)
-            throw input.signal.reason?.name === 'AbortError' ? new Error('任务已取消') : input.signal.reason;
+            throw input.signal.reason?.name === 'AbortError'
+              ? new AppError('task.cancelled', '任务已取消')
+              : input.signal.reason;
         }
         if (result.calls.length) throw new Error('压缩模型尝试调用工具');
         let summary: string;
@@ -804,7 +812,9 @@ export class ContextEngine {
           if (run) run.modelCalls++;
           this.observe(input.botId, input.runId, 'compaction_repair', repaired, repairEstimate, calibration);
           if (input.signal.aborted)
-            throw input.signal.reason?.name === 'AbortError' ? new Error('任务已取消') : input.signal.reason;
+            throw input.signal.reason?.name === 'AbortError'
+              ? new AppError('task.cancelled', '任务已取消')
+              : input.signal.reason;
           if (repaired.calls.length) throw new Error('摘要修复尝试调用工具');
           try {
             summary = parseContextSummary(repaired.content, budget.summary);

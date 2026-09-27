@@ -16,6 +16,7 @@ import type {
   HostPermissionRequest,
   ModelApproval,
 } from './host-approval-types';
+import { AppError } from '../../../shared/errors';
 
 export interface ApprovalContext {
   workspaceDir?: string;
@@ -64,9 +65,9 @@ export class HostApprovals implements HostApprovalPolicy {
     return mode === 'auto' || mode === 'full' ? mode : 'ask';
   }
   set(scope: AttachmentScope, mode: HostPermissionMode) {
-    if (scope?.kind !== 'bot') throw Error('请在 Bot 主会话设置本机权限');
+    if (scope?.kind !== 'bot') throw new AppError('permission.scope_invalid', '请在 Bot 主会话设置本机权限');
     assertWorkspaceScope(this.store, scope);
-    if (!['ask', 'auto', 'full'].includes(mode)) throw Error('无效权限模式');
+    if (!['ask', 'auto', 'full'].includes(mode)) throw new AppError('permission.mode_invalid', '无效权限模式');
     const key = workspaceKey(scope),
       previous = this.store.data.hostPermissionModes?.[key] ?? DEFAULT_HOST_PERMISSION_MODE;
     if (previous === mode) return false;
