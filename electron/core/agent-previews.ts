@@ -1,7 +1,7 @@
 import { webPreviewUrl, vmPreviewPort } from '../../src/web-preview';
 import { randomUUID } from 'node:crypto';
 import { basename, extname } from 'node:path';
-import type { AgentPreviewRequest } from '../../src/agent-preview';
+import type { AgentPreviewRequest } from '../../src/agent-preview-types';
 import { sourceTextFile } from '../../src/source-language';
 import type { Store } from './store';
 import { artifactPath, type ArtifactService } from './artifacts';

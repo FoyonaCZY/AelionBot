@@ -1,6 +1,17 @@
-import type { DelegationContract, DelegationReceipt } from '../electron/core/delegation';
 import type { Attachment } from './attachment-types';
 import { translate } from '../shared/i18n';
+export interface DelegationContract {
+  goal: string;
+  acceptance: string[];
+  expectedOutput: string;
+}
+export interface DelegationReceipt {
+  status: 'completed' | 'blocked';
+  summary: string;
+  evidenceIds: string[];
+  runId: string;
+  time: string;
+}
 export interface BotIdentity {
   id: string;
   name: string;

@@ -6,7 +6,7 @@ import { previewFeedbackDisplay } from './preview-feedback';
 import { ArtifactList } from './ArtifactList';
 import { isRunArtifact } from './workspace-files';
 import { PreviewHistoryChips } from './PreviewHistoryChips';
-import type { PreviewHistoryEntry } from './agent-preview';
+import type { PreviewHistoryEntry } from './agent-preview-types';
 import { Fragment } from 'react';
 import { ConversationTimeProvider, MessageTime } from './ConversationTime';
 import { messageReply } from './message-replies';

@@ -1,6 +1,6 @@
 import { Icon } from './ui';
 import { useI18n } from './i18n';
-import type { PreviewHistoryEntry } from './agent-preview';
+import type { PreviewHistoryEntry } from './agent-preview-types';
 import './preview-history.css';
 
 export function PreviewHistoryChips({

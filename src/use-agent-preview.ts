@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useFilePreview, type PreviewItem } from './FilePreviewContext';
 import { workspacePreviewItem } from './workspace-preview';
 import { sourceTextFile } from './source-language';
-import { previewForConversation, type AgentPreviewRequest } from './agent-preview';
+import { previewForConversation } from './agent-preview';
+import type { AgentPreviewRequest } from './agent-preview-types';
 import type { AttachmentScope } from './attachment-types';
 export function useAgentPreview(
   requests: AgentPreviewRequest[] | undefined,

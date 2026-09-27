@@ -84,7 +84,7 @@ interface Persisted {
   groupDeliveries: GroupDelivery[];
   groupContexts: Record<string, WireMessage[]>;
   groupRunMessages: ChatMessage[];
-  previewHistory?: import('../../src/agent-preview').PreviewHistoryEntry[];
+  previewHistory?: import('../../src/agent-preview-types').PreviewHistoryEntry[];
 }
 export function atomicJson(path: string, value: unknown) {
   const temp = `${path}.${process.pid}.tmp`;

@@ -365,8 +365,8 @@ interface CognitionView {
 }
 export interface Snapshot {
   designer?: import('./designer-types').DesignerSnapshot;
-  previewRequests?: import('./agent-preview').AgentPreviewRequest[];
-  previewHistory?: import('./agent-preview').PreviewHistoryEntry[];
+  previewRequests?: import('./agent-preview-types').AgentPreviewRequest[];
+  previewHistory?: import('./agent-preview-types').PreviewHistoryEntry[];
   appearance?: import('./appearance').AppearanceSettings;
   userProfile?: import('./user-profile').UserProfile;
   hostPermissionModes?: Record<string, HostPermissionMode>;

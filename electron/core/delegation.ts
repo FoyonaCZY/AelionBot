@@ -1,16 +1,6 @@
 import type { Store } from './store';
-export interface DelegationContract {
-  goal: string;
-  acceptance: string[];
-  expectedOutput: string;
-}
-export interface DelegationReceipt {
-  status: 'completed' | 'blocked';
-  summary: string;
-  evidenceIds: string[];
-  runId: string;
-  time: string;
-}
+import type { DelegationContract, DelegationReceipt } from '../../src/peer-types';
+export type { DelegationContract, DelegationReceipt } from '../../src/peer-types';
 export function delegationContract(value: unknown): DelegationContract {
   const v = value as DelegationContract;
   if (
