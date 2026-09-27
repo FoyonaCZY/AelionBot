@@ -368,11 +368,6 @@
   color: var(--design-muted);
 }
 .designer-system-dialog .designer-system-description {
-  line-height: 1.65;
-  min-height: 60px;
-  max-height: 76px;
-  overflow: hidden;
-  display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   padding-top: 6px;

@@ -106,7 +106,6 @@
   display: block;
   font-size: 12px;
   color: var(--gg-muted);
-  margin-top: 6px;
 }
 .gg-game-icon {
   width: 38px;
@@ -137,7 +136,6 @@
   color: var(--gg-muted);
 }
 .gg-participants {
-  margin: 14px 0;
   max-height: 290px;
 }
 .gg-human-avatar {
@@ -152,7 +150,6 @@
   flex-shrink: 0;
 }
 .gg-room-summary {
-  padding: 13px 14px;
   background: var(--gg-soft);
   border-radius: 9px;
   display: grid;
@@ -225,7 +222,6 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 24px;
   flex-shrink: 0;
 }
 .gg-eyebrow {
@@ -233,9 +229,7 @@
   color: var(--gg-muted);
 }
 .gg-table-heading h2 {
-  font-size: 16px;
   font-weight: 500;
-  margin: 7px 0 0;
 }
 .gg-table {
   display: grid;
@@ -245,23 +239,19 @@
   border-top: 1px solid var(--gg-line);
 }
 .gg-seats {
-  padding: 20px 16px;
   border-right: 1px solid var(--gg-line);
   overflow: auto;
-  background: var(--gg-soft);
 }
 .gg-section-label {
   font-size: 12px;
   color: var(--gg-muted);
   display: flex;
   justify-content: space-between;
-  margin-bottom: 14px;
 }
 .gg-seat {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 0;
 }
 .gg-seat-number {
   font-size: 11px;
@@ -340,17 +330,14 @@
   flex: 1;
   min-height: 120px;
   overflow: auto;
-  padding: 22px 27px;
 }
 .gg-system {
   font-size: 12px;
   color: var(--gg-muted);
   text-align: center;
-  margin: 4px 0 26px;
 }
 .gg-night {
   text-align: center;
-  padding: 42px 12px;
   color: var(--gg-muted);
 }
 .gg-night h2 {
@@ -508,9 +495,6 @@
   .gg-table {
     grid-template-columns: 140px minmax(0, 1fr);
   }
-  .gg-seat-number {
-    display: none;
-  }
   .gg-seats {
     padding: 16px 10px;
   }
@@ -656,7 +640,6 @@
 }
 .gg-model-row {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr) 108px;
   align-items: center;
   gap: 8px;
   margin: 9px 0;
@@ -1027,9 +1010,6 @@
 .gg-temporary:has(.gg-bot-choice) {
   display: grid;
   gap: 8px;
-}
-.gg-model-row {
-  grid-template-columns: 72px minmax(0, 1fr);
 }
 
 .gg-model-row {

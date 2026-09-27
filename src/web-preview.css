@@ -4,7 +4,6 @@
   background: #fff;
   color: #30343b;
   color-scheme: light;
-  --web-top: var(--web-chrome-top, 38px);
   --web-bottom: 0px;
 }
 .fp-web-navigation-slot {
@@ -18,7 +17,6 @@
   --web-chrome-top: 0px;
 }
 .fp-layer:has(.web-preview) .fp-header {
-  height: calc(var(--web-chrome-top) + 48px);
   min-height: 0;
   padding: var(--web-chrome-top) 12px 0;
   align-items: center;

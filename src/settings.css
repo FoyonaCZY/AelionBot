@@ -38,18 +38,10 @@
   border-radius: 11px;
   text-align: left;
   font-size: calc(13px * var(--appearance-text-scale, 1));
-  color: light-dark(#65596f, #cecbd1);
   flex-shrink: 0;
 }
-.settings-modal .settings-sidebar button:hover {
-  background: light-dark(#f0eaf5, #232127);
-}
 .settings-modal .settings-sidebar button.active {
-  background: light-dark(#ebe3f3, #232127);
   font-weight: var(--weight-label);
-}
-.settings-modal .settings-sidebar svg {
-  color: light-dark(#94859f, #bebbc1);
 }
 .settings-modal .settings-pane {
   min-width: 0;
@@ -62,9 +54,7 @@
   flex-shrink: 0;
 }
 .settings-modal .settings-heading h2 {
-  font-size: calc(22px * var(--appearance-text-scale, 1));
   line-height: 1.35;
-  font-weight: var(--weight-heading);
   letter-spacing: -0.3px;
   margin: 0;
 }
@@ -100,8 +90,6 @@
 .settings-modal .settings-section > h3 {
   font-size: calc(13px * var(--appearance-text-scale, 1));
   line-height: 1.5;
-  color: var(--settings-muted);
-  font-weight: var(--weight-body);
   margin: 0 10px 11px;
 }
 .settings-modal .settings-card {
@@ -223,12 +211,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 18px;
-  padding: 15px 19px;
-  min-height: 70px;
-  border-radius: 14px;
-  background: var(--settings-fill);
   margin: 0 0 28px;
-  color: light-dark(#4a4053, #d8d5db);
   font-size: calc(13px * var(--appearance-text-scale, 1));
 }
 .settings-modal .settings-row .aelion-select {
@@ -281,22 +264,8 @@
   margin-top: 7px;
 }
 .settings-modal .learning-switch {
-  width: 41px;
-  height: 24px;
   border-radius: 14px;
-  background: light-dark(#d5d5d5, #27252b);
   padding: 3px;
-}
-.settings-modal .learning-switch i {
-  width: 18px;
-  height: 18px;
-  box-shadow: 0 1px 3px #0002;
-}
-.settings-modal .learning-switch.enabled {
-  background: light-dark(#806397, #baadc4);
-}
-.settings-modal .learning-switch.enabled i {
-  transform: translateX(17px);
 }
 .settings-modal .memory-card {
   margin: 0;
@@ -316,9 +285,7 @@
   align-items: center;
   gap: 17px;
   padding: 23px 21px;
-  background: var(--settings-fill);
   border-radius: 14px;
-  color: light-dark(#564b60, #d3d0d6);
 }
 .settings-modal .settings-computer-title > div {
   flex: 1;
@@ -339,8 +306,6 @@
   display: block;
   margin: 0;
   padding: 0 19px;
-  border: 0;
-  background: var(--settings-fill);
   border-radius: 14px;
   font-size: calc(13px * var(--appearance-text-scale, 1));
 }
@@ -366,8 +331,6 @@
   overflow-wrap: anywhere;
 }
 .settings-modal .settings-maintenance {
-  border: 0;
-  background: var(--settings-fill);
   border-radius: 14px;
   margin: 0;
   padding: 0 19px;
@@ -377,17 +340,12 @@
   display: flex;
   align-items: center;
   gap: 13px;
-  min-height: 62px;
-  padding: 18px 0;
   border-radius: 0;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
-  color: light-dark(#2b2b2b, #e3e0e6);
 }
 .settings-modal .settings-maintenance button + button {
   border-top: 1px solid var(--settings-line);
 }
 .settings-modal .settings-maintenance button:hover {
-  background: light-dark(#f1ecf6, #222026);
   border-radius: 0;
 }
 .settings-modal .settings-maintenance button > svg:last-child {
@@ -402,8 +360,6 @@
   background: light-dark(#4b4b4b, #e0dbe6);
 }
 .settings-modal .about-app {
-  padding: 26px;
-  background: var(--settings-fill);
   border-radius: 14px;
 }
 .settings-modal .about-app .brand {
@@ -415,8 +371,6 @@
   color: light-dark(#666, #cecbd1);
 }
 .settings-modal .about-version {
-  font-size: calc(13px * var(--appearance-text-scale, 1));
-  color: light-dark(#8c8196, #c0bdc3);
   margin: 7px 0 0;
 }
 .settings-modal .command-rule {
@@ -437,7 +391,6 @@
   font: var(--weight-body) calc(13px * var(--appearance-text-scale, 1))/1.7 var(--font-code);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  color: light-dark(#4a4053, #d8d5db);
 }
 .settings-modal .command-rule-kind {
   display: flex;
@@ -450,19 +403,15 @@
   line-height: 1.5;
   padding: 3px 7px;
   border-radius: 5px;
-  background: light-dark(#eee7f4, #232127);
-  color: light-dark(#747474, #c9c6cc);
 }
 .settings-modal .command-rule-directory {
   margin-top: 13px;
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#92859c, #bebbc1);
   line-height: 1.7;
 }
 .settings-modal .command-rule-directory code {
   display: block;
   font: var(--weight-body) calc(13px * var(--appearance-text-scale, 1))/1.8 var(--font-code);
-  color: light-dark(#737373, #c9c6cc);
   overflow-wrap: anywhere;
   margin-top: 3px;
 }
@@ -516,9 +465,7 @@
 .settings-modal .integration-path {
   padding: 18px 19px;
   margin: 0 0 24px;
-  border: 0;
   border-radius: 14px;
-  background: var(--settings-fill);
   gap: 16px;
 }
 .settings-modal .integration-path > div {
@@ -570,8 +517,6 @@
 .settings-modal .settings-skill > summary > span {
   padding: 3px 7px;
   border-radius: 5px;
-  background: light-dark(#eee9f3, #232127);
-  color: light-dark(#8c8196, #c0bdc3);
   font-size: calc(12px * var(--appearance-text-scale, 1));
   white-space: nowrap;
 }
@@ -661,11 +606,8 @@
   color: light-dark(#92859c, #bebbc1);
 }
 .settings-modal .mcp-card {
-  padding: 21px;
   margin: 0 0 16px;
-  border: 0;
   border-radius: 14px;
-  background: var(--settings-fill);
 }
 .settings-modal .mcp-card header {
   gap: 12px;
@@ -692,8 +634,6 @@
 }
 .settings-modal .mcp-source span {
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#8d7e98, #c0bdc3);
-  background: light-dark(#eee9f3, #232127);
 }
 .settings-modal .mcp-endpoint {
   font-size: calc(12px * var(--appearance-text-scale, 1));
@@ -741,11 +681,6 @@
   .settings-modal .settings-sidebar {
     padding: 17px 10px;
   }
-  .settings-modal .settings-sidebar button {
-    padding: 11px 12px;
-    gap: 10px;
-    font-size: calc(13px * var(--appearance-text-scale, 1));
-  }
   .settings-modal .settings-heading {
     padding: 33px 22px 24px;
   }
@@ -785,12 +720,6 @@
 }
 .settings-modal .settings-sidebar button {
   position: relative;
-}
-.settings-modal .settings-sidebar button.active {
-  color: light-dark(#765590, #c3b3d0);
-}
-.settings-modal .settings-sidebar button.active svg {
-  color: light-dark(#9173aa, #c3b4cf);
 }
 .settings-modal .settings-sidebar button i {
   width: 4px;

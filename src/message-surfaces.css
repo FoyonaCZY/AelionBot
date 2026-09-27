@@ -12,8 +12,6 @@
 :root :is(.bubble, .group-message-bubble, .peer-bubble) .markdown {
   --message-line: light-dark(#e2dee8, #3e3945);
   --message-surface: light-dark(#faf9fc, #211f25);
-  --message-ink: light-dark(#393342, #dddae0);
-  --message-muted: light-dark(#7c7287, #c6c3c9);
   --message-link: light-dark(#755491, #c3b2d1);
   --message-link-line: light-dark(#c6b5d6, #3e3945);
   --message-inline: light-dark(#ffffffb3, #201e24b3);
@@ -21,7 +19,6 @@
 }
 :root :is(.bubble, .group-message-bubble, .peer-bubble) :is(h1, h2, h3) {
   font-weight: var(--weight-heading);
-  letter-spacing: -0.01em;
 }
 :root :is(.bubble, .group-message-bubble, .peer-bubble) h2 {
   font-size: 1.15em;
@@ -31,7 +28,6 @@
 }
 :root :is(.bubble, .group-message-bubble, .peer-bubble) blockquote {
   border-color: light-dark(#c5bacf, #3e3945);
-  color: light-dark(#817289, #c5c2c8);
 }
 :root :is(.bubble, .group-message-bubble, .peer-bubble) .message-code-block {
   border-color: light-dark(#e0dbe6, #3e3945);

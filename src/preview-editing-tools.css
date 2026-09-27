@@ -61,26 +61,12 @@
   font-size: 11px;
   padding: 4px 6px;
 }
-.fp-layer.is-immersive .fp-header {
-  height: calc(var(--fp-top-inset) + 36px);
-  min-height: 0;
-  padding-bottom: 0;
-}
 .fp-workbench-tools {
   position: absolute;
   left: 0;
   right: 0;
   top: calc(var(--fp-top-inset) + 36px);
   z-index: 10;
-}
-.fp-layer:not(:has(.web-preview)) .fp-workspace {
-  padding-top: calc(var(--fp-top-inset) + 70px);
-}
-.fp-layer:has(.web-preview) .fp-header {
-  height: calc(var(--fp-top-inset) + 36px);
-}
-.web-preview {
-  --web-top: calc(var(--fp-top-inset, 38px) + 22px);
 }
 .fp-layer .fp-header .fp-title {
   min-height: 28px;

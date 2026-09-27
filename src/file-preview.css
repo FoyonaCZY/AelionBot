@@ -11,18 +11,13 @@
   color-scheme: dark;
 }
 .fp-layer.is-docked {
-  top: 40px;
   right: 0;
   bottom: 0;
-  width: min(48vw, 680px);
   z-index: 40;
 }
 .fp-layer.is-studio {
-  position: absolute;
-  inset: 0;
   width: auto;
   height: auto;
-  z-index: 2;
 }
 .fp-layer.is-expanded {
   inset: 0;
@@ -407,8 +402,6 @@
   border-bottom: 1px solid #ffffff15;
   border-radius: 0;
   font-size: 12px;
-  background: transparent;
-  color: #e1e2e8;
 }
 .fp-page-total {
   font-size: 12px;

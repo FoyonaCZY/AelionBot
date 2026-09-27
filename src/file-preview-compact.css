@@ -1,17 +1,12 @@
 /* One shared row for file identity, format controls and preview actions. */
 .fp-layer {
   --fp-top-inset: 38px;
-  --fp-header-height: 40px;
-  --fp-tools-height: 44px;
-  --fp-chrome-height: calc(var(--fp-top-inset) + var(--fp-header-height) + var(--fp-tools-height));
 }
 .fp-layer.is-docked,
 .fp-layer.is-studio {
   --fp-top-inset: 0px;
 }
 .fp-layer.is-immersive .fp-header {
-  height: calc(var(--fp-top-inset) + 48px);
-  min-height: 0;
   padding: var(--fp-top-inset) 12px 0;
   gap: 10px;
   align-items: center;
@@ -22,7 +17,6 @@
   flex: 1 1 140px;
   min-width: 48px;
   max-width: none;
-  min-height: 30px;
   padding: 0 4px;
   border: 0;
   border-radius: 0;
@@ -51,7 +45,6 @@
 }
 .fp-layer .fp-header .fp-actions button {
   min-width: 28px;
-  min-height: 30px;
   padding: 5px;
   border-radius: 7px;
 }
@@ -84,7 +77,6 @@
   flex: 0 0 auto;
   gap: 6px;
   width: auto;
-  min-height: 30px;
   max-width: none;
   padding: 0;
   background: transparent;
@@ -103,7 +95,6 @@
 }
 .fp-layer .fp-header :is(.fp-toolbar, .fp-edit-toolbar) button {
   min-width: 26px;
-  min-height: 30px;
   padding: 5px;
   border-radius: 7px;
 }
@@ -125,9 +116,6 @@
 }
 .fp-layer .fp-header .fp-page-total {
   font-size: 11px;
-}
-.fp-layer:not(:has(.web-preview)) .fp-workspace {
-  padding-top: var(--fp-chrome-height);
 }
 .fp-layer:not(:has(.web-preview)) .fp-directory {
   padding-top: 12px;

@@ -295,7 +295,6 @@
 .settings-modal .provider-clear-key input {
   width: auto;
   margin: 0;
-  accent-color: light-dark(#222, #e6e3e9);
 }
 .bot-model-button {
   max-width: 220px;

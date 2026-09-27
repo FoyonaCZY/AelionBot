@@ -432,7 +432,6 @@
   line-height: 1.7;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  color: light-dark(#75757d, #c7c4ca);
 }
 .work-reason {
   flex-shrink: 0;

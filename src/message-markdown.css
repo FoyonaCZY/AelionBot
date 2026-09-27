@@ -22,9 +22,6 @@
 }
 :root .markdown :is(h1, h2, h3, h4, h5, h6) {
   margin: 1.5em 0 0.55em;
-  font-weight: var(--weight-heading);
-  line-height: 1.45;
-  letter-spacing: -0.015em;
   color: inherit;
 }
 :root .markdown h1 {
@@ -38,9 +35,6 @@
 }
 :root .markdown :is(h4, h5, h6) {
   font-size: 1em;
-}
-:root .markdown strong {
-  font-weight: var(--weight-label);
 }
 :root .markdown :is(ol, ul) {
   padding-left: 1.65em;
@@ -105,8 +99,6 @@
   border-radius: 2px;
 }
 :root .markdown :not(pre) > code {
-  font-family: var(--font-code);
-  font-size: 0.88em;
   padding: 0.14em 0.35em;
   border-radius: 4px;
   background: var(--message-inline);
@@ -241,7 +233,6 @@
   white-space: inherit;
   overflow-wrap: normal;
   word-break: normal;
-  font-variant-ligatures: none;
 }
 .message-code-block .hljs-comment,
 .message-code-block .hljs-quote {
