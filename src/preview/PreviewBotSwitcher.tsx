@@ -1,6 +1,7 @@
 import type { Bot } from '../../shared/types/core';
 import type { GroupSummary } from '../../shared/types/group-types';
-import { Avatar, Icon } from '../ui';
+import { Avatar } from '../ui/Avatar';
+import { Icon } from '../ui/Icon';
 import { PreviewPicker } from './PreviewPicker';
 import { useI18n } from '../i18n';
 export function PreviewBotSwitcher({

@@ -3,28 +3,21 @@ import studioFacade from './designer-facade.png';
 import { DesignerProgress } from './DesignerProgress';
 import { DesignFontsPanel } from './DesignFontsPanel';
 import { designFailureText, designConversationMessages, designMessageTimeline } from './designer-feedback';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Bot, Snapshot } from '../../shared/types/core';
-import type {
-  DesignComment,
-  DesignFinding,
-  DesignPluginSummary,
-  DesignSession,
-  DesignSystemSummary,
-  DesignTaskKind,
-} from '../../shared/types/designer-types';
+import type { DesignTaskKind } from '../../shared/types/designer-types';
 import { DESIGN_TASK_KINDS } from '../../shared/types/designer-types';
-import { designPluginCopy, designPluginTriggerLabel, filterDesignPlugins } from './designer-plugin-copy';
+import { designPluginCopy, designPluginTriggerLabel } from './designer-plugin-copy';
 import {
   emptyCanvasHtml,
   pickDesignPreviewFiles,
   designPreviewSignature,
-  primaryDesignArtifact as primaryArtifact,
   type DesignWorkspaceFile,
 } from '../../shared/preview/designer-canvas';
-import { Avatar, Icon, Message } from '../ui';
-import { PreviewIcon } from '../preview/FilePreview';
+import { Avatar } from '../ui/Avatar';
+import { Icon } from '../ui/Icon';
+import { Message } from '../ui/Message';
+import { ipcErrorText } from '../ui/ipc-error';
 import { PreviewPicker } from '../preview/PreviewPicker';
 import { BotComposer, type ComposerDraft } from '../chat/BotComposer';
 import { workspaceKey } from '../../shared/types/work-types';
@@ -33,6 +26,10 @@ import { useFilePreview } from '../preview/FilePreviewContext';
 import { workspacePreviewItem } from '../preview/workspace-preview';
 import { useI18n } from '../i18n';
 import { ConversationInteractions } from '../chat/InteractionPrompts';
+import { DesignSystemPicker } from './DesignSystemPicker';
+import { DesignPluginPicker } from './DesignPluginPicker';
+import { DesignerTaskCard } from './DesignerTaskCard';
+import { DesignerDelivery } from './DesignerDelivery';
 import './designer-workspace.css';
 import './designer-bauhaus.css';
 import './designer-preview.css';
@@ -45,287 +42,6 @@ const lastDesign = (botId: string) => {
     return '';
   }
 };
-const cleanError = (error: unknown) =>
-  (error as Error).message.replace(/^Error invoking remote method '[^']+': Error: /, '');
-function DesignSystemPicker({
-  systems,
-  value,
-  onSelect,
-  onClose,
-  onImport,
-}: {
-  systems: DesignSystemSummary[];
-  value: string | null;
-  onSelect: (id: string | null) => void;
-  onClose: () => void;
-  onImport?: () => Promise<void>;
-}) {
-  const { language } = useI18n(),
-    en = language === 'en';
-  const [query, setQuery] = useState(''),
-    [category, setCategory] = useState(''),
-    [selected, setSelected] = useState(value),
-    [importing, setImporting] = useState(false),
-    [importError, setImportError] = useState('');
-  // The catalog already carries 20+ categories; without facets the only way through 150+ packages is scrolling.
-  const categories = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const item of systems) if (item.category) counts.set(item.category, (counts.get(item.category) || 0) + 1);
-    return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  }, [systems]);
-  const list = useMemo(
-    () =>
-      systems.filter(
-        (s) =>
-          (!category || s.category === category) &&
-          (s.name + ' ' + s.category + ' ' + s.description + (s.origin === 'custom' ? ' custom local' : ''))
-            .toLowerCase()
-            .includes(query.toLowerCase()),
-      ),
-    [systems, query, category],
-  );
-  useEffect(() => {
-    const close = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopImmediatePropagation();
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', close, true);
-    return () => window.removeEventListener('keydown', close, true);
-  }, [onClose]);
-  return createPortal(
-    <div
-      className="modal-backdrop designer-system-backdrop"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label={en ? 'Design systems' : '设计系统'}
-        className="designer-system-dialog"
-      >
-        <header>
-          <div>
-            <h2>{en ? 'Choose a design system' : '选择设计系统'}</h2>
-          </div>
-          <button className="icon-button" aria-label={en ? 'Close' : '关闭'} onClick={onClose}>
-            <Icon name="close" />
-          </button>
-        </header>
-        <div className="designer-system-search">
-          <Icon name="search" size={17} />
-          <input
-            autoFocus
-            aria-label={en ? 'Search design systems' : '搜索设计系统'}
-            placeholder={en ? 'Name, style or category' : '名称、风格或分类'}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
-        <div className="designer-system-facets" role="group" aria-label={en ? 'Filter by category' : '按分类筛选'}>
-          <button
-            type="button"
-            aria-pressed={!category}
-            className={category ? '' : 'selected'}
-            onClick={() => setCategory('')}
-          >
-            {en ? 'All' : '全部'}
-            <em>{systems.length}</em>
-          </button>
-          {categories.map(([name, count]) => (
-            <button
-              type="button"
-              key={name}
-              aria-pressed={category === name}
-              className={category === name ? 'selected' : ''}
-              onClick={() => setCategory(category === name ? '' : name)}
-            >
-              {name}
-              <em>{count}</em>
-            </button>
-          ))}
-        </div>
-        <div className="designer-system-grid">
-          <button
-            className={`designer-system-card ${selected === null ? 'selected' : ''}`}
-            onClick={() => setSelected(null)}
-            aria-pressed={selected === null}
-          >
-            <div className="designer-system-specimen is-neutral">Aa.</div>
-            <strong>{en ? 'Unspecified' : '未指定'}</strong>
-          </button>
-          {list.map((s) => (
-            <button
-              key={s.id}
-              className={`designer-system-card ${selected === s.id ? 'selected' : ''}`}
-              aria-pressed={selected === s.id}
-              onClick={() => setSelected(s.id)}
-            >
-              <div className="designer-system-specimen" style={s.display ? { fontFamily: s.display } : undefined}>
-                <span>Aa.</span>
-                <div>
-                  {s.colors.map((color, i) => (
-                    <i key={i} style={{ backgroundColor: /^#[0-9a-f]{6}$/i.test(color) ? color : undefined }} />
-                  ))}
-                </div>
-              </div>
-              <strong>
-                {s.name}
-                {s.origin === 'custom' && <em className="designer-system-origin">{en ? 'Local' : '本机'}</em>}
-              </strong>
-              <small className="designer-system-description">
-                <span>{s.description || s.category}</span>
-              </small>
-            </button>
-          ))}
-          {!list.length && (
-            <p className="designer-plugin-empty">{en ? 'No matching design system' : '没有匹配的设计系统'}</p>
-          )}
-        </div>
-        <footer>
-          {onImport && (
-            <button
-              type="button"
-              className="designer-import-system"
-              disabled={importing}
-              onClick={() => {
-                setImportError('');
-                setImporting(true);
-                void onImport()
-                  .catch((error) => setImportError(cleanError(error)))
-                  .finally(() => setImporting(false));
-              }}
-            >
-              {importing ? (en ? 'Importing…' : '正在导入…') : en ? 'Import DESIGN.md folder' : '导入 DESIGN.md 文件夹'}
-            </button>
-          )}
-          <button className="primary-button" onClick={() => onSelect(selected)}>
-            {en ? 'Apply' : '应用'}
-          </button>
-        </footer>
-        {importError && (
-          <p className="designer-error" role="alert">
-            {importError}
-          </p>
-        )}
-      </section>
-    </div>,
-    document.body,
-  );
-}
-function DesignPluginPicker({
-  plugins,
-  selected,
-  onChange,
-  onClose,
-}: {
-  plugins: DesignPluginSummary[];
-  selected: string[];
-  onChange: (ids: string[]) => void;
-  onClose: () => void;
-}) {
-  const { language } = useI18n(),
-    en = language === 'en';
-  const [query, setQuery] = useState('');
-  const list = useMemo(() => filterDesignPlugins(plugins, query, en), [plugins, query, en]);
-  useEffect(() => {
-    const close = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopImmediatePropagation();
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', close, true);
-    return () => window.removeEventListener('keydown', close, true);
-  }, [onClose]);
-  const toggle = (id: string) =>
-    onChange(selected.includes(id) ? selected.filter((value) => value !== id) : [...selected, id]);
-  return createPortal(
-    <div
-      className="modal-backdrop designer-system-backdrop"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label={en ? 'Optional checks' : '可选检查'}
-        className="designer-system-dialog designer-plugin-dialog"
-      >
-        <header>
-          <div>
-            <h2>{en ? 'Optional checks' : '可选检查'}</h2>
-          </div>
-          <button className="icon-button" aria-label={en ? 'Close' : '关闭'} onClick={onClose}>
-            <Icon name="close" />
-          </button>
-        </header>
-        <div className="designer-system-search">
-          <Icon name="search" size={17} />
-          <input
-            autoFocus
-            aria-label={en ? 'Search checks' : '搜索检查'}
-            placeholder={en ? 'Name or purpose' : '名称或用途'}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
-        <div className="designer-plugin-list">
-          {list.map((plugin) => {
-            const copy = designPluginCopy(plugin, en),
-              on = selected.includes(plugin.id);
-            return (
-              <button
-                type="button"
-                key={plugin.id}
-                className={`designer-plugin-row ${on ? 'selected' : ''}`}
-                aria-pressed={on}
-                onClick={() => toggle(plugin.id)}
-              >
-                <span className="designer-plugin-check" aria-hidden="true">
-                  {on ? '✓' : ''}
-                </span>
-                <span>
-                  <strong>{copy.name}</strong>
-                  <small>{copy.description}</small>
-                </span>
-              </button>
-            );
-          })}
-          {!list.length && <p className="designer-plugin-empty">{en ? 'No matching checks' : '没有匹配的检查'}</p>}
-        </div>
-        <footer>
-          <button
-            type="button"
-            className="designer-import-system"
-            disabled={!selected.length}
-            onClick={() => onChange([])}
-          >
-            {en ? 'Clear selection' : '全部取消'}
-          </button>
-          <button className="primary-button" onClick={onClose}>
-            {en ? 'Done' : '完成'}
-          </button>
-        </footer>
-      </section>
-    </div>,
-    document.body,
-  );
-}
-const statusLabel = (session: DesignSession, en: boolean) =>
-  ({
-    draft: en ? 'Ready to start' : '待开始',
-    running: en ? 'Designing' : '正在设计',
-    'awaiting-input': en ? 'Needs your input' : '等待补充',
-    review: en ? 'Ready for review' : '待确认',
-    completed: en ? 'Accepted' : '已确认',
-    paused: en ? 'Paused' : '已暂停',
-    failed: en ? 'Needs attention' : '需要处理',
-  })[session.status];
 const kindLabel = (kind: DesignTaskKind, en: boolean) =>
   ({
     prototype: en ? 'Prototype' : '原型设计',
@@ -333,14 +49,6 @@ const kindLabel = (kind: DesignTaskKind, en: boolean) =>
     clone: en ? 'Site clone' : '网站复刻',
     mobile: en ? 'Mobile' : '移动端',
     document: en ? 'Document' : '多页文档',
-  })[kind];
-const kindCardLabel = (kind: DesignTaskKind, en: boolean) =>
-  ({
-    prototype: en ? 'Prototype' : '原型',
-    ppt: 'PPT',
-    clone: en ? 'Clone' : '网站复刻',
-    mobile: en ? 'Mobile' : '移动端',
-    document: en ? 'Doc' : '文档',
   })[kind];
 const KIND_ICONS: Record<DesignTaskKind, ReactNode> = {
   prototype: (
@@ -374,203 +82,6 @@ const KIND_ICONS: Record<DesignTaskKind, ReactNode> = {
     </>
   ),
 };
-export function DesignerTaskCard({ session, onOpen }: { session: DesignSession; onOpen?: (id: string) => void }) {
-  const { language } = useI18n(),
-    en = language === 'en';
-  return (
-    <button
-      type="button"
-      className="designer-task-card"
-      onClick={() =>
-        onOpen
-          ? onOpen(session.id)
-          : window.dispatchEvent(new CustomEvent('aelion-design-task', { detail: { id: session.id } }))
-      }
-    >
-      <span className="designer-task-symbol">
-        <PreviewIcon
-          name={
-            session.kind === 'ppt'
-              ? 'pages'
-              : session.kind === 'mobile'
-                ? 'phone'
-                : session.kind === 'document'
-                  ? 'pages'
-                  : session.kind === 'clone'
-                    ? 'desktop'
-                    : 'code'
-          }
-        />
-      </span>
-      <span>
-        <strong>{session.title}</strong>
-        <small>
-          {kindCardLabel(session.kind, en)} · {statusLabel(session, en)}
-        </small>
-      </span>
-      <PreviewIcon name="right" />
-    </button>
-  );
-}
-/**
- * Deliverables, checks and the accept action, kept out of the conversation scroll so they stay
- * reachable however long the thread grows. Compact by default; the detail list is opt-in.
- */
-function DesignerDelivery({
-  task,
-  en,
-  findings,
-  blocking,
-  comments,
-  busy,
-  onShow,
-  onAccept,
-}: {
-  task: DesignSession;
-  en: boolean;
-  findings: Array<DesignFinding & { path: string }>;
-  blocking: number;
-  comments: DesignComment[];
-  busy: boolean;
-  onShow: (index?: number) => void;
-  onAccept: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const primary = task.artifacts.find((artifact) => primaryArtifact(task.kind, artifact.path)) || task.artifacts[0];
-  const details = task.artifacts.length + comments.length + findings.length + task.checks.length;
-  const accepted = task.status === 'completed';
-  const formatCheck = task.checks.find((check) => check.id === 'format');
-  const canAccept = Boolean(primary && formatCheck?.status === 'passed');
-  const issues = blocking + findings.filter((f) => f.level === 'P1').length;
-  const checkLabel = issues
-    ? en
-      ? `${issues} issues`
-      : `${issues} 项问题`
-    : formatCheck?.status === 'passed'
-      ? en
-        ? 'Checked'
-        : '检查通过'
-      : formatCheck?.status === 'failed'
-        ? en
-          ? 'Check failed'
-          : '检查未通过'
-        : '';
-  if (!details && !accepted) return null;
-  return (
-    <section className="designer-delivery-bar" aria-label={en ? 'Deliverables' : '交付成果'}>
-      <div className="designer-delivery-row">
-        {primary ? (
-          <button
-            type="button"
-            className="designer-delivery-primary"
-            onClick={() => onShow(Math.max(0, task.artifacts.indexOf(primary)))}
-            title={primary.name}
-          >
-            <span className="designer-delivery-file-icon">
-              <PreviewIcon name={primary.kind === 'pptx' || primary.kind === 'pdf' ? 'pages' : 'code'} />
-            </span>
-            <span>{primary.name}</span>
-            {task.artifacts.length > 1 && <small>+{task.artifacts.length - 1}</small>}
-          </button>
-        ) : (
-          <span className="designer-delivery-label">
-            <Icon name="check" size={15} />
-            {en ? 'Review' : '检查'}
-          </span>
-        )}
-        <div className="designer-delivery-actions">
-          {details > 0 && (
-            <button
-              type="button"
-              className="designer-delivery-toggle"
-              title={checkLabel || undefined}
-              aria-expanded={open}
-              aria-controls={'design-details-' + task.id}
-              onClick={() => setOpen((value) => !value)}
-            >
-              {checkLabel && (
-                <span
-                  className="designer-delivery-check"
-                  data-warning={issues > 0 || formatCheck?.status === 'failed' || undefined}
-                  title={checkLabel}
-                >
-                  <Icon name={issues > 0 || formatCheck?.status === 'failed' ? 'alert' : 'check'} size={14} />
-                  {issues > 0 && <b>{issues}</b>}
-                </span>
-              )}
-              <span>{en ? 'Details' : '详情'}</span>
-              <Icon name="down" size={12} />
-            </button>
-          )}
-          {(primary || accepted) && (
-            <button
-              type="button"
-              className="designer-accept"
-              disabled={busy || accepted || !canAccept}
-              data-accepted={accepted || undefined}
-              title={
-                !canAccept && !accepted ? (en ? 'Complete the file check first' : '文件检查通过后可确认') : undefined
-              }
-              onClick={onAccept}
-            >
-              <Icon name="check" size={14} />
-              {accepted ? (en ? 'Accepted' : '已确认') : en ? 'Accept' : '确认完成'}
-            </button>
-          )}
-        </div>
-      </div>
-      {open && (
-        <div className="designer-delivery-details" id={'design-details-' + task.id}>
-          {task.artifacts.map((artifact, index) => (
-            <button
-              key={artifact.path}
-              className="designer-artifact"
-              title={artifact.name}
-              onClick={() => onShow(index)}
-            >
-              <PreviewIcon name={artifact.kind === 'pptx' || artifact.kind === 'pdf' ? 'pages' : 'code'} />
-              <span>{artifact.name}</span>
-              <small>{Math.ceil(artifact.bytes / 1024)} KB</small>
-              <PreviewIcon name="right" />
-            </button>
-          ))}
-          {comments.length > 0 && (
-            <ul className="designer-comments">
-              {comments.map((comment) => (
-                <li key={comment.id}>
-                  <strong>{comment.designId ? `#${comment.designId}` : comment.path}</strong>
-                  <span>{comment.text}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          {task.checks.length > 0 && (
-            <div className="designer-checks">
-              {task.checks.map((check) => (
-                <span key={check.id} data-status={check.status}>
-                  {check.status === 'passed' ? '✓' : check.status === 'failed' ? '!' : '○'} {check.label}
-                </span>
-              ))}
-            </div>
-          )}
-          {findings.length > 0 && (
-            <ul className="designer-findings">
-              {findings.slice(0, 12).map((finding) => (
-                <li key={finding.path + finding.id} data-level={finding.level}>
-                  <span className="designer-finding-level">{finding.level}</span>
-                  <span className="designer-finding-body">
-                    <strong>{finding.message}</strong>
-                    <small>{finding.hint}</small>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-    </section>
-  );
-}
 export function DesignerWorkspace({
   bot,
   state,
@@ -727,7 +238,7 @@ export function DesignerWorkspace({
     try {
       await action();
     } catch (error) {
-      setError(cleanError(error));
+      setError(ipcErrorText(error));
     } finally {
       actionLock.current = false;
       setBusy(false);
@@ -859,7 +370,7 @@ export function DesignerWorkspace({
     void window.aelion
       .listDesignWorkspace(task.id)
       .then(setWorkspaceFiles)
-      .catch((cause) => setError(cleanError(cause)));
+      .catch((cause) => setError(ipcErrorText(cause)));
   };
   const pluginNames = pluginIds.map(
     (id) => designPluginCopy(plugins.find((plugin) => plugin.id === id) || { id, name: id, description: '' }, en).name,

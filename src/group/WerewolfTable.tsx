@@ -1,7 +1,7 @@
 import { GamePhaseStatus, electionLabel } from './GamePhaseStatus';
 import { GameDiagnostics } from './GameDiagnostics';
 import { useEffect, useRef, useState } from 'react';
-import { Avatar } from '../ui';
+import { Avatar } from '../ui/Avatar';
 import type { GameView, GameAction } from '../../shared/types/game-types';
 import { ROLE_NAMES as roles } from '../../shared/games/game-boards';
 import { GameActionControls } from './GameActionControls';

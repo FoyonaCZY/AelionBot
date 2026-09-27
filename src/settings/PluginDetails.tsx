@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Bot, McpServerView, Skill } from '../../shared/types/core';
-import { Avatar, Icon } from '../ui';
+import { Avatar } from '../ui/Avatar';
+import { Icon } from '../ui/Icon';
 import { useI18n } from '../i18n';
 import Markdown from '../chat/MessageMarkdown';
 import { SkillControls } from './IntegrationSettings';

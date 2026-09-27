@@ -1,5 +1,5 @@
 import type { CommandPermissionRule } from '../../shared/types/core';
-import { Icon } from '../ui';
+import { Icon } from '../ui/Icon';
 import { SettingsEmpty, SettingsSection } from './SettingsWindow';
 import { useI18n } from '../i18n';
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Bot, VmState } from '../../shared/types/core';
 import { ComputerStatus } from './ComputerSetup';
-import { Icon } from '../ui';
+import { Icon } from '../ui/Icon';
 import { useI18n } from '../i18n';
 import './computer-panel.css';
 

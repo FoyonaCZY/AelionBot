@@ -1,7 +1,7 @@
 import { Select } from '../ui/Select';
 import { useState } from 'react';
 import type { IntegrationSource, Skill } from '../../shared/types/core';
-import { Icon } from '../ui';
+import { Icon } from '../ui/Icon';
 import { useI18n } from '../i18n';
 import './mcp-snippet.css';
 

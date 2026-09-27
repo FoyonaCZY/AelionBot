@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { Bot } from '../../shared/types/core';
 import { waitingExplanation, type LiveBotProgress } from '../app/live-bot-progress';
-import { Avatar, Icon } from '../ui';
+import { Avatar } from '../ui/Avatar';
+import { Icon } from '../ui/Icon';
 import { useI18n } from '../i18n';
 import './bot-working-status.css';
 

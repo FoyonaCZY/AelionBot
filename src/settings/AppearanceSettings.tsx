@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Select } from '../ui/Select';
-import { Icon } from '../ui';
+import { Icon } from '../ui/Icon';
 import {
   DEFAULT_APPEARANCE,
   normalizeAppearance,

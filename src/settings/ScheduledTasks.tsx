@@ -1,7 +1,8 @@
 import { Select } from '../ui/Select';
 import { Combobox } from '../ui/Combobox';
 import { useEffect, useRef, useState } from 'react';
-import { Avatar, Icon } from '../ui';
+import { Avatar } from '../ui/Avatar';
+import { Icon } from '../ui/Icon';
 import {
   localDateParts,
   nextTaskTime,

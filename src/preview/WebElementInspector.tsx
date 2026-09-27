@@ -6,7 +6,7 @@ import type {
   PreviewTreeNode,
 } from '../../shared/types/preview-editor-types';
 import { PreviewPicker } from './PreviewPicker';
-import { PreviewIcon } from './FilePreview';
+import { PreviewIcon } from './PreviewIcon';
 import { useI18n } from '../i18n';
 import './web-element-inspector.css';
 type Command = (command: EditorCommand) => Promise<EditorResult>;

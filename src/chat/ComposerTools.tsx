@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { AttachmentScope } from '../../shared/types/attachment-types';
 import { AttachmentIcon } from '../files/Attachments';
-import { Icon } from '../ui';
+import { Icon } from '../ui/Icon';
 import { CompanionGlyph } from '../bots/CompanionCard';
 import { useI18n } from '../i18n';
 import type { WorkMode } from '../../shared/types/work-types';

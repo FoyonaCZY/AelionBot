@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import Markdown from './MessageMarkdown';
 import type { ChatMessage } from '../../shared/types/core';
 import { toolResult, toolDisplay, toolOperation } from '../../shared/chat/activity';
-import { Icon, bytes } from '../ui';
+import { Icon } from '../ui/Icon';
+import { bytes } from '../ui/format';
 import {
   arrayValue,
   cleanConsole,
