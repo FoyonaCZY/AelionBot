@@ -1,5 +1,5 @@
 import { GroupGames } from './GroupGames';
-import { DesignerTaskCard } from '../designer/DesignerWorkspace';
+import { DesignerTaskCard } from '../designer/DesignerTaskCard';
 import { usePreviewWorkbench } from '../preview/PreviewWorkbench';
 import { LiveWorkStrip } from '../chat/LiveWorkStrip';
 import { previewFeedbackDisplay } from '../../shared/preview/preview-feedback';

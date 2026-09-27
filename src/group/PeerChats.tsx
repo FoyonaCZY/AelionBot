@@ -1,4 +1,4 @@
-import { DesignerTaskCard } from '../designer/DesignerWorkspace';
+import { DesignerTaskCard } from '../designer/DesignerTaskCard';
 import type { DesignerSnapshot } from '../../shared/types/designer-types';
 import { PreviewScopeProvider } from '../preview/FilePreviewContext';
 import { MessageTime } from '../chat/ConversationTime';
