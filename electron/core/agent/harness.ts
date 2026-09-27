@@ -20,17 +20,14 @@ import { WorkItems, PLANNING_TOOLS } from './work-items';
 import { effectiveWorkspace } from '../storage/workspaces';
 import { RunPolicy } from './runtime-policy';
 import { validateToolArguments } from '../tools/tool-schema';
-import { readPipeline, READ_TOOLS } from '../tools/tool-pipeline';
+import { READ_TOOLS } from '../tools/tool-pipeline';
 import { isExclusiveTool, runConcurrentTools, writeLockPaths } from '../tools/tool-concurrency';
-import { expectedHash, toolFailure } from '../tools/file-text';
-import { readToolResult } from '../tools/tool-results';
+import { toolFailure } from '../tools/file-text';
 import { toolResultEnvelope, toolResultLimit, readPageLimit } from '../tools/tool-output';
-import { readVmFile, patchVmFile, VM_WRITE } from '../vm/vm-files';
+import { readVmFile } from '../vm/vm-files';
 import { BackgroundProcesses } from '../tools/background-processes';
 import { FileCheckpoints } from '../tools/file-checkpoints';
 import { PythonSessions } from '../tools/python-sessions';
-import { vmPython } from '../vm/vm-python';
-import { delegationContract, delegationStatus, recordDelegationReceipt } from '../peer/delegation';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Bot, WireMessage, RunRecord } from '../../../shared/types/core';
@@ -42,7 +39,7 @@ import { CognitiveStore } from '../memory/cognitive-store';
 import { ContextEngine, type CompactionResult, type FileRestorer } from '../context/context-engine';
 import { compactedContextOverview } from '../context/context-overview';
 import { VmController } from '../vm/vm';
-import { ComputerController, type ComputerInput, type ComputerResult } from '../vm/computer';
+import { ComputerController, type ComputerResult } from '../vm/computer';
 import type { Integrations } from '../extensions/integrations';
 import { describeTool, readableContent } from '../../../shared/chat/activity';
 import { projectConventions } from './project-conventions';
@@ -60,31 +57,28 @@ import { groupMainContext } from '../group/group-context';
 import { isGroupWorkTool } from '../../../shared/types/group-types';
 import { groupHistory, prepareGroupContext } from '../group/group-history';
 import { groupProtocolTool } from '../group/group-protocol-tools';
-import { pinChat } from './chat-pins';
 import { chatInputText, validateChatInput } from './chat-input';
 import { ReplyStreams, type StreamTarget } from './reply-streams';
 import { skillCatalog } from '../extensions/skill-catalog';
-import { searchSkills } from '../extensions/skill-library';
 import { Attachments } from '../attachments/attachments';
 import { hiddenClientTools, hostedGeneratedImages } from '../tools/hosted-tools';
-import { generateModelImage, storeImageRoutes } from '../image/image-generation';
-import { imageFileName, imageJobFromArgs, imageReferences } from '../image/image-tool';
 import { ContentPolicyError, quarantinePolicyContext } from '../model/model-content-policy';
 import { CodeOrchestrator } from '../tools/code-orchestrator';
 import { TerminalSessions } from '../tools/terminal-sessions';
 import { WebTools } from '../tools/web-tools';
-import { discoverTools } from '../tools/tool-discovery';
-import { applyHostPatch, applyVmPatch, parsePatch } from '../tools/multi-patch';
-import { boundedInteger } from '../tools/file-text';
 import { attachmentSummary } from '../../../shared/types/attachment-types';
 import { abortable } from '../app/abortable';
-import { type PinInput } from '../../../shared/chat/reactions';
 import type { BotMention } from '../../../shared/types/peer-types';
 import { peerPending, isPrivatePeerOrigin } from '../../../shared/types/peer-types';
-import { assertMemoryOwner, delegatedMemory, humanRunSource, memoryRoute } from '../memory/memory-routing';
+import { delegatedMemory, humanRunSource, memoryRoute } from '../memory/memory-routing';
 import { TOOLS } from './tools';
+import { workspacePath } from './tools/validation';
+import { GroupUpdated, InputUpdated } from './run-updates';
+import { dispatchTool } from './tools/handlers';
+import type { ToolDeps } from './tools/context';
 
 export { TOOLS };
+export { safeRelativePath, workspacePath } from './tools/validation';
 
 const HEADLESS_HIDDEN_TOOLS = new Set([
   'computer',
@@ -179,47 +173,11 @@ function reactionOnlyRun(store: Store, run: RunRecord) {
   }
   return true;
 }
-class GroupUpdated extends Error {
-  constructor() {
-    super('有新的群发事件，已保留执行结果并重新接收消息');
-  }
-}
-class InputUpdated extends Error {
-  constructor() {
-    super('已收到用户的新输入，旧生成已取消，执行结果已保留');
-  }
-}
 interface ActiveRuntime {
   runId: string;
   updated: boolean;
   updateKind?: 'group' | 'input';
   inference?: AbortController;
-}
-export function safeRelativePath(value: string) {
-  if (
-    !value ||
-    value.length > 500 ||
-    value.startsWith('/') ||
-    value.includes('\\') ||
-    /^[a-z]:/i.test(value) ||
-    value.split('/').includes('..') ||
-    value.includes('\0')
-  )
-    throw new Error('路径必须位于当前 Bot 的工作目录内');
-  return value;
-}
-export function workspacePath(value: string, botId: string) {
-  const prefix = `/work/${botId}/`;
-  return safeRelativePath(value.startsWith(prefix) ? value.slice(prefix.length) : value);
-}
-function requiredText(args: Record<string, unknown>, key: string, max: number) {
-  const value = args[key];
-  if (typeof value !== 'string' || !value.trim() || value.length > max) throw new Error(`无效参数：${key}`);
-  return value;
-}
-function memorySafe(value: string) {
-  if (/(?:sk-[a-zA-Z0-9_-]{12,}|ghp_[a-zA-Z0-9]{15,}|BEGIN [A-Z ]*PRIVATE KEY)/.test(value))
-    throw new Error('记忆和技能不能保存凭据');
 }
 export function compactBoundary(messages: WireMessage[]) {
   let at = Math.max(0, messages.length - 8);
@@ -2167,585 +2125,38 @@ export class Harness {
     // A default page must fit the inline tool-result budget, or its middle would be elided.
     if (['file_read', 'host_file_read', 'read_result'].includes(name) && args.maxChars === undefined)
       args = { ...args, maxChars: readPageLimit(this.store.modelFor(bot.id).contextTokens) };
-    if (name === 'open_preview') {
-      if (!this.previews) throw Error('应用预览服务尚未就绪');
-      return this.previews.open(bot.id, runId, args, signal);
-    }
-    if (name === 'terminal_start') return this.terminals.start(bot.id, runId, args, signal, workspace);
-    if (name === 'terminal_input') return this.terminals.input(bot.id, runId, args, signal);
-    if (name === 'terminal_read')
-      return this.terminals.read(
-        bot.id,
-        requiredText(args, 'id', 100),
-        signal,
-        boundedInteger(args.waitMs, 1000, 0, 30000, 'waitMs'),
-        boundedInteger(args.offset, 0, 0, Number.MAX_SAFE_INTEGER, 'offset'),
-      );
-    if (name === 'terminal_stop') return this.terminals.stop(bot.id, requiredText(args, 'id', 100), signal);
-    if (name === 'apply_patch') {
-      if (args.location === 'vm') {
-        const checkpoints = [];
-        for (const file of parsePatch(args.patch))
-          for (const path of [file.path, ...(file.moveTo ? [file.moveTo] : [])])
-            checkpoints.push(await this.fileCheckpoints.vmBefore(bot.id, runId, path, signal));
-        const result = await applyVmPatch(this.vm, bot.id, args, signal);
-        for (const record of checkpoints)
-          if (record) {
-            const file = result.files.find((file: any) => file.path === record.path);
-            if (file) this.fileCheckpoints.vmReceipt(record, file.sha256);
-          }
-        return result;
-      }
-      if (!this.host || !this.interactions) throw Error('本机文件工具不可用');
-      return applyHostPatch(this.host, this.interactions, bot.id, runId, args, signal, workspace);
-    }
-    if (name === 'view_image') {
-      if (!this.host) throw Error('本机图像工具不可用');
-      return this.host.viewImage(bot.id, runId, args, signal, workspace);
-    }
-    if (name === 'generate_image') {
-      const access = this.imageModel?.(bot.id);
-      if (!access) throw Error('这个 Bot 没有配置生图模型');
-      const job = imageJobFromArgs(args, access.config, (ids) =>
-        imageReferences(this.attachments.forBot(bot.id, ids), (id) => this.attachments.bytes(id)),
-      );
-      const { bytes, mediaType, protocol } = await generateModelImage({
-        model: this.model,
-        config: access.config,
-        key: access.key,
-        job,
-        signal,
-        botId: bot.id,
-        runId,
-        routes: storeImageRoutes(this.store),
-      });
-      const file = this.attachments.importForBot(bot.id, imageFileName(args.filename, mediaType), bytes);
-      const run = this.store.data.runs.find((item) => item.id === runId && item.botId === bot.id);
-      if (run)
-        run.attachments = this.attachments.forBot(bot.id, [
-          ...new Set([...(run.attachments || []), file].map((item) => item.id)),
-        ]);
-      return {
-        attachmentId: file.id,
-        name: file.name,
-        bytes: file.size,
-        mediaType,
-        protocol,
-        ...(job.aspect ? { aspect: job.aspect } : {}),
-      };
-    }
-    if (name === 'web_search') return this.web.search(bot.id, args, signal);
-    if (name === 'web_read') return this.web.read(bot.id, args, signal);
-    if (name === 'tool_search')
-      return discoverTools(args, this.callableTools.get(runId) || [], this.integrations?.mcp, signal);
-    if (name === 'request_user_input') {
-      if (!this.interactions) throw Error('用户交互尚未就绪');
-      return this.interactions.ask(bot.id, runId, args.questions, signal, args.wait === true);
-    }
-    if (name === 'user_input_wait') {
-      if (!this.interactions) throw Error('用户交互尚未就绪');
-      return this.interactions.waitQuestion(
-        bot.id,
-        requiredText(args, 'id', 100),
-        signal,
-        boundedInteger(args.waitMs, 10000, 0, 30000, 'waitMs'),
-      );
-    }
-    if (name === 'code_exec')
-      return this.code.run(
-        args,
-        (this.callableTools.get(runId) || []).map((tool) => tool.function.name).filter((name) => name !== 'code_exec'),
-        signal,
-        (name, args, signal) => this.invokeNested(bot, name, args, signal, runId, options),
-      );
-    if (name === 'python_session') {
-      if (args.action === 'start') return this.pythonSessions.start(bot.id, runId, signal);
-      const id = requiredText(args, 'id', 100);
-      if (args.action === 'execute') return this.pythonSessions.execute(bot.id, runId, args, signal);
-      if (args.action === 'poll')
-        return this.pythonSessions.poll(
-          bot.id,
-          id,
-          requiredText(args, 'requestId', 100),
-          signal,
-          args.waitMs === undefined ? 10000 : Number(args.waitMs),
-        );
-      if (args.action === 'reset') return this.pythonSessions.reset(bot.id, id, runId, signal);
-      throw Error('无效 Python 会话操作');
-    }
-    if (name === 'bot_delegate_task') {
-      if (!this.peers) throw Error('私聊尚未启用');
-      const task = delegationContract(args);
-      return this.peers.send(
-        bot.id,
-        runId,
-        {
-          botId: args.botId,
-          task,
-          message: `协作任务：${task.goal}\n验收条件：${task.acceptance.join('；')}\n预期成果：${task.expectedOutput}\n请自行决定是否接下；需要执行时先 start_main_task，完成或受阻后提交 delegation_receipt，再回复。`,
-        },
-        signal,
-        options,
-      );
-    }
-    if (name === 'delegation_status') return delegationStatus(this.store, bot.id, requiredText(args, 'id', 100));
-    if (name === 'delegation_receipt') return recordDelegationReceipt(this.store, bot.id, runId, args);
-    if (name === 'checkpoint_list') return this.fileCheckpoints.list(bot.id);
-    if (name === 'checkpoint_restore')
-      return this.fileCheckpoints.restore(bot.id, requiredText(args, 'id', 100), signal, runId);
-    if (name === 'process_start')
-      return this.processes.start(
-        bot.id,
-        runId,
-        args,
-        signal,
-        this.store.data.runs.find((r) => r.id === runId)?.workspaceDir,
-      );
-    if (name === 'process_list') return this.processes.list(bot.id);
-    if (name === 'process_status')
-      return this.processes.status(bot.id, requiredText(args, 'id', 100), signal, Number(args.offset) || 0);
-    if (name === 'process_wait')
-      return this.processes.wait(
-        bot.id,
-        requiredText(args, 'id', 100),
-        signal,
-        args.milliseconds === undefined ? 10000 : Number(args.milliseconds),
-        Number(args.offset) || 0,
-      );
-    if (name === 'process_stop') return this.processes.stop(bot.id, requiredText(args, 'id', 100), signal);
-    if (name === 'tools_batch')
-      return readPipeline(
-        args.steps,
-        new RunPolicy(this.store).settings().parallelReads,
-        signal,
-        async (name, input, batchSignal) => {
-          validateToolArguments(
-            TOOLS.find((t) => t.function.name === name)!,
-            input,
-          );
-          const entry = this.ledger.begin(
-              bot.id,
-              runId,
-              { id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(input) } },
-              input,
-              this.store.data.runs.find((run) => run.id === runId)?.workspaceDir ||
-                this.host?.workspaceSettings().workspaceDir,
-            ),
-            resultId = randomUUID();
-          try {
-            const output = await this.executeTool(bot, input, name, batchSignal, runId, options);
-            const failed = commandResultFailed(output);
-            const dir = join(this.store.dir, 'results');
-            mkdirSync(dir, { recursive: true });
-            writeFileSync(join(dir, resultId + '.json'), JSON.stringify(output));
-            this.ledger.finish(entry, failed ? 'failed' : 'succeeded', output, resultId);
-            if (failed && executionBlocksCompletion(entry)) throw Error(JSON.stringify(output).slice(0, 1200));
-            return { executionId: entry.id, resultId, result: output };
-          } catch (error) {
-            if (entry.status === 'running') {
-              const output = {
-                ...toolFailure(error),
-                ...(error instanceof InteractionDenied ? { denied: true, executed: false } : {}),
-                ...(batchSignal.aborted ? { cancelled: true } : {}),
-              };
-              const dir = join(this.store.dir, 'results');
-              mkdirSync(dir, { recursive: true });
-              writeFileSync(join(dir, resultId + '.json'), JSON.stringify(output));
-              this.ledger.finish(
-                entry,
-                batchSignal.aborted || error instanceof InteractionDenied ? 'cancelled' : 'failed',
-                output,
-                resultId,
-              );
-            }
-            throw error;
-          }
-        },
-        {
-          stopOnError: (error) => error instanceof InteractionDenied,
-          allowedTools:
-            new WorkItems(this.store).forRun(this.store.data.runs.find((run) => run.id === runId)!)?.status ===
-            'planning'
-              ? PLANNING_TOOLS
-              : undefined,
-        },
-      );
-    if (name === 'task_read') return new RunPolicy(this.store).read(bot.id, runId);
-    const run = this.store.data.runs.find((run) => run.id === runId && run.botId === bot.id)!;
-    if (name === 'task_update') return new WorkItems(this.store).updatePlan(run, args);
-    if (['plan_update', 'goal_set', 'goal_read', 'goal_update'].includes(name))
-      return new WorkItems(this.store).invoke(run, name, args);
-    if (name === 'execution_list') return this.ledger.query(bot.id, runId, args);
-    if (name === 'execution_resolve') return this.ledger.resolve(bot.id, runId, args);
-    if (name.startsWith('scheduled_')) {
-      if (!this.scheduler) throw new Error('定时任务尚未启用');
-      return this.scheduler.invoke(bot.id, runId, name, args, signal, options);
-    }
-    if (!TOOLS.some((tool) => tool.function.name === name)) throw new Error('未注册工具');
-    if (name === 'video_frames') {
-      if (!this.video) throw Error('视频检查器不可用');
-      return this.video.inspect(
-        bot.id,
-        runId,
-        args,
-        signal,
-        this.store.data.runs.find((run) => run.id === runId)?.workspaceDir,
-      );
-    }
-    if (name === 'attachment_read')
-      return this.attachments.read(bot.id, requiredText(args, 'attachmentId', 100), Number(args.offset) || 0);
-    if (name === 'attachment_save')
-      return this.attachments.materialize(bot.id, requiredText(args, 'attachmentId', 100), signal);
-    if (name === 'message_attach') {
-      const run = this.store.data.runs.find((run) => run.id === runId && run.status === 'running');
-      if (!run || this.runtimes.get(bot.id)?.updated) throw new InputUpdated();
-      const files = await this.attachments.prepare(
-        bot.id,
-        args.attachments,
-        signal,
-        this.host
-          ? (path) =>
-              this.host!.readPreviewFile(
-                bot.id,
-                runId,
-                { path, reason: '将本机文件附到当前回复', tool: 'message_attach' },
-                signal,
-                run.workspaceDir,
-              ).then((file) => file.bytes)
-          : undefined,
-      );
-      if (!files.length) throw new Error('请选择要发送的附件');
-      const delivered = new Set(
-        this.store.data.messages
-          .filter(
-            (message) =>
-              message.botId === bot.id && message.role === 'assistant' && message.runId && message.runId !== runId,
-          )
-          .flatMap((message) => message.attachments || [])
-          .map((file) => file.id),
-      );
-      const fresh = files.filter((file) => !delivered.has(file.id));
-      if (!fresh.length)
-        return {
-          attached: false,
-          alreadyDelivered: true,
-          files: [],
-          message: '这些文件已在先前回复中送达，无需重复附加。请直接完成文字回复。',
-        };
-      run.attachments = this.attachments.forBot(bot.id, [
-        ...new Set([...(run.attachments || []), ...fresh].map((file) => file.id)),
-      ]);
-      this.store.save();
-      return {
-        attached: true,
-        files: run.attachments,
-        message: '文件已附在本次最终回复中，请继续完成回复，不要重复发送。',
-      };
-    }
-    if (['bot_send_message', 'group_send_message', 'group_create'].includes(name) && args.attachments !== undefined) {
-      const current = this.store.data.runs.find((item) => item.id === runId);
-      const files = await this.attachments.prepare(
-        bot.id,
-        args.attachments,
-        signal,
-        this.host
-          ? (path) =>
-              this.host!.readPreviewFile(
-                bot.id,
-                runId,
-                { path, reason: '将本机文件附到协作消息', tool: name },
-                signal,
-                current?.workspaceDir,
-              ).then((file) => file.bytes)
-          : undefined,
-      );
-      if (this.runtimes.get(bot.id)?.updated) throw new InputUpdated();
-      args = { ...args, attachmentIds: files.map((file) => file.id) };
-    }
-    if (name === 'chat_pin') {
-      if (options.groupOrigin || options.peerOrigin) throw new Error('只能在自己的用户聊天中使用此回应');
-      const result = pinChat(
-        this.store,
-        bot.id,
-        { kind: 'bot', id: bot.id, name: bot.name, color: bot.color },
-        args as unknown as PinInput,
-        runId,
-      );
-      this.changed();
-      return result;
-    }
-    if (/^groups?_/.test(name)) {
-      if (!this.groups) throw new Error('群聊尚未启用');
-      return this.groups.invoke(bot.id, runId, name, args, signal, options);
-    }
-    if (name === 'bots_list' || name === 'bot_send_message' || name === 'bot_read_messages') {
-      if (!this.peers) throw new Error('私聊尚未启用');
-      if (name === 'bots_list') return this.peers.directory(bot.id);
-      if (name === 'bot_read_messages') return this.peers.readForBot(bot.id, args);
-      return this.peers.send(bot.id, runId, args, signal, options);
-    }
-    if (name === 'history_search') {
-      if (!this.cognition) throw new Error('历史检索尚未启用');
-      return this.cognition.storage.search(bot.id, requiredText(args, 'query', 300), Number(args.limit) || 8);
-    }
-    if (name === 'history_read') {
-      if (!this.cognition) throw new Error('历史检索尚未启用');
-      return this.cognition.storage.readHistory(
-        bot.id,
-        requiredText(args, 'messageId', 100),
-        Number(args.before) || 0,
-        Number(args.after) || 0,
-      );
-    }
-    if (name.startsWith('host_')) {
-      if (!this.host || !this.interactions) throw new Error('本机操作尚未启用');
-      if (name === 'host_list_directory') return this.host.listDirectory(bot.id, runId, args, signal, run.workspaceDir);
-      if (name === 'host_find_files' || name === 'host_search_files')
-        return this.host.searchFiles(
-          bot.id,
-          runId,
-          args,
-          signal,
-          run.workspaceDir,
-          name === 'host_find_files' ? 'find' : 'search',
-        );
-      if (name === 'host_execute') return this.host.execute(bot.id, runId, args, signal, run.workspaceDir);
-      if (name === 'host_file_read') return this.host.readFile(bot.id, runId, args, signal, run.workspaceDir);
-      if (name === 'host_file_write') return this.host.writeFile(bot.id, runId, args, signal, run.workspaceDir);
-      if (name === 'host_file_patch') return this.host.patchFile(bot.id, runId, args, signal, run.workspaceDir);
-      throw new Error('未注册的本机工具');
-    }
-    if (name === 'request_user_control') {
-      if (!this.computer || !this.interactions) throw new Error('人工接管尚不可用');
-      const reason = requiredText(args, 'reason', 1000);
-      this.computer.reserveForHuman(bot.id);
-      try {
-        await this.interactions.requestTakeover(
-          bot.id,
-          runId,
-          reason,
-          this.computer.stateFor(bot.id).manualControl,
-          signal,
-        );
-        this.computer.clearHumanHold(bot.id);
-        const result = await this.computer.execute(bot.id, { action: 'screenshot' }, signal);
-        return { ...result, message: '用户已交还控制，请根据新截图核对人工操作的实际结果。' };
-      } finally {
-        this.computer.clearHumanHold(bot.id);
-      }
-    }
-    if (name.startsWith('mcp_')) {
-      if (!this.integrations) throw new Error('MCP 未配置');
-      const mcp = this.integrations.mcp;
-      if (name === 'mcp_list_servers') return mcp.views();
-      const server = requiredText(args, 'server', 160);
-      if (name === 'mcp_list_tools')
-        return mcp.listTools(
-          server,
-          String(args.query || ''),
-          boundedInteger(args.offset, 0, 0, 100000, 'offset'),
-          boundedInteger(args.limit, 100, 1, 100, 'limit'),
-        );
-      if (name === 'mcp_call') {
-        const input = args.arguments;
-        if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('MCP 参数必须是对象');
-        const toolName = requiredText(args, 'name', 200),
-          inspection = await mcp.inspectCall(
-            server,
-            toolName,
-            input as Record<string, unknown>,
-            Boolean(this.interactions?.hasHostPolicy),
-          );
-        if (inspection.permission) {
-          if (!this.interactions) throw new Error('此 MCP 操作需要用户确认');
-          await this.interactions.permission(bot.id, runId, inspection.permission, signal);
-        }
-        signal.throwIfAborted();
-        return mcp.call(server, toolName, input as Record<string, unknown>, signal, inspection.fingerprint);
-      }
-      if (name === 'mcp_list_resources')
-        return mcp.listResources(server, typeof args.cursor === 'string' ? args.cursor : undefined);
-      if (name === 'mcp_list_resource_templates')
-        return mcp.listResourceTemplates(server, typeof args.cursor === 'string' ? args.cursor : undefined);
-      if (name === 'mcp_read_resource') return mcp.readResource(server, requiredText(args, 'uri', 4000), signal);
-      if (name === 'mcp_list_prompts') return mcp.listPrompts(server);
-      if (name === 'mcp_get_prompt') {
-        const values = args.arguments || {};
-        if (
-          typeof values !== 'object' ||
-          Array.isArray(values) ||
-          Object.values(values).some((value) => typeof value !== 'string')
-        )
-          throw new Error('模板参数必须为字符串对象');
-        return mcp.getPrompt(server, requiredText(args, 'name', 200), values as Record<string, string>, signal);
-      }
-      throw new Error('未注册的 MCP 操作');
-    }
-    if (this.integrations) {
-      if (name === 'skills_list') {
-        return this.integrations.skills
-          .search(
-            bot.id,
-            typeof args.query === 'string' ? args.query : '',
-            Number(args.limit) || 100,
-            Number(args.offset) || 0,
-          )
-          .map(({ body: _body, ...metadata }) => metadata);
-      }
-      if (name === 'skill_read') {
-        const skill = this.integrations.skills.read(bot.id, requiredText(args, 'id', 160));
-        const loaded = this.preparedContexts.get(runId)?.some((m) => {
-          if (m.role !== 'tool') return false;
-          try {
-            const result = JSON.parse(m.content || '').result;
-            return result?.id === skill.id && result.hash === skill.hash && result.body === skill.body;
-          } catch {
-            return false;
-          }
-        });
-        if (loaded)
-          return {
-            id: skill.id,
-            hash: skill.hash,
-            alreadyLoaded: true,
-            note: '相同版本的完整正文已在当前上下文中，无需重复载入。',
-          };
-        this.integrations.skills.observeRead(bot.id, skill.id);
-        return skill;
-      }
-      if (name === 'skill_patch')
-        return this.integrations.skills.patch(
-          bot.id,
-          requiredText(args, 'id', 160),
-          requiredText(args, 'oldText', 8000),
-          typeof args.newText === 'string' ? args.newText : '',
-          requiredText(args, 'expectedHash', 128),
-          runId,
-        );
-      if (name === 'skill_file_write')
-        return this.integrations.skills.writeResource(
-          bot.id,
-          requiredText(args, 'id', 160),
-          requiredText(args, 'path', 500),
-          requiredText(args, 'content', 128000),
-          typeof args.expectedHash === 'string' ? args.expectedHash : undefined,
-        );
-      if (name === 'skill_manage')
-        return this.integrations.skills.manage(
-          bot.id,
-          requiredText(args, 'id', 160),
-          requiredText(args, 'action', 50),
-          typeof args.revision === 'number' ? args.revision : undefined,
-        );
-      if (name === 'skill_file_read')
-        return this.integrations.skills.readFile(
-          bot.id,
-          requiredText(args, 'id', 160),
-          requiredText(args, 'path', 500),
-        );
-      if (name === 'skill_materialize')
-        return this.integrations.materialize(this.vm, bot.id, requiredText(args, 'id', 160));
-    }
-    if (name === 'computer') {
-      if (!this.computer) throw new Error('Computer Use 未配置');
-      return this.computer.execute(bot.id, args as unknown as ComputerInput, signal);
-    }
-    if (name === 'computer_execute') return this.vm.execute(requiredText(args, 'command', 32000), bot.id, signal);
-    if (name === 'python_execute')
-      return vmPython(
-        this.vm,
-        bot.id,
-        { code: requiredText(args, 'code', 24000) },
-        'exec(compile(a["code"],"<python_execute>","exec"))',
-        signal,
-      );
-    if (name === 'file_read' || name === 'file_write' || name === 'file_patch') {
-      const path = workspacePath(requiredText(args, 'path', 500), bot.id),
-        redact = (value: string) => (this.host ? this.host.redact(value, true) : value);
-      if (name === 'file_read') return readVmFile(this.vm, bot.id, path, args, signal, redact);
-      if (name === 'file_patch')
-        return patchVmFile(this.vm, this.fileCheckpoints, bot.id, runId, path, args, signal, redact);
-      const content = args.content;
-      if (typeof content !== 'string' || content.length > 200000) throw new Error('无效文件内容');
-      const expected = expectedHash(args.expectedSha256);
-      const checkpoint = await this.fileCheckpoints.vmBefore(bot.id, runId, path, signal);
-      const result = await vmPython(this.vm, bot.id, { path, content, expectedSha256: expected }, VM_WRITE, signal);
-      if (!signal.aborted && result.exitCode === 0) await this.fileCheckpoints.vmAfter(checkpoint, signal, content);
-      return result;
-    }
-    if (name === 'memory') {
-      if (this.cognition) return this.cognition.memory.apply(bot.id, runId, args as any);
-      if (options.peerOrigin) throw new Error('私聊记忆需要已核验的用户委托');
-      const source = humanRunSource(this.store, runId);
-      if (source) assertMemoryOwner(this.store, bot.id, source);
-      const text = requiredText(args, 'content', 600);
-      memorySafe(text);
-      if (args.action === 'add') {
-        if (!bot.memories.includes(text)) {
-          if (bot.memories.join('\n').length + text.length > 2200) throw new Error('记忆容量已满，请先删除过时条目');
-          bot.memories.push(text);
-        }
-      } else if (args.action === 'remove') bot.memories = bot.memories.filter((value) => value !== text);
-      else throw new Error('未知记忆操作');
-      this.store.save();
-      return { memories: bot.memories };
-    }
-    if (name === 'skills_list')
-      return searchSkills(
-        this.store.data.skills.filter((s) => !s.botId || s.botId === bot.id),
-        typeof args.query === 'string' ? args.query : '',
-        Number(args.limit) || 100,
-        Number(args.offset) || 0,
-      ).map(({ id, name, description }) => ({ id, name, description }));
-    if (name === 'skill_read') {
-      const id = requiredText(args, 'id', 150);
-      const visible = this.store.data.skills.filter((s) => !s.botId || s.botId === bot.id);
-      const exact = visible.find((s) => s.id === id);
-      if (exact) return exact;
-      const named = visible.filter((s) => s.name === id);
-      if (named.length > 1) throw new Error('存在多个同名技能，请用 skills_list 返回的 ID 读取');
-      if (!named.length) throw new Error('技能不存在或无权访问，请先调用 skills_list 获取可用 ID');
-      return named[0];
-    }
-    if (name === 'skill_save') {
-      const skillName = requiredText(args, 'name', 80),
-        description = requiredText(args, 'description', 400),
-        body = requiredText(args, 'body', 8000);
-      memorySafe(body);
-      if (this.integrations) {
-        const saved = this.cognition
-          ? this.cognition.saveSkill(
-              bot.id,
-              runId,
-              skillName,
-              description,
-              body,
-              Array.isArray(args.sourceRefs) ? args.sourceRefs : undefined,
-            )
-          : this.integrations.skills.save(bot.id, skillName, description, body, { sourceRunId: runId });
-        this.changed();
-        return saved;
-      }
-      const existing = this.store.data.skills.find((s) => s.botId === bot.id && s.name === skillName);
-      if (existing) {
-        existing.description = description;
-        existing.body = body;
-      } else this.store.data.skills.push({ id: randomUUID(), name: skillName, description, body, botId: bot.id });
-      this.store.save();
-      return {
-        saved: true,
-        id: this.store.data.skills.find((s) => s.botId === bot.id && s.name === skillName)!.id,
-        name: skillName,
-        scope: 'bot-private',
-      };
-    }
-    if (name === 'read_result')
-      return readToolResult(
-        this.store,
-        bot.id,
-        args,
-        options.groupOrigin ? { kind: 'group', id: options.groupOrigin.groupId } : { kind: 'private' },
-      );
-    throw new Error(`未注册工具：${name}`);
+    return dispatchTool({ bot, args, name, signal, runId, options, run: activeRun, workspace, deps: this.toolDeps() });
+  }
+  private toolDeps(): ToolDeps {
+    return {
+      store: this.store,
+      vm: this.vm,
+      model: this.model,
+      ledger: this.ledger,
+      attachments: this.attachments,
+      terminals: this.terminals,
+      processes: this.processes,
+      fileCheckpoints: this.fileCheckpoints,
+      pythonSessions: this.pythonSessions,
+      code: this.code,
+      web: this.web,
+      computer: this.computer,
+      integrations: this.integrations,
+      host: this.host,
+      interactions: this.interactions,
+      cognition: this.cognition,
+      peers: this.peers,
+      groups: this.groups,
+      scheduler: this.scheduler,
+      video: this.video,
+      previews: this.previews,
+      imageModel: this.imageModel,
+      changed: () => this.changed(),
+      callableTools: (runId) => this.callableTools.get(runId),
+      preparedContext: (runId) => this.preparedContexts.get(runId),
+      runUpdated: (botId) => Boolean(this.runtimes.get(botId)?.updated),
+      executeTool: (...args) => this.executeTool(...args),
+      invokeNested: (...args) => this.invokeNested(...args),
+    };
   }
 }
