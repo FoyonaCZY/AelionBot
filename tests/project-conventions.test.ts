@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { projectConventions } from '../electron/core/project-conventions';
+import { projectConventions } from '../electron/core/agent/project-conventions';
 
 test('project conventions load AGENTS.md without treating it as extra permission', () => {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-conventions-'));

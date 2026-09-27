@@ -1,10 +1,17 @@
-import type { ResponseMetrics } from '../../../src/game-types';
+import type { ResponseMetrics } from '../../../shared/types/game-types';
 import { settleLimited } from './request-pool';
 import { gameSkills } from './skills';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
-import type { GameCreate, GameAction, GameView, GameRequest, GamePlayer, GameTrace } from '../../../src/game-types';
+import type {
+  GameCreate,
+  GameAction,
+  GameView,
+  GameRequest,
+  GamePlayer,
+  GameTrace,
+} from '../../../shared/types/game-types';
 import { acceptAction, createWerewolf, view, validateAction, log, type WerewolfState } from './werewolf';
 import { gamePrompt, gameInstructions, GameModelError } from './model-player';
 export interface DecisionOptions {

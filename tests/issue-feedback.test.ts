@@ -4,20 +4,20 @@ import { createServer } from 'node:http';
 import { mkdtempSync, realpathSync, rmSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { repairToolHistory } from '../electron/core/tool-history';
-import { protocolRequest } from '../electron/core/model-protocol';
-import { ModelClient } from '../electron/core/model';
-import { ModelProviders } from '../electron/core/model-providers';
-import { BotGreetings } from '../electron/core/bot-greetings';
-import { Harness } from '../electron/core/harness';
-import { imageCapability, ModelImageUnsupportedError } from '../electron/core/model-vision';
-import { Store } from '../electron/core/store';
-import { CognitiveStore } from '../electron/core/cognitive-store';
-import { ContextEngine } from '../electron/core/context-engine';
-import { rememberPublished, groupHistory, groupContextKey } from '../electron/core/group-history';
-import { normalizeUserProfile, userProfilePrompt } from '../src/user-profile';
-import { friendlyError } from '../src/activity';
-import type { ModelConfig, WireMessage } from '../src/shared';
+import { repairToolHistory } from '../electron/core/tools/tool-history';
+import { protocolRequest } from '../electron/core/model/model-protocol';
+import { ModelClient } from '../electron/core/model/model';
+import { ModelProviders } from '../electron/core/model/model-providers';
+import { BotGreetings } from '../electron/core/agent/bot-greetings';
+import { Harness } from '../electron/core/agent/harness';
+import { imageCapability, ModelImageUnsupportedError } from '../electron/core/model/model-vision';
+import { Store } from '../electron/core/storage/store';
+import { CognitiveStore } from '../electron/core/memory/cognitive-store';
+import { ContextEngine } from '../electron/core/context/context-engine';
+import { rememberPublished, groupHistory, groupContextKey } from '../electron/core/group/group-history';
+import { normalizeUserProfile, userProfilePrompt } from '../shared/chat/user-profile';
+import { friendlyError } from '../shared/chat/activity';
+import type { ModelConfig, WireMessage } from '../shared/types/core';
 const cfg: ModelConfig = {
   model: 'test',
   baseUrl: 'http://localhost/v1',

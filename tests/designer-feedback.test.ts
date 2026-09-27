@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { designFailureText, designConversationMessages, designMessageTimeline } from '../src/designer-feedback';
+import {
+  designFailureText,
+  designConversationMessages,
+  designMessageTimeline,
+} from '../src/designer/designer-feedback';
 test('legacy duplicated failures are hidden while the user request and valid answers remain', () => {
   const error = 'The operation was aborted due to timeout',
     base = { botId: 'bot', runId: 'run', designSessionId: 'task', time: 'now' },

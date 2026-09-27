@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { liveWorkTitle, summarizeCommand, type LiveWorkItem } from '../src/live-work';
+import { liveWorkTitle, summarizeCommand, type LiveWorkItem } from '../shared/chat/live-work';
 
 test('live work titles stay short and prefer the command', () => {
   assert.equal(summarizeCommand('npm  test\n --watch'), 'npm test --watch');

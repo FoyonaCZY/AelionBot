@@ -4,14 +4,14 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { Store } from '../electron/core/store';
-import { Harness } from '../electron/core/harness';
-import { ChatPinQueue, pinChat } from '../electron/core/chat-pins';
-import { memoryRoute } from '../electron/core/memory-routing';
-import type { ModelClient } from '../electron/core/model';
-import type { VmController } from '../electron/core/vm';
-import type { HostComputer } from '../electron/core/host';
-import { Interactions } from '../electron/core/interactions';
+import { Store } from '../electron/core/storage/store';
+import { Harness } from '../electron/core/agent/harness';
+import { ChatPinQueue, pinChat } from '../electron/core/agent/chat-pins';
+import { memoryRoute } from '../electron/core/memory/memory-routing';
+import type { ModelClient } from '../electron/core/model/model';
+import type { VmController } from '../electron/core/vm/vm';
+import type { HostComputer } from '../electron/core/host/host';
+import { Interactions } from '../electron/core/agent/interactions';
 const wait = async (predicate: () => boolean) => {
   for (let n = 0; n < 100; n++) {
     if (predicate()) return;

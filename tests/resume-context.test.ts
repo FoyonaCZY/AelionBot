@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
-import { Store } from '../electron/core/store';
-import { Cognition } from '../electron/core/cognition';
-import { SkillLibrary } from '../electron/core/skill-library';
-import { Harness } from '../electron/core/harness';
-import { ContextOverflowError, type CompletionOptions, type ModelClient } from '../electron/core/model';
-import type { ContextInput } from '../electron/core/context-engine';
-import type { VmController } from '../electron/core/vm';
-import type { WireMessage } from '../src/shared';
+import { Store } from '../electron/core/storage/store';
+import { Cognition } from '../electron/core/memory/cognition';
+import { SkillLibrary } from '../electron/core/extensions/skill-library';
+import { Harness } from '../electron/core/agent/harness';
+import { ContextOverflowError, type CompletionOptions, type ModelClient } from '../electron/core/model/model';
+import type { ContextInput } from '../electron/core/context/context-engine';
+import type { VmController } from '../electron/core/vm/vm';
+import type { WireMessage } from '../shared/types/core';
 
 function fixture(t: test.TestContext, model: ModelClient) {
   const parent = realpathSync.native(tmpdir()),

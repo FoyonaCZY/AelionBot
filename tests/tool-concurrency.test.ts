@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isExclusiveTool, isSerialTool, runConcurrentTools, writeLockPaths } from '../electron/core/tool-concurrency';
+import {
+  isExclusiveTool,
+  isSerialTool,
+  runConcurrentTools,
+  writeLockPaths,
+} from '../electron/core/tools/tool-concurrency';
 
 const deferred = <T>() => {
   let resolve!: (value: T) => void;

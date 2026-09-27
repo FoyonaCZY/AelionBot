@@ -4,9 +4,9 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync, symlinkSyn
 import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { unzipSync, strFromU8 } from 'fflate';
-import { Store } from '../electron/core/store';
-import { Attachments } from '../electron/core/attachments';
-import { AttachmentDrops, directoryAttachment } from '../electron/core/attachment-drop';
+import { Store } from '../electron/core/storage/store';
+import { Attachments } from '../electron/core/attachments/attachments';
+import { AttachmentDrops, directoryAttachment } from '../electron/core/attachments/attachment-drop';
 
 function fixture(t: test.TestContext) {
   const parent = realpathSync.native(tmpdir()),

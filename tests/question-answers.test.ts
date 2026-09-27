@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Store } from '../electron/core/store';
+import { Store } from '../electron/core/storage/store';
 import {
   QUESTION_ANSWER_PREFIX,
   questionAnswerData,
@@ -12,8 +12,8 @@ import {
   questionToolMessage,
   placeQuestionAnswers,
   readableQuestionAnswer,
-} from '../src/question-answers';
-import { readableContent } from '../src/activity';
+} from '../shared/chat/question-answers';
+import { readableContent } from '../shared/chat/activity';
 
 const answer = {
   id: 'question-fixture',

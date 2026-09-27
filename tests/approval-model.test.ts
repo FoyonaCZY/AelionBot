@@ -4,12 +4,12 @@ import { createServer } from 'node:http';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { Store } from '../electron/core/store';
-import { ModelProviders } from '../electron/core/model-providers';
-import { HostApprovals, defaultApprovalModel } from '../electron/core/host-approvals';
-import { CommandPermissions } from '../electron/core/command-permissions';
-import { DEFAULT_RUNTIME } from '../src/runtime-types';
-import type { HostPermissionRequest } from '../electron/core/host-approval-types';
+import { Store } from '../electron/core/storage/store';
+import { ModelProviders } from '../electron/core/model/model-providers';
+import { HostApprovals, defaultApprovalModel } from '../electron/core/host/host-approvals';
+import { CommandPermissions } from '../electron/core/host/command-permissions';
+import { DEFAULT_RUNTIME } from '../shared/types/runtime-types';
+import type { HostPermissionRequest } from '../electron/core/host/host-approval-types';
 function fixture(t: test.TestContext) {
   const parent = realpathSync(tmpdir()),
     dir = mkdtempSync(join(parent, 'aelion-review-model-')),

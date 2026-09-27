@@ -5,8 +5,8 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { editText, FileToolError } from '../electron/core/file-text';
-import { applyHunks, parsePatch, VM_PATCH_SCRIPT } from '../electron/core/multi-patch';
+import { editText, FileToolError } from '../electron/core/tools/file-text';
+import { applyHunks, parsePatch, VM_PATCH_SCRIPT } from '../electron/core/tools/multi-patch';
 
 const sha = (text: string) => createHash('sha256').update(Buffer.from(text)).digest('hex');
 const edit = (text: string, oldText: string, newText: string, replaceAll?: boolean) =>

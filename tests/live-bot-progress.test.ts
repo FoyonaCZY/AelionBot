@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import type { RunRecord } from '../src/shared';
-import type { ToolExecution } from '../src/execution-types';
-import { liveBotProgress, waitingExplanation } from '../src/live-bot-progress';
+import type { RunRecord } from '../shared/types/core';
+import type { ToolExecution } from '../shared/types/execution-types';
+import { liveBotProgress, waitingExplanation } from '../src/app/live-bot-progress';
 
 const at = '2026-09-11T10:00:00Z';
 const run = (patch: Partial<RunRecord> = {}): RunRecord => ({

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { STORAGE_MAINTENANCE, STORAGE_POLICY_FILES } from '../electron/core/storage-policy';
+import { STORAGE_MAINTENANCE, STORAGE_POLICY_FILES } from '../electron/core/storage/storage-policy';
 const python = process.env.AELION_TEST_PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
 const probe = spawnSync(python, ['--version'], { windowsHide: true, timeout: 10000 });
 if (process.env.AELION_TEST_PYTHON) assert.equal(probe.status, 0);

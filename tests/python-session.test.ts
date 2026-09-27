@@ -4,13 +4,13 @@ import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PYTHON_KERNEL } from '../electron/core/python-sessions';
-import { VM_SUPERVISOR } from '../electron/core/background-processes';
-import { vmPython } from '../electron/core/vm-python';
-import { Store } from '../electron/core/store';
-import { FileCheckpoints } from '../electron/core/file-checkpoints';
-import { DEFAULT_RUNTIME } from '../src/runtime-types';
-import type { VmController } from '../electron/core/vm';
+import { PYTHON_KERNEL } from '../electron/core/tools/python-sessions';
+import { VM_SUPERVISOR } from '../electron/core/tools/background-processes';
+import { vmPython } from '../electron/core/vm/vm-python';
+import { Store } from '../electron/core/storage/store';
+import { FileCheckpoints } from '../electron/core/tools/file-checkpoints';
+import { DEFAULT_RUNTIME } from '../shared/types/runtime-types';
+import type { VmController } from '../electron/core/vm/vm';
 const python = process.env.AELION_TEST_PYTHON || (process.platform === 'win32' ? 'python' : 'python3'),
   available = spawnSync(python, ['--version'], { windowsHide: true, timeout: 5000 }).status === 0;
 test(

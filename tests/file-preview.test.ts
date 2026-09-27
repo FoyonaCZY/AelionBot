@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { officePreview, officePreviewScript, OFFICE_PREVIEW_LIMIT } from '../electron/core/office-preview';
-import type { VmController } from '../electron/core/vm';
-import { csvRows, previewHtml } from '../src/preview-utils';
+import { officePreview, officePreviewScript, OFFICE_PREVIEW_LIMIT } from '../electron/core/designer/office-preview';
+import type { VmController } from '../electron/core/vm/vm';
+import { csvRows, previewHtml } from '../src/preview/preview-utils';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { Store } from '../electron/core/store';
-import { Attachments } from '../electron/core/attachments';
-import { previewViewportSize } from '../src/use-preview-viewport';
+import { Store } from '../electron/core/storage/store';
+import { Attachments } from '../electron/core/attachments/attachments';
+import { previewViewportSize } from '../src/preview/use-preview-viewport';
 
 test('preview viewport keeps fractional bounds without expanding into scrollbars', () => {
   for (const width of [613.875, 613.4, 767.99, 1280]) {

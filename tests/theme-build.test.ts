@@ -7,7 +7,7 @@ import postcss from 'postcss';
 test('production CSS defines light-dark fallback flags for the application in both themes', () => {
   // Vite's production CSS target can lower light-dark() even though Electron
   // supports it. Inline JS colorScheme alone cannot initialize these flags.
-  const source = ['src/fonts.css', 'src/style.css', 'src/theme.css']
+  const source = ['src/styles/fonts.css', 'src/styles/style.css', 'src/styles/theme.css']
     .map((path) => readFileSync(path, 'utf8').replace(/^@import[^;]+;/gm, ''))
     .join('\n');
   const compiled = transform({

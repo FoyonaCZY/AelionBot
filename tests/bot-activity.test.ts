@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { botActivities } from '../src/bot-activity';
-import type { RunRecord } from '../src/shared';
-import { GROUP_LIMITS } from '../src/group-types';
+import { botActivities } from '../src/bots/bot-activity';
+import type { RunRecord } from '../shared/types/core';
+import { GROUP_LIMITS } from '../shared/types/group-types';
 
 const run = (id: string, botId: string): RunRecord => ({
   id,

@@ -3,18 +3,18 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { Store } from '../electron/core/store';
-import { CognitiveStore } from '../electron/core/cognitive-store';
-import { ContextEngine } from '../electron/core/context-engine';
-import { ContextPruning } from '../electron/core/context-pruning';
+import { Store } from '../electron/core/storage/store';
+import { CognitiveStore } from '../electron/core/memory/cognitive-store';
+import { ContextEngine } from '../electron/core/context/context-engine';
+import { ContextPruning } from '../electron/core/context/context-pruning';
 import {
   readCalibration,
   observeCalibration,
   displayCalibration,
   recordDisplayCalibration,
-} from '../electron/core/token-calibration';
-import type { ModelClient } from '../electron/core/model';
-import type { WireMessage } from '../src/shared';
+} from '../electron/core/context/token-calibration';
+import type { ModelClient } from '../electron/core/model/model';
+import type { WireMessage } from '../shared/types/core';
 
 function fixture(t: test.TestContext) {
   const parent = realpathSync.native(tmpdir()),

@@ -4,11 +4,11 @@ import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, basename, resolve } from 'node:path';
 import { createServer } from 'node:http';
-import { Store } from '../electron/core/store';
-import { ModelClient, validateModelEndpoint } from '../electron/core/model';
-import { Harness, safeRelativePath, workspacePath, compactBoundary } from '../electron/core/harness';
-import type { VmController } from '../electron/core/vm';
-import type { WireMessage } from '../src/shared';
+import { Store } from '../electron/core/storage/store';
+import { ModelClient, validateModelEndpoint } from '../electron/core/model/model';
+import { Harness, safeRelativePath, workspacePath, compactBoundary } from '../electron/core/agent/harness';
+import type { VmController } from '../electron/core/vm/vm';
+import type { WireMessage } from '../shared/types/core';
 
 function temporary(t: test.TestContext) {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-core-test-'));

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PreviewMenuTransition } from '../src/preview-menu-transition';
+import { PreviewMenuTransition } from '../src/preview/preview-menu-transition';
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => (resolve = done));

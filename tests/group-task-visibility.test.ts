@@ -4,10 +4,10 @@ import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { Store } from '../electron/core/store';
-import { CognitiveStore } from '../electron/core/cognitive-store';
-import type { RunRecord } from '../src/shared';
-import { isGroupWorkTool } from '../src/group-types';
+import { Store } from '../electron/core/storage/store';
+import { CognitiveStore } from '../electron/core/memory/cognitive-store';
+import type { RunRecord } from '../shared/types/core';
+import { isGroupWorkTool } from '../shared/types/group-types';
 
 function fixture(t: test.TestContext) {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-group-visibility-')),

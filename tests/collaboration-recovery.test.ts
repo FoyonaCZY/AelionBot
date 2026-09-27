@@ -4,17 +4,17 @@ import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { Store } from '../electron/core/store';
-import { Harness } from '../electron/core/harness';
-import { GroupChats } from '../electron/core/group-chats';
-import { PeerChats } from '../electron/core/peer-chats';
-import { ContextCapacityError } from '../electron/core/context-error';
-import { contextModelKey } from '../src/context-issue';
-import { groupPending } from '../src/group-types';
-import { peerPending } from '../src/peer-types';
-import type { ModelClient, Completion } from '../electron/core/model';
-import type { VmController } from '../electron/core/vm';
-import type { RunRecord, WireMessage } from '../src/shared';
+import { Store } from '../electron/core/storage/store';
+import { Harness } from '../electron/core/agent/harness';
+import { GroupChats } from '../electron/core/group/group-chats';
+import { PeerChats } from '../electron/core/peer/peer-chats';
+import { ContextCapacityError } from '../electron/core/context/context-error';
+import { contextModelKey } from '../shared/chat/context-issue';
+import { groupPending } from '../shared/types/group-types';
+import { peerPending } from '../shared/types/peer-types';
+import type { ModelClient, Completion } from '../electron/core/model/model';
+import type { VmController } from '../electron/core/vm/vm';
+import type { RunRecord, WireMessage } from '../shared/types/core';
 const answer = (content: string): Completion => ({ content, calls: [], finishReason: 'stop' }),
   call = (name: string, args: unknown = {}): Completion => ({
     content: '',

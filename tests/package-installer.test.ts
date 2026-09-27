@@ -1,8 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { PACKAGE_INSTALLER } from '../electron/core/package-installer';
-import { installationProgress, workstationProgress, workstationFailure } from '../electron/core/workstation-progress';
+import { PACKAGE_INSTALLER } from '../electron/core/host/package-installer';
+import {
+  installationProgress,
+  workstationProgress,
+  workstationFailure,
+} from '../electron/core/vm/workstation-progress';
 
 const python = process.env.AELION_TEST_PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
 const probe = spawnSync(python, ['--version'], { windowsHide: true, timeout: 10000 });

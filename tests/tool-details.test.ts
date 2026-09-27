@@ -3,8 +3,14 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname, basename } from 'node:path';
-import { errorExplanation, fileGroups, mcpResultParts, parameterRows, parsedText } from '../src/tool-details-model';
-import { Store } from '../electron/core/store';
+import {
+  errorExplanation,
+  fileGroups,
+  mcpResultParts,
+  parameterRows,
+  parsedText,
+} from '../src/chat/tool-details-model';
+import { Store } from '../electron/core/storage/store';
 
 test('file resources preserve actual text and organize portable packages without exposing envelope fields', () => {
   const content = 'line one\nline two\n';

@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Store } from '../electron/core/store';
-import { ExecutionLedger, executionTarget } from '../electron/core/execution-ledger';
-import { Harness } from '../electron/core/harness';
-import { HostComputer } from '../electron/core/host';
-import { Interactions } from '../electron/core/interactions';
-import type { ModelClient } from '../electron/core/model';
-import type { VmController } from '../electron/core/vm';
+import { Store } from '../electron/core/storage/store';
+import { ExecutionLedger, executionTarget } from '../electron/core/agent/execution-ledger';
+import { Harness } from '../electron/core/agent/harness';
+import { HostComputer } from '../electron/core/host/host';
+import { Interactions } from '../electron/core/agent/interactions';
+import type { ModelClient } from '../electron/core/model/model';
+import type { VmController } from '../electron/core/vm/vm';
 const call = (id: string, path: string) => ({
   id,
   type: 'function' as const,

@@ -4,18 +4,18 @@ import { createServer } from 'node:http';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { PromptCacheDiagnostics, promptCacheKey } from '../electron/core/prompt-cache';
-import { ModelClient, type ToolDefinition } from '../electron/core/model';
-import { protocolRequest, nativeKey } from '../electron/core/model-protocol';
-import { Store } from '../electron/core/store';
-import { CognitiveStore } from '../electron/core/cognitive-store';
-import { ContextEngine } from '../electron/core/context-engine';
-import { Harness } from '../electron/core/harness';
-import { TaskScheduler } from '../electron/core/task-scheduler';
-import { stableToolDefinitions, transportErrorCodes } from '../electron/core/request-snapshot';
-import type { WireMessage, ModelConfig } from '../src/shared';
-import type { UsageRecord } from '../src/runtime-types';
-import type { VmController } from '../electron/core/vm';
+import { PromptCacheDiagnostics, promptCacheKey } from '../electron/core/context/prompt-cache';
+import { ModelClient, type ToolDefinition } from '../electron/core/model/model';
+import { protocolRequest, nativeKey } from '../electron/core/model/model-protocol';
+import { Store } from '../electron/core/storage/store';
+import { CognitiveStore } from '../electron/core/memory/cognitive-store';
+import { ContextEngine } from '../electron/core/context/context-engine';
+import { Harness } from '../electron/core/agent/harness';
+import { TaskScheduler } from '../electron/core/scheduler/task-scheduler';
+import { stableToolDefinitions, transportErrorCodes } from '../electron/core/agent/request-snapshot';
+import type { WireMessage, ModelConfig } from '../shared/types/core';
+import type { UsageRecord } from '../shared/types/runtime-types';
+import type { VmController } from '../electron/core/vm/vm';
 
 const config: ModelConfig = {
   baseUrl: 'http://localhost/v1',

@@ -1,17 +1,17 @@
-import type { ModelRequestStatus } from '../src/model-request-status';
+import type { ModelRequestStatus } from '../shared/types/model-request-status';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer, type RequestListener } from 'node:http';
-import { ModelClient, assistantMessage } from '../electron/core/model';
+import { ModelClient, assistantMessage } from '../electron/core/model/model';
 import {
   ContentPolicyError,
   omitToolResultBodies,
   persistOmittedToolOutputs,
   quarantinePolicyContext,
-} from '../electron/core/model-content-policy';
-import { protocolRequest, StreamAccumulator, nativeKey } from '../electron/core/model-protocol';
-import { DEFAULT_RUNTIME } from '../src/runtime-types';
-import type { ModelConfig } from '../src/shared';
+} from '../electron/core/model/model-content-policy';
+import { protocolRequest, StreamAccumulator, nativeKey } from '../electron/core/model/model-protocol';
+import { DEFAULT_RUNTIME } from '../shared/types/runtime-types';
+import type { ModelConfig } from '../shared/types/core';
 async function server(t: test.TestContext, handler: RequestListener) {
   const s = createServer(handler);
   await new Promise<void>((r) => s.listen(0, '127.0.0.1', r));
@@ -100,7 +100,7 @@ test('429 retries are bounded; failed partial previews reset before retry and on
   assert.doesNotMatch(JSON.stringify(statuses), /busy|partial|finished/);
 });
 test('tool result omission keeps identifiers and drops command output', () => {
-  const history: import('../src/shared').WireMessage[] = [
+  const history: import('../shared/types/core').WireMessage[] = [
     {
       role: 'tool',
       tool_call_id: 'c1',
@@ -146,7 +146,7 @@ test('provider content-policy refusals omit historical tool bodies and retry onc
     () => '',
   );
   t.after(() => model.dispose());
-  const history: import('../src/shared').WireMessage[] = [
+  const history: import('../shared/types/core').WireMessage[] = [
     { role: 'user', content: 'continue' },
     {
       role: 'assistant',
@@ -217,7 +217,7 @@ test('content-policy refusals also drop tool-call arguments when results are not
     () => '',
   );
   t.after(() => model.dispose());
-  const history: import('../src/shared').WireMessage[] = [
+  const history: import('../shared/types/core').WireMessage[] = [
     { role: 'user', content: 'continue' },
     {
       role: 'assistant',
@@ -239,7 +239,7 @@ test('content-policy refusals also drop tool-call arguments when results are not
   assert.doesNotMatch(JSON.stringify(requests[2]), new RegExp(marker));
 });
 test('quarantine writes omitted tools back and drops compaction summaries', () => {
-  const history: import('../src/shared').WireMessage[] = [
+  const history: import('../shared/types/core').WireMessage[] = [
     {
       role: 'assistant',
       content: null,
@@ -386,7 +386,7 @@ test('Gemini preserves thoughtSignature with the exact function-call part', () =
 
 test('request context telemetry arrives before the response and cannot break inference', async (t) => {
   let reported = false;
-  let observed: import('../src/context-overview').ContextOverview | undefined;
+  let observed: import('../shared/chat/context-overview').ContextOverview | undefined;
   const baseUrl = await server(t, async (req, res) => {
     for await (const _ of req) {
     }
@@ -454,7 +454,7 @@ test('connect timeouts retain a specific public reason and retries remain bounde
 
 for (const protocol of ['chat', 'responses', 'anthropic', 'gemini'] as const)
   test(`${protocol} updates the same request overview from normalized provider input usage`, async (t) => {
-    const updates: import('../src/context-overview').ContextOverview[] = [];
+    const updates: import('../shared/chat/context-overview').ContextOverview[] = [];
     let requests = 0,
       observed = false;
     let observedSource: string | undefined;
@@ -563,7 +563,7 @@ for (const protocol of ['chat', 'responses', 'anthropic', 'gemini'] as const)
   });
 
 test('missing provider input counts preserve the estimate instead of inventing zero', async (t) => {
-  const updates: import('../src/context-overview').ContextOverview[] = [];
+  const updates: import('../shared/chat/context-overview').ContextOverview[] = [];
   const baseUrl = await server(t, async (req, res) => {
     for await (const _ of req) {
     }
@@ -590,7 +590,7 @@ test('missing provider input counts preserve the estimate instead of inventing z
 
 test('fallback usage is identified with the model that actually handled the request', async (t) => {
   let calls = 0;
-  const updates: import('../src/context-overview').ContextOverview[] = [];
+  const updates: import('../shared/chat/context-overview').ContextOverview[] = [];
   const baseUrl = await server(t, async (req, res) => {
     for await (const _ of req) {
     }

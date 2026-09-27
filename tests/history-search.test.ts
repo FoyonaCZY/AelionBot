@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Store } from '../electron/core/store';
-import { CognitiveStore } from '../electron/core/cognitive-store';
+import { Store } from '../electron/core/storage/store';
+import { CognitiveStore } from '../electron/core/memory/cognitive-store';
 
 test('history search finds two-character Chinese terms and ranks messages containing more terms first', (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-history-search-')),

@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { WebSocketServer } from 'ws';
 import type { AddressInfo } from 'node:net';
-import { ModelClient, assistantMessage } from '../electron/core/model';
-import { ResponsesTransport, websocketEnabled } from '../electron/core/responses-transport';
-import { DEFAULT_RUNTIME, type UsageRecord } from '../src/runtime-types';
-import type { ModelConfig, WireMessage } from '../src/shared';
-import { modelParameters } from '../electron/core/model-providers';
+import { ModelClient, assistantMessage } from '../electron/core/model/model';
+import { ResponsesTransport, websocketEnabled } from '../electron/core/model/responses-transport';
+import { DEFAULT_RUNTIME, type UsageRecord } from '../shared/types/runtime-types';
+import type { ModelConfig, WireMessage } from '../shared/types/core';
+import { modelParameters } from '../electron/core/model/model-providers';
 
 const output = (text: string) => [
   { type: 'message', id: 'msg_' + text, role: 'assistant', content: [{ type: 'output_text', text }] },

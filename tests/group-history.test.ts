@@ -4,12 +4,12 @@ import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { Store } from '../electron/core/store';
-import { groupHistory, groupContextKey, prepareGroupContext } from '../electron/core/group-history';
-import { contextBudget, estimateRequest } from '../electron/core/context-budget';
-import { imageContext, type ModelClient } from '../electron/core/model';
-import type { GroupRoom } from '../src/group-types';
-import type { WireMessage } from '../src/shared';
+import { Store } from '../electron/core/storage/store';
+import { groupHistory, groupContextKey, prepareGroupContext } from '../electron/core/group/group-history';
+import { contextBudget, estimateRequest } from '../electron/core/context/context-budget';
+import { imageContext, type ModelClient } from '../electron/core/model/model';
+import type { GroupRoom } from '../shared/types/group-types';
+import type { WireMessage } from '../shared/types/core';
 
 function fixture(t: test.TestContext) {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-group-context-')),

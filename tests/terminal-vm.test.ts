@@ -6,8 +6,8 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'nod
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { AddressInfo } from 'node:net';
-import { VmController } from '../electron/core/vm';
-import { TerminalSessions, type TerminalDriver } from '../electron/core/terminal-sessions';
+import { VmController } from '../electron/core/vm/vm';
+import { TerminalSessions, type TerminalDriver } from '../electron/core/tools/terminal-sessions';
 test('VM terminal requests a real SSH PTY, carries stdin and preserves exit status without starting QEMU', async (t) => {
   const parent = realpathSync(tmpdir()),
     dir = mkdtempSync(join(parent, 'aelion-ssh-terminal-')),

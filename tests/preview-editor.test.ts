@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyDomEdits } from '../electron/core/html-preview-edits';
-import { validateDomEdits } from '../src/preview-dom-edits';
-import { validateAnnotations, annotationContext } from '../src/preview-annotations';
+import { applyDomEdits } from '../electron/core/preview/html-preview-edits';
+import { validateDomEdits } from '../shared/preview/preview-dom-edits';
+import { validateAnnotations, annotationContext } from '../shared/preview/preview-annotations';
 const patch = (html: string, after: string, path = ['html:1', 'body:1', 'h1:1']) => ({
   before: { tag: 'h1', path, html },
   after,

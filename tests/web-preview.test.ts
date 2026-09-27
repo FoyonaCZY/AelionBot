@@ -5,10 +5,10 @@ import { once } from 'node:events';
 import ssh2 from 'ssh2';
 const { Client, Server: SSHServer } = ssh2;
 import { generateKeyPairSync } from 'node:crypto';
-import { PreviewTunnel } from '../electron/core/preview-tunnel';
-import { webResourcePath, webFileResponse } from '../electron/core/web-preview-resources';
-import { webPreviewUrl, vmPreviewPort, feedbackWebUrl } from '../src/web-preview';
-import { previewFeedbackMessage, previewFeedbackDisplay } from '../src/preview-feedback';
+import { PreviewTunnel } from '../electron/core/preview/preview-tunnel';
+import { webResourcePath, webFileResponse } from '../electron/core/preview/web-preview-resources';
+import { webPreviewUrl, vmPreviewPort, feedbackWebUrl } from '../shared/preview/web-preview';
+import { previewFeedbackMessage, previewFeedbackDisplay } from '../shared/preview/preview-feedback';
 
 test('web addresses reject executable schemes and credentials; VM forwarding accepts only explicit local high ports', () => {
   for (const value of ['file:///tmp/a', 'javascript:alert(1)', 'data:text/html,hi', 'https://user:pass@example.com'])

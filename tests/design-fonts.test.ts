@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { Store } from '../electron/core/store';
-import { DesignStore } from '../electron/core/design-store';
-import { DesignerFiles } from '../electron/core/designer-files';
-import { DesignFonts } from '../electron/core/design-fonts';
+import { Store } from '../electron/core/storage/store';
+import { DesignStore } from '../electron/core/designer/design-store';
+import { DesignerFiles } from '../electron/core/designer/designer-files';
+import { DesignFonts } from '../electron/core/designer/design-fonts';
 
 const inter = readFileSync('node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2');
 const chinese = readFileSync('node_modules/@fontsource-variable/noto-sans-sc/files/noto-sans-sc-119-wght-normal.woff2');

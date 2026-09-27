@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { startVncConnection, canvasHasFrame, type VncClient } from '../src/vnc-connection';
+import { startVncConnection, canvasHasFrame, type VncClient } from '../src/computer/vnc-connection';
 class Client extends EventTarget implements VncClient {
   background = '';
   scaleViewport = false;

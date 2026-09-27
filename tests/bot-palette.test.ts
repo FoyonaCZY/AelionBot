@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
-import { Store } from '../electron/core/store';
-import { ModelProviders } from '../electron/core/model-providers';
-import { updateBotProfile } from '../electron/core/bot-profile';
-import { validateChatInput } from '../electron/core/chat-input';
-import { GroupChats } from '../electron/core/group-chats';
+import { Store } from '../electron/core/storage/store';
+import { ModelProviders } from '../electron/core/model/model-providers';
+import { updateBotProfile } from '../electron/core/agent/bot-profile';
+import { validateChatInput } from '../electron/core/agent/chat-input';
+import { GroupChats } from '../electron/core/group/group-chats';
 import {
   BOT_PALETTES,
   botIdentity,
@@ -15,8 +15,8 @@ import {
   normalizeBotPalette,
   randomBotPalette,
   type BotAvatarStyle,
-} from '../src/bot-colors';
-import { BOT_AVATAR_PATH, botAvatarContent, botAvatarDataUrl } from '../src/bot-avatar';
+} from '../shared/chat/bot-colors';
+import { BOT_AVATAR_PATH, botAvatarContent, botAvatarDataUrl } from '../src/bots/bot-avatar';
 
 function fixture(t: test.TestContext) {
   const parent = resolve(tmpdir()),

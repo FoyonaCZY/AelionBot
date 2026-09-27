@@ -2,15 +2,15 @@ import { parentPort, workerData } from 'node:worker_threads';
 import { closeSync, lstatSync, openSync, readSync, readdirSync, realpathSync, fstatSync } from 'node:fs';
 import { basename, join, posix, relative, isAbsolute } from 'node:path';
 import ignore, { type Ignore } from 'ignore';
-import { ordinaryProjectPath } from './permission-risk';
-import { characterWindow, decodeText, FileToolError, TEXT_FILE_LIMIT, toolFailure } from './file-text';
-import { redactHost } from './host-redaction';
+import { ordinaryProjectPath } from './host/permission-risk';
+import { characterWindow, decodeText, FileToolError, TEXT_FILE_LIMIT, toolFailure } from './tools/file-text';
+import { redactHost } from './host/host-redaction';
 import {
   ignoredDirectories as ignoredNames,
   type FileMatch,
   type FileSearchRequest,
   type FileSearchResult,
-} from './file-search-types';
+} from './tools/file-search-types';
 
 const ignoredDirectories = new Set(ignoredNames);
 interface Rules {

@@ -12,10 +12,10 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { VideoFrames } from '../electron/core/video-frames';
-import { videoFrameRequest, videoSampleTimes, videoFrameLayout } from '../src/video-frames';
-import type { HostComputer } from '../electron/core/host';
-import type { Attachments } from '../electron/core/attachments';
+import { VideoFrames } from '../electron/core/preview/video-frames';
+import { videoFrameRequest, videoSampleTimes, videoFrameLayout } from '../shared/preview/video-frames';
+import type { HostComputer } from '../electron/core/host/host';
+import type { Attachments } from '../electron/core/attachments/attachments';
 const png =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aS1sAAAAASUVORK5CYII=';
 function fixture(t: test.TestContext) {

@@ -9,11 +9,11 @@ import {
   PIN_EMOJI_BY_VALUE,
   QUICK_PIN_EMOJIS,
   searchPinEmojis,
-} from '../src/emoji-catalog';
-import { validPin } from '../src/reactions';
-import { Store } from '../electron/core/store';
-import { pinChat } from '../electron/core/chat-pins';
-import { GroupChats } from '../electron/core/group-chats';
+} from '../shared/chat/emoji-catalog';
+import { validPin } from '../shared/chat/reactions';
+import { Store } from '../electron/core/storage/store';
+import { pinChat } from '../electron/core/agent/chat-pins';
+import { GroupChats } from '../electron/core/group/group-chats';
 
 test('the expanded catalog contains distinct single emoji and retains all existing reactions', () => {
   assert.ok(PIN_EMOJI_OPTIONS.length >= 500);

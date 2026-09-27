@@ -1,4 +1,4 @@
-import type { GameRequest } from '../../../src/game-types';
+import type { GameRequest } from '../../../shared/types/game-types';
 type Field = { type: 'string' | 'boolean'; enum?: string[]; minLength?: number; maxLength?: number };
 export function actionContract(r: GameRequest) {
   const properties: Record<string, Field> = {

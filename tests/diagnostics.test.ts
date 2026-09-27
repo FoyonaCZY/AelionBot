@@ -13,11 +13,11 @@ import {
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { unzipSync, strFromU8 } from 'fflate';
-import { Diagnostics, diagnosticTail } from '../electron/core/diagnostics';
-import { diagnosticRedactor } from '../electron/core/diagnostic-redaction';
-import { DEFAULT_RUNTIME } from '../src/runtime-types';
-import { PromptCacheDiagnostics } from '../electron/core/prompt-cache';
-import type { Snapshot } from '../src/shared';
+import { Diagnostics, diagnosticTail } from '../electron/core/app/diagnostics';
+import { diagnosticRedactor } from '../electron/core/app/diagnostic-redaction';
+import { DEFAULT_RUNTIME } from '../shared/types/runtime-types';
+import { PromptCacheDiagnostics } from '../electron/core/context/prompt-cache';
+import type { Snapshot } from '../shared/types/core';
 
 function fixture(t: test.TestContext) {
   const parent = realpathSync.native(tmpdir()),

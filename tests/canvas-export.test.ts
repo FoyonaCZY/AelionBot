@@ -4,11 +4,11 @@ import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync } from 'no
 import { join, dirname, resolve, basename } from 'node:path';
 import { tmpdir } from 'node:os';
 import { unzipSync } from 'fflate';
-import { Store } from '../electron/core/store';
-import { DesignStore } from '../electron/core/design-store';
-import { DesignerFiles } from '../electron/core/designer-files';
-import { DesignFonts } from '../electron/core/design-fonts';
-import { CanvasExports } from '../electron/core/canvas-export-service';
+import { Store } from '../electron/core/storage/store';
+import { DesignStore } from '../electron/core/designer/design-store';
+import { DesignerFiles } from '../electron/core/designer/designer-files';
+import { DesignFonts } from '../electron/core/designer/design-fonts';
+import { CanvasExports } from '../electron/core/designer/canvas-export-service';
 function fixture(t: test.TestContext) {
   const root = mkdtempSync(join(tmpdir(), 'aelion-canvas-export-'));
   const store = new Store(join(root, 'data'));

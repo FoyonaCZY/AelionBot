@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve, basename } from 'node:path';
-import { ComputerController, absolutePoint, keyCodes } from '../electron/core/computer';
-import { imageContext } from '../electron/core/model';
-import { artifactPath } from '../electron/core/artifacts';
-import type { VmController } from '../electron/core/vm';
-import type { WireMessage } from '../src/shared';
+import { ComputerController, absolutePoint, keyCodes } from '../electron/core/vm/computer';
+import { imageContext } from '../electron/core/model/model';
+import { artifactPath } from '../electron/core/attachments/artifacts';
+import type { VmController } from '../electron/core/vm/vm';
+import type { WireMessage } from '../shared/types/core';
 import { EventEmitter } from 'node:events';
 
 test('desktop coordinates and key chords stay inside the guest input protocol', () => {

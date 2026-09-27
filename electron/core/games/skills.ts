@@ -1,7 +1,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { createHash } from 'node:crypto';
-import type { GameView, GameRequest } from '../../../src/game-types';
+import type { GameView, GameRequest } from '../../../shared/types/game-types';
 const roots = [
   resolve(typeof __dirname === 'string' ? __dirname : process.cwd(), '../assets/game-skills/werewolf'),
   resolve(process.cwd(), 'assets/game-skills/werewolf'),

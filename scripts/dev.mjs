@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 await build({
-  entryPoints: ['electron/web-preview-preload.ts'],
+  entryPoints: ['electron/windows/web-preview-preload.ts'],
   outfile: 'dist-electron/web-preview-preload.cjs',
   bundle: true,
   platform: 'node',
@@ -13,7 +13,7 @@ await build({
   external: ['electron'],
 });
 await build({
-  entryPoints: ['electron/preview-feedback-preload.ts'],
+  entryPoints: ['electron/windows/preview-feedback-preload.ts'],
   outfile: 'dist-electron/preview-feedback-preload.cjs',
   bundle: true,
   platform: 'node',

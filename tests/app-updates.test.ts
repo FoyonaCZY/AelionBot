@@ -10,12 +10,12 @@ import {
   UPDATE_CHECK_INTERVAL_MS,
   UPDATE_CHECK_START_DELAY_MS,
   type UpdateDriver,
-} from '../electron/core/app-updates';
+} from '../electron/core/app/app-updates';
 import {
   assertUpdateDataOutsideApp,
   loadUpdateLaunchContext,
   saveUpdateLaunchContext,
-} from '../electron/core/update-launch-context';
+} from '../electron/core/app/update-launch-context';
 
 const deferred = <T>() => {
   let resolve!: (value: T) => void, reject!: (error: Error) => void;

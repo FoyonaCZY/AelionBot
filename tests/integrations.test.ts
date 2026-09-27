@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, basename, resolve } from 'node:path';
-import { Store } from '../electron/core/store';
-import { SkillLibrary, parseSkill } from '../electron/core/skill-library';
-import { TaskScheduler } from '../electron/core/task-scheduler';
-import { discoverMcp, parseMcpSnippet, publicEndpoint } from '../electron/core/mcp-config';
-import { Integrations } from '../electron/core/integrations';
-import { McpRuntime } from '../electron/core/mcp-runtime';
-import type { IntegrationPaths } from '../electron/core/integration-paths';
+import { Store } from '../electron/core/storage/store';
+import { SkillLibrary, parseSkill } from '../electron/core/extensions/skill-library';
+import { TaskScheduler } from '../electron/core/scheduler/task-scheduler';
+import { discoverMcp, parseMcpSnippet, publicEndpoint } from '../electron/core/extensions/mcp-config';
+import { Integrations } from '../electron/core/extensions/integrations';
+import { McpRuntime } from '../electron/core/extensions/mcp-runtime';
+import type { IntegrationPaths } from '../electron/core/extensions/integration-paths';
 
 function fixture(t: test.TestContext): IntegrationPaths {
   const root = mkdtempSync(join(tmpdir(), 'aelion-integration-test-'));

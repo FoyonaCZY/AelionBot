@@ -15,9 +15,9 @@ import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { VmStorage } from '../electron/core/vm-storage';
-import { VmController } from '../electron/core/vm';
-import { GiB, DEFAULT_VM_STORAGE, vmStorageSettings, storagePressure } from '../src/vm-storage';
+import { VmStorage } from '../electron/core/vm/vm-storage';
+import { VmController } from '../electron/core/vm/vm';
+import { GiB, DEFAULT_VM_STORAGE, vmStorageSettings, storagePressure } from '../shared/preview/vm-storage';
 function directory(t: test.TestContext) {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-storage-'));
   t.after(() => {

@@ -3,8 +3,13 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { appearanceVariables, DEFAULT_APPEARANCE, normalizeAppearance, resolvedTheme } from '../src/appearance';
-import { Store } from '../electron/core/store';
+import {
+  appearanceVariables,
+  DEFAULT_APPEARANCE,
+  normalizeAppearance,
+  resolvedTheme,
+} from '../shared/preview/appearance';
+import { Store } from '../electron/core/storage/store';
 
 test('old profiles get appearance defaults and corrupted values stay bounded', () => {
   assert.deepEqual(normalizeAppearance(undefined), DEFAULT_APPEARANCE);

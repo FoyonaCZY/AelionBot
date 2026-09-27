@@ -3,15 +3,15 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { readPipeline } from '../electron/core/tool-pipeline';
-import { Harness } from '../electron/core/harness';
-import { HostComputer } from '../electron/core/host';
-import { HostApprovals } from '../electron/core/host-approvals';
-import { Interactions, InteractionDenied } from '../electron/core/interactions';
-import { CommandPermissions } from '../electron/core/command-permissions';
-import { Store } from '../electron/core/store';
-import type { ModelClient } from '../electron/core/model';
-import type { VmController } from '../electron/core/vm';
+import { readPipeline } from '../electron/core/tools/tool-pipeline';
+import { Harness } from '../electron/core/agent/harness';
+import { HostComputer } from '../electron/core/host/host';
+import { HostApprovals } from '../electron/core/host/host-approvals';
+import { Interactions, InteractionDenied } from '../electron/core/agent/interactions';
+import { CommandPermissions } from '../electron/core/host/command-permissions';
+import { Store } from '../electron/core/storage/store';
+import type { ModelClient } from '../electron/core/model/model';
+import type { VmController } from '../electron/core/vm/vm';
 
 const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
 const deferred = <T>() => {

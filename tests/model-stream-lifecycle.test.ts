@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer, type ServerResponse } from 'node:http';
-import { ModelClient } from '../electron/core/model';
+import { ModelClient } from '../electron/core/model/model';
 const event = (res: ServerResponse, data: unknown) => res.write('data: ' + JSON.stringify(data) + '\n\n');
 async function fixture(t: any, handle: (res: ServerResponse) => void, protocol = 'chat') {
   const server = createServer(async (req, res) => {

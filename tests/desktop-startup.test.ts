@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { BOT_DESKTOP_SCRIPT } from '../electron/core/bot-desktop-profile';
-import { SESSION_LAUNCHER } from '../electron/core/desktop-profile';
+import { BOT_DESKTOP_SCRIPT } from '../electron/core/vm/bot-desktop-profile';
+import { SESSION_LAUNCHER } from '../electron/core/vm/desktop-profile';
 
 const python = process.env.AELION_TEST_PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
 const probe = spawnSync(python, ['--version'], { windowsHide: true, timeout: 25000 });

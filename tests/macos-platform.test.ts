@@ -3,15 +3,15 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { hostPathKey, hostShell, hostEnvironment, shellName, windowsPwsh } from '../electron/core/host-platform';
-import { CommandPermissions } from '../electron/core/command-permissions';
-import { HostComputer } from '../electron/core/host';
-import { Interactions, InteractionDenied } from '../electron/core/interactions';
-import { BackgroundProcesses } from '../electron/core/background-processes';
-import { vmPlatform, vmMachineArgs } from '../electron/core/vm-platform';
-import type { VmController } from '../electron/core/vm';
-import type { HostPermissionDetails } from '../src/shared';
-import { DESKTOP_SCRIPT } from '../electron/core/desktop-profile';
+import { hostPathKey, hostShell, hostEnvironment, shellName, windowsPwsh } from '../electron/core/host/host-platform';
+import { CommandPermissions } from '../electron/core/host/command-permissions';
+import { HostComputer } from '../electron/core/host/host';
+import { Interactions, InteractionDenied } from '../electron/core/agent/interactions';
+import { BackgroundProcesses } from '../electron/core/tools/background-processes';
+import { vmPlatform, vmMachineArgs } from '../electron/core/vm/vm-platform';
+import type { VmController } from '../electron/core/vm/vm';
+import type { HostPermissionDetails } from '../shared/types/core';
+import { DESKTOP_SCRIPT } from '../electron/core/vm/desktop-profile';
 const temporary = (t: test.TestContext) => {
   const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'aelion-macos-test-')));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
@@ -165,7 +165,7 @@ test(
   { skip: process.platform === 'win32' },
   async (t) => {
     const root = temporary(t),
-      { Store } = await import('../electron/core/store'),
+      { Store } = await import('../electron/core/storage/store'),
       store = new Store(root),
       bot = store.data.bots[0],
       interactions = new Interactions(() => {}),

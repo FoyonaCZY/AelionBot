@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
-import { CommandPermissions } from '../electron/core/command-permissions';
-import { Interactions, InteractionDenied, respondToInteraction } from '../electron/core/interactions';
-import { HostComputer, redactHost } from '../electron/core/host';
-import type { ComputerController } from '../electron/core/computer';
-import type { HostPermissionDetails } from '../src/shared';
+import { CommandPermissions } from '../electron/core/host/command-permissions';
+import { Interactions, InteractionDenied, respondToInteraction } from '../electron/core/agent/interactions';
+import { HostComputer, redactHost } from '../electron/core/host/host';
+import type { ComputerController } from '../electron/core/vm/computer';
+import type { HostPermissionDetails } from '../shared/types/core';
 
 const details = (command: string, cwd = 'C:\\projects\\sample'): HostPermissionDetails => ({
   operation: 'command',

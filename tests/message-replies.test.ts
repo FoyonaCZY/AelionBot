@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { Store } from '../electron/core/store';
-import { ChatPinQueue } from '../electron/core/chat-pins';
-import { GroupChats } from '../electron/core/group-chats';
-import { groupHistory } from '../electron/core/group-history';
-import { chatInputText } from '../electron/core/chat-input';
-import { resolveChatReply, resolveGroupReply } from '../electron/core/message-replies';
-import { messageReply } from '../src/message-replies';
-import { conversationTimeLabels, formatConversationTime } from '../src/conversation-time';
+import { Store } from '../electron/core/storage/store';
+import { ChatPinQueue } from '../electron/core/agent/chat-pins';
+import { GroupChats } from '../electron/core/group/group-chats';
+import { groupHistory } from '../electron/core/group/group-history';
+import { chatInputText } from '../electron/core/agent/chat-input';
+import { resolveChatReply, resolveGroupReply } from '../electron/core/agent/message-replies';
+import { messageReply } from '../shared/chat/message-replies';
+import { conversationTimeLabels, formatConversationTime } from '../src/chat/conversation-time';
 
 function fixture(t: test.TestContext) {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-replies-')),

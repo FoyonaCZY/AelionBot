@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { qemuBinary, qemuDataDir } from '../electron/core/vm-platform';
-import type { VmController } from '../electron/core/vm';
+import { qemuBinary, qemuDataDir } from '../electron/core/vm/vm-platform';
+import type { VmController } from '../electron/core/vm/vm';
 
 export function kernelPanic(log: string) {
   return log.match(/^\s*\[\s*\d+(?:\.\d+)?\]\s+Kernel panic - not syncing:\s*([^\r\n]+)/m)?.[1];

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import type { GameAction, GameRequest, GameCreate } from '../../../src/game-types';
-import { ACTION_NAMES, BOARDS } from '../../../src/game-boards';
+import type { GameAction, GameRequest, GameCreate } from '../../../shared/types/game-types';
+import { ACTION_NAMES, BOARDS } from '../../../shared/games/game-boards';
 import type { WerewolfState } from './werewolf';
 
 type Death = { id: string; cause: 'knife' | 'poison' | 'exile' | 'shot' };

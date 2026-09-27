@@ -4,17 +4,17 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname, basename } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import { Store } from '../electron/core/store';
-import { Harness } from '../electron/core/harness';
-import { GroupChats } from '../electron/core/group-chats';
-import { updateBotProfile } from '../electron/core/bot-profile';
-import { DesignSystems } from '../electron/core/design-systems';
-import { DesignStore } from '../electron/core/design-store';
-import { DesignerFiles } from '../electron/core/designer-files';
-import { DesignerLoop } from '../electron/core/designer-loop';
-import { BotRuntime } from '../electron/core/bot-runtime';
+import { Store } from '../electron/core/storage/store';
+import { Harness } from '../electron/core/agent/harness';
+import { GroupChats } from '../electron/core/group/group-chats';
+import { updateBotProfile } from '../electron/core/agent/bot-profile';
+import { DesignSystems } from '../electron/core/designer/design-systems';
+import { DesignStore } from '../electron/core/designer/design-store';
+import { DesignerFiles } from '../electron/core/designer/designer-files';
+import { DesignerLoop } from '../electron/core/designer/designer-loop';
+import { BotRuntime } from '../electron/core/agent/bot-runtime';
 import { zipSync, strToU8 } from 'fflate';
-import type { RunRecord } from '../src/shared';
+import type { RunRecord } from '../shared/types/core';
 
 function fixture(t: any) {
   const root = mkdtempSync(join(tmpdir(), 'aelion-design-'));
@@ -370,7 +370,7 @@ test('the shipped design catalog contains all 152 packages and valid hashes', ()
 });
 import { spawnSync } from 'node:child_process';
 
-import { recordDelegationReceipt } from '../electron/core/delegation';
+import { recordDelegationReceipt } from '../electron/core/peer/delegation';
 
 test('selected references materialize locally without a full-library copy', async (t) => {
   const f = loopFixture(t);
@@ -636,7 +636,7 @@ test('designer delegation receipts require verified human provenance and success
     recordDelegationReceipt(store, bot.id, id, { status: 'completed', summary: 'Done', evidenceIds: ['real-write'] }),
   );
 });
-import { groupMainContext } from '../electron/core/group-context';
+import { groupMainContext } from '../electron/core/group/group-context';
 test('shared group references exclude private history, memories and unrelated group requests', (t) => {
   const { store, bot } = fixture(t),
     time = new Date().toISOString();
@@ -683,7 +683,7 @@ test('invalid design updates do not partially change the stored task', (t) => {
   );
   assert.equal(designs.get(task.id).title, 'Original');
 });
-import { ExecutionLedger } from '../electron/core/execution-ledger';
+import { ExecutionLedger } from '../electron/core/agent/execution-ledger';
 test('interrupted design tool calls are repaired as unknown and their evidence stays attached to the same task', (t) => {
   const { root, store, bot } = fixture(t),
     designs = new DesignStore(store, new DesignSystems(catalog(root))),
@@ -795,8 +795,8 @@ test('design-system selection is task scoped while another task of the same Bot 
   assert.equal(designs.get(a.id).activeRunId, 'active-a');
 });
 
-import { CognitiveStore } from '../electron/core/cognitive-store';
-import { ContextEngine } from '../electron/core/context-engine';
+import { CognitiveStore } from '../electron/core/memory/cognitive-store';
+import { ContextEngine } from '../electron/core/context/context-engine';
 test('designer task revisions preserve request prefixes and reuse pinned reference context', async (t) => {
   const f = loopFixture(t),
     storage = new CognitiveStore(f.store),

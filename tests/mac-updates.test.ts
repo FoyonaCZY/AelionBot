@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createMacUpdater, macAutomaticUpdates, newerVersion } from '../electron/core/mac-updater';
-import { AppUpdates } from '../electron/core/app-updates';
+import { createMacUpdater, macAutomaticUpdates, newerVersion } from '../electron/core/app/mac-updater';
+import { AppUpdates } from '../electron/core/app/app-updates';
 test('Mac preview chooses a release containing the matching architecture and never installs automatically', async (t) => {
   const original = globalThis.fetch;
   t.after(() => {

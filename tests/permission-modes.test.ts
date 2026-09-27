@@ -14,23 +14,27 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { Store } from '../electron/core/store';
-import { HostComputer, redactHost } from '../electron/core/host';
-import { Interactions, InteractionDenied } from '../electron/core/interactions';
-import { CommandPermissions } from '../electron/core/command-permissions';
+import { Store } from '../electron/core/storage/store';
+import { HostComputer, redactHost } from '../electron/core/host/host';
+import { Interactions, InteractionDenied } from '../electron/core/agent/interactions';
+import { CommandPermissions } from '../electron/core/host/command-permissions';
 import {
   HostApprovals,
   defaultApprovalModel,
   defaultPermissionReviewer,
   type PermissionReviewer,
-} from '../electron/core/host-approvals';
-import { classifyHostOperation, ordinaryProjectPath, type HostRiskContext } from '../electron/core/permission-risk';
-import type { HostPermissionRequest, ModelApproval } from '../electron/core/host-approval-types';
-import { DEFAULT_RUNTIME } from '../src/runtime-types';
-import { McpRuntime } from '../electron/core/mcp-runtime';
-import type { McpConfig } from '../electron/core/mcp-config';
-import type { ModelClient } from '../electron/core/model';
-import type { HostPermissionDetails, ModelConfig, RunRecord } from '../src/shared';
+} from '../electron/core/host/host-approvals';
+import {
+  classifyHostOperation,
+  ordinaryProjectPath,
+  type HostRiskContext,
+} from '../electron/core/host/permission-risk';
+import type { HostPermissionRequest, ModelApproval } from '../electron/core/host/host-approval-types';
+import { DEFAULT_RUNTIME } from '../shared/types/runtime-types';
+import { McpRuntime } from '../electron/core/extensions/mcp-runtime';
+import type { McpConfig } from '../electron/core/extensions/mcp-config';
+import type { ModelClient } from '../electron/core/model/model';
+import type { HostPermissionDetails, ModelConfig, RunRecord } from '../shared/types/core';
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 5));
 const until = async (check: () => boolean) => {

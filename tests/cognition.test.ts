@@ -3,18 +3,24 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname, basename } from 'node:path';
-import { Store } from '../electron/core/store';
-import { CognitiveStore } from '../electron/core/cognitive-store';
-import { MemoryService } from '../electron/core/memory-service';
-import { ContextEngine } from '../electron/core/context-engine';
-import { LearningWorker, shouldReview } from '../electron/core/learning-worker';
-import { SkillLibrary } from '../electron/core/skill-library';
-import { contextBudget, estimateRequest, exchanges, tailBoundary, textTokens } from '../electron/core/context-budget';
-import { ModelClient, type Completion } from '../electron/core/model';
-import { Harness, TOOLS } from '../electron/core/harness';
-import type { Integrations } from '../electron/core/integrations';
-import type { VmController } from '../electron/core/vm';
-import type { WireMessage } from '../src/shared';
+import { Store } from '../electron/core/storage/store';
+import { CognitiveStore } from '../electron/core/memory/cognitive-store';
+import { MemoryService } from '../electron/core/memory/memory-service';
+import { ContextEngine } from '../electron/core/context/context-engine';
+import { LearningWorker, shouldReview } from '../electron/core/memory/learning-worker';
+import { SkillLibrary } from '../electron/core/extensions/skill-library';
+import {
+  contextBudget,
+  estimateRequest,
+  exchanges,
+  tailBoundary,
+  textTokens,
+} from '../electron/core/context/context-budget';
+import { ModelClient, type Completion } from '../electron/core/model/model';
+import { Harness, TOOLS } from '../electron/core/agent/harness';
+import type { Integrations } from '../electron/core/extensions/integrations';
+import type { VmController } from '../electron/core/vm/vm';
+import type { WireMessage } from '../shared/types/core';
 
 const summary = JSON.stringify({
   goal: '继续处理当前任务',

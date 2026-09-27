@@ -4,9 +4,9 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, cpSync, re
 import { join, resolve, dirname, basename } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
-import { Store } from '../electron/core/store';
-import { SkillLibrary } from '../electron/core/skill-library';
-import type { IntegrationPaths } from '../electron/core/integration-paths';
+import { Store } from '../electron/core/storage/store';
+import { SkillLibrary } from '../electron/core/extensions/skill-library';
+import type { IntegrationPaths } from '../electron/core/extensions/integration-paths';
 
 const bundled = resolve('assets/skills');
 const manifest = JSON.parse(readFileSync(join(bundled, 'manifest.json'), 'utf8')) as {

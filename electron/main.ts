@@ -1,88 +1,88 @@
-import { PreviewFileOpener } from './core/preview-open';
-import { choosePreviewApplication } from './preview-open';
+import { PreviewFileOpener } from './core/preview/preview-open';
+import { choosePreviewApplication } from './windows/preview-open';
 import { gameProviders } from './core/games/providers';
 import { GameRuntime } from './core/games/runtime';
 import { gameInstructions, gamePrompt, parseGameAction } from './core/games/model-player';
-import { BotRuntime } from './core/bot-runtime';
-import { DesignerLoop } from './core/designer-loop';
-import { DesignerFiles } from './core/designer-files';
-import { DesignStore } from './core/design-store';
-import { DesignSystems } from './core/design-systems';
-import { DesignPlugins } from './core/design-plugins';
-import { DesignCraft } from './core/design-craft';
-import { DesignFonts } from './core/design-fonts';
-import { renderCanvasExport } from './canvas-export-renderer';
-import { CanvasExports } from './core/canvas-export-service';
-import { applyDesignFont, designFontText, designHtmlPath } from './core/design-font-application';
-import { prepareDesignHtml, exportDesignHtmlBundle } from './core/design-export';
-import { commentsFromAnnotations } from '../src/designer-canvas';
-import { botType } from '../src/designer-types';
-import { applyDomEdits } from './core/html-preview-edits';
-import { WebPreviewBrowser } from './web-preview';
+import { BotRuntime } from './core/agent/bot-runtime';
+import { DesignerLoop } from './core/designer/designer-loop';
+import { DesignerFiles } from './core/designer/designer-files';
+import { DesignStore } from './core/designer/design-store';
+import { DesignSystems } from './core/designer/design-systems';
+import { DesignPlugins } from './core/designer/design-plugins';
+import { DesignCraft } from './core/designer/design-craft';
+import { DesignFonts } from './core/designer/design-fonts';
+import { renderCanvasExport } from './windows/canvas-export-renderer';
+import { CanvasExports } from './core/designer/canvas-export-service';
+import { applyDesignFont, designFontText, designHtmlPath } from './core/designer/design-font-application';
+import { prepareDesignHtml, exportDesignHtmlBundle } from './core/designer/design-export';
+import { commentsFromAnnotations } from '../shared/preview/designer-canvas';
+import { botType } from '../shared/types/designer-types';
+import { applyDomEdits } from './core/preview/html-preview-edits';
+import { WebPreviewBrowser } from './windows/web-preview';
 import { protocol } from 'electron';
-import { PreviewFeedbackService, designFeedbackFile } from './core/preview-feedback';
-import { feedbackCaptureRect } from '../src/preview-feedback';
-import { VideoInspector } from './video-inspector';
-import { VideoFrames } from './core/video-frames';
-import { AgentPreviews } from './core/agent-previews';
-import { editableText, editedBytes } from './core/preview-editing';
-import { sourceTextFile } from '../src/source-language';
-import { normalizeAppearance, type AppearanceSettings } from '../src/appearance';
-import { createMacUpdater, macAutomaticUpdates } from './core/mac-updater';
-import { hostEnvironment } from './core/host-platform';
-import { RunPolicy, runtimeSettings } from './core/runtime-policy';
-import { normalizeUserProfile } from '../src/user-profile';
+import { PreviewFeedbackService, designFeedbackFile } from './core/preview/preview-feedback';
+import { feedbackCaptureRect } from '../shared/preview/preview-feedback';
+import { VideoInspector } from './windows/video-inspector';
+import { VideoFrames } from './core/preview/video-frames';
+import { AgentPreviews } from './core/preview/agent-previews';
+import { editableText, editedBytes } from './core/preview/preview-editing';
+import { sourceTextFile } from '../shared/preview/source-language';
+import { normalizeAppearance, type AppearanceSettings } from '../shared/preview/appearance';
+import { createMacUpdater, macAutomaticUpdates } from './core/app/mac-updater';
+import { hostEnvironment } from './core/host/host-platform';
+import { RunPolicy, runtimeSettings } from './core/agent/runtime-policy';
+import { normalizeUserProfile } from '../shared/chat/user-profile';
 import { app, BrowserWindow, ipcMain, safeStorage, dialog, shell, Menu, nativeImage, nativeTheme, net } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { join, resolve, dirname, basename } from 'node:path';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { Store } from './core/store';
-import { updateBotProfile } from './core/bot-profile';
-import { VmController } from './core/vm';
-import { ModelClient, validateModelEndpoint } from './core/model';
-import { ModelProviders } from './core/model-providers';
-import { probeImageModel, storeImageRoutes } from './core/image-generation';
-import { imageProtocolCatalog } from './core/image-protocols';
-import { isImageGenerationError } from './core/image-errors';
-import { Harness, safeRelativePath } from './core/harness';
-import { ComputerController } from './core/computer';
-import { installComputerView } from './core/computer-view';
-import { Attachments } from './core/attachments';
-import { AttachmentDrops } from './core/attachment-drop';
-import { readAttachmentClipboard } from './core/attachment-clipboard';
-import { ArtifactService } from './core/artifacts';
-import { Integrations } from './core/integrations';
-import { Interactions, respondToInteraction, changeManualControl } from './core/interactions';
-import { HostComputer, redactHost } from './core/host';
-import { HostApprovals, defaultPermissionReviewer, defaultApprovalModel } from './core/host-approvals';
-import { CommandPermissions } from './core/command-permissions';
-import { Cognition } from './core/cognition';
-import { PeerChats } from './core/peer-chats';
-import { GroupChats } from './core/group-chats';
-import { ChatPinQueue } from './core/chat-pins';
-import { TaskScheduler } from './core/task-scheduler';
-import { groupPending } from '../src/group-types';
-import { peerPending } from '../src/peer-types';
-import { BotGreetings } from './core/bot-greetings';
-import { AppUpdates } from './core/app-updates';
-import { Diagnostics } from './core/diagnostics';
+import { Store } from './core/storage/store';
+import { updateBotProfile } from './core/agent/bot-profile';
+import { VmController } from './core/vm/vm';
+import { ModelClient, validateModelEndpoint } from './core/model/model';
+import { ModelProviders } from './core/model/model-providers';
+import { probeImageModel, storeImageRoutes } from './core/image/image-generation';
+import { imageProtocolCatalog } from './core/image/image-protocols';
+import { isImageGenerationError } from './core/image/image-errors';
+import { Harness, safeRelativePath } from './core/agent/harness';
+import { ComputerController } from './core/vm/computer';
+import { installComputerView } from './core/vm/computer-view';
+import { Attachments } from './core/attachments/attachments';
+import { AttachmentDrops } from './core/attachments/attachment-drop';
+import { readAttachmentClipboard } from './core/attachments/attachment-clipboard';
+import { ArtifactService } from './core/attachments/artifacts';
+import { Integrations } from './core/extensions/integrations';
+import { Interactions, respondToInteraction, changeManualControl } from './core/agent/interactions';
+import { HostComputer, redactHost } from './core/host/host';
+import { HostApprovals, defaultPermissionReviewer, defaultApprovalModel } from './core/host/host-approvals';
+import { CommandPermissions } from './core/host/command-permissions';
+import { Cognition } from './core/memory/cognition';
+import { PeerChats } from './core/peer/peer-chats';
+import { GroupChats } from './core/group/group-chats';
+import { ChatPinQueue } from './core/agent/chat-pins';
+import { TaskScheduler } from './core/scheduler/task-scheduler';
+import { groupPending } from '../shared/types/group-types';
+import { peerPending } from '../shared/types/peer-types';
+import { BotGreetings } from './core/agent/bot-greetings';
+import { AppUpdates } from './core/app/app-updates';
+import { Diagnostics } from './core/app/diagnostics';
 import { availableParallelism, release as osRelease, totalmem } from 'node:os';
 import { writeFile } from 'node:fs/promises';
-import { createWindowsUpdater, UPDATE_REPOSITORY } from './core/windows-updater';
+import { createWindowsUpdater, UPDATE_REPOSITORY } from './core/app/windows-updater';
 import {
   assertUpdateDataOutsideApp,
   loadUpdateLaunchContext,
   saveUpdateLaunchContext,
   type UpdateLaunchContext,
-} from './core/update-launch-context';
-import { WorkItems } from './core/work-items';
-import { assertWorkspaceScope, conversationWorkspace, setConversationWorkspace } from './core/workspaces';
-import { resumableRun } from './core/resume-run';
-import type { Snapshot } from '../src/shared';
-import { externalWebUrl } from '../src/external-links';
-import { usageReport } from './core/usage-report';
-import { reasoningEffort as cleanReasoning } from '../src/reasoning';
-import { Shutdown } from './core/shutdown';
+} from './core/app/update-launch-context';
+import { WorkItems } from './core/agent/work-items';
+import { assertWorkspaceScope, conversationWorkspace, setConversationWorkspace } from './core/storage/workspaces';
+import { resumableRun } from './core/agent/resume-run';
+import type { Snapshot } from '../shared/types/core';
+import { externalWebUrl } from '../shared/preview/external-links';
+import { usageReport } from './core/app/usage-report';
+import { reasoningEffort as cleanReasoning } from '../shared/chat/reasoning';
+import { Shutdown } from './core/app/shutdown';
 
 let window: BrowserWindow | undefined;
 let previewDirty = false,
@@ -1281,7 +1281,7 @@ async function initialize() {
     writeFileSync(result.filePath, attachments.bytes(id));
     return result.filePath;
   });
-  const feedbackDesign = (input?: import('../src/preview-feedback').PreviewFeedbackInput) => {
+  const feedbackDesign = (input?: import('../shared/preview/preview-feedback').PreviewFeedbackInput) => {
     if (!input?.designSessionId) return undefined;
     const design = designStore.get(input.designSessionId, undefined, { kind: input.scope.kind, id: input.scope.id }),
       path = designFeedbackFile(input, design);
@@ -1378,7 +1378,7 @@ async function initialize() {
   };
   const mutateFonts = async <T>(
     id: unknown,
-    action: (session: import('../src/designer-types').DesignSession, guard: () => void) => Promise<T>,
+    action: (session: import('../shared/types/designer-types').DesignSession, guard: () => void) => Promise<T>,
   ) => {
     const session = fontSession(id, true);
     if (fontMutationSessions.has(session.id)) throw Error('字体正在处理中');
@@ -1418,7 +1418,7 @@ async function initialize() {
       });
       if (selected.canceled) return null;
       if (selected.filePaths.length > 8) throw Error('一次最多导入 8 个字体文件');
-      const imported: import('../src/design-font-types').DesignFont[] = [];
+      const imported: import('../shared/types/design-font-types').DesignFont[] = [];
       for (const path of selected.filePaths) {
         guard();
         imported.push(...(await designFonts.importFile(session, path, { beforeWrite: guard })));

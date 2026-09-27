@@ -5,7 +5,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
-import { verifiedDownload } from '../electron/core/download';
+import { verifiedDownload } from '../electron/core/vm/download';
 const hash = (bytes: Buffer) => createHash('sha512').update(bytes).digest('hex');
 async function fixture(t: test.TestContext, handler: (request: IncomingMessage, response: ServerResponse) => void) {
   const parent = realpathSync.native(tmpdir()),

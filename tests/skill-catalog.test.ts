@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import type { Skill } from '../src/shared';
-import { skillCatalog } from '../electron/core/skill-catalog';
-import { contextBudget, textTokens } from '../electron/core/context-budget';
+import type { Skill } from '../shared/types/core';
+import { skillCatalog } from '../electron/core/extensions/skill-catalog';
+import { contextBudget, textTokens } from '../electron/core/context/context-budget';
 
 const skill = (id: string, botId?: string): Skill => ({
   id,

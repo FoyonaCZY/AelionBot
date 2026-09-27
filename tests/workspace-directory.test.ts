@@ -4,10 +4,10 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
-import { WORKSPACE_DIRECTORY_SCRIPT } from '../electron/core/workspace-directory';
-import { ArtifactService } from '../electron/core/artifacts';
-import { isRunArtifact } from '../src/workspace-files';
-import { Store } from '../electron/core/store';
+import { WORKSPACE_DIRECTORY_SCRIPT } from '../electron/core/host/workspace-directory';
+import { ArtifactService } from '../electron/core/attachments/artifacts';
+import { isRunArtifact } from '../shared/preview/workspace-files';
+import { Store } from '../electron/core/storage/store';
 
 const python = process.env.AELION_TEST_PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
 const available = spawnSync(python, ['--version'], { windowsHide: true, timeout: 5000 }).status === 0;

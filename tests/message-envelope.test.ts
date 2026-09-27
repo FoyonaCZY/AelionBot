@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { groupReplyContent } from '../src/message-envelope';
+import { groupReplyContent } from '../shared/chat/message-envelope';
 const envelope = (content: string) =>
   JSON.stringify({
     messageId: 'message-1',

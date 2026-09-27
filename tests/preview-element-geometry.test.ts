@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { annotationDocumentSize, resizeElementBox, translateComponents } from '../src/preview-element-geometry';
+import {
+  annotationDocumentSize,
+  resizeElementBox,
+  translateComponents,
+} from '../shared/preview/preview-element-geometry';
 test('resizing keeps the opposite edge fixed and prevents negative sizes', () => {
   const start = { width: 200, height: 100 };
   assert.deepEqual(resizeElementBox(start, 'nw', 30, 20), { width: 170, height: 80, x: 30, y: 20 });

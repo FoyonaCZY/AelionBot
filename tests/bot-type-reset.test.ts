@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
-import { Store } from '../electron/core/store';
-import { updateBotProfile } from '../electron/core/bot-profile';
-import { DesignStore } from '../electron/core/design-store';
-import { DesignSystems } from '../electron/core/design-systems';
-import { CognitiveStore } from '../electron/core/cognitive-store';
-import { Harness } from '../electron/core/harness';
-import { BotRuntime } from '../electron/core/bot-runtime';
-import { groupHistory } from '../electron/core/group-history';
+import { Store } from '../electron/core/storage/store';
+import { updateBotProfile } from '../electron/core/agent/bot-profile';
+import { DesignStore } from '../electron/core/designer/design-store';
+import { DesignSystems } from '../electron/core/designer/design-systems';
+import { CognitiveStore } from '../electron/core/memory/cognitive-store';
+import { Harness } from '../electron/core/agent/harness';
+import { BotRuntime } from '../electron/core/agent/bot-runtime';
+import { groupHistory } from '../electron/core/group/group-history';
 function fixture(t: any) {
   const root = mkdtempSync(join(tmpdir(), 'aelion-type-reset-')),
     store = new Store(root),

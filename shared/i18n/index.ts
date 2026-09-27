@@ -7,7 +7,7 @@ import { zhTW } from './locales/zh-TW';
 export type { Language } from './interface-language';
 export { validLanguage } from './interface-language';
 
-export const translationTables: Record<Language, Record<string, string>> = { 'zh-CN': {}, 'zh-TW': zhTW, en };
+const translationTables: Record<Language, Record<string, string>> = { 'zh-CN': {}, 'zh-TW': zhTW, en };
 
 let activeLanguage: Language = 'zh-CN';
 

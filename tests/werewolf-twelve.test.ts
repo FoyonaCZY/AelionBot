@@ -12,8 +12,8 @@ import {
 } from '../electron/core/games/werewolf';
 import { gamePrompt, gameInstructions, parseGameAction } from '../electron/core/games/model-player';
 import { GameRuntime } from '../electron/core/games/runtime';
-import { BOARDS } from '../src/game-boards';
-import type { GameAction, GameRequest } from '../src/game-types';
+import { BOARDS } from '../shared/games/game-boards';
+import type { GameAction, GameRequest } from '../shared/types/game-types';
 const players = Array.from({ length: 12 }, (_, i) => ({
   id: String(i),
   name: '玩家' + (i + 1),

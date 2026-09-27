@@ -15,12 +15,12 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
-import { readVmFile, patchVmFile, VM_WRITE } from '../electron/core/vm-files';
-import { Store } from '../electron/core/store';
-import { FileCheckpoints } from '../electron/core/file-checkpoints';
-import { DEFAULT_RUNTIME } from '../src/runtime-types';
-import { vmPython } from '../electron/core/vm-python';
-import type { VmController } from '../electron/core/vm';
+import { readVmFile, patchVmFile, VM_WRITE } from '../electron/core/vm/vm-files';
+import { Store } from '../electron/core/storage/store';
+import { FileCheckpoints } from '../electron/core/tools/file-checkpoints';
+import { DEFAULT_RUNTIME } from '../shared/types/runtime-types';
+import { vmPython } from '../electron/core/vm/vm-python';
+import type { VmController } from '../electron/core/vm/vm';
 const python = process.env.AELION_TEST_PYTHON,
   available = Boolean(python && spawnSync(python, ['--version'], { windowsHide: true, timeout: 5000 }).status === 0),
   hash = (value: string | Buffer) => createHash('sha256').update(value).digest('hex');

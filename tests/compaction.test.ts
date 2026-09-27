@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Store } from '../electron/core/store';
-import { CognitiveStore } from '../electron/core/cognitive-store';
-import { ContextEngine, parseContextSummary } from '../electron/core/context-engine';
-import { contextBudget, textTokens } from '../electron/core/context-budget';
-import { protocolRequest } from '../electron/core/model-protocol';
-import type { ModelClient, ToolDefinition } from '../electron/core/model';
-import type { ModelConfig, WireMessage } from '../src/shared';
+import { Store } from '../electron/core/storage/store';
+import { CognitiveStore } from '../electron/core/memory/cognitive-store';
+import { ContextEngine, parseContextSummary } from '../electron/core/context/context-engine';
+import { contextBudget, textTokens } from '../electron/core/context/context-budget';
+import { protocolRequest } from '../electron/core/model/model-protocol';
+import type { ModelClient, ToolDefinition } from '../electron/core/model/model';
+import type { ModelConfig, WireMessage } from '../shared/types/core';
 
 const summary = JSON.stringify({
   goal: '继续任务',

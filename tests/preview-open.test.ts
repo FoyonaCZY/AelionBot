@@ -4,11 +4,11 @@ import { mkdtempSync, readFileSync, writeFileSync, rmSync, realpathSync, symlink
 import { join, dirname, resolve, basename } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { PreviewFileOpener, type PreviewOpenSource } from '../electron/core/preview-open';
-import { windowsOpenWithCommand, WINDOWS_OPEN_WITH_SCRIPT } from '../electron/core/open-with-windows';
-import { Attachments } from '../electron/core/attachments';
-import { Store } from '../electron/core/store';
-import { previewOpenTarget } from '../src/preview-open';
+import { PreviewFileOpener, type PreviewOpenSource } from '../electron/core/preview/preview-open';
+import { windowsOpenWithCommand, WINDOWS_OPEN_WITH_SCRIPT } from '../electron/core/host/open-with-windows';
+import { Attachments } from '../electron/core/attachments/attachments';
+import { Store } from '../electron/core/storage/store';
+import { previewOpenTarget } from '../shared/preview/preview-open';
 function fixture(t: test.TestContext) {
   const root = mkdtempSync(join(tmpdir(), 'aelion-open-'));
   t.after(() => {

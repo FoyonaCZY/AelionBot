@@ -4,11 +4,11 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { Store } from '../electron/core/store';
-import { GroupChats } from '../electron/core/group-chats';
-import { groupHistory, groupContextKey } from '../electron/core/group-history';
-import { CognitiveStore } from '../electron/core/cognitive-store';
-import type { RunRecord } from '../src/shared';
+import { Store } from '../electron/core/storage/store';
+import { GroupChats } from '../electron/core/group/group-chats';
+import { groupHistory, groupContextKey } from '../electron/core/group/group-history';
+import { CognitiveStore } from '../electron/core/memory/cognitive-store';
+import type { RunRecord } from '../shared/types/core';
 
 function fixture(t: test.TestContext, incremental = false) {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-group-protocol-')),

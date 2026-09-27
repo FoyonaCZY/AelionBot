@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync, rmSync, utimesSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { kernelPanic, isKnownClockPanic, startCiGuest } from '../scripts/ci-vm-boot';
-import type { VmController } from '../electron/core/vm';
+import type { VmController } from '../electron/core/vm/vm';
 test('CI boot recovery recognizes the upstream timer panic and excludes unrelated failures', () => {
   const timer = "[    1.201609] Kernel panic - not syncing: IO-APIC + timer doesn't work! Boot with apic=debug\r\n";
   assert.equal(isKnownClockPanic(kernelPanic(timer)!), true);

@@ -4,10 +4,10 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { ArtifactService } from '../electron/core/artifacts';
-import { Store } from '../electron/core/store';
-import { DEFAULT_RUNTIME } from '../src/runtime-types';
-import { editedBytes, editableText } from '../electron/core/preview-editing';
+import { ArtifactService } from '../electron/core/attachments/artifacts';
+import { Store } from '../electron/core/storage/store';
+import { DEFAULT_RUNTIME } from '../shared/types/runtime-types';
+import { editedBytes, editableText } from '../electron/core/preview/preview-editing';
 const python = process.env.AELION_TEST_PYTHON,
   available = Boolean(python && spawnSync(python, ['--version'], { windowsHide: true, timeout: 5000 }).status === 0);
 function fixture(t: test.TestContext) {

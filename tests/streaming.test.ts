@@ -5,16 +5,16 @@ import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { ReplyStreams } from '../electron/core/reply-streams';
-import { streamingReplyText } from '../src/streaming';
-import { Store } from '../electron/core/store';
-import { Harness } from '../electron/core/harness';
-import { ModelClient, type Completion } from '../electron/core/model';
-import { BotGreetings } from '../electron/core/bot-greetings';
-import { GroupChats } from '../electron/core/group-chats';
-import { PeerChats } from '../electron/core/peer-chats';
-import { groupPending } from '../src/group-types';
-import type { VmController } from '../electron/core/vm';
+import { ReplyStreams } from '../electron/core/agent/reply-streams';
+import { streamingReplyText } from '../shared/chat/streaming';
+import { Store } from '../electron/core/storage/store';
+import { Harness } from '../electron/core/agent/harness';
+import { ModelClient, type Completion } from '../electron/core/model/model';
+import { BotGreetings } from '../electron/core/agent/bot-greetings';
+import { GroupChats } from '../electron/core/group/group-chats';
+import { PeerChats } from '../electron/core/peer/peer-chats';
+import { groupPending } from '../shared/types/group-types';
+import type { VmController } from '../electron/core/vm/vm';
 
 const answer = (content: string): Completion => ({ content, calls: [], finishReason: 'stop' });
 const tool = (name: string, args: unknown): Completion => ({

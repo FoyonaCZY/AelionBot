@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 
 repo=pathlib.Path(__file__).resolve().parent.parent
-source=(repo/'electron/core/package-installer.ts').read_text().split('export const PACKAGE_INSTALLER=String.raw`',1)[1].split('\n`;',1)[0]
+source=(repo/'electron/core/host/package-installer.ts').read_text().split('export const PACKAGE_INSTALLER=String.raw`',1)[1].split('\n`;',1)[0]
 namespace={'__name__':'fixture'}
 exec(compile(source,'aelion-packages','exec'),namespace)
 assert pathlib.Path('/etc/os-release').read_text().find('bookworm')>=0

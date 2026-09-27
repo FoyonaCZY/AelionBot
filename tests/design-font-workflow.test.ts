@@ -5,16 +5,16 @@ import { tmpdir } from 'node:os';
 import { join, resolve, dirname, basename } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { unzipSync } from 'fflate';
-import { Store } from '../electron/core/store';
-import { DesignStore } from '../electron/core/design-store';
-import { DesignerFiles } from '../electron/core/designer-files';
-import { DesignFonts } from '../electron/core/design-fonts';
-import { applyDesignFont } from '../electron/core/design-font-application';
-import { DesignerLoop } from '../electron/core/designer-loop';
-import { Harness } from '../electron/core/harness';
-import { ArtifactService } from '../electron/core/artifacts';
-import { Attachments } from '../electron/core/attachments';
-import { AgentPreviews } from '../electron/core/agent-previews';
+import { Store } from '../electron/core/storage/store';
+import { DesignStore } from '../electron/core/designer/design-store';
+import { DesignerFiles } from '../electron/core/designer/designer-files';
+import { DesignFonts } from '../electron/core/designer/design-fonts';
+import { applyDesignFont } from '../electron/core/designer/design-font-application';
+import { DesignerLoop } from '../electron/core/designer/designer-loop';
+import { Harness } from '../electron/core/agent/harness';
+import { ArtifactService } from '../electron/core/attachments/artifacts';
+import { Attachments } from '../electron/core/attachments/attachments';
+import { AgentPreviews } from '../electron/core/preview/agent-previews';
 const fixture = (t: test.TestContext) => {
   const root = mkdtempSync(join(tmpdir(), 'aelion-font-flow-'));
   t.after(() => {

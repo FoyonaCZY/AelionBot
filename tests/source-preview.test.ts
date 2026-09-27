@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sourceLanguage, sourceTextFile } from '../src/source-language';
-import { highlightMessageCode } from '../src/code-highlight';
+import { sourceLanguage, sourceTextFile } from '../shared/preview/source-language';
+import { highlightMessageCode } from '../src/chat/code-highlight';
 test('source previews identify languages from file names without guessing plain text', () => {
   for (const [name, language] of [
     ['build_atlas.py', 'python'],

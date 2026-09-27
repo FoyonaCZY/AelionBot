@@ -1,8 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { compactToolResult, readPageLimit, toolResultEnvelope, toolResultLimit } from '../electron/core/tool-output';
-import { toolResult, technicalOutput } from '../src/activity';
-import type { ChatMessage } from '../src/shared';
+import {
+  compactToolResult,
+  readPageLimit,
+  toolResultEnvelope,
+  toolResultLimit,
+} from '../electron/core/tools/tool-output';
+import { toolResult, technicalOutput } from '../shared/chat/activity';
+import type { ChatMessage } from '../shared/types/core';
 
 test('large command output keeps exit code, stderr tail and structure instead of a JSON prefix', () => {
   const stdout = Array.from({ length: 4000 }, (_, i) => `line ${i}`).join('\n');

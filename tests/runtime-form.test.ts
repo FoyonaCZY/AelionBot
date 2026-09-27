@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_RUNTIME } from '../src/runtime-types';
-import { runtimeDraft, runtimeDraftValues } from '../src/runtime-form';
-import { runtimeSettings } from '../electron/core/runtime-policy';
+import { DEFAULT_RUNTIME } from '../shared/types/runtime-types';
+import { runtimeDraft, runtimeDraftValues } from '../src/settings/runtime-form';
+import { runtimeSettings } from '../electron/core/agent/runtime-policy';
 
 test('display seconds round-trip the existing millisecond timeout without losing precision', () => {
   const defaults = runtimeDraft(DEFAULT_RUNTIME);

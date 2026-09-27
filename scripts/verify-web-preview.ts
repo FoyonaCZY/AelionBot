@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
-import { WebPreviewBrowser } from '../electron/web-preview';
+import { WebPreviewBrowser } from '../electron/windows/web-preview';
 import { writeFileSync } from 'node:fs';
-import { applyDomEdits } from '../electron/core/html-preview-edits';
+import { applyDomEdits } from '../electron/core/preview/html-preview-edits';
 protocol.registerSchemesAsPrivileged([
   { scheme: 'aelion-preview', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
 ]);

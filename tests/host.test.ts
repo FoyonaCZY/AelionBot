@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
-import { HostComputer, redactHost } from '../electron/core/host';
-import { Interactions, InteractionDenied } from '../electron/core/interactions';
+import { HostComputer, redactHost } from '../electron/core/host/host';
+import { Interactions, InteractionDenied } from '../electron/core/agent/interactions';
 
 function fixture(t: test.TestContext) {
   const tempRoot = realpathSync.native(tmpdir()),

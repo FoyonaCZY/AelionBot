@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { VmController } from '../electron/core/vm';
-import { computerDesktopReady, computerSetupState } from '../src/computer-setup-state';
-import type { VmState } from '../src/shared';
+import { VmController } from '../electron/core/vm/vm';
+import { computerDesktopReady, computerSetupState } from '../src/computer/computer-setup-state';
+import type { VmState } from '../shared/types/core';
 function fixture(t: test.TestContext) {
   const parent = realpathSync(tmpdir()),
     dir = mkdtempSync(join(parent, 'aelion-start-ready-')),

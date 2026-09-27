@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { VmHealthChannel } from '../electron/core/vm-health';
+import { VmHealthChannel } from '../electron/core/vm/vm-health';
 class Channel extends EventEmitter {
   stderr = new EventEmitter();
   closed = false;

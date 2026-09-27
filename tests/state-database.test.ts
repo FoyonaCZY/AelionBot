@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { StateDatabase } from '../electron/core/state-database';
+import { StateDatabase } from '../electron/core/storage/state-database';
 
 test('state rows are keyed by entity id so a middle insert or delete touches only its own row', (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-state-db-'));

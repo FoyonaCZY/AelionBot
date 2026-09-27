@@ -4,10 +4,10 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, basename, resolve } from 'node:path';
 import { createServer } from 'node:http';
-import { Store } from '../electron/core/store';
-import { ModelClient, type Completion } from '../electron/core/model';
-import { BotGreetings } from '../electron/core/bot-greetings';
-import { normalizeUserProfile } from '../src/user-profile';
+import { Store } from '../electron/core/storage/store';
+import { ModelClient, type Completion } from '../electron/core/model/model';
+import { BotGreetings } from '../electron/core/agent/bot-greetings';
+import { normalizeUserProfile } from '../shared/chat/user-profile';
 
 const answer = (content: string): Completion => ({ content, calls: [], finishReason: 'stop' });
 function fixture(t: test.TestContext, complete: ModelClient['complete'], configured = true, isRunning = () => false) {

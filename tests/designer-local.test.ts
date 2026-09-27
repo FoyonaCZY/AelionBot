@@ -5,17 +5,17 @@ import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { unzipSync } from 'fflate';
-import { Store } from '../electron/core/store';
-import { DesignStore } from '../electron/core/design-store';
-import { DesignerFiles } from '../electron/core/designer-files';
-import { designerDeck } from '../electron/core/designer-deck';
-import { ArtifactService } from '../electron/core/artifacts';
-import { Attachments } from '../electron/core/attachments';
-import { HostComputer } from '../electron/core/host';
-import { Harness } from '../electron/core/harness';
-import { DesignerLoop } from '../electron/core/designer-loop';
+import { Store } from '../electron/core/storage/store';
+import { DesignStore } from '../electron/core/designer/design-store';
+import { DesignerFiles } from '../electron/core/designer/designer-files';
+import { designerDeck } from '../electron/core/designer/designer-deck';
+import { ArtifactService } from '../electron/core/attachments/artifacts';
+import { Attachments } from '../electron/core/attachments/attachments';
+import { HostComputer } from '../electron/core/host/host';
+import { Harness } from '../electron/core/agent/harness';
+import { DesignerLoop } from '../electron/core/designer/designer-loop';
 import { randomUUID } from 'node:crypto';
-import { AgentPreviews } from '../electron/core/agent-previews';
+import { AgentPreviews } from '../electron/core/preview/agent-previews';
 function setup(t: any) {
   const root = mkdtempSync(join(tmpdir(), 'aelion-local-design-'));
   t.after(() => {

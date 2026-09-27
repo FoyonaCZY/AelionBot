@@ -8,23 +8,23 @@ import {
   imageMediaType,
   migrateImageRoute,
   probeImageModel,
-} from '../electron/core/image-generation';
+} from '../electron/core/image/image-generation';
 import {
   autoProtocolOrder,
   geminiImageUrl,
   imageAdapter,
   imageProtocolCatalog,
   openAiSize,
-} from '../electron/core/image-protocols';
+} from '../electron/core/image/image-protocols';
 import {
   ImageGenerationError,
   classifyImageResponse,
   classifyImageTransport,
   scrubImageDetail,
-} from '../electron/core/image-errors';
-import { aspectDimensions, IMAGE_NEXT_STEPS, probesNextProtocol } from '../src/image-types';
-import { ModelClient } from '../electron/core/model';
-import type { ImageProtocol } from '../src/image-types';
+} from '../electron/core/image/image-errors';
+import { aspectDimensions, IMAGE_NEXT_STEPS, probesNextProtocol } from '../shared/types/image-types';
+import { ModelClient } from '../electron/core/model/model';
+import type { ImageProtocol } from '../shared/types/image-types';
 
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',

@@ -3,19 +3,19 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
-import { Store } from '../electron/core/store';
-import { Harness } from '../electron/core/harness';
-import { HostComputer } from '../electron/core/host';
-import { Interactions, InteractionDenied } from '../electron/core/interactions';
-import { WorkItems } from '../electron/core/work-items';
-import { ExecutionLedger } from '../electron/core/execution-ledger';
-import { ChatPinQueue } from '../electron/core/chat-pins';
-import { GroupChats } from '../electron/core/group-chats';
-import { conversationWorkspace, setConversationWorkspace } from '../electron/core/workspaces';
-import { workCommand } from '../src/work-types';
-import type { RunRecord } from '../src/shared';
-import type { ModelClient, Completion, ToolDefinition } from '../electron/core/model';
-import type { VmController } from '../electron/core/vm';
+import { Store } from '../electron/core/storage/store';
+import { Harness } from '../electron/core/agent/harness';
+import { HostComputer } from '../electron/core/host/host';
+import { Interactions, InteractionDenied } from '../electron/core/agent/interactions';
+import { WorkItems } from '../electron/core/agent/work-items';
+import { ExecutionLedger } from '../electron/core/agent/execution-ledger';
+import { ChatPinQueue } from '../electron/core/agent/chat-pins';
+import { GroupChats } from '../electron/core/group/group-chats';
+import { conversationWorkspace, setConversationWorkspace } from '../electron/core/storage/workspaces';
+import { workCommand } from '../shared/types/work-types';
+import type { RunRecord } from '../shared/types/core';
+import type { ModelClient, Completion, ToolDefinition } from '../electron/core/model/model';
+import type { VmController } from '../electron/core/vm/vm';
 
 function fixture(t: test.TestContext) {
   const parent = realpathSync.native(tmpdir()),

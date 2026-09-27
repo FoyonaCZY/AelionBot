@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BoundedOutput, bytePage } from '../electron/core/bounded-output';
-import { redactHost, HostComputer } from '../electron/core/host';
-import { Interactions } from '../electron/core/interactions';
+import { BoundedOutput, bytePage } from '../electron/core/tools/bounded-output';
+import { redactHost, HostComputer } from '../electron/core/host/host';
+import { Interactions } from '../electron/core/agent/interactions';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';

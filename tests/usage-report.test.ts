@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { usageReport } from '../electron/core/usage-report';
-import { modelUsage } from '../electron/core/model-usage';
-import { StreamAccumulator } from '../electron/core/model-protocol';
-import type { UsageRecord } from '../src/runtime-types';
-import { cacheHitRatio } from '../src/usage-types';
+import { usageReport } from '../electron/core/app/usage-report';
+import { modelUsage } from '../electron/core/model/model-usage';
+import { StreamAccumulator } from '../electron/core/model/model-protocol';
+import type { UsageRecord } from '../shared/types/runtime-types';
+import { cacheHitRatio } from '../shared/types/usage-types';
 
 test('all protocols retain cache read/write, actual totals and unknown values', () => {
   const response = modelUsage('responses', {

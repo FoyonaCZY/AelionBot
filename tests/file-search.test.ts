@@ -4,11 +4,11 @@ import { mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync, symlinkSyn
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { build } from 'esbuild';
-import { HostComputer } from '../electron/core/host';
-import { Interactions, InteractionDenied } from '../electron/core/interactions';
-import { FileSearch } from '../electron/core/file-search';
-import type { FileSearchRequest } from '../electron/core/file-search-types';
-import { findRipgrep, ripgrepPattern } from '../electron/core/ripgrep';
+import { HostComputer } from '../electron/core/host/host';
+import { Interactions, InteractionDenied } from '../electron/core/agent/interactions';
+import { FileSearch } from '../electron/core/tools/file-search';
+import type { FileSearchRequest } from '../electron/core/tools/file-search-types';
+import { findRipgrep, ripgrepPattern } from '../electron/core/tools/ripgrep';
 
 const bundle = build({
   entryPoints: ['electron/core/file-search-worker.ts'],

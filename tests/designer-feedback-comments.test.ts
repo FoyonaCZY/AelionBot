@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
-import { Store } from '../electron/core/store';
-import { DesignStore } from '../electron/core/design-store';
-import type { DesignSystems } from '../electron/core/design-systems';
-import type { PreviewAnnotation } from '../src/preview-editor-types';
-import { commentsFromAnnotations, commentScope } from '../src/designer-canvas';
+import { Store } from '../electron/core/storage/store';
+import { DesignStore } from '../electron/core/designer/design-store';
+import type { DesignSystems } from '../electron/core/designer/design-systems';
+import type { PreviewAnnotation } from '../shared/types/preview-editor-types';
+import { commentsFromAnnotations, commentScope } from '../shared/preview/designer-canvas';
 
 function fixture(t: test.TestContext) {
   const root = mkdtempSync(join(tmpdir(), 'aelion-feedback-comments-'));

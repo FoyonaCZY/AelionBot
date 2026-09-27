@@ -4,9 +4,9 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { VmController } from '../electron/core/vm';
-import { WORKSTATION_VERSION } from '../electron/core/desktop-profile';
-import { qemuBinary } from '../electron/core/vm-platform';
+import { VmController } from '../electron/core/vm/vm';
+import { WORKSTATION_VERSION } from '../electron/core/vm/desktop-profile';
+import { qemuBinary } from '../electron/core/vm/vm-platform';
 import { startCiGuest } from './ci-vm-boot';
 
 const runFile = promisify(execFile);

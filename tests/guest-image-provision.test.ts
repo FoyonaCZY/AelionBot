@@ -6,7 +6,7 @@ import {
   GUEST_IMAGE_SEAL_SCRIPT,
   PROVISIONED_WORKSTATION_PATH,
   WORKSTATION_VERSION,
-} from '../electron/core/desktop-profile';
+} from '../electron/core/vm/desktop-profile';
 import { provisionGuestImage } from '../scripts/provision-guest-image';
 import x64Image from '../runtime/guest-image.json';
 import armImage from '../runtime/guest-image-arm64.json';

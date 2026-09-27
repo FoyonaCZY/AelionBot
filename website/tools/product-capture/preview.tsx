@@ -1,16 +1,16 @@
 // Renders production App components against read-only fictional data. No model or VM connection.
 import { createRoot } from 'react-dom/client';
-import App from '../../../src/App';
+import App from '../../../src/app/App';
 import catalog from '../../../assets/design-systems/catalog.json';
-import { BOT_PALETTES, normalizeBotPalette, botIdentity } from '../../../src/bot-colors';
-import { GROUP_LIMITS } from '../../../src/group-types';
-import { computerSetupDismissalKey } from '../../../src/computer-setup-state';
-import { initializeAppearance } from '../../../src/use-appearance';
+import { BOT_PALETTES, normalizeBotPalette, botIdentity } from '../../../shared/chat/bot-colors';
+import { GROUP_LIMITS } from '../../../shared/types/group-types';
+import { computerSetupDismissalKey } from '../../../src/computer/computer-setup-state';
+import { initializeAppearance } from '../../../src/app/use-appearance';
 import { initializeI18n } from '../../../src/i18n';
-import '../../../src/style.css';
-import '../../../src/settings.css';
-import '../../../src/typography.css';
-import '../../../src/theme.css';
+import '../../../src/styles/style.css';
+import '../../../src/settings/settings.css';
+import '../../../src/styles/typography.css';
+import '../../../src/styles/theme.css';
 const params = new URLSearchParams(location.search),
   lang = params.get('lang') || 'zh-CN',
   en = lang === 'en',

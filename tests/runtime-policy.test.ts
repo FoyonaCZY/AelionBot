@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { Store } from '../electron/core/store';
-import { RunPolicy, runtimeSettings } from '../electron/core/runtime-policy';
-import { Harness } from '../electron/core/harness';
-import type { ModelClient } from '../electron/core/model';
-import type { VmController } from '../electron/core/vm';
-import { DEFAULT_RUNTIME } from '../src/runtime-types';
+import { Store } from '../electron/core/storage/store';
+import { RunPolicy, runtimeSettings } from '../electron/core/agent/runtime-policy';
+import { Harness } from '../electron/core/agent/harness';
+import type { ModelClient } from '../electron/core/model/model';
+import type { VmController } from '../electron/core/vm/vm';
+import { DEFAULT_RUNTIME } from '../shared/types/runtime-types';
 
 function fixture(t: test.TestContext, incremental = false) {
   const parent = realpathSync.native(tmpdir()),

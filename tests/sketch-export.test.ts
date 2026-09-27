@@ -5,9 +5,9 @@ import { unzipSync } from 'fflate';
 import Ajv from 'ajv';
 import schemaPackage from '@sketch-hq/sketch-file-format';
 const schemas = (schemaPackage as any).default || schemaPackage;
-import { buildSketchDocument } from '../electron/core/sketch-export';
-import type { CanvasScene } from '../electron/core/canvas-scene';
-import { canvasDesignSource, canvasExportViewport } from '../src/canvas-export';
+import { buildSketchDocument } from '../electron/core/designer/sketch-export';
+import type { CanvasScene } from '../electron/core/designer/canvas-scene';
+import { canvasDesignSource, canvasExportViewport } from '../shared/preview/canvas-export';
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
   'base64',

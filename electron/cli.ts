@@ -3,8 +3,8 @@
 import { parseArgs } from 'node:util';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { runHeadless, type HeadlessEvent, type HeadlessPermission } from './core/headless';
-import type { ModelProtocol } from '../src/model-types';
+import { runHeadless, type HeadlessEvent, type HeadlessPermission } from './core/agent/headless';
+import type { ModelProtocol } from '../shared/types/model-types';
 
 const usage = `用法: aelion-headless [任务] [选项]
   任务可作为参数，或从标准输入读取。

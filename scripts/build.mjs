@@ -7,7 +7,7 @@ import { build as viteBuild } from 'vite';
 import { mkdirSync, cpSync } from 'node:fs';
 mkdirSync('dist-electron', { recursive: true });
 await build({
-  entryPoints: ['electron/web-preview-preload.ts'],
+  entryPoints: ['electron/windows/web-preview-preload.ts'],
   outfile: 'dist-electron/web-preview-preload.cjs',
   bundle: true,
   platform: 'node',
@@ -16,7 +16,7 @@ await build({
   external: ['electron'],
 });
 await build({
-  entryPoints: ['electron/preview-feedback-preload.ts'],
+  entryPoints: ['electron/windows/preview-feedback-preload.ts'],
   outfile: 'dist-electron/preview-feedback-preload.cjs',
   bundle: true,
   platform: 'node',

@@ -15,7 +15,7 @@ await build({
   target: 'node24',
 });
 await build({
-  entryPoints: ['electron/preview-feedback-preload.ts'],
+  entryPoints: ['electron/windows/preview-feedback-preload.ts'],
   outfile: dir + '/preview-feedback-preload.cjs',
   bundle: true,
   platform: 'node',
@@ -24,7 +24,7 @@ await build({
   target: 'node24',
 });
 await build({
-  entryPoints: ['electron/web-preview-preload.ts'],
+  entryPoints: ['electron/windows/web-preview-preload.ts'],
   outfile: dir + '/web-preview-preload.cjs',
   bundle: true,
   platform: 'node',

@@ -4,9 +4,9 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync, readFileSy
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { build } from 'esbuild';
-import { HostComputer } from '../electron/core/host';
-import type { Interactions } from '../electron/core/interactions';
-import { fileMentionText } from '../src/file-mentions';
+import { HostComputer } from '../electron/core/host/host';
+import type { Interactions } from '../electron/core/agent/interactions';
+import { fileMentionText } from '../shared/chat/file-mentions';
 test('file references quote the original path without embedding file contents', () => {
   const text = fileMentionText({ path: 'C:/project/my video.webm', relativePath: 'my video.webm' });
   assert.equal(JSON.parse(text), 'C:/project/my video.webm');

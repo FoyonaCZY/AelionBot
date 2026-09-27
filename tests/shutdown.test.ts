@@ -6,10 +6,10 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync, readFileSy
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { Shutdown } from '../electron/core/shutdown';
-import { shutdownOwnedVm } from '../electron/core/vm-shutdown';
-import { stopOwnedQemuWindows, inspectOwnedQemuWindows } from '../electron/core/owned-qemu';
-import { VmController } from '../electron/core/vm';
+import { Shutdown } from '../electron/core/app/shutdown';
+import { shutdownOwnedVm } from '../electron/core/vm/vm-shutdown';
+import { stopOwnedQemuWindows, inspectOwnedQemuWindows } from '../electron/core/vm/owned-qemu';
+import { VmController } from '../electron/core/vm/vm';
 
 test('shutdown drains work once, always closes VM after errors, and persists before exit', async () => {
   const events: string[] = [];

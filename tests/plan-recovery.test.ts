@@ -3,15 +3,15 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { Store } from '../electron/core/store';
-import { RunPolicy } from '../electron/core/runtime-policy';
-import { ExecutionLedger } from '../electron/core/execution-ledger';
-import { WorkItems } from '../electron/core/work-items';
-import { Harness } from '../electron/core/harness';
-import { toolFailure } from '../electron/core/file-text';
-import type { ModelClient } from '../electron/core/model';
-import type { RunRecord, ToolCall } from '../src/shared';
-import type { VmController } from '../electron/core/vm';
+import { Store } from '../electron/core/storage/store';
+import { RunPolicy } from '../electron/core/agent/runtime-policy';
+import { ExecutionLedger } from '../electron/core/agent/execution-ledger';
+import { WorkItems } from '../electron/core/agent/work-items';
+import { Harness } from '../electron/core/agent/harness';
+import { toolFailure } from '../electron/core/tools/file-text';
+import type { ModelClient } from '../electron/core/model/model';
+import type { RunRecord, ToolCall } from '../shared/types/core';
+import type { VmController } from '../electron/core/vm/vm';
 
 function fixture(t: test.TestContext) {
   const parent = realpathSync.native(tmpdir()),

@@ -1,8 +1,8 @@
 import { resolve, join } from 'node:path';
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { VmController } from '../electron/core/vm';
-import { ComputerController } from '../electron/core/computer';
+import { VmController } from '../electron/core/vm/vm';
+import { ComputerController } from '../electron/core/vm/computer';
 import { startCiGuest, ciVmAccelerator } from './ci-vm-boot';
 if (process.platform !== 'darwin') throw Error('This smoke test requires macOS');
 const arch = process.arch,

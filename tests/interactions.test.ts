@@ -3,15 +3,15 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
-import { Store } from '../electron/core/store';
-import { Harness } from '../electron/core/harness';
-import { HostComputer } from '../electron/core/host';
-import { Interactions } from '../electron/core/interactions';
-import { ComputerController } from '../electron/core/computer';
-import type { ModelClient } from '../electron/core/model';
-import type { VmController } from '../electron/core/vm';
-import type { Integrations } from '../electron/core/integrations';
-import type { ToolCall, WireMessage } from '../src/shared';
+import { Store } from '../electron/core/storage/store';
+import { Harness } from '../electron/core/agent/harness';
+import { HostComputer } from '../electron/core/host/host';
+import { Interactions } from '../electron/core/agent/interactions';
+import { ComputerController } from '../electron/core/vm/computer';
+import type { ModelClient } from '../electron/core/model/model';
+import type { VmController } from '../electron/core/vm/vm';
+import type { Integrations } from '../electron/core/extensions/integrations';
+import type { ToolCall, WireMessage } from '../shared/types/core';
 
 function fixture(t: test.TestContext) {
   const root = mkdtempSync(join(tmpdir(), 'aelion-human-test-')),

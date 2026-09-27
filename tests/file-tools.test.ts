@@ -13,15 +13,15 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import { HostComputer, redactHost } from '../electron/core/host';
-import { Interactions } from '../electron/core/interactions';
-import { decodeText, editText, textPage } from '../electron/core/file-text';
-import { Store } from '../electron/core/store';
-import { FileCheckpoints } from '../electron/core/file-checkpoints';
-import { DEFAULT_RUNTIME } from '../src/runtime-types';
-import type { VmController } from '../electron/core/vm';
-import { readToolResult } from '../electron/core/tool-results';
-import { executionTarget } from '../electron/core/execution-ledger';
+import { HostComputer, redactHost } from '../electron/core/host/host';
+import { Interactions } from '../electron/core/agent/interactions';
+import { decodeText, editText, textPage } from '../electron/core/tools/file-text';
+import { Store } from '../electron/core/storage/store';
+import { FileCheckpoints } from '../electron/core/tools/file-checkpoints';
+import { DEFAULT_RUNTIME } from '../shared/types/runtime-types';
+import type { VmController } from '../electron/core/vm/vm';
+import { readToolResult } from '../electron/core/tools/tool-results';
+import { executionTarget } from '../electron/core/agent/execution-ledger';
 
 const hash = (text: string | Buffer) => createHash('sha256').update(text).digest('hex');
 function fixture(t: test.TestContext) {

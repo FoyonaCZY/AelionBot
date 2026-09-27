@@ -4,11 +4,11 @@ import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Store } from '../electron/core/store';
-import { HostComputer } from '../electron/core/host';
-import { Interactions } from '../electron/core/interactions';
-import { BackgroundProcesses } from '../electron/core/background-processes';
-import type { VmController } from '../electron/core/vm';
+import { Store } from '../electron/core/storage/store';
+import { HostComputer } from '../electron/core/host/host';
+import { Interactions } from '../electron/core/agent/interactions';
+import { BackgroundProcesses } from '../electron/core/tools/background-processes';
+import type { VmController } from '../electron/core/vm/vm';
 test(
   'host processes require approval, preserve logs across manager restart and stop through their supervisor',
   { skip: process.platform !== 'win32', timeout: 30000 },

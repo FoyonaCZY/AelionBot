@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { gameInstructions, parseGameAction } from '../electron/core/games/model-player';
 import { actionContract } from '../electron/core/games/action-contract';
 import { createWerewolf, view } from '../electron/core/games/werewolf';
-import type { GameRequest } from '../src/game-types';
+import type { GameRequest } from '../shared/types/game-types';
 const r = (kind: GameRequest['kind']): GameRequest => ({
   id: 'r',
   seatId: 'a',

@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { TokenCountCache } from '../electron/core/token-count-cache';
-import { ReplyStreams } from '../electron/core/reply-streams';
-import { ModelClient } from '../electron/core/model';
-import { DEFAULT_RUNTIME, type UsageRecord } from '../src/runtime-types';
-import { protocolRequest } from '../electron/core/model-protocol';
+import { TokenCountCache } from '../electron/core/context/token-count-cache';
+import { ReplyStreams } from '../electron/core/agent/reply-streams';
+import { ModelClient } from '../electron/core/model/model';
+import { DEFAULT_RUNTIME, type UsageRecord } from '../shared/types/runtime-types';
+import { protocolRequest } from '../electron/core/model/model-protocol';
 
 test('long histories reuse token counts beyond the old whole-cache reset threshold', () => {
   let encodes = 0;

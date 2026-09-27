@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { AelionAPI, AppEvent } from '../src/shared';
+import type { AelionAPI, AppEvent } from '../shared/types/core';
 const api: AelionAPI = {
   exportDesignFile: (input) => ipcRenderer.invoke('design:export-file', input),
   focusPreviewFeedback: () => ipcRenderer.invoke('preview:focus-feedback'),
@@ -37,15 +37,17 @@ const api: AelionAPI = {
   onPreviewEditor: (callback) => {
     const handler = (
       _event: unknown,
-      value: { id: string; state: import('../src/preview-editor-types').PreviewEditorState },
+      value: { id: string; state: import('../shared/types/preview-editor-types').PreviewEditorState },
     ) => callback(value);
     ipcRenderer.on('web-preview:editor-event', handler);
     return () => ipcRenderer.removeListener('web-preview:editor-event', handler);
   },
   updatePreviewFeedbackOverlay: (input) => ipcRenderer.invoke('preview-feedback:overlay', input),
   onPreviewFeedbackInput: (callback) => {
-    const handler = (_event: unknown, input: import('../src/preview-feedback-overlay').FeedbackOverlayInput) =>
-      callback(input);
+    const handler = (
+      _event: unknown,
+      input: import('../shared/preview/preview-feedback-overlay').FeedbackOverlayInput,
+    ) => callback(input);
     ipcRenderer.on('preview-feedback:input', handler);
     return () => ipcRenderer.removeListener('preview-feedback:input', handler);
   },
@@ -54,7 +56,8 @@ const api: AelionAPI = {
   webPreviewAction: (input) => ipcRenderer.invoke('web-preview:action', input),
   closeWebPreview: (id) => ipcRenderer.invoke('web-preview:close', id),
   onWebPreview: (callback) => {
-    const handler = (_event: unknown, state: import('../src/web-preview').WebPreviewState) => callback(state);
+    const handler = (_event: unknown, state: import('../shared/preview/web-preview').WebPreviewState) =>
+      callback(state);
     ipcRenderer.on('web-preview:event', handler);
     return () => ipcRenderer.removeListener('web-preview:event', handler);
   },

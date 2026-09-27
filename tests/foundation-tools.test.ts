@@ -4,14 +4,20 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync, readFileSync, existsS
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { HostComputer } from '../electron/core/host';
-import { Interactions, InteractionDenied, respondToInteraction } from '../electron/core/interactions';
-import { applyHostPatch, parsePatch, applyHunks, VM_PATCH_SCRIPT } from '../electron/core/multi-patch';
-import { WebTools, extractWebPage, publicWebUrl, publicAddress, type WebDocument } from '../electron/core/web-tools';
-import { discoverTools } from '../electron/core/tool-discovery';
-import { CodeOrchestrator } from '../electron/core/code-orchestrator';
-import { TerminalSessions } from '../electron/core/terminal-sessions';
-import type { InteractionRequest } from '../src/shared';
+import { HostComputer } from '../electron/core/host/host';
+import { Interactions, InteractionDenied, respondToInteraction } from '../electron/core/agent/interactions';
+import { applyHostPatch, parsePatch, applyHunks, VM_PATCH_SCRIPT } from '../electron/core/tools/multi-patch';
+import {
+  WebTools,
+  extractWebPage,
+  publicWebUrl,
+  publicAddress,
+  type WebDocument,
+} from '../electron/core/tools/web-tools';
+import { discoverTools } from '../electron/core/tools/tool-discovery';
+import { CodeOrchestrator } from '../electron/core/tools/code-orchestrator';
+import { TerminalSessions } from '../electron/core/tools/terminal-sessions';
+import type { InteractionRequest } from '../shared/types/core';
 const signal = () => new AbortController().signal;
 function fixture(t: test.TestContext) {
   const parent = realpathSync.native(tmpdir()),

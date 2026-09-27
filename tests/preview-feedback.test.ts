@@ -4,16 +4,16 @@ import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
-import { Store } from '../electron/core/store';
-import { Attachments } from '../electron/core/attachments';
-import { PreviewFeedbackService } from '../electron/core/preview-feedback';
+import { Store } from '../electron/core/storage/store';
+import { Attachments } from '../electron/core/attachments/attachments';
+import { PreviewFeedbackService } from '../electron/core/preview/preview-feedback';
 import {
   feedbackCaptureRect,
   previewFeedbackMessage,
   previewFeedbackDisplay,
   type PreviewFeedbackInput,
-} from '../src/preview-feedback';
-import type { AttachmentScope } from '../src/attachment-types';
+} from '../shared/preview/preview-feedback';
+import type { AttachmentScope } from '../shared/types/attachment-types';
 const request = (scope: AttachmentScope): PreviewFeedbackInput => ({
   requestId: randomUUID(),
   scope,
@@ -273,7 +273,7 @@ test('a failed edit-feedback send cleans up both generated attachments and keeps
 });
 
 test('design feedback rejects another task file and parent traversal before attachment capture', async () => {
-  const { designFeedbackFile } = await import('../electron/core/preview-feedback');
+  const { designFeedbackFile } = await import('../electron/core/preview/preview-feedback');
   const session = { botId: 'designer', workspacePath: 'designers/designer/task-one' };
   const input = { file: { name: 'index.html', path: '/work/designer/designers/designer/task-one/index.html' } } as any;
   assert.equal(designFeedbackFile(input, session), 'designers/designer/task-one/index.html');

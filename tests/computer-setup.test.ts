@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import type { VmState } from '../src/shared';
-import { WORKSTATION_VERSION } from '../src/shared';
+import type { VmState } from '../shared/types/core';
+import { WORKSTATION_VERSION } from '../shared/types/core';
 import {
   computerDesktopReady,
   computerSetupActionLabel,
@@ -12,9 +12,9 @@ import {
   computerSetupDismissalKey,
   computerSetupState,
   shouldOfferComputerSetup,
-} from '../src/computer-setup-state';
-import { VmController } from '../electron/core/vm';
-import { workstationProgress } from '../electron/core/workstation-progress';
+} from '../src/computer/computer-setup-state';
+import { VmController } from '../electron/core/vm/vm';
+import { workstationProgress } from '../electron/core/vm/workstation-progress';
 
 const vm = (patch: Partial<VmState> = {}): VmState => ({
   status: 'unprepared',

@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import Markdown from 'react-markdown';
-import { MessageCodeBlock } from '../src/MessageCodeBlock';
-import { highlightMessageCode } from '../src/code-highlight';
+import { MessageCodeBlock } from '../src/chat/MessageCodeBlock';
+import { highlightMessageCode } from '../src/chat/code-highlight';
 
 const render = (content: string) =>
   renderToStaticMarkup(createElement(Markdown, { components: { pre: MessageCodeBlock } }, content));

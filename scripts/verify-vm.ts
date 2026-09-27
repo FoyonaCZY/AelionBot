@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { VmController } from '../electron/core/vm';
+import { VmController } from '../electron/core/vm/vm';
 
 const proofDir = resolve('.local/proof');
 mkdirSync(proofDir, { recursive: true });

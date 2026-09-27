@@ -4,22 +4,22 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'nod
 import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { Attachments, isHostAttachmentPath } from '../electron/core/attachments';
-import { firstDeliveryAttachments } from '../src/attachment-types';
-import { ContentPolicyError } from '../electron/core/model-content-policy';
-import { ArtifactService } from '../electron/core/artifacts';
-import { Store } from '../electron/core/store';
-import { Harness } from '../electron/core/harness';
-import { ChatPinQueue } from '../electron/core/chat-pins';
-import { PeerChats } from '../electron/core/peer-chats';
-import { GroupChats } from '../electron/core/group-chats';
-import { imageContext, type Completion, type ModelClient } from '../electron/core/model';
-import { estimateRequest } from '../electron/core/context-budget';
-import type { VmController } from '../electron/core/vm';
-import type { RunRecord, WireMessage } from '../src/shared';
-import { groupPending } from '../src/group-types';
-import { peerPending } from '../src/peer-types';
-import { ATTACHMENT_LIMITS } from '../src/attachment-types';
+import { Attachments, isHostAttachmentPath } from '../electron/core/attachments/attachments';
+import { firstDeliveryAttachments } from '../shared/types/attachment-types';
+import { ContentPolicyError } from '../electron/core/model/model-content-policy';
+import { ArtifactService } from '../electron/core/attachments/artifacts';
+import { Store } from '../electron/core/storage/store';
+import { Harness } from '../electron/core/agent/harness';
+import { ChatPinQueue } from '../electron/core/agent/chat-pins';
+import { PeerChats } from '../electron/core/peer/peer-chats';
+import { GroupChats } from '../electron/core/group/group-chats';
+import { imageContext, type Completion, type ModelClient } from '../electron/core/model/model';
+import { estimateRequest } from '../electron/core/context/context-budget';
+import type { VmController } from '../electron/core/vm/vm';
+import type { RunRecord, WireMessage } from '../shared/types/core';
+import { groupPending } from '../shared/types/group-types';
+import { peerPending } from '../shared/types/peer-types';
+import { ATTACHMENT_LIMITS } from '../shared/types/attachment-types';
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 async function until(fn: () => boolean) {
   for (let i = 0; i < 800; i++) {

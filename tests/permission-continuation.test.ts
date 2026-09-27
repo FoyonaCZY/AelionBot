@@ -4,12 +4,12 @@ import { mkdtempSync, writeFileSync, existsSync, rmSync, realpathSync } from 'no
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { Store } from '../electron/core/store';
-import { HostComputer } from '../electron/core/host';
-import { Interactions } from '../electron/core/interactions';
-import { Harness } from '../electron/core/harness';
-import type { ModelClient } from '../electron/core/model';
-import type { WireMessage } from '../src/shared';
+import { Store } from '../electron/core/storage/store';
+import { HostComputer } from '../electron/core/host/host';
+import { Interactions } from '../electron/core/agent/interactions';
+import { Harness } from '../electron/core/agent/harness';
+import type { ModelClient } from '../electron/core/model/model';
+import type { WireMessage } from '../shared/types/core';
 const call = (name: string, args: unknown) => ({
   id: randomUUID(),
   type: 'function' as const,

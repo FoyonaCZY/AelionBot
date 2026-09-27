@@ -4,18 +4,18 @@ import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { Store } from '../electron/core/store';
-import { Attachments } from '../electron/core/attachments';
-import { AgentPreviews } from '../electron/core/agent-previews';
-import { HostComputer } from '../electron/core/host';
-import { Harness, TOOLS } from '../electron/core/harness';
-import type { ArtifactService } from '../electron/core/artifacts';
-import type { Interactions } from '../electron/core/interactions';
-import type { VmController } from '../electron/core/vm';
-import type { ModelClient, Completion } from '../electron/core/model';
-import type { RunRecord, WireMessage } from '../src/shared';
-import { previewForConversation } from '../src/agent-preview';
-import { validateToolArguments } from '../electron/core/tool-schema';
+import { Store } from '../electron/core/storage/store';
+import { Attachments } from '../electron/core/attachments/attachments';
+import { AgentPreviews } from '../electron/core/preview/agent-previews';
+import { HostComputer } from '../electron/core/host/host';
+import { Harness, TOOLS } from '../electron/core/agent/harness';
+import type { ArtifactService } from '../electron/core/attachments/artifacts';
+import type { Interactions } from '../electron/core/agent/interactions';
+import type { VmController } from '../electron/core/vm/vm';
+import type { ModelClient, Completion } from '../electron/core/model/model';
+import type { RunRecord, WireMessage } from '../shared/types/core';
+import { previewForConversation } from '../src/preview/agent-preview';
+import { validateToolArguments } from '../electron/core/tools/tool-schema';
 function fixture(t: test.TestContext) {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-preview-')),
     store = new Store(dir),

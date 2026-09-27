@@ -4,14 +4,19 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve, basename } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import { Store } from '../electron/core/store';
-import { DesignSystems } from '../electron/core/design-systems';
-import { DesignStore } from '../electron/core/design-store';
-import { DesignPlugins } from '../electron/core/design-plugins';
-import { parseDesignTokens, checkDesignBrand, repairDesignBrand, brandCheckLabel } from '../electron/core/design-brand';
-import { printReadyHtml, renderDesignPdf } from '../electron/core/design-pdf';
-import { DesignerLoop } from '../electron/core/designer-loop';
-import { DesignerFiles } from '../electron/core/designer-files';
+import { Store } from '../electron/core/storage/store';
+import { DesignSystems } from '../electron/core/designer/design-systems';
+import { DesignStore } from '../electron/core/designer/design-store';
+import { DesignPlugins } from '../electron/core/designer/design-plugins';
+import {
+  parseDesignTokens,
+  checkDesignBrand,
+  repairDesignBrand,
+  brandCheckLabel,
+} from '../electron/core/designer/design-brand';
+import { printReadyHtml, renderDesignPdf } from '../electron/core/designer/design-pdf';
+import { DesignerLoop } from '../electron/core/designer/designer-loop';
+import { DesignerFiles } from '../electron/core/designer/designer-files';
 import {
   emptyCanvasHtml,
   pickDesignPreviewFiles,
@@ -20,9 +25,9 @@ import {
   deviceFrameKind,
   previewFeedbackAlwaysVisible,
   primaryDesignArtifact,
-} from '../src/designer-canvas';
-import { designPluginCopy, designPluginTriggerLabel, filterDesignPlugins } from '../src/designer-plugin-copy';
-import { designerPlaybook, designerPlaybookName } from '../electron/core/designer-playbooks';
+} from '../shared/preview/designer-canvas';
+import { designPluginCopy, designPluginTriggerLabel, filterDesignPlugins } from '../src/designer/designer-plugin-copy';
+import { designerPlaybook, designerPlaybookName } from '../electron/core/designer/designer-playbooks';
 
 function fixture(t: test.TestContext) {
   const root = mkdtempSync(join(tmpdir(), 'aelion-studio-'));

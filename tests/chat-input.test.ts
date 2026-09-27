@@ -4,16 +4,16 @@ import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { Store } from '../electron/core/store';
-import { Harness } from '../electron/core/harness';
-import { ChatPinQueue } from '../electron/core/chat-pins';
-import { Interactions } from '../electron/core/interactions';
-import { HostComputer } from '../electron/core/host';
-import { ComputerController } from '../electron/core/computer';
-import type { ModelClient, Completion, ToolDefinition } from '../electron/core/model';
-import type { VmController } from '../electron/core/vm';
-import type { WireMessage } from '../src/shared';
-import { conversationTimeline } from '../src/activity';
+import { Store } from '../electron/core/storage/store';
+import { Harness } from '../electron/core/agent/harness';
+import { ChatPinQueue } from '../electron/core/agent/chat-pins';
+import { Interactions } from '../electron/core/agent/interactions';
+import { HostComputer } from '../electron/core/host/host';
+import { ComputerController } from '../electron/core/vm/computer';
+import type { ModelClient, Completion, ToolDefinition } from '../electron/core/model/model';
+import type { VmController } from '../electron/core/vm/vm';
+import type { WireMessage } from '../shared/types/core';
+import { conversationTimeline } from '../shared/chat/activity';
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 async function until(predicate: () => boolean) {
   for (let i = 0; i < 500; i++) {

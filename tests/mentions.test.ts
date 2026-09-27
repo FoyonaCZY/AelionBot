@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { botMentions, mentionMarkdown, validMentions } from '../src/mentions';
+import { botMentions, mentionMarkdown, validMentions } from '../shared/chat/mentions';
 
 const cat = { id: 'cat', name: '猫娘', color: '#268bfa' },
   coder = { id: 'coder', name: '代码高手', color: '#8b6bea' },

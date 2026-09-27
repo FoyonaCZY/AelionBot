@@ -1,11 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { contextOverview, countedContextOverview, compactedContextOverview } from '../electron/core/context-overview';
-import { foldContextParts } from '../src/context-overview';
-import { estimateRequest } from '../electron/core/context-budget';
-import { protocolRequest } from '../electron/core/model-protocol';
-import type { ToolDefinition } from '../electron/core/model';
-import type { WireMessage, ModelConfig } from '../src/shared';
+import {
+  contextOverview,
+  countedContextOverview,
+  compactedContextOverview,
+} from '../electron/core/context/context-overview';
+import { foldContextParts } from '../shared/chat/context-overview';
+import { estimateRequest } from '../electron/core/context/context-budget';
+import { protocolRequest } from '../electron/core/model/model-protocol';
+import type { ToolDefinition } from '../electron/core/model/model';
+import type { WireMessage, ModelConfig } from '../shared/types/core';
 const model: ModelConfig = {
   model: 'fixture',
   providerId: 'p',

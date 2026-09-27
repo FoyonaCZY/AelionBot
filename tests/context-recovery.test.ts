@@ -4,17 +4,17 @@ import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync } from 'node
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { Store } from '../electron/core/store';
-import { CognitiveStore } from '../electron/core/cognitive-store';
-import { ContextEngine } from '../electron/core/context-engine';
-import { ContextCapacityError } from '../electron/core/context-error';
-import { contextModelKey } from '../src/context-issue';
-import { Harness } from '../electron/core/harness';
-import { HostComputer } from '../electron/core/host';
-import { Interactions } from '../electron/core/interactions';
-import type { VmController } from '../electron/core/vm';
-import type { ModelClient, Completion } from '../electron/core/model';
-import type { WireMessage } from '../src/shared';
+import { Store } from '../electron/core/storage/store';
+import { CognitiveStore } from '../electron/core/memory/cognitive-store';
+import { ContextEngine } from '../electron/core/context/context-engine';
+import { ContextCapacityError } from '../electron/core/context/context-error';
+import { contextModelKey } from '../shared/chat/context-issue';
+import { Harness } from '../electron/core/agent/harness';
+import { HostComputer } from '../electron/core/host/host';
+import { Interactions } from '../electron/core/agent/interactions';
+import type { VmController } from '../electron/core/vm/vm';
+import type { ModelClient, Completion } from '../electron/core/model/model';
+import type { WireMessage } from '../shared/types/core';
 const answer = (content: string): Completion => ({ content, calls: [], finishReason: 'stop' }),
   call = (name: string, args: unknown): Completion => ({
     content: '',

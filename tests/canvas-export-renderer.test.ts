@@ -25,7 +25,7 @@ test(
       assert.ok(basename(root).startsWith('aelion-export-render-'));
       rmSync(root, { recursive: true, force: true });
     });
-    const renderer = resolve('electron/canvas-export-renderer.ts'),
+    const renderer = resolve('electron/windows/canvas-export-renderer.ts'),
       entry = join(root, 'check.cjs');
     const code = `import {app} from 'electron';import assert from 'node:assert/strict';import {unzipSync} from 'fflate';import {renderCanvasExport} from ${JSON.stringify(renderer)};
  app.setPath('userData',${JSON.stringify(join(root, 'profile'))});app.on('window-all-closed',()=>{});app.disableHardwareAcceleration();if(process.platform==='darwin')app.setActivationPolicy('prohibited');

@@ -6,8 +6,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { build } from 'esbuild';
-import { acquireHeadlessLock, runHeadless, type HeadlessEvent } from '../electron/core/headless';
-import { Store } from '../electron/core/store';
+import { acquireHeadlessLock, runHeadless, type HeadlessEvent } from '../electron/core/agent/headless';
+import { Store } from '../electron/core/storage/store';
 
 type Step = (messages: any[]) => { tool?: { name: string; args: unknown }; text?: string };
 async function modelServer(t: test.TestContext, step: Step) {

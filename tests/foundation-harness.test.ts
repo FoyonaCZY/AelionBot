@@ -4,13 +4,13 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync, readFileSync } from '
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { Store } from '../electron/core/store';
-import { HostComputer } from '../electron/core/host';
-import { Interactions } from '../electron/core/interactions';
-import { Harness, TOOLS } from '../electron/core/harness';
-import type { Completion, ModelClient } from '../electron/core/model';
-import type { ChatMessage, WireMessage } from '../src/shared';
-import { conversationIdentityPrompt } from '../src/user-profile';
+import { Store } from '../electron/core/storage/store';
+import { HostComputer } from '../electron/core/host/host';
+import { Interactions } from '../electron/core/agent/interactions';
+import { Harness, TOOLS } from '../electron/core/agent/harness';
+import type { Completion, ModelClient } from '../electron/core/model/model';
+import type { ChatMessage, WireMessage } from '../shared/types/core';
+import { conversationIdentityPrompt } from '../shared/chat/user-profile';
 const call = (name: string, args: unknown) => ({
   id: randomUUID(),
   type: 'function' as const,

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { gameProviders } from '../electron/core/games/providers';
-import { textTokens } from '../electron/core/context-budget';
+import { textTokens } from '../electron/core/context/context-budget';
 import { createWerewolf, view } from '../electron/core/games/werewolf';
 const registry = (maxOutputTokens?: number) =>
   gameProviders({

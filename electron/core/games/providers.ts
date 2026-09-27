@@ -1,8 +1,8 @@
 import { GameModelError, gameInstructions, gamePrompt, parseGameAction } from './model-player';
-import { contextBudget, textTokens } from '../context-budget';
-import { DEFAULT_RUNTIME } from '../../../src/runtime-types';
+import { contextBudget, textTokens } from '../context/context-budget';
+import { DEFAULT_RUNTIME } from '../../../shared/types/runtime-types';
 import type { DecisionOptions } from './runtime';
-import type { GamePlayer, GameView, GameRequest } from '../../../src/game-types';
+import type { GamePlayer, GameView, GameRequest } from '../../../shared/types/game-types';
 
 export interface GameProviderConfig {
   id: string;

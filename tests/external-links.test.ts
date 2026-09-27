@@ -4,8 +4,8 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { externalWebUrl } from '../src/external-links';
-import { MessageLink } from '../src/MessageLink';
+import { externalWebUrl } from '../shared/preview/external-links';
+import { MessageLink } from '../src/chat/MessageLink';
 
 test('web links preserve queries and fragments and normalize browser addresses', () => {
   assert.equal(

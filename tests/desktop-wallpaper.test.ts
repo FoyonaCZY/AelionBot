@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
-import { VmController } from '../electron/core/vm';
+import { VmController } from '../electron/core/vm/vm';
 
 const image = readFileSync(resolve('assets/wallpaper-light.png'));
 const hash = createHash('sha256').update(image).digest('hex');

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { unzipSync } from 'fflate';
-import { designerDeck, DECK_LAYOUTS } from '../electron/core/designer-deck';
-import { designerPlaybook, designerPlaybookName } from '../electron/core/designer-playbooks';
+import { designerDeck, DECK_LAYOUTS } from '../electron/core/designer/designer-deck';
+import { designerPlaybook, designerPlaybookName } from '../electron/core/designer/designer-playbooks';
 
 test('playbooks cover presentation layouts and website clone', () => {
   assert.equal(designerPlaybookName('ppt'), 'presentation');

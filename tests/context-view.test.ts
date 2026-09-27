@@ -3,15 +3,15 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
-import { Store } from '../electron/core/store';
-import { CognitiveStore } from '../electron/core/cognitive-store';
-import { ContextEngine } from '../electron/core/context-engine';
-import { ContextView, type ViewInput } from '../electron/core/context-view';
-import { ContextMeter } from '../electron/core/context-meter';
-import { estimateRequest, contextBudget } from '../electron/core/context-budget';
-import { ContextPruning } from '../electron/core/context-pruning';
-import { protocolRequest } from '../electron/core/model-protocol';
-import type { WireMessage } from '../src/shared';
+import { Store } from '../electron/core/storage/store';
+import { CognitiveStore } from '../electron/core/memory/cognitive-store';
+import { ContextEngine } from '../electron/core/context/context-engine';
+import { ContextView, type ViewInput } from '../electron/core/context/context-view';
+import { ContextMeter } from '../electron/core/context/context-meter';
+import { estimateRequest, contextBudget } from '../electron/core/context/context-budget';
+import { ContextPruning } from '../electron/core/context/context-pruning';
+import { protocolRequest } from '../electron/core/model/model-protocol';
+import type { WireMessage } from '../shared/types/core';
 function fixture(t: test.TestContext) {
   const parent = realpathSync(tmpdir()),
     dir = mkdtempSync(join(parent, 'aelion-view-')),

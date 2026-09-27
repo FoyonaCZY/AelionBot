@@ -4,15 +4,15 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { Store } from '../electron/core/store';
-import { Harness } from '../electron/core/harness';
-import { PeerChats } from '../electron/core/peer-chats';
-import { Interactions } from '../electron/core/interactions';
-import { HostComputer } from '../electron/core/host';
-import type { ModelClient, Completion, ToolDefinition } from '../electron/core/model';
-import type { VmController } from '../electron/core/vm';
-import type { WireMessage } from '../src/shared';
-import { peerPending } from '../src/peer-types';
+import { Store } from '../electron/core/storage/store';
+import { Harness } from '../electron/core/agent/harness';
+import { PeerChats } from '../electron/core/peer/peer-chats';
+import { Interactions } from '../electron/core/agent/interactions';
+import { HostComputer } from '../electron/core/host/host';
+import type { ModelClient, Completion, ToolDefinition } from '../electron/core/model/model';
+import type { VmController } from '../electron/core/vm/vm';
+import type { WireMessage } from '../shared/types/core';
+import { peerPending } from '../shared/types/peer-types';
 
 const answer = (content: string): Completion => ({ content, calls: [], finishReason: 'stop' });
 const tool = (name: string, args: Record<string, unknown>): Completion => ({

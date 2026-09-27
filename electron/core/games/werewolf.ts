@@ -1,4 +1,4 @@
-import { BOARDS } from '../../../src/game-boards';
+import { BOARDS } from '../../../shared/games/game-boards';
 import { startTwelve, acceptTwelve, validateTwelve, isSpeech, type TwelveState } from './twelve';
 import { randomUUID, randomInt } from 'node:crypto';
 import type {
@@ -10,11 +10,16 @@ import type {
   GameRole,
   GamePhase,
   GameStatus,
-} from '../../../src/game-types';
-import { GAME_MBTI_TYPES, gameBehaviorPolicy, gamePersonality, isGameMbti } from '../../../src/game-personality';
+} from '../../../shared/types/game-types';
+import {
+  GAME_MBTI_TYPES,
+  gameBehaviorPolicy,
+  gamePersonality,
+  isGameMbti,
+} from '../../../shared/games/game-personality';
 export interface WerewolfState {
   twelve?: TwelveState;
-  trace?: import('../../../src/game-types').GameTrace[];
+  trace?: import('../../../shared/types/game-types').GameTrace[];
   revision?: number;
   potions?: { save: boolean; poison: boolean };
   nightVictim?: string;

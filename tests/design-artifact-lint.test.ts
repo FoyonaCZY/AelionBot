@@ -1,8 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { lintDesignHtml, blockingFindings, designFindingNote } from '../electron/core/design-artifact-lint';
-import { DesignCraft } from '../electron/core/design-craft';
-import { designerPlaybook, designerPlaybookCraft, designerPlaybookNames } from '../electron/core/designer-playbooks';
+import { lintDesignHtml, blockingFindings, designFindingNote } from '../electron/core/designer/design-artifact-lint';
+import { DesignCraft } from '../electron/core/designer/design-craft';
+import {
+  designerPlaybook,
+  designerPlaybookCraft,
+  designerPlaybookNames,
+} from '../electron/core/designer/designer-playbooks';
 import { join } from 'node:path';
 
 const ids = (html: string) => lintDesignHtml(html).map((finding) => finding.id);

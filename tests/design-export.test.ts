@@ -6,9 +6,9 @@ import { dirname, basename, resolve, join } from 'node:path';
 import { unzipSync } from 'fflate';
 import { parseHTML } from 'linkedom';
 import { runInNewContext } from 'node:vm';
-import { prepareDesignHtml, exportDesignHtmlBundle } from '../electron/core/design-export';
-import { mime, webResourceLimit, webResourcePath } from '../electron/core/web-preview-resources';
-import { DESIGN_PDF_READY_SCRIPT } from '../electron/core/design-pdf';
+import { prepareDesignHtml, exportDesignHtmlBundle } from '../electron/core/designer/design-export';
+import { mime, webResourceLimit, webResourcePath } from '../electron/core/preview/web-preview-resources';
+import { DESIGN_PDF_READY_SCRIPT } from '../electron/core/designer/design-pdf';
 
 function fixture(t: test.TestContext) {
   const root = mkdtempSync(join(tmpdir(), 'aelion-font-export-'));

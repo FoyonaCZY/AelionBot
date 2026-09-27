@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import type { Bot, ChatMessage, RunRecord } from '../src/shared';
-import type { GroupSummary } from '../src/group-types';
-import { botConversationRows, conversationRows } from '../src/conversation-list';
+import type { Bot, ChatMessage, RunRecord } from '../shared/types/core';
+import type { GroupSummary } from '../shared/types/group-types';
+import { botConversationRows, conversationRows } from '../src/app/conversation-list';
 
 const bot = (id: string, createdAt = '2026-09-01T00:00:00Z'): Bot => ({
   id,

@@ -9,8 +9,8 @@ import {
   runPresentation,
   technicalOutput,
   liveBotStep,
-} from '../src/activity';
-import type { ChatMessage, RunRecord } from '../src/shared';
+} from '../shared/chat/activity';
+import type { ChatMessage, RunRecord } from '../shared/types/core';
 const message = (
   id: string,
   role: ChatMessage['role'],
