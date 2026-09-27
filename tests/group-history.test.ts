@@ -149,13 +149,14 @@ test('interrupted and invalid group summaries never advance the persisted bounda
     tools: [],
     signal: controller.signal,
   };
+  const reason = new Error('新群消息');
   const cancelled = {
     complete: async () => {
-      controller.abort(new Error('新群消息'));
+      controller.abort(reason);
       return { content: summary, calls: [], finishReason: 'stop' };
     },
   } as unknown as ModelClient;
-  await assert.rejects(prepareGroupContext(store, cancelled, input), /新群消息/);
+  await assert.rejects(prepareGroupContext(store, cancelled, input), (error) => error === reason);
   assert.equal(store.data.contextOffsets[key], undefined);
   assert.equal(store.data.summaries[key], undefined);
   const invalid = {

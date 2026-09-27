@@ -151,7 +151,7 @@ test('every-time mode ignores saved command grants and requires a decision for e
     const request = f.interactions.snapshot()[0] as HostPermissionRequest;
     assert.equal(request.approval?.mode, 'ask');
     assert.equal(request.details.commandPattern, undefined);
-    assert.throws(() => f.interactions.approveAlways(request.id), /每次询问/);
+    assert.throws(() => f.interactions.approveAlways(request.id), { code: 'permission.ask_mode_rule' });
     f.interactions.applyCommandRules();
     assert.equal(f.interactions.snapshot().length, 1);
     f.interactions.approve(request.id, true);
@@ -262,10 +262,10 @@ test('a definite model denial stops the operation without requesting a human ove
     f = fixture(t, async () => review.promise);
   f.mode('auto');
   const pending = f.permission(command(f.project)),
-    rejected = assert.rejects(pending, /自动审核未放行.*超出用户要求/);
+    rejected = assert.rejects(pending, { code: 'permission.auto_review_denied' });
   const request = f.interactions.snapshot()[0];
-  assert.throws(() => f.interactions.approve(request.id, true), /审核尚未结束/);
-  assert.throws(() => f.interactions.approveAlways(request.id), /审核尚未结束/);
+  assert.throws(() => f.interactions.approve(request.id, true), { code: 'permission.review_pending' });
+  assert.throws(() => f.interactions.approveAlways(request.id), { code: 'permission.review_pending' });
   review.resolve({ decision: 'deny', reason: '超出用户要求' });
   await rejected;
   assert.equal(f.interactions.snapshot().length, 0);
@@ -363,7 +363,7 @@ test('manual denial and run cancellation withdraw reviews and discard late appro
   await settle();
   assert.equal(f.interactions.snapshot().length, 0);
   const other = f.permission(command(f.project)),
-    cancelled = assert.rejects(other, /取消/);
+    cancelled = assert.rejects(other, { code: 'task.cancelled' });
   f.controller.abort();
   await cancelled;
   assert.equal(f.interactions.snapshot().length, 0);
@@ -504,8 +504,10 @@ test('manual command rules apply in auto only, and changing modes persists indep
       defaultModel: () => f.config,
     });
   assert.equal(service.modeFor({ botId: f.bot.id, runId: f.run.id } as HostPermissionRequest), 'auto');
-  assert.throws(() => f.service.set({ kind: 'bot', id: f.bot.id }, 'invalid' as any), /无效/);
-  assert.throws(() => f.service.set({ kind: 'group', id: 'missing' }, 'full'), /主会话/);
+  assert.throws(() => f.service.set({ kind: 'bot', id: f.bot.id }, 'invalid' as any), {
+    code: 'permission.mode_invalid',
+  });
+  assert.throws(() => f.service.set({ kind: 'group', id: 'missing' }, 'full'), { code: 'permission.scope_invalid' });
   assert.equal(service.modeFor({ botId: other.id, runId: 'none' } as HostPermissionRequest), 'ask');
   restored.close();
 });
@@ -528,7 +530,7 @@ test('group-origin work always follows the Bot main-conversation mode and has no
   f.mode('ask');
   const pending = f.permission(command(f.project));
   assert.equal((f.interactions.snapshot()[0] as HostPermissionRequest).approval?.mode, 'ask');
-  assert.throws(() => f.service.set({ kind: 'group', id }, 'full'), /主会话/);
+  assert.throws(() => f.service.set({ kind: 'group', id }, 'full'), { code: 'permission.scope_invalid' });
   f.mode('full');
   await pending;
   assert.equal(f.reviews(), 0);

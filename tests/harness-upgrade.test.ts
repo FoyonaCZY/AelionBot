@@ -28,7 +28,7 @@ test('unchanged skills do not produce versions; patch and resource overwrites re
     revision = library.revisions(bot.id, first.id).length;
   assert.equal(library.save(bot.id, '分析数据', '复用流程', '第一步读取，第二步验证。').unchanged, true);
   assert.equal(library.revisions(bot.id, first.id).length, revision);
-  assert.throws(() => library.patch(bot.id, first.id, '读取', '加载', 'wrong', 'r'), /变化/);
+  assert.throws(() => library.patch(bot.id, first.id, '读取', '加载', 'wrong', 'r'), { code: 'skill.stale' });
   library.patch(bot.id, first.id, '读取', '加载', first.hash, 'r');
   library.manage(bot.id, first.id, 'archive');
   assert.ok(!new SkillLibrary(store, paths).list(bot.id).some((s) => s.id === first.id));
@@ -39,7 +39,9 @@ test('unchanged skills do not produce versions; patch and resource overwrites re
   const file = library.writeResource(bot.id, first.id, 'references/check.txt', 'original');
   assert.throws(() => library.writeResource(bot.id, first.id, 'references/check.txt', 'changed'), /hash/);
   assert.equal(library.writeResource(bot.id, first.id, 'references/check.txt', 'changed', file.hash).saved, true);
-  assert.throws(() => library.writeResource(bot.id, first.id, 'references/../../escape', 'x'), /相对路径/);
+  assert.throws(() => library.writeResource(bot.id, first.id, 'references/../../escape', 'x'), {
+    code: 'skill.path_invalid',
+  });
 });
 test('read pipelines respect concurrency, dependencies and reject mutations before dispatch', async () => {
   let active = 0,
@@ -73,7 +75,7 @@ test('read pipelines respect concurrency, dependencies and reject mutations befo
         called = true;
       },
     ),
-    /读取工具/,
+    { code: 'pipeline.tool_not_allowed' },
   );
   assert.equal(called, false);
 });
@@ -115,7 +117,9 @@ test('file rollback preserves later user edits and still requires host approval'
   writeFileSync(path, 'after');
   checkpoints.hostAfter(record, path);
   writeFileSync(path, 'user edit');
-  await assert.rejects(checkpoints.restore(bot.id, record.id, new AbortController().signal, 'r2'), /被修改/);
+  await assert.rejects(checkpoints.restore(bot.id, record.id, new AbortController().signal, 'r2'), {
+    code: 'file.checkpoint_stale',
+  });
   assert.equal(readFileSync(path, 'utf8'), 'user edit');
   writeFileSync(path, 'after');
   const restoring = checkpoints.restore(bot.id, record.id, new AbortController().signal, 'r2');
@@ -184,11 +188,11 @@ test('delegation completion belongs to its recipient and requires real evidence'
   });
   assert.throws(
     () => recordDelegationReceipt(store, sender.id, 'r', { status: 'completed', summary: '完成', evidenceIds: [] }),
-    /接收方/,
+    { code: 'delegation.receiver_only' },
   );
   assert.throws(
     () => recordDelegationReceipt(store, recipient.id, 'r', { status: 'completed', summary: '完成', evidenceIds: [] }),
-    /真实执行证据/,
+    { code: 'delegation.evidence_missing' },
   );
   const ledger = new ExecutionLedger(store),
     entry = ledger.begin(
@@ -204,5 +208,5 @@ test('delegation completion belongs to its recipient and requires real evidence'
     evidenceIds: [entry.id],
   });
   assert.equal(delegationStatus(store, sender.id, 'e').receipt?.status, 'completed');
-  assert.throws(() => delegationStatus(store, third.id, 'e'), /无权/);
+  assert.throws(() => delegationStatus(store, third.id, 'e'), { code: 'delegation.not_found' });
 });

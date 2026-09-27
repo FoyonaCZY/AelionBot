@@ -134,10 +134,16 @@ test('annotation context retains the selected content and stable CSS-pixel coord
   assert.match(context, /source 1440×8000 CSS px/);
   assert.match(context, /content="Selected section heading"/);
   assert.match(context, /note="Increase spacing"/);
-  assert.throws(() => validateAnnotations([{ ...input, sourceHeight: Infinity }]), /尺寸/);
-  assert.throws(() => validateAnnotations([{ ...input, sourceWidth: 0 }]), /尺寸/);
-  assert.throws(() => validateAnnotations([{ ...input, elementText: 'x'.repeat(1001) }]), /文字/);
-  assert.throws(() => validateAnnotations([input, input]), /无效/);
+  assert.throws(() => validateAnnotations([{ ...input, sourceHeight: Infinity }]), {
+    code: 'preview.annotation_canvas_invalid',
+  });
+  assert.throws(() => validateAnnotations([{ ...input, sourceWidth: 0 }]), {
+    code: 'preview.annotation_canvas_invalid',
+  });
+  assert.throws(() => validateAnnotations([{ ...input, elementText: 'x'.repeat(1001) }]), {
+    code: 'preview.annotation_text_too_long',
+  });
+  assert.throws(() => validateAnnotations([input, input]), { code: 'preview.annotation_invalid' });
 });
 
 test('arrow annotation context identifies the actual endpoint', () => {

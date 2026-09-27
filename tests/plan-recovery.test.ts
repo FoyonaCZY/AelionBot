@@ -132,13 +132,15 @@ test('goal completion still blocks unresolved writes and unknown operations', (t
   const failed = ledger.begin(botId, run.id, call('file_write', { path: 'output' }), { path: 'output' });
   ledger.finish(failed, 'failed', { error: 'write failed' }, 'failed');
   const complete = { status: 'completed', summary: '已核对实际结果', evidenceIds: [evidence.id] };
-  assert.throws(() => work.invoke(run, 'goal_update', complete), /未解决/);
+  assert.throws(() => work.invoke(run, 'goal_update', complete), { code: 'execution.unresolved' });
   const retry = ledger.begin(botId, run.id, call('file_write', { path: 'output' }, 'retry'), { path: 'output' });
   ledger.finish(retry, 'succeeded', {}, 'retry-result');
   const unknown = ledger.begin(botId, run.id, call('host_execute', { command: 'do work' }), { command: 'do work' });
   ledger.finish(unknown, 'unknown', { error: 'connection lost' }, 'unknown');
-  assert.throws(() => work.invoke(run, 'goal_update', complete), /未解决/);
-  assert.throws(() => work.updatePlan(run, plan(1, 'done', [retry.id, 'not-real'])), /实际成功执行证据/);
+  assert.throws(() => work.invoke(run, 'goal_update', complete), { code: 'execution.unresolved' });
+  assert.throws(() => work.updatePlan(run, plan(1, 'done', [retry.id, 'not-real'])), {
+    code: 'plan.step_evidence_missing',
+  });
 });
 
 test('new plan state supersedes legacy failed submissions without clearing unrelated failures', (t) => {
@@ -221,7 +223,7 @@ test('execution queries are bounded and cursors stay stable as diagnostic calls 
   assert.ok('items' in blocked && 'items' in evidence);
   assert.ok(blocked.items.every((item) => item.blocksCompletion));
   assert.ok(evidence.items.every((item) => item.evidenceEligible));
-  assert.throws(() => ledger.query(botId, run.id, { executionId: 'other-bot-entry' }), /没有这个 executionId/);
+  assert.throws(() => ledger.query(botId, run.id, { executionId: 'other-bot-entry' }), { code: 'EXECUTION_NOT_FOUND' });
   const detail = ledger.query(botId, run.id, { executionId: 'entry-0' });
   detail.entry!.target = 'changed copy';
   assert.notEqual(run.executions![0].target, 'changed copy');

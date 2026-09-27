@@ -68,7 +68,7 @@ test('patch context is fuzzy but keeps the file text of context lines, and @@ an
     'def f():\n    x = 1   \n    return x + 1\n',
   );
   const twice = 'def a():\n    return 0\ndef b():\n    return 0\n';
-  assert.throws(() => patched(twice, '@@\n-    return 0\n+    return 1'), /多处/);
+  assert.throws(() => patched(twice, '@@\n-    return 0\n+    return 1'), { code: 'PATCH_AMBIGUOUS' });
   assert.equal(
     patched(twice, '@@ def b():\n-    return 0\n+    return 1'),
     'def a():\n    return 0\ndef b():\n    return 1\n',

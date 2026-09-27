@@ -91,7 +91,7 @@ test('heartbeat-only streams still time out', async (t) => {
   });
   await assert.rejects(
     model.complete([], [], new AbortController().signal, () => {}, { timeoutMs: 120, retries: 0 }),
-    /timeout|超时/i,
+    { code: 'model.idle_timeout' },
   );
 });
 test('SSE multiline data and bare carriage-return boundaries are parsed as complete events', async (t) => {
@@ -202,7 +202,7 @@ test('role-only JSON frames cannot keep a stalled request alive', async (t) => {
   });
   await assert.rejects(
     model.complete([], [], new AbortController().signal, () => {}, { timeoutMs: 120, retries: 0 }),
-    /超时/,
+    { code: 'model.idle_timeout' },
   );
 });
 test('user cancellation interrupts a continuously active stream', async (t) => {

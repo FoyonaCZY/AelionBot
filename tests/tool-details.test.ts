@@ -78,8 +78,8 @@ test('long-result reader loads only a recorded tool result in the selected Bot s
   writeFileSync(join(dir, 'results', `${id}.json`), JSON.stringify({ text: 'full data', rows: [1, 2] }));
   const message = store.message(bot.id, 'tool', JSON.stringify({ truncated: true, resultId: id, preview: '{"text":' }));
   assert.deepEqual(store.readToolResult(bot.id, message.id), { text: 'full data', rows: [1, 2] });
-  assert.throws(() => store.readToolResult(other.id, message.id), /不存在/);
-  assert.throws(() => store.readToolResult(bot.id, 'missing'), /不存在/);
+  assert.throws(() => store.readToolResult(other.id, message.id), { code: 'execution.record_not_found' });
+  assert.throws(() => store.readToolResult(bot.id, 'missing'), { code: 'execution.record_not_found' });
   message.content = JSON.stringify({ truncated: true, resultId: '../../state' });
-  assert.throws(() => store.readToolResult(bot.id, message.id), /无效/);
+  assert.throws(() => store.readToolResult(bot.id, message.id), { code: 'execution.record_invalid' });
 });

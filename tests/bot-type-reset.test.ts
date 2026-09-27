@@ -36,8 +36,12 @@ test('switch requires explicit confirmation and the original type, with no parti
   store.message(bot.id, 'user', 'keep me');
   bot.memories = ['keep memory'];
   const before = JSON.stringify(store.data);
-  assert.throws(() => updateBotProfile(store, {} as any, change(bot, { confirmContextReset: false })), /确认/);
-  assert.throws(() => updateBotProfile(store, {} as any, change(bot, { expectedType: 'designer' })), /确认/);
+  assert.throws(() => updateBotProfile(store, {} as any, change(bot, { confirmContextReset: false })), {
+    code: 'bot.type_change_unconfirmed',
+  });
+  assert.throws(() => updateBotProfile(store, {} as any, change(bot, { expectedType: 'designer' })), {
+    code: 'bot.type_change_unconfirmed',
+  });
   assert.throws(
     () =>
       updateBotProfile(
@@ -136,10 +140,10 @@ test('confirmed switch clears owned context while retaining files, other Bots an
 test('pending private and group work prevents context destruction', (t) => {
   const { store, bot } = fixture(t);
   store.data.peerExchanges.push({ id: 'pending', fromBotId: bot.id, toBotId: 'other', status: 'waiting' } as any);
-  assert.throws(() => updateBotProfile(store, {} as any, change(bot)), /协作/);
+  assert.throws(() => updateBotProfile(store, {} as any, change(bot)), { code: 'bot.type_change_busy' });
   store.data.peerExchanges = [];
   store.data.groupDeliveries.push({ id: 'pending', recipientId: bot.id, status: 'queued' } as any);
-  assert.throws(() => updateBotProfile(store, {} as any, change(bot)), /协作/);
+  assert.throws(() => updateBotProfile(store, {} as any, change(bot)), { code: 'bot.type_change_busy' });
   assert.equal(store.bot(bot.id).type, 'general');
 });
 test('design context reset removes sessions and histories only for the selected Bot', (t) => {

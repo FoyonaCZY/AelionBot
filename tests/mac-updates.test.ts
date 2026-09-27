@@ -36,7 +36,7 @@ test('Mac preview chooses a release containing the matching architecture and nev
   await updates.check();
   assert.equal(updates.snapshot().latestVersion, '7.0.0');
   assert.equal(updates.snapshot().manualInstall, true);
-  assert.throws(() => updates.download(), /预览版/);
+  assert.throws(() => updates.download(), { code: 'update.manual_install_required' });
   updates.dispose();
 });
 test('automatic Mac updates require an explicitly notarized Developer ID build', (t) => {

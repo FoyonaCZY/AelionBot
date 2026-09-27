@@ -207,10 +207,9 @@ test('first-party plugins list from disk and bind to a task without becoming def
     );
   const task = designs.create({ botId: bot.id, kind: 'mobile', brief: 'App', plugins: ['spacing-audit'] });
   assert.deepEqual(task.plugins, ['spacing-audit']);
-  assert.throws(
-    () => designs.create({ botId: bot.id, kind: 'prototype', brief: 'x', plugins: ['../secret'] }),
-    /插件无效/,
-  );
+  assert.throws(() => designs.create({ botId: bot.id, kind: 'prototype', brief: 'x', plugins: ['../secret'] }), {
+    code: 'design.plugin_invalid',
+  });
   assert.match(JSON.stringify(designs.snapshot().plugins), /spacing-audit/);
 });
 
@@ -220,7 +219,7 @@ test('PDF export requires a %PDF- header and wraps fragment HTML', async () => {
   assert.equal(pdf.subarray(0, 5).toString(), '%PDF-');
   await assert.rejects(
     renderDesignPdf('<html></html>', async () => Buffer.from('not-pdf')),
-    /不是 PDF/,
+    { code: 'design.pdf_invalid' },
   );
 });
 

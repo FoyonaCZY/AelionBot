@@ -91,6 +91,6 @@ test('split frames are assembled; invalid or oversized responses close the chann
   const b = f.health.read('vm', {}, 'monitor');
   await Promise.resolve();
   f.clients[1].channel.emit('data', Buffer.alloc(70000, 65));
-  await assert.rejects(b, /过大/);
+  await assert.rejects(b, { code: 'vm.health_response_too_large' });
   f.health.close();
 });

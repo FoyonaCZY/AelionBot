@@ -227,7 +227,7 @@ test('file count, byte size, missing IDs and altered storage are rejected before
   assert.throws(() => fx.attachments.forDraft(scope, [randomUUID()]));
   const [file] = fx.attachments.importFiles(scope, [{ name: '报告.txt', bytes: Buffer.from('original') }]);
   writeFileSync(join(fx.dir, 'attachments', file.id), 'modified');
-  assert.throws(() => fx.attachments.bytes(file.id), /发生变化/);
+  assert.throws(() => fx.attachments.bytes(file.id), { code: 'attachment.changed' });
   assert.throws(() => fx.attachments.forDraft(scope, [file.id, file.id]));
 });
 

@@ -76,10 +76,9 @@ test('local previews, nested assets, attachment delivery and source save use the
     revision: before.revision,
     content: '<html><body>Changed</body></html>',
   });
-  await assert.rejects(
-    f.artifacts.saveEditable(f.bot.id, path, { revision: before.revision, content: 'stale' }),
-    /修改/,
-  );
+  await assert.rejects(f.artifacts.saveEditable(f.bot.id, path, { revision: before.revision, content: 'stale' }), {
+    code: 'preview.edit_conflict',
+  });
   const attachments = new Attachments(f.store, f.vm as any, f.artifacts),
     sent = await attachments.prepare(f.bot.id, [{ path }], new AbortController().signal);
   assert.match(attachments.bytes(sent[0].id).toString(), /Changed/);
@@ -317,7 +316,7 @@ test('preview-saved HTML cannot be fully overwritten', async (t) => {
 test('legacy VM design tasks are kept intact and cannot silently execute on the host', (t) => {
   const f = setup(t),
     legacy = { ...f.task, location: undefined, workspaceDir: undefined, workspacePath: 'design-projects/' + f.task.id };
-  assert.throws(() => f.files.absolute(legacy, 'index.html'), /旧版 VM/);
+  assert.throws(() => f.files.absolute(legacy, 'index.html'), { code: 'design.legacy_vm_session' });
   assert.equal(f.task.location, 'host');
   assert.equal(f.vmCalls(), 0);
 });
@@ -579,7 +578,7 @@ test('designer creates a substantial new file through the real host service with
       new AbortController().signal,
       f.task.workspaceDir,
     ),
-    /文件已存在/,
+    { code: 'file.exists' },
   );
   assert.equal(readFileSync(join(f.task.workspaceDir!, 'index.html'), 'utf8'), content);
   await assert.rejects(
@@ -590,7 +589,7 @@ test('designer creates a substantial new file through the real host service with
       new AbortController().signal,
       f.task.workspaceDir,
     ),
-    /新建文件请省略/,
+    { code: 'INVALID_ARGUMENT', reason: 'file.expected_hash_for_new_file' },
   );
   assert.equal(existsSync(join(f.task.workspaceDir!, 'new.html')), false);
 });

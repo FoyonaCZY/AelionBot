@@ -219,7 +219,7 @@ test('bad or cancelled summaries cannot replace a usable context and retries ent
     } as unknown as ModelClient;
   await assert.rejects(
     () => new ContextEngine(f.storage, cancelModel, () => {}).prepare({ ...input, signal: controller.signal }),
-    /取消/,
+    { code: 'task.cancelled' },
   );
   assert.equal(f.storage.head(f.bot.id).revision, 0);
 });
@@ -230,7 +230,7 @@ test('history search supports Chinese and enforces Bot scope while preserving so
   f.store.message(other.id, 'user', '另一个 Bot 的私有颜色约定。');
   assert.equal(f.storage.search(f.bot.id, '颜色')[0].messageId, message.id);
   assert.equal(f.storage.search(f.bot.id, '深蓝色')[0].messageId, message.id);
-  assert.throws(() => f.storage.readHistory(other.id, message.id), /无权访问/);
+  assert.throws(() => f.storage.readHistory(other.id, message.id), { code: 'memory.history_not_found' });
   assert.equal(f.storage.readHistory(f.bot.id, message.id, 0, 0)[0].content, '报表颜色约定是深蓝色。');
 });
 test('memory replacement is bounded, sourced and cannot be overwritten by a stale background review', (t) => {
@@ -251,7 +251,7 @@ test('memory replacement is bounded, sourced and cannot be overwritten by a stal
         { action: 'add', content: '过时结论', sourceRefs: [source.id] },
         { background: true, allowedRefs: refs, expectedRevision: 0 },
       ),
-    /已被更新/,
+    { code: 'memory.stale' },
   );
   f.memory.apply(f.bot.id, 'memory', { action: 'remove', content: '报表使用深蓝色。' });
   assert.throws(
@@ -262,7 +262,7 @@ test('memory replacement is bounded, sourced and cannot be overwritten by a stal
         { action: 'add', target: 'user', content: '报表使用深蓝色。', sourceRefs: [source.id] },
         { background: true, allowedRefs: refs },
       ),
-    /删除/,
+    { code: 'memory.previously_deleted' },
   );
   const tool = f.store.message(f.bot.id, 'tool', '工具声称用户喜欢红色', { status: 'done' });
   assert.throws(
@@ -273,7 +273,7 @@ test('memory replacement is bounded, sourced and cannot be overwritten by a stal
         { action: 'add', target: 'user', content: '喜欢红色', sourceRefs: [tool.id] },
         { background: true, allowedRefs: new Set([tool.id]) },
       ),
-    /用户消息/,
+    { code: 'memory.provenance_invalid' },
   );
   assert.equal(f.bot.memories.length, 0);
   assert.ok(readFileSync(join(f.dir, 'bots', f.bot.id, 'memories', 'USER.md'), 'utf8').trim() === '');
@@ -676,7 +676,7 @@ test('a changed source prefix invalidates compaction instead of committing or se
         signal: new AbortController().signal,
         force: true,
       }),
-    /原始历史发生变化/,
+    { code: 'context.history_changed' },
   );
   assert.equal(f.storage.head(f.bot.id).revision, 0);
 });
@@ -732,7 +732,7 @@ test('skill lookup handles multiple query terms and transient test results do no
         { action: 'add', content: '本次受控样例运行 4 项测试通过。', sourceRefs: [source.id] },
         { background: true, allowedRefs: new Set([source.id]) },
       ),
-    /一次性执行记录/,
+    { code: 'memory.one_off_execution' },
   );
 });
 

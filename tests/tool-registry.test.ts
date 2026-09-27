@@ -44,6 +44,6 @@ test('designer tools stay with the designer loop', () => {
 test('unknown tool names keep their error messages', () => {
   const dispatch = (name: string) => () => dispatchTool({ name, args: {} } as unknown as ToolContext);
   for (const name of ['unknown_tool', 'constructor', '__proto__', 'host_unknown', 'mcp_unknown', 'group_unknown'])
-    assert.throws(dispatch(name), { message: '未注册工具' }, name);
-  assert.throws(dispatch('start_main_task'), { message: '未注册工具：start_main_task' });
+    assert.throws(dispatch(name), { code: 'tool.unknown' }, name);
+  assert.throws(dispatch('start_main_task'), { code: 'tool.unregistered', message: /start_main_task$/ });
 });

@@ -62,7 +62,7 @@ test('deleting a Bot with private skills cannot break scheduled cleanup or later
     store.deleteBot(bot.id);
     assert.doesNotThrow(() => scheduler.removeTarget({ kind: 'bot', id: bot.id }));
     assert.ok(!library.all().some((skill) => skill.botId === bot.id));
-    assert.throws(() => library.list(bot.id), /Bot 不存在/);
+    assert.throws(() => library.list(bot.id), { code: 'bot.not_found' });
     const created = store.createBot('new after deletion', 'scope');
     assert.deepEqual(
       library.list(created.id).map((skill) => skill.id),
@@ -100,8 +100,8 @@ test('shared skills preserve variants and keep private file storage authoritativ
   const library = new SkillLibrary(store, paths);
   assert.ok(library.list(bot.id).some((item) => item.name === 'shared-one'));
   assert.equal(library.list(bot.id).filter((item) => item.name === 'duplicate').length, 2);
-  assert.throws(() => library.read(bot.id, 'duplicate'), /同名/);
-  assert.throws(() => library.read(other.id, 'legacy-private'), /无权/);
+  assert.throws(() => library.read(bot.id, 'duplicate'), { code: 'skill.name_ambiguous' });
+  assert.throws(() => library.read(other.id, 'legacy-private'), { code: 'skill.not_found' });
   const migrated = library.read(bot.id, 'legacy-private');
   assert.equal(migrated.body, 'Keep this private');
   const parsed = parseSkill(readFileSync(migrated.source!.path, 'utf8'), '');
@@ -197,8 +197,8 @@ test('skill references and bundles cannot escape through links or traversal', (t
     bot = store.data.bots[0];
   assert.equal(library.readFile(bot.id, 'portable', 'references/readme.md').content, 'reference marker');
   assert.throws(() => library.readFile(bot.id, 'portable', '../outside/secret.txt'));
-  assert.throws(() => library.readFile(bot.id, 'portable', 'escape/secret.txt'), /不在技能目录/);
-  assert.throws(() => library.bundle(bot.id, 'portable'), /超出了/);
+  assert.throws(() => library.readFile(bot.id, 'portable', 'escape/secret.txt'), { code: 'skill.resource_outside' });
+  assert.throws(() => library.bundle(bot.id, 'portable'), { code: 'skill.resource_link_escape' });
 });
 test('pasted MCP snippets merge named servers into Aelion mcp.json', async (t) => {
   const paths = fixture(t),
@@ -226,7 +226,7 @@ test('pasted MCP snippets merge named servers into Aelion mcp.json', async (t) =
     'npx',
   );
   assert.throws(() => parseMcpSnippet('{'), /JSON/);
-  assert.throws(() => parseMcpSnippet('{"command":"npx"}'), /名称/);
+  assert.throws(() => parseMcpSnippet('{"command":"npx"}'), { code: 'mcp.config_name_missing' });
 });
 test('MCP adapters parse common formats, variables, filters and disabled entries without exposing credentials', (t) => {
   const paths = fixture(t);
@@ -301,12 +301,14 @@ test('real stdio MCP handshake, filtering, calls, resources and prompts work', a
   assert.equal(inspection.permission, undefined);
   await assert.rejects(
     runtime.call('fixture', 'echo', { message: 'not dispatched' }, new AbortController().signal, 'stale-fingerprint'),
-    /配置已变化/,
+    { code: 'mcp.config_changed' },
   );
   const result = await runtime.call('fixture', 'echo', { message: 'MCP works' }, new AbortController().signal);
   assert.match(JSON.stringify(result), /MCP works/);
   assert.ok(!JSON.stringify(result).includes('stdio-fixture-secret'));
-  await assert.rejects(() => runtime.call('fixture', 'denied', {}, new AbortController().signal), /禁用/);
+  await assert.rejects(() => runtime.call('fixture', 'denied', {}, new AbortController().signal), {
+    code: 'mcp.tool_unavailable',
+  });
   assert.match(
     JSON.stringify(await runtime.readResource('fixture', 'fixture://readme', new AbortController().signal)),
     /resource ready/,
@@ -336,7 +338,7 @@ test('real Streamable HTTP, SSE and HTTP-to-SSE fallback connect; imported serve
   t.after(() => runtime.dispose());
   const configs = discoverMcp(paths).configs;
   await runtime.replace(configs);
-  await assert.rejects(() => runtime.listTools('http'), /尚未启用/);
+  await assert.rejects(() => runtime.listTools('http'), { code: 'mcp.not_enabled' });
   for (const config of configs) {
     await runtime.setEnabled(config.id, true);
     const tools = await runtime.listTools(config.id);
@@ -345,7 +347,7 @@ test('real Streamable HTTP, SSE and HTTP-to-SSE fallback connect; imported serve
     assert.equal(result.structuredContent.echo, config.name);
   }
   await runtime.setEnabled(configs[0].id, false);
-  await assert.rejects(() => runtime.listTools(configs[0].id), /尚未启用/);
+  await assert.rejects(() => runtime.listTools(configs[0].id), { code: 'mcp.not_enabled' });
 });
 
 test('plugin skill switches persist, keep disabled details inspectable, and block runtime use', (t) => {
@@ -370,8 +372,8 @@ test('plugin skill switches persist, keep disabled details inspectable, and bloc
   assert.equal(library.all().find((item) => item.id === shared.id)?.enabled, false);
   for (const bot of [a, b]) {
     assert.ok(!library.list(bot.id).some((item) => item.id === shared.id));
-    assert.throws(() => library.read(bot.id, shared.id), /停用/);
-    assert.throws(() => library.bundle(bot.id, shared.id), /停用/);
+    assert.throws(() => library.read(bot.id, shared.id), { code: 'skill.disabled' });
+    assert.throws(() => library.bundle(bot.id, shared.id), { code: 'skill.disabled' });
   }
   assert.match(library.read(undefined, shared.id, true).body, /Shared workflow/);
   assert.equal(readFileSync(sharedPath, 'utf8'), skill('shared-switch', 'Shared workflow'));
@@ -384,7 +386,7 @@ test('plugin skill switches persist, keep disabled details inspectable, and bloc
   reopened.setEnabled('owned-switch', false);
   assert.ok(!reopened.list(a.id).some((item) => item.id === 'owned-switch'));
   assert.match(reopened.read(a.id, 'owned-switch', true).body, /Private body/);
-  assert.throws(() => reopened.read(b.id, 'owned-switch', true), /无权访问/);
+  assert.throws(() => reopened.read(b.id, 'owned-switch', true), { code: 'skill.not_found' });
   reopened.setEnabled('owned-switch', true);
   reopened.manage(a.id, 'owned-switch', 'archive');
   assert.equal(reopened.all().find((item) => item.id === 'owned-switch')?.enabled, false);

@@ -25,7 +25,7 @@ test('playbooks cover presentation layouts and website clone', () => {
   assert.match(mobile, /device frame|phone-first/i);
   const document = designerPlaybook('document');
   assert.match(document, /print CSS/i);
-  assert.throws(() => designerPlaybook('missing'), /未知/);
+  assert.throws(() => designerPlaybook('missing'), { code: 'design.workflow_unknown' });
 });
 
 test('deck layouts include agenda and cta with escaped companion HTML', () => {
@@ -56,5 +56,7 @@ test('deck layouts include agenda and cta with escaped companion HTML', () => {
   assert.match(html, /data-slide-id="slide-7"/);
   assert.ok(DECK_LAYOUTS.includes('agenda') && DECK_LAYOUTS.includes('cta'));
   assert.throws(() => designerDeck('Deck', [{ title: 'Broken', layout: 'timeline' }]), /items/);
-  assert.throws(() => designerDeck('Deck', [{ title: 'Broken', layout: 'unknown' as any }]), /布局/);
+  assert.throws(() => designerDeck('Deck', [{ title: 'Broken', layout: 'unknown' as any }]), {
+    code: 'design.deck_layout_unsupported',
+  });
 });

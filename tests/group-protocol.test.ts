@@ -76,7 +76,9 @@ test('outbox commit failure publishes nothing; retry and reopen preserve exactly
   assert.equal(f.room.messages.length, before.messages + 1);
   assert.equal(f.store.data.groupDeliveries.length, before.deliveries + 2);
   assert.equal(f.store.data.groupOutbox?.[0].status, 'sent');
-  assert.throws(() => f.invoke(f.ra, 'group_send_message', { ...args, message: '同一个 ID 的不同内容' }), /不同内容/);
+  assert.throws(() => f.invoke(f.ra, 'group_send_message', { ...args, message: '同一个 ID 的不同内容' }), {
+    code: 'group.outbox_conflict',
+  });
   f.store.close();
   const restored = new Store(f.dir, { incremental: true });
   assert.equal(restored.data.groupOutbox?.[0].messageId, first.messageId);
@@ -86,7 +88,9 @@ test('outbox commit failure publishes nothing; retry and reopen preserve exactly
 
 test('group outbox rejects internal silence markers', (t) => {
   const f = fixture(t);
-  assert.throws(() => f.invoke(f.ra, 'group_send_message', { message: '没有新内容。[群聊静默]' }), /内部控制文本/);
+  assert.throws(() => f.invoke(f.ra, 'group_send_message', { message: '没有新内容。[群聊静默]' }), {
+    code: 'group.silence_marker',
+  });
   assert.ok(!f.room.messages.some((message) => message.content.includes('[群聊静默]')));
 });
 
@@ -113,7 +117,7 @@ test('task claims are exclusive, survive runs, reject foreign updates and allow 
         status: 'completed',
         summary: '抢先标记完成',
       }),
-    /自己认领/,
+    { code: 'group.task_not_owned' },
   );
   const conflict = f.invoke(f.ra, 'group_task_update', {
     taskId: first.task.id,
@@ -158,7 +162,7 @@ test('removing an owner releases unfinished tasks and prevents further reads or 
   assert.equal(f.room.tasks![0].status, 'open');
   assert.equal(f.room.tasks![0].ownerId, undefined);
   for (const name of ['group_read', 'group_tasks', 'group_outbox', 'group_send_message'])
-    assert.throws(() => f.invoke(f.ra, name, { message: '旧进展' }), /自己加入/);
+    assert.throws(() => f.invoke(f.ra, name, { message: '旧进展' }), { code: 'group.not_member' });
   assert.equal(f.invoke(f.rb, 'group_task_claim', { taskId: claimed.task.id }).claimed, true);
 });
 
@@ -182,7 +186,7 @@ test('context starts with a bounded public window, expands on demand, and privat
   try {
     assert.equal(storage.search(f.a.id, 'ALPHA_PRIVATE_CONTEXT')[0].messageId, privateA.id);
     assert.equal(storage.search(f.a.id, 'BETA_PRIVATE_CONTEXT').length, 0);
-    assert.throws(() => storage.readHistory(f.a.id, privateB.id), /无权/);
+    assert.throws(() => storage.readHistory(f.a.id, privateB.id), { code: 'memory.history_not_found' });
   } finally {
     storage.close();
   }
@@ -201,7 +205,7 @@ test('new tasks require an actual group user request and restart pauses work wit
         title: '新增操作',
         sourceMessageId: f.room.messages[0].id,
       }),
-    /原始用户/,
+    { code: 'group.task_source_missing' },
   );
   const claimed = f.invoke(f.ra, 'group_task_claim', {
     key: 'report',
@@ -256,7 +260,7 @@ test('new tasks cannot borrow authorization from an unrelated earlier group mess
         title: '删除整个项目目录',
         sourceMessageId: f.source.id,
       }),
-    /当前收件批次/,
+    { code: 'group.task_source_missing' },
   );
   const earlierDelivery = f.store.data.groupDeliveries.find(
     (d) => d.messageId === f.source.id && d.recipientId === f.a.id,

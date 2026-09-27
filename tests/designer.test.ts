@@ -89,7 +89,7 @@ test('legacy Bots stay general and unconfirmed deferred switches are discarded o
         expectedType: 'designer',
         confirmContextReset: true,
       }),
-    /结束/,
+    { code: 'bot.type_change_busy' },
   );
   assert.equal(store.bot(bot.id).type, 'designer');
 });
@@ -108,7 +108,7 @@ test('design-system references validate bytes and pinned tasks retain old assets
   assert.match(updated.read('sample', 'tokens.css', task.systemVersion!).toString(), /red/);
   assert.match(updated.read('sample', 'tokens.css').toString(), /blue/);
   writeFileSync(join(v2, 'sample', 'tokens.css'), 'tampered');
-  assert.throws(() => updated.read('sample', 'tokens.css'), /资源已变化/);
+  assert.throws(() => updated.read('sample', 'tokens.css'), { code: 'design.system_changed' });
 });
 
 test('task histories and lookups are isolated by Bot and channel; manual edits invalidate prior checks', (t) => {
@@ -127,7 +127,7 @@ test('task histories and lookups are isolated by Bot and channel; manual edits i
   designs.userEdit(bot.id, a.workspacePath + '/index.html', 'revision');
   assert.equal(active.checks[0].status, 'pending');
   assert.equal(active.userEdits.length, 1);
-  assert.throws(() => designs.update({ id: a.id, revision: 1, title: 'stale' }), /已更新/);
+  assert.throws(() => designs.update({ id: a.id, revision: 1, title: 'stale' }), { code: 'design.session_stale' });
 });
 
 test('runtime dispatch follows user-selected types and rejects resumes from another type', async (t) => {
@@ -158,7 +158,7 @@ test('runtime dispatch follows user-selected types and rejects resumes from anot
     toolCalls: 0,
   };
   store.data.runs.push(previous);
-  await assert.rejects(runtime.resume(bot.id, previous.id), /类型已改变/);
+  await assert.rejects(runtime.resume(bot.id, previous.id), { code: 'bot.type_changed' });
   assert.deepEqual(called, ['designer', 'general']);
 });
 
@@ -532,7 +532,7 @@ test('group design context includes only that group and task, never main-chat or
         throw Error('should not run');
       })
       .run(other.id, 'Steal task', { designSessionId: task.id }),
-    /当前会话/,
+    { code: 'design.session_not_found' },
   );
 });
 
@@ -780,7 +780,9 @@ test('design-system selection is task scoped while another task of the same Bot 
   designs.get(a.id).activeRunId = 'active-a';
   designs.get(a.id).status = 'running';
   designs.save();
-  assert.throws(() => designs.update({ id: a.id, revision: a.revision, systemId: null }), /停止/);
+  assert.throws(() => designs.update({ id: a.id, revision: a.revision, systemId: null }), {
+    code: 'design.session_running',
+  });
   assert.equal(designs.setSystem(designs.get(a.id), 'sample').systemId, 'sample');
   const updated = designs.update({ id: b.id, revision: b.revision, systemId: 'sample' });
   assert.equal(updated.systemId, 'sample');

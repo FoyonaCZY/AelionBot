@@ -144,7 +144,7 @@ test('human game private traces are unavailable until game ends', () => {
   const runtime = new GameRuntime(dir, async () => new Promise(() => {}));
   try {
     const s = runtime.create({ groupId: 'trace', players: players.map((p, i) => ({ ...p, human: i === 0 })) });
-    assert.throws(() => runtime.inspect(s.id), /结束后/);
+    assert.throws(() => runtime.inspect(s.id), { code: 'game.record_locked' });
     assert(!('trace' in runtime.read('trace')!));
     runtime.control(s.id, 'stop');
     assert(runtime.inspect(s.id).some((t) => t.type === 'stop'));

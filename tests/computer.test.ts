@@ -45,19 +45,20 @@ test('independent desktops retain their own observations, input routing and manu
   } as unknown as VmController;
   const computer = new ComputerController(vm, dir, () => {}),
     signal = new AbortController().signal;
-  await assert.rejects(() => computer.execute('a', { action: 'click', x: 1, y: 2 }, signal), /先截取/);
+  await assert.rejects(() => computer.execute('a', { action: 'click', x: 1, y: 2 }, signal), {
+    code: 'computer.observation_stale',
+  });
   const [first, second] = await Promise.all(
     ['a', 'b'].map((botId) => computer.execute(botId, { action: 'screenshot' }, signal)),
   );
   assert.notEqual(computer.stateFor('a').vncUrl, computer.stateFor('b').vncUrl);
   await assert.rejects(
     () => computer.execute('b', { action: 'click', observationId: first.screenshot.id, x: 1, y: 2 }, signal),
-    /先截取/,
+    { code: 'computer.observation_stale' },
   );
-  await assert.rejects(
-    () => computer.execute('a', { action: 'click', observationId: 'old', x: 1, y: 2 }, signal),
-    /先截取/,
-  );
+  await assert.rejects(() => computer.execute('a', { action: 'click', observationId: 'old', x: 1, y: 2 }, signal), {
+    code: 'computer.observation_stale',
+  });
   await Promise.all([
     computer.execute('a', { action: 'click', observationId: first.screenshot.id, x: 10, y: 20 }, signal),
     computer.execute('b', { action: 'click', observationId: second.screenshot.id, x: 500, y: 600 }, signal),
@@ -66,17 +67,19 @@ test('independent desktops retain their own observations, input routing and manu
   assert.ok(events.some((item) => item.botId === 'b' && item.command === 'xdotool mousemove 500 600'));
   await assert.rejects(
     () => computer.execute('a', { action: 'key', key: 'ENTER', observationId: first.screenshot.id }, signal),
-    /先截取/,
+    { code: 'computer.observation_stale' },
   );
   computer.release('a');
   computer.setManual('a', true);
-  await assert.rejects(() => computer.execute('a', { action: 'screenshot' }, signal), /用户正在接管/);
+  await assert.rejects(() => computer.execute('a', { action: 'screenshot' }, signal), {
+    code: 'computer.user_in_control',
+  });
   await computer.execute('b', { action: 'screenshot' }, signal);
   assert.equal(computer.stateFor('b').ownerBotId, 'b');
   computer.setManual('a', false);
   await assert.rejects(
     () => computer.execute('a', { action: 'key', key: 'ENTER', observationId: first.screenshot.id }, signal),
-    /先截取/,
+    { code: 'computer.observation_stale' },
   );
 });
 test('protocol conversion preserves earlier observations when another image is appended', () => {
@@ -123,8 +126,8 @@ test('only the same desktop is locked by an in-flight action and a VM restart in
     signal = new AbortController().signal;
   const first = computer.execute('first', { action: 'screenshot' }, signal);
   await until(() => capturing);
-  await assert.rejects(() => computer.execute('first', { action: 'screenshot' }, signal), /前一次/);
-  assert.throws(() => computer.setManual('first', true), /正在完成/);
+  await assert.rejects(() => computer.execute('first', { action: 'screenshot' }, signal), { code: 'computer.busy' });
+  assert.throws(() => computer.setManual('first', true), { code: 'computer.busy' });
   const second = await computer.execute('second', { action: 'screenshot' }, signal);
   release();
   await first;
@@ -132,7 +135,7 @@ test('only the same desktop is locked by an in-flight action and a VM restart in
   assert.equal(Object.keys(computer.state.desktops).length, 0);
   await assert.rejects(
     () => computer.execute('second', { action: 'key', key: 'ENTER', observationId: second.screenshot.id }, signal),
-    /先截取/,
+    { code: 'computer.observation_stale' },
   );
 });
 test('open_app can launch Impress as well as Writer and Calc', async (t) => {
@@ -161,11 +164,11 @@ test('open_app can launch Impress as well as Writer and Calc', async (t) => {
   await computer.execute('bot', { action: 'open_app', app: 'impress', path: 'human_ai_beautiful.pptx' }, signal);
   await assert.rejects(
     () => computer.execute('bot', { action: 'open_app', app: 'impress', path: '../secret.pptx' }, signal),
-    /工作目录/,
+    { code: 'computer.path_outside_workspace' },
   );
   await assert.rejects(
     () => computer.execute('bot', { action: 'open_app', app: 'browser', path: 'notes.txt' }, signal),
-    /办公应用/,
+    { code: 'computer.app_not_allowed' },
   );
   assert.ok(
     events.some((command) => command.includes("libreoffice' '--impress'") || command.includes('libreoffice --impress')),

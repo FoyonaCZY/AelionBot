@@ -175,8 +175,8 @@ test('GLM example divides cached tokens by all input and missing cache reports d
 });
 
 test('usage ranges validate real dates and aggregate hour/month boundaries', () => {
-  assert.throws(() => usageReport([], [], { ...query, from: '2026-02-30' }), /有效日期/);
-  assert.throws(() => usageReport([], [], { ...query, to: '2026-01-01' }), /日期范围/);
+  assert.throws(() => usageReport([], [], { ...query, from: '2026-02-30' }), { code: 'usage.date_invalid' });
+  assert.throws(() => usageReport([], [], { ...query, to: '2026-01-01' }), { code: 'usage.date_range_invalid' });
   const records = [row('1', '2026-02-01T00:00:00'), row('2', '2026-02-01T23:59:59')],
     hours = usageReport(records, [], { ...query, to: query.from, granularity: 'hour' });
   assert.equal(hours.buckets.length, 24);

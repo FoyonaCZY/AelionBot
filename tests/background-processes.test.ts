@@ -54,7 +54,7 @@ test(
     assert.match(output, /ready/);
     const restored = new BackgroundProcesses(new Store(dir), {} as VmController, host, interactions);
     assert.match((await restored.status(bot.id, id, signal)).output, /ready/);
-    await assert.rejects(restored.status(other.id, id, signal), /不属于/);
+    await assert.rejects(restored.status(other.id, id, signal), { code: 'process.not_found' });
     const stopped = await manager.stop(bot.id, id, signal);
     assert.equal(stopped.status, 'stopped');
   },

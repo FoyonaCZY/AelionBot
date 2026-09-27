@@ -106,7 +106,7 @@ test('corrupt cached and downloaded content never becomes the usable image', asy
   writeFileSync(f.destination, 'old corrupt cache');
   await assert.rejects(
     verifiedDownload(f.url, f.destination, hash(body), () => {}, 'sha512', { ...f.options, attempts: 1 }),
-    /校验失败/,
+    { code: 'vm.download_hash_mismatch' },
   );
   assert.equal(existsSync(f.destination), false);
   assert.equal(existsSync(f.destination + '.part'), false);
@@ -127,7 +127,7 @@ test('a stalled response fails promptly while keeping resumable bytes', async (t
       attempts: 1,
       idleTimeoutMs: 40,
     }),
-    /没有收到数据/,
+    { code: 'vm.download_stalled' },
   );
   assert.equal(readFileSync(f.destination + '.part').toString(), 'a');
   stalled = false;

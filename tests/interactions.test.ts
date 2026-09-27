@@ -281,7 +281,7 @@ test('VM assistance pauses through takeover and resumes only with a fresh observ
   assert.equal(held, true);
   assert.equal(calls, 1);
   assert.equal(screenshots, 0);
-  assert.throws(() => interactions.completeTakeover(request.id), /先接管/);
+  assert.throws(() => interactions.completeTakeover(request.id), { code: 'interaction.takeover_not_active' });
   state.manualControl = true;
   interactions.startTakeover(request.id);
   await settle();

@@ -86,22 +86,20 @@ test('stale revisions and changes during save never overwrite another edit', { s
   writeFileSync(path, 'original');
   const first = await f.service.readEditable(f.bot, 'main.py');
   writeFileSync(path, 'Bot update');
-  await assert.rejects(
-    f.service.saveEditable(f.bot, 'main.py', { content: 'mine', revision: first.revision }),
-    /其他操作修改/,
-  );
+  await assert.rejects(f.service.saveEditable(f.bot, 'main.py', { content: 'mine', revision: first.revision }), {
+    code: 'preview.edit_conflict',
+  });
   assert.equal(readFileSync(path, 'utf8'), 'Bot update');
   const fresh = await f.service.readEditable(f.bot, 'main.py');
   f.race(() => writeFileSync(path, 'late Bot update'));
-  await assert.rejects(
-    f.service.saveEditable(f.bot, 'main.py', { content: 'mine', revision: fresh.revision }),
-    /保存前发生变化/,
-  );
+  await assert.rejects(f.service.saveEditable(f.bot, 'main.py', { content: 'mine', revision: fresh.revision }), {
+    code: 'preview.edit_changed_during_save',
+  });
   assert.equal(readFileSync(path, 'utf8'), 'late Bot update');
 });
 test('manual editing cannot create a file outside the current workspace', { skip: !available }, async (t) => {
   const f = fixture(t);
   await assert.rejects(f.service.readEditable(f.bot, '../private.txt'));
   await assert.rejects(f.service.saveEditable(f.bot, '/etc/hosts', { content: 'x', revision: 'a'.repeat(64) }));
-  await assert.rejects(f.service.readEditable(f.bot, 'image.png'), /不支持/);
+  await assert.rejects(f.service.readEditable(f.bot, 'image.png'), { code: 'preview.edit_unsupported' });
 });

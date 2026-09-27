@@ -211,8 +211,8 @@ test('a running or unknown Bot cannot be deleted and failed deletion leaves pers
   });
   store.save();
   const before = readFileSync(store.file, 'utf8');
-  assert.throws(() => store.deleteBot(bot.id), /先停止/);
-  assert.throws(() => store.deleteBot('missing'), /不存在/);
+  assert.throws(() => store.deleteBot(bot.id), { code: 'bot.busy' });
+  assert.throws(() => store.deleteBot('missing'), { code: 'bot.not_found' });
   assert.equal(readFileSync(store.file, 'utf8'), before);
   assert.equal(store.bot(bot.id), bot);
 });
@@ -287,10 +287,9 @@ test('model parser reconstructs fragmented SSE tool calls and rejects incomplete
   const result = await client.complete([{ role: 'user', content: 'go' }], [], new AbortController().signal);
   assert.equal(result.calls[0].function.name, 'file_write');
   assert.deepEqual(JSON.parse(result.calls[0].function.arguments), { path: 'proof.txt', content: 'ok' });
-  await assert.rejects(
-    () => client.complete([{ role: 'user', content: 'go' }], [], new AbortController().signal),
-    /完整响应之前断开/,
-  );
+  await assert.rejects(() => client.complete([{ role: 'user', content: 'go' }], [], new AbortController().signal), {
+    code: 'model.response_incomplete',
+  });
 });
 test('a complete stream with truncated tool JSON is accepted as a call, not retried as a transport error', async (t) => {
   const base = await server(t, async (req, res) => {

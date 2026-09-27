@@ -54,10 +54,12 @@ test('drop choices are bound to one conversation and can be applied only once', 
   writeFileSync(file, 'original');
   const other = f.store.createBot('其他', '测试'),
     [choice] = await f.drops.prepare(f.scope, [file]);
-  await assert.rejects(f.drops.apply({ kind: 'bot', id: other.id }, [choice.id], 'attach'), /不属于/);
+  await assert.rejects(f.drops.apply({ kind: 'bot', id: other.id }, [choice.id], 'attach'), {
+    code: 'attachment.drop_expired',
+  });
   const result = await f.drops.apply(f.scope, [choice.id], 'attach');
   assert.equal(f.attachments.bytes(result.attachments[0].id).toString(), 'original');
-  await assert.rejects(f.drops.apply(f.scope, [choice.id], 'attach'), /过期/);
+  await assert.rejects(f.drops.apply(f.scope, [choice.id], 'attach'), { code: 'attachment.drop_expired' });
   assert.equal(f.workspaces.length, 0);
 });
 test('directory attachments reject symlinks and excessive input before reading outside the selection', async (t) => {
@@ -68,7 +70,7 @@ test('directory attachments reject symlinks and excessive input before reading o
   mkdirSync(outside);
   writeFileSync(join(outside, 'private.txt'), 'outside');
   symlinkSync(outside, join(folder, 'linked'), process.platform === 'win32' ? 'junction' : 'dir');
-  await assert.rejects(directoryAttachment(folder), /符号链接/);
+  await assert.rejects(directoryAttachment(folder), { code: 'attachment.drop_symlink' });
   const large = join(f.root, 'large');
   mkdirSync(large);
   const path = join(large, 'sparse');

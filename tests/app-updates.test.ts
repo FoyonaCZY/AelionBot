@@ -241,7 +241,7 @@ test('checking coalesces clicks and a new failed check discards a stale update c
   await f.service.check();
   assert.equal(f.service.snapshot().phase, 'error');
   assert.equal(f.service.snapshot().latestVersion, undefined);
-  assert.throws(() => f.service.download(), /先检查/);
+  assert.throws(() => f.service.download(), { code: 'update.not_checked' });
 });
 test('current version and checksum failures are reported accurately and never invoke installation', async (t) => {
   const f = fixture(t);
@@ -262,7 +262,7 @@ test('current version and checksum failures are reported accurately and never in
   };
   await f.service.download();
   assert.match(f.service.snapshot().error || '', /校验/);
-  await assert.rejects(() => f.service.install(), /尚未/);
+  await assert.rejects(() => f.service.install(), { code: 'update.not_downloaded' });
   assert.equal(f.driver.installs, 0);
 });
 test('cancelled downloads ignore late completion and can be downloaded again', async (t) => {
@@ -291,7 +291,7 @@ test('active work and failed shutdown preparation keep the downloaded update una
   await f.service.check();
   await f.service.download();
   f.control.blocked = '请先结束任务';
-  await assert.rejects(() => f.service.install(), /先结束/);
+  await assert.rejects(() => f.service.install(), { code: 'update.install_blocked' });
   assert.equal(f.driver.installs, 0);
   f.control.blocked = undefined;
   f.control.prepare = async () => {
@@ -345,13 +345,13 @@ test('update launch context preserves the custom data location and is bound to t
   assert.deepEqual(loadUpdateLaunchContext(profile, context.executable), context);
   assert.equal(loadUpdateLaunchContext(profile, join(dir, 'other', 'AelionBot.exe')), undefined);
   assert.doesNotThrow(() => assertUpdateDataOutsideApp(data, app));
-  assert.throws(() => assertUpdateDataOutsideApp(app, app), /程序目录/);
-  assert.throws(() => assertUpdateDataOutsideApp(join(app, 'data'), app), /程序目录/);
-  assert.throws(() => assertUpdateDataOutsideApp(join(app, '..notes'), app), /程序目录/);
+  assert.throws(() => assertUpdateDataOutsideApp(app, app), { code: 'update.data_inside_app' });
+  assert.throws(() => assertUpdateDataOutsideApp(join(app, 'data'), app), { code: 'update.data_inside_app' });
+  assert.throws(() => assertUpdateDataOutsideApp(join(app, '..notes'), app), { code: 'update.data_inside_app' });
   assert.doesNotThrow(() => assertUpdateDataOutsideApp(join(dir, 'app-data'), app));
   writeFileSync(
     join(profile, 'update-launch-context.json'),
     JSON.stringify({ ...context, dataDir: join(dir, 'missing') }),
   );
-  assert.throws(() => loadUpdateLaunchContext(profile, context.executable), /已移动/);
+  assert.throws(() => loadUpdateLaunchContext(profile, context.executable), { code: 'update.data_dir_moved' });
 });

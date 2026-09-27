@@ -59,7 +59,7 @@ test('local designs open and reveal their original path without creating a copy'
   await f.opener.open({ target, action: 'default' });
   await f.opener.open({ target, action: 'folder' });
   assert.ok(f.events.every((event) => event.path === path));
-  await assert.rejects(f.opener.open({ target, action: 'delete' as any }), /无效/);
+  await assert.rejects(f.opener.open({ target, action: 'delete' as any }), { code: 'preview.open_action_invalid' });
   assert.equal(f.events.length, 2);
   f.setSource({ path: join(f.root, 'missing') });
   await assert.rejects(f.opener.open({ target, action: 'default' }));
@@ -81,7 +81,7 @@ test('a symlinked cached file cannot redirect an open action', async (t) => {
     }
     throw error;
   }
-  await assert.rejects(f.opener.open({ target, action: 'default' }), /无效/);
+  await assert.rejects(f.opener.open({ target, action: 'default' }), { code: 'preview.open_file_invalid' });
   assert.equal(f.events.length, 1);
 });
 test('original attachment paths persist privately and missing originals fall back to the attachment', (t) => {

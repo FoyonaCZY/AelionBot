@@ -124,5 +124,7 @@ test('comments remain inside their chosen design task and its conversation origi
     other = f.designs.create({ botId: f.bot.id, kind: 'prototype', brief: 'Other canvas' });
   f.designs.addComments(f.task.id, commentsFromAnnotations(f.path, '修改', [mark('one')]));
   assert.equal(f.designs.get(other.id).comments!.length, 0);
-  assert.throws(() => f.designs.get(f.task.id, undefined, { kind: 'bot', id: 'another-bot' }), /不属于当前会话/);
+  assert.throws(() => f.designs.get(f.task.id, undefined, { kind: 'bot', id: 'another-bot' }), {
+    code: 'design.session_not_found',
+  });
 });

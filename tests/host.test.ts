@@ -41,7 +41,7 @@ test('every host file operation waits for a fresh single-use decision', async (t
   interactions.approve(first.id, false);
   await deniedCheck;
   assert.equal(existsSync(path), false);
-  assert.throws(() => interactions.approve(first.id, true), /已结束/);
+  assert.throws(() => interactions.approve(first.id, true), { code: 'interaction.closed' });
   const allowed = host.writeFile('bot-a', 'run-a', { path, content: 'second', reason: '测试写入' }, signal);
   const second = interactions.snapshot()[0];
   assert.notEqual(second.id, first.id);
@@ -84,7 +84,7 @@ test('cancelled and stale write approvals never overwrite a file', async (t) => 
     { path, content: 'replace', overwrite: true, reason: '替换' },
     cancelled.signal,
   );
-  const firstCheck = assert.rejects(first, /取消/);
+  const firstCheck = assert.rejects(first, { code: 'task.cancelled' });
   cancelled.abort();
   await firstCheck;
   assert.equal(interactions.snapshot().length, 0);
@@ -95,7 +95,7 @@ test('cancelled and stale write approvals never overwrite a file', async (t) => 
     { path, content: 'replace', overwrite: true, reason: '替换' },
     new AbortController().signal,
   );
-  const secondCheck = assert.rejects(second, /发生变化/);
+  const secondCheck = assert.rejects(second, { code: 'file.changed_during_approval' });
   writeFileSync(path, 'user changed the file while deciding');
   interactions.approve(interactions.snapshot()[0].id, true);
   await secondCheck;
@@ -107,7 +107,7 @@ test('cancelled and stale write approvals never overwrite a file', async (t) => 
     { path, content: 'replace', overwrite: true, reason: '替换' },
     thirdSignal.signal,
   );
-  const thirdCheck = assert.rejects(third, /取消/);
+  const thirdCheck = assert.rejects(third, { code: 'task.cancelled' });
   interactions.approve(interactions.snapshot()[0].id, true);
   thirdSignal.abort();
   await thirdCheck;
@@ -130,7 +130,7 @@ test('partial reads cannot reveal token fragments and masked credentials are not
     { path, content: 'api_key: [redacted]\nsetting: new', overwrite: true, reason: '更新配置' },
     new AbortController().signal,
   );
-  const rejected = assert.rejects(write, /占位符/);
+  const rejected = assert.rejects(write, { code: 'host.secret_placeholder' });
   interactions.approve(interactions.snapshot()[0].id, true);
   await rejected;
   assert.ok(readFileSync(path, 'utf8').includes(secret));
@@ -148,7 +148,7 @@ test(
       { command: "Write-Output 'not run'", reason: '检查' },
       controller.signal,
     );
-    const rejected = assert.rejects(pending, /取消/);
+    const rejected = assert.rejects(pending, { code: 'task.cancelled' });
     assert.equal(existsSync(host.workspace('bot-a')), false);
     controller.abort();
     await rejected;

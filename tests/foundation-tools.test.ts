@@ -90,13 +90,12 @@ test('invalid later hunks leave all files intact and ambiguous/overlapping targe
       signal(),
       f.dir,
     ),
-    /不匹配/,
+    { code: 'PATCH_NOT_FOUND' },
   );
   assert.equal(readFileSync(join(f.dir, 'a'), 'utf8'), 'one\n');
-  assert.throws(
-    () => applyHunks(Buffer.from('same\nsame\n'), [{ before: ['same'], after: ['x'], eof: false }]),
-    /多处/,
-  );
+  assert.throws(() => applyHunks(Buffer.from('same\nsame\n'), [{ before: ['same'], after: ['x'], eof: false }]), {
+    code: 'PATCH_AMBIGUOUS',
+  });
   await assert.rejects(
     applyHostPatch(
       f.host,
@@ -107,7 +106,7 @@ test('invalid later hunks leave all files intact and ambiguous/overlapping targe
       signal(),
       f.dir,
     ),
-    /同一路径/,
+    { code: 'PATCH_OVERLAP' },
   );
 });
 test('write failure rolls back earlier patch operations without claiming partial success', async (t) => {
@@ -167,7 +166,7 @@ test('public web parsing removes executable markup, resolves links and pages a s
   const next = await web.read('a', { id: first.id, offset: first.nextOffset, maxChars: 100 }, signal());
   assert.equal(loads, 1);
   assert.equal(next.offset, 100);
-  await assert.rejects(web.read('b', { id: first.id }, signal()), /不存在/);
+  await assert.rejects(web.read('b', { id: first.id }, signal()), { code: 'WEB_PAGE_EXPIRED' });
 });
 test('web requests reject private addresses, credentialed URLs, non-HTTP schemes and encoded loopback', () => {
   for (const url of [
@@ -201,7 +200,7 @@ test('search returns actual parsed links and clearly fails if services provide n
       contentType: 'text/html',
       body: '<html>captcha</html>',
     })).search('a', { query: 'guide' }, signal()),
-    /暂不可用/,
+    { code: 'WEB_SEARCH_UNAVAILABLE' },
   );
 });
 test('search falls back across engines, caches repeats, and isolates bots', async () => {
@@ -357,7 +356,7 @@ test('code CPU loops are interrupted and permission denial cannot be swallowed t
           throw new InteractionDenied();
         },
       ),
-      /拒绝/,
+      { code: 'permission.denied' },
     );
     assert.equal(count, 1);
   } finally {
@@ -379,7 +378,9 @@ test('pipe terminals accept continued input, enforce ownership, and approve ever
     signal(),
     f.dir,
   );
-  await assert.rejects(sessions.input('b', 'r', { id: opened.id, chars: 'wrong' }, signal()), /不属于/);
+  await assert.rejects(sessions.input('b', 'r', { id: opened.id, chars: 'wrong' }, signal()), {
+    code: 'TERMINAL_NOT_FOUND',
+  });
   await sessions.input('a', 'r', { id: opened.id, chars: 'Ada\n', reason: 'answer', yieldTimeMs: 10 }, signal());
   let status = await sessions.read('a', opened.id, signal(), 1000);
   for (let i = 0; i < 10 && status.status !== 'exited'; i++)

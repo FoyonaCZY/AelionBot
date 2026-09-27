@@ -128,7 +128,9 @@ test('invalid schedules and edits never partially update a saved task', (t) => {
     assert.throws(() =>
       f.scheduler.update({ id: task.id, title: 'must not save', schedule: schedule as TaskSchedule }),
     );
-  assert.throws(() => f.create({ kind: 'once', at: '2026-09-05T00:00:00Z', timeZone: zone }), /晚于/);
+  assert.throws(() => f.create({ kind: 'once', at: '2026-09-05T00:00:00Z', timeZone: zone }), {
+    code: 'schedule.time_passed',
+  });
   assert.equal(readFileSync(f.store.file, 'utf8'), before);
   assert.equal(f.scheduler.list()[0].title, task.title);
   assert.deepEqual(validateTaskSchedule({ kind: 'weekly', time: '09:00', weekdays: [2, 1, 2], timeZone: zone }), {
@@ -175,7 +177,7 @@ test('pause and resume persist, expired one-shot tasks require a new time, and m
   const once = f.create({ kind: 'once', at: new Date(f.now + 60000).toISOString(), timeZone: zone }, '一次任务');
   f.scheduler.update({ id: once.id, status: 'paused' });
   f.now += 120000;
-  assert.throws(() => f.scheduler.update({ id: once.id, status: 'enabled' }), /未来/);
+  assert.throws(() => f.scheduler.update({ id: once.id, status: 'enabled' }), { code: 'schedule.time_passed' });
   f.scheduler.remove(task.id);
   assert.equal(f.scheduler.list().length, 1);
   assert.equal(new Store(f.dir).data.scheduledTasks.length, 1);
@@ -262,20 +264,18 @@ test('a Bot can manage only its current conversation tasks and identical group c
     signal = new AbortController().signal;
   const task = f.scheduler.invoke(f.bot.id, direct.id, 'scheduled_task_create', args, signal, {}) as any;
   assert.deepEqual(f.scheduler.invoke(f.other.id, peer.id, 'scheduled_tasks_list', {}, signal, {}), []);
-  assert.throws(
-    () => f.scheduler.invoke(f.other.id, peer.id, 'scheduled_task_delete', { id: task.id }, signal, {}),
-    /当前会话/,
-  );
+  assert.throws(() => f.scheduler.invoke(f.other.id, peer.id, 'scheduled_task_delete', { id: task.id }, signal, {}), {
+    code: 'schedule.target_mismatch',
+  });
   const a = run(f.bot.id, true),
     b = run(f.other.id, true);
   const first = f.scheduler.invoke(f.bot.id, a.id, 'scheduled_task_create', args, signal, {}) as any,
     second = f.scheduler.invoke(f.other.id, b.id, 'scheduled_task_create', args, signal, {}) as any;
   assert.equal(first.id, second.id);
   assert.equal(first.target.kind, 'group');
-  assert.throws(
-    () => f.scheduler.invoke(f.bot.id, a.id, 'scheduled_task_create', args, AbortSignal.abort(), {}),
-    /已结束/,
-  );
+  assert.throws(() => f.scheduler.invoke(f.bot.id, a.id, 'scheduled_task_create', args, AbortSignal.abort(), {}), {
+    code: 'schedule.run_ended',
+  });
   assert.equal(f.scheduler.list().length, 2);
 });
 

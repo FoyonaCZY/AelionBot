@@ -82,7 +82,9 @@ test('cancelled or invalid exports do not write files or invoke the renderer', a
   });
   assert.equal(await service.export({ id: f.session.id, path: 'page.html', format: 'pdf' }), null);
   assert.equal(renders, 0);
-  await assert.rejects(service.export({ id: f.session.id, path: 'page.html', format: 'fig' as any }), /参数/);
+  await assert.rejects(service.export({ id: f.session.id, path: 'page.html', format: 'fig' as any }), {
+    code: 'design.export_input_invalid',
+  });
   await assert.rejects(service.export({ id: f.session.id, path: '../outside.html', format: 'pdf' }));
   assert.equal(dialogs, 1);
 });
@@ -109,7 +111,9 @@ test('failed rendering and a task changed during the save dialog preserve the ex
     choosePath: async () => target,
     render: async () => ({ bytes: Buffer.from('wrong'), warnings: [] }),
   });
-  await assert.rejects(changed.export({ id: f.session.id, path: 'page.html', format: 'pdf' }), /任务已更改/);
+  await assert.rejects(changed.export({ id: f.session.id, path: 'page.html', format: 'pdf' }), {
+    code: 'design.session_changed',
+  });
   assert.equal(readFileSync(target, 'utf8'), 'existing document');
 });
 test('rendered format, viewport and warnings propagate through the unified export service', async (t) => {

@@ -255,7 +255,7 @@ test('evidence is scoped to current bot/run and in-flight executions recover as 
         reason: '已检查替代文件的实际结果',
         evidenceIds: [running.id],
       }),
-    /成功执行/,
+    { code: 'execution.resolution_evidence_invalid' },
   );
   const restored = new Store(store.dir);
   assert.equal(restored.data.runs[0].executions?.[1].status, 'unknown');

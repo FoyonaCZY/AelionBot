@@ -157,7 +157,7 @@ test('custom model names and per-Bot reasoning reach the chosen protocol without
   assert.throws(
     () =>
       updateBotProfile(f.store, providers, { id: a.id, name: 'changed', role: a.role, reasoningEffort: 'bad\nvalue' }),
-    /推理强度/,
+    { code: 'model.reasoning_effort_invalid' },
   );
   assert.equal(JSON.stringify(f.store.data), before);
   assert.throws(
@@ -313,8 +313,8 @@ test('default and per-Bot models resolve independently and used Providers cannot
   assert.equal(providers.config(a.id).model, 'alpha');
   assert.equal(providers.config(b.id).model, 'beta');
   assert.equal(providers.key(b.id), 'beta-provider-secret');
-  assert.throws(() => providers.remove(p.id), /仍被/);
-  assert.throws(() => providers.remove(q.id), /仍被/);
+  assert.throws(() => providers.remove(p.id), { code: 'provider.in_use' });
+  assert.throws(() => providers.remove(q.id), { code: 'provider.in_use' });
   providers.setDefault(null);
   assert.equal(providers.config(a.id).model, '');
   assert.equal(providers.config(b.id).model, 'beta');
@@ -324,10 +324,16 @@ test('default and per-Bot models resolve independently and used Providers cannot
   assert.equal(restored.config(b.id).contextTokens, 64000);
   restored.dispose();
   const before = readFileSync(f.store.file, 'utf8');
-  assert.throws(() => providers.setBot(b.id, { providerId: 'missing', model: 'x', contextTokens: 8000 }), /不存在/);
-  assert.throws(() => providers.setBot(b.id, { providerId: q.id, model: 'x', contextTokens: 100 }), /上下文/);
+  assert.throws(() => providers.setBot(b.id, { providerId: 'missing', model: 'x', contextTokens: 8000 }), {
+    code: 'provider.not_found',
+  });
+  assert.throws(() => providers.setBot(b.id, { providerId: q.id, model: 'x', contextTokens: 100 }), {
+    code: 'model.context_tokens_invalid',
+  });
   assert.equal(readFileSync(f.store.file, 'utf8'), before);
-  assert.throws(() => providers.save({ id: q.id, name: 'Beta', baseUrl: 'https://other.example/v1' }), /重新填写/);
+  assert.throws(() => providers.save({ id: q.id, name: 'Beta', baseUrl: 'https://other.example/v1' }), {
+    code: 'provider.api_key_required',
+  });
   assert.equal(providers.config(b.id).baseUrl, 'https://b.example/v1');
 });
 
@@ -420,21 +426,27 @@ test('invalid or busy model changes leave all Bot profile fields and persisted s
     model = { providerId: p.id, model: 'alpha', contextTokens: 32000 };
   const profile = { id: bot.id, name: 'Must not be saved', role: 'nor this description', model };
   let guarded = 0;
+  const busy = new Error('当前任务尚未结束');
   const guard = () => {
     guarded++;
-    throw new Error('当前任务尚未结束');
+    throw busy;
   };
   assert.throws(
     () => updateBotProfile(f.store, providers, { ...profile, model: { ...model, providerId: 'missing' } }, guard),
-    /Provider 不存在/,
+    { code: 'provider.not_found' },
   );
   assert.throws(
     () => updateBotProfile(f.store, providers, { ...profile, model: { ...model, contextTokens: 100 } }, guard),
-    /上下文容量/,
+    { code: 'model.context_tokens_invalid' },
   );
-  assert.throws(() => updateBotProfile(f.store, providers, { ...profile, name: ' ' }, guard), /无效资料/);
+  assert.throws(() => updateBotProfile(f.store, providers, { ...profile, name: ' ' }, guard), {
+    code: 'bot.profile_invalid',
+  });
   assert.equal(guarded, 0);
-  assert.throws(() => updateBotProfile(f.store, providers, profile, guard), /当前任务/);
+  assert.throws(
+    () => updateBotProfile(f.store, providers, profile, guard),
+    (error) => error === busy,
+  );
   assert.equal(guarded, 1);
   assert.equal(readFileSync(f.store.file, 'utf8'), before);
   assert.equal(JSON.stringify(f.store.data), memory);
@@ -497,7 +509,7 @@ test('a late model-list response cannot overwrite an edited or deleted Provider'
   await until(() => b.requests.length === 2);
   providers.remove(p.id);
   releaseDelete();
-  await assert.rejects(deleted, /已删除/);
+  await assert.rejects(deleted, { code: 'provider.deleted' });
   assert.equal(providers.list().length, 0);
 });
 
@@ -798,7 +810,7 @@ test('image generation is configured per Provider and per model, and resolves th
         protocol: 'chat',
         imageProtocol: 'responses-images',
       }),
-    /托管生图协议/,
+    { code: 'provider.image_protocol_unsupported' },
   );
   assert.throws(
     () =>
@@ -809,7 +821,7 @@ test('image generation is configured per Provider and per model, and resolves th
         protocol: 'chat',
         imageProtocol: 'nonsense' as never,
       }),
-    /生图协议无效/,
+    { code: 'provider.image_protocol_invalid' },
   );
 
   providers.updateModel(saved.id, { id: 'flux-pro', imageOutput: true, imageAspect: '1:1', imageQuality: 'high' });

@@ -77,7 +77,10 @@ test('character and line pagination preserve Unicode and make progress to EOF', 
   assert.equal(textPage(text, { startLine: 50 }).eof, true);
   assert.equal(textPage('', {}).totalLines, 0);
   assert.equal(textPage('a\n', {}).totalLines, 1);
-  assert.throws(() => textPage(text, { offset: 1, startLine: 2 }), /不能同时/);
+  assert.throws(() => textPage(text, { offset: 1, startLine: 2 }), {
+    code: 'INVALID_ARGUMENT',
+    reason: 'file.offset_with_lines',
+  });
   const long = textPage('x'.repeat(1000) + '\nnext', {
     startLine: 1,
     lineCount: 2,
@@ -163,7 +166,7 @@ test('stale hashes, ambiguous matches, missing text and denied edits cannot over
     (error) => (error as any).code === 'EDIT_NOT_FOUND',
   );
   const denied = f.host.patchFile('bot', 'run', { ...input, replaceAll: true }, signal()),
-    deniedCheck = assert.rejects(denied, /拒绝/);
+    deniedCheck = assert.rejects(denied, { code: 'permission.denied' });
   f.interactions.approve(f.interactions.snapshot()[0].id, false);
   await deniedCheck;
   writeFileSync(path, 'user edit');
@@ -178,7 +181,7 @@ test('stale hashes, ambiguous matches, missing text and denied edits cannot over
       { ...input, oldText: 'user edit', expectedSha256: hash('user edit') },
       signal(),
     ),
-    check = assert.rejects(pending, /确认期间/);
+    check = assert.rejects(pending, { code: 'FILE_CHANGED' });
   writeFileSync(path, 'newer user edit');
   f.interactions.approve(f.interactions.snapshot()[0].id, true);
   await check;
@@ -304,7 +307,7 @@ test('batch result records are readable by their owner, remain private, and pagi
   }
   assert.equal(reconstructed, source);
   store.message(other.id, 'user', JSON.stringify({ resultId: id }));
-  assert.throws(() => readToolResult(store, other.id, { id }), /无权/);
+  assert.throws(() => readToolResult(store, other.id, { id }), { code: 'RESULT_ACCESS_DENIED' });
   store.close();
 });
 
@@ -338,7 +341,9 @@ test('private runs cannot read a group tool result by copying its result id', (t
   });
   store.message(bot.id, 'tool', JSON.stringify({ resultId }), { runId, tool: 'computer_execute', status: 'done' });
   assert.match(readToolResult(store, bot.id, { id: resultId }, { kind: 'group', id: groupId }).text, /GROUP_RESULT/);
-  assert.throws(() => readToolResult(store, bot.id, { id: resultId }, { kind: 'private' }), /无权/);
+  assert.throws(() => readToolResult(store, bot.id, { id: resultId }, { kind: 'private' }), {
+    code: 'RESULT_ACCESS_DENIED',
+  });
   store.close();
 });
 

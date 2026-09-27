@@ -149,7 +149,7 @@ test('full permission runs host commands and a timeout stops a run that never fi
 test('one headless run owns a data directory at a time and a stale lock is replaced', (t) => {
   const f = fixture(t),
     release = acquireHeadlessLock(f.data);
-  assert.throws(() => acquireHeadlessLock(f.data), /另一个 headless 任务/);
+  assert.throws(() => acquireHeadlessLock(f.data), { code: 'headless.data_dir_in_use' });
   release();
   writeFileSync(join(f.data, 'headless.lock'), '999999999');
   const again = acquireHeadlessLock(f.data);

@@ -91,14 +91,15 @@ test('conversation folders persist independently, reset to default, and require 
   assert.equal(conversationWorkspace(new Store(dir), { kind: 'bot', id: bot.id }), a);
   assert.equal(host.workspace(bot.id), host.workspaceSettings().defaultWorkspaceDir);
   assert.equal(interactions.snapshot().length, 0);
-  assert.throws(
-    () => setConversationWorkspace(store, host, { kind: 'bot', id: bot.id }, join(dir, 'absent')),
-    /不存在/,
-  );
+  assert.throws(() => setConversationWorkspace(store, host, { kind: 'bot', id: bot.id }, join(dir, 'absent')), {
+    code: 'host.workspace_missing',
+  });
   setConversationWorkspace(store, host, { kind: 'bot', id: bot.id }, null);
   assert.equal(conversationWorkspace(store, { kind: 'bot', id: bot.id }), undefined);
   assert.equal(conversationWorkspace(store, { kind: 'bot', id: other.id }), b);
-  assert.throws(() => setConversationWorkspace(store, host, { kind: 'group', id: 'missing' }, a), /不存在/);
+  assert.throws(() => setConversationWorkspace(store, host, { kind: 'group', id: 'missing' }, a), {
+    code: 'group.not_found',
+  });
 });
 
 test('runs without a conversation folder inherit the configured default workspace and can read it', async (t) => {
@@ -426,7 +427,7 @@ test('evidence survives goal continuation, unknown operations must be checked, o
   assert.throws(
     () =>
       work.invoke(next, 'goal_update', { status: 'completed', summary: '已核对原文件结果', evidenceIds: [checked.id] }),
-    /未解决/,
+    { code: 'execution.unresolved' },
   );
   ledger.resolve(bot.id, next.id, {
     executionId: original.id,
@@ -440,7 +441,7 @@ test('evidence survives goal continuation, unknown operations must be checked, o
   ledger.finish(foreign, 'succeeded', {}, 'foreign');
   assert.throws(
     () => work.invoke(next, 'goal_update', { status: 'completed', summary: '完成', evidenceIds: [foreign.id] }),
-    /本目标/,
+    { code: 'task.goal_evidence_missing' },
   );
   work.invoke(next, 'goal_update', { status: 'completed', summary: '通过重新读取完成验证', evidenceIds: [checked.id] });
   assert.equal(item.status, 'completed');
@@ -453,7 +454,7 @@ test('queued messages retain selected workspace and bare slash commands do not s
   setConversationWorkspace(store, host, { kind: 'bot', id: bot.id }, project);
   const queue = new ChatPinQueue(store, { isRunning: () => true, run: async () => {} }, () => {});
   cleanup.push(() => queue.dispose());
-  assert.throws(() => queue.send({ botId: bot.id, message: '/plan' }), /任务内容/);
+  assert.throws(() => queue.send({ botId: bot.id, message: '/plan' }), { code: 'task.objective_missing' });
   queue.send({ botId: bot.id, message: '/goal 修复项目' });
   setConversationWorkspace(store, host, { kind: 'bot', id: bot.id }, null);
   assert.equal(store.data.messages.at(-1)?.workspaceDir, project);
@@ -550,7 +551,7 @@ test('completed checklist and unrelated evidence cannot hide unfinished backgrou
   ];
   assert.throws(
     () => work.invoke(run, 'goal_update', { status: 'completed', summary: '文件验证完成', evidenceIds: [entry.id] }),
-    /后台任务/,
+    { code: 'task.background_unverified' },
   );
   assert.equal(item.status, 'running');
 });

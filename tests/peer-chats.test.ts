@@ -550,7 +550,7 @@ test('mention IDs bind same-name Bots and stale or forged spans cannot start a r
       fx.harness.run(fx.a.id, '问 @同名', {
         mentions: [{ id: fx.b.id, name: '别的名字', color: '#fff', start: 2, end: 5 }],
       }),
-    /提及/,
+    { code: 'mention.position_changed' },
   );
   assert.equal(called, 1);
 });

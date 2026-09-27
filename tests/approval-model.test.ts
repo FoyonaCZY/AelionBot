@@ -58,7 +58,7 @@ test('approval selection inherits by default, persists independently, and can re
     restored.dispose();
     reopened.close();
   }
-  assert.throws(() => f.providers.remove(f.b.id), /自动审核模型/);
+  assert.throws(() => f.providers.remove(f.b.id), { code: 'provider.in_use' });
   f.providers.setApproval(null);
   assert.equal(f.providers.approvalConfig().model, 'new-chat');
   assert.equal(f.providers.approvalKey(), 'chat-fixture-key');

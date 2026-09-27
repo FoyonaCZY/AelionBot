@@ -278,7 +278,9 @@ test('issue links stay on GitHub, prefill a safe compact draft, and include the 
   assert.ok(url.searchParams.get('body')!.includes(preview.fileName));
   assert.ok(!url.searchParams.get('body')!.includes(f.secret));
   assert.ok(!url.searchParams.get('body')!.includes('@someone'));
-  assert.throws(() => f.service.issueUrl(preview.id, 'evil.invalid/repo?redirect=other'), /仓库/);
+  assert.throws(() => f.service.issueUrl(preview.id, 'evil.invalid/repo?redirect=other'), {
+    code: 'diagnostics.repository_invalid',
+  });
 });
 
 test('export includes cache fingerprints but never raw request bodies', async (t) => {
@@ -313,9 +315,9 @@ test('preview and export use the same report, concurrent preparation coalesces, 
   assert.notEqual(next.id, preview.id);
   assert.match(next.summary, /different error/);
   f.advance(31 * 60 * 1000);
-  assert.throws(() => f.service.archive(preview.id), /过期/);
-  assert.throws(() => f.service.issueUrl(next.id, 'owner/repo'), /过期/);
-  assert.throws(() => f.service.archive('../../state.json'), /过期/);
+  assert.throws(() => f.service.archive(preview.id), { code: 'diagnostics.report_expired' });
+  assert.throws(() => f.service.issueUrl(next.id, 'owner/repo'), { code: 'diagnostics.report_expired' });
+  assert.throws(() => f.service.archive('../../state.json'), { code: 'diagnostics.report_expired' });
 });
 
 test('diagnostic event recording rotates bounded files and never exposes keys', async (t) => {
@@ -330,5 +332,5 @@ test('diagnostic event recording rotates bounded files and never exposes keys', 
   const before = readFileSync(path, 'utf8');
   f.service.record('after.dispose', 'should not be written');
   assert.equal(readFileSync(path, 'utf8'), before);
-  await assert.rejects(() => f.service.prepare(), /退出/);
+  await assert.rejects(() => f.service.prepare(), { code: 'app.disposing' });
 });

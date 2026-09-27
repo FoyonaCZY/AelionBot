@@ -161,7 +161,7 @@ test('host previews honor permission, freeze a copy, and reject files changed du
   decision = 'change';
   await assert.rejects(
     previews.open(f.bot.id, f.run.id, { location: 'host', path: 'result.ts', reason: 'show' }, signal()),
-    /变化/,
+    { code: 'FILE_CHANGED' },
   );
   assert.equal(previews.snapshot().length, 0);
   decision = 'allow';

@@ -17,10 +17,10 @@ test('Bot replies address real members with names or exact IDs and retain UTF-16
 });
 test('duplicate names require an ID; removed targets and self mentions cannot forge recipients', () => {
   const duplicate = { ...cat, id: 'cat-2', color: '#ed8c35' };
-  assert.throws(() => botMentions('@猫娘 请回复', [cat, duplicate]), /同名/);
+  assert.throws(() => botMentions('@猫娘 请回复', [cat, duplicate]), { code: 'mention.ambiguous' });
   assert.equal(botMentions('@{cat-2} 请回复', [cat, duplicate]).mentions[0].id, 'cat-2');
-  assert.throws(() => botMentions('@{missing}', [cat]), /不在当前群/);
-  assert.throws(() => botMentions('@{cat}', [cat], 'cat'), /你自己/);
+  assert.throws(() => botMentions('@{missing}', [cat]), { code: 'mention.not_member' });
+  assert.throws(() => botMentions('@{cat}', [cat], 'cat'), { code: 'mention.not_member' });
   assert.equal(botMentions('@猫娘 请回复', [cat, duplicate], undefined, false).mentions.length, 0);
 });
 test('code, links, URLs, escaped text and email addresses never become Bot mentions', () => {

@@ -102,15 +102,15 @@ test('an explicit cap counts reported or estimated usage for its own run and can
   const policy = new RunPolicy(store);
   assert.doesNotThrow(() => policy.check(botId, run.id, 0));
   store.data.modelUsage.push({ ...record, id: 'estimated', runId: run.id, estimatedTokens: 1000 });
-  assert.throws(() => policy.check(botId, run.id, 1), /模型用量预算/);
+  assert.throws(() => policy.check(botId, run.id, 1), { code: 'budget.tokens_exhausted' });
   store.data.runtime = runtimeSettings({ ...store.data.runtime, maxTokens: 0 });
   assert.doesNotThrow(() => policy.check(botId, run.id, 1));
   store.data.runtime.maxTurns = 1;
-  assert.throws(() => policy.check(botId, run.id, 1), /轮执行预算/);
+  assert.throws(() => policy.check(botId, run.id, 1), { code: 'budget.turns_exhausted' });
   store.data.runtime.maxTurns = 0;
   store.data.runtime.maxMinutes = 60;
   run.startedAt = new Date(Date.now() - 61 * 60000).toISOString();
-  assert.throws(() => policy.check(botId, run.id, 1), /执行时间预算/);
+  assert.throws(() => policy.check(botId, run.id, 1), { code: 'budget.time_exhausted' });
   store.data.runtime.maxMinutes = 0;
   assert.doesNotThrow(() => policy.check(botId, run.id, 10001));
 });

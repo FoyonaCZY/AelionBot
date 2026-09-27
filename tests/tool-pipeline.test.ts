@@ -71,14 +71,17 @@ test('failed dependencies skip dependents even without result references; indepe
 });
 
 test('batch validation identifies the actual bad step before dispatch', async () => {
-  const cases: Array<[unknown, RegExp]> = [
-    [[step('a'), step('a')], /ID 重复：a/],
+  const cases: Array<[unknown, RegExp | { code: string; message: RegExp }]> = [
+    [[step('a'), step('a')], { code: 'pipeline.duplicate_step', message: /a$/ }],
     [[step('a', ['missing'])], /a.*missing/],
-    [[{ ...step('a'), tool: 'host_execute' }], /a.*host_execute.*读取工具/],
+    [[{ ...step('a'), tool: 'host_execute' }], { code: 'pipeline.tool_not_allowed', message: /a.*host_execute/ }],
     [[{ ...step('a'), args: [] }], /a.*args/],
     [[{ ...step('a'), dependsOn: 'bad' }], /a.*dependsOn/],
     [[step('a'), { ...step('b'), args: { path: { $from: 'a', path: 'value' } } }], /b.*dependsOn/],
-    [[step('a'), { ...step('b', ['a']), args: { path: { $from: 'a', path: '__proto__.value' } } }], /b.*引用路径/],
+    [
+      [step('a'), { ...step('b', ['a']), args: { path: { $from: 'a', path: '__proto__.value' } } }],
+      { code: 'pipeline.reference_path_invalid', message: /b/ },
+    ],
   ];
   for (const [steps, pattern] of cases) {
     let invoked = false;
@@ -98,7 +101,7 @@ test('batch validation identifies the actual bad step before dispatch', async ()
       async () => {},
       { allowedTools: new Set(['host_file_read']) },
     ),
-    /当前任务模式/,
+    { code: 'pipeline.tool_unavailable' },
   );
 });
 

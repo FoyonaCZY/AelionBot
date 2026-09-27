@@ -155,7 +155,7 @@ test('migrating group records removes them from private history search and readi
     assert.ok(!restored.data.messages.some((message) => message.id === groupMessage.id));
     assert.ok(restored.data.groupRunMessages.some((message) => message.id === groupMessage.id));
     assert.deepEqual(after.search(f.bot.id, '必须完整保留的原始工具输出'), []);
-    assert.throws(() => after.readHistory(f.bot.id, groupMessage.id, 0, 0), /不存在或无权访问/);
+    assert.throws(() => after.readHistory(f.bot.id, groupMessage.id, 0, 0), { code: 'memory.history_not_found' });
     assert.equal(after.search(f.bot.id, '保留这条私聊历史')[0]?.messageId, privateMessage.id);
   } finally {
     after.close();

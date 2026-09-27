@@ -88,7 +88,7 @@ test('changed video data cannot produce a cached or trusted frame result', async
   );
   await assert.rejects(
     service.inspect('bot', 'run', { path: f.source, reason: 'inspect' }, new AbortController().signal),
-    /发生变化/,
+    { code: 'preview.video_changed' },
   );
   assert.equal(readdirSync(join(f.dir, 'images')).filter((n) => n.endsWith('.png')).length, 0);
 });
@@ -175,7 +175,7 @@ test('unindexed cached images still count toward storage limits and retained ima
   );
   await assert.rejects(
     service.inspect('bot', 'run', { path: f.source, reason: 'inspect' }, new AbortController().signal),
-    /上限/,
+    { code: 'preview.video_cache_full' },
   );
   assert.equal(renders, 0);
   assert.equal(readdirSync(images).length, 128);
@@ -188,5 +188,5 @@ test('unindexed cached images still count toward storage limits and retained ima
 test('single-frame inspection can read detail while oversized sheets are rejected', () => {
   assert.equal(videoFrameLayout(1).width, 960);
   assert.equal(videoFrameLayout(1, 1280).width, 1280);
-  assert.throws(() => videoFrameRequest({ count: 24, frameWidth: 1280 }), /拼图过大/);
+  assert.throws(() => videoFrameRequest({ count: 24, frameWidth: 1280 }), { code: 'preview.video_sheet_too_large' });
 });

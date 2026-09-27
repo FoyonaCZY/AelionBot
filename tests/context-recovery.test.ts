@@ -228,7 +228,7 @@ test('resume keeps the original human request and execution evidence and does no
   await pending;
   const first = f.store.data.runs[0];
   assert.equal(first.status, 'failed');
-  assert.throws(() => harness.resume(f.bot.id, first.id), /容量仍不足/);
+  assert.throws(() => harness.resume(f.bot.id, first.id), { code: 'context.capacity_still_insufficient' });
   assert.equal(f.store.data.runs.length, 1);
   f.store.data.model.contextTokens = 64000;
   resumed = true;

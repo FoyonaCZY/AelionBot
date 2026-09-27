@@ -56,17 +56,17 @@ test('invalid directories cannot replace an existing preference', (t) => {
     file = join(root, 'ordinary-file.txt');
   writeFileSync(file, 'keep');
   host.setWorkspaceDir(custom);
-  for (const value of [
-    '',
-    'relative/folder',
-    'C:relative',
-    'https://example.com/folder',
-    ...(process.platform === 'win32' ? [join(root, 'bad*folder')] : []),
-    `${root}\nother`,
-    file,
-    join(file, 'child'),
+  for (const [value, code] of [
+    ['', 'input.invalid'],
+    ['relative/folder', 'host.workspace_path_invalid'],
+    ['C:relative', 'host.workspace_path_invalid'],
+    ['https://example.com/folder', 'host.workspace_path_invalid'],
+    ...(process.platform === 'win32' ? [[join(root, 'bad*folder'), 'host.workspace_path_invalid']] : []),
+    [`${root}\nother`, 'host.workspace_path_invalid'],
+    [file, 'host.workspace_not_directory'],
+    [join(file, 'child'), 'host.workspace_not_directory'],
   ])
-    assert.throws(() => host.setWorkspaceDir(value), /目录|参数|文件夹/, value);
+    assert.throws(() => host.setWorkspaceDir(value), { code }, value);
   assert.equal(host.workspace('bot'), custom);
   assert.equal(readFileSync(file, 'utf8'), 'keep');
 });

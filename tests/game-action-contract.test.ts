@@ -25,8 +25,11 @@ test('per-action contracts reject unrelated fields and enforce actual legal targ
   assert.equal(parse('witch', { potion: 'poison', target: 'b' }).target, 'b');
   assert.throws(() => parse('witch', { potion: 'save' }));
   assert.throws(() => parse('witch', { potion: 'skip', target: 'b' }));
-  assert.throws(() => parse('kill', { type: 'kill', target: 'b' }), /不允许字段 type/);
-  assert.throws(() => parse('witch', { potion: 'poison' }), /必须携带 target/);
+  assert.throws(() => parse('kill', { type: 'kill', target: 'b' }), {
+    code: 'format',
+    reason: 'game.field_not_allowed',
+  });
+  assert.throws(() => parse('witch', { potion: 'poison' }), { code: 'format', reason: 'game.target_required' });
 });
 test('kill and witch schemas separate the shapes models confuse', () => {
   const kill = actionContract(r('kill'));

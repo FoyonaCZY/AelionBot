@@ -58,7 +58,7 @@ test('preinstalled skills are available in new and migrated profiles without rep
     assert.ok(bundle.files.some((f) => f.path === 'SKILL.md' && f.bytes.length > 0));
     assert.ok(bundle.files.some((f) => f.path === 'NOTICE.md'));
     assert.ok(bundle.files.every((f) => !f.path.includes('..')));
-    assert.throws(() => library.writeResource(bot.id, skill.id, 'scripts/change.py', 'x'), /私有/);
+    assert.throws(() => library.writeResource(bot.id, skill.id, 'scripts/change.py', 'x'), { code: 'skill.not_owned' });
   }
   const added = store.createBot('New Bot', 'test');
   assert.equal(library.list(added.id).filter((s) => s.id.startsWith('aelion-')).length, 8);
@@ -155,7 +155,7 @@ test('shared skills can be read without a Bot and never expose private skills', 
     library = new SkillLibrary(store, paths),
     bot = store.data.bots[0];
   const privateSkill = library.save(bot.id, 'Private-only instructions', 'private', 'Private body');
-  assert.throws(() => library.read(undefined, privateSkill.id), /不存在|无权/);
+  assert.throws(() => library.read(undefined, privateSkill.id), { code: 'skill.not_found' });
   assert.ok(library.read(undefined, 'aelion-pdf-workbench').body.includes('PDF workbench'));
   store.deleteBot(bot.id);
   library.forgetBot(bot.id);
@@ -163,5 +163,5 @@ test('shared skills can be read without a Bot and never expose private skills', 
   library.refresh();
   assert.equal(library.all().filter((s) => s.id.startsWith('aelion-')).length, 8);
   assert.ok(library.read(undefined, 'aelion-presentation-design').availableFiles?.includes('scripts/create_deck.py'));
-  assert.throws(() => library.read('missing-bot', 'aelion-pdf-workbench'), /Bot 不存在/);
+  assert.throws(() => library.read('missing-bot', 'aelion-pdf-workbench'), { code: 'bot.not_found' });
 });

@@ -102,7 +102,10 @@ test('mixed players use their own endpoint, key and response parser', async () =
           usage: { output_tokens: 1234, output_tokens_details: { reasoning_tokens: 1200 } },
         }),
       );
-    await assert.rejects(() => limited.decide(player, context, request, new AbortController().signal), /输出被截断/);
+    await assert.rejects(() => limited.decide(player, context, request, new AbortController().signal), {
+      code: 'format',
+      reason: 'game.output_truncated',
+    });
   } finally {
     globalThis.fetch = original;
   }

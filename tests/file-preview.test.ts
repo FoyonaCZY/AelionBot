@@ -56,9 +56,11 @@ test('office preview rejects unavailable runtime, excess size and unsafe extensi
       calls++;
     },
   } as unknown as VmController;
-  await assert.rejects(officePreview(vm, 'bot', '.pptx', Buffer.from('offline')), /启动工作电脑/);
+  await assert.rejects(officePreview(vm, 'bot', '.pptx', Buffer.from('offline')), {
+    code: 'preview.computer_required',
+  });
   await assert.rejects(officePreview(vm, 'bot', '.pptx', Buffer.alloc(OFFICE_PREVIEW_LIMIT + 1)), /8 MB/);
-  assert.throws(() => officePreviewScript(".pptx';print('bad')"), /不支持/);
+  assert.throws(() => officePreviewScript(".pptx';print('bad')"), { code: 'preview.format_unsupported' });
   assert.match(officePreviewScript('.xlsx'), /document\.xlsx/);
   assert.equal(calls, 0);
 });
@@ -105,5 +107,7 @@ test('office preview never accepts a successful command without a PDF result', a
       stdout: Buffer.from('<html>not a PDF</html>').toString('base64'),
     }),
   } as unknown as VmController;
-  await assert.rejects(officePreview(vm, 'bot', '.docx', Buffer.from('invalid-preview-fixture')), /没有生成可读取/);
+  await assert.rejects(officePreview(vm, 'bot', '.docx', Buffer.from('invalid-preview-fixture')), {
+    code: 'preview.output_missing',
+  });
 });

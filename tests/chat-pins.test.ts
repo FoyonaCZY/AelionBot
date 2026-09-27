@@ -100,7 +100,7 @@ test('Bot chat_pin adds an attributed reaction and completes without a second mo
   const other = store.createBot('另一个', '测试');
   assert.throws(
     () => pinChat(store, other.id, { kind: 'user', id: 'user', name: '你' }, { messageId: target.id, emoji: '👍' }),
-    /当前聊天/,
+    { code: 'chat.reaction_target_invalid' },
   );
   assert.throws(
     () =>
@@ -110,7 +110,7 @@ test('Bot chat_pin adds an attributed reaction and completes without a second mo
         { kind: 'user', id: 'user', name: '你' },
         { messageId: target.id, emoji: '不是表情' as any },
       ),
-    /无效/,
+    { code: 'chat.reaction_invalid' },
   );
 });
 
@@ -359,7 +359,7 @@ test('a user emoji on the Bot greeting can receive a visible Bot pin without any
         { messageId: target.id, emoji: '👀' },
         run.id,
       ),
-    /当前用户表态/,
+    { code: 'chat.reaction_target_ambiguous' },
   );
 });
 

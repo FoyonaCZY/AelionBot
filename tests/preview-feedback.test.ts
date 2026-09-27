@@ -97,7 +97,7 @@ test('invalid, empty, out-of-window and resized captures are rejected instead of
     assert.throws(() => feedbackCaptureRect(rect, viewport, image));
   assert.throws(
     () => feedbackCaptureRect({ x: 0, y: 0, width: 100, height: 100 }, viewport, { width: 1600, height: 800 }),
-    /变化/,
+    { code: 'preview.feedback_viewport_changed' },
   );
 });
 test('feedback supplies source file, current page and unsaved-view context without changing the user request', () => {
@@ -122,7 +122,7 @@ test('one feedback submission captures and sends once even when the request is r
   assert.equal(f.sent.length, 1);
   assert.equal(f.store.data.messages.at(-1)?.attachments?.[0].id, a.attachmentId);
   assert.equal(f.attachments.forDraft(f.scope, [a.attachmentId]).length, 1);
-  assert.throws(() => f.attachments.discardUnsentDraft(f.scope, a.attachmentId), /已发送/);
+  assert.throws(() => f.attachments.discardUnsentDraft(f.scope, a.attachmentId), { code: 'attachment.sent_immutable' });
 });
 test('failed capture sends nothing; failed send removes the unused image and retry captures the current view', async (t) => {
   const f = fixture(t),
@@ -159,7 +159,7 @@ test('group feedback stays in its original scope and request IDs cannot be reuse
   assert.deepEqual(f.sent[0].scope, { kind: 'group', id });
   assert.equal(f.attachments.forDraft({ kind: 'group', id }, [result.attachmentId]).length, 1);
   assert.throws(() => f.attachments.forDraft(f.scope, [result.attachmentId]));
-  await assert.rejects(f.service.send({ ...input, scope: f.scope }), /变化/);
+  await assert.rejects(f.service.send({ ...input, scope: f.scope }), { code: 'preview.feedback_changed' });
 });
 test('feedback bubbles show only the prompt while the original content keeps file context', async (t) => {
   const f = fixture(t),
@@ -282,7 +282,9 @@ test('design feedback rejects another task file and parent traversal before atta
     '/work/designer/designers/designer/task-two/index.html',
     '/work/designer/designers/designer/task-one/../task-two/index.html',
   ])
-    assert.throws(() => designFeedbackFile({ ...input, file: { ...input.file, path } }, session), /当前设计任务/);
+    assert.throws(() => designFeedbackFile({ ...input, file: { ...input.file, path } }, session), {
+      code: 'preview.feedback_file_outside',
+    });
   assert.equal(designFeedbackFile({ ...input, file: { name: 'Blank canvas' } }, session), undefined);
 });
 
@@ -310,8 +312,7 @@ test('feedback describes the scrolled canvas independently from screenshot pixel
   assert.match(content, /document 900×2400/);
   assert.match(content, /scroll 0,740/);
   assert.match(content, /2400/);
-  assert.throws(
-    () => previewFeedbackMessage({ ...input, annotations: [], view: { ...input.view, width: NaN } }),
-    /坐标信息/,
-  );
+  assert.throws(() => previewFeedbackMessage({ ...input, annotations: [], view: { ...input.view, width: NaN } }), {
+    code: 'preview.feedback_coordinates_invalid',
+  });
 });

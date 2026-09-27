@@ -29,7 +29,7 @@ test('the expanded catalog contains distinct single emoji and retains all existi
   }
   for (const emoji of [...QUICK_PIN_EMOJIS, '👀', '🙏']) assert.ok(PIN_EMOJI_BY_VALUE.has(emoji));
   for (const emoji of ['hello', '<script>', '👍👍', ''])
-    assert.throws(() => validPin({ messageId: 'message', emoji }), /无效/);
+    assert.throws(() => validPin({ messageId: 'message', emoji }), { code: 'chat.reaction_invalid' });
 });
 
 test('Chinese, English and emoji search work across categories without changing the catalog', () => {

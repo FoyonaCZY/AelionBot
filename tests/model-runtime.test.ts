@@ -189,7 +189,7 @@ test('content-policy refusals without tool output are not retried', async (t) =>
     (error) => {
       assert.equal((error as Error).name, 'ContentPolicyError');
       assert.equal((error as ContentPolicyError).sanitized, false);
-      assert.match((error as Error).message, /内容审核/);
+      assert.equal((error as ContentPolicyError).code, 'model.content_policy');
       return true;
     },
   );

@@ -113,7 +113,7 @@ test('foreign UUIDs never receive shutdown commands or OS termination', async ()
         },
       },
     ),
-    /身份不匹配/,
+    { code: 'vm.identity_mismatch' },
   );
   assert.equal(forced, false);
   await assert.rejects(
@@ -127,7 +127,7 @@ test('foreign UUIDs never receive shutdown commands or OS termination', async ()
         force: async () => false,
       },
     ),
-    /身份未核验/,
+    { code: 'vm.identity_unverified' },
   );
 });
 
@@ -199,7 +199,7 @@ test('QMP power commands verify UUID on their own connection and tolerate quit c
   assert.deepEqual(commands, ['qmp_capabilities', 'query-uuid', 'quit']);
   identity = 'foreign';
   commands.length = 0;
-  await assert.rejects(vm.qmp('quit'), /身份不匹配/);
+  await assert.rejects(vm.qmp('quit'), { code: 'vm.identity_mismatch' });
   assert.deepEqual(commands, ['qmp_capabilities', 'query-uuid']);
   vm.dispose();
 });
@@ -221,9 +221,9 @@ test('beginning exit prevents a pending startup from launching QEMU and clears d
   vm.beginShutdown();
   await vm.shutdownForExit();
   release();
-  await assert.rejects(start, /正在退出/);
+  await assert.rejects(start, { code: 'app.disposing' });
   assert.equal(JSON.parse(readFileSync(join(f.dir, 'machine.json'), 'utf8')).pid, undefined);
-  await assert.rejects(vm.start(), /正在退出/);
+  await assert.rejects(vm.start(), { code: 'app.disposing' });
   vm.dispose();
 });
 test(

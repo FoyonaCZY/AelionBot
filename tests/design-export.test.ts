@@ -139,25 +139,22 @@ test('remote, file, absolute, hidden and escaping references fail explicitly', a
   const f = fixture(t);
   f.write('index.html', '<html></html>');
   f.write('.secret.png', 'secret');
-  for (const url of [
-    'https://cdn.example/font.woff2',
-    '//cdn.example/image.png',
-    'file:///C:/secret.png',
-    '/secret.png',
-    '../outside.png',
-    '%2e%2e/outside.png',
-    '.secret.png',
-    'assets/%2e%2e/%2e%2e/outside.png',
-    'C:/secret.png',
+  for (const [url, code] of [
+    ['https://cdn.example/font.woff2', 'design.resource_remote'],
+    ['//cdn.example/image.png', 'design.resource_remote'],
+    ['file:///C:/secret.png', 'design.resource_remote'],
+    ['/secret.png', 'design.resource_absolute_path'],
+    ['../outside.png', 'design.resource_outside_root'],
+    ['%2e%2e/outside.png', 'design.resource_outside_root'],
+    ['.secret.png', 'design.resource_path_invalid'],
+    ['assets/%2e%2e/%2e%2e/outside.png', 'design.resource_outside_root'],
+    ['C:/secret.png', 'design.resource_remote'],
   ]) {
-    await assert.rejects(
-      prepareDesignHtml({ ...f.input(), html: `<html><img src="${url}"></html>` }),
-      /远程|相对路径|当前设计目录|隐藏文件/,
-    );
+    await assert.rejects(prepareDesignHtml({ ...f.input(), html: `<html><img src="${url}"></html>` }), { code }, url);
   }
   await assert.rejects(
     prepareDesignHtml({ ...f.input(), html: '<style>@import "https://example.com/fonts.css";</style>' }),
-    /远程/,
+    { code: 'design.resource_remote' },
   );
 });
 
@@ -166,12 +163,14 @@ test('missing resources, malformed CSS and cyclic imports do not yield broken ex
   f.write('index.html', '<link rel="stylesheet" href="a.css">');
   f.write('a.css', '@import "b.css";');
   f.write('b.css', '@import "a.css";');
-  await assert.rejects(prepareDesignHtml(f.input()), /循环/);
-  await assert.rejects(exportDesignHtmlBundle({ ...f.input(), html: '<img src="missing.png">' }), /不存在/);
-  await assert.rejects(
-    prepareDesignHtml({ ...f.input(), html: '<style>h1{background:url("broken.png)}</style>' }),
-    /Unclosed|未闭合/,
-  );
+  await assert.rejects(prepareDesignHtml(f.input()), { code: 'design.resource_cycle' });
+  await assert.rejects(exportDesignHtmlBundle({ ...f.input(), html: '<img src="missing.png">' }), {
+    code: 'design.resource_missing',
+  });
+  await assert.rejects(prepareDesignHtml({ ...f.input(), html: '<style>h1{background:url("broken.png)}</style>' }), {
+    name: 'CssSyntaxError',
+    reason: /Unclosed/,
+  });
 });
 
 test('resource symlinks cannot escape the project root', async (t) => {
@@ -188,14 +187,14 @@ test('resource symlinks cannot escape the project root', async (t) => {
     }
     throw error;
   }
-  await assert.rejects(prepareDesignHtml(f.input()), /链接越过/);
+  await assert.rejects(prepareDesignHtml(f.input()), { code: 'design.resource_link_escape' });
 });
 
 test('fonts allow 25 MB, while larger files and aborted exports fail', async (t) => {
   const f = fixture(t);
   f.write('index.html', '<style>@font-face{font-family:X;src:url(large.woff2)}</style>');
   f.write('large.woff2', Buffer.alloc(25 * 1024 * 1024 + 1));
-  await assert.rejects(prepareDesignHtml(f.input()), /大小限制/);
+  await assert.rejects(prepareDesignHtml(f.input()), { code: 'design.resource_too_large' });
   const controller = new AbortController();
   controller.abort();
   await assert.rejects(prepareDesignHtml({ ...f.input(), signal: controller.signal }), { name: 'AbortError' });
@@ -208,14 +207,14 @@ test('fonts allow 25 MB, while larger files and aborted exports fail', async (t)
 test('unsupported dynamic project structures fail visibly instead of losing dependencies', async (t) => {
   const f = fixture(t);
   f.write('index.html', '<html></html>');
-  for (const html of [
-    '<iframe src="page.html"></iframe>',
-    '<base href="https://example.com/">',
-    '<script type="module">import "./entry.js"</script>',
-    '<svg><use href="icons.svg#icon"/></svg>',
-    '<style>h1{background:image-set("a.png" 1x)}</style>',
+  for (const [html, code] of [
+    ['<iframe src="page.html"></iframe>', 'design.export_subpage'],
+    ['<base href="https://example.com/">', 'design.export_base_tag'],
+    ['<script type="module">import "./entry.js"</script>', 'design.export_module_script'],
+    ['<svg><use href="icons.svg#icon"/></svg>', 'design.export_external_svg'],
+    ['<style>h1{background:image-set("a.png" 1x)}</style>', 'design.export_image_set'],
   ])
-    await assert.rejects(exportDesignHtmlBundle({ ...f.input(), html }), /导出/);
+    await assert.rejects(exportDesignHtmlBundle({ ...f.input(), html }), { code }, html);
 });
 
 function printEnvironment(fail = false) {
@@ -289,19 +288,28 @@ test('PDF fails when the requested font cannot load instead of printing its fall
 test('encoded CSS and SVG resource links cannot bypass remote-resource checks', async (t) => {
   const f = fixture(t);
   f.write('index.html', '<html></html>');
-  const sources = [
-    '<style>@\\69mport "https://example.com/style.css";</style>',
-    '<style>h1{background:u\\72l("h\\74tps://example.com/a.png")}</style>',
-    '<link rel="preload" as="font" href="https://example.com/font.woff2">',
-    '<svg><script href="https://example.com/code.js"/></svg>',
-    '<iframe srcdoc="&lt;img src=https://example.com/a.png&gt;"></iframe>',
-    '<object data="https://example.com/page.html"></object>',
-    '<img src="data:image/svg+xml;base64,' +
-      Buffer.from('<svg><image href="https://example.com/image.png"/></svg>').toString('base64') +
-      '">',
+  const remote = { code: 'design.resource_remote' },
+    subpage = { code: 'design.export_subpage' };
+  const sources: Array<[string, object]> = [
+    // PostCSS does not read an escaped at-rule name as @import, so this one fails to parse instead of loading.
+    [
+      '<style>@\\69mport "https://example.com/style.css";</style>',
+      { name: 'CssSyntaxError', reason: /At-rule without name/ },
+    ],
+    ['<style>h1{background:u\\72l("h\\74tps://example.com/a.png")}</style>', remote],
+    ['<link rel="preload" as="font" href="https://example.com/font.woff2">', remote],
+    ['<svg><script href="https://example.com/code.js"/></svg>', remote],
+    ['<iframe srcdoc="&lt;img src=https://example.com/a.png&gt;"></iframe>', subpage],
+    ['<object data="https://example.com/page.html"></object>', subpage],
+    [
+      '<img src="data:image/svg+xml;base64,' +
+        Buffer.from('<svg><image href="https://example.com/image.png"/></svg>').toString('base64') +
+        '">',
+      remote,
+    ],
   ];
-  for (const html of sources)
-    await assert.rejects(prepareDesignHtml({ ...f.input(), html }), /远程|子页面|At-rule without name/);
+  for (const [html, expected] of sources)
+    await assert.rejects(prepareDesignHtml({ ...f.input(), html }), expected, html);
 });
 
 test('inline SVG data URLs embed their own local resources even in the portable ZIP', async (t) => {
@@ -327,7 +335,7 @@ test('font license metadata cannot include an unrelated project file', async (t)
       fonts: [{ id: 'brand', files: [{ path: 'assets/fonts/brand/brand.otf' }], license: { path: 'private.json' } }],
     }),
   );
-  await assert.rejects(exportDesignHtmlBundle(f.input('pages/poster.html')), /授权文件必须位于对应字体目录/);
+  await assert.rejects(exportDesignHtmlBundle(f.input('pages/poster.html')), { code: 'design.font_license_outside' });
 });
 
 test('CSS source-map metadata is not loaded while collecting export resources', async (t) => {

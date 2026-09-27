@@ -95,19 +95,21 @@ test('imports reject fake formats, oversized containers, symlink paths, and esca
   const f = setup(t),
     fake = join(f.root, 'bad.woff2');
   writeFileSync(fake, Buffer.from('not a font'.repeat(10)));
-  await assert.rejects(f.fonts.importFile(f.session, fake), /支持|解析/);
+  await assert.rejects(f.fonts.importFile(f.session, fake), { code: 'font.format_unsupported' });
   const oversized = Buffer.from(inter);
   oversized.writeUInt32BE(80 * 1024 * 1024, 16);
   writeFileSync(fake, oversized);
-  await assert.rejects(f.fonts.importFile(f.session, fake), /压缩字体/);
+  await assert.rejects(f.fonts.importFile(f.session, fake), { code: 'font.compressed_invalid' });
   const source = join(f.root, 'source');
   mkdirSync(source);
   writeFileSync(join(source, 'font.woff2'), inter);
   symlinkSync(source, join(f.root, 'linked'), 'junction');
-  await assert.rejects(f.fonts.importFile(f.session, join(f.root, 'linked', 'font.woff2')), /符号链接/);
+  await assert.rejects(f.fonts.importFile(f.session, join(f.root, 'linked', 'font.woff2')), { code: 'font.symlink' });
   mkdirSync(join(f.session.workspaceDir!, 'assets'));
   symlinkSync(source, join(f.session.workspaceDir!, 'assets', 'fonts'), 'junction');
-  await assert.rejects(f.fonts.importFile(f.session, join(source, 'font.woff2')), /任务目录/);
+  await assert.rejects(f.fonts.importFile(f.session, join(source, 'font.woff2')), {
+    code: 'design.path_outside_session',
+  });
   assert.equal(existsSync(join(source, 'fonts.json')), false);
 });
 test('Fontsource downloads pinned local files and license, then reuses them offline in another project', async (t) => {
@@ -157,7 +159,7 @@ test('downloads reject arbitrary IDs, redirects, size overflow, malformed font b
   }
   const remote = server(),
     f = setup(t, remote.fetcher);
-  await assert.rejects(f.fonts.acquire(f.session, { fontId: '../../evil' }), /无效/);
+  await assert.rejects(f.fonts.acquire(f.session, { fontId: '../../evil' }), { code: 'font.fontsource_id_invalid' });
   assert.equal(remote.calls.length, 0);
   await assert.rejects(
     f.fonts.acquire(f.session, { fontId: 'inter' }, undefined, () => {
@@ -190,7 +192,9 @@ test('modified CSS is preserved, changed bytes are reported, and extra weights m
   assert.deepEqual(f.fonts.list(f.session)[0].issues, [font.files[0].path]);
   assert.equal(f.fonts.check(f.session).fonts[0].valid, false);
   writeFileSync(f.files.absolute(f.session, font.cssPath), '/* user changes */');
-  await assert.rejects(f.fonts.acquire(f.session, { fontId: 'inter', subsets: ['latin-ext'] }), /样式已被修改/);
+  await assert.rejects(f.fonts.acquire(f.session, { fontId: 'inter', subsets: ['latin-ext'] }), {
+    code: 'font.stylesheet_modified',
+  });
   assert.equal(readFileSync(f.files.absolute(f.session, font.cssPath), 'utf8'), '/* user changes */');
   assert.equal(f.fonts.check(f.session).cssValid, false);
 });
@@ -201,10 +205,9 @@ test('aborted downloads cannot materialize fonts and unsupported subsets fail ex
   controller.abort();
   await assert.rejects(f.fonts.acquire(f.session, { fontId: 'inter' }, controller.signal));
   assert.equal(existsSync(join(f.session.workspaceDir!, 'assets')), false);
-  await assert.rejects(
-    f.fonts.acquire(f.session, { fontId: 'inter', subsets: ['chinese-simplified'] }),
-    /不受该字体支持/,
-  );
+  await assert.rejects(f.fonts.acquire(f.session, { fontId: 'inter', subsets: ['chinese-simplified'] }), {
+    code: 'font.variant_unsupported',
+  });
 });
 
 test('WOFF table allocation sizes cannot bypass a smaller declared sfnt size', async (t) => {
@@ -220,7 +223,7 @@ test('WOFF table allocation sizes cannot bypass a smaller declared sfnt size', a
   woff2[48] = 0;
   Buffer.from([0x81, 0x80, 0x80, 0x80, 0]).copy(woff2, 49);
   writeFileSync(path, woff2);
-  await assert.rejects(f.fonts.importFile(f.session, path), /字体表超过解压大小限制/);
+  await assert.rejects(f.fonts.importFile(f.session, path), { code: 'font.expanded_too_large' });
   const woff = Buffer.alloc(65);
   woff.write('wOFF');
   woff.writeUInt32BE(0x10000, 4);
@@ -232,7 +235,7 @@ test('WOFF table allocation sizes cannot bypass a smaller declared sfnt size', a
   woff.writeUInt32BE(1, 52);
   woff.writeUInt32BE(0x40000000, 56);
   writeFileSync(path, woff);
-  await assert.rejects(f.fonts.importFile(f.session, path), /字体表超过解压大小限制/);
+  await assert.rejects(f.fonts.importFile(f.session, path), { code: 'font.expanded_too_large' });
 });
 test('offline font search falls back to installed metadata when the full catalog was never cached', async (t) => {
   const remote = server(),
@@ -260,5 +263,5 @@ test('invalid manifest data fails explicitly while missing font files remain vis
   assert.ok(f.fonts.list(f.session)[0].issues?.includes(font.cssPath));
   const manifest = f.files.absolute(f.session, 'assets/fonts/fonts.json');
   writeFileSync(manifest, 'not json');
-  assert.throws(() => f.fonts.list(f.session), /项目字体记录无效/);
+  assert.throws(() => f.fonts.list(f.session), { code: 'font.manifest_invalid' });
 });

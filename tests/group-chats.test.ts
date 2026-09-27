@@ -633,7 +633,7 @@ test('membership changes, user stop and resume, unread state and restart remain 
   fx.groups.send({ id: room.id, message: '待处理' });
   assert.throws(
     () => fx.groups.invoke(fx.c.id, 'none', 'group_read', { groupId: room.id }, new AbortController().signal, {}),
-    /自己加入/,
+    { code: 'group.not_member' },
   );
   fx.groups.update({ id: room.id, name: '管理更新', botIds: [fx.a.id, fx.c.id] });
   assert.ok(
@@ -1066,12 +1066,13 @@ test('user group pins add and remove once, refresh old message badges and cannot
   assert.equal(page.pins?.[target.id][0].actor.id, 'user');
   const reopened = new Store(fx.dir);
   assert.equal(reopened.data.groups[0].messages.find((m) => m.id === target.id)?.pins?.[0].emoji, '👀');
-  assert.throws(
-    () => fx.groups.pinUser({ groupId: room.id, messageId: page.messages.at(-1)!.id, emoji: '👍' }),
-    /文字消息/,
-  );
+  assert.throws(() => fx.groups.pinUser({ groupId: room.id, messageId: page.messages.at(-1)!.id, emoji: '👍' }), {
+    code: 'group.reaction_target_invalid',
+  });
   const other = fx.groups.create({ name: '另一个群', botIds: [fx.a.id, fx.b.id] });
-  assert.throws(() => fx.groups.pinUser({ groupId: other.id, messageId: target.id, emoji: '👍' }), /文字消息/);
+  assert.throws(() => fx.groups.pinUser({ groupId: other.id, messageId: target.id, emoji: '👍' }), {
+    code: 'group.reaction_target_invalid',
+  });
   fx.groups.pinUser({ groupId: room.id, messageId: target.id, emoji: '👀', remove: true });
   await until(fx.settled);
   page = fx.groups.read({ id: room.id });

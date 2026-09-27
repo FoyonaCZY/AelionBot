@@ -228,7 +228,7 @@ test('an unsupported current image gives a useful error, while later text messag
   const image: WireMessage = { role: 'user', content: 'image task', images: [{ id: 'image', width: 10, height: 10 }] };
   await assert.rejects(
     client.complete([image], [], new AbortController().signal, undefined, { requiredImageIds: ['image'] }),
-    /不支持图片/,
+    { code: 'model.image_unsupported' },
   );
   const history = [image, { role: 'user' as const, content: 'hello' }],
     snapshot = JSON.stringify(history);

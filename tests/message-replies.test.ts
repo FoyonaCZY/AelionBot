@@ -49,7 +49,9 @@ test('reply targets are scoped and cannot refer to tools, hidden private message
     tool = store.message(a.id, 'tool', 'secret', { tool: 'host_execute' }),
     partial = store.message(a.id, 'assistant', '未完成', { status: 'running' });
   for (const target of [other, tool, partial])
-    assert.throws(() => queue.send({ botId: a.id, message: '回复', replyToMessageId: target.id }), /当前聊天/);
+    assert.throws(() => queue.send({ botId: a.id, message: '回复', replyToMessageId: target.id }), {
+      code: 'chat.reply_target_invalid',
+    });
   store.data.runs.push({
     id: 'private',
     botId: a.id,
@@ -60,8 +62,8 @@ test('reply targets are scoped and cannot refer to tools, hidden private message
     peerOrigin: { kind: 'peer_request', exchangeId: 'private' },
   });
   const hidden = store.message(a.id, 'assistant', '私聊内容', { runId: 'private' });
-  assert.throws(() => resolveChatReply(store, a.id, hidden.id), /当前聊天/);
-  assert.throws(() => resolveChatReply(store, a.id, { messageId: other.id }), /引用消息无效/);
+  assert.throws(() => resolveChatReply(store, a.id, hidden.id), { code: 'chat.reply_target_invalid' });
+  assert.throws(() => resolveChatReply(store, a.id, { messageId: other.id }), { code: 'chat.reply_invalid' });
 });
 test('group replies keep the quote in storage and in durable model history', (t) => {
   const { store, a, b, groups } = fixture(t),
@@ -82,7 +84,7 @@ test('group replies keep the quote in storage and in durable model history', (t)
         store.data.groups.find((g) => g.id === other.id)!,
         original.id,
       ),
-    /当前群聊/,
+    { code: 'group.reply_target_invalid' },
   );
 });
 test('quote excerpts are bounded and keep attachment-only messages useful', () => {

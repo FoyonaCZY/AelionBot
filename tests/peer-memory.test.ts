@@ -171,14 +171,16 @@ test('sender foreground and background writers reject a preference owned by the 
   priorRecipient(f);
   const message = source(f, '你让她给我记住，以后说话更像猫娘一点');
   const args = { action: 'add', target: 'user', content: '用户希望猫娘以后说话更像猫娘。', sourceRefs: [message.id] };
-  assert.throws(() => f.cognition.memory.apply(f.sender.id, message.runId!, args), /属于 猫娘/);
+  assert.throws(() => f.cognition.memory.apply(f.sender.id, message.runId!, args), {
+    code: 'memory.owned_by_other_bot',
+  });
   assert.throws(
     () =>
       f.cognition.memory.apply(f.sender.id, message.runId!, args, {
         background: true,
         allowedRefs: new Set([message.id]),
       }),
-    /属于 猫娘/,
+    { code: 'memory.owned_by_other_bot' },
   );
   f.cognition.afterRun(f.sender.id, message.runId!, [{ role: 'user', content: message.content }], []);
   assert.equal(f.cognition.storage.jobs(f.sender.id).length, 0);
@@ -359,7 +361,7 @@ test('withdrawn or completed private runs cannot write through stale delegation 
   assert.equal(delegatedMemory(f.store, f.recipient.id, 'recipient-run'), undefined);
   assert.throws(
     () => f.cognition.memory.apply(f.recipient.id, 'recipient-run', { action: 'add', target: 'user', content: '偏好' }),
-    /没有转入/,
+    { code: 'memory.peer_source_unverified' },
   );
   f.store.data.runs.at(-1)!.status = 'cancelled';
 });

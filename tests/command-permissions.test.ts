@@ -177,7 +177,7 @@ test('rules persist across restarts and can be disabled, re-enabled and removed'
   assert.ok(restored.match(details('npm run build')));
   restored.remove(first.id);
   assert.equal(new CommandPermissions(file, undefined, 'win32').list().length, 0);
-  assert.throws(() => restored.setEnabled(first.id, true), /不存在/);
+  assert.throws(() => restored.setEnabled(first.id, true), { code: 'permission.command_rule_not_found' });
 });
 
 test('unreadable or invalid saved patterns grant no permissions', (t) => {
@@ -238,7 +238,7 @@ test('matching requests already waiting also use the newly saved rule', async (t
   const first = interactions.permission('a', 'one', details('git status'), controller.signal);
   const second = interactions.permission('b', 'two', details('git status --short'), controller.signal);
   const other = interactions.permission('c', 'three', details('git log'), controller.signal),
-    rejected = assert.rejects(other, /取消/);
+    rejected = assert.rejects(other, { code: 'task.cancelled' });
   interactions.approveAlways(interactions.snapshot()[0].id);
   await Promise.all([first, second]);
   assert.equal(interactions.snapshot().length, 1);
@@ -250,15 +250,17 @@ test('stale or cancelled requests cannot install rules, and cancellation still w
   const { rules, interactions, decisions } = fixture(t),
     controller = new AbortController();
   const pending = interactions.permission('a', 'one', details('git status'), controller.signal),
-    rejected = assert.rejects(pending, /取消/),
+    rejected = assert.rejects(pending, { code: 'task.cancelled' }),
     id = interactions.snapshot()[0].id;
   controller.abort();
   await rejected;
-  assert.throws(() => interactions.approveAlways(id), /已结束/);
+  assert.throws(() => interactions.approveAlways(id), { code: 'interaction.closed' });
   assert.equal(rules.list().length, 0);
   rules.allow(details('git status'));
   const before = decisions.length;
-  await assert.rejects(interactions.permission('a', 'two', details('git status'), controller.signal), /取消/);
+  await assert.rejects(interactions.permission('a', 'two', details('git status'), controller.signal), {
+    code: 'task.cancelled',
+  });
   assert.equal(decisions.length, before);
 });
 
@@ -276,7 +278,7 @@ test('file and MCP operations cannot inherit or install command rules', async (t
       request = interactions.snapshot()[0];
     assert.equal(request.kind, 'host_permission');
     if (request.kind === 'host_permission') assert.equal(request.details.commandPattern, undefined);
-    assert.throws(() => interactions.approveAlways(request.id), /不支持/);
+    assert.throws(() => interactions.approveAlways(request.id), { code: 'permission.always_allow_unsupported' });
     interactions.approve(request.id, false);
     await rejected;
   }
@@ -291,7 +293,7 @@ test('an unsaved rule never authorizes the pending operation', async (t) => {
     interactions = new Interactions(() => {}, undefined, rules),
     controller = new AbortController();
   const pending = interactions.permission('a', 'run', details('git status'), controller.signal),
-    rejected = assert.rejects(pending, /取消/);
+    rejected = assert.rejects(pending, { code: 'task.cancelled' });
   assert.throws(() => interactions.approveAlways(interactions.snapshot()[0].id));
   assert.equal(rules.list().length, 0);
   assert.equal(interactions.snapshot().length, 1);
