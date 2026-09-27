@@ -401,7 +401,7 @@ export interface Snapshot {
   hostWorkspace?: HostWorkspaceSettings;
   liveWork?: import('../chat/live-work').LiveWorkItem[];
 }
-export type AppEvent = { type: 'state'; snapshot: Snapshot } | { type: 'streams'; streamingReplies: StreamingReply[] };
+type AppEvent = { type: 'state'; snapshot: Snapshot } | { type: 'streams'; streamingReplies: StreamingReply[] };
 export interface CommandResult {
   stdout: string;
   stderr: string;

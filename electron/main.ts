@@ -1,5 +1,3 @@
-import { PreviewFileOpener } from './core/preview/preview-open';
-import { choosePreviewApplication } from './windows/preview-open';
 import { gameProviders } from './core/games/providers';
 import { GameRuntime } from './core/games/runtime';
 import { gameInstructions, gamePrompt, parseGameAction } from './core/games/model-player';
@@ -12,47 +10,30 @@ import { DesignPlugins } from './core/designer/design-plugins';
 import { DesignCraft } from './core/designer/design-craft';
 import { DesignFonts } from './core/designer/design-fonts';
 import { renderCanvasExport } from './windows/canvas-export-renderer';
-import { CanvasExports } from './core/designer/canvas-export-service';
-import { applyDesignFont, designFontText, designHtmlPath } from './core/designer/design-font-application';
-import { prepareDesignHtml, exportDesignHtmlBundle } from './core/designer/design-export';
-import { commentsFromAnnotations } from '../shared/preview/designer-canvas';
-import { botType } from '../shared/types/designer-types';
-import { applyDomEdits } from './core/preview/html-preview-edits';
 import { WebPreviewBrowser } from './windows/web-preview';
 import { protocol } from 'electron';
-import { PreviewFeedbackService, designFeedbackFile } from './core/preview/preview-feedback';
-import { feedbackCaptureRect } from '../shared/preview/preview-feedback';
 import { VideoInspector } from './windows/video-inspector';
 import { VideoFrames } from './core/preview/video-frames';
 import { AgentPreviews } from './core/preview/agent-previews';
-import { editableText, editedBytes } from './core/preview/preview-editing';
-import { sourceTextFile } from '../shared/preview/source-language';
 import { normalizeAppearance, type AppearanceSettings } from '../shared/preview/appearance';
 import { createMacUpdater, macAutomaticUpdates } from './core/app/mac-updater';
 import { hostEnvironment } from './core/host/host-platform';
-import { RunPolicy, runtimeSettings } from './core/agent/runtime-policy';
-import { normalizeUserProfile } from '../shared/chat/user-profile';
+import { RunPolicy } from './core/agent/runtime-policy';
 import { app, BrowserWindow, ipcMain, safeStorage, dialog, shell, Menu, nativeImage, nativeTheme, net } from 'electron';
 import { randomUUID } from 'node:crypto';
-import { join, resolve, dirname, basename } from 'node:path';
+import { join, resolve, dirname } from 'node:path';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { Store } from './core/storage/store';
-import { updateBotProfile } from './core/agent/bot-profile';
 import { VmController } from './core/vm/vm';
-import { ModelClient, validateModelEndpoint } from './core/model/model';
+import { ModelClient } from './core/model/model';
 import { ModelProviders } from './core/model/model-providers';
-import { probeImageModel, storeImageRoutes } from './core/image/image-generation';
-import { imageProtocolCatalog } from './core/image/image-protocols';
-import { isImageGenerationError } from './core/image/image-errors';
-import { Harness, safeRelativePath } from './core/agent/harness';
+import { Harness } from './core/agent/harness';
 import { ComputerController } from './core/vm/computer';
 import { installComputerView } from './core/vm/computer-view';
 import { Attachments } from './core/attachments/attachments';
-import { AttachmentDrops } from './core/attachments/attachment-drop';
-import { readAttachmentClipboard } from './core/attachments/attachment-clipboard';
 import { ArtifactService } from './core/attachments/artifacts';
 import { Integrations } from './core/extensions/integrations';
-import { Interactions, respondToInteraction, changeManualControl } from './core/agent/interactions';
+import { Interactions } from './core/agent/interactions';
 import { HostComputer, redactHost } from './core/host/host';
 import { HostApprovals, defaultPermissionReviewer, defaultApprovalModel } from './core/host/host-approvals';
 import { CommandPermissions } from './core/host/command-permissions';
@@ -67,7 +48,6 @@ import { BotGreetings } from './core/agent/bot-greetings';
 import { AppUpdates } from './core/app/app-updates';
 import { Diagnostics } from './core/app/diagnostics';
 import { availableParallelism, release as osRelease, totalmem } from 'node:os';
-import { writeFile } from 'node:fs/promises';
 import { createWindowsUpdater, UPDATE_REPOSITORY } from './core/app/windows-updater';
 import {
   assertUpdateDataOutsideApp,
@@ -75,14 +55,10 @@ import {
   saveUpdateLaunchContext,
   type UpdateLaunchContext,
 } from './core/app/update-launch-context';
-import { WorkItems } from './core/agent/work-items';
-import { assertWorkspaceScope, conversationWorkspace, setConversationWorkspace } from './core/storage/workspaces';
-import { resumableRun } from './core/agent/resume-run';
 import type { Snapshot } from '../shared/types/core';
-import { externalWebUrl } from '../shared/preview/external-links';
-import { usageReport } from './core/app/usage-report';
-import { reasoningEffort as cleanReasoning } from '../shared/chat/reasoning';
 import { Shutdown } from './core/app/shutdown';
+import { IPC_CHANNELS, type IpcHandler, type IpcMethod } from '../shared/ipc';
+import { registerIpc } from './ipc';
 
 let window: BrowserWindow | undefined;
 let previewDirty = false,
@@ -203,8 +179,10 @@ function streamsChanged() {
       streamingReplies: [...(harness?.streams.snapshot() || []), ...(greetings?.streams.snapshot() || [])],
     });
 }
-function handle(channel: string, callback: (...args: any[]) => unknown) {
-  ipcMain.handle(channel, async (event, ...args) => {
+// Renderer arguments are untrusted at runtime; the contract types only describe what the preload sends.
+function handle<M extends IpcMethod>(method: M, callback: IpcHandler<M>) {
+  const channel = IPC_CHANNELS[method];
+  ipcMain.handle(channel, async (event, ...args: Parameters<IpcHandler<M>>) => {
     if (!window || event.sender.id !== window.webContents.id || event.senderFrame !== window.webContents.mainFrame)
       throw new Error('不受信任的调用来源');
     if (
@@ -830,17 +808,6 @@ async function initialize() {
     join(__dirname, 'preview-feedback-preload.cjs'),
     join(__dirname, 'web-preview-preload.cjs'),
   );
-  handle('preview-feedback:overlay', (input) => webPreview!.feedback(input));
-  handle('web-preview:menu-capture', (input) => webPreview!.captureMenu(input.id));
-  handle('web-preview:freeze', (input) => webPreview!.freeze(input.id, input.frozen, input.revision));
-  handle('web-preview:editor', (input) => webPreview!.editor.command(input.id, input.command));
-  handle('preview:html-edits', (input) => applyDomEdits(input.content, input.edits));
-  handle('web-preview:open', (input) => webPreview!.open(String(input?.id), input?.source));
-  handle('web-preview:layout', (input) => webPreview!.bounds(String(input?.id), input?.rect, input?.visible === true));
-  handle('web-preview:action', (input) =>
-    webPreview!.action(String(input?.id), String(input?.action), input?.url, input?.factor),
-  );
-  handle('web-preview:close', (id) => webPreview!.close(String(id)));
   window.on('unresponsive', () => diagnostics?.record('renderer.unresponsive', '页面未响应'));
   window.webContents.on('render-process-gone', (_event, details) =>
     diagnostics?.record('renderer.gone', `${details.reason}; exitCode=${details.exitCode}`),
@@ -892,7 +859,6 @@ async function initialize() {
   nativeTheme.on('updated', appearanceChrome);
   window.once('closed', () => nativeTheme.removeListener('updated', appearanceChrome));
   applyNativeAppearance(normalizeAppearance(store.data.appearance));
-  handle('appearance:save', saveAppearance);
   contents.on('before-input-event', (event, input) => {
     if (
       input.type !== 'keyDown' ||
@@ -909,956 +875,120 @@ async function initialize() {
     const percent = reset ? 100 : Math.round(contents.getZoomFactor() * 100) + (zoomIn ? 10 : -10);
     saveAppearance({ ...normalizeAppearance(store.data.appearance), zoom: Math.max(50, Math.min(200, percent)) });
   });
-  handle('profile:save', (value) => {
-    store.data.userProfile = normalizeUserProfile(value);
-    store.save();
-    greetings?.cancelAll();
-    changed();
-    void greetings?.greetEmpty();
-  });
-  handle('context:compact', (input) => {
-    const botId = String(input?.botId || ''),
-      focus = typeof input?.focus === 'string' ? input.focus.slice(0, 1000) : '';
-    if (botType(store.bot(botId).type) !== 'general') throw Error('设计 Bot 的上下文由设计会话管理');
-    return generalHarness.compactContext(botId, focus);
-  });
-  handle('runtime:save', (value) => {
-    store.data.runtime = runtimeSettings(value);
-    store.save();
-    changed();
-  });
-  handle('app:snapshot', snapshot);
-  handle('image:protocols', () => imageProtocolCatalog());
-  handle('image:test', async (input) => {
-    const selection = providers.selection(input?.selection);
-    if (!selection) throw new Error('请先选择生图 Provider 和模型');
-    const access = providers.imageAccessFor(selection);
-    if (access.config.issue) throw new Error(access.config.issue);
-    const controller = new AbortController(),
-      timer = setTimeout(() => controller.abort(new Error('生图连接测试超时')), 120000);
-    try {
-      return await probeImageModel({
-        model,
-        config: access.config,
-        key: access.key,
-        signal: controller.signal,
-        routes: storeImageRoutes(store),
-      });
-    } catch (error) {
-      if (isImageGenerationError(error))
-        throw new Error(`${error.message}${error.detail ? `（${error.detail}）` : ''}`);
-      throw error;
-    } finally {
-      clearTimeout(timer);
-    }
-  });
-  handle('preview:acknowledge', (id) => {
-    if (typeof id !== 'string' || id.length > 100) throw Error('无效预览 ID');
-    agentPreviews?.acknowledge(id);
-  });
-  handle('usage:query', (input) => usageReport(store.data.modelUsage || [], providers.list(), input));
-  handle('app:open-external-url', (value) => {
-    const url = externalWebUrl(value);
-    if (!url) throw new Error('只能在浏览器中打开有效的 HTTP 或 HTTPS 链接');
-    return shell.openExternal(url);
-  });
-  handle('updates:state', () => appUpdates!.snapshot());
-  handle('updates:check', () => appUpdates!.check());
-  handle('updates:download', () => appUpdates!.download());
-  handle('updates:cancel', () => appUpdates!.cancel());
-  handle('updates:install', () => appUpdates!.install());
-  handle('updates:open-release', () => shell.openExternal(`https://github.com/${UPDATE_REPOSITORY}/releases/latest`));
-  handle('diagnostics:prepare', () => diagnostics!.prepare());
-  handle('diagnostics:export', async (id) => {
-    const report = diagnostics!.archive(id),
-      target = await dialog.showSaveDialog(window!, {
-        title: '导出诊断日志',
-        defaultPath: join(app.getPath('downloads'), report.fileName),
-        filters: [{ name: '诊断包', extensions: ['zip'] }],
-      });
-    if (target.canceled || !target.filePath) return null;
-    await writeFile(target.filePath, report.bytes, { mode: 0o600 });
-    return target.filePath;
-  });
-  handle('diagnostics:issue', (id) => shell.openExternal(diagnostics!.issueUrl(id, UPDATE_REPOSITORY)));
-  handle('tasks:create', (input) => scheduler!.create(input));
-  handle('tasks:update', (input) => scheduler!.update(input));
-  handle('tasks:delete', (id) => scheduler!.remove(String(id)));
-  handle('tasks:run', (id) => scheduler!.runNow(String(id)));
-  handle('interaction:respond', async (input) => {
-    if (input?.action === 'takeover') {
-      const request = interactions.get(String(input.id));
-      if (request.kind === 'vm_takeover') await computer.ensure(request.botId);
-    }
-    return respondToInteraction(interactions, computer, input);
-  });
-  handle('window:dimmed', (enabled, color) => {
-    if (
-      typeof enabled !== 'boolean' ||
-      (color !== undefined && (typeof color !== 'string' || !/^#[a-f0-9]{6}$/i.test(color)))
-    )
-      throw new Error('无效窗口状态');
-    appearanceDimmed = enabled;
-    const background =
-        color ||
-        (enabled
-          ? nativeTheme.shouldUseDarkColors
-            ? '#161418'
-            : '#b9b9b9'
-          : nativeTheme.shouldUseDarkColors
-            ? '#25232a'
-            : '#f7f7f7'),
-      brightness = [1, 3, 5].reduce((sum, index) => sum + parseInt(background.slice(index, index + 2), 16), 0) / 3;
-    if (process.platform !== 'darwin')
-      window?.setTitleBarOverlay({
-        color: background,
-        symbolColor: brightness < 128 ? '#f2f2f2' : '#555555',
-        height: 38,
-      });
-  });
-  handle('permissions:mode', (input) => {
-    if (hostApprovals.set(input?.scope, input?.mode)) interactions.refreshHostPolicy();
-    changed();
-  });
-  handle('permissions:command-enabled', (input) => {
-    if (typeof input?.id !== 'string' || typeof input.enabled !== 'boolean') throw new Error('无效命令权限参数');
-    commandPermissions.setEnabled(input.id, input.enabled);
-    interactions.applyCommandRules();
-    changed();
-  });
-  handle('permissions:command-remove', (id) => {
-    if (typeof id !== 'string') throw new Error('无效命令模式');
-    commandPermissions.remove(id);
-    changed();
-  });
-  const mentionSearches = new Map<string, AbortController>();
-  handle('workspace:mention-files', async (input) => {
-    const scope = assertWorkspaceScope(store, input?.scope),
-      key = scope.kind + ':' + scope.id;
-    mentionSearches.get(key)?.abort();
-    const controller = new AbortController();
-    mentionSearches.set(key, controller);
-    try {
-      let directory = conversationWorkspace(store, scope) || host.workspaceSettings().workspaceDir;
-      if (input?.designSessionId) {
-        const task = designStore.get(input.designSessionId);
-        if (task.origin.kind !== scope.kind || task.origin.id !== scope.id) throw Error('设计任务不属于当前会话');
-        directory = designerFiles.absolute(task, '.', true);
-      } else if (scope.kind === 'bot' && store.bot(scope.id).type === 'designer')
-        return { workspaceDir: join(host.workspaceSettings().workspaceDir, 'designers'), files: [], truncated: false };
-      return await host.mentionFiles(input?.query, directory, controller.signal);
-    } finally {
-      if (mentionSearches.get(key) === controller) mentionSearches.delete(key);
-    }
-  });
-  handle('workspace:pick', async (scope) => {
-    assertWorkspaceScope(store, scope);
-    const selected = await dialog.showOpenDialog(window!, {
-      title: '选择会话工作目录',
-      defaultPath: conversationWorkspace(store, scope) || host.workspaceSettings().workspaceDir,
-      properties: ['openDirectory'],
-    });
-    if (selected.canceled || !selected.filePaths[0]) return null;
-    const path = setConversationWorkspace(store, host, scope, selected.filePaths[0]);
-    changed();
-    return path;
-  });
-  handle('workspace:reset', (scope) => {
-    setConversationWorkspace(store, host, scope, null);
-    changed();
-  });
-  handle('work:action', (input) => {
-    const work = new WorkItems(store),
-      existing = work.get(input?.id);
-    if (input?.action === 'start') {
-      if (harness.isRunning(existing.botId) || chatPins?.hasPending(existing.botId))
-        throw Error('Bot 正在处理消息，请先暂停当前任务或稍后继续');
-      if (!store.modelFor(existing.botId).model) throw Error('请先为 Bot 选择模型');
-    }
-    const item = work.action(input);
-    if (input.action !== 'start') {
-      if (item.activeRunId && harness.isRunning(item.botId)) {
-        const run = store.data.runs.find((r) => r.id === item.activeRunId);
-        if (run) {
-          peerChats?.cancelRun(run);
-          groupChats?.cancelRun(run);
-        }
-        harness.cancel(item.botId);
-      }
-      changed();
-      return;
-    }
-    if (item.scope.kind === 'group') {
-      groupChats!.startWork(item);
-      changed();
-      return;
-    }
-    greetings?.cancel(item.botId);
-    groupChats?.yieldToUser(item.botId);
-    void harness
-      .run(
-        item.botId,
-        '用户已点击' +
-          (item.kind === 'plan' ? '执行计划' : '继续目标') +
-          '。沿用已保存步骤和执行记录：' +
-          item.objective,
-        { workItemId: item.id, workspaceDir: item.workspaceDir },
-      )
-      .catch((error) => {
-        item.status = 'blocked';
-        item.reason = (error as Error).message;
-        delete item.activeRunId;
-        store.save();
-        changed();
-      });
-    changed();
-  });
-  handle('host:workspace-save', (path) => {
-    if (harness.busy) throw new Error('请等待当前任务结束后修改默认工作目录');
-    if (typeof path !== 'string') throw new Error('无效工作目录');
-    host.setWorkspaceDir(path);
-    changed();
-  });
-  handle('host:workspace-pick', async () => {
-    const selected = await dialog.showOpenDialog(window!, {
-      title: '选择本机默认工作目录',
-      defaultPath: host.workspaceSettings().workspaceDir,
-      properties: ['openDirectory'],
-    });
-    return selected.canceled ? null : selected.filePaths[0] || null;
-  });
-  handle('integrations:refresh', async () => {
-    if (harness.busy) throw new Error('请等待当前任务结束后重新扫描');
-    await integrations.refresh();
-  });
-  handle('skills:manage', (input) => {
-    if (harness.busy) throw Error('请等待当前任务结束');
-    const result = integrations.skills.manage(
-      String(input?.botId),
-      String(input?.id),
-      String(input?.action),
-      input?.revision,
-    );
-    changed();
-    return result;
-  });
-  handle('skills:enabled', (input) => {
-    if (harness.busy) throw Error('请等待当前任务结束');
-    if (typeof input?.id !== 'string' || typeof input?.enabled !== 'boolean') throw Error('无效技能状态');
-    integrations.skills.setEnabled(input.id, input.enabled);
-    changed();
-  });
-  handle('skills:read', (input) =>
-    integrations.skills.read(input?.botId === undefined ? undefined : String(input.botId), String(input?.id), true),
-  );
-  handle('integrations:open-path', async (input) => {
-    const target = integrations.path(input || {});
-    const result = await shell.openPath(target);
-    if (result) throw new Error(result);
-  });
-  handle('integrations:add-source', async (kind) => {
-    if (!['skills', 'mcp'].includes(kind)) throw new Error('未知配置类型');
-    if (harness.busy) throw new Error('请等待当前任务结束');
-    if (kind === 'mcp') throw new Error('请粘贴 MCP 配置');
-    const selected = await dialog.showOpenDialog(window!, { title: '添加共享技能目录', properties: ['openDirectory'] });
-    if (!selected.canceled && selected.filePaths[0]) {
-      await integrations.add(kind, selected.filePaths[0]);
-      changed();
-    }
-  });
-  handle('integrations:import-mcp', async (text) => {
-    if (harness.busy) throw new Error('请等待当前任务结束');
-    const names = await integrations.importMcpSnippet(text);
-    changed();
-    return names;
-  });
-  handle('mcp:enabled', async (input) => {
-    if (harness.busy) throw new Error('请等待当前任务结束后修改 MCP');
-    if (typeof input?.enabled !== 'boolean') throw new Error('无效状态');
-    await integrations.setEnabled(String(input.id), input.enabled);
-  });
-  handle('mcp:test', async (id) => {
-    const result = await integrations.mcp.listTools(String(id));
-    return { tools: result.tools.map((tool) => tool.name) };
-  });
-  handle('bot:create', (input) => {
-    if (
-      !input ||
-      typeof input.name !== 'string' ||
-      typeof input.role !== 'string' ||
-      (input.color !== undefined && typeof input.color !== 'string')
-    )
-      throw new Error('无效 Bot 参数');
-    const model = input.model ? providers.selection(input.model) : undefined,
-      imageModel = input.imageModel ? providers.selection(input.imageModel) : undefined,
-      reasoningEffort = cleanReasoning(
-        input.reasoningEffort === undefined ? store.data.defaultModel?.reasoningEffort : input.reasoningEffort,
-      );
-    const bot = store.createBot(input.name, input.role, input.color, input.avatarStyle, {
-      model,
-      imageModel,
-      reasoningEffort,
-      type: botType(input.type),
-    });
-    changed();
-    if (bot.type !== 'designer') void greetings?.greet(bot.id);
-    return bot;
-  });
-  handle('bot:delete', async (id) => {
-    if (typeof id !== 'string') throw new Error('无效 Bot 参数');
-    if (harness.isRunning(id)) throw new Error('请先停止这个 Bot 的任务并等待结束，再删除');
-    await harness.stopBotProcesses(id);
-    greetings?.cancel(id);
-    chatPins?.cancel(id);
-    peerChats?.deletingBot(id);
-    groupChats?.deletingBot(id);
-    store.deleteBot(id);
-    integrations.skills.forgetBot(id);
-    scheduler?.removeTarget({ kind: 'bot', id });
-    cognition.deleteBot(id);
-    computer.forget(id);
-    changed();
-  });
-  handle('bot:update', (input) => {
-    if (input.defaultDesignSystemId) designSystems.get(input.defaultDesignSystemId);
-    const typeChanged = input.type !== undefined && botType(input.type) !== botType(store.bot(input.id).type);
-    if (typeChanged && (updatePreparing || harness.isRunning(input.id)))
-      throw Error('请先结束当前任务，再切换 Bot 类型');
-    const modelChanged = updateBotProfile(store, providers, input, (id) => beforeModelChange([id]));
-    if (typeChanged) {
-      greetings?.cancel(input.id);
-      chatPins?.cancel(input.id);
-      cognition.deleteBot(input.id);
-      designStore.clearBot(input.id);
-      changed();
-      return;
-    }
-    if (modelChanged) afterModelChange();
-    else {
-      greetings?.cancel(input.id);
-      changed();
-      void greetings?.greet(input.id);
-    }
-  });
-  handle('attachments:pick', async (scope) => {
-    attachments.scope(scope);
-    const result = await dialog.showOpenDialog(window!, {
-      title: '添加附件',
-      properties: ['openFile', 'multiSelections'],
-    });
-    return result.canceled ? [] : attachments.importPaths(scope, result.filePaths);
-  });
-  const attachmentDrops = new AttachmentDrops(attachments, (scope, path) => {
-    const selected = setConversationWorkspace(store, host, scope, path);
-    changed();
-    return selected;
-  });
-  handle('attachments:drop-prepare', (input) => attachmentDrops.prepare(input?.scope, input?.paths));
-  handle('attachments:drop-apply', (input) => attachmentDrops.apply(input?.scope, input?.ids, input?.action));
-  handle('attachments:paste-prepare', async (scope) => {
-    attachments.scope(scope);
-    const data = await readAttachmentClipboard();
-    return {
-      entries: data.paths.length ? await attachmentDrops.prepare(scope, data.paths) : [],
-      attachments: data.files.length ? attachments.importFiles(scope, data.files) : [],
-    };
-  });
-  handle('attachments:import', (input) => attachments.importFiles(input?.scope, input?.files));
-  handle('attachments:paste', async (scope) => {
-    attachments.scope(scope);
-    const data = await readAttachmentClipboard();
-    return data.paths.length
-      ? attachments.importPaths(scope, data.paths)
-      : data.files.length
-        ? attachments.importFiles(scope, data.files)
-        : [];
-  });
-  handle('attachments:preview', (id) => attachments.previewRich(id));
-  handle('attachments:save', async (id) => {
-    const file = attachments.metadata(id);
-    const result = await dialog.showSaveDialog(window!, { defaultPath: file.name });
-    if (result.canceled || !result.filePath) return null;
-    writeFileSync(result.filePath, attachments.bytes(id));
-    return result.filePath;
-  });
-  const feedbackDesign = (input?: import('../shared/preview/preview-feedback').PreviewFeedbackInput) => {
-    if (!input?.designSessionId) return undefined;
-    const design = designStore.get(input.designSessionId, undefined, { kind: input.scope.kind, id: input.scope.id }),
-      path = designFeedbackFile(input, design);
-    if (path && design.location === 'host') designerFiles.absolute(design, path);
-    return design;
-  };
-  const previewFeedback = new PreviewFeedbackService({
-    validate: (scope) => {
-      attachments.scope(scope);
-      if (scope.kind === 'bot') {
-        if (!store.modelFor(scope.id).model) throw Error('请先为这个 Bot 选择模型');
-      } else {
-        const room = store.data.groups.find((room) => room.id === scope.id);
-        if (
-          !room?.members.some(
-            (member) =>
-              !member.leftAt && store.data.bots.some((bot) => bot.id === member.id) && store.modelFor(member.id).model,
-          )
-        )
-          throw Error('请先为群内 Bot 选择模型');
-      }
+  registerIpc({
+    handle,
+    get window() {
+      return window;
     },
-    capture: async (input) => {
-      feedbackDesign(input);
-      if (!window || window.isDestroyed() || window.isMinimized() || !window.isVisible())
-        throw Error('请保持预览窗口可见后再发送');
-      feedbackCaptureRect(input.rect, input.viewport, input.viewport);
-      const webCapture = await webPreview?.capture(input.rect);
-      if (webCapture) return webCapture;
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      const capture = await Promise.race([
-        window.webContents.capturePage(undefined, { stayHidden: true }),
-        new Promise<never>((_, reject) => {
-          timer = setTimeout(() => reject(Error('预览截图超时，请重试')), 10000);
-        }),
-      ]).finally(() => {
-        if (timer) clearTimeout(timer);
-      });
-      if (capture.isEmpty()) throw Error('未能截取预览画面，请重试');
-      let cropped = capture.crop(feedbackCaptureRect(input.rect, input.viewport, capture.getSize()));
-      const size = cropped.getSize();
-      if (Math.max(size.width, size.height) > 2560)
-        cropped = cropped.resize(
-          size.width >= size.height ? { width: 2560, quality: 'best' } : { height: 2560, quality: 'best' },
-        );
-      return cropped.toPNG();
+    dataDir,
+    get store() {
+      return store;
     },
-    attach: (scope, name, bytes) => attachments.importFiles(scope, [{ name, bytes }])[0],
-    discard: (scope, id) => attachments.discardUnsentDraft(scope, id),
-    send: (scope, message, attachmentId, previewPrompt, input) => {
-      const design = feedbackDesign(input);
-      if (design && input?.annotations?.length)
-        designStore.addComments(
-          design.id,
-          commentsFromAnnotations(
-            input.file?.path || input.file?.url || input.file?.name || '',
-            input.text,
-            input.annotations,
-            design.comments || [],
-          ),
-        );
-      const offset =
-          message.indexOf(previewPrompt, message.indexOf('\n') + 1) -
-          (input?.text.length || 0) +
-          (input?.text.trimStart().length || 0),
-        extras = {
-          designSessionId: design?.id,
-          attachmentIds: [...(input?.attachmentIds || []), attachmentId],
-          mentions: input?.mentions?.map((m) => ({ ...m, start: m.start + offset, end: m.end + offset })),
-          replyToMessageId: input?.replyToMessageId,
-          previewPrompt,
-        };
-      if (scope.kind === 'bot') chatPins!.send({ botId: scope.id, message, ...extras });
-      else groupChats!.send({ id: scope.id, message, ...extras });
+    get vm() {
+      return vm;
     },
-    delivered: (scope, id) =>
-      (scope.kind === 'bot'
-        ? store.data.messages.filter((message) => message.botId === scope.id && message.role === 'user')
-        : store.data.groups
-            .find((room) => room.id === scope.id)
-            ?.messages.filter((message) => message.sender.kind === 'user') || []
-      ).some((message) => message.attachments?.some((file) => file.id === id)),
-  });
-  handle('preview:feedback', (input) => previewFeedback.send(input));
-  handle('preview:focus-feedback', () => {
-    if (window && !window.isDestroyed() && window.isFocused()) window.webContents.focus();
-  });
-  const fontMutationSessions = new Set<string>();
-  const fontSession = (id: unknown, write = false) => {
-    const session = designStore.get(String(id));
-    designerFiles.absolute(session, '.', true);
-    if (write && (session.activeRunId || harness.isRunning(session.botId))) throw Error('请停止设计任务后修改字体');
-    return session;
-  };
-  const mutateFonts = async <T>(
-    id: unknown,
-    action: (session: import('../shared/types/designer-types').DesignSession, guard: () => void) => Promise<T>,
-  ) => {
-    const session = fontSession(id, true);
-    if (fontMutationSessions.has(session.id)) throw Error('字体正在处理中');
-    fontMutationSessions.add(session.id);
-    const guard = () => {
-      if (fontSession(id, true) !== session) throw Error('设计任务已更改，请重试');
-    };
-    try {
-      const value = await action(session, guard);
-      if (value === null) return value;
-      guard();
-      session.checks = session.checks.map((check) => ({ ...check, status: 'pending' as const }));
-      designStore.touch(session);
-      return value;
-    } finally {
-      fontMutationSessions.delete(session.id);
-    }
-  };
-  handle('design:fonts-list', (input) => designFonts.list(fontSession(input?.id)));
-  handle('design:fonts-search', (input) => designFonts.catalog(String(input?.query || '')));
-  handle('design:fonts-acquire', (input) =>
-    mutateFonts(input?.id, (session, guard) =>
-      designFonts.acquire(
-        session,
-        { fontId: input?.fontId, weights: input?.weights, styles: input?.styles, subsets: input?.subsets },
-        undefined,
-        guard,
-      ),
-    ),
-  );
-  handle('design:fonts-import', (input) =>
-    mutateFonts(input?.id, async (session, guard) => {
-      const selected = await dialog.showOpenDialog(window!, {
-        title: '导入字体',
-        properties: ['openFile', 'multiSelections'],
-        filters: [{ name: '字体', extensions: ['woff2', 'woff', 'ttf', 'otf'] }],
-      });
-      if (selected.canceled) return null;
-      if (selected.filePaths.length > 8) throw Error('一次最多导入 8 个字体文件');
-      const imported: import('../shared/types/design-font-types').DesignFont[] = [];
-      for (const path of selected.filePaths) {
-        guard();
-        imported.push(...(await designFonts.importFile(session, path, { beforeWrite: guard })));
-      }
-      return imported;
-    }),
-  );
-  handle('design:fonts-apply', (input) =>
-    mutateFonts(input?.id, async (session, guard) => {
-      guard();
-      const result = await applyDesignFont(
-        designerFiles,
-        session,
-        designFonts.list(session),
-        { fontId: input?.fontId, role: input?.role, path: input?.path },
-        guard,
-      );
-      guard();
-      designStore.userEdit(session.botId, result.path, result.sha256, '应用项目字体');
-      return result;
-    }),
-  );
-  handle('design:fonts-check', async (input) => {
-    const session = fontSession(input?.id);
-    let text = input?.text;
-    if (text !== undefined && (typeof text !== 'string' || text.length > 20000)) throw Error('检测文本最多 20000 字');
-    if (!text)
-      try {
-        text = await designFontText(designerFiles, session, input?.path);
-      } catch {
-        if (input?.path) throw Error('无法读取指定 HTML');
-        text = 'Aa 0123 中文';
-      }
-    return designFonts.check(session, { text, family: input?.family });
-  });
-  const canvasExports = new CanvasExports({
-    getSession: (id) => designStore.get(id),
-    files: designerFiles,
-    fonts: designFonts,
-    render: renderCanvasExport,
-    choosePath: async (input) => {
-      const result = await dialog.showSaveDialog(window!, {
-        title: input.title,
-        defaultPath: input.name,
-        filters: [{ name: input.title, extensions: [input.extension] }],
-      });
-      return result.canceled ? null : result.filePath || null;
+    get computer() {
+      return computer;
     },
-  });
-  handle('design:export-file', (input) => canvasExports.export(input));
-  handle('design:export-project', async (input) => {
-    const session = fontSession(input?.id),
-      path = await designHtmlPath(designerFiles, session, input?.path);
-    const target = await dialog.showSaveDialog(window!, {
-      title: '导出设计项目',
-      defaultPath: basename(path).replace(/\.html?$/i, '') + '.zip',
-      filters: [{ name: 'ZIP', extensions: ['zip'] }],
-    });
-    if (target.canceled || !target.filePath) return null;
-    const bytes = await exportDesignHtmlBundle({
-      rootDir: session.workspaceDir!,
-      htmlPath: designerFiles.absolute(session, path),
-    });
-    writeFileSync(target.filePath, bytes);
-    return target.filePath;
-  });
-  handle('design:system', (id) => designSystems.detail(String(id)));
-  handle('design:create', (input) => designStore.create(input));
-  handle('design:update', (input) => designStore.update(input));
-  handle('design:send', (input) => {
-    const session = designStore.get(String(input?.id)),
-      message = String(input?.message || '');
-    if (fontMutationSessions.has(session.id)) throw Error('字体正在处理中，请稍后发送');
-    if (session.origin.kind === 'bot')
-      return chatPins!.send({
-        botId: session.botId,
-        message,
-        designSessionId: session.id,
-        attachmentIds: input.attachmentIds,
-      });
-    if (session.origin.kind === 'group') {
-      const bot = store.bot(session.botId),
-        text = '@' + bot.name + ' ' + message;
-      return groupChats!.send({
-        id: session.origin.id,
-        message: text,
-        designSessionId: session.id,
-        attachmentIds: input.attachmentIds,
-        mentions: [{ id: bot.id, name: bot.name, color: bot.color, start: 0, end: bot.name.length + 1 }],
-      });
-    }
-    throw Error('请通过原 Bot 协作私聊继续这个设计任务');
-  });
-  handle('design:accept', (input) => {
-    const session = designStore.get(String(input?.id));
-    if (
-      session.revision !== input.revision ||
-      session.activeRunId ||
-      !session.artifacts.length ||
-      !session.checks.some((check) => check.id === 'format' && check.status === 'passed')
-    )
-      throw Error('请先完成当前设计的文件检查并刷新任务');
-    session.status = 'completed';
-    designStore.touch(session);
-  });
-  handle('design:workspace', (id) => designerFiles.list(designStore.get(String(id)).botId, String(id)));
-  handle('design:import-system', async () => {
-    if (!window || window.isDestroyed()) throw Error('窗口不可用');
-    const picked = await dialog.showOpenDialog(window, {
-      properties: ['openDirectory'],
-      title: '选择包含 DESIGN.md 的设计系统文件夹',
-    });
-    if (picked.canceled || !picked.filePaths[0]) return null;
-    const system = designSystems.importFolder(picked.filePaths[0]);
-    changed();
-    return {
-      id: system.id,
-      name: system.name,
-      category: system.category,
-      description: system.description || '',
-      version: system.version,
-      bytes: system.bytes,
-      colors: system.colors,
-      source: system.source,
-      license: system.license,
-      origin: 'custom' as const,
-    };
-  });
-  handle('chat:send', (input) => {
-    if (!input || typeof input.botId !== 'string' || typeof input.message !== 'string') throw new Error('无效消息');
-    if (input.designSessionId)
-      designStore.get(String(input.designSessionId), input.botId, { kind: 'bot', id: input.botId });
-    return chatPins!.send(input);
-  });
-  handle('chat:resume', (input) => {
-    if (typeof input?.botId !== 'string' || typeof input.runId !== 'string') throw Error('恢复任务参数无效');
-    if (harness.isRunning(input.botId) || chatPins?.hasPending(input.botId))
-      throw Error('Bot 正在处理消息，请稍后继续');
-    const run = resumableRun(store, input.botId, input.runId);
-    greetings?.cancel(input.botId);
-    if (run.groupOrigin) groupChats!.retryRun(run);
-    else if (run.peerOrigin) peerChats!.retryRun(run);
-    else
-      void harness.resume(input.botId, input.runId).catch((error) => {
-        store.message(input.botId, 'event', (error as Error).message);
-        changed();
-      });
-    changed();
-  });
-  handle('chat:pin', (input) => chatPins!.pin(input));
-  handle('groups:pin', (input) => groupChats!.pinUser(input));
-  handle('chat:cancel', (id) => {
-    const botId = String(id);
-    chatPins?.cancel(botId);
-    const run = store.data.runs.find((run) => run.botId === botId && run.status === 'running');
-    if (run) {
-      peerChats?.cancelRun(run);
-      groupChats?.cancelRun(run);
-    }
-    harness.cancel(botId);
-  });
-  handle('work:stop-live', async (input) => {
-    await harness.stopLiveWork(
-      String(input?.botId),
-      input?.kind === 'terminal' ? 'terminal' : 'process',
-      String(input?.id),
-    );
-  });
-  handle('peers:read', (input) => peerChats!.read(input));
-  handle('peers:cancel', (id) => peerChats!.cancel(id));
-  handle('groups:create', (input) => groupChats!.create(input));
-  handle('groups:update', (input) => groupChats!.update(input));
-  handle('groups:delete', (id) => {
-    groupChats!.delete(id);
-    scheduler?.removeTarget({ kind: 'group', id });
-  });
-  handle('games:create', (input) => {
-    if (!store.data.groups.some((g) => g.id === input.groupId)) throw Error('群聊不存在');
-    return games!.create(input);
-  });
-  handle('games:inspect', (input) => games!.inspect(input.id));
-  handle('games:read', (input) => games!.read(input.groupId, input.omniscient === true));
-  handle('games:act', (input) => games!.act(input.id, input.requestId, input.action));
-  handle('games:control', (input) => games!.control(input.id, input.action));
-  handle('groups:read', (input) => groupChats!.read(input));
-  handle('groups:send', (input) => {
-    const room = store.data.groups.find((room) => room.id === input?.id);
-    if (
-      room &&
-      !room.members.some(
-        (member) =>
-          !member.leftAt && store.data.bots.some((bot) => bot.id === member.id) && store.modelFor(member.id).model,
-      )
-    )
-      throw new Error('请先为群内 Bot 选择模型');
-    groupChats!.send(input);
-  });
-  handle('groups:read-mark', (input) => groupChats!.markRead(input));
-  handle('groups:stop', (id) => groupChats!.stop(id));
-  handle('groups:continue', (id) => groupChats!.continue(id));
-  handle('chat:tool-result', (input) => store.readToolResult(String(input?.botId), String(input?.messageId)));
-  handle('cognition:learning', (enabled) => {
-    if (typeof enabled !== 'boolean') throw new Error('无效设置');
-    cognition.learning.setEnabled(enabled);
-  });
-  handle('providers:save', async (input) => {
-    beforeModelChange(input?.id ? providers.using(String(input.id)) : []);
-    try {
-      const provider = providers.save(input);
-      const refreshed = await providers.refresh(provider.id);
-      void providers.prewarm(provider.id);
-      return refreshed;
-    } finally {
-      afterModelChange();
-    }
-  });
-  handle('providers:models', async (id) => {
-    const provider = await providers.refresh(String(id));
-    void providers.prewarm(String(id));
-    return provider;
-  });
-  handle('providers:model', (input) => {
-    const provider = providers.updateModel(String(input?.providerId), input?.model);
-    afterModelChange();
-    return provider;
-  });
-  handle('providers:remove', (id) => {
-    providers.remove(String(id));
-    afterModelChange();
-  });
-  handle('models:approval', (selection) => {
-    providers.setApproval(selection);
-  });
-  handle('models:default', (selection) => {
-    providers.selection(selection);
-    beforeModelChange(store.data.bots.filter((bot) => !bot.model).map((bot) => bot.id));
-    providers.setDefault(selection);
-    afterModelChange();
-  });
-  handle('models:bot', (input) => {
-    const id = store.bot(String(input?.botId)).id;
-    providers.selection(input?.selection);
-    beforeModelChange([id]);
-    providers.setBot(id, input.selection);
-    afterModelChange();
-  });
-  handle('model:save', async (input) => {
-    const baseUrl = validateModelEndpoint(String(input?.baseUrl || ''));
-    const name = String(input?.model || '').trim();
-    if (!name || name.length > 150) throw new Error('请输入模型名称');
-    const contextTokens = Number(input.contextTokens);
-    if (!Number.isInteger(contextTokens) || contextTokens < 8000 || contextTokens > 1000000)
-      throw new Error('上下文容量应为 8000–1000000');
-    const existing = providers.list().find((provider) => provider.id === store.data.defaultModel?.providerId);
-    beforeModelChange([
-      ...new Set([
-        ...store.data.bots.filter((bot) => !bot.model).map((bot) => bot.id),
-        ...(existing ? providers.using(existing.id) : []),
-      ]),
-    ]);
-    try {
-      const provider = providers.save({
-        id: existing?.id,
-        name: existing?.name || `默认 Provider ${providers.list().length + 1}`,
-        baseUrl,
-        apiKey: input.apiKey,
-      });
-      providers.setDefault({ providerId: provider.id, model: name, contextTokens });
-      await providers.refresh(provider.id);
-    } finally {
-      afterModelChange();
-    }
-  });
-  handle('model:test', async () => {
-    const result = await model.complete(
-      [{ role: 'user', content: 'Reply with READY only.' }],
-      [],
-      new AbortController().signal,
-    );
-    return result.content.slice(0, 200);
-  });
-  handle('vm:action', async (action) => {
-    if (!['prepare', 'start', 'stop', 'restart', 'repair-tools'].includes(action)) throw new Error('不支持的维护操作');
-    if (harness.busy && action !== 'prepare') throw new Error('Bot 正在工作，请先停止任务再维护电脑');
-    if (action === 'prepare') await vm.prepare();
-    if (action === 'start') await vm.start();
-    if (action === 'stop') await vm.stop();
-    if (action === 'restart') await vm.restart();
-    if (action === 'repair-tools') await vm.repairTools();
-    changed();
-  });
-  handle('vm:storage-save', async (value) => {
-    await vm.saveStorageSettings(value);
-    changed();
-  });
-  handle('vm:storage-reclaim', async () => {
-    if (
-      harness.busy ||
-      groupChats?.busy ||
-      greetings?.botIds.length ||
-      store.data.bots.some((bot) => chatPins?.hasPending(bot.id)) ||
-      interactions.snapshot().length ||
-      previewDirty ||
-      previewWrites ||
-      Object.values(computer.state.desktops).some((desktop) => desktop.manualControl)
-    )
-      throw Error('请先结束任务、保存修改并交还电脑控制，再回收空间');
-    await vm.reclaimStorage();
-    changed();
-  });
-  handle('vm:terminal', (command) => {
-    if (typeof command !== 'string') throw new Error('无效命令');
-    return vm.execute(command, 'manual');
-  });
-  handle('files:list', async (botId) => {
-    const id = String(botId);
-    const files = await artifacts.list(id);
-    if (artifacts.importKnown(id, files)) changed();
-    return files;
-  });
-  handle('files:preview', async (input) => artifacts.preview(String(input?.botId), String(input?.path)));
-  handle('files:edit-dirty', (dirty) => {
-    if (typeof dirty !== 'boolean') throw Error('无效编辑状态');
-    previewDirty = dirty;
-  });
-  handle('files:edit-read', (input) => artifacts.readEditable(String(input?.botId), String(input?.path)));
-  handle('files:edit-save', async (input) => {
-    previewWrites++;
-    try {
-      const saved = await artifacts.saveEditable(String(input?.botId), String(input?.path), input?.edit);
-      designStore.userEdit(String(input.botId), String(input.path), saved.revision);
-      return saved;
-    } finally {
-      previewWrites--;
-    }
-  });
-  handle('attachments:edit-read', (id) => {
-    const file = attachments.metadata(id);
-    if (!sourceTextFile(file.name)) throw Error('此附件不支持文本编辑');
-    return editableText(attachments.bytes(id), 'attachment:' + id);
-  });
-  handle('files:edit-export', async (input) => {
-    if (typeof input?.name !== 'string' || input.name.length > 256 || !sourceTextFile(input.name))
-      throw Error('无效文件名称');
-    const bytes = editedBytes(input.content);
-    previewWrites++;
-    try {
-      const target = await dialog.showSaveDialog(window!, {
-        title: '保存编辑后的文件',
-        defaultPath: basename(input.name),
-      });
-      if (target.canceled || !target.filePath) return null;
-      await writeFile(target.filePath, bytes);
-      return target.filePath;
-    } finally {
-      previewWrites--;
-    }
-  });
-
-  handle('files:directory', (input) => {
-    if (typeof input?.botId !== 'string' || (input.path !== undefined && typeof input.path !== 'string'))
-      throw Error('无效目录请求');
-    return artifacts.directory(input.botId, input.path || '');
-  });
-  const previewOpener = new PreviewFileOpener({
-    cacheDir: join(store.dir, 'opened-files'),
-    open: (path) => shell.openPath(path),
-    choose: (path) => choosePreviewApplication(window!, path),
-    reveal: (path) => shell.showItemInFolder(path),
-    resolve: async (target) => {
-      if (target.kind === 'attachment') {
-        const original = attachments.originalPath(target.id);
-        if (original) return { path: original };
-        const file = attachments.metadata(target.id);
-        return { name: file.name, bytes: attachments.bytes(target.id), key: 'attachment:' + target.id };
-      }
-      store.bot(target.botId);
-      if (designerFiles.owns(target.botId, target.path))
-        return { path: designerFiles.hostPath(target.botId, target.path) };
-      return {
-        name: basename(target.path),
-        bytes: await artifacts.read(target.botId, target.path),
-        key: 'workspace:' + target.botId + ':' + target.path,
-      };
+    get harness() {
+      return harness;
     },
+    generalHarness,
+    get model() {
+      return model;
+    },
+    get providers() {
+      return providers;
+    },
+    get artifacts() {
+      return artifacts;
+    },
+    get attachments() {
+      return attachments;
+    },
+    get integrations() {
+      return integrations;
+    },
+    get interactions() {
+      return interactions;
+    },
+    get host() {
+      return host;
+    },
+    get commandPermissions() {
+      return commandPermissions;
+    },
+    get hostApprovals() {
+      return hostApprovals;
+    },
+    get cognition() {
+      return cognition;
+    },
+    get designSystems() {
+      return designSystems;
+    },
+    get designStore() {
+      return designStore;
+    },
+    designerFiles,
+    designFonts,
+    get peerChats() {
+      return peerChats;
+    },
+    get groupChats() {
+      return groupChats;
+    },
+    get games() {
+      return games;
+    },
+    get chatPins() {
+      return chatPins;
+    },
+    get scheduler() {
+      return scheduler;
+    },
+    get greetings() {
+      return greetings;
+    },
+    get webPreview() {
+      return webPreview;
+    },
+    get appUpdates() {
+      return appUpdates;
+    },
+    get diagnostics() {
+      return diagnostics;
+    },
+    get agentPreviews() {
+      return agentPreviews;
+    },
+    get updatePreparing() {
+      return updatePreparing;
+    },
+    get previewDirty() {
+      return previewDirty;
+    },
+    set previewDirty(value) {
+      previewDirty = value;
+    },
+    get previewWrites() {
+      return previewWrites;
+    },
+    set previewWrites(value) {
+      previewWrites = value;
+    },
+    get appearanceDimmed() {
+      return appearanceDimmed;
+    },
+    set appearanceDimmed(value) {
+      appearanceDimmed = value;
+    },
+    snapshot,
+    changed,
+    beforeModelChange,
+    afterModelChange,
+    saveAppearance,
   });
-  handle('files:open-with', (input) => previewOpener.open(input));
-  handle('files:open', async (input) => {
-    const bot = store.bot(String(input?.botId));
-    if (computer.stateFor(bot.id).ownerBotId) throw new Error('Bot 正在操作桌面，请先接管电脑');
-    await computer.ensure(bot.id);
-    return artifacts.open(bot.id, String(input?.path));
-  });
-  handle('computer:screenshot', (id) => {
-    if (
-      ![...store.data.messages, ...store.data.peerMessages, ...store.data.groupRunMessages].some(
-        (message) => message.screenshotId === id,
-      )
-    )
-      throw new Error('截图不存在');
-    return computer.image(String(id));
-  });
-  handle('computer:ensure', (id) => {
-    const bot = store.bot(String(id));
-    if (bot.type === 'designer') throw Error('设计师使用本机设计目录，不创建工作电脑');
-    return computer.ensure(bot.id);
-  });
-  handle('computer:control', async (input) => {
-    const bot = store.bot(String(input?.botId));
-    if (typeof input?.enabled !== 'boolean') throw new Error('无效控制状态');
-    await computer.ensure(bot.id);
-    return changeManualControl(interactions, computer, bot.id, input.enabled, (id) => harness.cancel(id));
-  });
-  handle('computer:open-app', async (input) => {
-    const bot = store.bot(String(input?.botId));
-    if (computer.stateFor(bot.id).ownerBotId) throw new Error('Bot 正在操作桌面，请先接管电脑');
-    await computer.openApp(bot.id, input.app);
-  });
-  handle('files:export', async (input) => {
-    store.bot(String(input?.botId));
-    const name = safeRelativePath(String(input?.path || ''));
-    let bytes = await artifacts.read(input.botId, name);
-    const target = await dialog.showSaveDialog(window!, { defaultPath: name.split('/').pop(), title: '保存工作成果' });
-    if (target.canceled || !target.filePath) return null;
-    if (/\.html?$/i.test(name) && designerFiles.owns(input.botId, name)) {
-      const session = designStore.data.sessions.find(
-        (item) => item.botId === input.botId && name.startsWith(item.workspacePath + '/'),
-      )!;
-      bytes = Buffer.from(
-        await prepareDesignHtml({
-          rootDir: session.workspaceDir!,
-          htmlPath: designerFiles.absolute(session, name),
-          html: bytes.toString('utf8'),
-        }),
-      );
-    }
-    writeFileSync(target.filePath, bytes);
-    return target.filePath;
-  });
-  handle('app:open-data', () => shell.openPath(dataDir));
   const shutdown = new Shutdown({
     stop: () => {
       vm.beginShutdown();

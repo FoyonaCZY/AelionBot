@@ -1,101 +1,39 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { AelionAPI, AppEvent } from '../shared/types/core';
-const api: AelionAPI = {
-  exportDesignFile: (input) => ipcRenderer.invoke('design:export-file', input),
-  focusPreviewFeedback: () => ipcRenderer.invoke('preview:focus-feedback'),
-  listDesignFonts: (input) => ipcRenderer.invoke('design:fonts-list', input),
-  searchDesignFonts: (input) => ipcRenderer.invoke('design:fonts-search', input),
-  acquireDesignFont: (input) => ipcRenderer.invoke('design:fonts-acquire', input),
-  importDesignFonts: (input) => ipcRenderer.invoke('design:fonts-import', input),
-  applyDesignFont: (input) => ipcRenderer.invoke('design:fonts-apply', input),
-  checkDesignFonts: (input) => ipcRenderer.invoke('design:fonts-check', input),
-  exportDesignProject: (input) => ipcRenderer.invoke('design:export-project', input),
+import type { AelionAPI } from '../shared/types/core';
+import { EVENT_CHANNELS, GAME_CHANNELS, INTERNAL_CHANNELS, INVOKE_CHANNELS } from '../shared/ipc';
 
+type InvokeAPI = Pick<AelionAPI, keyof typeof INVOKE_CHANNELS>;
+const invoke = Object.fromEntries(
+  Object.entries(INVOKE_CHANNELS).map(([method, channel]) => [
+    method,
+    (...args: unknown[]) => ipcRenderer.invoke(channel, ...args),
+  ]),
+) as InvokeAPI;
+type EventMethod = keyof typeof EVENT_CHANNELS;
+type EventValue<M extends EventMethod> = Parameters<Parameters<AelionAPI[M]>[0]>[0];
+const subscribe =
+  <M extends EventMethod>(method: M) =>
+  (callback: (value: EventValue<M>) => void) => {
+    const channel = EVENT_CHANNELS[method],
+      handler = (_event: unknown, value: EventValue<M>) => callback(value);
+    ipcRenderer.on(channel, handler);
+    return () => ipcRenderer.removeListener(channel, handler);
+  };
+const api: AelionAPI = {
+  ...invoke,
   games: {
-    inspect: (input) => ipcRenderer.invoke('games:inspect', input),
-    create: (input) => ipcRenderer.invoke('games:create', input),
-    read: (input) => ipcRenderer.invoke('games:read', input),
-    act: (input) => ipcRenderer.invoke('games:act', input),
-    control: (input) => ipcRenderer.invoke('games:control', input),
+    inspect: (input) => ipcRenderer.invoke(GAME_CHANNELS.inspect, input),
+    create: (input) => ipcRenderer.invoke(GAME_CHANNELS.create, input),
+    read: (input) => ipcRenderer.invoke(GAME_CHANNELS.read, input),
+    act: (input) => ipcRenderer.invoke(GAME_CHANNELS.act, input),
+    control: (input) => ipcRenderer.invoke(GAME_CHANNELS.control, input),
   },
-  designSystem: (id) => ipcRenderer.invoke('design:system', id),
-  createDesignSession: (input) => ipcRenderer.invoke('design:create', input),
-  updateDesignSession: (input) => ipcRenderer.invoke('design:update', input),
-  sendDesignMessage: (input) => ipcRenderer.invoke('design:send', input),
-  acceptDesignSession: (input) => ipcRenderer.invoke('design:accept', input),
-  listDesignWorkspace: (id) => ipcRenderer.invoke('design:workspace', id),
-  importDesignSystem: () => ipcRenderer.invoke('design:import-system'),
-  captureWebPreviewMenu: (input) => ipcRenderer.invoke('web-preview:menu-capture', input),
-  freezeWebPreview: (input) => ipcRenderer.invoke('web-preview:freeze', input),
-  previewEditorCommand: (input) => ipcRenderer.invoke('web-preview:editor', input),
-  patchPreviewHtml: (input) => ipcRenderer.invoke('preview:html-edits', input),
-  onPreviewSave: (callback) => {
-    const handler = (_event: unknown, id: string) => callback(id);
-    ipcRenderer.on('web-preview:save', handler);
-    return () => ipcRenderer.removeListener('web-preview:save', handler);
-  },
-  onPreviewEditor: (callback) => {
-    const handler = (
-      _event: unknown,
-      value: { id: string; state: import('../shared/types/preview-editor-types').PreviewEditorState },
-    ) => callback(value);
-    ipcRenderer.on('web-preview:editor-event', handler);
-    return () => ipcRenderer.removeListener('web-preview:editor-event', handler);
-  },
-  updatePreviewFeedbackOverlay: (input) => ipcRenderer.invoke('preview-feedback:overlay', input),
-  onPreviewFeedbackInput: (callback) => {
-    const handler = (
-      _event: unknown,
-      input: import('../shared/preview/preview-feedback-overlay').FeedbackOverlayInput,
-    ) => callback(input);
-    ipcRenderer.on('preview-feedback:input', handler);
-    return () => ipcRenderer.removeListener('preview-feedback:input', handler);
-  },
-  openWebPreview: (input) => ipcRenderer.invoke('web-preview:open', input),
-  layoutWebPreview: (input) => ipcRenderer.invoke('web-preview:layout', input),
-  webPreviewAction: (input) => ipcRenderer.invoke('web-preview:action', input),
-  closeWebPreview: (id) => ipcRenderer.invoke('web-preview:close', id),
-  onWebPreview: (callback) => {
-    const handler = (_event: unknown, state: import('../shared/preview/web-preview').WebPreviewState) =>
-      callback(state);
-    ipcRenderer.on('web-preview:event', handler);
-    return () => ipcRenderer.removeListener('web-preview:event', handler);
-  },
-  onWebPreviewEscape: (callback) => {
-    const handler = (_event: unknown, id: string) => callback(id);
-    ipcRenderer.on('web-preview:escape', handler);
-    return () => ipcRenderer.removeListener('web-preview:escape', handler);
-  },
-  sendPreviewFeedback: (input) => ipcRenderer.invoke('preview:feedback', input),
-  setSkillEnabled: (input) => ipcRenderer.invoke('skills:enabled', input),
-  saveVmStorageSettings: (value) => ipcRenderer.invoke('vm:storage-save', value),
-  reclaimVmStorage: () => ipcRenderer.invoke('vm:storage-reclaim'),
-  acknowledgePreview: (id) => ipcRenderer.invoke('preview:acknowledge', id),
-  readEditableFile: (input) => ipcRenderer.invoke('files:edit-read', input),
-  saveEditableFile: (input) => ipcRenderer.invoke('files:edit-save', input),
-  readEditableAttachment: (id) => ipcRenderer.invoke('attachments:edit-read', id),
-  exportEditedText: (input) => ipcRenderer.invoke('files:edit-export', input),
-  setPreviewDirty: (dirty) => ipcRenderer.invoke('files:edit-dirty', dirty),
-  searchMentionFiles: (input) => ipcRenderer.invoke('workspace:mention-files', input),
-  listWorkspaceDirectory: (input) => ipcRenderer.invoke('files:directory', input),
-  saveAppearanceSettings: (settings) => ipcRenderer.invoke('appearance:save', settings),
-  imageProtocols: () => ipcRenderer.invoke('image:protocols'),
-  testImageModel: (input) => ipcRenderer.invoke('image:test', input),
-  queryUsage: (input) => ipcRenderer.invoke('usage:query', input),
-  prepareDiagnostics: () => ipcRenderer.invoke('diagnostics:prepare'),
-  exportDiagnostics: (id) => ipcRenderer.invoke('diagnostics:export', id),
-  openDiagnosticIssue: (id) => ipcRenderer.invoke('diagnostics:issue', id),
-  setHostPermissionMode: (input) => ipcRenderer.invoke('permissions:mode', input),
-  pickConversationWorkspace: (scope) => ipcRenderer.invoke('workspace:pick', scope),
-  resetConversationWorkspace: (scope) => ipcRenderer.invoke('workspace:reset', scope),
-  workAction: (input) => ipcRenderer.invoke('work:action', input),
-  updateState: () => ipcRenderer.invoke('updates:state'),
-  checkForUpdates: () => ipcRenderer.invoke('updates:check'),
-  downloadUpdate: () => ipcRenderer.invoke('updates:download'),
-  cancelUpdateDownload: () => ipcRenderer.invoke('updates:cancel'),
-  installUpdate: () => ipcRenderer.invoke('updates:install'),
-  openUpdateRelease: () => ipcRenderer.invoke('updates:open-release'),
-  pickAttachments: (scope) => ipcRenderer.invoke('attachments:pick', scope),
+  onEvent: subscribe('onEvent'),
+  onPreviewSave: subscribe('onPreviewSave'),
+  onPreviewEditor: subscribe('onPreviewEditor'),
+  onPreviewFeedbackInput: subscribe('onPreviewFeedbackInput'),
+  onWebPreview: subscribe('onWebPreview'),
+  onWebPreviewEscape: subscribe('onWebPreviewEscape'),
   prepareAttachmentDrop: async (input) => {
     if (!Array.isArray(input.files) || input.files.length > 10) throw Error('一次最多拖入 10 个文件或文件夹');
     const paths: string[] = [],
@@ -106,86 +44,12 @@ const api: AelionAPI = {
       else virtualIndexes.push(index);
     });
     return {
-      entries: await ipcRenderer.invoke('attachments:drop-prepare', { scope: input.scope, paths }),
+      entries: await ipcRenderer.invoke(INTERNAL_CHANNELS.prepareAttachmentDropPaths, {
+        scope: input.scope,
+        paths,
+      }),
       virtualIndexes,
     };
-  },
-  prepareAttachmentPaste: (scope) => ipcRenderer.invoke('attachments:paste-prepare', scope),
-  applyAttachmentDrop: (input) => ipcRenderer.invoke('attachments:drop-apply', input),
-  pasteAttachments: (scope) => ipcRenderer.invoke('attachments:paste', scope),
-  importAttachments: (input) => ipcRenderer.invoke('attachments:import', input),
-  previewAttachment: (id) => ipcRenderer.invoke('attachments:preview', id),
-  saveAttachment: (id) => ipcRenderer.invoke('attachments:save', id),
-  saveUserProfile: (profile) => ipcRenderer.invoke('profile:save', profile),
-  saveRuntimeSettings: (settings) => ipcRenderer.invoke('runtime:save', settings),
-  compactContext: (input) => ipcRenderer.invoke('context:compact', input),
-  snapshot: () => ipcRenderer.invoke('app:snapshot'),
-  createScheduledTask: (input) => ipcRenderer.invoke('tasks:create', input),
-  updateScheduledTask: (input) => ipcRenderer.invoke('tasks:update', input),
-  deleteScheduledTask: (id) => ipcRenderer.invoke('tasks:delete', id),
-  runScheduledTask: (id) => ipcRenderer.invoke('tasks:run', id),
-  createBot: (input) => ipcRenderer.invoke('bot:create', input),
-  deleteBot: (id) => ipcRenderer.invoke('bot:delete', id),
-  updateBot: (input) => ipcRenderer.invoke('bot:update', input),
-  send: (input) => ipcRenderer.invoke('chat:send', input),
-  resumeChat: (input) => ipcRenderer.invoke('chat:resume', input),
-  pinChat: (input) => ipcRenderer.invoke('chat:pin', input),
-  pinGroup: (input) => ipcRenderer.invoke('groups:pin', input),
-  readPrivateChat: (input) => ipcRenderer.invoke('peers:read', input),
-  cancelPeerExchange: (id) => ipcRenderer.invoke('peers:cancel', id),
-  createGroup: (input) => ipcRenderer.invoke('groups:create', input),
-  updateGroup: (input) => ipcRenderer.invoke('groups:update', input),
-  deleteGroup: (id) => ipcRenderer.invoke('groups:delete', id),
-  readGroup: (input) => ipcRenderer.invoke('groups:read', input),
-  sendGroup: (input) => ipcRenderer.invoke('groups:send', input),
-  markGroupRead: (input) => ipcRenderer.invoke('groups:read-mark', input),
-  stopGroup: (id) => ipcRenderer.invoke('groups:stop', id),
-  continueGroup: (id) => ipcRenderer.invoke('groups:continue', id),
-  cancel: (id) => ipcRenderer.invoke('chat:cancel', id),
-  stopLiveWork: (input) => ipcRenderer.invoke('work:stop-live', input),
-  saveModel: (input) => ipcRenderer.invoke('model:save', input),
-  testModel: () => ipcRenderer.invoke('model:test'),
-  saveProvider: (input) => ipcRenderer.invoke('providers:save', input),
-  refreshProviderModels: (id) => ipcRenderer.invoke('providers:models', id),
-  updateProviderModel: (input) => ipcRenderer.invoke('providers:model', input),
-  removeProvider: (id) => ipcRenderer.invoke('providers:remove', id),
-  setApprovalModel: (selection) => ipcRenderer.invoke('models:approval', selection),
-  setDefaultModel: (selection) => ipcRenderer.invoke('models:default', selection),
-  setBotModel: (input) => ipcRenderer.invoke('models:bot', input),
-  vmAction: (action) => ipcRenderer.invoke('vm:action', action),
-  vmTerminal: (command) => ipcRenderer.invoke('vm:terminal', command),
-  listFiles: (botId) => ipcRenderer.invoke('files:list', botId),
-  exportFile: (input) => ipcRenderer.invoke('files:export', input),
-  previewFile: (input) => ipcRenderer.invoke('files:preview', input),
-  readToolResult: (input) => ipcRenderer.invoke('chat:tool-result', input),
-  setBackgroundLearning: (enabled) => ipcRenderer.invoke('cognition:learning', enabled),
-  screenshot: (id) => ipcRenderer.invoke('computer:screenshot', id),
-  ensureComputerDesktop: (botId) => ipcRenderer.invoke('computer:ensure', botId),
-  setComputerControl: (input) => ipcRenderer.invoke('computer:control', input),
-  setComputerFullscreen: (enabled) => ipcRenderer.invoke('computer:fullscreen', enabled),
-  setWindowDimmed: (enabled, color) => ipcRenderer.invoke('window:dimmed', enabled, color),
-  respondInteraction: (input) => ipcRenderer.invoke('interaction:respond', input),
-  setCommandPermissionEnabled: (input) => ipcRenderer.invoke('permissions:command-enabled', input),
-  removeCommandPermission: (id) => ipcRenderer.invoke('permissions:command-remove', id),
-  saveHostWorkspace: (path) => ipcRenderer.invoke('host:workspace-save', path),
-  pickHostWorkspace: () => ipcRenderer.invoke('host:workspace-pick'),
-  openComputerApp: (input) => ipcRenderer.invoke('computer:open-app', input),
-  openPreviewFile: (input) => ipcRenderer.invoke('files:open-with', input),
-  openFile: (input) => ipcRenderer.invoke('files:open', input),
-  openData: () => ipcRenderer.invoke('app:open-data'),
-  openExternalUrl: (url) => ipcRenderer.invoke('app:open-external-url', url),
-  refreshIntegrations: () => ipcRenderer.invoke('integrations:refresh'),
-  manageSkill: (input) => ipcRenderer.invoke('skills:manage', input),
-  readSkill: (input) => ipcRenderer.invoke('skills:read', input),
-  addIntegrationSource: (kind) => ipcRenderer.invoke('integrations:add-source', kind),
-  importMcpSnippet: (text) => ipcRenderer.invoke('integrations:import-mcp', text),
-  openIntegrationPath: (input) => ipcRenderer.invoke('integrations:open-path', input),
-  setMcpEnabled: (input) => ipcRenderer.invoke('mcp:enabled', input),
-  testMcp: (id) => ipcRenderer.invoke('mcp:test', id),
-  onEvent: (callback) => {
-    const handler = (_event: unknown, event: AppEvent) => callback(event);
-    ipcRenderer.on('app:event', handler);
-    return () => ipcRenderer.removeListener('app:event', handler);
   },
 };
 contextBridge.exposeInMainWorld('aelion', api);
