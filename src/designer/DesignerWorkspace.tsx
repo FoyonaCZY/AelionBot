@@ -26,7 +26,7 @@ import {
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
 import { Message } from '../ui/Message';
-import { PreviewIcon } from '../preview/FilePreview';
+import { PreviewIcon } from '../preview/PreviewIcon';
 import { PreviewPicker } from '../preview/PreviewPicker';
 import { BotComposer, type ComposerDraft } from '../chat/BotComposer';
 import { workspaceKey } from '../../shared/types/work-types';

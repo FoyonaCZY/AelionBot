@@ -3,7 +3,7 @@ import { Select } from '../ui/Select';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { getDocument, GlobalWorkerOptions, TextLayer, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
-import { PreviewIcon } from './FilePreview';
+import { PreviewIcon } from './PreviewIcon';
 import { previewErrorText } from './preview-utils';
 import './pdf-text-layer.css';
 import { useImmersivePreview } from './preview-layout';

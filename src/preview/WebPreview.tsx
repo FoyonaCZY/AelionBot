@@ -6,7 +6,7 @@ import type { EditableText } from '../../shared/chat/editable-text';
 import { createPortal, flushSync } from 'react-dom';
 import { PreviewMenuTransition, previewSurfacePaint } from './preview-menu-transition';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { PreviewIcon } from './FilePreview';
+import { PreviewIcon } from './PreviewIcon';
 import { PreviewToolbar } from './PreviewToolbar';
 import { PreviewPicker } from './PreviewPicker';
 import { feedbackWebUrl, type WebPreviewSource, type WebPreviewState } from '../../shared/preview/web-preview';
