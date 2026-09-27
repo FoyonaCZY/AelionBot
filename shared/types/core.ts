@@ -555,7 +555,9 @@ export interface AelionAPI {
     attachmentIds?: string[];
   }): Promise<void>;
   pinChat(input: PinInput & { botId: string }): Promise<void>;
-  pinGroup(input: PinInput & { groupId: string }): Promise<void>;
+  pinGroup(
+    input: PinInput & { groupId: string },
+  ): Promise<{ pinned: boolean; messageId: string; alreadyApplied?: boolean; eventId?: string }>;
   readPrivateChat(input: { threadId: string; before?: string }): Promise<PeerChatPage>;
   cancelPeerExchange(id: string): Promise<void>;
   createGroup(input: { name: string; botIds: string[] }): Promise<GroupSummary>;
@@ -620,7 +622,8 @@ export interface AelionAPI {
   }): Promise<void>;
   openPreviewFile(input: import('../preview/preview-open').PreviewOpenInput): Promise<boolean>;
   openFile(input: { botId: string; path: string }): Promise<void>;
-  openData(): Promise<void>;
+  // Resolves to shell.openPath's error message, or an empty string on success.
+  openData(): Promise<string>;
   openExternalUrl(url: string): Promise<void>;
   refreshIntegrations(): Promise<void>;
   manageSkill(input: { botId: string; id: string; action: string; revision?: number }): Promise<unknown>;

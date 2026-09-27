@@ -53,7 +53,7 @@ function notes(value: unknown): string | undefined {
 }
 export class AppUpdates {
   private state: UpdateState;
-  private operation?: Promise<unknown>;
+  private operation?: Promise<void>;
   private cancelled = false;
   private disposed = false;
   private automaticTimer?: ReturnType<typeof setTimeout>;
@@ -127,7 +127,7 @@ export class AppUpdates {
     this.state = { ...this.state, ...patch };
     this.changed();
   }
-  private async perform(phase: UpdatePhase, work: () => Promise<unknown>) {
+  private async perform(phase: UpdatePhase, work: () => Promise<void>) {
     if (this.disposed) throw new Error('客户端正在退出');
     if (this.operation) return this.operation;
     this.cancelled = false;

@@ -78,7 +78,7 @@ export function MessageActions({
   messageId: string;
   content: string;
   pins?: MessagePin[];
-  onPin?: (input: PinInput) => Promise<void>;
+  onPin?: (input: PinInput) => Promise<unknown>;
   onReply?: () => void;
   bubbleClassName: string;
   children: ReactNode;
