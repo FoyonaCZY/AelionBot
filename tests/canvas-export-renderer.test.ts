@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { tempDir } from './helpers';
 import { createRequire } from 'node:module';
-import { mkdtempSync, existsSync, rmSync } from 'node:fs';
-import { join, resolve, dirname, basename } from 'node:path';
-import { tmpdir } from 'node:os';
+import { existsSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { build } from 'esbuild';
@@ -19,12 +19,7 @@ test(
   'native export loads large HTML, waits for lazy images, and ignores off-canvas skip links',
   { skip: available ? false : 'Electron binary or display unavailable', timeout: 90000 },
   async (t) => {
-    const root = mkdtempSync(join(tmpdir(), 'aelion-export-render-'));
-    t.after(() => {
-      assert.equal(dirname(resolve(root)), resolve(tmpdir()));
-      assert.ok(basename(root).startsWith('aelion-export-render-'));
-      rmSync(root, { recursive: true, force: true });
-    });
+    const root = tempDir(t, 'aelion-export-render-');
     const renderer = resolve('electron/windows/canvas-export-renderer.ts'),
       entry = join(root, 'check.cjs');
     const code = `import {app} from 'electron';import assert from 'node:assert/strict';import {unzipSync} from 'fflate';import {renderCanvasExport} from ${JSON.stringify(renderer)};

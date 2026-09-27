@@ -1,29 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  mkdtempSync,
-  writeFileSync,
-  readFileSync,
-  existsSync,
-  rmSync,
-  truncateSync,
-  statSync,
-  renameSync,
-  readdirSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve, dirname } from 'node:path';
+import { tempDir } from './helpers';
+import { writeFileSync, readFileSync, existsSync, truncateSync, statSync, renameSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { VmStorage } from '../electron/core/vm/vm-storage';
 import { VmController } from '../electron/core/vm/vm';
 import { GiB, DEFAULT_VM_STORAGE, vmStorageSettings, storagePressure } from '../shared/preview/vm-storage';
 function directory(t: test.TestContext) {
-  const dir = mkdtempSync(join(tmpdir(), 'aelion-storage-'));
-  t.after(() => {
-    assert.equal(dirname(resolve(dir)), resolve(tmpdir()));
-    rmSync(dir, { recursive: true, force: true });
-  });
+  const dir = tempDir(t, 'aelion-storage-');
   return dir;
 }
 function fake(t: test.TestContext, failCompare = false) {

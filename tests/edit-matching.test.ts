@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { tempDir } from './helpers';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { editText, FileToolError } from '../electron/core/tools/file-text';
 import { applyHunks, parsePatch, VM_PATCH_SCRIPT } from '../electron/core/tools/multi-patch';
@@ -83,8 +83,7 @@ test('the VM patch script matches the host patch behaviour', (t) => {
     t.skip('Python is not available');
     return;
   }
-  const dir = mkdtempSync(join(tmpdir(), 'aelion-vm-patch-'));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const dir = tempDir(t, 'aelion-vm-patch-');
   const run = (name: string, text: string, patch: string) => {
     writeFileSync(join(dir, name), text);
     execFileSync(python, ['-c', 'import json,sys\na=json.load(sys.stdin)\n' + VM_PATCH_SCRIPT], {

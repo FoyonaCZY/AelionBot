@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { answer } from './helpers';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, basename, resolve } from 'node:path';
@@ -9,7 +10,6 @@ import { ModelClient, type Completion } from '../electron/core/model/model';
 import { BotGreetings } from '../electron/core/agent/bot-greetings';
 import { normalizeUserProfile } from '../shared/chat/user-profile';
 
-const answer = (content: string): Completion => ({ content, calls: [], finishReason: 'stop' });
 function fixture(t: test.TestContext, complete: ModelClient['complete'], configured = true, isRunning = () => false) {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-greeting-test-')),
     store = new Store(dir);

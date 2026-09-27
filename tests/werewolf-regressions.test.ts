@@ -1,12 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { delay, settle, until } from './helpers';
+import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { GameRuntime } from '../electron/core/games/runtime';
 import { createWerewolf, acceptAction } from '../electron/core/games/werewolf';
 const players = Array.from({ length: 7 }, (_, i) => ({ id: String(i), name: 'p' + i, human: false, color: '#887799' }));
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// The saved match, or undefined while the file is being replaced.
+const saved = (dir: string) => {
+  try {
+    return JSON.parse(readFileSync(join(dir, 'matches.json'), 'utf8'))[0];
+  } catch {
+    return undefined;
+  }
+};
 test('fast parallel decisions must be saved without waiting for a stalled peer', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'wolf-review-'));
   const s = createWerewolf('g', players, ['wolf', 'wolf', 'seer', 'witch', 'villager', 'villager', 'villager']);
@@ -22,9 +30,9 @@ test('fast parallel decisions must be saved without waiting for a stalled peer',
   });
   try {
     runtime.control(s.id, 'resume');
-    await delay(40);
-    const disk = JSON.parse((await import('node:fs')).readFileSync(join(dir, 'matches.json'), 'utf8'))[0];
-    assert.equal(disk.accepted.length, 4);
+    // Seat 1 never answers, so the four other decisions can only be on disk if they were saved without it.
+    await until(() => saved(dir)?.accepted.length >= 4);
+    assert.equal(saved(dir).accepted.length, 4);
   } finally {
     runtime.control(s.id, 'stop');
     runtime.dispose();
@@ -43,7 +51,8 @@ test('dispose must not relaunch AI requests from old worker finalizers', async (
   runtime.create({ groupId: 'g', players });
   const before = calls;
   runtime.dispose();
-  await delay(45);
+  // Longer than the 20 ms decisions, so any finalizer that would relaunch a request has run.
+  await settle();
   try {
     assert.equal(calls, before);
   } finally {
@@ -90,8 +99,9 @@ test('trace connects model inputs, returns and committed actions without exposin
   );
   try {
     const s = runtime.create({ groupId: 'trace', players });
-    for (let i = 0; i < 30 && runtime.inspect(s.id).filter((t) => t.type === 'model_started').length < 5; i++)
-      await delay(50);
+    await until(() => runtime.inspect(s.id).filter((t) => t.type === 'model_started').length >= 5, {
+      message: 'Fewer than five model requests started',
+    });
     runtime.control(s.id, 'pause');
     const traces = runtime.inspect(s.id);
     const starts = traces.filter((t) => t.type === 'model_started');
@@ -148,9 +158,15 @@ test('invalid model action records returned value, rejection reason and retry be
   const runtime = new GameRuntime(dir, async () => ({ target: 'invalid' }));
   try {
     const s = runtime.create({ groupId: 'trace', players });
-    await delay(40);
-    const trace = runtime.inspect(s.id);
-    assert.equal(runtime.read('trace')?.status, 'paused');
+    await until(() => runtime.read('trace')?.status !== 'running');
+    const trace = runtime.inspect(s.id),
+      paused = runtime.read('trace')!;
+    assert.equal(paused.status, 'paused');
+    assert(
+      paused.seats.every((p) => p.alive),
+      'no invented action was applied',
+    );
+    assert.equal(paused.winner, undefined);
     assert.equal(trace.filter((t) => t.type === 'model_failed').length, 2);
     assert(
       trace.some(
@@ -197,11 +213,10 @@ test('AI response expiry pauses without choosing no and resume only retries unfi
   );
   try {
     runtime.control(s.id, 'resume');
-    const deadline = Date.now() + 3000;
-    while (runtime.read('timeout')?.status === 'running' && Date.now() < deadline) await delay(20);
+    await until(() => runtime.read('timeout')?.status !== 'running', { timeoutMs: 3000, intervalMs: 20 });
     assert.equal(runtime.read('timeout')?.status, 'paused');
     assert.match(runtime.read('timeout')!.error!, /模型响应超时/);
-    let disk = JSON.parse((await import('node:fs')).readFileSync(join(dir, 'matches.json'), 'utf8'))[0];
+    let disk = saved(dir);
     assert.equal(disk.requests.length, 1);
     assert.equal(disk.requests[0].id, 'join-11');
     assert.equal(Object.keys(disk.answers).length, 11);
@@ -209,8 +224,8 @@ test('AI response expiry pauses without choosing no and resume only retries unfi
     assert(!disk.logs.some((l: any) => l.text.includes('报名超时，按规则')));
     retry = true;
     runtime.control(s.id, 'resume');
-    await delay(25);
-    disk = JSON.parse((await import('node:fs')).readFileSync(join(dir, 'matches.json'), 'utf8'))[0];
+    await until(() => saved(dir)?.twelve.applicants.length >= 12);
+    disk = saved(dir);
     assert.equal(disk.twelve.applicants.length, 12);
     assert.equal(calls.filter((x) => x === '0:sheriff_join').length, 1);
     assert.equal(calls.filter((x) => x === '11:sheriff_join').length, 2);
@@ -240,11 +255,12 @@ test('human timers still freeze on pause and expire using game rules', async () 
     runtime.control(s.id, 'resume');
     const paused = runtime.control(s.id, 'pause');
     assert((paused.clock?.remainingMs ?? 0) > 0);
-    await delay(150);
+    // Longer than the 100 ms left on the clock: a paused timer must not expire.
+    await settle();
     assert.equal(runtime.read('human-timer')?.phase, 'election');
     runtime.control(s.id, 'resume');
-    await delay(550);
-    const disk = JSON.parse((await import('node:fs')).readFileSync(join(dir, 'matches.json'), 'utf8'))[0];
+    await until(() => saved(dir)?.accepted.includes('human-join'), { message: 'The human timer never expired' });
+    const disk = saved(dir);
     assert(disk.accepted.includes('human-join'));
     assert(disk.trace.some((t: any) => t.type === 'timeout' && t.seatId === '0'));
   } finally {

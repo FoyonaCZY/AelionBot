@@ -1,8 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, dirname, resolve, basename } from 'node:path';
+import { until, tempDir } from './helpers';
 import { ComputerController, absolutePoint, keyCodes } from '../electron/core/vm/computer';
 import { imageContext } from '../electron/core/model/model';
 import { artifactPath } from '../electron/core/attachments/artifacts';
@@ -27,12 +25,7 @@ test('desktop coordinates and key chords stay inside the guest input protocol', 
   assert.throws(() => keyCodes('CTRL+CTRL+A'));
 });
 test('independent desktops retain their own observations, input routing and manual takeover', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'aelion-computer-test-'));
-  t.after(() => {
-    assert.equal(dirname(resolve(dir)), resolve(tmpdir()));
-    assert.ok(basename(dir).startsWith('aelion-computer-test-'));
-    rmSync(dir, { recursive: true, force: true });
-  });
+  const dir = tempDir(t, 'aelion-computer-test-');
   const events: Array<{ botId: string; command: string }> = [];
   const vm = {
     state: { status: 'ready', desktopReady: true, appsReady: true },
@@ -105,11 +98,7 @@ test('protocol conversion preserves earlier observations when another image is a
 });
 
 test('only the same desktop is locked by an in-flight action and a VM restart invalidates observations', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'aelion-desktop-lock-'));
-  t.after(() => {
-    assert.equal(dirname(resolve(dir)), resolve(tmpdir()));
-    rmSync(dir, { recursive: true, force: true });
-  });
+  const dir = tempDir(t, 'aelion-desktop-lock-');
   let release!: () => void;
   const blocked = new Promise<void>((resolve) => {
     release = resolve;
@@ -133,8 +122,7 @@ test('only the same desktop is locked by an in-flight action and a VM restart in
   const computer = new ComputerController(vm, dir, () => {}),
     signal = new AbortController().signal;
   const first = computer.execute('first', { action: 'screenshot' }, signal);
-  for (let i = 0; i < 100 && !capturing; i++) await new Promise((resolve) => setTimeout(resolve, 5));
-  assert.equal(capturing, true);
+  await until(() => capturing);
   await assert.rejects(() => computer.execute('first', { action: 'screenshot' }, signal), /前一次/);
   assert.throws(() => computer.setManual('first', true), /正在完成/);
   const second = await computer.execute('second', { action: 'screenshot' }, signal);
@@ -148,11 +136,7 @@ test('only the same desktop is locked by an in-flight action and a VM restart in
   );
 });
 test('open_app can launch Impress as well as Writer and Calc', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'aelion-computer-office-'));
-  t.after(() => {
-    assert.equal(dirname(resolve(dir)), resolve(tmpdir()));
-    rmSync(dir, { recursive: true, force: true });
-  });
+  const dir = tempDir(t, 'aelion-computer-office-');
   const events: string[] = [];
   const vm = {
     state: { status: 'ready', desktopReady: true, appsReady: true },

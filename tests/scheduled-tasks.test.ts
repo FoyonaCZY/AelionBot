@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { answer, delay, until } from './helpers';
 import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
@@ -16,18 +17,9 @@ import { groupPending } from '../shared/types/group-types';
 import type { ModelClient, Completion, ToolDefinition } from '../electron/core/model/model';
 import type { VmController } from '../electron/core/vm/vm';
 import type { RunRecord, WireMessage } from '../shared/types/core';
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-async function until(predicate: () => boolean) {
-  for (let n = 0; n < 650; n++) {
-    if (predicate()) return;
-    await delay(10);
-  }
-  throw new Error('Scheduled task did not settle');
-}
 const zone = 'Asia/Shanghai',
   iso = (value: string) => Date.parse(value);
 const daily: TaskSchedule = { kind: 'daily', time: '09:00', timeZone: zone };
-const answer = (content: string): Completion => ({ content, calls: [], finishReason: 'stop' });
 const call = (name: string, args: Record<string, unknown>): Completion => ({
   content: '',
   calls: [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }],

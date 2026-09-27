@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, realpathSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tempDir } from './helpers';
+import { writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Store } from '../electron/core/storage/store';
 import { SkillLibrary } from '../electron/core/extensions/skill-library';
@@ -16,9 +16,7 @@ import { ExecutionLedger } from '../electron/core/agent/execution-ledger';
 import { recordDelegationReceipt, delegationStatus } from '../electron/core/peer/delegation';
 import type { VmController } from '../electron/core/vm/vm';
 const fixture = (t: test.TestContext) => {
-  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'aelion-upgrade-')));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
-  return dir;
+  return tempDir(t, 'aelion-upgrade-');
 };
 test('unchanged skills do not produce versions; patch and resource overwrites require current content', (t) => {
   const dir = fixture(t),

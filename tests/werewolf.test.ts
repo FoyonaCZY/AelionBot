@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { settle, until } from './helpers';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -132,8 +133,7 @@ test('runtime can finish all-AI games and does not leak unfinished roles', async
       runtime.read('g')?.seats.some((p) => p.role),
       false,
     );
-    for (let i = 0; i < 250 && runtime.read('g')?.status === 'running'; i++)
-      await new Promise((r) => setTimeout(r, 100));
+    await until(() => runtime.read('g')?.status !== 'running', { timeoutMs: 25_000, intervalMs: 100 });
     assert.equal(runtime.read('g')?.status, 'finished');
     assert(runtime.read('g')?.winner);
   } finally {
@@ -199,26 +199,8 @@ test('late model replies after stop cannot modify the saved result', async () =>
     runtime.control(s.id, 'stop');
     const before = JSON.stringify(runtime.read('g'));
     release();
-    await new Promise((r) => setTimeout(r, 30));
+    await settle();
     assert.equal(JSON.stringify(runtime.read('g')), before);
-  } finally {
-    runtime.dispose();
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-test('repeated model failure pauses instead of inventing a legal action', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'werewolf-'));
-  const runtime = new GameRuntime(dir, async () => ({ target: 'invalid' }));
-  try {
-    runtime.create({
-      groupId: 'g',
-      players: [...players.map((p) => ({ ...p, human: false })), { ...players[0], id: '6', human: false }],
-    });
-    await new Promise((r) => setTimeout(r, 30));
-    const s = runtime.read('g')!;
-    assert.equal(s.status, 'paused');
-    assert(s.seats.every((p) => p.alive));
-    assert.equal(s.winner, undefined);
   } finally {
     runtime.dispose();
     rmSync(dir, { recursive: true, force: true });
@@ -259,7 +241,7 @@ test('AI pause hides operation timers and stop writes an operation record', asyn
     assert.equal(paused.clock?.deadlineAt, undefined);
     assert.equal(paused.clock?.remainingMs, undefined);
     assert(paused.logs.some((e) => e.text === '你暂停了对局。'));
-    await new Promise((r) => setTimeout(r, 30));
+    await settle();
     const resumed = runtime.control(s.id, 'resume');
     assert.equal(resumed.clock?.deadlineAt, undefined);
     assert(resumed.logs.some((e) => e.text === '你继续了对局。'));

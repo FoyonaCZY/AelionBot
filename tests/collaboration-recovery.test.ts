@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { answer, until } from './helpers';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
@@ -15,19 +16,11 @@ import { peerPending } from '../shared/types/peer-types';
 import type { ModelClient, Completion } from '../electron/core/model/model';
 import type { VmController } from '../electron/core/vm/vm';
 import type { RunRecord, WireMessage } from '../shared/types/core';
-const answer = (content: string): Completion => ({ content, calls: [], finishReason: 'stop' }),
-  call = (name: string, args: unknown = {}): Completion => ({
-    content: '',
-    calls: [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }],
-    finishReason: 'tool_calls',
-  });
-const until = async (check: () => boolean) => {
-  for (let i = 0; i < 800; i++) {
-    if (check()) return;
-    await new Promise((resolve) => setTimeout(resolve, 5));
-  }
-  throw Error('协作恢复未完成');
-};
+const call = (name: string, args: unknown = {}): Completion => ({
+  content: '',
+  calls: [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }],
+  finishReason: 'tool_calls',
+});
 function fixture(t: test.TestContext, complete: (run: RunRecord, messages: WireMessage[]) => Completion) {
   const parent = realpathSync.native(tmpdir()),
     root = mkdtempSync(join(parent, 'aelion-co-recovery-')),

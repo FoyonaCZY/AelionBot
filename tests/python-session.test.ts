@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { until } from './helpers';
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -47,8 +48,7 @@ test(
       const { renameSync } = await import('node:fs');
       renameSync(temp, path);
       const result = join(dir, id + '.result.json');
-      for (let n = 0; n < 100 && !existsSync(result); n++) await new Promise((r) => setTimeout(r, 20));
-      assert.ok(existsSync(result));
+      await until(() => existsSync(result), { intervalMs: 20, message: `No result for request ${id}` });
       return JSON.parse(readFileSync(result, 'utf8'));
     };
     const first = await execute('a', 'values = [2, 3, 5]\nsum(values)');

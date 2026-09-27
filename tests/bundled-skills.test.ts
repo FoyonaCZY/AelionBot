@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, cpSync, readdirSync, existsSync } from 'node:fs';
-import { join, resolve, dirname, basename } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tempDir } from './helpers';
+import { mkdirSync, readFileSync, writeFileSync, cpSync, readdirSync, existsSync } from 'node:fs';
+import { join, resolve, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { Store } from '../electron/core/storage/store';
 import { SkillLibrary } from '../electron/core/extensions/skill-library';
@@ -17,12 +17,7 @@ const manifest = JSON.parse(readFileSync(join(bundled, 'manifest.json'), 'utf8')
   }>;
 };
 function fixture(t: test.TestContext) {
-  const root = mkdtempSync(join(tmpdir(), 'aelion-bundled-skills-'));
-  t.after(() => {
-    assert.equal(dirname(root), resolve(tmpdir()));
-    assert.ok(basename(root).startsWith('aelion-bundled-skills-'));
-    rmSync(root, { recursive: true, force: true });
-  });
+  const root = tempDir(t, 'aelion-bundled-skills-');
   const paths: IntegrationPaths = {
     homeDir: join(root, 'home'),
     projectDir: join(root, 'project'),

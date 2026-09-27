@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
+import { tempDir } from './helpers';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { hostPathKey, hostShell, hostEnvironment, shellName, windowsPwsh } from '../electron/core/host/host-platform';
 import { CommandPermissions } from '../electron/core/host/command-permissions';
 import { HostComputer } from '../electron/core/host/host';
@@ -13,9 +13,7 @@ import type { VmController } from '../electron/core/vm/vm';
 import type { HostPermissionDetails } from '../shared/types/core';
 import { DESKTOP_SCRIPT } from '../electron/core/vm/desktop-profile';
 const temporary = (t: test.TestContext) => {
-  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'aelion-macos-test-')));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
-  return dir;
+  return tempDir(t, 'aelion-macos-test-');
 };
 test('native host shell preserves code as one argument and POSIX paths keep their case', () => {
   const command = "printf '%s' '中文; $literal'";

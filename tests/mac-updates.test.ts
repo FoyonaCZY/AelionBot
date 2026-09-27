@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tempDir } from './helpers';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createMacUpdater, macAutomaticUpdates, newerVersion } from '../electron/core/app/mac-updater';
 import { AppUpdates } from '../electron/core/app/app-updates';
@@ -40,8 +40,7 @@ test('Mac preview chooses a release containing the matching architecture and nev
   updates.dispose();
 });
 test('automatic Mac updates require an explicitly notarized Developer ID build', (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'aelion-mac-updates-'));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const dir = tempDir(t, 'aelion-mac-updates-');
   assert.equal(macAutomaticUpdates(dir), false);
   writeFileSync(
     join(dir, 'mac-release.json'),

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, rmSync, utimesSync } from 'node:fs';
+import { tempDir } from './helpers';
+import { writeFileSync, utimesSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { kernelPanic, isKnownClockPanic, startCiGuest } from '../scripts/ci-vm-boot';
 import type { VmController } from '../electron/core/vm/vm';
 test('CI boot recovery recognizes the upstream timer panic and excludes unrelated failures', () => {
@@ -16,8 +16,7 @@ test('CI boot recovery recognizes the upstream timer panic and excludes unrelate
   assert.equal(kernelPanic('[    2.1] systemd[1]: Started OpenSSH server'), undefined);
 });
 test('CI boot only retries the known panic, bounds attempts and verifies ownership', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'aelion-boot-test-'));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const dir = tempDir(t, 'aelion-boot-test-');
   writeFileSync(join(dir, 'machine.json'), JSON.stringify({ id: 'owned' }));
   let starts = 0,
     quits = 0,

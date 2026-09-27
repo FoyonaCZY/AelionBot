@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { answer, until } from './helpers';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -20,20 +21,11 @@ import type { RunRecord, WireMessage } from '../shared/types/core';
 import { groupPending } from '../shared/types/group-types';
 import { peerPending } from '../shared/types/peer-types';
 import { ATTACHMENT_LIMITS } from '../shared/types/attachment-types';
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-async function until(fn: () => boolean) {
-  for (let i = 0; i < 800; i++) {
-    if (fn()) return;
-    await delay(10);
-  }
-  throw Error('附件测试等待超时');
-}
-const answer = (content: string): Completion => ({ content, calls: [], finishReason: 'stop' }),
-  tool = (name: string, args: object): Completion => ({
-    content: '',
-    calls: [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }],
-    finishReason: 'tool_calls',
-  });
+const tool = (name: string, args: object): Completion => ({
+  content: '',
+  calls: [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }],
+  finishReason: 'tool_calls',
+});
 const document = Buffer.from('列,数值\n咖啡,42\n', 'utf8'),
   png = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jhK0AAAAASUVORK5CYII=',

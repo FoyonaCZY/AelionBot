@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { answer, until } from './helpers';
 import { createServer, type Server } from 'node:http';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
@@ -174,15 +175,6 @@ test('hosted generated images are decoded from Responses output items', () => {
   assert.equal(hostedGeneratedImages([{ type: 'web_search_call' }]).length, 0);
 });
 
-const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-async function until(predicate: () => boolean) {
-  for (let n = 0; n < 400; n++) {
-    if (predicate()) return;
-    await pause(10);
-  }
-  throw Error('Provider test did not settle');
-}
-const answer = (content: string): Completion => ({ content, calls: [], finishReason: 'stop' });
 function codec(): CredentialCodec {
   const key = randomBytes(32);
   return {

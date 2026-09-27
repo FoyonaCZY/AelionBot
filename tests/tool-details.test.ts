@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve, dirname, basename } from 'node:path';
+import { tempDir } from './helpers';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   errorExplanation,
   fileGroups,
@@ -69,12 +69,7 @@ test('Python and service failures explain the concrete cause without dumping a s
   assert.doesNotMatch(JSON.stringify(http), /api_error/);
 });
 test('long-result reader loads only a recorded tool result in the selected Bot scope', (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'aelion-result-reader-'));
-  t.after(() => {
-    assert.equal(dirname(resolve(dir)), resolve(tmpdir()));
-    assert.ok(basename(dir).startsWith('aelion-result-reader-'));
-    rmSync(dir, { recursive: true, force: true });
-  });
+  const dir = tempDir(t, 'aelion-result-reader-');
   const store = new Store(dir),
     bot = store.data.bots[0],
     other = store.createBot('Other', 'Other');

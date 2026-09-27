@@ -1,14 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tempDir } from './helpers';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { StateDatabase } from '../electron/core/storage/state-database';
 
 test('state rows are keyed by entity id so a middle insert or delete touches only its own row', (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'aelion-state-db-'));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const dir = tempDir(t, 'aelion-state-db-');
   const db = new StateDatabase(dir),
     data: any = {
       version: 1,
@@ -30,8 +28,7 @@ test('state rows are keyed by entity id so a middle insert or delete touches onl
 });
 
 test('databases saved with index-keyed rows still load and are migrated on the next write', (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'aelion-state-db-legacy-'));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const dir = tempDir(t, 'aelion-state-db-legacy-');
   const raw = new DatabaseSync(join(dir, 'state.sqlite'));
   raw.exec('CREATE TABLE parts(key TEXT PRIMARY KEY,value TEXT NOT NULL)');
   const put = raw.prepare('INSERT INTO parts VALUES(?,?)');

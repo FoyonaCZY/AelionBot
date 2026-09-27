@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve, dirname, basename } from 'node:path';
+import { until, tempDir } from './helpers';
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { join, resolve, dirname } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { Store } from '../electron/core/storage/store';
 import { Harness } from '../electron/core/agent/harness';
@@ -17,12 +17,7 @@ import { zipSync, strToU8 } from 'fflate';
 import type { RunRecord } from '../shared/types/core';
 
 function fixture(t: any) {
-  const root = mkdtempSync(join(tmpdir(), 'aelion-design-'));
-  t.after(() => {
-    assert.equal(dirname(resolve(root)), resolve(tmpdir()));
-    assert.ok(basename(root).startsWith('aelion-design-'));
-    rmSync(root, { recursive: true, force: true });
-  });
+  const root = tempDir(t, 'aelion-design-');
   const store = new Store(join(root, 'data'));
   const bot = store.createBot('Designer', 'Design', undefined, undefined, { type: 'designer' });
   store.data.model.model = 'fixture';
@@ -1061,10 +1056,7 @@ test('designer uses the same group inbox, outbox and task claims without importi
   groups.send({ id: room.id, message: '请认领并说明设计交付要求' });
   groups.start();
   try {
-    for (let i = 0; i < 500; i++) {
-      if (f.store.data.groups[0].messages.some((m) => m.content === '交付说明已核对。')) break;
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
+    await until(() => f.store.data.groups[0].messages.some((m) => m.content === '交付说明已核对。'));
     const page = groups.read({ id: room.id });
     assert.ok(page.messages.some((m) => m.content === '交付说明已核对。'));
     assert.equal(page.tasks?.[0].status, 'completed');

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, existsSync, statSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, dirname, resolve } from 'node:path';
+import { tempDir } from './helpers';
+import { mkdirSync, readFileSync, symlinkSync, existsSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { unzipSync } from 'fflate';
 import { Store } from '../electron/core/storage/store';
@@ -17,12 +17,7 @@ import { DesignerLoop } from '../electron/core/designer/designer-loop';
 import { randomUUID } from 'node:crypto';
 import { AgentPreviews } from '../electron/core/preview/agent-previews';
 function setup(t: any) {
-  const root = mkdtempSync(join(tmpdir(), 'aelion-local-design-'));
-  t.after(() => {
-    assert.equal(dirname(resolve(root)), resolve(tmpdir()));
-    assert.ok(root.includes('aelion-local-design-'));
-    rmSync(root, { recursive: true, force: true });
-  });
+  const root = tempDir(t, 'aelion-local-design-');
   const store = new Store(join(root, 'data')),
     bot = store.createBot('Designer', '', undefined, undefined, { type: 'designer' }),
     base = join(root, 'default');

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { answer, delay, settle, until } from './helpers';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
@@ -20,16 +21,7 @@ import { conversationTimeline } from '../shared/chat/activity';
 import { groupParaphrases } from './fixtures/group-paraphrases';
 const publishedMessages = (messages: WireMessage[]) =>
   messages.filter((message) => message.groupMessageId).map((message) => JSON.parse(message.content!));
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-async function until(predicate: () => boolean) {
-  for (let i = 0; i < 650; i++) {
-    if (predicate()) return;
-    await delay(10);
-  }
-  throw new Error('群聊测试等待超时');
-}
-const answer = (content: string): Completion => ({ content, calls: [], finishReason: 'stop' }),
-  silent = () => answer('[群聊静默]');
+const silent = () => answer('[群聊静默]');
 const call = (name: string, args: Record<string, unknown>): Completion => ({
   content: '',
   calls: [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }],
@@ -1112,7 +1104,7 @@ test('creating a group broadcasts one persisted lifecycle event to every member 
   assert.deepEqual(seen.sort(), [fx.a.id, fx.b.id].sort());
   fx.groups.wake();
   fx.groups.read({ id: group.id });
-  await delay(150);
+  await settle();
   assert.equal(seen.length, 2);
   assert.equal(fx.groups.read({ id: group.id }).messages.length, 1);
   const restored = new Store(fx.dir),
@@ -1129,7 +1121,7 @@ test('creating a group broadcasts one persisted lifecycle event to every member 
     () => {},
   );
   service.start();
-  await delay(150);
+  await settle();
   assert.equal(restored.data.groupDeliveries.length, before);
   assert.equal(restored.data.groups[0].messages.filter((message) => message.event).length, 1);
   service.dispose();
@@ -1175,7 +1167,7 @@ test('one membership save combines joins and removals and broadcasts only to the
   const count = fx.store.data.groupDeliveries.length;
   fx.groups.update({ id: group.id, name: group.name, botIds: [d.id, fx.a.id, fx.c.id] });
   fx.groups.update({ id: group.id, name: '仅改群名', botIds: [fx.a.id, fx.c.id, d.id] });
-  await delay(150);
+  await settle();
   assert.equal(fx.store.data.groupDeliveries.length, count);
   fx.groups.update({ id: group.id, name: '仅改群名', botIds: [fx.a.id, fx.b.id, fx.c.id, d.id] });
   await until(fx.settled);

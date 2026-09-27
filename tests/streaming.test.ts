@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { answer, settle, until } from './helpers';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
@@ -16,26 +17,17 @@ import { PeerChats } from '../electron/core/peer/peer-chats';
 import { groupPending } from '../shared/types/group-types';
 import type { VmController } from '../electron/core/vm/vm';
 
-const answer = (content: string): Completion => ({ content, calls: [], finishReason: 'stop' });
 const tool = (name: string, args: unknown): Completion => ({
   content: '',
   calls: [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }],
   finishReason: 'tool_calls',
 });
-const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => {
     resolve = done;
   });
   return { promise, resolve };
-}
-async function until(check: () => boolean) {
-  for (let n = 0; n < 500; n++) {
-    if (check()) return;
-    await pause(10);
-  }
-  throw new Error('Streaming test did not settle');
 }
 function fixture(t: test.TestContext, complete: ModelClient['complete'], vm = {} as VmController) {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-stream-')),
@@ -187,7 +179,7 @@ test('a cancelled or superseded stream cannot append late fragments into the nex
   assert.ok(f.store.data.runs.every((run) => run.status === 'cancelled'));
   old.resolve(answer('旧最终'));
   next.resolve(answer('新最终'));
-  await pause(10);
+  await settle();
   assert.ok(!f.store.data.messages.some((message) => message.presentation === 'answer'));
 });
 
@@ -261,7 +253,7 @@ test('streamed tool arguments never execute before the complete tool call and ar
   });
   const pending = f.harness.run(f.bot.id, '执行一次');
   await until(() => requests === 1);
-  await pause(60);
+  await settle();
   assert.equal(executions, 0);
   assert.equal(f.harness.streams.snapshot().length, 0);
   finish.resolve();
@@ -343,7 +335,7 @@ test('group drafts stay hidden while both concurrent members finish and publish 
   assert.equal(groups.read({ id: room.id }).messages.filter((message) => message.sender.kind === 'bot').length, 0);
   assert.ok(!JSON.stringify(f.store.data.groupContexts).includes('半句'));
   late('后半段');
-  await pause(130);
+  await settle();
   assert.equal(groups.snapshot().revision, revision);
   assert.equal(began, 2);
   assert.equal(f.harness.streams.snapshot().length, 0);

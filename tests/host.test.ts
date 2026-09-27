@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { settle, until } from './helpers';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -28,7 +29,6 @@ function fixture(t: test.TestContext) {
   });
   return { root, host, interactions };
 }
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 test('every host file operation waits for a fresh single-use decision', async (t) => {
   const { root, host, interactions } = fixture(t),
@@ -229,7 +229,8 @@ test(
       { command: 'Start-Sleep -Seconds 20', cwd: root, reason: '验证超时', timeoutMs: 700 },
       new AbortController().signal,
     );
-    await delay(800);
+    // Wait longer than timeoutMs: the command timeout must not run while permission is pending.
+    await settle(800);
     assert.equal(interactions.snapshot().length, 1);
     interactions.approve(interactions.snapshot()[0].id, true);
     const result = await running;
@@ -268,23 +269,25 @@ test(
     interactions.approve(interactions.snapshot()[0].id, true);
     let pid: number | undefined;
     try {
-      for (let i = 0; i < 60 && !existsSync(marker); i++) await delay(100);
-      assert.ok(existsSync(marker));
+      await until(() => existsSync(marker), { intervalMs: 100, message: 'The child process never started' });
       pid = JSON.parse(readFileSync(marker, 'utf8')).pid;
       controller.abort();
       const result = await running;
       assert.equal(result.cancelled, true);
       assert.equal(result.exitCode, -1);
-      let alive = true;
-      for (let i = 0; i < 30 && alive; i++) {
+      const alive = () => {
         try {
           process.kill(pid!, 0);
-          await delay(100);
+          return true;
         } catch {
-          alive = false;
+          return false;
         }
-      }
-      assert.equal(alive, false, 'The child process survived cancellation');
+      };
+      await until(() => !alive(), {
+        timeoutMs: 3000,
+        intervalMs: 100,
+        message: 'The child process survived cancellation',
+      });
     } finally {
       controller.abort();
       await running.catch(() => {});
