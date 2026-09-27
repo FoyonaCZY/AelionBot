@@ -1,6 +1,5 @@
 import type { Store } from './store';
 import type { DelegationContract, DelegationReceipt } from '../../src/peer-types';
-export type { DelegationContract, DelegationReceipt } from '../../src/peer-types';
 export function delegationContract(value: unknown): DelegationContract {
   const v = value as DelegationContract;
   if (
