@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { answer, delay, until } from './helpers';
+import { answer, delay, settle, until } from './helpers';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
@@ -1104,7 +1104,7 @@ test('creating a group broadcasts one persisted lifecycle event to every member 
   assert.deepEqual(seen.sort(), [fx.a.id, fx.b.id].sort());
   fx.groups.wake();
   fx.groups.read({ id: group.id });
-  await delay(150);
+  await settle();
   assert.equal(seen.length, 2);
   assert.equal(fx.groups.read({ id: group.id }).messages.length, 1);
   const restored = new Store(fx.dir),
@@ -1121,7 +1121,7 @@ test('creating a group broadcasts one persisted lifecycle event to every member 
     () => {},
   );
   service.start();
-  await delay(150);
+  await settle();
   assert.equal(restored.data.groupDeliveries.length, before);
   assert.equal(restored.data.groups[0].messages.filter((message) => message.event).length, 1);
   service.dispose();
@@ -1167,7 +1167,7 @@ test('one membership save combines joins and removals and broadcasts only to the
   const count = fx.store.data.groupDeliveries.length;
   fx.groups.update({ id: group.id, name: group.name, botIds: [d.id, fx.a.id, fx.c.id] });
   fx.groups.update({ id: group.id, name: '仅改群名', botIds: [fx.a.id, fx.c.id, d.id] });
-  await delay(150);
+  await settle();
   assert.equal(fx.store.data.groupDeliveries.length, count);
   fx.groups.update({ id: group.id, name: '仅改群名', botIds: [fx.a.id, fx.b.id, fx.c.id, d.id] });
   await until(fx.settled);

@@ -6,6 +6,12 @@ import type { Completion } from '../electron/core/model/model';
 export const delay = (ms: number): Promise<void> => sleep(ms);
 
 /**
+ * Gives asynchronous work a chance to (not) happen before a negative assertion
+ * ("nothing was called", "the state did not change"). Positive expectations use `until` instead.
+ */
+export const settle = (ms = 150): Promise<void> => sleep(ms);
+
+/**
  * Polls `predicate` until it returns true. Rejects with `message` (a string or a function evaluated
  * at timeout, for diagnostics) once `timeoutMs` has passed.
  */

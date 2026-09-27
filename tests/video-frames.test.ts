@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { settle, until } from './helpers';
 import {
   mkdtempSync,
   writeFileSync,
@@ -129,14 +130,14 @@ test('a cancelled queued inspection returns immediately and never decodes', asyn
     },
   );
   const first = service.inspect('bot', 'run', { path: f.source, reason: 'first' }, new AbortController().signal);
-  await new Promise((r) => setTimeout(r, 10));
+  await until(() => renders === 1);
   const controller = new AbortController();
   const second = service.inspect('other', 'run', { path: f.source, reason: 'second' }, controller.signal);
   controller.abort(Error('cancelled'));
   await assert.rejects(second, /cancelled/);
   finish(sheet);
   await first;
-  await new Promise((r) => setTimeout(r, 10));
+  await settle();
   assert.equal(renders, 1);
 });
 

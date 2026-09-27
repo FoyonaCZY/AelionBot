@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { until } from './helpers';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve, basename } from 'node:path';
@@ -133,8 +134,7 @@ test('only the same desktop is locked by an in-flight action and a VM restart in
   const computer = new ComputerController(vm, dir, () => {}),
     signal = new AbortController().signal;
   const first = computer.execute('first', { action: 'screenshot' }, signal);
-  for (let i = 0; i < 100 && !capturing; i++) await new Promise((resolve) => setTimeout(resolve, 5));
-  assert.equal(capturing, true);
+  await until(() => capturing);
   await assert.rejects(() => computer.execute('first', { action: 'screenshot' }, signal), /前一次/);
   assert.throws(() => computer.setManual('first', true), /正在完成/);
   const second = await computer.execute('second', { action: 'screenshot' }, signal);

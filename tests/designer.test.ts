@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { until } from './helpers';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname, basename } from 'node:path';
@@ -1061,10 +1062,7 @@ test('designer uses the same group inbox, outbox and task claims without importi
   groups.send({ id: room.id, message: '请认领并说明设计交付要求' });
   groups.start();
   try {
-    for (let i = 0; i < 500; i++) {
-      if (f.store.data.groups[0].messages.some((m) => m.content === '交付说明已核对。')) break;
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
+    await until(() => f.store.data.groups[0].messages.some((m) => m.content === '交付说明已核对。'));
     const page = groups.read({ id: room.id });
     assert.ok(page.messages.some((m) => m.content === '交付说明已核对。'));
     assert.equal(page.tasks?.[0].status, 'completed');

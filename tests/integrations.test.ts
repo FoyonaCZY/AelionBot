@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { until } from './helpers';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, basename, resolve } from 'node:path';
@@ -421,12 +422,10 @@ test('MCP tool lists follow list_changed notifications, results are marked untru
   assert.equal(grown.untrusted, true);
   assert.equal(grown.server, runtime.views().find((view) => view.name === 'dynamic')!.id);
   assert.equal(grown.tool, 'grow');
-  let names: string[] = [];
-  for (let i = 0; i < 50 && !names.includes('added'); i++) {
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    names = (await runtime.listTools('dynamic')).tools.map((tool) => tool.name);
-  }
-  assert.ok(names.includes('added'));
+  await until(async () => (await runtime.listTools('dynamic')).tools.some((tool) => tool.name === 'added'), {
+    intervalMs: 20,
+    message: 'list_changed never refreshed the tool list',
+  });
   assert.equal((await runtime.inspectCall('dynamic', 'added', {})).permission?.operation, 'mcp');
   assert.equal(
     ((await runtime.readResource('dynamic', 'fixture://readme', new AbortController().signal)) as any).untrusted,

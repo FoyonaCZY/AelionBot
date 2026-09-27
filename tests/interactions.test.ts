@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { until } from './helpers';
+import { settle, until } from './helpers';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -284,7 +284,7 @@ test('VM assistance pauses through takeover and resumes only with a fresh observ
   assert.throws(() => interactions.completeTakeover(request.id), /先接管/);
   state.manualControl = true;
   interactions.startTakeover(request.id);
-  await new Promise((resolve) => setTimeout(resolve, 30));
+  await settle();
   assert.equal(calls, 1);
   assert.equal(screenshots, 0);
   state.manualControl = false;

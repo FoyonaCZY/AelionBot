@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { answer, delay, until } from './helpers';
+import { answer, delay, settle, until } from './helpers';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -519,7 +519,7 @@ test('reopening preserves the private transcript and does not replay unfinished 
     () => {},
   );
   peers.start();
-  await delay(40);
+  await settle();
   assert.equal(calls, 0);
   assert.equal(reloaded.data.peerExchanges[0].status, 'interrupted');
   assert.equal(peers.read({ threadId: reloaded.data.peerThreads[0].id }).messages[0].content, '排队消息');
@@ -579,7 +579,7 @@ test('deleting a queued recipient cancels delivery and keeps the shared transcri
   fx.store.deleteBot(fx.b.id);
   fx.busy.delete(fx.b.id);
   fx.peers.wake();
-  await delay(30);
+  await settle();
   assert.equal(exchange.status, 'cancelled');
   assert.equal(root, 2);
   assert.equal(fx.store.data.peerContexts[exchange.id], undefined);

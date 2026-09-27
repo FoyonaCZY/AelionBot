@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { answer, delay, until } from './helpers';
+import { answer, settle, until } from './helpers';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
@@ -73,7 +73,7 @@ test('stopping cancels queued input and restarting never replays it', async (t) 
   });
   fx.queue.send({ botId: fx.bot.id, message: '尚未处理' });
   fx.queue.cancel(fx.bot.id);
-  await delay(120);
+  await settle();
   assert.equal(calls, 0);
   fx.queue.send({ botId: fx.bot.id, message: '重启前的输入' });
   const restored = new Store(fx.dir);
@@ -90,7 +90,7 @@ test('stopping cancels queued input and restarting never replays it', async (t) 
     () => {},
   );
   replay.wake();
-  await delay(120);
+  await settle();
   assert.equal(calls, 0);
   assert.equal(replay.hasPending(fx.bot.id), false);
   replay.dispose();
@@ -199,7 +199,7 @@ test('a new user message aborts the old request immediately and stale completion
   assert.equal(oldSignal?.aborted, true);
   await until(fx.idle);
   late(answer('过时的回答'));
-  await delay(30);
+  await settle();
   assert.equal(calls, 2);
   assert.equal(fx.store.data.messages.filter((m) => m.role === 'user' && !m.reaction).length, 2);
   assert.ok(!fx.store.data.messages.some((m) => m.content.includes('过时的回答')));

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { answer } from './helpers';
+import { answer, until } from './helpers';
 import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
@@ -222,8 +222,7 @@ test('resume keeps the original human request and execution evidence and does no
     interactions,
   );
   const pending = harness.run(f.bot.id, '在当前项目写入 done.txt，然后核对');
-  for (let i = 0; i < 100 && !interactions.snapshot().length; i++)
-    await new Promise((resolve) => setTimeout(resolve, 5));
+  await until(() => interactions.snapshot().length > 0);
   assert.equal(interactions.snapshot().length, 1);
   interactions.approve(interactions.snapshot()[0].id, true);
   await pending;

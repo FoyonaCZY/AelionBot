@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { until } from './helpers';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -145,12 +146,9 @@ test('nonblocking questions permit independent reading and their answers return 
   });
   writeFileSync(join(f.dir, 'a.txt'), 'project');
   const pending = f.harness.run(f.bot.id, '先确认范围', { workspaceDir: f.dir });
-  for (
-    let i = 0;
-    i < 100 && !f.store.data.messages.some((message) => message.tool === 'host_file_read' && message.status === 'done');
-    i++
-  )
-    await new Promise((resolve) => setTimeout(resolve, 10));
+  await until(() =>
+    f.store.data.messages.some((message) => message.tool === 'host_file_read' && message.status === 'done'),
+  );
   const question = f.interactions.snapshot().find((request) => request.kind === 'user_input');
   assert.ok(question);
   assert.ok(f.store.data.messages.some((message) => message.tool === 'host_file_read' && message.status === 'done'));
@@ -232,14 +230,11 @@ for (const blocking of [false, true])
     });
     const pending = f.harness.run(f.bot.id, 'Help me choose a scope');
     try {
-      for (
-        let i = 0;
-        i < 200 &&
-        (!f.interactions.pendingQuestions(f.bot.id, f.store.data.runs[0]?.id).length ||
-          (!blocking && !waitingResponse));
-        i++
-      )
-        await new Promise((resolve) => setTimeout(resolve, 10));
+      await until(
+        () =>
+          f.interactions.pendingQuestions(f.bot.id, f.store.data.runs[0]?.id).length > 0 &&
+          (blocking || waitingResponse),
+      );
       const question = f.interactions.snapshot().find((request) => request.kind === 'user_input');
       assert.ok(question);
       for (const text of [

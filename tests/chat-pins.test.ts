@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { until } from './helpers';
+import { settle, until } from './helpers';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
@@ -49,7 +49,7 @@ test('user pins persist, toggle idempotently, queue while busy and reach the Bot
   });
   queue.pin({ botId: bot.id, messageId: target.id, emoji: '👍' });
   queue.pin({ botId: bot.id, messageId: target.id, emoji: '👍' });
-  await new Promise((resolve) => setTimeout(resolve, 120));
+  await settle();
   assert.equal(calls, 0);
   assert.equal(target.pins?.length, 1);
   assert.equal(store.data.messages.filter((m) => m.reaction).length, 1);
@@ -339,7 +339,7 @@ test('a user emoji on the Bot greeting can receive a visible Bot pin without any
   assert.equal(store.data.runs.at(-1)?.status, 'completed');
   assert.ok(!store.data.messages.some((message) => message.role === 'user' && !message.reaction));
   assert.equal(store.data.messages.filter((message) => message.role === 'assistant' && message.content).length, 1);
-  await new Promise((resolve) => setTimeout(resolve, 150));
+  await settle();
   assert.equal(calls, 1, 'Bot pins must not trigger an echo loop');
   const run = {
     id: randomUUID(),
