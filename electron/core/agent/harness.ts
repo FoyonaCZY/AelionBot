@@ -156,6 +156,20 @@ const groupNonProgressTools = new Set([
   'bot_send_message',
   'groups_list',
 ]);
+const COMPACT_TOOLS = new Set([
+  'open_preview',
+  'code_exec',
+  'tool_search',
+  'groups_list',
+  'group_send_message',
+  'read_result',
+  'file_read',
+  'computer_execute',
+  'host_file_read',
+  'host_execute',
+  'request_user_input',
+  'generate_image',
+]);
 const isReactionTool = (name: string) => name === 'chat_pin' || name === 'group_pin';
 function groupProgressFingerprint(name: string, args: unknown, output: unknown) {
   const normalize = (value: unknown): unknown => {
@@ -984,98 +998,15 @@ export class Harness {
           : controller.signal;
         let finalContext: WireMessage[] = [];
         const memoryDelegation = this.cognition ? delegatedMemory(this.store, bot.id, run.id) : undefined;
-        const baseTools =
-          options.peerOrigin?.kind === 'peer_summary'
-            ? []
-            : privateSessionId && options.peerOrigin
-              ? TOOLS.filter(
-                  (t) => privateTools.has(t.function.name) && (!t.function.name.startsWith('bot') || this.peers),
-                )
-              : TOOLS.filter(
-                  (t) =>
-                    (!t.function.name.startsWith('scheduled_') || this.scheduler) &&
-                    t.function.name !== 'start_main_task' &&
-                    (!(t.function.name.startsWith('bot_') || t.function.name === 'bots_list') || this.peers) &&
-                    (t.function.name !== 'memory' ||
-                      !userMemoryRoute ||
-                      (userMemoryRoute.targetBotIds.includes(botId) &&
-                        Boolean(userMemoryRoute.actionsByBot[botId]?.length))) &&
-                    (!t.function.name.startsWith('history_') || this.cognition) &&
-                    (!t.function.name.startsWith('host_') || (this.host && this.interactions)) &&
-                    (t.function.name !== 'request_user_control' || (this.computer && this.interactions)) &&
-                    (t.function.name !== 'computer' || this.computer) &&
-                    (!t.function.name.startsWith('mcp_') || this.integrations) &&
-                    (![
-                      'skill_file_read',
-                      'skill_materialize',
-                      'skill_patch',
-                      'skill_file_write',
-                      'skill_manage',
-                    ].includes(t.function.name) ||
-                      this.integrations),
-                );
-        const hiddenHosted = hiddenClientTools(this.store.modelFor(botId));
-        let availableTools = baseTools.filter(
-          (t) =>
-            !hiddenHosted.has(t.function.name) &&
-            (!this.headless || !HEADLESS_HIDDEN_TOOLS.has(t.function.name)) &&
-            (t.function.name !== 'video_frames' || Boolean(this.video)) &&
-            (t.function.name !== 'open_preview' || Boolean(this.previews)) &&
-            (t.function.name !== 'view_image' || Boolean(this.host?.options.imagePreview)) &&
-            (t.function.name !== 'generate_image' || Boolean(this.imageModel?.(botId))) &&
-            (!['request_user_input', 'user_input_wait'].includes(t.function.name) || Boolean(this.interactions)) &&
-            (work.forRun(run)?.status !== 'planning' || PLANNING_TOOLS.has(t.function.name)) &&
-            (t.function.name !== 'chat_pin' || (!options.groupOrigin && !options.peerOrigin)) &&
-            (!/^groups?_/.test(t.function.name) || this.groups) &&
-            (options.groupOrigin || !groupProtocolTool(t.function.name)) &&
-            (!options.groupOrigin ||
-              ![
-                'memory',
-                'skill_save',
-                'skill_patch',
-                'skill_file_write',
-                'skill_manage',
-                'bot_delegate_task',
-                'delegation_receipt',
-                'bot_send_message',
-                'start_main_task',
-              ].includes(t.function.name)) &&
-            (options.groupOrigin || t.function.name !== 'group_read'),
+        const { availableTools, modelTools } = this.turnTools(
+          botId,
+          run,
+          options,
+          privateSessionId,
+          userMemoryRoute,
+          work,
         );
-        if (work.forRun(run)?.status === 'planning') {
-          const index = availableTools.findIndex((tool) => tool.function.name === 'tools_batch');
-          if (index >= 0) {
-            const batch = structuredClone(availableTools[index]);
-            (batch.function.parameters as any).properties.steps.items.properties.tool.enum = [...READ_TOOLS].filter(
-              (name) => PLANNING_TOOLS.has(name),
-            );
-            availableTools[index] = batch;
-          }
-        }
         this.callableTools.set(run.id, availableTools);
-        const compactNames = new Set([
-          'open_preview',
-          'code_exec',
-          'tool_search',
-          'groups_list',
-          'group_send_message',
-          'read_result',
-          'file_read',
-          'computer_execute',
-          'host_file_read',
-          'host_execute',
-          'request_user_input',
-          'generate_image',
-        ]);
-        const modelTools =
-          this.store.modelFor(botId).contextTokens < 32000 && !privateSessionId
-            ? availableTools.filter(
-                (tool) =>
-                  compactNames.has(tool.function.name) ||
-                  (Boolean(options.groupOrigin) &&
-                    (/^groups?_/.test(tool.function.name) || tool.function.name.startsWith('history_'))),
-              )
-            : availableTools;
         const taskFrame = [
           options.groupOrigin ? this.groups?.taskFrame?.(botId, run.id) : '',
           new RunPolicy(this.store).frame(botId, run.id),
@@ -1904,52 +1835,164 @@ export class Harness {
       this.store.save();
       this.changed();
     } finally {
-      if (run.status === 'cancelled')
-        for (const process of this.processes
-          .list(botId, run.id)
-          .filter((p) => p.purpose === 'task' && ['starting', 'running', 'unknown'].includes(p.status)))
-          try {
-            await this.processes.stop(botId, process.id, AbortSignal.timeout(6000));
-          } catch {
-            process.status = 'unknown';
-          }
-      if (run.status === 'cancelled')
-        try {
-          await this.pythonSessions.cancelRun(botId, run.id);
-        } catch (error) {
-          this.store.journal('python.cancel.unknown', { runId: run.id, error: (error as Error).message });
-        }
-      if (run.status === 'cancelled' || run.status === 'failed') this.terminals.cancelRun(botId, run.id);
-      this.interactions?.cancelQuestions(botId, run.id);
-      this.callableTools.delete(run.id);
-      this.store.repairHistory(history, contextKey);
-      ownedContext?.close();
-      clearTimeout(budgetTimer);
-      this.preparedContexts.delete(run.id);
-      work.finish(run);
-      this.streams.dropRun(run.id);
-      this.computer?.release(botId);
-      try {
-        const producedGroupWork =
-          options.groupOrigin &&
-          this.store.runMessages(run.id).some((message) => message.role === 'tool' && isGroupWorkTool(message.tool));
-        if (
-          run.toolCalls > 0 &&
-          options.peerOrigin?.kind !== 'peer_summary' &&
-          (!options.groupOrigin || producedGroupWork) &&
-          (!groupRuntime.updated || run.toolCalls > 0)
-        )
-          await this.collectArtifacts?.(botId, run.id);
-      } catch (error) {
-        this.store.message(botId, 'event', `工作文件列表暂未更新：${(error as Error).message}`, { runId: run.id });
-      }
-      this.groupActive.delete(botId);
-      this.runtimes.delete(botId);
-      this.active.delete(botId);
-      if (cognition) cognition.afterRun(botId, run.id, lastRuntimeMessages, lastTools);
-      else this.cognition?.learning.schedule();
-      this.changed();
+      await this.finishRun(botId, run, options, {
+        history,
+        contextKey,
+        ownedContext,
+        budgetTimer,
+        work,
+        groupRuntime,
+        cognition,
+        lastRuntimeMessages,
+        lastTools,
+      });
     }
+  }
+  /** The tools callable in this turn, and the subset listed to the model. */
+  private turnTools(
+    botId: string,
+    run: RunRecord,
+    options: HarnessRunOptions,
+    privateSessionId: string | undefined,
+    userMemoryRoute: ReturnType<typeof memoryRoute> | undefined,
+    work: WorkItems,
+  ) {
+    const baseTools =
+      options.peerOrigin?.kind === 'peer_summary'
+        ? []
+        : privateSessionId && options.peerOrigin
+          ? TOOLS.filter((t) => privateTools.has(t.function.name) && (!t.function.name.startsWith('bot') || this.peers))
+          : TOOLS.filter(
+              (t) =>
+                (!t.function.name.startsWith('scheduled_') || this.scheduler) &&
+                t.function.name !== 'start_main_task' &&
+                (!(t.function.name.startsWith('bot_') || t.function.name === 'bots_list') || this.peers) &&
+                (t.function.name !== 'memory' ||
+                  !userMemoryRoute ||
+                  (userMemoryRoute.targetBotIds.includes(botId) &&
+                    Boolean(userMemoryRoute.actionsByBot[botId]?.length))) &&
+                (!t.function.name.startsWith('history_') || this.cognition) &&
+                (!t.function.name.startsWith('host_') || (this.host && this.interactions)) &&
+                (t.function.name !== 'request_user_control' || (this.computer && this.interactions)) &&
+                (t.function.name !== 'computer' || this.computer) &&
+                (!t.function.name.startsWith('mcp_') || this.integrations) &&
+                (!['skill_file_read', 'skill_materialize', 'skill_patch', 'skill_file_write', 'skill_manage'].includes(
+                  t.function.name,
+                ) ||
+                  this.integrations),
+            );
+    const hiddenHosted = hiddenClientTools(this.store.modelFor(botId));
+    const availableTools = baseTools.filter(
+      (t) =>
+        !hiddenHosted.has(t.function.name) &&
+        (!this.headless || !HEADLESS_HIDDEN_TOOLS.has(t.function.name)) &&
+        (t.function.name !== 'video_frames' || Boolean(this.video)) &&
+        (t.function.name !== 'open_preview' || Boolean(this.previews)) &&
+        (t.function.name !== 'view_image' || Boolean(this.host?.options.imagePreview)) &&
+        (t.function.name !== 'generate_image' || Boolean(this.imageModel?.(botId))) &&
+        (!['request_user_input', 'user_input_wait'].includes(t.function.name) || Boolean(this.interactions)) &&
+        (work.forRun(run)?.status !== 'planning' || PLANNING_TOOLS.has(t.function.name)) &&
+        (t.function.name !== 'chat_pin' || (!options.groupOrigin && !options.peerOrigin)) &&
+        (!/^groups?_/.test(t.function.name) || this.groups) &&
+        (options.groupOrigin || !groupProtocolTool(t.function.name)) &&
+        (!options.groupOrigin ||
+          ![
+            'memory',
+            'skill_save',
+            'skill_patch',
+            'skill_file_write',
+            'skill_manage',
+            'bot_delegate_task',
+            'delegation_receipt',
+            'bot_send_message',
+            'start_main_task',
+          ].includes(t.function.name)) &&
+        (options.groupOrigin || t.function.name !== 'group_read'),
+    );
+    if (work.forRun(run)?.status === 'planning') {
+      const index = availableTools.findIndex((tool) => tool.function.name === 'tools_batch');
+      if (index >= 0) {
+        const batch = structuredClone(availableTools[index]);
+        (batch.function.parameters as any).properties.steps.items.properties.tool.enum = [...READ_TOOLS].filter(
+          (name) => PLANNING_TOOLS.has(name),
+        );
+        availableTools[index] = batch;
+      }
+    }
+    const modelTools =
+      this.store.modelFor(botId).contextTokens < 32000 && !privateSessionId
+        ? availableTools.filter(
+            (tool) =>
+              COMPACT_TOOLS.has(tool.function.name) ||
+              (Boolean(options.groupOrigin) &&
+                (/^groups?_/.test(tool.function.name) || tool.function.name.startsWith('history_'))),
+          )
+        : availableTools;
+    return { availableTools, modelTools };
+  }
+  /** Releases everything a run holds once it has finished, failed or been cancelled. */
+  private async finishRun(
+    botId: string,
+    run: RunRecord,
+    options: HarnessRunOptions,
+    state: {
+      history: WireMessage[];
+      contextKey: string;
+      ownedContext?: CognitiveStore;
+      budgetTimer?: ReturnType<typeof setTimeout>;
+      work: WorkItems;
+      groupRuntime: ActiveRuntime;
+      cognition?: Cognition;
+      lastRuntimeMessages?: WireMessage[];
+      lastTools: ToolDefinition[];
+    },
+  ) {
+    const { history, contextKey, ownedContext, budgetTimer, work, groupRuntime, cognition } = state;
+    if (run.status === 'cancelled')
+      for (const process of this.processes
+        .list(botId, run.id)
+        .filter((p) => p.purpose === 'task' && ['starting', 'running', 'unknown'].includes(p.status)))
+        try {
+          await this.processes.stop(botId, process.id, AbortSignal.timeout(6000));
+        } catch {
+          process.status = 'unknown';
+        }
+    if (run.status === 'cancelled')
+      try {
+        await this.pythonSessions.cancelRun(botId, run.id);
+      } catch (error) {
+        this.store.journal('python.cancel.unknown', { runId: run.id, error: (error as Error).message });
+      }
+    if (run.status === 'cancelled' || run.status === 'failed') this.terminals.cancelRun(botId, run.id);
+    this.interactions?.cancelQuestions(botId, run.id);
+    this.callableTools.delete(run.id);
+    this.store.repairHistory(history, contextKey);
+    ownedContext?.close();
+    clearTimeout(budgetTimer);
+    this.preparedContexts.delete(run.id);
+    work.finish(run);
+    this.streams.dropRun(run.id);
+    this.computer?.release(botId);
+    try {
+      const producedGroupWork =
+        options.groupOrigin &&
+        this.store.runMessages(run.id).some((message) => message.role === 'tool' && isGroupWorkTool(message.tool));
+      if (
+        run.toolCalls > 0 &&
+        options.peerOrigin?.kind !== 'peer_summary' &&
+        (!options.groupOrigin || producedGroupWork) &&
+        (!groupRuntime.updated || run.toolCalls > 0)
+      )
+        await this.collectArtifacts?.(botId, run.id);
+    } catch (error) {
+      this.store.message(botId, 'event', `工作文件列表暂未更新：${(error as Error).message}`, { runId: run.id });
+    }
+    this.groupActive.delete(botId);
+    this.runtimes.delete(botId);
+    this.active.delete(botId);
+    if (cognition) cognition.afterRun(botId, run.id, state.lastRuntimeMessages, state.lastTools);
+    else this.cognition?.learning.schedule();
+    this.changed();
   }
   /** Shared, permission-checked tool services; execution loops own their own context and lifecycle. */
   openToolSession(botId: string, runId: string, options: HarnessRunOptions, allow: (name: string) => boolean) {
