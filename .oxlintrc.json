@@ -41,5 +41,45 @@
     ".local/**",
     "assets/**",
     "website/dist/**"
+  ],
+  "overrides": [
+    {
+      "files": ["electron/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/src/*", "**/src/**"],
+                "message": "The main process must not import renderer code; move shared modules to shared/."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["shared/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "react",
+                "message": "shared/ must stay framework-free."
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["**/src/**", "**/electron/**"],
+                "message": "shared/ must not depend on the renderer or the main process."
+              }
+            ]
+          }
+        ]
+      }
+    }
   ]
 }

@@ -1,17 +1,7 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "jsx": "react-jsx",
-    "strict": true,
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "allowImportingTsExtensions": true,
-    "skipLibCheck": true,
-    "noEmit": true,
-    "types": ["node"]
-  },
-  "include": ["src", "shared", "electron", "tests", "scripts/*.ts"]
+  // Main process, preload/window scripts, tests and scripts. DOM types stay available for
+  // code evaluated inside pages and for linkedom-based HTML processing.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": { "types": ["node"] },
+  "include": ["electron", "shared", "tests", "scripts/*.ts", "types", "src"]
 }
