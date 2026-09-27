@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { Bot, VmState } from '../../shared/types/core';
-import { Avatar, Icon } from '../ui';
+import { Avatar } from '../ui/Avatar';
+import { Icon } from '../ui/Icon';
 import { computerSetupActions, computerSetupActionLabel, computerSetupState } from './computer-setup-state';
 import { useI18n } from '../i18n';
 import './computer-setup.css';

@@ -1,5 +1,5 @@
 import type { UpdateState } from '../../shared/types/update-types';
-import { Icon } from '../ui';
+import { Icon } from '../ui/Icon';
 import { useI18n } from '../i18n';
 import './updates.css';
 

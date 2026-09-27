@@ -22,7 +22,10 @@ import {
   type GroupTask,
   type GroupsView,
 } from '../../shared/types/group-types';
-import { Avatar, Icon, MentionContent, type FileItem } from '../ui';
+import { Avatar } from '../ui/Avatar';
+import { Icon } from '../ui/Icon';
+import { MentionContent } from '../ui/MentionContent';
+import type { FileItem } from '../ui/FileCard';
 import { groupReplyContent } from '../../shared/chat/message-envelope';
 import { botMentions } from '../../shared/chat/mentions';
 import { BotComposer, type ComposerDraft } from '../chat/BotComposer';

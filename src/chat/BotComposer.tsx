@@ -16,7 +16,8 @@ import {
   type AttachmentScope,
   type DroppedAttachment,
 } from '../../shared/types/attachment-types';
-import { Avatar, Icon } from '../ui';
+import { Avatar } from '../ui/Avatar';
+import { Icon } from '../ui/Icon';
 import { CompanionGlyph } from '../bots/CompanionCard';
 import { botIdentity, normalizeBotAvatarStyle, type BotPalette } from '../../shared/chat/bot-colors';
 import { botAvatarDataUrl } from '../bots/bot-avatar';

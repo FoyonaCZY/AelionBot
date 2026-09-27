@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { DiagnosticPreview } from '../../shared/types/diagnostic-types';
 import { SettingsSection } from './SettingsWindow';
-import { bytes, Icon } from '../ui';
+import { bytes } from '../ui/format';
+import { Icon } from '../ui/Icon';
 import { useI18n } from '../i18n';
 import './feedback.css';
 

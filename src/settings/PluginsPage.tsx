@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Snapshot } from '../../shared/types/core';
 import { IntegrationSources, McpSnippetDialog } from './IntegrationSettings';
 import { PluginDetails, PluginOwner, PluginSwitch } from './PluginDetails';
-import { Icon } from '../ui';
+import { Icon } from '../ui/Icon';
 import { useI18n } from '../i18n';
 import './plugins.css';
 export type PluginFilter = 'all' | 'skills' | 'mcp';

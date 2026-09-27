@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react';
-import { Avatar } from '../ui';
+import { Avatar } from '../ui/Avatar';
 import { Select } from '../ui/Select';
 import {
   BOT_PALETTES,

@@ -25,7 +25,12 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { FilePreviewProvider, PreviewScopeProvider, useFilePreview } from '../preview/FilePreviewContext';
 import { attachmentSummary, firstDeliveryAttachments } from '../../shared/types/attachment-types';
 import type { Bot, ChatMessage, InteractionRequest, ModelSelection, Snapshot } from '../../shared/types/core';
-import { Avatar, bytes, type FileItem, Icon, Message, time, Vnc } from '../ui';
+import { Avatar } from '../ui/Avatar';
+import { bytes, time } from '../ui/format';
+import type { FileItem } from '../ui/FileCard';
+import { Icon } from '../ui/Icon';
+import { Message } from '../ui/Message';
+import { Vnc } from '../ui/Vnc';
 import { RunMessage } from '../chat/RunMessage';
 import { BotWorkingStatus } from '../chat/BotWorkingStatus';
 import { liveBotProgress as liveBotStep } from './live-bot-progress';

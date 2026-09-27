@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { Icon } from '../ui';
+import { Icon } from '../ui/Icon';
 import { useI18n } from '../i18n';
 
 export type SettingsTab =

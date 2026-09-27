@@ -4,7 +4,7 @@ import type { DesignSession } from '../../shared/types/designer-types';
 import { toolOperation } from '../../shared/chat/activity';
 import { liveBotProgress, waitingExplanation } from '../app/live-bot-progress';
 import { useI18n } from '../i18n';
-import { Icon } from '../ui';
+import { Icon } from '../ui/Icon';
 const designLabels: Record<string, [string, string]> = {
   design_tasks: ['查看设计任务', 'Review design tasks'],
   design_start: ['创建设计任务', 'Create design task'],

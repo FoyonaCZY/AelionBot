@@ -23,7 +23,9 @@ import {
   primaryDesignArtifact as primaryArtifact,
   type DesignWorkspaceFile,
 } from '../../shared/preview/designer-canvas';
-import { Avatar, Icon, Message } from '../ui';
+import { Avatar } from '../ui/Avatar';
+import { Icon } from '../ui/Icon';
+import { Message } from '../ui/Message';
 import { PreviewIcon } from '../preview/FilePreview';
 import { PreviewPicker } from '../preview/PreviewPicker';
 import { BotComposer, type ComposerDraft } from '../chat/BotComposer';

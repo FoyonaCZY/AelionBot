@@ -6,7 +6,7 @@ import {
   type HostPermissionMode,
 } from '../../shared/types/permission-types';
 import { Select } from '../ui/Select';
-import { Icon } from '../ui';
+import { Icon } from '../ui/Icon';
 import { useI18n } from '../i18n';
 import './permission-modes.css';
 

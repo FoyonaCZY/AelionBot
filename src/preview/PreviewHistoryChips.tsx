@@ -1,4 +1,4 @@
-import { Icon } from '../ui';
+import { Icon } from '../ui/Icon';
 import { useI18n } from '../i18n';
 import type { PreviewHistoryEntry } from '../../shared/preview/agent-preview-types';
 import './preview-history.css';

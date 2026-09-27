@@ -1,4 +1,4 @@
-import { Avatar } from '../ui';
+import { Avatar } from '../ui/Avatar';
 import './companion-cards.css';
 
 export type CompanionKind = 'plan' | 'goal' | 'permission' | 'takeover' | 'schedule';

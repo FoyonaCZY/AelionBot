@@ -7,7 +7,7 @@ import type {
   DesignFontCheck,
   DesignFontStyle,
 } from '../../shared/types/design-font-types';
-import { Icon } from '../ui';
+import { Icon } from '../ui/Icon';
 import './design-fonts.css';
 
 interface DesignFontsApi {

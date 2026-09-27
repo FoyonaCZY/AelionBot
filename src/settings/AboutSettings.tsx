@@ -3,7 +3,8 @@ import { version } from '../../package.json';
 import type { UpdateState } from '../../shared/types/update-types';
 import { SettingsSection } from './SettingsWindow';
 import { FeedbackSettings } from './FeedbackSettings';
-import { Avatar, bytes } from '../ui';
+import { Avatar } from '../ui/Avatar';
+import { bytes } from '../ui/format';
 import { useI18n } from '../i18n';
 import '../app/updates.css';
 

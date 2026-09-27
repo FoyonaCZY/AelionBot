@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Icon } from '../ui';
+import { Icon } from '../ui/Icon';
 import { previewErrorText } from '../preview/preview-utils';
 import { useI18n } from '../i18n';
 import type { WorkspaceDirectory, WorkspaceFileEntry } from '../../shared/preview/workspace-files';

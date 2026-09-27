@@ -8,7 +8,7 @@ import {
   type ImageProtocol,
   type ImageProtocolInfo,
 } from '../../shared/types/image-types';
-import { Icon } from '../ui';
+import { Icon } from '../ui/Icon';
 import { ModelSelectionFields, validModelSelection } from './ModelSelectionFields';
 import { ContextCapacityInput } from './ContextCapacityInput';
 import { EditableSelect } from '../ui/EditableSelect';

@@ -1,5 +1,5 @@
 import type { OperationDenial as Denial } from '../../shared/chat/operation-denial';
-import { Icon } from '../ui';
+import { Icon } from '../ui/Icon';
 import { useI18n } from '../i18n';
 import './operation-denial.css';
 export function OperationDenial({ denial }: { denial: Denial }) {

@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react';
-import { bytes, FileCard, Icon, type FileItem } from '../ui';
+import { bytes } from '../ui/format';
+import { FileCard, type FileItem } from '../ui/FileCard';
+import { Icon } from '../ui/Icon';
 import { useI18n } from '../i18n';
 import './artifact-list.css';
 

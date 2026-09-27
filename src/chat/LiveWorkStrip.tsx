@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { LiveWorkItem } from '../../shared/chat/live-work';
 import { liveWorkTitle } from '../../shared/chat/live-work';
-import { Icon } from '../ui';
+import { Icon } from '../ui/Icon';
 import { useI18n } from '../i18n';
 import './live-work.css';
 

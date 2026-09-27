@@ -9,7 +9,8 @@ import {
   toolDisplay,
 } from '../../shared/chat/activity';
 import { ToolDetails } from './ToolDetails';
-import { Icon, Message } from '../ui';
+import { Icon } from '../ui/Icon';
+import { Message } from '../ui/Message';
 import { useI18n } from '../i18n';
 import './activity.css';
 import './run-outcomes.css';
