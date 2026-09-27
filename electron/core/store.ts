@@ -45,7 +45,7 @@ export interface StoredProvider extends Omit<ModelProvider, 'hasKey'> {
 interface Persisted {
   groupOutbox?: GroupOutbox[];
   groupContextVersions?: Record<string, number>;
-  language?: import('../../src/interface-language').Language;
+  language?: import('../../shared/i18n').Language;
   appearance?: import('../../src/appearance').AppearanceSettings;
   userProfile?: import('../../src/user-profile').UserProfile;
   historyVersions?: Record<string, number>;

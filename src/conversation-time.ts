@@ -1,5 +1,5 @@
 import { readableContent } from './activity';
-import { currentLanguage, translate } from './i18n';
+import { currentLanguage, translate } from '../shared/i18n';
 export interface TimedMessage {
   id: string;
   time: string;

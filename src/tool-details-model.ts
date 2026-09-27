@@ -1,5 +1,5 @@
 import { friendlyError } from './activity';
-import { translate } from './i18n';
+import { translate } from '../shared/i18n';
 
 export const objectValue = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};

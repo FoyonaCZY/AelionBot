@@ -21,7 +21,7 @@ import php from 'highlight.js/lib/languages/php';
 import ini from 'highlight.js/lib/languages/ini';
 import markdown from 'highlight.js/lib/languages/markdown';
 import dockerfile from 'highlight.js/lib/languages/dockerfile';
-import { translate } from './i18n';
+import { translate } from '../shared/i18n';
 import makefile from 'highlight.js/lib/languages/makefile';
 
 for (const [name, grammar] of Object.entries({

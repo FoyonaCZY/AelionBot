@@ -1,6 +1,6 @@
 import type { DelegationContract, DelegationReceipt } from '../electron/core/delegation';
 import type { Attachment } from './attachment-types';
-import { translate } from './i18n';
+import { translate } from '../shared/i18n';
 export interface BotIdentity {
   id: string;
   name: string;

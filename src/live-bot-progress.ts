@@ -1,6 +1,6 @@
 import { liveBotStep, toolOperation, type LiveBotStep } from './activity';
 import type { ChatMessage, RunRecord } from './shared';
-import { translate } from './i18n';
+import { translate } from '../shared/i18n';
 
 export interface LiveBotProgress extends LiveBotStep {
   runId?: string;

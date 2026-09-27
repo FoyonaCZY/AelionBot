@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validLanguage } from '../src/interface-language';
+import { validLanguage } from '../shared/i18n';
 import { initializeI18n, currentLanguage, LANGUAGE_STORAGE_KEY } from '../src/i18n';
 test('interface language initializes locally without model-language IPC', () => {
   const beforeWindow = Object.getOwnPropertyDescriptor(globalThis, 'window'),

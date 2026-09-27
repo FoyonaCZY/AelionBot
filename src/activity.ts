@@ -1,7 +1,7 @@
 import type { ChatMessage, RunRecord } from './shared';
 import { placeQuestionAnswers, readableQuestionAnswer } from './question-answers';
 import { isContextCapacityFailure } from './context-issue';
-import { currentLanguage, translate } from './i18n';
+import { currentLanguage, translate } from '../shared/i18n';
 
 const operations: Record<string, { label: string; active: string; icon: string }> = {
   open_preview: { label: '预览', active: '正在打开预览', icon: 'file' },

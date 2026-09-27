@@ -1,4 +1,4 @@
-import { currentLanguage, translate } from './i18n';
+import { currentLanguage, translate } from '../shared/i18n';
 
 export type TaskTarget = { kind: 'bot' | 'group'; id: string };
 export type TaskSchedule = (
