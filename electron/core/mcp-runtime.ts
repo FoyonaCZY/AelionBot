@@ -3,7 +3,7 @@ import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
 import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {SSEClientTransport} from '@modelcontextprotocol/sdk/client/sse.js';
-import type {Tool} from '@modelcontextprotocol/sdk/types.js';
+import {ToolListChangedNotificationSchema,type Tool} from '@modelcontextprotocol/sdk/types.js';
 import type {HostPermissionDetails,McpServerView,ScreenReference} from '../../src/shared';
 import {publicEndpoint,redactMcp,type McpConfig} from './mcp-config';
 import {hostname,networkInterfaces} from 'node:os';
@@ -68,12 +68,19 @@ export class McpRuntime {
         await Promise.race([client.connect(transport),new Promise<never>((_resolve,reject)=>{timer=setTimeout(()=>reject(new Error('MCP_STARTUP_TIMEOUT')),config.startupTimeout);})]);
         clearTimeout(timer);
         if(this.closing||!this.enabled(config)||this.configs.get(config.id)?.fingerprint!==config.fingerprint)throw new Error('MCP_DISABLED');
-        const tools:Tool[]=[];let cursor:string|undefined;
-        if(client.getServerCapabilities()?.tools)do{
-          const page=await client.listTools(cursor?{cursor}:{},{timeout:config.startupTimeout});tools.push(...page.tools.filter(tool=>this.allowed(config,tool.name)));cursor=page.nextCursor;
-          if(tools.length>1000)throw new Error('MCP_TOOL_LIMIT');
-        }while(cursor);
-        const connection={client,transport,tools,fingerprint:config.fingerprint};
+        const listAll=async()=>{
+          const tools:Tool[]=[];let cursor:string|undefined;
+          if(client.getServerCapabilities()?.tools)do{
+            const page=await client.listTools(cursor?{cursor}:{},{timeout:config.startupTimeout});tools.push(...page.tools.filter(tool=>this.allowed(config,tool.name)));cursor=page.nextCursor;
+            if(tools.length>1000)throw new Error('MCP_TOOL_LIMIT');
+          }while(cursor);
+          return tools;
+        };
+        const connection={client,transport,tools:await listAll(),fingerprint:config.fingerprint};
+        // Servers that add or remove tools at runtime announce it; keep the cached list current instead of frozen at connect.
+        if(client.getServerCapabilities()?.tools?.listChanged)client.setNotificationHandler(ToolListChangedNotificationSchema,async()=>{
+          try{const tools=await listAll();if(this.connections.get(config.id)===connection){connection.tools=tools;this.changed();}}catch{/* Keep the previous list; the next call still validates against the server. */}
+        });
         client.onclose=()=>{if(this.connections.get(config.id)===connection){this.connections.delete(config.id);this.states.set(config.id,{status:'available',issue:'连接已结束，下次使用会重新连接'});this.changed();}};
         client.onerror=()=>{};
         return connection;
@@ -94,11 +101,16 @@ export class McpRuntime {
     })();
     this.pending.set(config.id,promise);return promise;
   }
-  async listTools(id:string,query='',offset=0,limit=100){
+  async listTools(id:string,query='',offset=0,limit=100,full=false){
     if(!Number.isInteger(offset)||offset<0||!Number.isInteger(limit)||limit<1||limit>1000)throw Error('工具分页参数无效');
     const config=this.find(id),connection=await this.connect(config.id);const wanted=query.toLowerCase();
     const tools=connection.tools.filter(tool=>!wanted||`${tool.name} ${tool.description||''}`.toLowerCase().includes(wanted));
-    const end=Math.min(tools.length,offset+limit);return {server:config.id,name:config.name,location:publicEndpoint(config),total:tools.length,tools:tools.slice(offset,end),nextOffset:end,eof:end>=tools.length};
+    const end=Math.min(tools.length,offset+limit),page=tools.slice(offset,end),result={server:config.id,name:config.name,location:publicEndpoint(config),total:tools.length,tools:page,nextOffset:end,eof:end>=tools.length};
+    // Large servers can return tens of thousands of tokens of schemas; list names first and fetch schemas by exact name.
+    const exact=page.filter(tool=>tool.name.toLowerCase()===wanted);
+    if(exact.length)return {...result,tools:exact};
+    if(full||JSON.stringify(result).length<=12000)return result;
+    return {...result,schemaOmitted:true,next:'参数 schema 已省略。调用前用 query=准确工具名 读取该工具的完整 schema。',tools:page.map(tool=>{const schema=tool.inputSchema as {properties?:Record<string,unknown>;required?:string[]}|undefined;return {name:tool.name,description:(tool.description||'').slice(0,240),parameters:Object.keys(schema?.properties||{}),required:schema?.required||[],...(tool.annotations?{annotations:tool.annotations}:{})};})};
   }
   async inspectCall(id:string,name:string,args:Record<string,unknown>,requireLocalApproval=false):Promise<{fingerprint:string;permission?:HostPermissionDetails}>{
     const config=this.find(id),connection=await this.connect(config.id),tool=connection.tools.find(tool=>tool.name===name);
@@ -123,13 +135,14 @@ export class McpRuntime {
         try{if(!this.imageSink)throw new Error('No image sink');const image=this.imageSink(block.data,block.mimeType);images.push(image);return {type:'text',text:`工具图像已附加：${image.width}×${image.height}`};}
         catch{return {type:'text',text:'该工具返回的图像无法加载，文本结果仍可读取。'};}
       });
-      return {server:config.id,tool:name,...safe,...(images.length?{images}:{})};
+      // Tool output is third-party data, like web pages: it can inform the task but never grant or change authorization.
+      return {...safe,server:config.id,tool:name,untrusted:true,...(images.length?{images}:{})};
     }catch(error){throw Object.assign(new Error(signal.aborted?'MCP 操作已取消；已发生的操作不会回滚':'MCP 工具调用失败或结果超限；操作可能已经发生，请先核对结果再决定是否重试'),{outcomeUnknown:true});}
   }
   private async safeRequest(config:McpConfig,operation:()=>Promise<unknown>){try{const result=await operation();if(JSON.stringify(result).length>16*1024*1024)throw new Error('Result limit');return redactMcp(result,config);}catch{throw new Error('MCP 资源或模板请求失败，请检查服务状态和参数');}}
   async listResources(id:string,cursor?:string){const config=this.find(id),connection=await this.connect(config.id);if(!connection.client.getServerCapabilities()?.resources)return {resources:[]};return this.safeRequest(config,()=>connection.client.listResources(cursor?{cursor}:{}, {timeout:config.toolTimeout}));}
   async listResourceTemplates(id:string,cursor?:string){const config=this.find(id),connection=await this.connect(config.id);if(!connection.client.getServerCapabilities()?.resources)return {resourceTemplates:[]};return this.safeRequest(config,()=>connection.client.listResourceTemplates(cursor?{cursor}:{},{timeout:config.toolTimeout}));}
-  async readResource(id:string,uri:string,signal:AbortSignal){const config=this.find(id),connection=await this.connect(config.id);return this.safeRequest(config,()=>connection.client.readResource({uri},{signal,timeout:config.toolTimeout}));}
+  async readResource(id:string,uri:string,signal:AbortSignal){const config=this.find(id),connection=await this.connect(config.id);return {...await this.safeRequest(config,()=>connection.client.readResource({uri},{signal,timeout:config.toolTimeout})) as Record<string,unknown>,untrusted:true};}
   async listPrompts(id:string){const config=this.find(id),connection=await this.connect(config.id);if(!connection.client.getServerCapabilities()?.prompts)return {prompts:[]};return this.safeRequest(config,()=>connection.client.listPrompts({}, {timeout:config.toolTimeout}));}
   async getPrompt(id:string,name:string,args:Record<string,string>,signal:AbortSignal){const config=this.find(id),connection=await this.connect(config.id);return this.safeRequest(config,()=>connection.client.getPrompt({name,arguments:args},{signal,timeout:config.toolTimeout}));}
   async disconnect(id:string){

@@ -90,3 +90,18 @@ test('evidence is scoped to current bot/run and in-flight executions recover as 
  assert.notEqual(executionTarget('host_execute',{command:'echo "a b"'},bot.id).targetKey,executionTarget('host_execute',{command:'echo "ab"'},bot.id).targetKey);
  assert.equal(executionTarget('file_write',{path:'/work/'+bot.id+'/a'},bot.id).targetKey,executionTarget('file_write',{path:'a'},bot.id).targetKey);
 });
+
+test('a failed multi-file patch is settled once each of its files is written successfully, not by unrelated writes',t=>{
+ const store=fixture(t),bot=store.data.bots[0],ledger=new ExecutionLedger(store);
+ store.data.runs.push({id:'run',botId:bot.id,status:'running',startedAt:new Date().toISOString(),modelCalls:0,toolCalls:0});
+ const invoke=(id:string,name:string,args:Record<string,unknown>,status:'failed'|'succeeded')=>{const entry=ledger.begin(bot.id,'run',{id,type:'function',function:{name,arguments:JSON.stringify(args)}},args);ledger.finish(entry,status,{},'00000000-0000-0000-0000-00000000000'+id.length);return entry;};
+ const patch='*** Begin Patch\n*** Update File: src/a.ts\n@@\n-x\n+y\n*** Update File: src/b.ts\n@@\n-x\n+y\n*** End Patch';
+ const failed=invoke('p1','apply_patch',{location:'vm',patch},'failed');
+ assert.deepEqual(failed.paths,[`vm:/work/${bot.id}/src/a.ts`,`vm:/work/${bot.id}/src/b.ts`]);
+ invoke('w1','file_write',{path:'other.ts',content:'x'},'succeeded');assert.equal(failed.resolution,undefined);
+ invoke('w2','file_patch',{path:'src/a.ts'},'succeeded');assert.equal(failed.resolution,undefined);
+ invoke('w3','apply_patch',{location:'vm',patch:'*** Begin Patch\n*** Update File: /work/'+bot.id+'/src/b.ts\n@@\n-x\n+z\n*** End Patch'},'succeeded');
+ assert.equal(ledger.list(bot.id,'run').find(entry=>entry.id===failed.id)?.resolution?.kind,'resolved');assert.equal(ledger.blocking(bot.id,'run').length,0);
+ // Host and VM paths never settle each other.
+ const host=invoke('h1','host_file_patch',{path:'C:\repo\a.ts'},'failed');invoke('h2','file_patch',{path:'a.ts'},'succeeded');assert.equal(host.resolution,undefined);
+});

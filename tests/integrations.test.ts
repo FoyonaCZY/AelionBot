@@ -152,3 +152,17 @@ test('plugin skill switches persist, keep disabled details inspectable, and bloc
  reopened.setEnabled('owned-switch',true);reopened.manage(a.id,'owned-switch','archive');assert.equal(reopened.all().find(item=>item.id==='owned-switch')?.enabled,false);
  reopened.setEnabled('owned-switch',true);assert.ok(reopened.list(a.id).some(item=>item.id==='owned-switch'));assert.ok(!reopened.list(b.id).some(item=>item.id==='owned-switch'));
 });
+test('MCP tool lists follow list_changed notifications, results are marked untrusted and huge lists omit schemas',async t=>{
+  const paths=fixture(t);file(join(paths.configDir,'mcp.json'),JSON.stringify({mcpServers:{dynamic:{command:process.execPath,args:[resolve('tests/fixtures/mcp-server.mjs'),'--stdio'],cwd:resolve('.'),env:{MCP_FIXTURE_DYNAMIC:'1'}}}}));
+  const runtime=new McpRuntime({},()=>{});t.after(()=>runtime.dispose());await runtime.replace(discoverMcp(paths).configs);await runtime.setEnabled('dynamic',true);
+  assert.ok(!(await runtime.listTools('dynamic')).tools.some(tool=>tool.name==='added'));
+  const grown=await runtime.call('dynamic','grow',{},new AbortController().signal);assert.equal(grown.untrusted,true);assert.equal(grown.server,runtime.views().find(view=>view.name==='dynamic')!.id);assert.equal(grown.tool,'grow');
+  let names:string[]=[];for(let i=0;i<50&&!names.includes('added');i++){await new Promise(resolve=>setTimeout(resolve,20));names=(await runtime.listTools('dynamic')).tools.map(tool=>tool.name);}
+  assert.ok(names.includes('added'));assert.equal((await runtime.inspectCall('dynamic','added',{})).permission?.operation,'mcp');
+  assert.equal((await runtime.readResource('dynamic','fixture://readme',new AbortController().signal) as any).untrusted,true);
+  // Simulate a large server: schemas are omitted from the page but an exact name returns the full schema.
+  const connection=(runtime as any).connections.get(runtime.views().find(view=>view.name==='dynamic')!.id);connection.tools=Array.from({length:60},(_,i)=>({name:`tool_${i}`,description:'d'.repeat(400),inputSchema:{type:'object',properties:{value:{type:'string',description:'x'.repeat(300)}},required:['value']}}));
+  const page=await runtime.listTools('dynamic') as any;assert.equal(page.schemaOmitted,true);assert.deepEqual(page.tools[0].parameters,['value']);assert.equal(page.tools[0].inputSchema,undefined);
+  const exact=await runtime.listTools('dynamic','tool_7') as any;assert.equal(exact.tools.length,1);assert.equal(exact.tools[0].inputSchema.required[0],'value');
+  assert.ok((await runtime.listTools('dynamic','',0,100,true) as any).tools[0].inputSchema);
+});

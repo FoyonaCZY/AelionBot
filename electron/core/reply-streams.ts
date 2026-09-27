@@ -8,6 +8,8 @@ export class ReplyStreams {
   private entries=new Map<string,{reply:StreamingReply;token:symbol}>();
   private timer?:ReturnType<typeof setTimeout>;
   private lastEmit=0;
+  /** Streaming ticks only change streamingReplies; the app sends them without rebuilding the whole snapshot. */
+  onEmit?:()=>void;
   constructor(private changed:()=>void,private interval=100){}
   snapshot(){return [...this.entries.values()].map(entry=>structuredClone(entry.reply)).filter(reply=>reply.content).sort((a,b)=>a.time.localeCompare(b.time)||a.id.localeCompare(b.id));}
   begin(target:StreamTarget,members?:()=>BotIdentity[]){
@@ -28,7 +30,7 @@ export class ReplyStreams {
   dropRun(runId:string){this.drop(reply=>reply.runId===runId);}
   dropBot(botId:string){this.drop(reply=>reply.botId===botId);}
   private drop(match:(reply:StreamingReply)=>boolean){let changed=false;for(const [id,entry] of this.entries)if(match(entry.reply)){this.entries.delete(id);changed=true;}if(!this.entries.size){clearTimeout(this.timer);this.timer=undefined;}if(changed)this.emit();}
-  private emit(){clearTimeout(this.timer);this.timer=undefined;this.lastEmit=Date.now();this.changed();}
+  private emit(){clearTimeout(this.timer);this.timer=undefined;this.lastEmit=Date.now();(this.onEmit||this.changed)();}
   private schedule(){const remaining=this.interval-(Date.now()-this.lastEmit);if(remaining<=0){this.emit();return;}if(!this.timer){this.timer=setTimeout(()=>this.emit(),remaining);this.timer.unref?.();}}
   dispose(){clearTimeout(this.timer);this.timer=undefined;this.entries.clear();}
 }

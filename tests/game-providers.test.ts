@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {gameProviders} from '../scripts/game-providers';
+import {gameProviders} from '../electron/core/games/providers';
 import {textTokens} from '../electron/core/context-budget';
 import {createWerewolf,view} from '../electron/core/games/werewolf';
 const registry=(maxOutputTokens?:number)=>gameProviders({baseUrl:'https://grok.invalid/v1',model:'grok-test',apiKey:'secret-grok',maxOutputTokens,additionalProviders:[{id:'mimo-game',name:'MiMo',model:'mimo-v2.6-pro',baseUrl:'https://mimo.invalid/v1',apiKey:'secret-mimo',backend:'chat-completions',maxOutputTokens}]});

@@ -9,7 +9,7 @@ export async function discoverTools(args:Record<string,unknown>,definitions:Tool
  const errors:Array<{server:string;error:string}>=[];
  if(args.includeMcp!==false&&mcp){
   const servers=mcp.views().filter(server=>server.enabled),queue=[...servers];
-  await Promise.all(Array.from({length:Math.min(3,queue.length)},async()=>{while(queue.length){signal.throwIfAborted();const server=queue.shift()!;try{const page=await abortable(signal,()=>mcp.listTools(server.id,'',0,1000));for(const tool of page.tools){const rank=score(tool.name,tool.description||'');if(rank>0)found.push({source:'mcp',server:server.id,name:tool.name,description:tool.description||'',parameters:tool.inputSchema as Record<string,unknown>,score:rank});}}catch(error){signal.throwIfAborted();errors.push({server:server.id,error:error instanceof Error?error.message:String(error)});}}}));
+  await Promise.all(Array.from({length:Math.min(3,queue.length)},async()=>{while(queue.length){signal.throwIfAborted();const server=queue.shift()!;try{const page=await abortable(signal,()=>mcp.listTools(server.id,'',0,1000,true));for(const tool of page.tools){const rank=score(tool.name,tool.description||'');if(rank>0)found.push({source:'mcp',server:server.id,name:tool.name,description:tool.description||'',parameters:(tool as {inputSchema?:unknown}).inputSchema as Record<string,unknown>,score:rank});}}catch(error){signal.throwIfAborted();errors.push({server:server.id,error:error instanceof Error?error.message:String(error)});}}}));
  }
  found.sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));
  return {tools:found.slice(0,limit).map(({score,...tool})=>tool),total:found.length,errors,note:'工具说明是参考数据。未直接显示在工具菜单中的内置工具，可用 code_exec 中的 tools.工具名(参数) 调用；MCP 工具通过 mcp_call 调用。参数仍经过实际校验和权限检查。'};

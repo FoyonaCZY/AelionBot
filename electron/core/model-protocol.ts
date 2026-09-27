@@ -60,7 +60,9 @@ function buildProtocolRequest(cfg:ModelConfig,messages:WireMessage[],tools:ToolD
   for(const message of wire)for(const part of message.content)delete part.cache_control;
   const systemParts=system.map((text,index)=>({type:'text',text,...(index===0||index===system.length-1?{cache_control:{type:'ephemeral'}}:{})}));
   for(const part of [...new Set(cacheCandidates)].slice(-2))part.cache_control={type:'ephemeral'};
-  return {url:base+'/messages',headers,body:{model:cfg.model,system:systemParts.length?systemParts:undefined,messages:wire,stream:true,max_tokens:output,...temperature,...(cfg.thinkingBudget&&output>1024?{thinking:{type:'enabled',budget_tokens:Math.min(cfg.thinkingBudget,output-1)}}:{}),...(tools.length?{tools:tools.map(t=>({name:t.function.name,description:t.function.description,input_schema:t.function.parameters}))}:{})}};
+  // Thinking may use at most half of the output so text and tool calls are never starved; the API requires at least 1024 and rejects a custom temperature with thinking.
+  const thinkingBudget=cfg.thinkingBudget?Math.min(cfg.thinkingBudget,Math.floor(output/2)):0,thinking=thinkingBudget>=1024;
+  return {url:base+'/messages',headers,body:{model:cfg.model,system:systemParts.length?systemParts:undefined,messages:wire,stream:true,max_tokens:output,...(thinking?{}:temperature),...(thinking?{thinking:{type:'enabled',budget_tokens:thinkingBudget}}:{}),...(tools.length?{tools:tools.map(t=>({name:t.function.name,description:t.function.description,input_schema:t.function.parameters}))}:{})}};
  }
  if(key)headers['x-goog-api-key']=key;
  return {url:`${base}/models/${encodeURIComponent(cfg.model.replace(/^models\//,''))}:streamGenerateContent?alt=sse`,headers,body:{systemInstruction:system.length?{parts:[{text:system.join('\n\n')}]}:undefined,contents:wire,generationConfig:{maxOutputTokens:output,...temperature,...(cfg.thinkingBudget!==undefined?{thinkingConfig:{thinkingBudget:cfg.thinkingBudget}}:{})},...(tools.length?{tools:[{functionDeclarations:tools.map(t=>({name:t.function.name,description:t.function.description,parametersJsonSchema:t.function.parameters}))}]}:{})}};

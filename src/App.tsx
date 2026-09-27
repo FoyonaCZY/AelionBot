@@ -132,7 +132,7 @@ function AppContent(){
   useEffect(()=>{
     if(!window.aelion)return;
     window.aelion.snapshot().then(value=>{setState(value);setSelected(value.messages.at(-1)?.botId||value.bots[0]?.id||'');}).catch(error=>setToast(errorText(error)));
-    return window.aelion.onEvent(event=>setState(event.snapshot));
+    return window.aelion.onEvent(event=>setState(previous=>event.type==='streams'?previous&&{...previous,streamingReplies:event.streamingReplies}:event.snapshot));
   },[]);
   useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(''),6000);return()=>clearTimeout(timer);},[toast]);
   useEffect(()=>{

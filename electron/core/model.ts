@@ -21,7 +21,7 @@ import {ContentPolicyError,contentPolicyRejected,omitToolCallArguments,omitToolR
 import {ResponsesTransport,websocketEnabled,type TransportStats} from './responses-transport';
 export interface ToolDefinition {type:'function';function:{name:string;description:string;parameters:Record<string,unknown>};}
 export interface Completion {requestModelKey?:string;inputImagesOmitted?:boolean;toolOutputsOmitted?:boolean;content:string;calls:ToolCall[];finishReason:string;usage?:ModelUsage;native?:NativeAssistant;}
-export interface CompletionOptions {splitOnTimeout?:boolean;onContext?:(overview:ContextOverview)=>void;onStatus?:(status:ModelRequestStatus)=>void;requiredImageIds?:string[];contextStats?:ContextUsage;botId?:string;runId?:string;cacheScope?:string;purpose?:string;maxOutputTokens?:number;timeoutMs?:number;retries?:number;onReset?:()=>void;hostedImageGeneration?:boolean;config?:ModelConfig;key?:string;}
+export interface CompletionOptions {splitOnTimeout?:boolean;onContext?:(overview:ContextOverview)=>void;onStatus?:(status:ModelRequestStatus)=>void;requiredImageIds?:string[];contextStats?:ContextUsage;botId?:string;runId?:string;cacheScope?:string;purpose?:string;cachePurpose?:string;maxOutputTokens?:number;timeoutMs?:number;retries?:number;onReset?:()=>void;hostedImageGeneration?:boolean;config?:ModelConfig;key?:string;}
 export class ContextOverflowError extends Error {constructor(){super('模型报告上下文容量不足，需要压缩后继续');this.name='ContextOverflowError';}}
 class RequestError extends Error {constructor(message:string,readonly retryable=false,readonly retryAfterMs=0,readonly truncated=false){super(message);}}
 export function validateModelEndpoint(value:string){const url=new URL(value);if(url.username||url.password||url.search||url.hash)throw Error('API 地址不能包含凭据、查询参数或片段');if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(url.hostname)))throw Error('API 必须使用 HTTPS，本地模型可使用 localhost HTTP');return url.toString().replace(/\/$/,'');}
@@ -56,7 +56,7 @@ export class ModelClient {
    signal.throwIfAborted();const start=Date.now(),timeout=new RequestIdleTimeout(options.timeoutMs||settings.requestTimeoutMs),requestSignal=AbortSignal.any([signal,timeout.signal]);let accumulator:StreamAccumulator|undefined,requestCache:RequestCacheDiagnostics|undefined;
    notify({phase:'waiting',startedAt:new Date(start).toISOString(),updatedAt:new Date(start).toISOString(),attempt:Math.max(0,attempt),maxRetries:retries,reason:retryReason});
    try{
-    const featureKey=`${cfg.protocol||'chat'}:${nativeKey(cfg)}`,scope=options.cacheScope||options.botId,cacheKey=scope?promptCacheKey(featureKey,scope,options.purpose||'foreground'):undefined;
+    const featureKey=`${cfg.protocol||'chat'}:${nativeKey(cfg)}`,scope=options.cacheScope||options.botId,cacheKey=scope?promptCacheKey(featureKey,scope,options.cachePurpose||options.purpose||'foreground'):undefined;
     const send=async()=>{
      if(options.onContext&&(measuredMessages!==messages||measuredModelKey!==nativeKey(cfg)||measuredOutput!==output)){
       measuredMessages=messages;measuredModelKey=nativeKey(cfg);measuredOutput=output;

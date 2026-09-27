@@ -23,14 +23,22 @@ export function commandResultFailed(output:unknown){
 const isEvidence=(entry:ToolExecution)=>entry.status==='succeeded'&&!/^(execution_|task_|plan_|goal_|group_task_)/.test(entry.tool);
 
 function stable(value:unknown):string {if(Array.isArray(value))return '['+value.map(stable).join(',')+']';if(value&&typeof value==='object')return '{'+Object.entries(value).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>JSON.stringify(key)+':'+stable(item)).join(',')+'}';return JSON.stringify(value)??'null';}
+const WRITE_TOOLS=new Set(['file_write','file_patch','host_file_write','host_file_patch','apply_patch']);
+function hostTarget(value:string,hostWorkspace:string){const path=value||hostWorkspace,windows=/^[a-z]:[\\/]|^\\\\/i.test(path)||/^[a-z]:[\\/]|^\\\\/i.test(hostWorkspace),api=windows?win32:posix;return hostPathKey(hostWorkspace&&!api.isAbsolute(path)?api.resolve(hostWorkspace,path):path,windows?'win32':process.platform);}
+function patchPaths(args:Record<string,unknown>,botId:string,hostWorkspace:string){
+  if(typeof args.patch!=='string')return [];const vm=args.location==='vm',paths=new Set<string>();
+  for(const line of args.patch.split(/\r?\n/)){const match=/^\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+)$/.exec(line);if(match)paths.add(vm?'vm:'+posix.resolve('/work/'+botId,match[1].trim()):'host:'+hostTarget(match[1].trim(),hostWorkspace));}
+  return [...paths].sort();
+}
 export function executionTarget(tool:string,args:Record<string,unknown>,botId:string,hostWorkspace=''){
-  let target:string,operation=tool;
-  if(['file_write','file_read','file_patch'].includes(tool)){operation=tool==='file_read'?'vm-read':'vm-write';target=posix.resolve('/work/'+botId,String(args.path||''));}
-  else if(['host_file_write','host_file_read','host_file_patch','host_list_directory'].includes(tool)){operation=tool==='host_file_read'?'host-read':tool==='host_list_directory'?'host-list':'host-write';const path=String(args.path||hostWorkspace),windows=/^[a-z]:[\\/]|^\\\\/i.test(path)||/^[a-z]:[\\/]|^\\\\/i.test(hostWorkspace),api=windows?win32:posix;target=hostPathKey(hostWorkspace&&!api.isAbsolute(path)?api.resolve(hostWorkspace,path):path,windows?'win32':process.platform);}
+  let target:string,operation=tool,paths:string[]|undefined;
+  if(['file_write','file_read','file_patch'].includes(tool)){operation=tool==='file_read'?'vm-read':'vm-write';target=posix.resolve('/work/'+botId,String(args.path||''));if(WRITE_TOOLS.has(tool))paths=['vm:'+target];}
+  else if(['host_file_write','host_file_read','host_file_patch','host_list_directory'].includes(tool)){operation=tool==='host_file_read'?'host-read':tool==='host_list_directory'?'host-list':'host-write';target=hostTarget(String(args.path||''),hostWorkspace);if(WRITE_TOOLS.has(tool))paths=['host:'+target];}
+  else if(tool==='apply_patch'){paths=patchPaths(args,botId,hostWorkspace);target=paths.length?paths.join(' '):createHash('sha256').update(stable(args)).digest('hex').slice(0,20);}
   else if(tool==='mcp_call'){target=String(args.server)+':'+String(args.name)+':'+createHash('sha256').update(stable(args.arguments)).digest('hex').slice(0,16);}
   else if(tool==='host_execute'){target=hostPathKey(String(args.cwd||hostWorkspace))+':'+createHash('sha256').update(String(args.command)).digest('hex').slice(0,16);}
   else target=createHash('sha256').update(stable(args)).digest('hex').slice(0,20);
-  return {target:redactHost(target).slice(0,600),targetKey:createHash('sha256').update(`${botId}:${operation}:${target}`).digest('hex')};
+  return {target:redactHost(target).slice(0,600),targetKey:createHash('sha256').update(`${botId}:${operation}:${target}`).digest('hex'),...(paths?.length?{paths}:{})};
 }
 export class ExecutionLedger {
   constructor(private store:Store){}
@@ -49,9 +57,16 @@ export class ExecutionLedger {
   finish(entry:ToolExecution,status:ToolExecution['status'],output:unknown,resultId:string){
     entry.status=status;entry.resultId=resultId;entry.endedAt=new Date().toISOString();
     if(status==='failed'||status==='unknown')entry.error=redactHost(JSON.stringify(output)).slice(0,1400);
-    if(status==='succeeded')for(const prior of this.forTask(entry.botId,entry.runId))if(prior.id!==entry.id&&prior.status==='failed'&&!prior.resolution){
-      if(planTools.has(entry.tool)&&planTools.has(prior.tool))this.resolveEntry(prior,'unnecessary','当前计划已成功更新，旧的失败提交已被替代',[entry.id]);
-      else if(prior.targetKey===entry.targetKey)this.resolveEntry(prior,'resolved','同一操作目标的后续执行成功',[entry.id]);
+    if(status==='succeeded'){
+      const task=this.forTask(entry.botId,entry.runId);
+      // A failed edit is settled once every file it targeted was later written successfully,
+      // whichever write tool did it; retries rarely repeat the exact same patch text.
+      const writtenSince=(prior:ToolExecution)=>new Set(task.filter(item=>item.status==='succeeded'&&item.startedAt>=prior.startedAt&&item.id!==prior.id).flatMap(item=>item.paths||[]));
+      for(const prior of task)if(prior.id!==entry.id&&prior.status==='failed'&&!prior.resolution){
+        if(planTools.has(entry.tool)&&planTools.has(prior.tool))this.resolveEntry(prior,'unnecessary','当前计划已成功更新，旧的失败提交已被替代',[entry.id]);
+        else if(prior.targetKey===entry.targetKey)this.resolveEntry(prior,'resolved','同一操作目标的后续执行成功',[entry.id]);
+        else if(prior.paths?.length&&entry.paths?.some(path=>prior.paths!.includes(path))){const written=writtenSince(prior);if(prior.paths.every(path=>written.has(path)))this.resolveEntry(prior,'resolved','失败修改涉及的文件随后都已成功写入',[entry.id]);}
+      }
     }
     this.store.save();this.store.journal('execution.finished',{id:entry.id,runId:entry.runId,status,resultId});
   }

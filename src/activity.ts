@@ -109,7 +109,7 @@ export function describeTool(name:string,input:Record<string,unknown>={},output?
 }
 
 export function toolResult(message:ChatMessage):unknown{
-  try{const parsed=JSON.parse(message.content);return parsed.truncated?{preview:parsed.preview,truncated:true}:Object.hasOwn(parsed,'result')?parsed.result:parsed;}catch{return undefined;}
+  try{const parsed=JSON.parse(message.content);return parsed.truncated?{preview:typeof parsed.preview==='string'?parsed.preview:JSON.stringify(parsed.result,null,2),truncated:true}:Object.hasOwn(parsed,'result')?parsed.result:parsed;}catch{return undefined;}
 }
 const activityDetail=(value:string)=>{const line=value.match(/^(.*) · 第 (\d+) 行起$/);return line?`${line[1]} · ${translate('第 {line} 行起',{line:line[2]})}`:translate(value);};
 export function toolDisplay(message:ChatMessage){return message.activity?{...message.activity,label:translate(message.activity.label),...(message.activity.detail?{detail:activityDetail(message.activity.detail)}:{})}:describeTool(message.tool||'',{},toolResult(message));}

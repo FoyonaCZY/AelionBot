@@ -18,10 +18,13 @@ export function estimateRequest(messages:WireMessage[],tools:ToolDefinition[],ca
   return {tokens:Math.ceil((text+schema+vision)*Math.max(1,calibration)),textTokens:text,toolTokens:schema,imageTokens:vision,calibration:Math.max(1,calibration)};
 }
 export function contextBudget(capacity:number){
-  const output=Math.min(4096,Math.max(1024,Math.floor(capacity*.2))),safety=Math.max(768,Math.min(8192,Math.floor(capacity*.08)));
+  // Large windows reserve up to 8k so a turn just below the trigger still has room for reasoning and a sizeable patch.
+  const output=capacity>=160000?8192:Math.min(4096,Math.max(1024,Math.floor(capacity*.2))),safety=Math.max(768,Math.min(8192,Math.floor(capacity*.08)));
   const input=capacity-output-safety;
   const headroom=Math.max(512,Math.min(8192,Math.floor(input*.03)));
-  return {capacity,output,safety,input,trigger:input-headroom,tail:Math.min(24000,Math.max(1200,Math.floor(input*.3))),summary:Math.min(3000,Math.max(600,Math.floor(input*.12)))};
+  // The verbatim tail and the summary grow with very large windows instead of collapsing a 1M context to ~30k.
+  const tail=Math.max(1200,Math.min(Math.floor(input*.3),Math.max(24000,Math.floor(input*.12)))),summary=Math.max(Math.min(3000,Math.max(600,Math.floor(input*.12))),Math.min(8000,Math.floor(input*.03)));
+  return {capacity,output,safety,input,trigger:input-headroom,tail,summary};
 }
 export interface Exchange {start:number;end:number;tokens:number;complete:boolean;}
 export function exchanges(history:WireMessage[],from=0):Exchange[]{

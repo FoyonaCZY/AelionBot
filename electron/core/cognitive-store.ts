@@ -81,9 +81,14 @@ export class CognitiveStore {
   }
   search(botId:string,query:string,limit=8){
     this.store.bot(botId);this.syncHistory(botId);query=query.trim().slice(0,300);if(!query)throw new Error('请输入要查找的历史内容');limit=Math.max(1,Math.min(20,limit));
-    let rows:any[];
-    if([...query].length>=3){const terms=query.split(/\s+/).filter(Boolean).map(term=>`"${term.replace(/"/g,'""')}"`).join(' OR ');rows=this.db.prepare('SELECT h.* FROM history_fts f JOIN history h ON h.id=f.id WHERE history_fts MATCH ? AND h.bot_id=? ORDER BY rank LIMIT ?').all(terms,botId,limit) as any[];}
-    else rows=this.db.prepare("SELECT * FROM history WHERE bot_id=? AND content LIKE ? ESCAPE '\\' ORDER BY seq DESC LIMIT ?").all(botId,`%${query.replace(/[\\%_]/g,'\\$&')}%`,limit) as any[];
+    // The trigram index cannot match terms shorter than three characters, which covers most Chinese words
+    // ("压缩 失败"). Those terms use LIKE; results are merged and ranked by how many terms they contain.
+    const terms=[...new Set(query.split(/\s+/).filter(Boolean))].slice(0,12),long=terms.filter(term=>[...term].length>=3),short=terms.filter(term=>[...term].length<3);
+    const found=new Map<string,any>(),pool=limit*5;
+    if(long.length)for(const row of this.db.prepare('SELECT h.* FROM history_fts f JOIN history h ON h.id=f.id WHERE history_fts MATCH ? AND h.bot_id=? ORDER BY rank LIMIT ?').all(long.map(term=>`"${term.replace(/"/g,'""')}"`).join(' OR '),botId,pool) as any[])found.set(row.id,row);
+    if(short.length)for(const row of this.db.prepare(`SELECT * FROM history WHERE bot_id=? AND (${short.map(()=>"content LIKE ? ESCAPE '\\'").join(' OR ')}) ORDER BY seq DESC LIMIT ?`).all(botId,...short.map(term=>`%${term.replace(/[\\%_]/g,'\\$&')}%`),pool) as any[])if(!found.has(row.id))found.set(row.id,row);
+    const score=(row:any)=>{const text=String(row.content).toLowerCase();return terms.reduce((sum,term)=>sum+(text.includes(term.toLowerCase())?1:0),0);};
+    const rows=[...found.values()].map((row,order)=>({row,order,score:score(row)})).sort((a,b)=>b.score-a.score||a.order-b.order).slice(0,limit).map(item=>item.row);
     return rows.map(row=>({messageId:row.id,runId:row.run_id,role:row.role,tool:row.tool,time:this.store.data.messages.find(message=>message.id===row.id)?.time,excerpt:this.searchExcerpt(row.content,query)}));
   }
   private searchExcerpt(content:string,query:string){const at=content.toLowerCase().indexOf(query.toLowerCase());return at<0?excerpt(content,900):content.slice(Math.max(0,at-200),at+700);}

@@ -141,7 +141,7 @@ export class HostComputer {
       if(this.canonical(path)!==path||this.stamp(path)!==stamp)throw new FileToolError('FILE_CHANGED','文件在确认期间发生变化，请重新读取');
       const stat=statSync(path);if(!stat.isFile())throw new FileToolError('IS_DIRECTORY','不能对目录进行文本替换');if(stat.size>TEXT_FILE_LIMIT)throw new FileToolError('FILE_TOO_LARGE','文本文件超过 2 MB，请使用命令按需处理');
       const original=readFileSync(path);if((edit.oldText.includes('[redacted')||edit.newText.includes('[redacted'))&&this.redact(original.toString('utf8'))!==original.toString('utf8'))throw Error('不能用凭据占位符替换原文件，请只修改未脱敏的片段');
-      const result=editText(original,edit);return {...this.commitFile(botId,runId,path,result.content,stamp,signal),replacements:result.replacements};
+      const result=editText(original,edit);return {...this.commitFile(botId,runId,path,result.content,stamp,signal),replacements:result.replacements,...(result.matchStrategy?{matchStrategy:result.matchStrategy}:{})};
     }catch(error){throw filesystemError(error,path);}
   }
   private commitFile(botId:string,runId:string,path:string,content:string,stamp:string,signal:AbortSignal){

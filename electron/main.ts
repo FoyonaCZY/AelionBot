@@ -120,7 +120,13 @@ else {
   app.whenReady().then(initialize).catch(error=>{diagnostics?.record('app.startup-error',error);console.error(error);dialog.showErrorBox('AelionBot 启动失败',String(error.message));app.exit(1);});
 }
 function snapshot():Snapshot{return {designer:designStore?.snapshot(),previewRequests:agentPreviews?.snapshot(),previewHistory:agentPreviews?.history(),appearance:normalizeAppearance(store?.data.appearance),userProfile:store.data.userProfile,platform:process.platform,workItems:store.data.workItems,conversationWorkspaces:store.data.conversationWorkspaces,updates:appUpdates?.snapshot(),scheduledTasks:store.data.scheduledTasks,bots:store.data.bots,messages:store.data.messages,runs:store.data.runs,model:providers.config(),providers:providers.list(),defaultModel:store.data.defaultModel,approvalModel:store.data.approvalModel,botModels:Object.fromEntries(store.data.bots.map(bot=>[bot.id,providers.config(bot.id)])),vm:vm.state,skills:integrations?integrations.skills.all():store.data.skills,artifacts:store.data.artifacts,computer:computer.state,dataDir:store.dir,integrations:integrations?.snapshot(),interactions:interactions?.snapshot()||[],cognition:cognition?.view(),peers:peerChats?.snapshot(),groups:groupChats?.snapshot(),greetingBotIds:greetings?.botIds||[],streamingReplies:[...(harness?.streams.snapshot()||[]),...(greetings?.streams.snapshot()||[])],runtime:store?new RunPolicy(store).settings():undefined,modelUsage:store?.data.modelUsage?.slice(-100),commandPermissions:commandPermissions?.list()||[],hostPermissionModes:hostApprovals?.modes(),hostWorkspace:host?.workspaceSettings(),liveWork:harness?.liveWork()||[]};}
-function changed(){if(exiting)return;if(window&&!window.isDestroyed())window.webContents.send('app:event',{type:'state',snapshot:snapshot()});chatPins?.wake();peerChats?.wake();groupChats?.wake();}
+// Changes arrive in bursts (a message, its run, a journal entry…). Coalesce each burst into one snapshot
+// instead of serializing and cloning the whole state across IPC for every mutation.
+let stateTimer:NodeJS.Immediate|undefined;
+function sendState(){stateTimer=undefined;if(exiting)return;if(window&&!window.isDestroyed())window.webContents.send('app:event',{type:'state',snapshot:snapshot()});}
+function changed(){if(exiting)return;stateTimer??=setImmediate(sendState);chatPins?.wake();peerChats?.wake();groupChats?.wake();}
+// Streaming text changes only the live replies; a pending full snapshot already carries them.
+function streamsChanged(){if(exiting||stateTimer)return;if(window&&!window.isDestroyed())window.webContents.send('app:event',{type:'streams',streamingReplies:[...(harness?.streams.snapshot()||[]),...(greetings?.streams.snapshot()||[])]});}
 function handle(channel:string,callback:(...args:any[])=>unknown){
   ipcMain.handle(channel,async(event,...args)=>{
     if(!window||event.sender.id!==window.webContents.id||event.senderFrame!==window.webContents.mainFrame)throw new Error('不受信任的调用来源');
@@ -180,7 +186,7 @@ async function initialize(){
   const designFonts=new DesignFonts({cacheDir:join(store.dir,'font-cache'),files:designerFiles,fetch:(url,options)=>net.fetch(url instanceof URL?url.href:url,options)});
   const renderDesignPdf=async(html:string)=>(await renderCanvasExport(html,'pdf')).bytes;
   const designerLoop=new DesignerLoop(store,designStore,designSystems,designerFiles,model,cognition.context,generalHarness,artifacts,attachments,interactions,changed,{pdf:{render:renderDesignPdf},fonts:designFonts,plugins:designPlugins,craft:designCraft,imageModel:imageModelAccess});
-  harness=new BotRuntime(store,generalHarness,designerLoop,changed,()=>cognition.beforeRun());
+  harness=new BotRuntime(store,generalHarness,designerLoop,changed,()=>cognition.beforeRun());generalHarness.streams.onEmit=streamsChanged;designerLoop.streams.onEmit=streamsChanged;
   harness.setPreviewGateway(agentPreviews);
   videoInspector=new VideoInspector(join(app.getAppPath(),'assets','video-inspector.html'));
   harness.setVideoFrames(new VideoFrames(host,attachments,join(computer.imageDir,'video-frames'),(path,request,signal)=>videoInspector.render(path,request,signal),()=>{
@@ -188,7 +194,7 @@ async function initialize(){
     for(const history of [...Object.values(store.data.conversations),...Object.values(store.data.peerContexts),...Object.values(store.data.groupContexts)])for(const message of history)for(const image of message.images||[])ids.add(image.id);
     return ids;
   }));
-  greetings=new BotGreetings(store,model,changed,id=>updatePreparing||harness.isRunning(id));
+  greetings=new BotGreetings(store,model,changed,id=>updatePreparing||harness.isRunning(id));greetings.streams.onEmit=streamsChanged;
   peerChats=new PeerChats(store,{isRunning:id=>updatePreparing||harness.isRunning(id)||Boolean(chatPins?.hasPending(id)),run:(id,input,options)=>{groupChats?.preempt(id);greetings?.cancel(id);return harness.run(id,input,options);},cancel:id=>harness.cancel(id)},changed,attachments);
   harness.setPeerGateway(peerChats);peerChats.start();
   groupChats=new GroupChats(store,{isRunning:id=>updatePreparing||harness.isRunning(id)||Boolean(chatPins?.hasPending(id)),run:(id,input,options)=>{greetings?.cancel(id);return harness.run(id,input,options);},cancel:id=>harness.cancel(id),refresh:id=>harness.refreshGroup(id)},changed,attachments,host);

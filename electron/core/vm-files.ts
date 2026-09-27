@@ -78,5 +78,5 @@ export async function patchVmFile(vm:VmController,checkpoints:FileCheckpoints,bo
   const changed=editText(source.bytes,edit),checkpoint=await checkpoints.vmBefore(botId,runId,source.path,signal);
   const command=await vmPython(vm,botId,{path:source.path,expectedPath:source.path,content:changed.content,expectedSha256:expected},VM_WRITE,signal);
   if(command.exitCode!==0)return command;signal.throwIfAborted();await checkpoints.vmAfter(checkpoint,signal,changed.content);
-  return {...command,path:source.path,location:'vm',sha256:changed.sha256,bytes:changed.bytes,replacements:changed.replacements,written:true};
+  return {...command,path:source.path,location:'vm',sha256:changed.sha256,bytes:changed.bytes,replacements:changed.replacements,...(changed.matchStrategy?{matchStrategy:changed.matchStrategy}:{}),written:true};
 }
