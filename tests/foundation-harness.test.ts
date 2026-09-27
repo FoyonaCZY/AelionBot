@@ -10,6 +10,7 @@ import { Interactions } from '../electron/core/interactions';
 import { Harness, TOOLS } from '../electron/core/harness';
 import type { Completion, ModelClient } from '../electron/core/model';
 import type { ChatMessage, WireMessage } from '../src/shared';
+import { conversationIdentityPrompt } from '../src/user-profile';
 const call = (name: string, args: unknown) => ({
   id: randomUUID(),
   type: 'function' as const,
@@ -74,6 +75,9 @@ test('foreground requests impose no reply language despite legacy stored setting
       .join('\n');
     assert.doesNotMatch(systems, /Response language policy|current interface language|latestHumanMessage/);
     assert.doesNotMatch(systems, /使用中文、简洁且准确/);
+    const rules = messages[0].content!.slice(conversationIdentityPrompt(f.bot, f.store.data.userProfile).length);
+    assert.ok(rules.length > 2000);
+    assert.doesNotMatch(rules, /[㐀-鿿]/, 'built-in system instructions stay English');
     return { content: 'Hello!', calls: [], finishReason: 'stop' };
   });
   f.store.data.language = 'en';

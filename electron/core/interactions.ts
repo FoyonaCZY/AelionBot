@@ -315,7 +315,7 @@ export class Interactions {
     this.applyCommandRules();
   }
   applyCommandRules() {
-    for (const { request } of [...this.pending.values()]) {
+    for (const { request } of Array.from(this.pending.values())) {
       if (request.kind !== 'host_permission') continue;
       if (this.hostPolicy && this.hostPolicy.modeFor(request) !== 'auto') continue;
       const rule = this.commands?.match(request.details);
@@ -388,7 +388,7 @@ export class Interactions {
   refreshHostPolicy() {
     const policy = this.hostPolicy;
     if (!policy) return;
-    for (const item of [...this.pending.values()]) {
+    for (const item of Array.from(this.pending.values())) {
       if (item.request.kind !== 'host_permission') continue;
       if (item.request.approval?.mode === policy.modeFor(item.request)) continue;
       item.review?.abort();
@@ -448,7 +448,8 @@ export class Interactions {
     this.changed();
   }
   dispose() {
-    for (const id of [...this.pending.keys()]) this.finish(id, new Error('应用已关闭，未执行待授权操作'), 'cancelled');
+    for (const id of Array.from(this.pending.keys()))
+      this.finish(id, new Error('应用已关闭，未执行待授权操作'), 'cancelled');
   }
 }
 

@@ -1,7 +1,7 @@
 import { delegationContract } from './delegation';
 import { botIdentity } from '../../src/bot-colors';
 import { randomUUID } from 'node:crypto';
-import type { Bot, RunRecord } from '../../src/shared';
+import type { RunRecord } from '../../src/shared';
 import type {
   BotIdentity,
   PeerChatPage,

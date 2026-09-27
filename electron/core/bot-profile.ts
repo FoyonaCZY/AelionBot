@@ -4,7 +4,7 @@ import { botType } from '../../src/designer-types';
 import type { BotUpdateInput } from '../../src/shared';
 import { normalizeBotPalette } from '../../src/bot-colors';
 import type { ModelProviders } from './model-providers';
-import { atomicJson, type Store } from './store';
+import type { Store } from './store';
 import { reasoningEffort as cleanReasoning } from '../../src/reasoning';
 
 export function updateBotProfile(

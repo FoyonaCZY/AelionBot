@@ -26,7 +26,7 @@ function act(s: WerewolfState, a: GameAction) {
   acceptAction(s, s.requests[0].id, a);
 }
 function answerAll(s: WerewolfState, fn: (r: GameRequest) => GameAction) {
-  for (const r of [...s.requests]) acceptAction(s, r.id, fn(r));
+  for (const r of Array.from(s.requests)) acceptAction(s, r.id, fn(r));
 }
 function night(s: WerewolfState, victim = '4', potion: GameAction = { potion: 'skip' }, guard?: string) {
   if (s.requests[0].kind === 'guard') act(s, guard ? { target: guard } : { skip: true });

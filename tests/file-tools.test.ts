@@ -52,13 +52,13 @@ test('character and line pagination preserve Unicode and make progress to EOF', 
   const text = '😀中文\r\nsecond\r\n尾行';
   let offset = 0,
     joined = '';
-  do {
+  for (;;) {
     const page = textPage(text, { offset, maxChars: 3 });
     joined += page.content;
     assert.ok(page.nextOffset > offset || page.eof);
     offset = page.nextOffset;
     if (page.eof) break;
-  } while (true);
+  }
   assert.equal(joined, text);
   const page = textPage(text, { startLine: 2, lineCount: 1 });
   assert.equal(page.content, 'second\r\n');
@@ -296,12 +296,12 @@ test('batch result records are readable by their owner, remain private, and pagi
   });
   let offset = 0,
     reconstructed = '';
-  do {
+  for (;;) {
     const page = readToolResult(store, bot.id, { id, offset, maxChars: 997 });
     reconstructed += page.text;
     offset = page.nextOffset;
     if (page.eof) break;
-  } while (true);
+  }
   assert.equal(reconstructed, source);
   store.message(other.id, 'user', JSON.stringify({ resultId: id }));
   assert.throws(() => readToolResult(store, other.id, { id }), /无权/);

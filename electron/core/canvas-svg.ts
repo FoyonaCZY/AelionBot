@@ -152,7 +152,7 @@ function captureVectorPage() {
         const css = getComputedStyle(original);
         for (const key of ['fill', 'stroke', 'stroke-width', 'opacity', 'color'])
           copy.setAttribute(key, css.getPropertyValue(key));
-        for (const attr of [...copy.attributes]) if (attr.name.startsWith('on')) copy.removeAttribute(attr.name);
+        for (const attr of Array.from(copy.attributes)) if (attr.name.startsWith('on')) copy.removeAttribute(attr.name);
       });
       for (const unsafe of clone.querySelectorAll('script,foreignObject,iframe')) {
         unsafe.remove();

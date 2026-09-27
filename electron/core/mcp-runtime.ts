@@ -89,7 +89,7 @@ export class McpRuntime {
     const local =
       config.transport === 'stdio' ||
       addresses.has(address) ||
-      /^127\./.test(address) ||
+      address.startsWith('127.') ||
       /^::ffff:7f[0-9a-f]{2}:/i.test(address);
     if (!local) return undefined;
     if (config.issue) throw new Error(config.issue);
@@ -443,7 +443,7 @@ export class McpRuntime {
     await Promise.allSettled(
       [...new Set([...this.connections.keys(), ...this.starting.keys()])].map((id) => this.disconnect(id)),
     );
-    await Promise.allSettled([...this.pending.values()]);
+    await Promise.allSettled(this.pending.values());
     await Promise.allSettled([...this.connections.keys()].map((id) => this.disconnect(id)));
   }
 }

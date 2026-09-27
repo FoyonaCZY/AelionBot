@@ -15,7 +15,6 @@ import { GroupChats } from '../electron/core/group-chats';
 import { PeerChats } from '../electron/core/peer-chats';
 import { groupPending } from '../src/group-types';
 import type { VmController } from '../electron/core/vm';
-import type { WireMessage } from '../src/shared';
 
 const answer = (content: string): Completion => ({ content, calls: [], finishReason: 'stop' });
 const tool = (name: string, args: unknown): Completion => ({

@@ -3,7 +3,14 @@ import type { ExtraProps } from 'react-markdown';
 import { externalWebUrl } from './external-links';
 import { useI18n } from './i18n';
 
-export function MessageLink({ href, children, node, onClick, onAuxClick, ...props }: ComponentProps<'a'> & ExtraProps) {
+export function MessageLink({
+  href,
+  children,
+  node: _node,
+  onClick,
+  onAuxClick,
+  ...props
+}: ComponentProps<'a'> & ExtraProps) {
   const { t } = useI18n();
   const [failedUrl, setFailedUrl] = useState<string>();
   const url = externalWebUrl(href);

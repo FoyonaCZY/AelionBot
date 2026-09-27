@@ -16,7 +16,7 @@ function wolfPlans(s: ReturnType<typeof make>) {
 }
 function firstActions(s: ReturnType<typeof make>, victim = '4') {
   wolfPlans(s);
-  for (const r of [...s.requests]) acceptAction(s, r.id, { target: r.kind === 'kill' ? victim : '0' });
+  for (const r of Array.from(s.requests)) acceptAction(s, r.id, { target: r.kind === 'kill' ? victim : '0' });
   return s.requests[0];
 }
 test('seven player deck has witch and stable varied personalities', () => {

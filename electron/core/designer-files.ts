@@ -6,7 +6,6 @@ import {
   readdirSync,
   realpathSync,
   statSync,
-  lstatSync,
   writeFileSync,
   renameSync,
   unlinkSync,

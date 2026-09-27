@@ -100,10 +100,10 @@ function snapshotCanvasScene(): CanvasScene {
     return result;
   };
   const gradient = (value: string, width: number, height: number): SceneGradient | undefined => {
-    if (!/^linear-gradient\(/.test(value)) return;
+    if (!value.startsWith('linear-gradient(')) return;
     const list = parts(value.slice(value.indexOf('(') + 1, -1));
     let angle = 180;
-    if (/deg$/.test(list[0])) angle = parseFloat(list.shift()!);
+    if (list[0].endsWith('deg')) angle = parseFloat(list.shift()!);
     else if (list[0].startsWith('to ')) {
       const directions: Record<string, number> = {
         'to top': 0,

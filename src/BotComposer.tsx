@@ -290,7 +290,7 @@ export function BotComposer({
       return [...uploaded, ...(await receiveEntries(prepared.entries, isCurrent))];
     });
   };
-  const useDirectory = (entry: DroppedAttachment, action: 'attach' | 'workspace') =>
+  const applyDirectory = (entry: DroppedAttachment, action: 'attach' | 'workspace') =>
     ingest(async (isCurrent) => {
       const result = await window.aelion.applyAttachmentDrop({ scope, ids: [entry.id], action });
       if (isCurrent()) setDirectories((current) => current.filter((item) => item.id !== entry.id));
@@ -553,10 +553,10 @@ export function BotComposer({
             <div className="composer-directory-choice" key={entry.id}>
               <Icon name="folder" size={17} />
               <strong title={entry.name}>{entry.name}</strong>
-              <button type="button" disabled={uploading > 0} onClick={() => useDirectory(entry, 'workspace')}>
+              <button type="button" disabled={uploading > 0} onClick={() => applyDirectory(entry, 'workspace')}>
                 {t('设为工作目录')}
               </button>
-              <button type="button" disabled={uploading > 0} onClick={() => useDirectory(entry, 'attach')}>
+              <button type="button" disabled={uploading > 0} onClick={() => applyDirectory(entry, 'attach')}>
                 {t('打包为附件')}
               </button>
               <button

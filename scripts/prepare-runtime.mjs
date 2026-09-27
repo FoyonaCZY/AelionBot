@@ -1,18 +1,9 @@
 import { createHash } from 'node:crypto';
-import {
-  createReadStream,
-  createWriteStream,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
+import { createReadStream, createWriteStream, existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { resolve, join } from 'node:path';
 import { spawn } from 'node:child_process';
-import { createRequire } from 'node:module';
 import { runtimeArchiver } from './runtime-archiver.mjs';
 
 if (process.platform === 'darwin') {
@@ -20,7 +11,6 @@ if (process.platform === 'darwin') {
   await prepareMacRuntime();
   process.exit(0);
 }
-const require = createRequire(import.meta.url);
 const root = resolve(import.meta.dirname, '..');
 const downloads = join(root, 'runtime', 'downloads');
 const qemu = join(root, 'runtime', 'qemu');

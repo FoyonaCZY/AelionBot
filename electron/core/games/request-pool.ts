@@ -5,7 +5,7 @@ export async function settleLimited<T>(
   signal: AbortSignal,
   run: (item: T) => Promise<void>,
 ) {
-  const results: PromiseSettledResult<void>[] = new Array(items.length);
+  const results: PromiseSettledResult<void>[] = Array.from({ length: items.length });
   let next = 0;
   await Promise.all(
     Array.from({ length: Math.min(limit, items.length) }, async () => {

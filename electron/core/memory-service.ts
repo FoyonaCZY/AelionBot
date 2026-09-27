@@ -6,7 +6,7 @@ import { assertMemoryOwner, delegatedMemory, humanRunSource, peerTaskUserSource 
 
 export function knowledgeTextSafe(text: string, secrets: string[] = []) {
   if (
-    /\b(?:sk-[\w-]{12,}|gh[pousr]_[\w]{12,}|github_pat_[\w]{20,})\b|BEGIN [A-Z ]*PRIVATE KEY|Bearer\s+[A-Za-z0-9._~+\/-]{12,}/i.test(
+    /\b(?:sk-[\w-]{12,}|gh[pousr]_[\w]{12,}|github_pat_[\w]{20,})\b|BEGIN [A-Z ]*PRIVATE KEY|Bearer\s+[A-Za-z0-9._~+/-]{12,}/i.test(
       text,
     ) ||
     secrets.some((secret) => secret.length >= 6 && text.includes(secret))

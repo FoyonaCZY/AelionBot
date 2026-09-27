@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, realpathSync, statSync, unlinkSync } from 'node:fs';
-import { join, dirname, resolve, isAbsolute } from 'node:path';
+import { join, dirname, isAbsolute } from 'node:path';
 import type { Store } from './store';
 import { VmController, shQuote } from './vm';
 import type { Interactions } from './interactions';

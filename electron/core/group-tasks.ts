@@ -7,7 +7,7 @@ const text = (value: unknown, label: string, max: number) => {
   if (typeof value !== 'string' || !value.trim() || value.length > max) throw Error(`${label}为空或过长`);
   return value.trim();
 };
-export const publicTask = ({ runIds, ...task }: GroupTask) => task;
+export const publicTask = ({ runIds: _runIds, ...task }: GroupTask) => task;
 export function groupTaskFrame(room: GroupRoom, botId: string, store?: Store) {
   const tasks = room.tasks || [],
     active = tasks.filter((t) => t.status !== 'completed');

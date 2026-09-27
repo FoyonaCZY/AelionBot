@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { MacUpdater, CancellationToken } from 'electron-updater';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { UpdateDriver } from './app-updates';
 import { build, version as appVersion } from '../../package.json';

@@ -1,11 +1,10 @@
-import { createHash } from 'node:crypto';
 import type { WireMessage } from '../../src/shared';
 import { CognitiveStore, type ReviewJob } from './cognitive-store';
 import { MemoryService, knowledgeTextSafe } from './memory-service';
 import type { SkillLibrary } from './skill-library';
 import { ModelClient, type ToolDefinition } from './model';
 import { ContextEngine } from './context-engine';
-import { contextBudget, estimateRequest, excerpt, serializeForSummary, textTokens } from './context-budget';
+import { contextBudget, estimateRequest, excerpt, serializeForSummary } from './context-budget';
 import { redactHost } from './host';
 import { routingOnlyRun } from './memory-routing';
 import { skillCatalog, SKILLS_LIST_TOOL } from './skill-catalog';
@@ -270,7 +269,7 @@ export class LearningWorker {
             catalogRead = true;
             output = this.skills
               .search(job.botId, String(args.query || ''), Number(args.limit) || 40, Number(args.offset) || 0)
-              .map(({ body, ...skill }) => skill);
+              .map(({ body: _body, ...skill }) => skill);
           } else if (name === 'skill_read') {
             const skill = this.skills.read(job.botId, String(args.id));
             reads.set(skill.id, this.skills.fingerprint(job.botId, skill.id));

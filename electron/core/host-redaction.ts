@@ -13,7 +13,7 @@ export function redactHost(value: string, secrets: string[] = [], preserveLines 
   for (const secret of secrets.filter((secret) => secret.length >= 6).sort((a, b) => b.length - a.length))
     result = result.split(secret).join(mask(secret));
   return result
-    .replace(/(Bearer\s+)[A-Za-z0-9._~+\/-]{12,}/gi, '$1[redacted]')
+    .replace(/(Bearer\s+)[A-Za-z0-9._~+/-]{12,}/gi, '$1[redacted]')
     .replace(/(https?:\/\/[^\s/:]+:)[^\s@]+(@)/gi, '$1[redacted]$2')
     .replace(
       /(?<![\w.-])((?:"|')?[\w.-]*(?:password|passwd|secret|token|api[_-]?key|private[_-]?key)(?:"|')?\s*[:=]\s*)("(?:\\.|[^"\\])*"|'[^']*'|[^\r\n,}]+)/gi,

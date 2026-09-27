@@ -7,17 +7,6 @@ import type { Store } from './store';
 import type { GroupMessage } from '../../src/group-types';
 import type { WireMessage } from '../../src/shared';
 import type { ModelClient, ToolDefinition } from './model';
-import {
-  contextBudget,
-  estimateRequest,
-  exchanges,
-  pruneToolOutputs,
-  serializeForSummary,
-  sourceHash,
-  tailBoundary,
-  textTokens,
-} from './context-budget';
-import { parseContextSummary } from './context-engine';
 import { groupReplyContent } from '../../src/message-envelope';
 import { hasPendingHistoryCalls } from './tool-history';
 

@@ -418,7 +418,7 @@ export class GroupChats implements GroupGateway {
       members: room.members.map((member) => {
         const live = this.store.data.bots.find((bot) => bot.id === member.id);
         if (!live) return member;
-        const { avatarStyle, ...stored } = member;
+        const { avatarStyle: _avatarStyle, ...stored } = member;
         return { ...stored, ...identity(live) };
       }),
       createdBy: room.createdBy,

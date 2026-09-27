@@ -197,7 +197,11 @@ export class ModelProviders {
     const selection = this.store.data.defaultModel,
       effort = inherited(selection),
       defaultModel = selection && effort ? { ...selection, reasoningEffort: cleanReasoning(effort) } : selection;
-    this.commit({ bots, defaultModel, providers: providers.map(({ reasoningEffort, ...provider }) => provider) });
+    this.commit({
+      bots,
+      defaultModel,
+      providers: providers.map(({ reasoningEffort: _reasoningEffort, ...provider }) => provider),
+    });
   }
   private migrateHostedTools() {
     type LegacyModel = ProviderModel & { hostedWebSearch?: boolean; hostedImageGeneration?: boolean };
@@ -262,7 +266,7 @@ export class ModelProviders {
     }
   }
   private public(provider: StoredProvider): ModelProvider {
-    const { encryptedKey, ...rest } = provider;
+    const { encryptedKey: _encryptedKey, ...rest } = provider;
     return { ...structuredClone(rest), hasKey: Boolean(this.keyFor(provider)) };
   }
   list() {

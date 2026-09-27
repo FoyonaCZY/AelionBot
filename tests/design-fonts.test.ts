@@ -62,7 +62,7 @@ function server(options: { chinese?: boolean; redirect?: boolean; oversized?: bo
         (options.chinese ? ['[119]', 'latin'] : ['latin', 'latin-ext'])
           .map(
             (subset) =>
-              `/* ${id}-${subset}-${weight}-normal */\n@font-face {font-family:'${family}';font-weight:${weight};src:url(./files/${id}-${subset.replace(/[\[\]]/g, '')}-${weight}-normal.woff2) format('woff2');unicode-range:${subset === '[119]' ? 'U+4e00-9fff' : 'U+0000-00ff'};}`,
+              `/* ${id}-${subset}-${weight}-normal */\n@font-face {font-family:'${family}';font-weight:${weight};src:url(./files/${id}-${subset.replace(/[[\]]/g, '')}-${weight}-normal.woff2) format('woff2');unicode-range:${subset === '[119]' ? 'U+4e00-9fff' : 'U+0000-00ff'};}`,
           )
           .join('\n'),
       );

@@ -32,7 +32,7 @@ function globArgs(glob: string, platform: NodeJS.Platform) {
   // Only single-segment globs are passed through; everything else is filtered exactly by the worker.
   // A file type rather than --glob: an rg glob whitelist would override .gitignore.
   const name = glob.replace(/^(?:\*\*\/)+/, '');
-  if (!name || name === '*' || name === '**' || name.includes('/') || /[\[\]{}!\\,:]/.test(name)) return [];
+  if (!name || name === '*' || name === '**' || name.includes('/') || /[[\]{}!\\,:]/.test(name)) return [];
   // The walker compares lowercase paths on Windows; type globs are case-sensitive.
   const pattern =
     platform === 'win32' ? name.replace(/[a-z]/gi, (char) => `[${char.toLowerCase()}${char.toUpperCase()}]`) : name;

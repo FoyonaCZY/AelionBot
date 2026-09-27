@@ -196,7 +196,7 @@ function fixture(
 test('group tool results remain available across multiple model turns', async (t) => {
   const calls: string[] = [];
   let turns = 0;
-  const fx = fixture(t, (run, messages, tools) => {
+  const fx = fixture(t, (run, messages, _tools) => {
     if (run.botId !== fx.a.id) return silent();
     turns++;
     for (const id of calls)
@@ -949,7 +949,7 @@ test('a completed reply keeps its original reply target when another message arr
   const gate = new Promise<void>((resolve) => {
     release = resolve;
   });
-  const fx = fixture(t, (run, messages) => {
+  const fx = fixture(t, (run, _messages) => {
     if (run.botId !== fx.a.id) return silent();
     if (first) {
       first = false;
@@ -1404,7 +1404,6 @@ test('a group task that repeats a successful action with the same result is clos
 
 test('explicitly resuming a blocked group task carries its checkpoint and does not repeat successful work', async (t) => {
   let executions = 0,
-    blockedRunId = '',
     continued = false;
   const vm = {
     execute: async () => ({ stdout: `REPORT_CHECKED_ONCE_${++executions}`, stderr: '', exitCode: 0, durationMs: 1 }),

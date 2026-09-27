@@ -1,4 +1,4 @@
-import type { DesignComment, DesignSession, DesignTaskKind } from './designer-types';
+import type { DesignComment, DesignTaskKind } from './designer-types';
 import type { PreviewAnnotation } from './preview-editor-types';
 export interface DesignWorkspaceFile {
   name: string;

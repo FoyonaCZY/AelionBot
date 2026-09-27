@@ -104,7 +104,7 @@ export async function runConcurrentTools<T>(
   try {
     while (index < items.length || inflight.size) {
       if (batch.signal.aborted) {
-        await Promise.allSettled([...inflight.values()]);
+        await Promise.allSettled(inflight.values());
         break;
       }
       while (index < items.length) {
@@ -125,6 +125,6 @@ export async function runConcurrentTools<T>(
     }
   } finally {
     signal.removeEventListener('abort', abort);
-    await Promise.allSettled([...inflight.values()]);
+    await Promise.allSettled(inflight.values());
   }
 }

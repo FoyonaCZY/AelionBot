@@ -9,7 +9,6 @@ import type {
   PreviewEditorState,
   PreviewElement,
   PreviewMode,
-  PreviewTreeNode,
 } from '../src/preview-editor-types';
 import { annotationDocumentSize, resizeElementBox, translateComponents } from '../src/preview-element-geometry';
 import { validateAnnotations } from '../src/preview-annotations';
@@ -348,7 +347,7 @@ export function createPreviewDomEditor(notify: (state: PreviewEditorState) => vo
     return [...el.attributes].map((a) => [a.name, a.value] as const);
   }
   function restoreAttrs(el: Element, attrs: readonly (readonly [string, string])[]) {
-    for (const a of [...el.attributes]) el.removeAttribute(a.name);
+    for (const a of Array.from(el.attributes)) el.removeAttribute(a.name);
     for (const [name, value] of attrs) el.setAttribute(name, value);
   }
   function ensure(el: Element, expected: string) {

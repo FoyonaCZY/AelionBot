@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, basename, resolve } from 'node:path';
-import { createServer, type Server } from 'node:http';
+import { createServer } from 'node:http';
 import { Store } from '../electron/core/store';
 import { ModelClient, validateModelEndpoint } from '../electron/core/model';
 import { Harness, safeRelativePath, workspacePath, compactBoundary } from '../electron/core/harness';

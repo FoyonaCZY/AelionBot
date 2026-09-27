@@ -15,7 +15,7 @@ export default function MessageMarkdown(props: ComponentProps<typeof Markdown>) 
       components={{
         a: MessageLink,
         pre: MessageCodeBlock,
-        table: ({ node, ...table }) => (
+        table: ({ node: _node, ...table }) => (
           <div className="markdown-table-scroll" tabIndex={0} role="region" aria-label={t('表格')}>
             <table {...table} />
           </div>

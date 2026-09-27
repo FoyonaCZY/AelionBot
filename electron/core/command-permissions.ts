@@ -82,7 +82,7 @@ function tokens(command: string, platform = process.platform): Token[] | undefin
       started = true;
     } else if (char === ' ' || char === '\t') flush();
     else {
-      if (/\s|[;$`|&<>(){}\[\]@,#]/.test(char) || (platform !== 'win32' && /[\\!~]/.test(char))) return;
+      if (/\s|[;$`|&<>(){}[\]@,#]/.test(char) || (platform !== 'win32' && /[\\!~]/.test(char))) return;
       value += char;
       started = true;
     }

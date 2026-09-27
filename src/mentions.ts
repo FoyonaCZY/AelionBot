@@ -70,7 +70,7 @@ export function botMentions(
     if (
       (input[at] !== '@' && input[at] !== '＠') ||
       escaped(input, at) ||
-      /[a-zA-Z0-9_.+\-]/.test(input[at - 1] || '')
+      /[a-zA-Z0-9_.+-]/.test(input[at - 1] || '')
     ) {
       content += input[at++];
       continue;

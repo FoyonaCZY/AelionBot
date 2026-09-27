@@ -42,7 +42,7 @@ function Portrait({ seat }: { seat: Member }) {
 }
 export function GroupGames({
   groupId,
-  groupName,
+  groupName: _groupName,
   members,
   initialOpen = false,
   cardContainer,
@@ -286,7 +286,7 @@ export function GroupGames({
                 狼人杀 <small>{match.status === 'finished' ? '已结束' : '进行中'}</small>
               </strong>
               <span>
-                {!!match.humanId ? '参与' : '旁观'} ·{' '}
+                {match.humanId ? '参与' : '旁观'} ·{' '}
                 {match.status === 'paused' ? '已暂停' : match.phase === 'finished' ? '已结束' : phaseNames[match.phase]}
               </span>
             </span>

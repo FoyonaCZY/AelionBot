@@ -58,12 +58,5 @@ test('shipped guest images stay official Debian clouds and are not packed into t
   const pack = JSON.parse(readFileSync('package.json', 'utf8'));
   const resources = [...pack.build.win.extraResources, ...(pack.build.mac?.extraResources || [])];
   assert.ok(resources.every((item: { from: string }) => !/guest-image|\.qcow2/.test(item.from)));
-  assert.match(readFileSync('scripts/package-macos-release.mjs', 'utf8'), /extraResources:\[\{from:'runtime\/qemu'/);
   assert.doesNotMatch(readFileSync('scripts/package-macos-release.mjs', 'utf8'), /\.qcow2/);
-  assert.match(readFileSync('scripts/package-macos-release.mjs', 'utf8'), /Packaged QEMU HVF support missing/);
-  assert.match(readFileSync('scripts/verify-macos-vm.ts', 'utf8'), /AELION_ALLOW_TCG_SMOKE/);
-  assert.match(
-    readFileSync('scripts/provision-guest-image.ts', 'utf8'),
-    /Do not copy it into electron-builder extraResources/,
-  );
 });

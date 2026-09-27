@@ -91,7 +91,7 @@ export function validateModelEndpoint(value: string) {
 }
 export function imageContext(messages: WireMessage[], resolveImage: (id: string) => string) {
   const ids = new Set(visibleImages(messages).map((i) => i.id));
-  return messages.map(({ images, groupMessageId, native, ...m }) => {
+  return messages.map(({ images, groupMessageId: _groupMessageId, native: _native, ...m }) => {
     const visible = (images || []).filter((i) => ids.has(i.id));
     return visible.length
       ? {

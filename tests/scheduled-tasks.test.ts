@@ -363,7 +363,7 @@ test('model-created schedules in a group broadcast to its members and publish th
             .filter((message) => message.role === 'system')
             .map((message) => message.content || '')
             .join('\n'),
-        )?.[1]!,
+        )?.[1] as string,
         run = f.store.data.runs.find((run) => run.botId === id && run.status === 'running')!;
       if (creating) {
         if (id !== f.bot.id) return answer('[群聊静默]');

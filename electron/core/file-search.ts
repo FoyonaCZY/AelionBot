@@ -116,6 +116,6 @@ export class FileSearch {
       pending.reject(Error('本机检索已停止'));
     }
     this.queue = [];
-    for (const stop of [...this.active.values()]) stop();
+    for (const stop of Array.from(this.active.values())) stop();
   }
 }

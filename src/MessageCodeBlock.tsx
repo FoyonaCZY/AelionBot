@@ -3,7 +3,7 @@ import type { ExtraProps } from 'react-markdown';
 import { highlightMessageCode } from './code-highlight';
 import { useI18n } from './i18n';
 
-export function MessageCodeBlock({ children, node, className, ...props }: ComponentProps<'pre'> & ExtraProps) {
+export function MessageCodeBlock({ children, node: _node, className, ...props }: ComponentProps<'pre'> & ExtraProps) {
   const { t } = useI18n();
   const child = Children.toArray(children)[0];
   const codeProps = isValidElement<ComponentProps<'code'>>(child) ? child.props : undefined;

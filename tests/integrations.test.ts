@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, basename, resolve } from 'node:path';
-import { createHash } from 'node:crypto';
 import { Store } from '../electron/core/store';
 import { SkillLibrary, parseSkill } from '../electron/core/skill-library';
 import { TaskScheduler } from '../electron/core/task-scheduler';

@@ -43,7 +43,7 @@ const forbidden =
   /(^|\/)(?:\.local|\.git|node_modules|dist|dist-electron|release|output|test-results|playwright-report)(?:\/|$)|^runtime\/(?:qemu|downloads|local-model)(?:\/|$)|(?:^|\/)(?:state\.json|\.env(?:\..*)?|id_rsa.*|id_ed25519.*)$|\.(?:qcow2|vhdx?|iso|sqlite(?:-wal|-shm)?|pfx|p12|pem|log)$/i;
 const credential =
   /(?:sk-(?:proj-)?[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{30,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/g;
-for (const file of [...new Set(files)]) {
+for (const file of new Set(files)) {
   if (forbidden.test(file) && !file.endsWith('.env.example')) {
     findings.push({ file, kind: 'local-or-sensitive-file' });
     continue;

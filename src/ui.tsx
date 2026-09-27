@@ -337,7 +337,7 @@ export function MentionContent({
       <Markdown
         urlTransform={(url) => (prepared?.links.has(url) ? url : defaultUrlTransform(url))}
         components={{
-          a: ({ href, children, node, ...props }) => {
+          a: ({ href, children, node: _node, ...props }) => {
             const mention = href ? prepared?.links.get(href) : undefined;
             return mention ? (
               <MentionTag mention={mention} />

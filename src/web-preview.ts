@@ -42,7 +42,7 @@ export function vmPreviewPort(value: unknown) {
 export function feedbackWebUrl(value: string) {
   try {
     const url = new URL(value);
-    for (const key of [...url.searchParams.keys()])
+    for (const key of Array.from(url.searchParams.keys()))
       if (/token|secret|password|code|auth/i.test(key)) url.searchParams.set(key, '[redacted]');
     if (/token|secret|password|auth/i.test(url.hash)) url.hash = '';
     return url.href;

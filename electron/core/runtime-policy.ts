@@ -6,7 +6,7 @@ import { isDeepStrictEqual } from 'node:util';
 export function runtimeSettings(value: unknown): RuntimeSettings {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw Error('运行设置无效');
   // Older profiles contain this retired setting. It no longer triggers model requests.
-  const { progressSeconds: legacyProgressSeconds, ...input } = value as Partial<RuntimeSettings> & {
+  const { progressSeconds: _legacyProgressSeconds, ...input } = value as Partial<RuntimeSettings> & {
     progressSeconds?: unknown;
   };
   const result = { ...DEFAULT_RUNTIME, ...input };

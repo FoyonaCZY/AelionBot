@@ -38,7 +38,7 @@ import { join, resolve, dirname, basename } from 'node:path';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { Store } from './core/store';
 import { updateBotProfile } from './core/bot-profile';
-import { VmController, shQuote } from './core/vm';
+import { VmController } from './core/vm';
 import { ModelClient, validateModelEndpoint } from './core/model';
 import { ModelProviders } from './core/model-providers';
 import { probeImageModel, storeImageRoutes } from './core/image-generation';

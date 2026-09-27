@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { basename, dirname, join, resolve, relative, isAbsolute, posix } from 'node:path';
+import { basename, dirname, join, resolve, relative, isAbsolute } from 'node:path';
 import {
   existsSync,
   mkdirSync,

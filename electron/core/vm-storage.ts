@@ -152,7 +152,7 @@ export class VmStorage {
       this.recover();
       const before = this.snapshot().usageBytes;
       const help = await this.execute(['convert', '--help']),
-        backingFlag = /\-b BACKING/.test(help) ? '-b' : '-B';
+        backingFlag = /-b BACKING/.test(help) ? '-b' : '-B';
       for (const disk of ['system', 'work']) {
         assertOffline();
         const name = disk + '.qcow2',

@@ -3,7 +3,7 @@ import { GameDiagnostics } from './GameDiagnostics';
 import { useEffect, useRef, useState } from 'react';
 import { Avatar } from './ui';
 import type { GameView, GameAction } from './game-types';
-import { ROLE_NAMES as roles, PHASE_NAMES, ACTION_NAMES } from './game-boards';
+import { ROLE_NAMES as roles } from './game-boards';
 import { GameActionControls } from './GameActionControls';
 export function WerewolfTable({
   game,
@@ -29,8 +29,8 @@ export function WerewolfTable({
     const timer = setInterval(() => setNow(Date.now()), 200);
     return () => clearInterval(timer);
   }, []);
-  const [text, setText] = useState(''),
-    [target, setTarget] = useState(''),
+  const [, setText] = useState(''),
+    [, setTarget] = useState(''),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   const feed = useRef<HTMLDivElement>(null);
@@ -45,7 +45,6 @@ export function WerewolfTable({
           ),
         )
       : null;
-  const speaker = game.seats.find((p) => p.id === game.clock?.seatId);
   const death = game.logs.find(
     (e) =>
       !e.seatId && !!self && e.text.includes(self.name) && (e.text.includes(' 出局。') || e.text.includes(' 被放逐。')),

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { extname, basename } from 'node:path';
-import type { Artifact, ArtifactPreview } from '../../src/shared';
+import type { ArtifactPreview } from '../../src/shared';
 import { Store } from './store';
 import { officeExtensions, officePreview, OFFICE_PREVIEW_LIMIT } from './office-preview';
 import { VmController, shQuote } from './vm';

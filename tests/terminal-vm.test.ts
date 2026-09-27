@@ -100,7 +100,7 @@ test('deleting a Bot stops only its owned terminal services and releases their r
   const killed: string[] = [];
   const vm = {
     openTerminal: async (botId: string) => {
-      let exit = (code: number) => {};
+      let exit = (_code: number) => {};
       return {
         write: () => {},
         onData: () => {},

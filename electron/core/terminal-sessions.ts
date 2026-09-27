@@ -336,7 +336,7 @@ export class TerminalSessions {
       if (session.botId === botId && session.runId === runId && !session.closed) session.driver.kill();
   }
   async forgetBot(botId: string, signal: AbortSignal) {
-    for (const session of [...this.sessions.values()])
+    for (const session of Array.from(this.sessions.values()))
       if (session.botId === botId) {
         if (!session.closed)
           try {

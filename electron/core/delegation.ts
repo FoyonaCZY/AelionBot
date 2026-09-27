@@ -1,5 +1,4 @@
 import type { Store } from './store';
-import type { PeerExchange } from '../../src/peer-types';
 export interface DelegationContract {
   goal: string;
   acceptance: string[];

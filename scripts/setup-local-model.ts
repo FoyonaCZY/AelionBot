@@ -1,14 +1,5 @@
 import { resolve, join } from 'node:path';
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  statSync,
-  openSync,
-  closeSync,
-  writeFileSync,
-} from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, statSync, openSync, closeSync, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { verifiedDownload } from '../electron/core/download';

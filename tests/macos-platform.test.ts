@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, realpathSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { hostPathKey, hostShell, hostEnvironment, shellName, windowsPwsh } from '../electron/core/host-platform';
@@ -209,5 +209,5 @@ test('Windows prefers PowerShell 7 from an absolute PATH entry and keeps 5.1 as 
   assert.equal(shellName('win32', found), 'PowerShell 7');
   assert.equal(windowsPwsh({ ...found, AELION_PWSH: 'off' }, 'win32'), undefined);
   assert.equal(windowsPwsh(found, 'darwin'), undefined);
-  assert.equal(windowsPwsh({ ...none, ProgramFiles: dir.replace(/[\/][^\/]+$/, '') }, 'win32'), undefined);
+  assert.equal(windowsPwsh({ ...none, ProgramFiles: dir.replace(/[/][^/]+$/, '') }, 'win32'), undefined);
 });

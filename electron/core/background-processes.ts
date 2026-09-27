@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync, statSync } from 'node:fs';
-import { join, resolve, isAbsolute } from 'node:path';
+import { join, isAbsolute } from 'node:path';
 import type { BackgroundProcess } from '../../src/process-types';
 import type { Store } from './store';
 import { VmController, shQuote } from './vm';
@@ -237,11 +237,11 @@ export class BackgroundProcesses {
   async wait(botId: string, id: string, signal: AbortSignal, milliseconds = 10000, offset = 0) {
     const until = Date.now() + Math.min(30000, Math.max(0, milliseconds));
     let result;
-    do {
+    for (;;) {
       result = await this.status(botId, id, signal, offset);
       if (!['starting', 'running'].includes(result.status) || Date.now() >= until) return result;
       await backoff(Math.min(500, until - Date.now()), signal);
-    } while (true);
+    }
   }
   private guestGone() {
     const state = this.vm.state;

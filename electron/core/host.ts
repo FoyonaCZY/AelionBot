@@ -615,7 +615,7 @@ export class HostComputer {
       part = query
         .trim()
         .replaceAll('\\', '/')
-        .replace(/[*?\[\]{}]/g, '');
+        .replace(/[*?[\]{}]/g, '');
     if (part.split('/').includes('..')) return { workspaceDir: root, files: [], truncated: false };
     const found = await this.searches.run(
       {

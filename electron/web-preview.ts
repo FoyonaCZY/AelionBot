@@ -1,5 +1,4 @@
 import { WebPreviewEditor } from './web-preview-editor';
-import type { EditorCommand } from '../src/preview-editor-types';
 import { PreviewFeedbackOverlay } from './preview-feedback-overlay';
 import type { FeedbackOverlayLayout } from '../src/preview-feedback-overlay';
 import { WebContentsView, session, type BrowserWindow, type Session } from 'electron';

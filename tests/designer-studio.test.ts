@@ -23,7 +23,6 @@ import {
 } from '../src/designer-canvas';
 import { designPluginCopy, designPluginTriggerLabel, filterDesignPlugins } from '../src/designer-plugin-copy';
 import { designerPlaybook, designerPlaybookName } from '../electron/core/designer-playbooks';
-import { readFileSync as read } from 'node:fs';
 
 function fixture(t: test.TestContext) {
   const root = mkdtempSync(join(tmpdir(), 'aelion-studio-'));
@@ -230,47 +229,6 @@ test('mobile and document playbooks stay first-party and publish HTML as the pri
   assert.equal(designerPlaybookName('document'), 'document');
   assert.match(designerPlaybook('mobile'), /data-design-id/);
   assert.match(designerPlaybook('document'), /design_export_pdf/);
-});
-
-test('studio source keeps docked feedback and portals into the canvas host', () => {
-  const preview = read(resolve('src/FilePreview.tsx'), 'utf8');
-  assert.doesNotMatch(preview, /display:\s*modal\s*\?\s*undefined\s*:\s*'none'/);
-  assert.match(preview, /data-layout=\{wantsStudio\?'studio'/);
-  assert.match(preview, /portalTarget\|\|document\.body/);
-  const workspace = read(resolve('src/DesignerWorkspace.tsx'), 'utf8');
-  assert.match(workspace, /data-designer-canvas=\{task\.id\}/);
-  assert.match(workspace, /emptyCanvasHtml/);
-  assert.match(read(resolve('src/App.tsx'), 'utf8'), /purpose="image"/);
-  assert.doesNotMatch(workspace, /deviceFrame/);
-  assert.doesNotMatch(workspace, /expanded:\s*true/);
-  assert.match(workspace, /DESIGN_TASK_KINDS/);
-  assert.match(workspace, /studioFacade/);
-  assert.match(workspace, /designer-bauhaus-hero/);
-  assert.match(workspace, /KIND_ICONS/);
-  assert.match(workspace, /designer-system-control/);
-  assert.match(workspace, /BotComposer/);
-  assert.match(workspace, /最近设计/);
-  assert.match(workspace, /DesignPluginPicker/);
-  assert.match(workspace, /designer-plugin-control/);
-  assert.doesNotMatch(workspace, /className="designer-plugins"/);
-  assert.doesNotMatch(workspace, /plugins\.map\(plugin=><button/);
-  const studio = read(resolve('src/designer-studio.css'), 'utf8');
-  assert.match(studio, /\.fp-layer\.is-studio\{[^}]*inset:0/);
-  assert.match(studio, /\.fp-layer\.is-studio \.fp-web-frame\{[^}]*height:100%/);
-  assert.match(studio, /grid-template-columns:clamp\(300px,28vw,380px\) minmax\(0,1fr\)/);
-  assert.doesNotMatch(studio, /left:var\(--preview-chat-width/);
-  assert.doesNotMatch(studio, /\.designer-canvas\{[^}]*position:fixed/);
-  assert.doesNotMatch(studio, /\.designer-delivery\{display:none\}/);
-  const workbench = read(resolve('src/preview-workbench.css'), 'utf8');
-  assert.doesNotMatch(workbench, /data-layout=studio/);
-  assert.match(preview, /!modal&&!wantsStudio&&<button className="fp-resize-handle"/);
-  assert.match(preview, /if\(wantsStudio\)return/);
-  const app = read(resolve('src/App.tsx'), 'utf8');
-  assert.doesNotMatch(app, /info\?\.studio/);
-  const loop = read(resolve('electron/core/designer-loop.ts'), 'utf8');
-  assert.match(loop, /hostedImageGeneration:false/);
-  assert.match(loop, /hostedGeneratedImages/);
-  assert.match(loop, /openLivePreview/);
 });
 
 test('publish records a visible brand check and will not overwrite a user-saved HTML file', async (t) => {

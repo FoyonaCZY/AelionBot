@@ -128,8 +128,8 @@ test('the configured ModelClient generates the first message from Bot identity w
   assert.equal(requests, 1);
   assert.equal(body.model, 'selected-model');
   assert.equal(body.tools, undefined);
-  assert.match(body.messages[0].content, /你的名字：\"代码达人\"/);
-  assert.match(body.messages[0].content, /你的职责：\"编写代码与测试\"/);
+  assert.match(body.messages[0].content, /你的名字："代码达人"/);
+  assert.match(body.messages[0].content, /你的职责："编写代码与测试"/);
   assert.equal(body.messages[1].content, 'Write the greeting now.');
   assert.doesNotMatch(body.messages[1].content, /代码达人/);
   assert.equal(f.store.data.messages[0].content, '我是代码达人，把你想实现的功能告诉我吧。');

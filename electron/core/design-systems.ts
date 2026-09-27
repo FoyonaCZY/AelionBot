@@ -52,7 +52,7 @@ export function displayFontStack(css: string) {
       const [, name, value] = match;
       if (!names.test(name) || /mono|code/i.test(name)) continue;
       const stack = value.trim().replace(/\s+/g, ' ').slice(0, 160);
-      if (stack && !/^var\(/.test(stack)) return stack;
+      if (stack && !stack.startsWith('var(')) return stack;
     }
   };
   return pick(/display|heading|title|serif/i) || pick(/body|text|sans|base|^font$/i) || pick(/./);
@@ -78,7 +78,7 @@ export class DesignSystems {
   private customCatalog: DesignSystemCatalog;
   private summaries?: DesignSystemSummary[];
   private describe(catalog: DesignSystemCatalog, origin: DesignSystemOrigin): DesignSystemSummary[] {
-    return catalog.systems.map(({ files, ...summary }) => {
+    return catalog.systems.map(({ files: _files, ...summary }) => {
       let description = summary.description,
         display: string | undefined;
       try {

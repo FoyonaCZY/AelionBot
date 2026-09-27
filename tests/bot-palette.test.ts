@@ -202,7 +202,7 @@ test('avatar SVG keeps the original silhouette, supports all paints, and rejects
     if (palette.avatarStyle?.kind === 'split') assert.ok(svg.includes('clip-path='));
     assert.match(botAvatarDataUrl(palette), /^data:image\/svg\+xml,/);
   }
-  const unsafe = botAvatarContent({ color: 'url(https://example.invalid)' }, '\"><script>bad</script>');
+  const unsafe = botAvatarContent({ color: 'url(https://example.invalid)' }, '"><script>bad</script>');
   assert.ok(unsafe.includes('#8b6bea'));
   assert.doesNotMatch(unsafe, /<script|https:|onload=/);
   const previous = normalizeBotPalette(BOT_PALETTES[0]),

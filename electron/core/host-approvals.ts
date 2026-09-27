@@ -219,7 +219,7 @@ export function defaultPermissionReviewer(
     const selected = config(),
       reviewer = selected.model;
     if (!reviewer || selected.issue) return { decision: 'ask', reason: '审核模型尚未配置', reviewer };
-    const { commandPattern, ...operation } = request.details;
+    const { commandPattern: _commandPattern, ...operation } = request.details;
     const credentialKey =
       /authorization|^(?:auth)$|(?:api[-_]?key|password|passwd|secret|token|private[-_]?key|credentials?)$/i;
     const scrub = (value: unknown): unknown =>

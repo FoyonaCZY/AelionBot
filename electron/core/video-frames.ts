@@ -10,7 +10,7 @@ import {
   unlinkSync,
   renameSync,
 } from 'node:fs';
-import { basename, join, extname } from 'node:path';
+import { basename, join } from 'node:path';
 import type { HostComputer } from './host';
 import type { Attachments } from './attachments';
 import { atomicJson } from './store';
@@ -146,7 +146,7 @@ export class VideoFrames {
     if (!rendered.dataUrl.startsWith('data:image/png;base64,')) throw Error('视频检查器未返回有效拼图');
     const bytes = Buffer.from(rendered.dataUrl.slice('data:image/png;base64,'.length), 'base64');
     if (bytes.length > 8 * 1024 * 1024 || usedBytes + bytes.length > MAX_BYTES) throw Error('视频拼图超过缓存预算');
-    const { dataUrl, ...sheet } = rendered;
+    const { dataUrl: _dataUrl, ...sheet } = rendered;
     const temp = imagePath + '.tmp';
     try {
       writeFileSync(temp, bytes, { flag: 'wx' });

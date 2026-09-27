@@ -24,7 +24,7 @@ test('player and public projections do not expose identities or private investig
   wolfPlans(s);
   const seer = s.requests.find((r) => r.kind === 'inspect')!;
   acceptAction(s, seer.id, { target: '2' });
-  for (const r of [...s.requests]) acceptAction(s, r.id, { target: '3' });
+  for (const r of Array.from(s.requests)) acceptAction(s, r.id, { target: '3' });
   assert(view(s, '1').logs.some((e) => e.text.includes('查验结果')));
   assert(!view(s, '0').logs.some((e) => e.text.includes('查验结果')));
   assert(!view(s, '0').logs.some((e) => e.text.includes('狼人选择')));
@@ -40,7 +40,7 @@ test('night commits only after all actions, repeated actions do not settle twice
   const before = JSON.stringify(s);
   acceptAction(s, r.id, { target: '5' });
   assert.equal(JSON.stringify(s), before);
-  for (const r of [...s.requests]) acceptAction(s, r.id, { target: r.kind === 'inspect' ? '2' : '3' });
+  for (const r of Array.from(s.requests)) acceptAction(s, r.id, { target: r.kind === 'inspect' ? '2' : '3' });
   assert.equal(s.phase, 'speech');
   assert.equal(s.seats[3].alive, false);
 });
@@ -227,7 +227,7 @@ test('repeated model failure pauses instead of inventing a legal action', async 
 test('requests have per-player speech budgets and timeout voting does not invent a target', () => {
   const s = create();
   wolfPlans(s);
-  for (const r of [...s.requests]) acceptAction(s, r.id, { target: r.kind === 'inspect' ? '2' : '5' });
+  for (const r of Array.from(s.requests)) acceptAction(s, r.id, { target: r.kind === 'inspect' ? '2' : '5' });
   const human = s.requests[0];
   assert.equal(human.seatId, '0');
   assert(human.deadlineAt! - Date.now() > 59000);
@@ -238,7 +238,7 @@ test('requests have per-player speech budgets and timeout voting does not invent
     const r = s.requests[0];
     acceptAction(s, r.id, { text: '听取其他发言。' });
   }
-  for (const r of [...s.requests]) acceptAction(s, r.id, {}, true);
+  for (const r of Array.from(s.requests)) acceptAction(s, r.id, {}, true);
   assert(s.logs.some((e) => e.text.includes('弃权')));
   assert.equal(s.day, 2);
   assert.equal(s.phase, 'night');

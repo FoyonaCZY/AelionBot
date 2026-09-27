@@ -2,7 +2,6 @@ import { DatabaseSync } from 'node:sqlite';
 import { join } from 'node:path';
 import { mkdirSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
-import type { ChatMessage, WireMessage } from '../../src/shared';
 import type { Store } from './store';
 import { excerpt, resultDigest } from './context-budget';
 

@@ -1,5 +1,5 @@
 import './conversation-chrome.css';
-import { DesignerWorkspace, DesignerTaskCard } from './DesignerWorkspace';
+import { DesignerWorkspace } from './DesignerWorkspace';
 import type { BotType } from './designer-types';
 import { usePreviewWorkbench } from './preview-workbench';
 import { PreviewBotSwitcher } from './PreviewBotSwitcher';
@@ -24,7 +24,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { FilePreviewProvider, PreviewScopeProvider, useFilePreview } from './FilePreviewContext';
 import { attachmentSummary, firstDeliveryAttachments } from './attachment-types';
 import type { Bot, ChatMessage, InteractionRequest, ModelSelection, Snapshot } from './shared';
-import { Avatar, bytes, FileCard, type FileItem, Icon, Message, time, Vnc } from './ui';
+import { Avatar, bytes, type FileItem, Icon, Message, time, Vnc } from './ui';
 import { RunMessage } from './activity-ui';
 import { BotWorkingStatus } from './BotWorkingStatus';
 import { liveBotProgress as liveBotStep } from './live-bot-progress';
@@ -134,7 +134,7 @@ function AppContent() {
 
   const [command, setCommand] = useState('uname -s; id -u; pwd'),
     [output, setOutput] = useState(''),
-    [files, setFiles] = useState<FileItem[]>([]);
+    [, setFiles] = useState<FileItem[]>([]);
   const [screen, setScreen] = useState('');
   const sending = useRef(new Set<string>());
   const bottom = useRef<HTMLDivElement>(null),
@@ -550,18 +550,6 @@ function AppContent() {
     if (!bot || running || !latestRun) return;
     follow.current = true;
     void window.aelion.resumeChat({ botId: bot.id, runId: latestRun.id }).catch((error) => setToast(errorText(error)));
-  };
-  const refreshFiles = () =>
-    bot &&
-    act(async () => {
-      const owner = bot.id;
-      const result = await window.aelion.listFiles(owner);
-      if (selectedRef.current === owner) setFiles(result.map((file) => ({ ...file, path: file.path || file.name })));
-    });
-  const openFiles = () => {
-    setFiles([]);
-    setModal('files');
-    void refreshFiles();
   };
   const openPreview = (file: PreviewFile) => {
     setModal(null);

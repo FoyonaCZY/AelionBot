@@ -14,8 +14,7 @@ import { DesignerFiles } from '../electron/core/designer-files';
 import { DesignerLoop } from '../electron/core/designer-loop';
 import { BotRuntime } from '../electron/core/bot-runtime';
 import { zipSync, strToU8 } from 'fflate';
-import type { ToolDefinition } from '../electron/core/model';
-import type { Bot, RunRecord } from '../src/shared';
+import type { RunRecord } from '../src/shared';
 
 function fixture(t: any) {
   const root = mkdtempSync(join(tmpdir(), 'aelion-design-'));

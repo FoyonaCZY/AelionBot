@@ -46,7 +46,8 @@ test('fuzzy edits keep CRLF, stay unique and explain misses with nearby lines', 
   assert.equal(edit('  x\n  x\n', 'x\n', 'y\n', true).content, '  y\n  y\n');
   assert.throws(
     () => edit('function alpha() {\n  return 1;\n}\n', 'function alpha() {\n  return 9;\n}', 'x'),
-    (error: FileToolError) => error.code === 'EDIT_NOT_FOUND' && (error.details?.similarLines as any[])[0].line === 1,
+    (error: FileToolError) =>
+      error.code === 'EDIT_NOT_FOUND' && (error.details?.similarLines as any[] | undefined)?.[0].line === 1,
   );
 });
 

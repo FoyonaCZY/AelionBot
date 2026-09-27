@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { IntegrationsView, ScreenReference } from '../../src/shared';
 import { atomicJson, Store } from './store';
-import { canonical, hashId, type IntegrationPaths, type SourceDescriptor } from './integration-paths';
+import { canonical, hashId, type IntegrationPaths } from './integration-paths';
 import { SkillLibrary } from './skill-library';
 import { discoverMcp, parseMcpSnippet } from './mcp-config';
 import { McpRuntime, type McpPreference } from './mcp-runtime';

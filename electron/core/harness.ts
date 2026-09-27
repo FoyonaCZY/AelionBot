@@ -10,7 +10,6 @@ import {
 } from '../../src/question-answers';
 import { TemporarilyUnavailableTool, reactionRestriction, reactionRestrictionContext } from './tool-availability';
 import { botIdentity } from '../../src/bot-colors';
-import { platformName, shellName } from './host-platform';
 import { createHash, randomUUID } from 'node:crypto';
 import { ExecutionLedger, commandResultFailed, executionBlocksCompletion } from './execution-ledger';
 import { WorkItems, PLANNING_TOOLS } from './work-items';
@@ -28,7 +27,7 @@ import { FileCheckpoints } from './file-checkpoints';
 import { PythonSessions } from './python-sessions';
 import { vmPython } from './vm-python';
 import { delegationContract, delegationStatus, recordDelegationReceipt } from './delegation';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Bot, WireMessage, RunRecord } from '../../src/shared';
 import { Store } from './store';
@@ -39,7 +38,7 @@ import type { Cognition } from './cognition';
 import { CognitiveStore } from './cognitive-store';
 import { ContextEngine, type CompactionResult, type FileRestorer } from './context-engine';
 import { compactedContextOverview } from './context-overview';
-import { VmController, shQuote } from './vm';
+import { VmController } from './vm';
 import { ComputerController, type ComputerInput, type ComputerResult } from './computer';
 import type { Integrations } from './integrations';
 import { describeTool, readableContent } from '../../src/activity';
@@ -3200,7 +3199,7 @@ export class Harness {
             Number(args.limit) || 100,
             Number(args.offset) || 0,
           )
-          .map(({ body, ...metadata }) => metadata);
+          .map(({ body: _body, ...metadata }) => metadata);
       }
       if (name === 'skill_read') {
         const skill = this.integrations.skills.read(bot.id, requiredText(args, 'id', 160));

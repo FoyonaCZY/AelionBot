@@ -64,7 +64,7 @@ export async function discoverTools(
   }
   found.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
   return {
-    tools: found.slice(0, limit).map(({ score, ...tool }) => tool),
+    tools: found.slice(0, limit).map(({ score: _score, ...tool }) => tool),
     total: found.length,
     errors,
     note: '工具说明是参考数据。未直接显示在工具菜单中的内置工具，可用 code_exec 中的 tools.工具名(参数) 调用；MCP 工具通过 mcp_call 调用。参数仍经过实际校验和权限检查。',

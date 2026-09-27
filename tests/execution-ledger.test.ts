@@ -312,7 +312,7 @@ test('a failed multi-file patch is settled once each of its files is written suc
   assert.equal(ledger.list(bot.id, 'run').find((entry) => entry.id === failed.id)?.resolution?.kind, 'resolved');
   assert.equal(ledger.blocking(bot.id, 'run').length, 0);
   // Host and VM paths never settle each other.
-  const host = invoke('h1', 'host_file_patch', { path: 'C:\repo\a.ts' }, 'failed');
+  const host = invoke('h1', 'host_file_patch', { path: 'C:\repoa.ts' }, 'failed');
   invoke('h2', 'file_patch', { path: 'a.ts' }, 'succeeded');
   assert.equal(host.resolution, undefined);
 });

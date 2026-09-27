@@ -2,7 +2,6 @@ import { replyInput } from '../../src/message-replies';
 import type { Store } from './store';
 import { botIdentity } from '../../src/bot-colors';
 import type { BotMention, ChatMessage } from '../../src/shared';
-import { attachmentSummary } from '../../src/attachment-types';
 
 export function validateChatInput(
   store: Store,

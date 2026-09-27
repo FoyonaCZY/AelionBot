@@ -10,7 +10,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, dirname, extname, isAbsolute, relative, resolve } from 'node:path';
 import { create, type Font } from 'fontkit';
 import type { DesignSession } from '../../src/designer-types';
 import type {
@@ -715,7 +715,7 @@ export class DesignFonts {
     const manifest = this.manifest(session).data,
       characters = unique(
         Array.from(input.text || '').filter(
-          (char) => !/\s|[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufe00-\ufe0f]/u.test(char),
+          (char) => !/\s|[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2060-\u206f]|[\ufe00-\ufe0f]/u.test(char),
         ),
       );
     const fonts = manifest.fonts

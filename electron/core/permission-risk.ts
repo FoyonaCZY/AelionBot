@@ -196,7 +196,7 @@ function literals(command: string, platform: NodeJS.Platform) {
       quoted = true;
       started = true;
     } else {
-      if (/[\s;$`|&<>(){}\[\]@#]/.test(char)) return;
+      if (/[\s;$`|&<>(){}[\]@#]/.test(char)) return;
       word += char;
       started = true;
     }
@@ -244,7 +244,7 @@ function powershellRead(words: string[], details: HostPermissionDetails, context
     if (!list) return false;
     paths.push('.');
   }
-  return paths.length === 1 && (literal || !/[\[\]*?]/.test(paths[0])) && ordinaryProjectPath(paths[0], context, cwd);
+  return paths.length === 1 && (literal || !/[[\]*?]/.test(paths[0])) && ordinaryProjectPath(paths[0], context, cwd);
 }
 function powershellEdit(words: string[], details: HostPermissionDetails, context: HostRiskContext) {
   const name = words[0].toLowerCase(),

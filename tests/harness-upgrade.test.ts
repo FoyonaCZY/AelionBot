@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, realpathSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Store } from '../electron/core/store';
@@ -10,7 +10,6 @@ import { readPipeline } from '../electron/core/tool-pipeline';
 import { FileCheckpoints } from '../electron/core/file-checkpoints';
 import { Interactions } from '../electron/core/interactions';
 import { DEFAULT_RUNTIME } from '../src/runtime-types';
-import { RunPolicy } from '../electron/core/runtime-policy';
 import { Harness } from '../electron/core/harness';
 import type { ModelClient } from '../electron/core/model';
 import { ExecutionLedger } from '../electron/core/execution-ledger';
@@ -64,7 +63,7 @@ test('read pipelines respect concurrency, dependencies and reject mutations befo
     },
   );
   assert.ok(peak >= 2);
-  assert.equal((result.results.c?.result as any).next, 'a-next-next');
+  assert.equal((result.results.c?.result as any)?.next, 'a-next-next');
   assert.equal(result.isError, false);
   let called = false;
   await assert.rejects(

@@ -303,7 +303,7 @@ export class TaskScheduler {
     name: string,
     args: Record<string, unknown>,
     signal: AbortSignal,
-    options: HarnessRunOptions,
+    _options: HarnessRunOptions,
   ) {
     const run = this.store.data.runs.find((run) => run.id === runId && run.botId === botId && run.status === 'running');
     if (signal.aborted || !run) throw new Error('当前任务已结束');

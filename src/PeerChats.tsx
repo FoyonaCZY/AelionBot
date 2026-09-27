@@ -149,7 +149,7 @@ export function PrivateChatWindow({
   onNavigate: (panel: PeerPanel) => void;
   onClose: () => void;
 }) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const streams = streamingReplies.filter((reply) => Boolean(panel.threadId) && reply.peerThreadId === panel.threadId),
     streamSignature = streams.map((reply) => reply.id + ':' + reply.content).join('|');
   const root = useRef<HTMLElement>(null),

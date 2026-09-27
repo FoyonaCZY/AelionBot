@@ -6,17 +6,8 @@ import { STORAGE_POLICY_BOOTSTRAP } from './storage-policy';
 import { EventEmitter } from 'node:events';
 import { createServer, type Server as HttpServer } from 'node:http';
 import { createConnection, createServer as createTcpServer } from 'node:net';
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  openSync,
-  closeSync,
-  readFileSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
-import { join, resolve, extname } from 'node:path';
+import { copyFileSync, existsSync, mkdirSync, openSync, closeSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, extname } from 'node:path';
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
 import { spawn, execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';

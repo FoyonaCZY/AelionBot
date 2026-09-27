@@ -40,7 +40,7 @@ test('dispose must not relaunch AI requests from old worker finalizers', async (
     await delay(20);
     return { target: r.targets[0], text: 'test' };
   });
-  const s = runtime.create({ groupId: 'g', players });
+  runtime.create({ groupId: 'g', players });
   const before = calls;
   runtime.dispose();
   await delay(45);
@@ -73,7 +73,7 @@ test('all abstaining in the first ballot must not be reported as a second tie', 
     kind: 'vote',
     targets: players.filter((t) => t.id !== p.id).map((t) => t.id),
   }));
-  for (const r of [...s.requests]) acceptAction(s, r.id, {}, true);
+  for (const r of Array.from(s.requests)) acceptAction(s, r.id, {}, true);
   assert(s.logs.some((e) => e.text.includes('全部弃权')));
   assert(!s.logs.some((e) => e.text.includes('再次平票')));
 });
@@ -239,7 +239,7 @@ test('human timers still freeze on pause and expire using game rules', async () 
   try {
     runtime.control(s.id, 'resume');
     const paused = runtime.control(s.id, 'pause');
-    assert(paused.clock?.remainingMs! > 0);
+    assert((paused.clock?.remainingMs ?? 0) > 0);
     await delay(150);
     assert.equal(runtime.read('human-timer')?.phase, 'election');
     runtime.control(s.id, 'resume');

@@ -2,7 +2,7 @@ const HEX = /#([0-9a-f]{3,8})\b/gi;
 const TOKEN = /--([a-z0-9-]+)\s*:\s*([^;]+);/gi;
 function expand(hex: string) {
   const value = hex.replace('#', '').toLowerCase();
-  if (value.length === 3 || value.length === 4) return '#' + [...value.slice(0, 3)].map((ch) => ch + ch).join('');
+  if (value.length === 3 || value.length === 4) return '#' + Array.from(value.slice(0, 3), (ch) => ch + ch).join('');
   return '#' + value.slice(0, 6);
 }
 function rgb(hex: string) {

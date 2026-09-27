@@ -13,7 +13,7 @@ import {
   copyFileSync,
   constants,
 } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import { decodeText, FileToolError, indentOf, reindent, seekLines, similarLines } from './file-text';
 import type { HostComputer } from './host';
 import type { Interactions } from './interactions';
