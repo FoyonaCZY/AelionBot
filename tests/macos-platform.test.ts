@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,mkdirSync,rmSync,writeFileSync,readFileSync,realpathSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
-import {hostPathKey,hostShell,hostEnvironment} from '../electron/core/host-platform';
+import {hostPathKey,hostShell,hostEnvironment,shellName,windowsPwsh} from '../electron/core/host-platform';
 import {CommandPermissions} from '../electron/core/command-permissions';
 import {HostComputer} from '../electron/core/host';
 import {Interactions,InteractionDenied} from '../electron/core/interactions';
@@ -21,7 +21,7 @@ test('native host shell preserves code as one argument and POSIX paths keep thei
  assert.ok(hostEnvironment({PATH:'/usr/bin:/bin'},'darwin').PATH?.startsWith('/opt/homebrew/bin:/usr/local/bin:'));
 });
 test('Windows host shell auto-flushes redirected output and keeps the command inside the encoded script',()=>{
- const command="Write-Output 'ready'",shell=hostShell(command,{SYSTEMROOT:'C:\\Windows'},'win32');
+ const command="Write-Output 'ready'",shell=hostShell(command,{SYSTEMROOT:'C:\\Windows',PATH:'',ProgramFiles:'Z:\\missing'},'win32');
  assert.equal(shell.executable,'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe');
  assert.equal(shell.detached,false);assert.equal(shell.args.includes('-EncodedCommand'),true);
  const script=Buffer.from(shell.args[shell.args.indexOf('-EncodedCommand')+1],'base64').toString('utf16le');
@@ -58,4 +58,13 @@ test('POSIX background supervisor streams logs and stops its own service',{skip:
  t.after(async()=>{if(id)await manager.stop(bot.id,id,AbortSignal.timeout(6000)).catch(()=>{});interactions.dispose();host.dispose();});
  const starting=manager.start(bot.id,'r',{location:'host',purpose:'service',command:"printf 'ready'; sleep 60",cwd:root,reason:'test'},signal);interactions.approve(interactions.snapshot()[0].id,true);id=(await starting).id;
  let output='';for(let n=0;n<30&&!output.includes('ready');n++){await new Promise(r=>setTimeout(r,100));output=(await manager.status(bot.id,id,signal)).output;}assert.match(output,/ready/);assert.equal((await manager.stop(bot.id,id,signal)).status,'stopped');
+});
+test('Windows prefers PowerShell 7 from an absolute PATH entry and keeps 5.1 as the fallback',t=>{
+ const dir=temporary(t),bin=join(dir,'pwsh-bin');mkdirSync(bin);writeFileSync(join(bin,'pwsh.exe'),'');
+ const none={SYSTEMROOT:'C:\\Windows',PATH:'',ProgramFiles:join(dir,'missing')};
+ assert.equal(windowsPwsh(none,'win32'),undefined);assert.equal(shellName('win32',none),'Windows PowerShell 5.1');
+ assert.equal(windowsPwsh({...none,PATH:'pwsh-bin;.'},'win32'),undefined);
+ const found={...none,PATH:bin};assert.equal(hostShell('Write-Output ok',found,'win32').executable,join(bin,'pwsh.exe'));assert.equal(shellName('win32',found),'PowerShell 7');
+ assert.equal(windowsPwsh({...found,AELION_PWSH:'off'},'win32'),undefined);assert.equal(windowsPwsh(found,'darwin'),undefined);
+ assert.equal(windowsPwsh({...none,ProgramFiles:dir.replace(/[\/][^\/]+$/,'')},'win32'),undefined);
 });

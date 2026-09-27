@@ -5,8 +5,12 @@ import type {HostPermissionDetails} from '../../src/shared';
 export interface HostRiskContext {workspaceDir?:string;dataDir:string;homeDir:string;platform:NodeJS.Platform;}
 const sensitiveSegment=/^(?:\.ssh|\.aws|\.azure|\.kube|\.gnupg|\.codex|\.aelion|\.git|credentials?|secrets?|keychains?|gcloud)$/i;
 const sensitiveFile=/^(?:\.env(?:\..*)?|\.netrc|_netrc|\.npmrc|\.pypirc|\.git-credentials|\.boto|id_(?:rsa|dsa|ecdsa|ed25519)(?:\..*)?|.*(?:credentials?|secrets?|passwords?|tokens?|private[-_]keys?).*|(?:login|web) data(?:-.*)?|cookies(?:-.*)?|.*\.(?:pem|p12|pfx|key|keystore))$/i;
-const protectedWriteSegment=/^(?:\.vscode|\.idea|\.husky|\.claude|\.gemini|\.agents)$/i;
-const protectedWriteFile=/^(?:\.gitconfig|\.gitmodules|\.bashrc|\.bash_profile|\.zshrc|\.zprofile|\.profile|\.ripgreprc|\.mcp\.json|\.claude\.json)$/i;
+// Protected writes take effect outside the current task: CI with repository secrets, dev containers,
+// editor tasks, git hook managers and direnv. Sources and manifests stay editable because approved
+// project commands already execute project code.
+const protectedWriteSegment=/^(?:\.vscode|\.idea|\.husky|\.claude|\.gemini|\.agents|\.github|\.gitlab|\.circleci|\.buildkite|\.devcontainer)$/i;
+const protectedWriteFile=/^(?:\.gitconfig|\.gitmodules|\.gitattributes|\.bashrc|\.bash_profile|\.zshrc|\.zprofile|\.profile|\.ripgreprc|\.mcp\.json|\.claude\.json|\.envrc|\.gitlab-ci\.ya?ml|\.travis\.ya?ml|azure-pipelines\.ya?ml|bitbucket-pipelines\.ya?ml|jenkinsfile|\.pre-commit-config\.ya?ml|\.?lefthook\.ya?ml|\.devcontainer\.json)$/i;
+const protectedWriteRoots=['.git','.vscode','.idea','.husky','.claude','.gemini','.agents','.github','.gitlab','.circleci','.buildkite','.devcontainer'];
 const posixSystemWriteRoots=['/etc','/private/etc','/bin','/sbin','/usr/bin','/usr/sbin','/usr/lib','/System/Library','/Library/LaunchAgents','/Library/LaunchDaemons','/Library/Keychains','/Applications'];
 const pathApi=(context:HostRiskContext)=>context.platform==='win32'?win32:posix;
 function canonical(value:string,context:HostRiskContext){
@@ -23,11 +27,25 @@ export function ordinaryProjectPath(value:string,context:HostRiskContext,cwd=con
   if(!cwd||!context.workspaceDir||!pathApi(context).isAbsolute(cwd)||/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069*?]/.test(value)||/^\\\\|^\/\/|^~|^[a-z]+:\/\//i.test(value))return false;
   if(context.platform==='win32'&&(/^[a-z]:[^\\/]/i.test(value)||value.replace(/^[a-z]:/i,'').includes(':')))return false;
   const path=pathApi(context).resolve(cwd,value),resolved=canonical(path,context);if(!resolved||/^\\\\|^\/\//.test(resolved)||!inside(path,context.workspaceDir,context)||inside(path,context.dataDir,context))return false;
-  const parts=resolved.split(/[\\/]/).filter(Boolean),name=parts.at(-1)||'';
+  return !sensitiveParts(resolved.split(/[\\/]/).filter(Boolean))&&!/\/(?:library\/(?:keychains|cookies)|appdata\/(?:local|roaming)\/(?:google|microsoft|mozilla|aelion-bot))/i.test(resolved.replaceAll('\\','/'));
+}
+function sensitiveParts(parts:string[]){
+  const name=parts.at(-1)||'';
   // Auth libraries commonly contain tokens.ts or secrets/password.py. These are
   // ordinary source files; credential stores and explicit .env/key files remain protected.
   const sourceFile=/\.(?:[cm]?[jt]sx?|py|rb|go|rs|java|kt|cs|c|cpp|h|hpp|swift|php|vue|svelte|css|scss)$/i.test(name)&&!/^\.env(?:\.|$)|^id_(?:rsa|dsa|ecdsa|ed25519)(?:\.|$)/i.test(name);
-  return !parts.some(part=>sensitiveSegment.test(part)&&!(sourceFile&&/^(?:credentials?|secrets?)$/i.test(part)))&&(!sensitiveFile.test(name)||sourceFile)&&!/\/(?:library\/(?:keychains|cookies)|appdata\/(?:local|roaming)\/(?:google|microsoft|mozilla|aelion-bot))/i.test(resolved.replaceAll('\\','/'));
+  return parts.some(part=>sensitiveSegment.test(part)&&!(sourceFile&&/^(?:credentials?|secrets?)$/i.test(part)))||sensitiveFile.test(name)&&!sourceFile;
+}
+// Lexical check for arguments of a saved prefix rule. The rule only covers the approved working
+// directory: absolute, home, parent, provider and credential paths need a new decision.
+export function argumentLeavesProject(value:string,platform:NodeJS.Platform){
+  for(const part of [value,...(/^--?[\w-]+=/.test(value)?[value.slice(value.indexOf('=')+1)]:[])]){
+    if(!part)continue;
+    if(/^[\\/~]/.test(part)||platform==='win32'&&(/^[a-z]:/i.test(part)||/^(?:env|variable|function|alias|cert|hk[a-z]+|wsman|registry|temp):/i.test(part)||part.includes('::')))return true;
+    const parts=part.split(/[\\/]/);if(parts.includes('..'))return true;
+    if(/[\\/.]/.test(part)&&sensitiveParts(parts.filter(Boolean)))return true;
+  }
+  return false;
 }
 function ordinaryProjectWrite(value:string,context:HostRiskContext,cwd=context.workspaceDir){
   if(!ordinaryProjectPath(value,context,cwd))return false;
@@ -38,7 +56,7 @@ function ordinaryProjectWrite(value:string,context:HostRiskContext,cwd=context.w
   if(context.platform==='win32'?/^[a-z]:\/(?:windows|program files(?: \(x86\))?|programdata)(?:\/|$)/i.test(normalized):posixSystemWriteRoots.some(root=>inside(path,root,context)))return false;
   const parts=path.split(/[\\/]/).filter(Boolean);if(parts.some(part=>protectedWriteSegment.test(part))||protectedWriteFile.test(parts.at(-1)||''))return false;
   // A protected directory may itself be a junction/alias to another path in the project.
-  for(const name of ['.git','.vscode','.idea','.husky','.claude','.gemini','.agents'])if(inside(path,pathApi(context).join(context.workspaceDir!,name),context))return false;
+  for(const name of protectedWriteRoots)if(inside(path,pathApi(context).join(context.workspaceDir!,name),context))return false;
   return true;
 }
 
@@ -93,7 +111,9 @@ function powershellEdit(words:string[],details:HostPermissionDetails,context:Hos
 export function classifyHostOperation(details:HostPermissionDetails,context:HostRiskContext):{lowRisk:boolean;reason:string}{
   if(details.operation==='read_file'&&details.path&&pathApi(context).isAbsolute(details.path)&&ordinaryProjectPath(details.path,context))return {lowRisk:true,reason:'读取或查看当前工作目录中的普通文件'};
   if(details.operation==='write_file'&&details.path&&pathApi(context).isAbsolute(details.path)&&ordinaryProjectWrite(details.path,context))return {lowRisk:true,reason:'在工作目录内创建或编辑普通项目文件'};
-  if(details.operation==='command'&&details.command){
+  // Set only by McpRuntime for remote tools annotated read-only and non-destructive; local MCP never qualifies.
+  if(details.operation==='mcp'&&details.permissionScope==='remote'&&details.readOnly===true)return {lowRisk:true,reason:'远程 MCP 声明的只读工具'};
+  if(details.operation==='command'&&details.command&&details.stdin===undefined){
     const words=literals(details.command,context.platform);
     if(words&&context.platform==='win32'&&powershellRead(words,details,context))return {lowRisk:true,reason:'单条本机只读查询，范围在当前工作目录内'};
     if(words&&context.platform==='win32'&&powershellEdit(words,details,context))return {lowRisk:true,reason:'单条项目文件编辑或目录创建'};

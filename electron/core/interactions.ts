@@ -29,6 +29,12 @@ export class Interactions {
       if(signal.aborted)abort();else this.changed();
     });
   }
+  // True only when permission() would pass without asking the user or a review model. Has no side effects.
+  allowsSilently(botId:string,runId:string,details:HostPermissionDetails){
+    const request:InteractionRequest={id:'probe',botId,runId,createdAt:new Date().toISOString(),kind:'host_permission',details:structuredClone(details)};
+    if(this.hostPolicy)return this.hostPolicy.assess(request).kind==='allow';
+    return Boolean(this.commands?.match(details));
+  }
   permission(botId:string,runId:string,details:HostPermissionDetails,signal:AbortSignal){
     if(signal.aborted)return Promise.reject(new Error('任务已取消'));
     if(Buffer.byteLength(JSON.stringify(details),'utf8')>1024*1024)return Promise.reject(new Error('操作内容过大，无法展示权限请求'));
@@ -85,6 +91,11 @@ export class Interactions {
     const request=this.get(id);if(request.kind!=='host_permission')throw new Error('请求类型不匹配');
     if(allow&&request.approval?.phase==='reviewing')throw new Error('自动审核尚未结束');
     this.finish(id,allow?undefined:new InteractionDenied('用户拒绝了本次操作',request.details),allow?'allowed':'denied');
+  }
+  // Used where no person can answer (headless runs): the message tells the model why it was not allowed.
+  deny(id:string,message:string){
+    const request=this.get(id);if(request.kind!=='host_permission')throw new Error('请求类型不匹配');
+    this.finish(id,new InteractionDenied(message,request.details),'denied-unattended');
   }
   approveAlways(id:string){
     const request=this.get(id);

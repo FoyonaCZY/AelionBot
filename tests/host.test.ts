@@ -109,3 +109,13 @@ test('cancelling a granted host command terminates its child process tree',{skip
     assert.equal(alive,false,'The child process survived cancellation');
   }finally{controller.abort();await running.catch(()=>{});if(pid)try{process.kill(pid);}catch{}}
 });
+test('stdin is shown in the prompt, piped once to native commands and never covered by saved rules',{skip:process.platform!=='win32'},async t=>{
+  const {root,host,interactions}=fixture(t);
+  const running=host.execute('bot-a','run-a',{command:'node -e "process.stdin.pipe(process.stdout)"',cwd:root,reason:'验证标准输入',stdin:'第一行 input\nsecond\n'},new AbortController().signal);
+  const request=interactions.snapshot()[0] as any;assert.equal(request.details.stdin,'第一行 input\nsecond\n');interactions.approve(request.id,true);
+  const result=await running;assert.equal(result.exitCode,0);assert.equal(result.stdout.replace(/\r\n/g,'\n'),'第一行 input\nsecond\n');
+  const ignored=host.execute('bot-a','run-a',{command:'cmd /c exit 0',cwd:root,reason:'未读取输入',stdin:'x'.repeat(200000)},new AbortController().signal);interactions.approve(interactions.snapshot()[0].id,true);assert.equal((await ignored).exitCode,0);
+  await assert.rejects(host.execute('bot-a','run-a',{command:'node -',cwd:root,reason:'过大输入',stdin:'x'.repeat(300*1024)},new AbortController().signal),/256 KB/);
+  await assert.rejects(host.execute('bot-a','run-a',{command:'node -',cwd:root,reason:'超时上限',timeoutMs:600001},new AbortController().signal),/600000/);
+  assert.equal(interactions.snapshot().length,0);
+});

@@ -2,14 +2,23 @@ import {Worker} from 'node:worker_threads';
 import {join} from 'node:path';
 import {FileToolError} from './file-text';
 import type {FileSearchRequest,FileSearchResult} from './file-search-types';
+import {ripgrepCandidates} from './ripgrep';
 
 interface Pending {request:FileSearchRequest;signal:AbortSignal;resolve:(result:FileSearchResult)=>void;reject:(error:unknown)=>void;abort:()=>void;}
 export class FileSearch {
   private queue:Pending[]=[];private active=new Map<Pending,()=>void>();private disposed=false;
-  constructor(private runtimeDir:string|undefined,private timeoutMs=5000,private concurrency=4){}
-  run(request:FileSearchRequest,signal:AbortSignal):Promise<FileSearchResult>{
-    if(!this.runtimeDir)return Promise.reject(new FileToolError('SEARCH_UNAVAILABLE','文件检索运行时未准备好，请更新客户端'));
-    if(this.disposed)return Promise.reject(Error('本机检索已停止'));if(signal.aborted)return Promise.reject(signal.reason);
+  constructor(private runtimeDir:string|undefined,private timeoutMs=5000,private concurrency=4,private ripgrep?:string){}
+  async run(request:FileSearchRequest,signal:AbortSignal):Promise<FileSearchResult>{
+    if(!this.runtimeDir)throw new FileToolError('SEARCH_UNAVAILABLE','文件检索运行时未准备好，请更新客户端');
+    if(this.disposed)throw Error('本机检索已停止');signal.throwIfAborted();
+    // ripgrep narrows a directory search to candidate files; the worker still applies every check to them.
+    if(this.ripgrep&&!request.file&&!request.candidates){
+      const found=await ripgrepCandidates(this.ripgrep,request,signal,this.timeoutMs);signal.throwIfAborted();if(this.disposed)throw Error('本机检索已停止');
+      if(found)request={...request,candidates:found.paths,...(found.limitReason?{candidateLimit:found.limitReason}:{})};
+    }
+    return this.enqueue(request,signal);
+  }
+  private enqueue(request:FileSearchRequest,signal:AbortSignal):Promise<FileSearchResult>{
     return new Promise((resolve,reject)=>{
       const pending:Pending={request:structuredClone(request),signal,resolve,reject,abort:()=>{const index=this.queue.indexOf(pending);if(index>=0){this.queue.splice(index,1);signal.removeEventListener('abort',pending.abort);reject(signal.reason);}else this.active.get(pending)?.();}};
       signal.addEventListener('abort',pending.abort,{once:true});this.queue.push(pending);this.pump();

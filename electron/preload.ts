@@ -56,6 +56,7 @@ const api:AelionAPI={
   saveAttachment:id=>ipcRenderer.invoke('attachments:save',id),
   saveUserProfile:profile=>ipcRenderer.invoke('profile:save',profile),
   saveRuntimeSettings:settings=>ipcRenderer.invoke('runtime:save',settings),
+  compactContext:input=>ipcRenderer.invoke('context:compact',input),
   snapshot:()=>ipcRenderer.invoke('app:snapshot'),
   createScheduledTask:input=>ipcRenderer.invoke('tasks:create',input),
   updateScheduledTask:input=>ipcRenderer.invoke('tasks:update',input),

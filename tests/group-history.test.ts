@@ -50,5 +50,7 @@ test('interrupted and invalid group summaries never advance the persisted bounda
   const cancelled={complete:async()=>{controller.abort(new Error('新群消息'));return {content:summary,calls:[],finishReason:'stop'};}} as unknown as ModelClient;
   await assert.rejects(prepareGroupContext(store,cancelled,input),/新群消息/);assert.equal(store.data.contextOffsets[key],undefined);assert.equal(store.data.summaries[key],undefined);
   const invalid={complete:async()=>({content:'这不是结构化摘要',calls:[],finishReason:'stop'})} as unknown as ModelClient;
-  await assert.rejects(prepareGroupContext(store,invalid,{...input,signal:new AbortController().signal}),/不是有效/);assert.equal(store.data.contextOffsets[key],undefined);
+  // Invalid model output is never committed. An over-budget request continues with a rule-based summary instead of failing.
+  const result=await prepareGroupContext(store,invalid,{...input,signal:new AbortController().signal});
+  assert.ok(store.data.contextOffsets[key]>0);assert.doesNotMatch(store.data.summaries[key],/这不是结构化摘要/);assert.match(store.data.summaries[key],/按规则整理/);assert.ok(result.estimatedTokens<=contextBudget(8000).input);
 });

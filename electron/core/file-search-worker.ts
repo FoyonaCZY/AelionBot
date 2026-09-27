@@ -5,9 +5,9 @@ import ignore,{type Ignore} from 'ignore';
 import {ordinaryProjectPath} from './permission-risk';
 import {characterWindow,decodeText,FileToolError,TEXT_FILE_LIMIT,toolFailure} from './file-text';
 import {redactHost} from './host-redaction';
-import type {FileMatch,FileSearchRequest,FileSearchResult} from './file-search-types';
+import {ignoredDirectories as ignoredNames,type FileMatch,type FileSearchRequest,type FileSearchResult} from './file-search-types';
 
-const ignoredDirectories=new Set(['node_modules','__pycache__','.venv','venv','.cache','.next','.nuxt','.turbo']);
+const ignoredDirectories=new Set(ignoredNames);
 interface Rules {base:string;ignore:Ignore;}
 interface Entry {name:string;isFile:()=>boolean;isDirectory:()=>boolean;isSymbolicLink:()=>boolean;}
 function readBounded(fd:number,size:number){const buffer=Buffer.alloc(size);let read=0;while(read<size){const bytes=readSync(fd,buffer,read,size-read,read);if(!bytes)break;read+=bytes;}return buffer.subarray(0,read);}
@@ -25,6 +25,35 @@ export function searchWorkspace(request:FileSearchRequest):FileSearchResult{
     const path=join(directory,'.gitignore');let fd:number|undefined;try{const stat=lstatSync(path);if(!stat.isFile()||stat.isSymbolicLink()||stat.size>65536||realpathSync.native(path)!==path)return;fd=openSync(path,'r');const info=fstatSync(fd);if(info.ino!==stat.ino||info.dev!==stat.dev||info.size>65536)return;return {base:directory,ignore:ignore({ignorecase:process.platform==='win32'}).add(readBounded(fd,info.size).toString('utf8'))};}catch{return;}finally{if(fd!==undefined)closeSync(fd);}
   };
   const within=(path:string)=>{const rel=relative(root,path);return rel===''||rel!=='..'&&!rel.startsWith('../')&&!rel.startsWith('..\\')&&!isAbsolute(rel);};
+  // Returns false when a scan-wide limit stops the search.
+  const scanFile=(path:string):boolean=>{
+    if(!ordinaryProjectPath(path,risk)){skipped.sensitive++;return true;}
+    const rel=relative(root,path).replaceAll('\\','/'),candidate=process.platform==='win32'?rel.toLowerCase():rel,pattern=process.platform==='win32'?request.glob.toLowerCase():request.glob;
+    if(!request.file&&!posix.matchesGlob(candidate,pattern))return true;
+    let original:ReturnType<typeof lstatSync>;try{original=lstatSync(path);if(!original.isFile()||original.isSymbolicLink()||realpathSync.native(path)!==path||!within(path)){skipped.links++;return true;}}catch{skipped.unreadable++;return true;}
+    if(request.kind==='find'){if(selected(total))files.push(path);total++;return true;}
+    if(scannedFiles>=2000||scannedBytes>=32*1024*1024){limit('达到文件或读取量上限，请缩小 path 或 glob');return false;}
+    let fd:number|undefined,text:string;
+    try{
+      const actual=realpathSync.native(path);if(actual!==path||!within(actual)){skipped.links++;return true;}
+      if(original.size>TEXT_FILE_LIMIT){skipped.large++;return true;}if(scannedBytes+original.size>32*1024*1024){limit('达到读取量上限，请缩小 path 或 glob');return false;}
+      fd=openSync(path,'r');const stat=fstatSync(fd);if(!stat.isFile()||stat.ino!==original.ino||stat.dev!==original.dev){skipped.links++;return true;}if(stat.size>TEXT_FILE_LIMIT){skipped.large++;return true;}if(scannedBytes+stat.size>32*1024*1024){limit('达到读取量上限，请缩小 path 或 glob');return false;}
+      const bytes=readBounded(fd,stat.size);scannedFiles++;scannedBytes+=bytes.length;text=redactHost(decodeText(bytes).text,request.secrets,true);
+    }catch(error){if(error instanceof FileToolError&&error.code==='UNSUPPORTED_ENCODING')skipped.binary++;else if(error instanceof FileToolError&&error.code==='FILE_TOO_LARGE')skipped.large++;else skipped.unreadable++;return true;}
+    finally{if(fd!==undefined)closeSync(fd);}
+    if(!text.length)return true;const lines=text.split(/\r?\n/);if(text.endsWith('\n'))lines.pop();let count=0,lineOffset=0;
+    for(let index=0;index<lines.length;index++){
+      if((index&1023)===0&&Date.now()>deadline){limit('达到检索时间上限，请缩小 path 或 glob');break;}
+      const line=lines[index],newline=text.indexOf('\n',lineOffset),nextLineOffset=newline<0?text.length:newline+1,match=expression?.exec(line),column=expression?(match?.index??-1):line.indexOf(needle!);if(column<0){lineOffset=nextLineOffset;continue;}count++;
+      if(request.outputMode==='content'){
+        if(selected(total)){const snippet=characterWindow(line,Math.max(0,column-200),2000);matches.push({path,line:index+1,column:column+1,offset:lineOffset+column,text:snippet.text,textStartColumn:snippet.start+1,truncated:snippet.start>0||snippet.end<line.length,...(request.contextLines?{before:lines.slice(Math.max(0,index-request.contextLines),index).map(line=>characterWindow(line,0,1000).text),after:lines.slice(index+1,index+1+request.contextLines).map(line=>characterWindow(line,0,1000).text)}:{})});}
+        if(++total>=10000){limit('匹配超过 10000 条，请缩小检索范围');break;}
+      }else if(request.outputMode==='files')break;
+      lineOffset=nextLineOffset;
+    }
+    if(count&&request.outputMode!=='content'){if(selected(total)){if(request.outputMode==='files')files.push(path);else counts.push({path,count});}total++;}
+    return true;
+  };
   const visit=(directory:string,inherited:Rules[],depth:number)=>{
     if(scanLimited)return;if(Date.now()>deadline){limit('达到检索时间上限，请缩小 path 或 glob');return;}if(depth>40){limit('目录层级超过 40 层，请缩小 path');return;}
     let entries:Entry[];try{entries=request.file?[{name:basename(request.file),isFile:()=>true,isDirectory:()=>false,isSymbolicLink:()=>false}]:readdirSync(directory,{withFileTypes:true});}catch{skipped.unreadable++;return;}
@@ -41,35 +70,23 @@ export function searchWorkspace(request:FileSearchRequest):FileSearchResult{
       }
       if(!entry.isFile())continue;
       if(request.respectIgnore&&ignored(path,false,rules)){skipped.ignored++;continue;}
-      if(!ordinaryProjectPath(path,risk)){skipped.sensitive++;continue;}
-      const rel=relative(root,path).replaceAll('\\','/'),candidate=process.platform==='win32'?rel.toLowerCase():rel,pattern=process.platform==='win32'?request.glob.toLowerCase():request.glob;
-      if(!request.file&&!posix.matchesGlob(candidate,pattern))continue;
-      let original:ReturnType<typeof lstatSync>;try{original=lstatSync(path);if(!original.isFile()||original.isSymbolicLink()||realpathSync.native(path)!==path||!within(path)){skipped.links++;continue;}}catch{skipped.unreadable++;continue;}
-      if(request.kind==='find'){if(selected(total))files.push(path);total++;continue;}
-      if(scannedFiles>=2000||scannedBytes>=32*1024*1024){limit('达到文件或读取量上限，请缩小 path 或 glob');break;}
-      let fd:number|undefined,text:string;
-      try{
-        const actual=realpathSync.native(path);if(actual!==path||!within(actual)){skipped.links++;continue;}
-        if(original.size>TEXT_FILE_LIMIT){skipped.large++;continue;}if(scannedBytes+original.size>32*1024*1024){limit('达到读取量上限，请缩小 path 或 glob');break;}
-        fd=openSync(path,'r');const stat=fstatSync(fd);if(!stat.isFile()||stat.ino!==original.ino||stat.dev!==original.dev){skipped.links++;continue;}if(stat.size>TEXT_FILE_LIMIT){skipped.large++;continue;}if(scannedBytes+stat.size>32*1024*1024){limit('达到读取量上限，请缩小 path 或 glob');break;}
-        const bytes=readBounded(fd,stat.size);scannedFiles++;scannedBytes+=bytes.length;text=redactHost(decodeText(bytes).text,request.secrets,true);
-      }catch(error){if(error instanceof FileToolError&&error.code==='UNSUPPORTED_ENCODING')skipped.binary++;else if(error instanceof FileToolError&&error.code==='FILE_TOO_LARGE')skipped.large++;else skipped.unreadable++;continue;}
-      finally{if(fd!==undefined)closeSync(fd);}
-      if(!text.length)continue;const lines=text.split(/\r?\n/);if(text.endsWith('\n'))lines.pop();let count=0,lineOffset=0;
-      for(let index=0;index<lines.length;index++){
-        if((index&1023)===0&&Date.now()>deadline){limit('达到检索时间上限，请缩小 path 或 glob');break;}
-        const line=lines[index],newline=text.indexOf('\n',lineOffset),nextLineOffset=newline<0?text.length:newline+1,match=expression?.exec(line),column=expression?(match?.index??-1):line.indexOf(needle!);if(column<0){lineOffset=nextLineOffset;continue;}count++;
-        if(request.outputMode==='content'){
-          if(selected(total)){const snippet=characterWindow(line,Math.max(0,column-200),2000);matches.push({path,line:index+1,column:column+1,offset:lineOffset+column,text:snippet.text,textStartColumn:snippet.start+1,truncated:snippet.start>0||snippet.end<line.length,...(request.contextLines?{before:lines.slice(Math.max(0,index-request.contextLines),index).map(line=>characterWindow(line,0,1000).text),after:lines.slice(index+1,index+1+request.contextLines).map(line=>characterWindow(line,0,1000).text)}:{})});}
-          if(++total>=10000){limit('匹配超过 10000 条，请缩小检索范围');break;}
-        }else if(request.outputMode==='files')break;
-        lineOffset=nextLineOffset;
-      }
-      if(count&&request.outputMode!=='content'){if(selected(total)){if(request.outputMode==='files')files.push(path);else counts.push({path,count});}total++;}
+      if(!scanFile(path))break;
     }
   };
-  if(ordinaryProjectPath(join(root,'__aelion_search__.ts'),risk))visit(root,[],0);else skipped.sensitive++;
+  // ripgrep already applied ignore rules and the query; each candidate still passes every path, link, encoding and redaction check.
+  const scanCandidates=(candidates:string[])=>{
+    const order=candidates.map(path=>({path,parts:relative(root,path).split(/[\\/]/)})).sort((a,b)=>{for(let i=0;i<Math.min(a.parts.length,b.parts.length);i++){const order=a.parts[i].localeCompare(b.parts[i]);if(order)return order;}return a.parts.length-b.parts.length;});
+    for(const {path,parts} of order){
+      if(scanLimited)break;if(++visited>50000||Date.now()>deadline){limit(visited>50000?'候选文件超过 50000，请缩小 path 或 glob':'达到检索时间上限，请缩小 path 或 glob');break;}
+      if(!within(path)||parts.includes('..')||parts.slice(0,-1).some(part=>ignoredDirectories.has(part))){skipped.ignored++;continue;}
+      if(!scanFile(path))break;
+    }
+    if(request.candidateLimit&&!scanLimited)limit(request.candidateLimit);
+  };
+  if(!ordinaryProjectPath(join(root,'__aelion_search__.ts'),risk))skipped.sensitive++;
+  else if(request.candidates&&!request.file)scanCandidates(request.candidates);
+  else visit(root,[],0);
   const nextOffset=Math.min(total,request.offset+request.limit);
-  return {path:request.file||root,...(request.kind==='find'||request.outputMode==='files'?{files}:request.outputMode==='count'?{counts}:{matches}),offset:request.offset,nextOffset,total,eof:nextOffset>=total,truncated:scanLimited||nextOffset<total,scanLimited,limitReason,visitedEntries:visited,scannedFiles,scannedBytes,skipped};
+  return {path:request.file||root,...(request.kind==='find'||request.outputMode==='files'?{files}:request.outputMode==='count'?{counts}:{matches}),offset:request.offset,nextOffset,total,eof:nextOffset>=total,truncated:scanLimited||nextOffset<total,scanLimited,limitReason,visitedEntries:visited,scannedFiles,scannedBytes,skipped,backend:request.candidates&&!request.file?'ripgrep':'walk'};
 }
 if(parentPort){try{parentPort.postMessage({ok:true,result:searchWorkspace(workerData as FileSearchRequest)});}catch(error){parentPort.postMessage({ok:false,...toolFailure(error)});}}

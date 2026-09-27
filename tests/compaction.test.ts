@@ -55,8 +55,13 @@ test('summaries accept file and user-message fields, keep the old shape valid an
  assert.throws(()=>parseContextSummary(JSON.stringify({goal:'g',constraints:'x',done:[],pending:[],decisions:[],failures:[],next:[]}),1000),/constraints/);
 });
 
-test('budgets keep late triggers but scale the tail and summary with very large windows',()=>{
- assert.ok(contextBudget(128000).trigger/128000>.87);assert.ok(contextBudget(200000).trigger/200000>.88);
+test('budgets compact at a configurable share of the window and scale the tail and summary with very large windows',()=>{
+ for(const capacity of [128000,200000,1_000_000])assert.equal(contextBudget(capacity).trigger,Math.floor(capacity*.85));
+ assert.equal(contextBudget(1_000_000,60).trigger,600000);assert.equal(contextBudget(1_000_000,10).trigger,500000,'the ratio is clamped to 50–95%');
+ // Small windows still keep the headroom below the input budget.
+ assert.ok(contextBudget(32000).trigger<contextBudget(32000).input);
+ // The summary call gets more output than a normal turn so reasoning cannot starve the summary.
+ assert.ok(contextBudget(128000).compaction>=contextBudget(128000).summary*2);assert.ok(contextBudget(128000).compaction>contextBudget(128000).output);
  assert.equal(contextBudget(1_000_000).summary,8000);assert.ok(contextBudget(1_000_000).tail>100000);assert.equal(contextBudget(160000).output,8192);assert.equal(contextBudget(200000).output,8192);
  for(const capacity of [8000,32000,128000,160000,200000,1_000_000]){const budget=contextBudget(capacity);assert.equal(budget.input+budget.output+budget.safety,capacity);assert.ok(budget.tail<budget.input&&budget.summary<budget.tail);}
 });

@@ -48,3 +48,9 @@ export function countedContextOverview(overview:ContextOverview,tokens:number,so
  for(let i=0;i<tokens-allocated;i++)parts[remainders[i%remainders.length].key]++;
  return {...overview,tokens,parts,estimateSource:source,measuredAt:new Date().toISOString()};
 }
+/** Reflect a compaction without a model request: only conversation history shrinks, so the total becomes an estimate again. */
+export function compactedContextOverview(overview:ContextOverview,freedTokens:number):ContextOverview{
+ const freed=Math.min(Math.max(0,Math.floor(Number.isFinite(freedTokens)?freedTokens:0)),overview.parts.conversation||0);
+ if(!freed)return overview;
+ return {...overview,tokens:Math.max(0,overview.tokens-freed),parts:{...overview.parts,conversation:overview.parts.conversation-freed},estimateSource:'tokenizer',measuredAt:new Date().toISOString()};
+}

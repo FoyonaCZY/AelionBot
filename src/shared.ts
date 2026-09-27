@@ -40,7 +40,7 @@ export interface ComputerState { desktops:Record<string,ComputerDesktopState>; }
 export interface CommandPattern {kind:'prefix'|'exact';pattern:string;}
 export interface CommandPermissionRule extends CommandPattern {id:string;cwd:string;enabled:boolean;createdAt:string;}
 export interface HostWorkspaceSettings {workspaceDir:string;defaultWorkspaceDir:string;}
-export interface HostPermissionDetails { permissionScope?:'host'|'remote'; operation:'command'|'read_file'|'write_file'|'delete_file'|'mcp'; reason:string; command?:string; cwd?:string; path?:string; content?:string; overwrite?:boolean; server?:string; tool?:string; arguments?:Record<string,unknown>; commandPattern?:CommandPattern; }
+export interface HostPermissionDetails { permissionScope?:'host'|'remote'; operation:'command'|'read_file'|'write_file'|'delete_file'|'mcp'; reason:string; command?:string; cwd?:string; path?:string; content?:string; overwrite?:boolean; server?:string; tool?:string; arguments?:Record<string,unknown>; commandPattern?:CommandPattern; readOnly?:boolean; stdin?:string; }
 export interface UserQuestion {id:string;title:string;options?:string[];}
 export type InteractionRequest = {id:string;botId:string;runId:string;createdAt:string} & ({kind:'host_permission';details:HostPermissionDetails;approval?:HostApprovalView}|{kind:'vm_takeover';reason:string;phase:'waiting'|'controlling'}|{kind:'user_input';questions:UserQuestion[];phase:'waiting'});
 export type InteractionAction='allow'|'allow-always'|'deny'|'takeover'|'resume'|'cancel'|'answer';
@@ -118,6 +118,7 @@ export interface AelionAPI {
   saveAttachment(id:string):Promise<string|null>;
   snapshot(): Promise<Snapshot>;
   saveRuntimeSettings(settings:RuntimeSettings):Promise<void>;
+  compactContext(input:{botId:string;focus?:string}):Promise<{compacted:boolean;freedTokens:number;queued?:boolean;issue?:string}>;
   createScheduledTask(input:ScheduledTaskInput):Promise<ScheduledTask>;
   updateScheduledTask(input:ScheduledTaskUpdate):Promise<ScheduledTask>;
   deleteScheduledTask(id:string):Promise<void>;

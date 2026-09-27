@@ -15,6 +15,7 @@
     "build": "node scripts/build.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "start": "electron .",
+    "headless": "node dist-electron/cli.cjs",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test --test-concurrency=2 --test-timeout=30000 tests/*.test.ts",
     "vm:prepare-runtime": "node scripts/prepare-runtime.mjs",

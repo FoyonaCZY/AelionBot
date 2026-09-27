@@ -9,11 +9,12 @@ import {hostEnvironment,hostShell,shellName,stopHostProcess} from './host-platfo
 import {boundedInteger,decodeText,editText,expectedHash,filesystemError,FileToolError,textPage,TEXT_FILE_LIMIT} from './file-text';
 import {redactHost} from './host-redaction';
 import {FileSearch} from './file-search';
+import {findRipgrep} from './ripgrep';
 import type {FileSearchRequest} from './file-search-types';
 import {BoundedOutput} from './bounded-output';
 export {redactHost} from './host-redaction';
 
-export interface HostOptions {imagePreview?:(bytes:Buffer,id:string)=>ScreenReference|undefined;beforeWrite?:(botId:string,runId:string,path:string)=>unknown;afterWrite?:(record:unknown,path:string,expected?:string|null)=>void;dataDir:string;projectDir:string;homeDir:string;runtimeDir?:string;env?:NodeJS.ProcessEnv;secrets?:()=>string[];}
+export interface HostOptions {imagePreview?:(bytes:Buffer,id:string)=>ScreenReference|undefined;beforeWrite?:(botId:string,runId:string,path:string)=>unknown;afterWrite?:(record:unknown,path:string,expected?:string|null)=>void;dataDir:string;projectDir:string;homeDir:string;runtimeDir?:string;env?:NodeJS.ProcessEnv;secrets?:()=>string[];ripgrep?:string|false;}
 const forbidden=/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\u202a-\u202e\u2066-\u2069]/;
 function text(value:unknown,name:string,max:number){if(typeof value!=='string'||!value.trim()||value.length>max||forbidden.test(value))throw new Error(`无效参数：${name}`);return value;}
 function aborted(signal:AbortSignal){if(signal.aborted)throw new Error('任务已取消，未执行本机操作');}
@@ -24,7 +25,8 @@ export class HostComputer {
   private readonly defaultWorkspaceDir:string;
   private readonly searches:FileSearch;
   constructor(readonly options:HostOptions,private interactions:Interactions){
-    this.searches=new FileSearch(options.runtimeDir);
+    // false forces the built-in walker; undefined looks for rg on the host PATH.
+    this.searches=new FileSearch(options.runtimeDir,5000,4,options.ripgrep===false?undefined:options.ripgrep??findRipgrep(options.env||process.env));
     this.settingsFile=join(options.dataDir,'host-settings.json');
     this.defaultWorkspaceDir=resolve(options.homeDir,'Documents','Aelion');
     if(existsSync(this.settingsFile)){
@@ -50,7 +52,7 @@ export class HostComputer {
     return resolve(expanded);
   }
   workspace(botId:string){if(!/^[a-zA-Z0-9_-]{1,80}$/.test(botId))throw new Error('无效 Bot 工作目录');return this.workspaceSettings().workspaceDir;}
-  context(botId:string,workspace?:string){return {platform:process.platform,shell:shellName(),homeDir:this.options.homeDir,workspace:workspace||this.workspace(botId)};}
+  context(botId:string,workspace?:string){return {platform:process.platform,shell:shellName(process.platform,this.options.env||process.env),homeDir:this.options.homeDir,workspace:workspace||this.workspace(botId)};}
   private secrets(){const env=this.options.env||process.env;return [...Object.entries(env).filter(([name])=>/(?:TOKEN|SECRET|PASSWORD|PASSWD|API_?KEY|PRIVATE_?KEY)$/i.test(name)).map(([,value])=>value||''),...(this.options.secrets?.()||[])];}
   redact(value:string,preserveLines=false){return redactHost(value,this.secrets(),preserveLines);}
   private path(value:unknown){const path=text(value,'path',1500);if(!isAbsolute(path)||/[\r\n\t]/.test(path))throw new Error('本机路径必须是绝对路径');return resolve(path);}
@@ -60,27 +62,32 @@ export class HostComputer {
     const command=text(args.command,'command',6000),reason=text(args.reason,'reason',1000);
     const defaultCwd=workspace||this.workspace(botId),cwd=this.canonical(args.cwd===undefined||args.cwd===''?defaultCwd:this.resolveFilePath(args.cwd,defaultCwd));
     if(args.cwd!==undefined&&(!existsSync(cwd)||!statSync(cwd).isDirectory()))throw new Error('本机工作目录不存在');
-    const timeout=args.timeoutMs===undefined?120000:Number(args.timeoutMs);if(!Number.isInteger(timeout)||timeout<100||timeout>120000)throw new Error('超时必须在 100–120000 毫秒之间');
-    await this.interactions.permission(botId,runId,{operation:'command',reason,command,cwd},signal);aborted(signal);
+    const timeout=args.timeoutMs===undefined?120000:Number(args.timeoutMs);if(!Number.isInteger(timeout)||timeout<100||timeout>600000)throw new Error('超时必须在 100–600000 毫秒之间');
+    if(args.stdin!==undefined&&(typeof args.stdin!=='string'||Buffer.byteLength(args.stdin,'utf8')>256*1024))throw new Error('stdin 必须是 256 KB 以内的文本');const stdin=args.stdin as string|undefined;
+    await this.interactions.permission(botId,runId,{operation:'command',reason,command,cwd,...(stdin!==undefined?{stdin}:{})},signal);aborted(signal);
     if(this.canonical(cwd)!==cwd)throw new Error('工作目录在确认后发生变化，请重新确认');
     if(args.cwd===undefined)mkdirSync(cwd,{recursive:true});
     const env=hostEnvironment(this.options.env||process.env),shell=hostShell(command,env);
     const started=Date.now();
     return await new Promise<{stdout:string;stderr:string;exitCode:number;durationMs:number;cwd:string;location:'host';timedOut:boolean;cancelled:boolean;truncated:boolean;stdoutBytes:number;stderrBytes:number;omittedBytes:number}>((resolveResult,reject)=>{
-      const child=spawn(shell.executable,shell.args,{cwd,env,detached:shell.detached,windowsHide:true,stdio:['ignore','pipe','pipe']});
+      const child=spawn(shell.executable,shell.args,{cwd,env,detached:shell.detached,windowsHide:true,stdio:[stdin===undefined?'ignore':'pipe','pipe','pipe']});
+      // A command that exits without reading its input closes the pipe; that is not a failure.
+      if(stdin!==undefined){child.stdin!.on('error',()=>{});child.stdin!.end(stdin);}
       let timedOut=false,cancelled=false,finished=false;const stdout=new BoundedOutput(),stderr=new BoundedOutput();
-      child.stdout.on('data',(chunk:Buffer)=>stdout.push(chunk));child.stderr.on('data',(chunk:Buffer)=>stderr.push(chunk));
+      child.stdout!.on('data',(chunk:Buffer)=>stdout.push(chunk));child.stderr!.on('data',(chunk:Buffer)=>stderr.push(chunk));
       const stop=()=>{if(finished||cancelled||!child.pid)return;cancelled=true;stopHostProcess(child,env);};
       const timer=setTimeout(()=>{if(!cancelled){timedOut=true;stop();}},timeout);const onAbort=()=>stop();
       signal.addEventListener('abort',onAbort,{once:true});if(child.pid)this.executions.set(child.pid,stop);if(signal.aborted)stop();
       const cleanup=()=>{finished=true;clearTimeout(timer);signal.removeEventListener('abort',onAbort);if(child.pid)this.executions.delete(child.pid);};
-      child.once('error',error=>{cleanup();reject(new Error(`无法启动本机 ${shellName()}：${this.redact(error.message)}`));});
+      child.once('error',error=>{cleanup();reject(new Error(`无法启动本机 ${shellName(process.platform,env)}：${this.redact(error.message)}`));});
       child.once('close',code=>{if(finished)return;cleanup();const secrets=this.secrets(),out=stdout.result(text=>this.redact(text),secrets),err=stderr.result(text=>this.redact(text),secrets);resolveResult({stdout:out.text,stderr:err.text+(timedOut?'\n本机命令超时；操作可能已部分执行，请先核对结果。':cancelled?'\n本机命令已停止；操作可能已部分执行。':''),exitCode:cancelled?-1:code??-1,durationMs:Date.now()-started,cwd,location:'host',timedOut,cancelled:cancelled&&!timedOut,truncated:out.truncated||err.truncated,stdoutBytes:out.totalBytes,stderrBytes:err.totalBytes,omittedBytes:out.omittedBytes+err.omittedBytes});});
     });
   }
-  async readFile(botId:string,runId:string,args:Record<string,unknown>,signal:AbortSignal,workspace?:string){
+  async readFile(botId:string,runId:string,args:Record<string,unknown>,signal:AbortSignal,workspace?:string,options:{silent?:boolean}={}){
     const path=this.canonical(this.resolveFilePath(args.path,workspace)),reason=text(args.reason,'reason',1000);
     const range={offset:args.offset,startLine:args.startLine,lineCount:args.lineCount,maxChars:args.maxChars,withLineNumbers:args.withLineNumbers};textPage('',range);
+    // Program-initiated reads (context restore) never open a permission prompt.
+    if(options.silent&&!this.interactions.allowsSilently(botId,runId,{operation:'read_file',reason,path}))throw new Error('当前权限模式需要确认，跳过自动读取');
     await this.interactions.permission(botId,runId,{operation:'read_file',reason,path},signal);aborted(signal);
     try{
       if(this.canonical(path)!==path)throw new Error('文件位置发生变化，请重新确认');

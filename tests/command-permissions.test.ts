@@ -21,9 +21,10 @@ function fixture(t:test.TestContext,redact=(value:string)=>value){
 
 test('suggested patterns retain the relevant executable and subcommand',t=>{
   const {rules}=fixture(t);
-  const examples=[['git status --short','git status *'],['git diff --stat','git diff *'],['npm run build -- --mode production','npm run build *'],['pnpm run typecheck','pnpm run typecheck *'],['gh pr list --state open','gh pr list *'],["Get-Content -LiteralPath 'C:\\report.txt'",'Get-Content *']];
+  const examples=[['git status --short','git status *'],['git diff --stat','git diff *'],['npm run build -- --mode production','npm run build *'],['pnpm run typecheck','pnpm run typecheck *'],['gh pr list --state open','gh pr list *'],["Get-Content -LiteralPath 'docs\\report.txt'",'Get-Content *']];
   for(const [command,pattern] of examples)assert.deepEqual(rules.suggest(details(command)),{kind:'prefix',pattern});
-  for(const command of ['git','git -C C:\\repo status','gh api repos/example/repo','python -c "print(1)"','custom-tool --check','Get-Content file.txt | Select-Object -First 3'])assert.equal(rules.suggest(details(command))?.kind,'exact');
+  // An argument outside the approved directory keeps the grant to that exact command.
+  for(const command of ["Get-Content -LiteralPath 'C:\\report.txt'",'git','git -C C:\\repo status','gh api repos/example/repo','python -c "print(1)"','custom-tool --check','Get-Content file.txt | Select-Object -First 3'])assert.equal(rules.suggest(details(command))?.kind,'exact');
 });
 
 test('quoted regex punctuation is literal data and receives a scoped rg prefix',t=>{

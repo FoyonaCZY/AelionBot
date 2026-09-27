@@ -31,6 +31,7 @@ function PermissionCard({request,count}:{request:Permission;count:number}){
       {details.tool&&<div><span>{t('操作')}</span><code>{details.tool}</code></div>}
     </div>
     {details.command!==undefined&&<div className="permission-content"><span>{t('命令')}</span><pre tabIndex={0}>{details.command}</pre></div>}
+    {details.stdin!==undefined&&<div className="permission-content"><span>{t('标准输入')}</span><pre tabIndex={0}>{details.stdin||t('（空）')}</pre></div>}
     {details.content!==undefined&&<div className="permission-content"><span>{t('写入内容')}</span><pre tabIndex={0}>{details.content||t('（空文件）')}</pre></div>}
     {details.arguments&&<div className="permission-content"><span>{t('参数')}</span><pre tabIndex={0}>{JSON.stringify(details.arguments,null,2)}</pre></div>}
     {error&&<p className="permission-error" role="alert">{error}</p>}</div>

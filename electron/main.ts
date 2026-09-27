@@ -277,6 +277,7 @@ async function initialize(){
     saveAppearance({...normalizeAppearance(store.data.appearance),zoom:Math.max(50,Math.min(200,percent))});
   });
   handle('profile:save',value=>{store.data.userProfile=normalizeUserProfile(value);store.save();greetings?.cancelAll();changed();void greetings?.greetEmpty();});
+  handle('context:compact',input=>{const botId=String(input?.botId||''),focus=typeof input?.focus==='string'?input.focus.slice(0,1000):'';if(botType(store.bot(botId).type)!=='general')throw Error('设计 Bot 的上下文由设计会话管理');return generalHarness.compactContext(botId,focus);});
   handle('runtime:save',value=>{store.data.runtime=runtimeSettings(value);store.save();changed();});
   handle('app:snapshot',snapshot);
   handle('image:protocols',()=>imageProtocolCatalog());

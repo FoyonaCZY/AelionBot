@@ -117,8 +117,11 @@ export class McpRuntime {
     if(!tool||!this.allowed(config,name))throw new Error('工具不存在或已被来源配置禁用');
     validateSchema(tool.inputSchema as Record<string,unknown>,args,name);
     const local=this.hostPermission(config.id);
-    if(tool.annotations?.readOnlyHint===true&&tool.annotations.destructiveHint!==true&&(!requireLocalApproval||!local))return {fingerprint:connection.fingerprint};
-    return {fingerprint:connection.fingerprint,permission:{operation:'mcp',permissionScope:local?'host':'remote',reason:'确认 MCP 工具操作',server:config.name,tool:name,arguments:redactMcp(args,config) as Record<string,unknown>,...local}};
+    const readOnly=tool.annotations?.readOnlyHint===true&&tool.annotations.destructiveHint!==true;
+    // Without a host policy the server's hint is the only gate. With one, the hint is self-declared data:
+    // "every time" still asks and automatic mode may pass it as a low-risk remote read.
+    if(readOnly&&!requireLocalApproval)return {fingerprint:connection.fingerprint};
+    return {fingerprint:connection.fingerprint,permission:{operation:'mcp',permissionScope:local?'host':'remote',reason:readOnly?'确认只读 MCP 工具操作':'确认 MCP 工具操作',server:config.name,tool:name,arguments:redactMcp(args,config) as Record<string,unknown>,...(readOnly&&!local?{readOnly:true}:{}),...local}};
   }
   async call(id:string,name:string,args:Record<string,unknown>,signal:AbortSignal,expectedFingerprint?:string){
     const config=this.find(id),connection=await this.connect(config.id);

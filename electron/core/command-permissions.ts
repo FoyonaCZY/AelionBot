@@ -4,6 +4,7 @@ import {win32,posix} from 'node:path';
 import {hostPathKey} from './host-platform';
 import type {CommandPattern,CommandPermissionRule,HostPermissionDetails} from '../../src/shared';
 import {atomicJson} from './store';
+import {argumentLeavesProject} from './permission-risk';
 
 type Token={value:string;bare:boolean};
 type StoredRule=CommandPermissionRule&{platform?:NodeJS.Platform;prefix?:string[];commandHash?:string};
@@ -36,7 +37,8 @@ function tokens(command:string,platform=process.platform):Token[]|undefined{
     else {if(/\s|[;$`|&<>(){}\[\]@,#]/.test(char)||platform!=='win32'&&/[\\!~]/.test(char))return;value+=char;started=true;}
   }
   if(quote)return;flush();
-  if(result.some(token=>token.value==='--%'||/^--pre(?:=|$)/i.test(token.value)))return;
+  // rg --pre / --hostname-bin execute arbitrary programs.
+  if(result.some(token=>token.value==='--%'||/^--(?:pre|hostname-bin)(?:=|$)/i.test(token.value)))return;
   return result.length?result:undefined;
 }
 function prefixFor(command:string,platform=process.platform):string[]|undefined{
@@ -55,9 +57,12 @@ function prefixFor(command:string,platform=process.platform):string[]|undefined{
   if(prefix.some(token=>!token.bare||!literal.test(token.value))||prefix.slice(1).some(token=>token.value.startsWith('-')))return;
   return prefix.map(token=>token.value);
 }
+// Prefix grants cover the approved directory only; see argumentLeavesProject.
+function staysInProject(parsed:Token[],count:number,platform=process.platform){return parsed.slice(count).every(token=>!argumentLeavesProject(token.value,platform));}
 function samePrefix(a:string[],b:string[],platform=process.platform){return a.length===b.length&&a.every((value,index)=>index===0&&platform==='win32'?value.toLowerCase()===b[index].toLowerCase():value===b[index]);}
 function commandDetails(details:HostPermissionDetails,platform=process.platform):details is HostPermissionDetails&{command:string;cwd:string}{
-  return details.operation==='command'&&typeof details.command==='string'&&Boolean(details.command.trim())&&details.command.length<=6000&&typeof details.cwd==='string'&&(platform==='win32'?win32:posix).isAbsolute(details.cwd);
+  // Input piped to the command can change what it does, so saved rules never cover it.
+  return details.operation==='command'&&details.stdin===undefined&&typeof details.command==='string'&&Boolean(details.command.trim())&&details.command.length<=6000&&typeof details.cwd==='string'&&(platform==='win32'?win32:posix).isAbsolute(details.cwd);
 }
 function validRule(value:unknown,platform=process.platform):value is StoredRule{
   if(!value||typeof value!=='object')return false;
@@ -85,7 +90,7 @@ export class CommandPermissions {
   private candidate(details:HostPermissionDetails){
     if(!commandDetails(details,this.platform))return;
     const prefix=prefixFor(details.command,this.platform),pattern=prefix?`${prefix.join(' ')} *`:details.command.trim(),cwd=(this.platform==='win32'?win32:posix).normalize(details.cwd),platform=this.platform;
-    if(prefix&&this.redact(pattern)===pattern)return {kind:'prefix' as const,platform,pattern,prefix,cwd};
+    if(prefix&&this.redact(pattern)===pattern&&staysInProject(tokens(details.command,this.platform)!,prefix.length,this.platform))return {kind:'prefix' as const,platform,pattern,prefix,cwd};
     return {kind:'exact' as const,platform,pattern:this.redact(details.command.trim()),commandHash:hash(details.command),cwd};
   }
   suggest(details:HostPermissionDetails):CommandPattern|undefined{
@@ -94,7 +99,7 @@ export class CommandPermissions {
   match(details:HostPermissionDetails):CommandPermissionRule|undefined{
     if(!commandDetails(details,this.platform))return;
     const parsed=tokens(details.command,this.platform),digest=hash(details.command),cwd=cwdKey(details.cwd,this.platform);
-    const rule=this.rules.find(rule=>rule.enabled&&cwdKey(rule.cwd,this.platform)===cwd&&(rule.kind==='exact'?rule.commandHash===digest:Boolean(parsed&&parsed.length>=rule.prefix!.length&&parsed.slice(0,rule.prefix!.length).every(token=>token.bare)&&samePrefix(rule.prefix!,parsed.slice(0,rule.prefix!.length).map(token=>token.value),this.platform))));
+    const rule=this.rules.find(rule=>rule.enabled&&cwdKey(rule.cwd,this.platform)===cwd&&(rule.kind==='exact'?rule.commandHash===digest:Boolean(parsed&&parsed.length>=rule.prefix!.length&&parsed.slice(0,rule.prefix!.length).every(token=>token.bare)&&samePrefix(rule.prefix!,parsed.slice(0,rule.prefix!.length).map(token=>token.value),this.platform)&&staysInProject(parsed,rule.prefix!.length,this.platform))));
     return rule?view(rule):undefined;
   }
   allow(details:HostPermissionDetails):CommandPermissionRule{

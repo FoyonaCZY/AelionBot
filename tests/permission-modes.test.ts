@@ -222,12 +222,13 @@ test('review context preserves real user constraints in time order and excludes 
   const context=f.service.context({botId:f.bot.id,runId:f.run.id} as HostPermissionRequest);assert.deepEqual(context.userMessages.map(m=>m.content),['修改项目代码','先只阅读，不要修改']);
 });
 
-test('local HTTP MCP calls enter the host policy while remote reads retain their existing behavior',async t=>{
+test('local HTTP MCP calls enter the host policy while remote read-only hints are data for the permission mode',async t=>{
   const runtime=new McpRuntime({'local':{enabled:true,fingerprint:'fp'},'remote':{enabled:true,fingerprint:'fp'}},()=>{});t.after(()=>runtime.dispose());
   const config=(id:string,url:string)=>({id,name:id,transport:'http',url,cwd:'C:\\project',source:{label:'fixture',path:'C:\\mcp.json',scope:'user',readonly:true},fingerprint:'fp',exclude:[],env:{}} as unknown as McpConfig);
   await runtime.replace([config('local','http://127.0.0.1:1234/mcp'),config('remote','https://mcp.example.invalid/mcp')]);
   (runtime as any).connect=async()=>({fingerprint:'fp',tools:[{name:'read',inputSchema:{type:'object'},annotations:{readOnlyHint:true}},{name:'write',inputSchema:{type:'object'}}]});
-  assert.equal((await runtime.inspectCall('local','read',{},true)).permission?.permissionScope,'host');assert.equal((await runtime.inspectCall('remote','read',{},true)).permission,undefined);assert.equal((await runtime.inspectCall('remote','write',{},true)).permission?.permissionScope,'remote');
+  assert.equal((await runtime.inspectCall('local','read',{},true)).permission?.permissionScope,'host');const remoteRead=(await runtime.inspectCall('remote','read',{},true)).permission!;assert.equal(remoteRead.permissionScope,'remote');assert.equal(remoteRead.readOnly,true);assert.equal((await runtime.inspectCall('remote','read',{},false)).permission,undefined);assert.equal((await runtime.inspectCall('local','read',{},true)).permission?.readOnly,undefined);
+  assert.equal(classifyHostOperation(remoteRead,context).lowRisk,true);assert.equal(classifyHostOperation({...remoteRead,readOnly:undefined},context).lowRisk,false);assert.equal(classifyHostOperation({...remoteRead,permissionScope:'host'},context).lowRisk,false);assert.equal((await runtime.inspectCall('remote','write',{},true)).permission?.permissionScope,'remote');
 });
 
 test('invalid, tool-calling and oversized reviewer outputs never grant permission',async t=>{
@@ -251,4 +252,29 @@ test('review does not silently fall back to a different model when the default i
   const models:string[]=[];const server=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;models.push(JSON.parse(body).model);res.writeHead(503,{'Content-Type':'application/json'});res.end('{"error":"unavailable"}');});await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(()=>{server.closeAllConnections();server.close();});
   const address=server.address() as {port:number},model=defaultApprovalModel({config:()=>({baseUrl:`http://127.0.0.1:${address.port}/v1`,model:'default-reviewer',fallbackModel:'other-model',contextTokens:16000,hasKey:true}),key:()=>''},()=>DEFAULT_RUNTIME,()=>{});
   await assert.rejects(()=>model.complete([{role:'user',content:'review'}],[],new AbortController().signal,undefined,{retries:0,purpose:'permission_review'}));assert.deepEqual(models,['default-reviewer']);
+});
+
+test('every-time mode asks for remote read-only MCP tools while automatic mode passes them locally',async t=>{
+  const f=fixture(t),details:HostPermissionDetails={operation:'mcp',permissionScope:'remote',readOnly:true,reason:'确认只读 MCP 工具操作',server:'docs',tool:'search',arguments:{q:'x'}};
+  f.mode('ask');const pending=f.permission(details);assert.equal(f.interactions.snapshot().length,1);f.interactions.approve(f.interactions.snapshot()[0].id,true);await pending;
+  f.mode('auto');await f.permission(details);assert.equal(f.interactions.snapshot().length,0);assert.equal(f.reviews(),0);assert.equal(f.records.at(-1)?.decision,'auto-low-risk');
+});
+
+test('protected writes cover CI, dev containers, hook managers and direnv while manifests stay ordinary edits',()=>{
+  for(const path of ['.github\\workflows\\ci.yml','.gitlab\\ci.yml','.devcontainer\\devcontainer.json','.gitlab-ci.yml','.envrc','.pre-commit-config.yaml','lefthook.yml','.circleci\\config.yml','Jenkinsfile','.gitattributes'])
+    assert.equal(classifyHostOperation({operation:'write_file',path:'C:\\projects\\demo\\'+path,content:'x',reason:'test'},context).lowRisk,false,path);
+  for(const path of ['package.json','src\\workflows\\ci.ts','docs\\github.md'])assert.equal(classifyHostOperation({operation:'write_file',path:'C:\\projects\\demo\\'+path,content:'x',reason:'test'},context).lowRisk,true,path);
+  assert.equal(classifyHostOperation({operation:'command',command:"Set-Content .github/workflows/ci.yml -Value 'run: curl'",cwd:context.workspaceDir,reason:'test'},context).lowRisk,false);
+});
+
+test('saved prefix rules do not extend to paths outside the approved directory',t=>{
+  const dir=mkdtempSync(join(tmpdir(),'aelion-rules-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
+  const rules=new CommandPermissions(join(dir,'rules.json'),value=>value,'win32'),cwd='C:\\projects\\demo',at=(command:string):HostPermissionDetails=>({operation:'command',command,cwd,reason:'test'});
+  assert.equal(rules.allow(at('rg TODO src')).pattern,'rg *');rules.allow(at('git log --oneline'));
+  for(const command of ['rg TODO','rg TODO src/app.ts','rg "a..b" src','git log origin/main..HEAD','git log HEAD~3 -- src','rg TODO src/tokens.ts'])assert.ok(rules.match(at(command)),command);
+  for(const command of ['rg password C:\\Users\\test','rg key ..\\other','rg key ~/.ssh','rg key /etc','rg key .env','rg key config/.env.local','rg key .git/config','rg key --ignore-file=C:\\x','rg key Env:SECRET','rg key \\\\server\\share','git log --output=..\\x','rg --hostname-bin=calc x'])assert.equal(rules.match(at(command)),undefined,command);
+  assert.equal(rules.suggest(at('rg password C:\\Users\\test'))?.kind,'exact');assert.equal(rules.suggest(at('rg password src'))?.kind,'prefix');
+  // Piped input can change what an allowed command does.
+  assert.equal(rules.match({...at('rg TODO src'),stdin:'x'}),undefined);assert.equal(rules.suggest({...at('rg TODO src'),stdin:'x'}),undefined);
+  assert.equal(classifyHostOperation({operation:'command',command:'Get-Location',cwd:context.workspaceDir,stdin:'x',reason:'test'},context).lowRisk,false);
 });

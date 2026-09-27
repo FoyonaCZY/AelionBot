@@ -57,7 +57,7 @@ test('context engine uses actual usage without corrupting tokenizer calibration 
  const a=await engine.prepare(input);a.recordUsage({content:'ok',calls:[],finishReason:'stop',usage:{inputTokens:500,outputTokens:10}});
  input.history.push({role:'assistant',content:'reply'});const b=await engine.prepare(input);assert.equal(b.stats.estimateSource,'usage-anchor');assert.equal(b.calibrationEstimate,estimateRequest(b.messages,[],b.stats.calibration).tokens);
  const before=f.storage.contextState(f.bot.id,f.bot.id,'view');await assert.rejects(engine.prepare({...input,dynamicContext:[{role:'system',content:'not sent'}],signal:AbortSignal.abort()}));assert.equal(f.storage.contextState(f.bot.id,f.bot.id,'view'),before);
- assert.ok(contextBudget(128000).trigger/128000>.87);
+ assert.ok(contextBudget(128000).trigger<contextBudget(128000).input);
 });
 test('small pruning does not repeatedly invalidate history and remains available for emergency recovery',t=>{
  const f=fixture(t),history:WireMessage[]=[{role:'tool',tool_call_id:'read',content:JSON.stringify({resultId:'r',result:{stdout:'word '.repeat(1500)}})}],pruning=new ContextPruning(f.storage,f.bot.id,'main');

@@ -6,7 +6,22 @@ import {useI18n} from './i18n';
 import './context-usage.css';
 
 const labels:Record<ContextPart,string>={system:'系统提示词',conversation:'对话',skills:'Skill',tools:'系统工具',mcp:'MCP'};
-export function ContextUsageIndicator({overview,capacity}:{overview?:ContextOverview;capacity?:number}){
+type CompactResult={compacted:boolean;freedTokens:number;queued?:boolean;issue?:string};
+// Manual compaction with an optional focus, like /compact in other agents.
+function CompactContext({onCompact}:{onCompact:(focus:string)=>Promise<CompactResult>}){
+  const {t,language}=useI18n(),[focus,setFocus]=useState(''),[busy,setBusy]=useState(false),[status,setStatus]=useState('');
+  return <form className="context-compact" onSubmit={async event=>{
+    event.preventDefault();if(busy)return;setBusy(true);setStatus('');
+    try{const result=await onCompact(focus);setStatus(result.queued?t('将在下一次模型请求前压缩'):result.compacted?t('已压缩，释放约 {tokens} Token',{tokens:new Intl.NumberFormat(language).format(result.freedTokens)})+(result.issue?' · '+result.issue:''):result.issue||t('没有可以压缩的较早记录'));if(result.compacted||result.queued)setFocus('');}
+    catch(error){setStatus((error as Error).message.replace(/^Error invoking remote method '[^']+': Error: /,''));}
+    finally{setBusy(false);}
+  }}>
+    <input type="text" value={focus} maxLength={1000} aria-label={t('压缩重点（可选）')} placeholder={t('压缩重点（可选）')} disabled={busy} onChange={event=>setFocus(event.target.value)}/>
+    <button type="submit" disabled={busy}>{busy?t('压缩中…'):t('立即压缩')}</button>
+    {status&&<p role="status">{status}</p>}
+  </form>;
+}
+export function ContextUsageIndicator({overview,capacity,onCompact}:{overview?:ContextOverview;capacity?:number;onCompact?:(focus:string)=>Promise<CompactResult>}){
   const {t,language}=useI18n(),[open,setOpen]=useState(false),[position,setPosition]=useState({left:12,bottom:60,width:340});
   const trigger=useRef<HTMLButtonElement>(null),panel=useRef<HTMLDivElement>(null);
   const parts=foldContextParts(overview?.parts);
@@ -22,5 +37,6 @@ export function ContextUsageIndicator({overview,capacity}:{overview?:ContextOver
     <header><strong>{t('上下文容量')}</strong><span>{overview?`${number(overview.tokens)} / ${number(limit)}`:limit?`— / ${number(limit)}`:'—'}</span></header>
     <div className="context-usage-total"><div className="context-usage-bar" role="progressbar" aria-label={t('上下文容量')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent===undefined?undefined:Math.min(100,Math.round(percent))}>{CONTEXT_PARTS.map(part=><span className={`context-part-${part}`} key={part} style={{width:overview&&limit?`${parts[part]/Math.max(limit,overview.tokens)*100}%`:'0%'}}/>)}</div><strong>{percent===undefined?'—':percentage(percent)}</strong></div>
     <div className="context-usage-parts">{CONTEXT_PARTS.map(part=><div key={part}><span><i className={`context-part-${part}`}/>{t(labels[part])}</span><span>{overview?number(parts[part]):'—'} <small>{overview&&limit?percentage(parts[part]/limit*100):''}</small></span></div>)}</div>
+    {onCompact&&<CompactContext onCompact={onCompact}/>}
   </div>,document.body)}</>;
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {contextOverview,countedContextOverview} from '../electron/core/context-overview';
+import {contextOverview,countedContextOverview,compactedContextOverview} from '../electron/core/context-overview';
 import {foldContextParts} from '../src/context-overview';
 import {estimateRequest} from '../electron/core/context-budget';
 import {protocolRequest} from '../electron/core/model-protocol';
@@ -53,4 +53,16 @@ test('overview displays calibrated tokens rather than the separate conservative 
  assert.equal(countedContextOverview(result,NaN,'provider-usage'),result);
  assert.equal(countedContextOverview(result,-1,'provider-usage'),result);
  assert.equal(countedContextOverview(result,0,'provider-usage').tokens,0);
+});
+test('compaction without a model request lowers only the conversation share and marks the total as an estimate',()=>{
+ const counted=countedContextOverview(contextOverview(messages,tools,model),9000,'provider-usage'),next=compactedContextOverview(counted,1200);
+ assert.equal(next.tokens,counted.tokens-1200);
+ assert.equal(next.parts.conversation,counted.parts.conversation-1200);
+ assert.deepEqual({...next.parts,conversation:0},{...counted.parts,conversation:0});
+ assert.equal(next.estimateSource,'tokenizer');
+ assert.equal(compactedContextOverview(counted,0),counted);
+ assert.equal(compactedContextOverview(counted,Number.NaN),counted);
+ const drained=compactedContextOverview(counted,1e9);
+ assert.equal(drained.parts.conversation,0);
+ assert.equal(drained.tokens,counted.tokens-counted.parts.conversation);
 });
