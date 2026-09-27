@@ -152,17 +152,14 @@ function AppContent() {
   const [viewingRequest, setViewingRequest] = useState('');
 
   const [command, setCommand] = useState('uname -s; id -u; pwd'),
-    [output, setOutput] = useState(''),
-    [, setFiles] = useState<FileItem[]>([]);
+    [output, setOutput] = useState('');
   const [screen, setScreen] = useState('');
   const sending = useRef(new Set<string>());
   const bottom = useRef<HTMLDivElement>(null),
     messagesPane = useRef<HTMLElement>(null),
     follow = useRef(true),
     stickLock = useRef(0),
-    paneHeight = useRef(0),
-    selectedRef = useRef(selected);
-  selectedRef.current = selected;
+    paneHeight = useRef(0);
   const bot = state?.bots.find((item) => item.id === selected) || state?.bots[0];
   useEffect(() => {
     previewWorkbench?.activate(
@@ -286,7 +283,6 @@ function AppContent() {
       setQuery('');
       setSelected(request.botId);
       setSelectedGroup(state?.runs.find((run) => run.id === request.runId)?.groupOrigin?.groupId || '');
-      setFiles([]);
       setBotMenu(undefined);
       setViewingRequest(request.id);
     });
@@ -377,10 +373,7 @@ function AppContent() {
   ]);
   useEffect(() => {
     if (!state || state.bots.some((item) => item.id === selected)) return;
-    const next = state.bots[0]?.id || '';
-    selectedRef.current = next;
-    setSelected(next);
-    setFiles([]);
+    setSelected(state.bots[0]?.id || '');
   }, [state?.bots, selected]);
   useEffect(() => {
     setBotMenu(undefined);
@@ -468,13 +461,8 @@ function AppContent() {
   }, [bot?.id, group?.id]);
   useEffect(() => {
     if (!bot || (!vmReady && bot.type !== 'designer')) return;
-    const owner = bot.id;
-    window.aelion
-      .listFiles(owner)
-      .then((values) => {
-        if (selectedRef.current === owner) setFiles(values);
-      })
-      .catch(() => {});
+    // Listing a workspace lets the main process adopt files the bot wrote outside a tracked run.
+    window.aelion.listFiles(bot.id).catch(() => {});
   }, [bot?.id, bot?.type, vmReady]);
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {
@@ -880,7 +868,6 @@ function AppContent() {
                         setPage('chat');
                         setSelectedGroup('');
                         setSelected(item.id);
-                        setFiles([]);
                       }}
                       onContextMenu={(event) => {
                         event.preventDefault();
@@ -944,7 +931,6 @@ function AppContent() {
                     setPage('chat');
                     setSelectedGroup(kind === 'group' ? id : '');
                     if (kind === 'bot') setSelected(id);
-                    setFiles([]);
                   })
                 }
                 onSettings={() => openSettings()}
