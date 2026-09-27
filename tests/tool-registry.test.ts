@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { TOOLS } from '../electron/core/agent/harness';
 import { PREFIX_HANDLERS, TOOL_HANDLERS, dispatchTool } from '../electron/core/agent/tools/handlers';
 import type { ToolContext } from '../electron/core/agent/tools/context';
+import { DESIGN_TOOLS } from '../electron/core/designer/designer-tools';
 
 const names = TOOLS.map((tool) => tool.function.name);
 // Handled by the run loop (it moves a private chat into the main task) and never dispatched.
@@ -29,6 +30,15 @@ test('handlers exist only for registered tools', () => {
       names.some((name) => entry.matches(name)),
       `prefix handler ${index} matches no tool`,
     );
+});
+
+test('designer tools stay with the designer loop', () => {
+  // The designer loop handles its own tools and passes shared ones (TOOLS) to the harness.
+  for (const { function: tool } of DESIGN_TOOLS) {
+    assert.ok(!names.includes(tool.name), tool.name);
+    assert.ok(!Object.hasOwn(TOOL_HANDLERS, tool.name), tool.name);
+    assert.ok(!PREFIX_HANDLERS.some((entry) => entry.matches(tool.name)), tool.name);
+  }
 });
 
 test('unknown tool names keep their error messages', () => {
