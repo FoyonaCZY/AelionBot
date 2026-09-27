@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { answer, delay, until } from './helpers';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -14,20 +15,11 @@ import type { VmController } from '../electron/core/vm/vm';
 import type { WireMessage } from '../shared/types/core';
 import { peerPending } from '../shared/types/peer-types';
 
-const answer = (content: string): Completion => ({ content, calls: [], finishReason: 'stop' });
 const tool = (name: string, args: Record<string, unknown>): Completion => ({
   content: '正在联络。',
   finishReason: 'tool_calls',
   calls: [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }],
 });
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-async function until(predicate: () => boolean) {
-  for (let i = 0; i < 400; i++) {
-    if (predicate()) return;
-    await delay(10);
-  }
-  throw new Error('私聊测试等待超时');
-}
 function fixture(
   t: test.TestContext,
   complete: (

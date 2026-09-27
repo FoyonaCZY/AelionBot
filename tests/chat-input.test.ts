@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { answer, delay, until } from './helpers';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
@@ -14,15 +15,6 @@ import type { ModelClient, Completion, ToolDefinition } from '../electron/core/m
 import type { VmController } from '../electron/core/vm/vm';
 import type { WireMessage } from '../shared/types/core';
 import { conversationTimeline } from '../shared/chat/activity';
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-async function until(predicate: () => boolean) {
-  for (let i = 0; i < 500; i++) {
-    if (predicate()) return;
-    await delay(10);
-  }
-  throw Error('输入测试等待超时');
-}
-const answer = (content: string): Completion => ({ content, calls: [], finishReason: 'stop' });
 const tool = (name: string, args: object): Completion => ({
   content: '',
   calls: [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }],

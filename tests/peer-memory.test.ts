@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { answer, until } from './helpers';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -14,21 +15,12 @@ import type { VmController } from '../electron/core/vm/vm';
 import type { ChatMessage, WireMessage } from '../shared/types/core';
 import { peerPending } from '../shared/types/peer-types';
 
-const answer = (content: string): Completion => ({ content, calls: [], finishReason: 'stop' });
 let nextCall = 0;
 const call = (name: string, args: unknown): Completion => ({
   content: '',
   calls: [{ id: `memory-case-${++nextCall}`, type: 'function', function: { name, arguments: JSON.stringify(args) } }],
   finishReason: 'tool_calls',
 });
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-async function until(predicate: () => boolean) {
-  for (let i = 0; i < 300; i++) {
-    if (predicate()) return;
-    await delay(10);
-  }
-  throw new Error('Memory collaboration did not settle');
-}
 function fixture(
   t: test.TestContext,
   complete: (

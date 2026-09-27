@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { answer, delay, until } from './helpers';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
@@ -20,16 +21,7 @@ import { conversationTimeline } from '../shared/chat/activity';
 import { groupParaphrases } from './fixtures/group-paraphrases';
 const publishedMessages = (messages: WireMessage[]) =>
   messages.filter((message) => message.groupMessageId).map((message) => JSON.parse(message.content!));
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-async function until(predicate: () => boolean) {
-  for (let i = 0; i < 650; i++) {
-    if (predicate()) return;
-    await delay(10);
-  }
-  throw new Error('群聊测试等待超时');
-}
-const answer = (content: string): Completion => ({ content, calls: [], finishReason: 'stop' }),
-  silent = () => answer('[群聊静默]');
+const silent = () => answer('[群聊静默]');
 const call = (name: string, args: Record<string, unknown>): Completion => ({
   content: '',
   calls: [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }],

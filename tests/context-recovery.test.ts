@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { answer } from './helpers';
 import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
@@ -15,12 +16,11 @@ import { Interactions } from '../electron/core/agent/interactions';
 import type { VmController } from '../electron/core/vm/vm';
 import type { ModelClient, Completion } from '../electron/core/model/model';
 import type { WireMessage } from '../shared/types/core';
-const answer = (content: string): Completion => ({ content, calls: [], finishReason: 'stop' }),
-  call = (name: string, args: unknown): Completion => ({
-    content: '',
-    calls: [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }],
-    finishReason: 'tool_calls',
-  });
+const call = (name: string, args: unknown): Completion => ({
+  content: '',
+  calls: [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }],
+  finishReason: 'tool_calls',
+});
 const summary = JSON.stringify({
   goal: '完成原任务',
   constraints: ['仅修改所选项目'],

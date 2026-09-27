@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { delay } from './helpers';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { GameRuntime } from '../electron/core/games/runtime';
 import { createWerewolf, acceptAction } from '../electron/core/games/werewolf';
 const players = Array.from({ length: 7 }, (_, i) => ({ id: String(i), name: 'p' + i, human: false, color: '#887799' }));
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 test('fast parallel decisions must be saved without waiting for a stalled peer', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'wolf-review-'));
   const s = createWerewolf('g', players, ['wolf', 'wolf', 'seer', 'witch', 'villager', 'villager', 'villager']);

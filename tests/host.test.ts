@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { delay } from './helpers';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -28,7 +29,6 @@ function fixture(t: test.TestContext) {
   });
   return { root, host, interactions };
 }
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 test('every host file operation waits for a fresh single-use decision', async (t) => {
   const { root, host, interactions } = fixture(t),

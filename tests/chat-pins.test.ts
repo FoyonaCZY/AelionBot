@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { until } from './helpers';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
@@ -12,13 +13,6 @@ import type { ModelClient } from '../electron/core/model/model';
 import type { VmController } from '../electron/core/vm/vm';
 import type { HostComputer } from '../electron/core/host/host';
 import { Interactions } from '../electron/core/agent/interactions';
-const wait = async (predicate: () => boolean) => {
-  for (let n = 0; n < 100; n++) {
-    if (predicate()) return;
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error('pin wait timed out');
-};
 function fixture(t: test.TestContext) {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-pin-test-')),
     store = new Store(dir),
@@ -51,7 +45,7 @@ test('user pins persist, toggle idempotently, queue while busy and reach the Bot
     );
   beforeCleanup(async () => {
     queue.dispose();
-    await wait(() => !(queue as any).workers.size);
+    await until(() => !(queue as any).workers.size);
   });
   queue.pin({ botId: bot.id, messageId: target.id, emoji: '👍' });
   queue.pin({ botId: bot.id, messageId: target.id, emoji: '👍' });
@@ -61,7 +55,7 @@ test('user pins persist, toggle idempotently, queue while busy and reach the Bot
   assert.equal(store.data.messages.filter((m) => m.reaction).length, 1);
   busy = false;
   queue.wake();
-  await wait(() => calls === 1 && !harness.busy);
+  await until(() => calls === 1 && !harness.busy);
   const event = store.data.messages.find((m) => m.reaction)!;
   assert.ok(event.runId);
   assert.equal(store.data.messages.filter((m) => m.role === 'user').length, 1);
@@ -70,7 +64,7 @@ test('user pins persist, toggle idempotently, queue while busy and reach the Bot
   assert.ok(!store.data.conversations[bot.id].some((m) => m.content === '[表情静默]'));
   assert.equal(new Store(dir).data.messages.find((m) => m.id === target.id)?.pins?.[0].emoji, '👍');
   queue.pin({ botId: bot.id, messageId: target.id, emoji: '👍', remove: true });
-  await wait(() => calls === 2 && !harness.busy);
+  await until(() => calls === 2 && !harness.busy);
   assert.equal(target.pins?.length, 0);
 });
 test('Bot chat_pin adds an attributed reaction and completes without a second model call or text response', async (t) => {
@@ -331,10 +325,10 @@ test('a user emoji on the Bot greeting can receive a visible Bot pin without any
     );
   beforeCleanup(async () => {
     queue.dispose();
-    await wait(() => !(queue as any).workers.size);
+    await until(() => !(queue as any).workers.size);
   });
   queue.pin({ botId: bot.id, messageId: target.id, emoji: '👍' });
-  await wait(() => calls === 1 && !harness.busy);
+  await until(() => calls === 1 && !harness.busy);
   assert.deepEqual(
     target.pins?.map((pin) => [pin.actor.id, pin.emoji]),
     [

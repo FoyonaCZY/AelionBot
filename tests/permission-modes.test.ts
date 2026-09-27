@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { delay, until } from './helpers';
 import {
   mkdtempSync,
   mkdirSync,
@@ -36,14 +37,6 @@ import type { McpConfig } from '../electron/core/extensions/mcp-config';
 import type { ModelClient } from '../electron/core/model/model';
 import type { HostPermissionDetails, ModelConfig, RunRecord } from '../shared/types/core';
 
-const tick = () => new Promise((resolve) => setTimeout(resolve, 5));
-const until = async (check: () => boolean) => {
-  for (let i = 0; i < 150; i++) {
-    if (check()) return;
-    await tick();
-  }
-  throw Error('Permission test did not settle');
-};
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => (resolve = done));
@@ -318,7 +311,7 @@ test('switching to every-time cancels review and a late allow cannot execute the
   f.mode('ask');
   assert.equal(f.calls[0].signal.aborted, true);
   review.resolve({ decision: 'allow', reason: 'late' });
-  await tick();
+  await delay(5);
   assert.equal(executed, false);
   assert.equal((f.interactions.snapshot()[0] as HostPermissionRequest).approval?.mode, 'ask');
   f.interactions.approve(f.interactions.snapshot()[0].id, true);
@@ -367,7 +360,7 @@ test('manual denial and run cancellation withdraw reviews and discard late appro
   f.interactions.approve(f.interactions.snapshot()[0].id, false);
   await denied;
   review.resolve({ decision: 'allow', reason: 'late' });
-  await tick();
+  await delay(5);
   assert.equal(f.interactions.snapshot().length, 0);
   const other = f.permission(command(f.project)),
     cancelled = assert.rejects(other, /取消/);
@@ -491,7 +484,7 @@ test('switching to full allows a pending remote MCP review without using its res
   assert.equal(f.calls[0].signal.aborted, true);
   assert.equal(f.records.at(-1)?.decision, 'auto-full');
   wait.resolve({ decision: 'deny', reason: 'late' });
-  await tick();
+  await delay(5);
   assert.equal(f.interactions.snapshot().length, 0);
 });
 

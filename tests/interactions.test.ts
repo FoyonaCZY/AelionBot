@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { until } from './helpers';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -24,13 +25,6 @@ function fixture(t: test.TestContext) {
     rmSync(root, { recursive: true, force: true });
   });
   return { root, store, interactions };
-}
-async function until(condition: () => boolean) {
-  for (let i = 0; i < 200; i++) {
-    if (condition()) return;
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error('Timed out waiting for interaction');
 }
 
 test('refusing a host operation skips later calls, returns the denial to the model and keeps tool-call history complete', async (t) => {
