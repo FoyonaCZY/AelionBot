@@ -1,11 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { tempDir } from './helpers';
 import { officePreview, officePreviewScript, OFFICE_PREVIEW_LIMIT } from '../electron/core/designer/office-preview';
 import type { VmController } from '../electron/core/vm/vm';
 import { csvRows, previewHtml } from '../src/preview/preview-utils';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
 import { Store } from '../electron/core/storage/store';
 import { Attachments } from '../electron/core/attachments/attachments';
 import { previewViewportSize } from '../src/preview/use-preview-viewport';
@@ -36,11 +34,7 @@ test('HTML preview applies restrictive policy before any supplied markup', () =>
   assert.match(html, /base-uri 'none'/);
 });
 test('attachment previews classify HTML, Markdown and SVG consistently', (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'aelion-preview-formats-'));
-  t.after(() => {
-    assert.equal(dirname(resolve(dir)), resolve(tmpdir()));
-    rmSync(dir, { recursive: true, force: true });
-  });
+  const dir = tempDir(t, 'aelion-preview-formats-');
   const store = new Store(dir),
     attachments = new Attachments(store);
   for (const [name, kind, body] of [
@@ -69,11 +63,7 @@ test('office preview rejects unavailable runtime, excess size and unsafe extensi
   assert.equal(calls, 0);
 });
 test('image preview uses original bytes rather than a resized model screenshot', (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'aelion-preview-image-'));
-  t.after(() => {
-    assert.equal(dirname(resolve(dir)), resolve(tmpdir()));
-    rmSync(dir, { recursive: true, force: true });
-  });
+  const dir = tempDir(t, 'aelion-preview-image-');
   const store = new Store(dir),
     bytes = Buffer.from('original-image-bytes'),
     attachments = new Attachments(store, undefined, undefined, (_bytes, id) => ({ id, width: 1, height: 1 }));

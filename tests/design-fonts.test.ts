@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync, existsSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { tempDir } from './helpers';
+import { mkdirSync, readFileSync, writeFileSync, symlinkSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { Store } from '../electron/core/storage/store';
 import { DesignStore } from '../electron/core/designer/design-store';
 import { DesignerFiles } from '../electron/core/designer/designer-files';
@@ -11,12 +11,7 @@ import { DesignFonts } from '../electron/core/designer/design-fonts';
 const inter = readFileSync('node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2');
 const chinese = readFileSync('node_modules/@fontsource-variable/noto-sans-sc/files/noto-sans-sc-119-wght-normal.woff2');
 function setup(t: any, fetcher?: typeof fetch) {
-  const root = mkdtempSync(join(tmpdir(), 'aelion-design-fonts-'));
-  t.after(() => {
-    assert.equal(dirname(resolve(root)), resolve(tmpdir()));
-    assert.ok(root.includes('aelion-design-fonts-'));
-    rmSync(root, { recursive: true, force: true });
-  });
+  const root = tempDir(t, 'aelion-design-fonts-');
   const store = new Store(join(root, 'data')),
     bot = store.createBot('Designer', '', undefined, undefined, { type: 'designer' });
   const designs = new DesignStore(

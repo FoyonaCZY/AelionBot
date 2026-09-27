@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, dirname, basename, resolve } from 'node:path';
+import { tempDir } from './helpers';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createServer } from 'node:http';
 import { Store } from '../electron/core/storage/store';
 import { ModelClient, validateModelEndpoint } from '../electron/core/model/model';
@@ -11,13 +11,7 @@ import type { VmController } from '../electron/core/vm/vm';
 import type { WireMessage } from '../shared/types/core';
 
 function temporary(t: test.TestContext) {
-  const dir = mkdtempSync(join(tmpdir(), 'aelion-core-test-'));
-  t.after(() => {
-    assert.equal(dirname(resolve(dir)), resolve(tmpdir()));
-    assert.ok(basename(dir).startsWith('aelion-core-test-'));
-    rmSync(dir, { recursive: true, force: true });
-  });
-  return dir;
+  return tempDir(t, 'aelion-core-test-');
 }
 async function server(t: test.TestContext, handler: Parameters<typeof createServer>[1]) {
   const instance = createServer(handler);

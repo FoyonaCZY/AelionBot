@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { settle, until } from './helpers';
+import { settle, until, tempDir } from './helpers';
 import {
   mkdtempSync,
   mkdirSync,
@@ -1032,8 +1032,7 @@ test('protected writes cover CI, dev containers, hook managers and direnv while 
 });
 
 test('saved prefix rules do not extend to paths outside the approved directory', (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'aelion-rules-'));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const dir = tempDir(t, 'aelion-rules-');
   const rules = new CommandPermissions(join(dir, 'rules.json'), (value) => value, 'win32'),
     cwd = 'C:\\projects\\demo',
     at = (command: string): HostPermissionDetails => ({ operation: 'command', command, cwd, reason: 'test' });

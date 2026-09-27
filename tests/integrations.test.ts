@@ -1,8 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { until } from './helpers';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync, unlinkSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { until, tempDir } from './helpers';
+import { mkdirSync, writeFileSync, readFileSync, symlinkSync, unlinkSync } from 'node:fs';
 import { join, dirname, basename, resolve } from 'node:path';
 import { Store } from '../electron/core/storage/store';
 import { SkillLibrary, parseSkill } from '../electron/core/extensions/skill-library';
@@ -13,12 +12,7 @@ import { McpRuntime } from '../electron/core/extensions/mcp-runtime';
 import type { IntegrationPaths } from '../electron/core/extensions/integration-paths';
 
 function fixture(t: test.TestContext): IntegrationPaths {
-  const root = mkdtempSync(join(tmpdir(), 'aelion-integration-test-'));
-  t.after(() => {
-    assert.equal(dirname(resolve(root)), resolve(tmpdir()));
-    assert.ok(basename(root).startsWith('aelion-integration-test-'));
-    rmSync(root, { recursive: true, force: true });
-  });
+  const root = tempDir(t, 'aelion-integration-test-');
   const homeDir = join(root, 'home'),
     projectDir = join(root, 'project'),
     dataDir = join(root, 'data'),

@@ -1,16 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve, dirname } from 'node:path';
+import { tempDir } from './helpers';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 
 test('publication audit reads staged bytes even when the working copy has already been redacted', (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'aelion-audit-'));
-  t.after(() => {
-    assert.equal(dirname(resolve(dir)), resolve(tmpdir()));
-    rmSync(dir, { recursive: true, force: true });
-  });
+  const dir = tempDir(t, 'aelion-audit-');
   execFileSync('git', ['init', '--quiet', dir], { windowsHide: true });
   mkdirSync(join(dir, 'src'));
   writeFileSync(
@@ -39,11 +35,7 @@ test('publication audit reads staged bytes even when the working copy has alread
 });
 
 test('publication audit accepts product images and deploy source without allowing arbitrary binaries', (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'aelion-audit-'));
-  t.after(() => {
-    assert.equal(dirname(resolve(dir)), resolve(tmpdir()));
-    rmSync(dir, { recursive: true, force: true });
-  });
+  const dir = tempDir(t, 'aelion-audit-');
   execFileSync('git', ['init', '--quiet', dir], { windowsHide: true });
   writeFileSync(
     join(dir, 'package.json'),

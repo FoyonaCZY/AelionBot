@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, dirname, resolve, basename } from 'node:path';
+import { tempDir } from './helpers';
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { Store } from '../electron/core/storage/store';
 import { DesignSystems } from '../electron/core/designer/design-systems';
@@ -30,12 +30,7 @@ import { designPluginCopy, designPluginTriggerLabel, filterDesignPlugins } from 
 import { designerPlaybook, designerPlaybookName } from '../electron/core/designer/designer-playbooks';
 
 function fixture(t: test.TestContext) {
-  const root = mkdtempSync(join(tmpdir(), 'aelion-studio-'));
-  t.after(() => {
-    assert.equal(dirname(resolve(root)), resolve(tmpdir()));
-    assert.ok(basename(root).startsWith('aelion-studio-'));
-    rmSync(root, { recursive: true, force: true });
-  });
+  const root = tempDir(t, 'aelion-studio-');
   const store = new Store(join(root, 'data'));
   const bot = store.createBot('Designer', 'Design', undefined, undefined, { type: 'designer' });
   store.data.model.model = 'fixture';

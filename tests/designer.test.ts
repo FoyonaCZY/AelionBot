@@ -1,9 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { until } from './helpers';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve, dirname, basename } from 'node:path';
+import { until, tempDir } from './helpers';
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { join, resolve, dirname } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { Store } from '../electron/core/storage/store';
 import { Harness } from '../electron/core/agent/harness';
@@ -18,12 +17,7 @@ import { zipSync, strToU8 } from 'fflate';
 import type { RunRecord } from '../shared/types/core';
 
 function fixture(t: any) {
-  const root = mkdtempSync(join(tmpdir(), 'aelion-design-'));
-  t.after(() => {
-    assert.equal(dirname(resolve(root)), resolve(tmpdir()));
-    assert.ok(basename(root).startsWith('aelion-design-'));
-    rmSync(root, { recursive: true, force: true });
-  });
+  const root = tempDir(t, 'aelion-design-');
   const store = new Store(join(root, 'data'));
   const bot = store.createBot('Designer', 'Design', undefined, undefined, { type: 'designer' });
   store.data.model.model = 'fixture';

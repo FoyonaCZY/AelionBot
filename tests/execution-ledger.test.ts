@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tempDir } from './helpers';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Store } from '../electron/core/storage/store';
 import { ExecutionLedger, executionTarget } from '../electron/core/agent/execution-ledger';
@@ -16,8 +16,7 @@ const call = (id: string, path: string) => ({
   function: { name: 'file_write', arguments: JSON.stringify({ path, content: 'proof' }) },
 });
 function fixture(t: test.TestContext) {
-  const dir = mkdtempSync(join(tmpdir(), 'aelion-ledger-'));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const dir = tempDir(t, 'aelion-ledger-');
   return new Store(dir);
 }
 test('another target succeeding cannot erase a failure or complete the run', async (t) => {

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync, rmSync, realpathSync, symlinkSync } from 'node:fs';
-import { join, dirname, resolve, basename } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tempDir } from './helpers';
+import { readFileSync, writeFileSync, rmSync, realpathSync, symlinkSync } from 'node:fs';
+import { join, basename } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { PreviewFileOpener, type PreviewOpenSource } from '../electron/core/preview/preview-open';
 import { windowsOpenWithCommand, WINDOWS_OPEN_WITH_SCRIPT } from '../electron/core/host/open-with-windows';
@@ -10,12 +10,7 @@ import { Attachments } from '../electron/core/attachments/attachments';
 import { Store } from '../electron/core/storage/store';
 import { previewOpenTarget } from '../shared/preview/preview-open';
 function fixture(t: test.TestContext) {
-  const root = mkdtempSync(join(tmpdir(), 'aelion-open-'));
-  t.after(() => {
-    assert.equal(dirname(resolve(root)), resolve(tmpdir()));
-    assert.ok(basename(root).startsWith('aelion-open-'));
-    rmSync(root, { recursive: true, force: true });
-  });
+  const root = tempDir(t, 'aelion-open-');
   const events: Array<{ action: string; path: string }> = [];
   let source: PreviewOpenSource = { name: '原始 文稿.md', key: 'attachment:test', bytes: Buffer.from('original') };
   const opener = new PreviewFileOpener({

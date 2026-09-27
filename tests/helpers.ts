@@ -1,4 +1,8 @@
-// Shared test utilities: waiting and model completions.
+// Shared test utilities: waiting, temporary directories and model completions.
+import type test from 'node:test';
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import type { Completion } from '../electron/core/model/model';
 
@@ -24,6 +28,22 @@ export async function until(
     if (Date.now() > deadline) throw new Error(typeof message === 'function' ? message() : message);
     await sleep(intervalMs);
   }
+}
+
+/**
+ * Creates a temporary directory under the real (symlink-resolved) system temp folder and removes it
+ * after the test. Cleanup runs in registration order, so fixtures that must close handles inside the
+ * directory before it is removed should keep their own cleanup.
+ */
+export function tempDir(t: test.TestContext, prefix = 'aelion-test-'): string {
+  const parent = realpathSync.native(tmpdir()),
+    dir = mkdtempSync(join(parent, prefix));
+  t.after(() => {
+    // Never remove anything outside the temp folder, whatever the test did with the path.
+    if (dirname(dir) !== parent) throw new Error(`Refusing to remove ${dir}`);
+    rmSync(dir, { recursive: true, force: true });
+  });
+  return dir;
 }
 
 /** A final model answer with no tool calls. */

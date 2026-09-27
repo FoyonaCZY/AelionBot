@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, basename, resolve, join } from 'node:path';
+import { tempDir } from './helpers';
+import { mkdirSync, writeFileSync, symlinkSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { unzipSync } from 'fflate';
 import { parseHTML } from 'linkedom';
 import { runInNewContext } from 'node:vm';
@@ -11,12 +11,7 @@ import { mime, webResourceLimit, webResourcePath } from '../electron/core/previe
 import { DESIGN_PDF_READY_SCRIPT } from '../electron/core/designer/design-pdf';
 
 function fixture(t: test.TestContext) {
-  const root = mkdtempSync(join(tmpdir(), 'aelion-font-export-'));
-  t.after(() => {
-    assert.equal(dirname(resolve(root)), resolve(tmpdir()));
-    assert.ok(basename(root).startsWith('aelion-font-export-'));
-    rmSync(root, { recursive: true, force: true });
-  });
+  const root = tempDir(t, 'aelion-font-export-');
   const write = (path: string, bytes: string | Buffer) => {
     const target = join(root, path);
     mkdirSync(dirname(target), { recursive: true });

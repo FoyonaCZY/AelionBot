@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, copyFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve, dirname, basename } from 'node:path';
+import { tempDir } from './helpers';
+import { mkdirSync, readFileSync, copyFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { unzipSync } from 'fflate';
 import { Store } from '../electron/core/storage/store';
@@ -16,12 +16,7 @@ import { ArtifactService } from '../electron/core/attachments/artifacts';
 import { Attachments } from '../electron/core/attachments/attachments';
 import { AgentPreviews } from '../electron/core/preview/agent-previews';
 const fixture = (t: test.TestContext) => {
-  const root = mkdtempSync(join(tmpdir(), 'aelion-font-flow-'));
-  t.after(() => {
-    assert.equal(dirname(resolve(root)), resolve(tmpdir()));
-    assert.ok(basename(root).startsWith('aelion-font-flow-'));
-    rmSync(root, { recursive: true, force: true });
-  });
+  const root = tempDir(t, 'aelion-font-flow-');
   const store = new Store(join(root, 'data'));
   t.after(() => store.close());
   const bot = store.createBot('Designer', '', undefined, undefined, { type: 'designer' });
