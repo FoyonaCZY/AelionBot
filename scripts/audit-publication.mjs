@@ -62,13 +62,15 @@ for (const file of new Set(files)) {
   if (data.length > 5 * 1024 * 1024) findings.push({ file, kind: 'large-file', bytes: data.length });
   if (
     !textExtensions.has(extname(file)) &&
-    !['.gitignore', '.gitattributes', 'LICENSE'].includes(file) &&
+    !['.gitignore', '.gitattributes', '.editorconfig', '.prettierignore', '.git-blame-ignore-revs', 'LICENSE'].includes(
+      file,
+    ) &&
     !/(?:^|\/)(?:LICENSE|NOTICE)$/i.test(file)
   ) {
     if (
       !/^assets\/icon\.(png|ico)$/.test(file) &&
       file !== 'assets/wallpaper-light.png' &&
-      !/^src\/assets\/[^/]+\.(png|jpe?g|webp)$/i.test(file) &&
+      !/^src\/(?:[^/]+\/)*[^/]+\.(png|jpe?g|webp)$/i.test(file) &&
       !/^assets\/design-systems\/.+\.(png|jpe?g|webp|gif)$/i.test(file) &&
       !/^docs\/assets\/(?:screenshots|product)\/[^/]+\.(png|jpe?g|webp)$/i.test(file) &&
       !/^website\/public\/blog-media\/(?:[^/]+\/)*[^/]+\.(png|jpe?g|webp|gif)$/i.test(file)
