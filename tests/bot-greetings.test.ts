@@ -57,7 +57,7 @@ test('creating a Bot persists its data without inventing an assistant message', 
   const f = fixture(t, async () => answer('unused'), false),
     bot = f.store.createBot('代码达人', '编写代码与测试');
   const reopened = new Store(f.dir);
-  assert.equal(reopened.bot(bot.id).role, '编写代码与测试');
+  assert.equal(reopened.bot(bot.id).soul, '编写代码与测试');
   assert.equal(reopened.data.messages.length, 0);
   assert.deepEqual(reopened.data.conversations[bot.id], []);
 });
@@ -81,7 +81,7 @@ test('a greeting keeps the teammate name and the human displayName on opposite s
     return answer('我是梁若飞。Wendy，把第一件事告诉我。');
   });
   f.bot.name = '梁若飞';
-  f.bot.role = '腾讯程序员';
+  f.bot.soul = '腾讯程序员';
   f.store.data.userProfile = normalizeUserProfile({
     displayName: 'Wendy',
     role: 'Indie Developer',
@@ -89,7 +89,8 @@ test('a greeting keeps the teammate name and the human displayName on opposite s
   });
   await f.greetings.greet(f.bot.id);
   assert.match(prompt, /你的名字："梁若飞"/);
-  assert.match(prompt, /你的职责："腾讯程序员"/);
+  assert.match(prompt, /腾讯程序员\n\n---\n你是 AI 队友/);
+  assert.match(prompt, /上面的 SOUL.md 定义你的人格/);
   assert.match(prompt, /Wendy/);
   assert.match(prompt, /描述的是对方，不是你/);
   assert.doesNotMatch(prompt, /\{"name":"梁若飞"/);
@@ -123,13 +124,13 @@ test('the configured ModelClient generates the first message from Bot identity w
   );
   const f = fixture(t, client.complete.bind(client));
   f.bot.name = '代码达人';
-  f.bot.role = '编写代码与测试';
+  f.bot.soul = '编写代码与测试';
   await f.greetings.greet(f.bot.id);
   assert.equal(requests, 1);
   assert.equal(body.model, 'selected-model');
   assert.equal(body.tools, undefined);
   assert.match(body.messages[0].content, /你的名字："代码达人"/);
-  assert.match(body.messages[0].content, /你的职责："编写代码与测试"/);
+  assert.match(body.messages[0].content, /编写代码与测试\n\n---\n你是 AI 队友/);
   assert.equal(body.messages[1].content, 'Write the greeting now.');
   assert.doesNotMatch(body.messages[1].content, /代码达人/);
   assert.equal(f.store.data.messages[0].content, '我是代码达人，把你想实现的功能告诉我吧。');

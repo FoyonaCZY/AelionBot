@@ -1,4 +1,7 @@
+import { useId, useRef, useState } from 'react';
 import type { Snapshot } from '../../shared/types/core';
+import { SOUL_MAX_CHARS, normalizeSoul } from '../../shared/chat/bot-soul';
+import { defaultSoul, isStarterText, soulPresets } from '../../shared/chat/soul-presets';
 import { BotPaletteEditor } from '../bots/BotPaletteEditor';
 import { ModelSelectionFields, validModelSelection } from '../settings/ModelSelectionFields';
 import { useI18n } from '../i18n';
@@ -22,7 +25,10 @@ export function BotProfileForm({
   onSave: () => void;
 }) {
   const { t, language } = useI18n();
-  const { name, setName, role, setRole, newBotPalette, setNewBotPalette } = profile;
+  const { name, setName, soul, setSoul, newBotPalette, setNewBotPalette } = profile;
+  const soulId = useId(),
+    fileInput = useRef<HTMLInputElement>(null),
+    [soulIssue, setSoulIssue] = useState('');
   const {
     type: profileType,
     setType: setProfileType,
@@ -59,7 +65,10 @@ export function BotProfileForm({
             className={`bot-type-card is-${type}`}
             key={type}
             aria-pressed={profileType === type}
-            onClick={() => setProfileType(type)}
+            onClick={() => {
+              setProfileType(type);
+              if (modal === 'new' && isStarterText(soul)) setSoul(defaultSoul(type, language));
+            }}
           >
             <BotTypeArt type={type} />
             <span className="bot-type-copy">
@@ -92,15 +101,69 @@ export function BotProfileForm({
           placeholder={t('名称')}
         />
       </label>
-      <label>
-        {t('职责描述')}
+      <div className="bot-soul-field">
+        <div className="bot-soul-header">
+          <label htmlFor={soulId}>SOUL.md</label>
+          <button type="button" className="text-button" disabled={busy} onClick={() => fileInput.current?.click()}>
+            {t('导入文件')}
+          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".md,.markdown,.txt,text/markdown,text/plain"
+            style={{ display: 'none' }}
+            onChange={async (event) => {
+              const file = event.target.files?.[0];
+              event.target.value = '';
+              if (!file) return;
+              const text = normalizeSoul(await file.text());
+              if (text === undefined) setSoulIssue(t('文件超过 {max} 字符，未导入。', { max: SOUL_MAX_CHARS }));
+              else {
+                setSoul(text);
+                setSoulIssue('');
+              }
+            }}
+          />
+        </div>
         <textarea
-          rows={modal === 'profile' ? 3 : 4}
-          maxLength={4000}
-          value={role}
-          onChange={(event) => setRole(event.target.value)}
+          id={soulId}
+          rows={modal === 'profile' ? 10 : 12}
+          maxLength={SOUL_MAX_CHARS}
+          spellCheck={false}
+          value={soul}
+          onChange={(event) => {
+            setSoul(event.target.value);
+            setSoulIssue('');
+          }}
         />
-      </label>
+        <div className="bot-soul-footer">
+          <span role={soulIssue ? 'alert' : undefined} className={soulIssue ? 'is-error' : undefined}>
+            {soulIssue}
+          </span>
+          <span>
+            {soul.length.toLocaleString()} / {SOUL_MAX_CHARS.toLocaleString()}
+          </span>
+        </div>
+        {modal === 'new' && (
+          <div className="presets" role="group" aria-label={t('从示例开始')}>
+            <span className="presets-label">{t('从示例开始')}</span>
+            {soulPresets(profileType, language).map((preset) => (
+              <button
+                type="button"
+                key={preset.id}
+                aria-pressed={soul === preset.soul}
+                onClick={() => {
+                  setSoul(preset.soul);
+                  setSoulIssue('');
+                  if (isStarterText(name)) setName(preset.name);
+                }}
+              >
+                {preset.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
       <div className="bot-profile-model">
         <h3>{t('对话模型')}</h3>
         <ModelSelectionFields
@@ -128,22 +191,6 @@ export function BotProfileForm({
           disabled={busy || (modal === 'profile' && profileRunning)}
         />
       </div>
-      {modal === 'new' && (
-        <div className="presets">
-          {['整理资料与写作', '分析数据与报表', '编写代码与测试'].map((value) => (
-            <button
-              type="button"
-              key={value}
-              onClick={() => {
-                setName(value.split('与')[0]);
-                setRole(`${t('帮助我')}${t(value)}，${t('使用工作电脑执行并验证成果。')}`);
-              }}
-            >
-              {t(value)}
-            </button>
-          ))}
-        </div>
-      )}
       <button
         className="primary-button full"
         disabled={

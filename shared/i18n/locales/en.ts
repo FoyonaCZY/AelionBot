@@ -137,13 +137,11 @@ export const en: Record<string, string> = {
   操作截图: 'Action screenshot',
   工作电脑: 'Work computer',
   '新 Bot': 'New Bot',
-  职责描述: 'Role description',
-  帮助我: 'Help me',
+  导入文件: 'Import file',
+  '文件超过 {max} 字符，未导入。': 'The file is over {max} characters and was not imported.',
+  从示例开始: 'Start from an example',
   创建伙伴: 'Create partner',
   保存资料: 'Save profile',
-  整理资料与写作: 'Research and writing',
-  分析数据与报表: 'Data and reports',
-  编写代码与测试: 'Code and testing',
   删除: 'Delete',
   取消: 'Cancel',
   后台学习: 'Background learning',
@@ -806,9 +804,6 @@ export const en: Record<string, string> = {
     'The reply has had no new content for {elapsed}; waiting for more output.',
   '当前操作已持续{elapsed}，尚未返回最终结果。':
     'The current operation has continued for {elapsed}; no final result yet.',
-  '完成办公和代码任务，使用工作电脑实际执行并核对成果。':
-    'Complete office and coding tasks using the work computer, then verify the result.',
-  '使用工作电脑执行并验证成果。': 'Use the work computer to execute and verify the result.',
   '删除“{name}”及其对话和记忆？工作文件和私聊记录会保留。':
     'Delete “{name}” and its chats and memories? Workspace files and private chat history will be kept.',
   编辑: 'Edit',

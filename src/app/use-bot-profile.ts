@@ -8,6 +8,7 @@ import {
   type BotPalette,
 } from '../../shared/chat/bot-colors';
 import { useI18n } from '../i18n';
+import { defaultSoul } from '../../shared/chat/soul-presets';
 
 /** The create/edit Bot form. `newBotPalette` also colours the avatar preview in the sidebar's New menu. */
 export function useBotProfile() {
@@ -18,7 +19,7 @@ export function useBotProfile() {
   const [palette, setPalette] = useState<BotPalette>({ ...DEFAULT_BOT_PALETTE });
   const [editingId, setEditingId] = useState(''),
     [name, setName] = useState(''),
-    [role, setRole] = useState('');
+    [soul, setSoul] = useState('');
   const [model, setModel] = useState<ModelSelection | null>(null),
     [imageModel, setImageModel] = useState<ModelSelection | null>(null);
   const [reasoning, setReasoning] = useState('');
@@ -26,7 +27,7 @@ export function useBotProfile() {
   const startNew = (defaultReasoning: string) => {
     setType('general');
     setName('');
-    setRole('');
+    setSoul(defaultSoul('general', language));
     setModel(null);
     setImageModel(null);
     setReasoning(defaultReasoning);
@@ -36,7 +37,7 @@ export function useBotProfile() {
     setOriginalType(target.type || 'general');
     setEditingId(target.id);
     setName(target.name);
-    setRole(target.role);
+    setSoul(target.soul);
     setModel(target.model ? { ...target.model } : null);
     setImageModel(target.imageModel ? { ...target.imageModel } : null);
     setReasoning(target.reasoningEffort || '');
@@ -52,13 +53,7 @@ export function useBotProfile() {
       const created = await window.aelion.createBot({
         type,
         name: name || t('新 Bot'),
-        role:
-          role ||
-          (type === 'designer'
-            ? language === 'en'
-              ? 'Create prototypes and editable presentations, follow the selected design system and verify deliverables.'
-              : '完成原型和可编辑演示文稿设计，遵循所选设计系统并验证成果。'
-            : t('完成办公和代码任务，使用工作电脑实际执行并核对成果。')),
+        soul,
         model,
         imageModel,
         reasoningEffort: reasoning || null,
@@ -69,7 +64,7 @@ export function useBotProfile() {
       await window.aelion.updateBot({
         id: editingId,
         name,
-        role,
+        soul,
         type,
         expectedType: originalType,
         confirmContextReset: input.confirmContextReset,
@@ -89,8 +84,8 @@ export function useBotProfile() {
     editingId,
     name,
     setName,
-    role,
-    setRole,
+    soul,
+    setSoul,
     model,
     setModel,
     imageModel,

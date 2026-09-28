@@ -291,7 +291,7 @@ test('greetings and ongoing conversations receive current personal identity, inc
     },
   } as unknown as ModelClient;
   bot.name = '梁若飞';
-  bot.role = '腾讯程序员';
+  bot.soul = '腾讯程序员';
   const greetings = new BotGreetings(store, model, () => {});
   await greetings.greet(bot.id);
   assert.match(captured[0][0].content || '', /Wendy/);
@@ -306,7 +306,7 @@ test('greetings and ongoing conversations receive current personal identity, inc
     .join('\n');
   assert.match(ongoing, /桌面软件/);
   assert.match(ongoing, /你的名字："梁若飞"/);
-  assert.match(ongoing, /你的职责："腾讯程序员"/);
+  assert.match(ongoing, /腾讯程序员\n\n---\n你是 AI 队友/);
   assert.match(ongoing, /描述的是对方，不是你/);
   store.data.userProfile = normalizeUserProfile({});
   await harness.run(bot.id, '再聊聊');

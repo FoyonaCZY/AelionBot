@@ -1,5 +1,6 @@
 import { delegationContract } from './delegation';
 import { botIdentity } from '../../../shared/chat/bot-colors';
+import { soulExcerpt } from '../../../shared/chat/bot-soul';
 import { randomUUID } from 'node:crypto';
 import type { RunRecord } from '../../../shared/types/core';
 import type {
@@ -170,7 +171,7 @@ export class PeerChats implements PeerGateway {
       .map((bot) => ({
         id: bot.id,
         name: bot.name,
-        role: bot.role.slice(0, 500),
+        soul: soulExcerpt(bot.soul),
         status: this.runner.isRunning(bot.id) ? 'busy' : 'available',
         queued: this.store.data.peerExchanges.filter((item) => item.toBotId === bot.id && item.status === 'queued')
           .length,

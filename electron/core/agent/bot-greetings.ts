@@ -1,11 +1,12 @@
 import { conversationIdentityPrompt } from '../../../shared/chat/user-profile';
+import { soulPromptBudget } from '../../../shared/chat/bot-soul';
 import { assistantMessage, type ModelClient } from '../model/model';
 import type { Store } from '../storage/store';
 import { randomUUID } from 'node:crypto';
 import { ReplyStreams } from './reply-streams';
 
 const instruction =
-  'Write the first greeting from the AI teammate to the human. Use 1–2 sentences: introduce yourself by the teammate name given below, say how that role can help, and invite the first task. Address the human only by their displayName when one is set. Output only the greeting, without a heading, quotation marks, or a list. Do not claim to have completed work, configured a model, or started a computer. Do not call tools.';
+  'Write the first greeting from the AI teammate to the human. Use 1–2 sentences: introduce yourself by the teammate name given below, say how you can help in the voice your SOUL.md defines, and invite the first task. Address the human only by their displayName when one is set. Output only the greeting, without a heading, quotation marks, or a list. Do not claim to have completed work, configured a model, or started a computer. Do not call tools.';
 
 export class BotGreetings {
   readonly streams = new ReplyStreams(() => this.changed());
@@ -69,7 +70,8 @@ export class BotGreetings {
     try {
       if (controller.signal.aborted) return;
       const bot = this.store.bot(botId),
-        identity = conversationIdentityPrompt(bot, this.store.data.userProfile);
+        budget = soulPromptBudget(this.store.modelFor(botId).contextTokens),
+        identity = conversationIdentityPrompt(bot, this.store.data.userProfile, budget);
       const result = await this.model.complete(
         [
           { role: 'system', content: instruction + '\n' + identity },
@@ -86,7 +88,7 @@ export class BotGreetings {
       preview.close(false);
       if (controller.signal.aborted || !this.eligible(botId)) return;
       const current = this.store.bot(botId);
-      if (conversationIdentityPrompt(current, this.store.data.userProfile) !== identity) return;
+      if (conversationIdentityPrompt(current, this.store.data.userProfile, budget) !== identity) return;
       const content = result.content.trim();
       if (!content || result.calls.length) throw new Error('模型未返回有效开场白');
       this.store.data.conversations[botId].push(assistantMessage({ ...result, content }));

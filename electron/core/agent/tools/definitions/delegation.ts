@@ -38,7 +38,7 @@ export const PEER_TOOLS: ToolDefinition[] = [
   ),
   tool(
     'bots_list',
-    '查看可私聊的其他 Bot 的准确 ID、职责和当前忙闲状态。先确定身份再发送，不要凭空编造 Bot 或回复。',
+    '查看可私聊的其他 Bot 的准确 ID、SOUL.md 摘要和当前忙闲状态。先确定身份再发送，不要凭空编造 Bot 或回复。',
     {},
     [],
   ),

@@ -32,7 +32,7 @@ function fixture(t: test.TestContext) {
     chat = 'PRIVATE CHAT SHOULD NOT BE EXPORTED',
     args = 'PRIVATE TOOL ARGUMENTS',
     output = 'PRIVATE TOOL OUTPUT',
-    bot = { id: 'bot', name: 'PRIVATE BOT NAME', role: chat, color: '#2288ff', createdAt: stamp, memories: [chat] };
+    bot = { id: 'bot', name: 'PRIVATE BOT NAME', soul: chat, color: '#2288ff', createdAt: stamp, memories: [chat] };
   const state: Snapshot = {
     bots: [bot],
     messages: [

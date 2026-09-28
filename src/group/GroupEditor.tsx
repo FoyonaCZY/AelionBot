@@ -2,6 +2,7 @@ import type { LayaFeatureState } from '../../shared/types/laya-types';
 import { GroupDecisionSetting } from './GroupDecisionSetting';
 import { useEffect, useRef, useState } from 'react';
 import type { Bot } from '../../shared/types/core';
+import { soulSummary } from '../../shared/chat/bot-soul';
 import { GROUP_LIMITS, type GroupSummary } from '../../shared/types/group-types';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
@@ -126,7 +127,7 @@ export function GroupEditor({
               <Avatar bot={bot} size={32} />
               <span>
                 <strong>{bot.name}</strong>
-                <small>{bot.role || 'Bot'}</small>
+                <small>{soulSummary(bot.soul) || 'Bot'}</small>
               </span>
             </label>
           ))}

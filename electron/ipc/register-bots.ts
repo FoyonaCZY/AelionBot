@@ -9,7 +9,7 @@ export function registerBots(ctx: IpcContext) {
     if (
       !input ||
       typeof input.name !== 'string' ||
-      typeof input.role !== 'string' ||
+      typeof input.soul !== 'string' ||
       (input.color !== undefined && typeof input.color !== 'string')
     )
       throw new Error('无效 Bot 参数');
@@ -18,7 +18,7 @@ export function registerBots(ctx: IpcContext) {
       reasoningEffort = cleanReasoning(
         input.reasoningEffort === undefined ? ctx.store.data.defaultModel?.reasoningEffort : input.reasoningEffort,
       );
-    const bot = ctx.store.createBot(input.name, input.role, input.color, input.avatarStyle, {
+    const bot = ctx.store.createBot(input.name, input.soul, input.color, input.avatarStyle, {
       model,
       imageModel,
       reasoningEffort,

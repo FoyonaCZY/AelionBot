@@ -59,7 +59,8 @@ export interface Bot {
   defaultDesignSystemId?: string | null;
   id: string;
   name: string;
-  role: string;
+  /** SOUL.md: free-form Markdown defining the Bot's voice, values and boundaries. */
+  soul: string;
   color: string;
   avatarStyle?: import('../chat/bot-colors').BotAvatarStyle;
   createdAt: string;
@@ -75,7 +76,7 @@ export interface BotUpdateInput {
   defaultDesignSystemId?: string | null;
   id: string;
   name: string;
-  role: string;
+  soul: string;
   model?: ModelSelection | null;
   imageModel?: ModelSelection | null;
   reasoningEffort?: string | null;
@@ -542,7 +543,7 @@ export interface AelionAPI {
   createBot(input: {
     type?: import('./designer-types').BotType;
     name: string;
-    role: string;
+    soul: string;
     color?: string;
     avatarStyle?: import('../chat/bot-colors').BotAvatarStyle | null;
     model?: ModelSelection | null;
