@@ -84,7 +84,7 @@ test('legacy Bots stay general and unconfirmed deferred switches are discarded o
       updateBotProfile(store, {} as any, {
         id: bot.id,
         name: bot.name,
-        role: bot.role,
+        soul: bot.soul,
         type: 'general',
         expectedType: 'designer',
         confirmContextReset: true,

@@ -26,6 +26,54 @@
 .bot-profile-model {
   margin: 22px 0;
 }
+.bot-soul-field {
+  margin: 17px 0;
+}
+.bot-soul-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+.bot-soul-header label {
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  color: light-dark(#8a8d90, #c0bdc3);
+}
+.modal .bot-soul-field textarea {
+  margin-top: 0;
+  min-height: 180px;
+  max-height: 55vh;
+  font-family: var(--font-code);
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  line-height: 1.65;
+  tab-size: 2;
+}
+.bot-soul-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  font-size: calc(11px * var(--appearance-text-scale, 1));
+  color: light-dark(#8a8d90, #c0bdc3);
+  font-variant-numeric: tabular-nums;
+}
+.bot-soul-footer .is-error {
+  color: light-dark(#b3261e, #f2b8b5);
+}
+.bot-soul-field .presets {
+  align-items: center;
+  margin: 12px 0 0;
+}
+.bot-soul-field .presets-label {
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  color: light-dark(#8a8d90, #c0bdc3);
+  margin-right: 2px;
+}
+.bot-soul-field .presets button[aria-pressed='true'] {
+  border-color: light-dark(#7893aa, #b5c3ce);
+  color: light-dark(#42474b, #e0dde3);
+  background: light-dark(#f2f5f7, #2a2830);
+}
 .bot-profile-model h3 {
   font-size: calc(12px * var(--appearance-text-scale, 1));
   font-weight: var(--weight-body);

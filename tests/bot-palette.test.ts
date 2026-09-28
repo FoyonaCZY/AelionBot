@@ -69,7 +69,7 @@ test('editing colors preserves the model, supports custom split colors, and can 
     updateBotProfile(
       store,
       providers,
-      { id: bot.id, name: bot.name, role: bot.role, color: '#7356BC', avatarStyle: style },
+      { id: bot.id, name: bot.name, soul: bot.soul, color: '#7356BC', avatarStyle: style },
       () => {
         throw Error('Color changes must not switch models');
       },
@@ -79,12 +79,12 @@ test('editing colors preserves the model, supports custom split colors, and can 
   style.secondary = '#000000';
   assert.deepEqual(store.bot(bot.id).avatarStyle, { kind: 'split', secondary: '#879aaa', pattern: 'wave' });
   assert.deepEqual(store.bot(bot.id).model, model);
-  updateBotProfile(store, providers, { id: bot.id, name: bot.name, role: bot.role + ' edited' });
+  updateBotProfile(store, providers, { id: bot.id, name: bot.name, soul: bot.soul + ' edited' });
   assert.equal(store.bot(bot.id).avatarStyle?.kind, 'split');
   updateBotProfile(store, providers, {
     id: bot.id,
     name: bot.name,
-    role: bot.role,
+    soul: bot.soul,
     color: '#334455',
     avatarStyle: null,
   });
@@ -148,7 +148,7 @@ test('busy model rejection also leaves edited colors and the name untouched', (t
         {
           id: bot.id,
           name: 'Changed',
-          role: bot.role,
+          soul: bot.soul,
           color: '#556677',
           avatarStyle: { kind: 'gradient', secondary: '#998877', direction: 'diagonal' },
           model: { providerId: provider.id, model: 'new', contextTokens: 32000 },
@@ -182,7 +182,7 @@ test('mentions and group summaries use the live palette and clear stale split me
       ?.members.find((item) => item.id === to.id)?.avatarStyle?.kind,
     'split',
   );
-  updateBotProfile(store, providers, { id: to.id, name: to.name, role: to.role, color: '#556677', avatarStyle: null });
+  updateBotProfile(store, providers, { id: to.id, name: to.name, soul: to.soul, color: '#556677', avatarStyle: null });
   assert.equal(
     groups
       .snapshot()

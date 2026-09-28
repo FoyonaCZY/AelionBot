@@ -1,4 +1,6 @@
 import { botType } from '../../../shared/types/designer-types';
+import { normalizeSoul } from '../../../shared/chat/bot-soul';
+import { defaultBotName, defaultSoul, upgradedLegacySoul } from '../../../shared/chat/soul-presets';
 import { repairToolHistory } from '../tools/tool-history';
 import { createHash } from 'node:crypto';
 import type { PythonSession } from '../tools/python-sessions';
@@ -152,7 +154,14 @@ export class Store {
       if (this.data.runtime?.maxTokens === 500000) this.data.runtime.maxTokens = 0;
       this.data.unlimitedTokenBudgetMigrated = true;
     }
-    for (const bot of this.data.bots) bot.type = botType(bot.type);
+    for (const bot of this.data.bots) {
+      bot.type = botType(bot.type);
+      // The one-line `role` became SOUL.md. Text is kept verbatim; only app-generated defaults get the starter soul.
+      const legacy = bot as Bot & { role?: string };
+      if (legacy.soul === undefined) legacy.soul = legacy.role || '';
+      delete legacy.role;
+      bot.soul = upgradedLegacySoul(bot.soul) || bot.soul;
+    }
     this.data.imageGenerationRoutes ||= {};
     this.data.workItems ||= [];
     this.data.conversationWorkspaces ||= {};
@@ -214,10 +223,7 @@ export class Store {
     ])
       this.repairHistory(history, key);
     this.isolateGroupRuns();
-    for (const bot of this.data.bots)
-      if (bot.role === '帮助我处理办公资料与代码工作，直接执行并验证成果，使用中文回复。')
-        bot.role = '帮助我处理办公资料与代码工作，直接执行并验证成果。';
-    if (isNew) this.createBot('工作伙伴', '帮助我处理办公资料与代码工作，直接执行并验证成果。');
+    if (isNew) this.createBot(defaultBotName(this.data.language), defaultSoul('general', this.data.language));
     this.save();
   }
   repairHistory(history: WireMessage[], key: string) {
@@ -554,12 +560,13 @@ export class Store {
   }
   createBot(
     name: string,
-    role: string,
+    soul: string,
     color?: string,
     avatarStyle?: BotAvatarStyle | null,
     modelOptions?: Pick<Bot, 'model' | 'imageModel' | 'reasoningEffort' | 'type' | 'defaultDesignSystemId'>,
   ): Bot {
-    if (!name.trim() || name.length > 80 || role.length > 4000) throw new Error('请填写有效的名称与职责');
+    const cleanSoul = normalizeSoul(soul);
+    if (!name.trim() || name.length > 80 || cleanSoul === undefined) throw new Error('请填写有效的名称与 SOUL.md');
     const palette = normalizeBotPalette({
       color: color === undefined ? BOT_COLORS[this.data.bots.length % BOT_COLORS.length] : color,
       avatarStyle,
@@ -567,7 +574,7 @@ export class Store {
     const bot: Bot = {
       id: randomUUID(),
       name: name.trim(),
-      role: role.trim(),
+      soul: cleanSoul,
       ...palette,
       createdAt: new Date().toISOString(),
       memories: [],

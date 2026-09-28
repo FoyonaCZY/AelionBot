@@ -25,7 +25,7 @@ function fixture(t: any) {
 const change = (bot: any, extra: any = {}) => ({
   id: bot.id,
   name: bot.name,
-  role: bot.role,
+  soul: bot.soul,
   type: 'designer' as const,
   expectedType: 'general' as const,
   confirmContextReset: true,

@@ -51,7 +51,7 @@ test('provider reasoning migrates once to independent Bot settings and the defau
   providers.setDefault({ ...f.store.data.defaultModel!, reasoningEffort: 'minimal' });
   assert.equal(providers.config().reasoningEffort, 'minimal');
   assert.equal(providers.config(a.id).reasoningEffort, 'high');
-  updateBotProfile(f.store, providers, { id: a.id, name: a.name, role: a.role, reasoningEffort: null });
+  updateBotProfile(f.store, providers, { id: a.id, name: a.name, soul: a.soul, reasoningEffort: null });
   assert.equal(providers.config(a.id).reasoningEffort, undefined);
   const reopened = new ModelProviders(new Store(f.dir), f.secret);
   assert.equal(reopened.config(a.id).reasoningEffort, undefined);
@@ -142,7 +142,7 @@ test('custom model names and per-Bot reasoning reach the chosen protocol without
   updateBotProfile(f.store, providers, {
     id: a.id,
     name: a.name,
-    role: a.role,
+    soul: a.soul,
     model: null,
     reasoningEffort: ' ultra-plus ',
   });
@@ -156,13 +156,13 @@ test('custom model names and per-Bot reasoning reach the chosen protocol without
   const before = JSON.stringify(f.store.data);
   assert.throws(
     () =>
-      updateBotProfile(f.store, providers, { id: a.id, name: 'changed', role: a.role, reasoningEffort: 'bad\nvalue' }),
+      updateBotProfile(f.store, providers, { id: a.id, name: 'changed', soul: a.soul, reasoningEffort: 'bad\nvalue' }),
     { code: 'model.reasoning_effort_invalid' },
   );
   assert.equal(JSON.stringify(f.store.data), before);
   assert.throws(
     () =>
-      updateBotProfile(f.store, providers, { id: a.id, name: 'changed', role: a.role, reasoningEffort: 'low' }, () => {
+      updateBotProfile(f.store, providers, { id: a.id, name: 'changed', soul: a.soul, reasoningEffort: 'low' }, () => {
         throw Error('busy');
       }),
     /busy/,
@@ -352,14 +352,14 @@ test('Bot profile saves its name, role and model together, preserves omitted cho
     updateBotProfile(
       f.store,
       providers,
-      { id: bot.id, name: ' Updated ', role: 'new description', model: custom },
+      { id: bot.id, name: ' Updated ', soul: 'new description', model: custom },
       (id) => guarded.push(id),
     ),
     true,
   );
   let reopened = new Store(f.dir);
   assert.equal(reopened.bot(bot.id).name, 'Updated');
-  assert.equal(reopened.bot(bot.id).role, 'new description');
+  assert.equal(reopened.bot(bot.id).soul, 'new description');
   assert.deepEqual(reopened.bot(bot.id).model, custom);
   assert.deepEqual(guarded, [bot.id]);
   assert.deepEqual(reopened.bot(other.id), other);
@@ -368,7 +368,7 @@ test('Bot profile saves its name, role and model together, preserves omitted cho
     throw new Error('Unchanged models should remain editable during a task');
   };
   assert.equal(
-    updateBotProfile(f.store, providers, { id: bot.id, name: 'Updated again', role: 'description only' }, unexpected),
+    updateBotProfile(f.store, providers, { id: bot.id, name: 'Updated again', soul: 'description only' }, unexpected),
     false,
   );
   assert.deepEqual(f.store.bot(bot.id).model, custom);
@@ -376,7 +376,7 @@ test('Bot profile saves its name, role and model together, preserves omitted cho
     updateBotProfile(
       f.store,
       providers,
-      { id: bot.id, name: 'Updated again', role: 'same model', model: { ...custom } },
+      { id: bot.id, name: 'Updated again', soul: 'same model', model: { ...custom } },
       unexpected,
     ),
     false,
@@ -385,7 +385,7 @@ test('Bot profile saves its name, role and model together, preserves omitted cho
     updateBotProfile(
       f.store,
       providers,
-      { id: bot.id, name: 'Default again', role: 'uses default', model: null },
+      { id: bot.id, name: 'Default again', soul: 'uses default', model: null },
       (id) => guarded.push(id),
     ),
     true,
@@ -398,7 +398,7 @@ test('Bot profile saves its name, role and model together, preserves omitted cho
     updateBotProfile(
       f.store,
       providers,
-      { id: bot.id, name: 'Default again', role: 'uses default', imageModel: custom },
+      { id: bot.id, name: 'Default again', soul: 'uses default', imageModel: custom },
       unexpected,
     ),
     false,
@@ -408,7 +408,7 @@ test('Bot profile saves its name, role and model together, preserves omitted cho
     updateBotProfile(
       f.store,
       providers,
-      { id: bot.id, name: 'Default again', role: 'uses default', imageModel: null },
+      { id: bot.id, name: 'Default again', soul: 'uses default', imageModel: null },
       unexpected,
     ),
     false,
@@ -424,7 +424,7 @@ test('invalid or busy model changes leave all Bot profile fields and persisted s
   const before = readFileSync(f.store.file, 'utf8'),
     memory = JSON.stringify(f.store.data),
     model = { providerId: p.id, model: 'alpha', contextTokens: 32000 };
-  const profile = { id: bot.id, name: 'Must not be saved', role: 'nor this description', model };
+  const profile = { id: bot.id, name: 'Must not be saved', soul: 'nor this description', model };
   let guarded = 0;
   const busy = new Error('当前任务尚未结束');
   const guard = () => {
@@ -851,7 +851,7 @@ test('image generation is configured per Provider and per model, and resolves th
   updateBotProfile(f.store, providers, {
     id: bot.id,
     name: bot.name,
-    role: bot.role,
+    soul: bot.soul,
     imageModel: { providerId: saved.id, model: 'flux-pro', contextTokens: 32000 },
   });
   const access = providers.imageAccess(bot.id)!;

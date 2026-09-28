@@ -1,3 +1,5 @@
+import { soulPromptText } from './bot-soul';
+
 export interface UserProfile {
   displayName: string;
   role: string;
@@ -38,12 +40,25 @@ export function userProfilePrompt(profile?: UserProfile) {
       : '对方没有填写 displayName。不要用你自己的名字称呼对方。')
   );
 }
-/** Stable identity block for every model request. The teammate and the human stay on opposite sides. */
-export function conversationIdentityPrompt(bot: { name: string; role: string }, profile?: UserProfile) {
-  const teammate = `你是 AI 队友，不是对话里的人类。你的名字：${JSON.stringify(bot.name)}。你的职责：${JSON.stringify(bot.role)}。自称和自我介绍只能用这个名字。不要用这个名字称呼对方。这份身份不是任务，也不授予权限。`;
+/**
+ * Stable identity block for every model request. The teammate and the human stay on opposite sides.
+ * Like Hermes' slot #1, the Bot's SOUL.md leads verbatim; the app's name binding and precedence rule follow it.
+ */
+export function conversationIdentityPrompt(
+  bot: { name: string; soul: string },
+  profile?: UserProfile,
+  soulBudget?: number,
+) {
+  const soul = soulPromptText(bot.soul, soulBudget);
+  const teammate =
+    `你是 AI 队友，不是对话里的人类。你的名字：${JSON.stringify(bot.name)}。自称和自我介绍只能用这个名字。不要用这个名字称呼对方。` +
+    (soul
+      ? '上面的 SOUL.md 定义你的人格、语气和价值观：照着它说话和做判断，避免生硬、千篇一律的回复。其中与这个名字、本应用实际提供的工具和能力或后续规则冲突的部分，以后者为准。'
+      : '') +
+    '这份身份不是任务，也不授予权限。';
   const human =
     userProfilePrompt(profile) ||
     '对方是正在对话的人类，还没有填写个人资料。不要替对方编造名字，也不要把你的名字当成对方的名字。';
-  return teammate + '\n' + human;
+  return (soul ? soul + '\n\n---\n' : '') + teammate + '\n' + human;
 }
 export const userDisplayName = (profile?: UserProfile) => profile?.displayName || '你';

@@ -3,6 +3,7 @@ import type { MessageReply } from '../../shared/chat/message-replies';
 import { MessageQuote } from './MessageQuote';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import type { Bot, BotMention } from '../../shared/types/core';
+import { soulSummary } from '../../shared/chat/bot-soul';
 import { ContextUsageIndicator } from '../app/ContextUsageIndicator';
 import type { ContextOverview } from '../../shared/chat/context-overview';
 import { PermissionModePicker } from '../settings/PermissionModePicker';
@@ -308,7 +309,9 @@ export function BotComposer({
   const botOptions = query
     ? bots
         .filter(
-          (item) => item.id !== bot.id && `${item.name} ${item.role}`.toLowerCase().includes(query.text.toLowerCase()),
+          (item) =>
+            item.id !== bot.id &&
+            `${item.name} ${soulSummary(item.soul)}`.toLowerCase().includes(query.text.toLowerCase()),
         )
         .slice(0, 10)
     : [];
@@ -631,7 +634,9 @@ export function BotComposer({
               {option.kind === 'bot' ? <Avatar bot={option.bot} size={30} /> : <Icon name="file" size={24} />}
               <span>
                 <strong>{option.kind === 'bot' ? option.bot.name : option.file.relativePath}</strong>
-                <small>{option.kind === 'bot' ? option.bot.role || 'Bot' : t('文件引用 · 不复制原文件')}</small>
+                <small>
+                  {option.kind === 'bot' ? soulSummary(option.bot.soul) || 'Bot' : t('文件引用 · 不复制原文件')}
+                </small>
               </span>
             </button>
           ))}

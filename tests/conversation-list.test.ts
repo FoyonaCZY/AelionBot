@@ -9,7 +9,7 @@ const bot = (id: string, createdAt = '2026-09-01T00:00:00Z'): Bot => ({
   name: id,
   createdAt,
   color: '#888',
-  role: '',
+  soul: '',
   memories: [],
 });
 const message = (botId: string, time: string, extra: Partial<ChatMessage> = {}): ChatMessage => ({

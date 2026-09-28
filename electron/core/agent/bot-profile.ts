@@ -7,6 +7,7 @@ import type { ModelProviders } from '../model/model-providers';
 import type { Store } from '../storage/store';
 import { reasoningEffort as cleanReasoning } from '../../../shared/chat/reasoning';
 import { AppError } from '../../../shared/errors';
+import { normalizeSoul } from '../../../shared/chat/bot-soul';
 
 export function updateBotProfile(
   store: Store,
@@ -14,14 +15,9 @@ export function updateBotProfile(
   input: BotUpdateInput,
   beforeModelChange: (botId: string) => void = () => {},
 ) {
-  const bot = store.bot(String(input?.id));
-  if (
-    typeof input.name !== 'string' ||
-    !input.name.trim() ||
-    input.name.length > 80 ||
-    typeof input.role !== 'string' ||
-    input.role.length > 4000
-  )
+  const bot = store.bot(String(input?.id)),
+    soul = normalizeSoul(input.soul);
+  if (typeof input.name !== 'string' || !input.name.trim() || input.name.length > 80 || soul === undefined)
     throw new AppError('bot.profile_invalid', '无效资料');
   const type = botType(input.type === undefined ? bot.type : input.type),
     running = store.data.runs.some((run) => run.botId === bot.id && run.status === 'running');
@@ -69,7 +65,7 @@ export function updateBotProfile(
       const updated = {
         ...item,
         name: input.name.trim(),
-        role: input.role,
+        soul,
         model,
         reasoningEffort,
         ...typeFields,

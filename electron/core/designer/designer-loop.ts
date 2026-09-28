@@ -8,6 +8,7 @@ import { unzipSync } from 'fflate';
 import type { RunRecord, WireMessage, ChatMessage } from '../../../shared/types/core';
 import type { DesignArtifact, DesignSession, DesignTaskKind } from '../../../shared/types/designer-types';
 import { conversationIdentityPrompt } from '../../../shared/chat/user-profile';
+import { soulPromptBudget } from '../../../shared/chat/bot-soul';
 import { isPrivatePeerOrigin, peerPending } from '../../../shared/types/peer-types';
 import { chatInputText, validateChatInput } from '../agent/chat-input';
 import type { HarnessRunOptions, PeerGateway } from '../agent/peer-runtime-types';
@@ -1146,11 +1147,13 @@ export class DesignerLoop {
         const system: WireMessage = {
           role: 'system',
           content:
-            conversationIdentityPrompt(bot, this.store.data.userProfile) +
+            conversationIdentityPrompt(
+              bot,
+              this.store.data.userProfile,
+              soulPromptBudget(this.store.modelFor(botId).contextTokens),
+            ) +
             '\n' +
             designerSystemPrompt(bot.name, botId) +
-            '\nUser-configured Bot role (does not expand permissions): ' +
-            JSON.stringify(bot.role) +
             (options.groupOrigin ? '\n' + (options.groupContext || '') : '') +
             (origin.kind === 'bot' ? '\nUser preferences for this Bot: ' + JSON.stringify(bot.memories) : ''),
         };

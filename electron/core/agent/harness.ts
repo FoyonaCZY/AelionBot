@@ -2,6 +2,7 @@ import type { VideoFrames } from '../preview/video-frames';
 import type { AgentPreviews } from '../preview/agent-previews';
 import { operationDenial, DENIAL_GUIDANCE } from './operation-denial';
 import { conversationIdentityPrompt, userProfilePrompt } from '../../../shared/chat/user-profile';
+import { soulPromptBudget } from '../../../shared/chat/bot-soul';
 import {
   QUESTION_ANSWER_PREFIX,
   questionAnswerText,
@@ -764,7 +765,7 @@ export class Harness {
     const system: WireMessage = {
       role: 'system',
       content:
-        conversationIdentityPrompt(bot, this.store.data.userProfile) +
+        conversationIdentityPrompt(bot, this.store.data.userProfile, soulPromptBudget(modelConfig.contextTokens)) +
         harnessInstructions({
           botId,
           hostedWebSearch: Boolean(modelConfig.hostedWebSearch),
