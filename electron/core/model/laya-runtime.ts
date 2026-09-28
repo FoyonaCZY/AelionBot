@@ -14,6 +14,7 @@ type Pending = {
   started: number;
   signal?: AbortSignal;
   onAbort?: () => void;
+  abandoned?: boolean;
 };
 /** Manages the opt-in local inference process; domain policies live with their callers. */
 export class LayaRuntime {
@@ -143,7 +144,7 @@ export class LayaRuntime {
         return;
       }
       const pending = response.id ? this.takePending(response.id) : undefined;
-      if (!pending) return;
+      if (!pending || pending.abandoned) return;
       const answer = response.result?.answers?.decision;
       if (response.error) console.warn('Laya prediction:', response.error.slice(0, 300));
       pending.resolve(
@@ -200,11 +201,18 @@ export class LayaRuntime {
         this.takePending(id)?.resolve(undefined);
         this.fail();
       }, 5_000);
-      const onAbort = () => this.takePending(id)?.resolve(undefined);
+      const onAbort = () => {
+        const pending = this.pending.get(id);
+        if (!pending) return;
+        // The serial Python worker cannot cancel inference. Keep its slot and watchdog
+        // until the response arrives; only the caller stops waiting now.
+        pending.abandoned = true;
+        pending.resolve(undefined);
+      };
       this.pending.set(id, { resolve, timer, started: Date.now(), signal, onAbort });
       signal?.addEventListener('abort', onAbort, { once: true });
       if (signal?.aborted) {
-        onAbort();
+        this.takePending(id)?.resolve(undefined);
         return;
       }
       this.child!.stdin.write(JSON.stringify({ id, state, questions: { decision: question } }) + '\n', (error) => {

@@ -4,9 +4,12 @@ import type { LayaDecisionLog } from '../model/laya-decision-log';
 
 export class LayaGameDecisions {
   constructor(
-    readonly runtime: LayaRuntime,
+    private runtime: LayaRuntime,
     private log: LayaDecisionLog,
   ) {}
+  get isReady() {
+    return this.runtime.isReady;
+  }
   async game(sourceId: string, actorId: string, view: GameView, request: GameRequest) {
     const options =
       request.kind === 'speak' ||

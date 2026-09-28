@@ -1,18 +1,44 @@
 import type { LayaRuntime } from '../model/laya-runtime';
 import type { LayaDecisionLog } from '../model/laya-decision-log';
-import type { GroupChoice, GroupDecisionInput } from '../../../shared/types/laya-types';
+import type { GroupDecisionInput, GroupDecisionRecord, LayaVariant } from '../../../shared/types/laya-types';
 
-export class LayaGroupDecisions {
-  constructor(
-    readonly runtime: LayaRuntime,
-    readonly log: LayaDecisionLog,
-  ) {}
-  async group(
-    sourceId: string,
-    actorId: string,
-    state: GroupDecisionInput,
+export interface GroupDecisions {
+  readonly enabled: boolean;
+  readonly isReady: boolean;
+  readonly runtimeName: LayaVariant | undefined;
+  decide(
+    request: {
+      sourceId: string;
+      actorId: string;
+      input: GroupDecisionInput;
+      requiredWork?: boolean;
+    },
     signal?: AbortSignal,
-  ): Promise<GroupChoice | undefined> {
+  ): Promise<GroupDecisionRecord | undefined>;
+  read(ids: Set<string>): GroupDecisionRecord[];
+}
+
+export class LayaGroupDecisions implements GroupDecisions {
+  constructor(
+    private runtime: LayaRuntime,
+    private log: LayaDecisionLog,
+  ) {}
+  get enabled() {
+    return this.runtime.enabled;
+  }
+  get isReady() {
+    return this.runtime.isReady;
+  }
+  get runtimeName() {
+    return this.runtime.runtimeName;
+  }
+  read(ids: Set<string>) {
+    return this.log.groupDecisions(ids);
+  }
+  async decide(
+    { sourceId, actorId, input: state, requiredWork }: Parameters<GroupDecisions['decide']>[0],
+    signal?: AbortSignal,
+  ): Promise<GroupDecisionRecord | undefined> {
     const criteria = {
       observe: '没有新内容需要这个 Bot 回应，也没有需要继续的本人任务',
       participate: '这个 Bot 可以回应当前问题、补充有用信息，或开展及继续用户授权的工作',
@@ -28,7 +54,7 @@ export class LayaGroupDecisions {
       signal,
     );
     if (!signal?.aborted && result && (result.choice === 'observe' || result.choice === 'participate')) {
-      this.log.record({
+      const decision: GroupDecisionRecord = {
         scope: 'group',
         sourceId,
         actorId,
@@ -36,14 +62,17 @@ export class LayaGroupDecisions {
         criteria,
         input: state,
         choice: result.choice,
+        appliedChoice: requiredWork ? 'participate' : result.choice,
+        adjustment: requiredWork && result.choice === 'observe' ? '已有任务需要续跑，由主模型继续处理' : undefined,
         features: {
           events: state.events.length,
           recent: state.recent.length,
           mentioned: state.events.some((event) => event.mentioned) || false,
           ownTask: Boolean(state.myTask),
         },
-      });
-      return result.choice;
+      };
+      this.log.record(decision);
+      return decision;
     }
     return undefined;
   }

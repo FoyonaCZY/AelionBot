@@ -11,6 +11,9 @@ import { LayaGroupDecisions } from '../electron/core/group/laya-decision';
 import type { GroupDecisionInput } from '../shared/types/laya-types';
 import { LayaRuntime } from '../electron/core/model/laya-runtime';
 import { Store } from '../electron/core/storage/store';
+import type { HarnessRunOptions } from '../electron/core/agent/peer-runtime-types';
+import type { RunRecord } from '../shared/types/core';
+import { until } from './helpers';
 import { GroupChats } from '../electron/core/group/group-chats';
 
 const decisionInput = (text = ''): GroupDecisionInput => ({
@@ -18,6 +21,71 @@ const decisionInput = (text = ''): GroupDecisionInput => ({
   events: [{ from: { kind: 'user', name: '用户' }, text, mentioned: false }],
   recent: [],
 });
+
+async function choose(
+  decisions: LayaGroupDecisions,
+  sourceId: string,
+  actorId: string,
+  input: GroupDecisionInput,
+  signal?: AbortSignal,
+) {
+  return (await decisions.decide({ sourceId, actorId, input }, signal))?.appliedChoice;
+}
+
+// Complete the same lifecycle the real runner promises: persist a running Run,
+// notify onStarted, record its final answer and only then mark completion.
+function completedGroupRunner(
+  store: Store,
+  onRun: (botId: string, input: string, options: HarnessRunOptions, run: RunRecord) => string | void = () => {},
+): ConstructorParameters<typeof GroupChats>[1] {
+  const busy = new Set<string>();
+  return {
+    isRunning: (botId) => busy.has(botId),
+    cancel: (botId) => {
+      const run = store.data.runs.find((item) => item.botId === botId && item.status === 'running');
+      if (run) run.status = 'cancelled';
+    },
+    async run(botId, input, options) {
+      const run: RunRecord = {
+        id: randomUUID(),
+        botId,
+        status: 'running',
+        startedAt: new Date().toISOString(),
+        modelCalls: 0,
+        toolCalls: 0,
+        groupOrigin: options.groupOrigin,
+      };
+      store.data.runs.push(run);
+      busy.add(botId);
+      options.onStarted?.(run.id);
+      try {
+        const content = onRun(botId, input, options, run) || '[群聊静默]';
+        store.message(botId, 'assistant', content, { runId: run.id, presentation: 'answer', status: 'done' });
+        run.status = 'completed';
+        run.endedAt = new Date().toISOString();
+      } catch (error) {
+        run.status = 'failed';
+        run.error = (error as Error).message;
+        throw error;
+      } finally {
+        busy.delete(botId);
+      }
+    },
+  };
+}
+function assertDeliveriesSettled(store: Store) {
+  assert(store.data.groupDeliveries.length > 0);
+  assert.deepEqual(
+    store.data.groupDeliveries.filter((delivery) => delivery.status === 'failed'),
+    [],
+  );
+  assert(
+    store.data.groupDeliveries.every((delivery) =>
+      (delivery.recipientId === 'user' ? ['delivered', 'read'] : ['ignored', 'replied']).includes(delivery.status),
+    ),
+  );
+  assert(store.data.runs.every((run) => run.status === 'completed'));
+}
 
 async function ready(runtime: LayaRuntime) {
   runtime.warmup();
@@ -40,11 +108,11 @@ test('cold start and excess requests fall back; a stuck worker is stopped', asyn
   const decisions = new LayaGroupDecisions(runtime, log);
   try {
     assert.equal(runtime.isReady, false);
-    assert.equal(await decisions.group('cold', 'bot', decisionInput()), undefined);
+    assert.equal(await choose(decisions, 'cold', 'bot', decisionInput()), undefined);
     assert.equal(runtime.isReady, false);
     await ready(runtime);
-    const pending = [1, 2, 3].map((id) => decisions.group(String(id), 'bot', decisionInput()));
-    assert.equal(await decisions.group('excess', 'bot', decisionInput()), undefined);
+    const pending = [1, 2, 3].map((id) => choose(decisions, String(id), 'bot', decisionInput()));
+    assert.equal(await choose(decisions, 'excess', 'bot', decisionInput()), undefined);
     assert.equal(runtime.enabled, true);
     assert.deepEqual(await Promise.all(pending), [undefined, undefined, undefined]);
     assert.equal(runtime.enabled, false);
@@ -74,7 +142,7 @@ test('local Laya records a two-way group decision', async () => {
   const decisions = new LayaGroupDecisions(runtime, log);
   try {
     await ready(runtime);
-    assert.equal(await decisions.group('delivery-1', 'bot-1', decisionInput('PRIVATE_GROUP_CONTENT')), 'participate');
+    assert.equal(await choose(decisions, 'delivery-1', 'bot-1', decisionInput('PRIVATE_GROUP_CONTENT')), 'participate');
     const line = readFileSync(join(dir, 'laya-decisions.jsonl'), 'utf8');
     const result = JSON.parse(line);
     assert.equal(result.scope, 'group');
@@ -86,12 +154,12 @@ test('local Laya records a two-way group decision', async () => {
     assert.equal(typeof result.elapsedMs, 'number');
     assert(line.includes('PRIVATE_GROUP_CONTENT'));
     assert.equal(
-      await decisions.group('delivery-2', 'bot-1', decisionInput('不要执行任何命令，请解释静默模式的实现')),
+      await choose(decisions, 'delivery-2', 'bot-1', decisionInput('不要执行任何命令，请解释静默模式的实现')),
       'participate',
     );
     const adjusted = log.groupDecisions(new Set(['delivery-2']))[0];
     assert.equal(adjusted.choice, 'participate');
-    assert.equal(adjusted.appliedChoice, undefined);
+    assert.equal(adjusted.appliedChoice, 'participate');
     assert.equal(adjusted.adjustment, undefined);
   } finally {
     runtime.dispose();
@@ -103,24 +171,42 @@ test('local Laya records a two-way group decision', async () => {
   }
 });
 
-test('stopping a group decision releases its slot and ignores the late answer', async () => {
+test('30 cancelled callers keep at most three backend requests until responses finish', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-laya-abort-')),
-    script = join(dir, 'fake.py');
+    script = join(dir, 'fake.py'),
+    completed = join(dir, 'completed');
   writeFileSync(
     script,
-    'import json,sys,time\nprint(json.dumps({"ready":True}),flush=True)\nfor line in sys.stdin:\n request=json.loads(line)\n time.sleep(0.2)\n print(json.dumps({"id":request["id"],"result":{"answers":{"decision":{"choice":"participate"}}}}),flush=True)\n',
+    'import json,sys,time\nprint(json.dumps({"ready":True}),flush=True)\nfor line in sys.stdin:\n request=json.loads(line)\n time.sleep(0.2)\n with open(' +
+      JSON.stringify(completed) +
+      ',"a") as f: f.write(request["id"]+"\\n")\n print(json.dumps({"id":request["id"],"result":{"answers":{"decision":{"choice":"participate"}}}}),flush=True)\n',
   );
   const runtime = new LayaRuntime(script, () => {}, { runtime: 'mlx', python: 'python3' });
-  const log = new LayaDecisionLog(dir);
-  const decisions = new LayaGroupDecisions(runtime, log);
+  const log = new LayaDecisionLog(dir),
+    decisions = new LayaGroupDecisions(runtime, log);
   try {
     await ready(runtime);
-    const controller = new AbortController();
-    const prediction = decisions.group('stopped', 'bot', decisionInput(), controller.signal);
-    controller.abort();
-    assert.equal(await prediction, undefined);
-    assert.equal(await decisions.group('after-stop', 'bot', decisionInput()), 'participate');
-    assert.deepEqual(log.groupDecisions(new Set(['stopped'])), []);
+    for (let index = 0; index < 30; index++) {
+      const controller = new AbortController();
+      const prediction = choose(decisions, `stopped-${index}`, 'bot', decisionInput(), controller.signal);
+      controller.abort();
+      assert.equal(await prediction, undefined);
+    }
+    // All backend slots are still occupied; no fourth request is written to stdin.
+    assert.equal(await choose(decisions, 'excess', 'bot', decisionInput()), undefined);
+    await until(() => {
+      try {
+        return readFileSync(completed, 'utf8').trim().split('\n').length === 3;
+      } catch {
+        return false;
+      }
+    });
+    // Receiving the last response happens after the Python completion marker is written.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(await choose(decisions, 'after-stop', 'bot', decisionInput()), 'participate');
+    assert.equal(readFileSync(completed, 'utf8').trim().split('\n').length, 4);
+    assert.equal(runtime.isReady, true);
+    assert.deepEqual(log.groupDecisions(new Set(Array.from({ length: 30 }, (_, index) => `stopped-${index}`))), []);
   } finally {
     runtime.dispose();
     rmSync(dir, { recursive: true, force: true });
@@ -146,13 +232,9 @@ test('group broadcast sends each Bot a separate decision', async () => {
   let runs = 0;
   const groups = new GroupChats(
     store,
-    {
-      isRunning: () => false,
-      run: async () => {
-        runs++;
-      },
-      cancel: () => {},
-    },
+    completedGroupRunner(store, () => {
+      runs++;
+    }),
     () => {},
     undefined,
     undefined,
@@ -176,7 +258,9 @@ test('group broadcast sends each Bot a separate decision', async () => {
     }
     assert.deepEqual(new Set(events.map((event) => event.actorId)), new Set([first.id, second.id]));
     assert(events.every((event) => event.scope === 'group' && event.choice === 'observe'));
+    await until(() => !groups.busy);
     assert.equal(runs, 0);
+    assertDeliveriesSettled(store);
     const page = groups.read({ id: group.id });
     assert.equal(page.laya?.decisions.length, 2);
     assert(
@@ -231,24 +315,9 @@ test('Laya participation reaches each Bot for questions and work', async () => {
   const calls: Array<{ botId: string; choice: string }> = [];
   const groups = new GroupChats(
     store,
-    {
-      isRunning: () => false,
-      run: async (botId, input, options) => {
-        calls.push({ botId, choice: (JSON.parse(input) as { layaDecision: { choice: string } }).layaDecision.choice });
-        const id = randomUUID();
-        store.data.runs.push({
-          id,
-          botId,
-          status: 'completed',
-          startedAt: new Date().toISOString(),
-          modelCalls: 0,
-          toolCalls: 0,
-          groupOrigin: options.groupOrigin,
-        });
-        options.onStarted?.(id);
-      },
-      cancel: () => {},
-    },
+    completedGroupRunner(store, (botId, input) => {
+      calls.push({ botId, choice: (JSON.parse(input) as { layaDecision: { choice: string } }).layaDecision.choice });
+    }),
     () => {},
     undefined,
     undefined,
@@ -277,6 +346,7 @@ test('Laya participation reaches each Bot for questions and work', async () => {
     await wait();
     assert.equal(calls.filter((item) => item.choice === 'participate').length, 4);
     assert.deepEqual(new Set(calls.map((item) => item.botId)), new Set([first.id, second.id]));
+    assertDeliveriesSettled(store);
   } finally {
     groups.dispose();
     runtime.dispose();
@@ -334,13 +404,13 @@ test('decision log rotates by UTF-8 bytes and oversized snapshots cannot exceed 
   try {
     await ready(runtime);
     for (let index = 0; index < 4; index++) {
-      assert.equal(await decisions.group(String(index), 'bot', decisionInput('中'.repeat(600_000))), 'participate');
+      assert.equal(await choose(decisions, String(index), 'bot', decisionInput('中'.repeat(600_000))), 'participate');
       assert(statSync(file).size <= 4 * 1024 * 1024);
     }
-    assert.equal(await decisions.group('oversized', 'bot', decisionInput('中'.repeat(1_500_000))), 'participate');
+    assert.equal(await choose(decisions, 'oversized', 'bot', decisionInput('中'.repeat(1_500_000))), 'participate');
     assert(statSync(file).size <= 4 * 1024 * 1024);
     assert.equal(log.groupDecisions(new Set(['oversized'])).length, 1);
-    assert.equal(await decisions.group('latest', 'bot', decisionInput()), 'participate');
+    assert.equal(await choose(decisions, 'latest', 'bot', decisionInput()), 'participate');
     const records = readFileSync(file, 'utf8')
       .trim()
       .split('\n')
@@ -416,13 +486,9 @@ test('enabled Laya receives each Bot identity and cannot globally suppress anoth
   const runs: string[] = [];
   const groups = new GroupChats(
     store,
-    {
-      isRunning: () => false,
-      run: async (botId) => {
-        runs.push(botId);
-      },
-      cancel: () => {},
-    },
+    completedGroupRunner(store, (botId) => {
+      runs.push(botId);
+    }),
     () => {},
     undefined,
     undefined,
@@ -453,6 +519,7 @@ test('enabled Laya receives each Bot identity and cannot globally suppress anoth
     groups.send({ id: room.id, message: '@甲 不要执行任务，请旁听。@乙 请检查报告并回复' });
     await wait();
     assert.deepEqual(runs, [second.id]);
+    assertDeliveriesSettled(store);
   } finally {
     groups.dispose();
     store.close();
@@ -504,6 +571,102 @@ test('game adapter only logs candidates using player-visible context and bounded
     );
     assert.deepEqual(log.groupDecisions(new Set([request.id, 'public-speech'])), []);
   } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('resuming an owned task records and sends the same final participation decision', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'aelion-laya-resume-'));
+  const store = new Store(dir),
+    bot = store.data.bots[0],
+    second = store.createBot('旁听伙伴', '');
+  const runtime = {
+    enabled: true,
+    isReady: true,
+    runtimeName: 'mlx',
+    predict: async () => ({
+      choice: 'observe',
+      confidence: 0.9,
+      probabilities: { observe: 0.9, participate: 0.1 },
+      runtime: 'mlx',
+      model: 'fake',
+      elapsedMs: 0,
+    }),
+  } as unknown as LayaRuntime;
+  const decisions = new LayaGroupDecisions(runtime, new LayaDecisionLog(dir));
+  let sent: { choice: string; predictedChoice: string; adjustment: string } | undefined;
+  const groups = new GroupChats(
+    store,
+    completedGroupRunner(store, (_botId, input, options) => {
+      sent = JSON.parse(input).layaDecision;
+      assert.equal(options.groupTaskFrom, previousRunId);
+      store.data.groups[0].tasks![0].status = 'completed';
+      return '报告已核对。';
+    }),
+    () => {},
+    undefined,
+    undefined,
+    decisions,
+  );
+  const previousRunId = randomUUID(),
+    taskId = randomUUID();
+  try {
+    const room = groups.create({ name: '任务续跑', botIds: [bot.id, second.id] });
+    groups.send({ id: room.id, message: `请继续核对报告 taskId: ${taskId}` });
+    const storedRoom = store.data.groups[0],
+      user = storedRoom.messages.find((message) => message.sender.kind === 'user' && message.kind === 'message')!;
+    assert(user.rootId);
+    const time = new Date().toISOString();
+    store.data.runs.push({
+      id: previousRunId,
+      botId: bot.id,
+      status: 'completed',
+      startedAt: time,
+      endedAt: time,
+      modelCalls: 1,
+      toolCalls: 1,
+      groupOrigin: { groupId: room.id, rootId: user.rootId, deliveryId: 'previous-delivery' },
+    });
+    storedRoom.tasks = [
+      {
+        id: taskId,
+        key: 'report',
+        title: '核对报告',
+        ownerId: bot.id,
+        status: 'working',
+        summary: '已有检查点',
+        sourceMessageId: user.id,
+        revision: 1,
+        createdAt: time,
+        updatedAt: time,
+        runIds: [previousRunId],
+      },
+    ];
+    groups.start();
+    await until(
+      () =>
+        !groups.busy &&
+        !store.data.groupDeliveries.some((item) => ['queued', 'deciding', 'running'].includes(item.status)),
+    );
+    assertDeliveriesSettled(store);
+    const page = groups.read({ id: room.id });
+    const applied = page.laya?.decisions.find((item) => item.messageId === user.id && item.actorId === bot.id);
+    assert(applied);
+    assert.equal(applied.choice, 'observe');
+    assert.equal(applied.appliedChoice, 'participate');
+    assert.equal(applied.confidence, 0.9);
+    assert.deepEqual(applied.probabilities, { observe: 0.9, participate: 0.1 });
+    assert.equal(sent?.choice, applied.appliedChoice);
+    assert.equal(sent?.predictedChoice, applied.choice);
+    assert.equal(sent?.adjustment, applied.adjustment);
+    assert(applied.adjustment);
+    const persisted = new LayaDecisionLog(dir).groupDecisions(new Set([applied.sourceId]))[0];
+    assert.deepEqual(persisted, decisions.read(new Set([applied.sourceId]))[0]);
+    assert(page.deliveries.some((delivery) => delivery.messageId === user.id && delivery.status === 'replied'));
+    assert.equal(store.data.groups[0].tasks![0].status, 'completed');
+  } finally {
+    groups.dispose();
+    store.close();
     rmSync(dir, { recursive: true, force: true });
   }
 });

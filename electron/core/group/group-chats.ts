@@ -1,6 +1,6 @@
 import { soulExcerpt } from '../../../shared/chat/bot-soul';
-import type { GroupChoice, GroupDecisionInput } from '../../../shared/types/laya-types';
-import type { LayaGroupDecisions } from './laya-decision';
+import type { GroupDecisionRecord, GroupDecisionInput } from '../../../shared/types/laya-types';
+import type { GroupDecisions } from './laya-decision';
 import { previewFeedbackDisplay } from '../../../shared/preview/preview-feedback';
 import { groupEventPrompt, GROUP_STATE_EVENT_PROMPT } from './group-prompt';
 import { userDisplayName } from '../../../shared/chat/user-profile';
@@ -83,7 +83,7 @@ export class GroupChats implements GroupGateway {
     private changed: () => void,
     private attachments = new Attachments(store),
     private host?: HostComputer,
-    private laya?: LayaGroupDecisions,
+    private laya?: GroupDecisions,
   ) {
     // Publication may commit just before the process exits, before the inbox receipt is saved.
     for (const entry of store.data.groupOutbox || [])
@@ -476,12 +476,12 @@ export class GroupChats implements GroupGateway {
       (delivery) => delivery.groupId === room.id && ids.has(delivery.messageId),
     );
     const decisionIds = new Set(deliveries.map((delivery) => delivery.layaDecisionId || delivery.id));
-    const laya = this.laya?.runtime.isReady
+    const laya = this.laya?.isReady
       ? {
-          runtime: this.laya.runtime.runtimeName,
+          runtime: this.laya.runtimeName,
           enabled: true,
           ready: true,
-          decisions: this.laya.log.groupDecisions(decisionIds).flatMap((event) => {
+          decisions: this.laya.read(decisionIds).flatMap((event) => {
             const delivery = this.store.data.groupDeliveries.find(
               (item) => item.id === event.sourceId && item.groupId === room.id,
             );
@@ -996,8 +996,8 @@ export class GroupChats implements GroupGateway {
     if (round.status !== 'active') return;
     const trigger = deliveries.at(-1)!;
     for (const delivery of deliveries) {
-      delivery.status = this.laya?.runtime.isReady ? 'deciding' : 'running';
-      if (this.laya?.runtime.isReady) {
+      delivery.status = this.laya?.isReady ? 'deciding' : 'running';
+      if (this.laya?.isReady) {
         delivery.layaMode = 'v2';
         delivery.layaDecisionId = trigger.id;
       }
@@ -1057,8 +1057,8 @@ export class GroupChats implements GroupGateway {
         event: message.event,
         mentions: message.mentions?.map((mention) => mention.id),
       }));
-    let choice: GroupChoice | undefined;
-    if (this.laya?.runtime.isReady) {
+    let decision: GroupDecisionRecord | undefined;
+    if (this.laya?.isReady) {
       const firstCurrentSeq = Math.min(
         ...deliveries.map(
           (delivery) => room.messages.find((message) => message.id === delivery.messageId)?.seq || Infinity,
@@ -1113,10 +1113,18 @@ export class GroupChats implements GroupGateway {
         ...(ownedTask ? { myTask: { title: ownedTask.title, status: ownedTask.status } } : {}),
         ...(followupNeedsRootRequest && !rootRequestIsPresent ? { rootRequest: round.request.slice(0, 400) } : {}),
       };
-      choice = await this.laya.group(trigger.id, bot.id, decisionInput, controller.signal);
+      decision = await this.laya.decide(
+        {
+          sourceId: trigger.id,
+          actorId: bot.id,
+          input: decisionInput,
+          requiredWork: Boolean(retry || requestedTask || previousTask),
+        },
+        controller.signal,
+      );
     }
     if (controller.signal.aborted || round.status !== 'active') return;
-    if (choice === 'observe' && !retry && !requestedTask && !previousTask) {
+    if (decision?.appliedChoice === 'observe') {
       for (const delivery of deliveries) {
         delivery.status = 'ignored';
         delivery.reason = '已看过，本轮旁听';
@@ -1161,10 +1169,12 @@ export class GroupChats implements GroupGateway {
           };
         }),
         recent,
-        ...(choice
+        ...(decision
           ? {
               layaDecision: {
-                choice,
+                choice: decision.appliedChoice,
+                predictedChoice: decision.choice,
+                adjustment: decision.adjustment,
                 meaning: '参与本轮；根据用户需求决定回复或执行，遵守群任务认领规则',
                 revisionAllowed: true,
               },
@@ -1185,10 +1195,10 @@ export class GroupChats implements GroupGateway {
         groupContext:
           context +
           GROUP_STATE_EVENT_PROMPT +
-          (choice
+          (decision
             ? '\nLaya 给出的本轮参与方式已在用户事件中标注。先按它行动；读到更多上下文后可以调整，并在发言或执行记录中说明调整。'
             : '') +
-          (this.laya?.runtime.enabled && !choice ? '\n本地决策暂不可用，请自行判断是否需要旁听或参与。' : ''),
+          (this.laya?.enabled && !decision ? '\n本地决策暂不可用，请自行判断是否需要旁听或参与。' : ''),
         groupTaskFrom: previousTask?.id,
         onStarted: (id) => {
           worker.runId = id;

@@ -30,7 +30,7 @@ function normalizeRecord(value: unknown): LayaDecisionRecord | undefined {
   return {
     ...event,
     choice,
-    appliedChoice: groupChoice(event.appliedChoice),
+    appliedChoice: groupChoice(event.appliedChoice) || choice,
     probabilities: probabilities
       ? {
           ...(probabilities.observe !== undefined ? { observe: probabilities.observe } : {}),

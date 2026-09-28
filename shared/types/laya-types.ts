@@ -48,7 +48,7 @@ interface DecisionRecord extends LayaPrediction {
 export interface GroupDecisionRecord extends DecisionRecord {
   scope: 'group';
   choice: GroupChoice;
-  appliedChoice?: GroupChoice;
+  appliedChoice: GroupChoice;
   adjustment?: string;
   criteria?: Record<string, string>;
   features?: { events: number; recent: number; mentioned: boolean; ownTask: boolean };
