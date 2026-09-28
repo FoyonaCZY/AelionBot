@@ -5,7 +5,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
 import { Store } from '../electron/core/storage/store';
-import { ModelClient, validateModelEndpoint } from '../electron/core/model/model';
+import { ModelClient, modelEndpoint, validateModelEndpoint } from '../electron/core/model/model';
+import type { ModelProtocol } from '../shared/types/model-types';
 import { Harness, safeRelativePath, workspacePath, compactBoundary } from '../electron/core/agent/harness';
 import type { VmController } from '../electron/core/vm/vm';
 import type { WireMessage } from '../shared/types/core';
@@ -32,6 +33,47 @@ test('endpoint rejects credentials and remote plaintext while supporting local m
     'file:///etc/passwd',
   ])
     assert.throws(() => validateModelEndpoint(url));
+});
+test('model endpoint tolerates common Base URL shapes per protocol', () => {
+  const cases: [string, ModelProtocol | undefined, string][] = [
+    // Anthropic follows the Claude Code convention: /v1 is optional.
+    ['https://gateway.example', 'anthropic', 'https://gateway.example/v1'],
+    ['https://gateway.example/', 'anthropic', 'https://gateway.example/v1'],
+    ['https://gateway.example/v1/', 'anthropic', 'https://gateway.example/v1'],
+    ['https://gateway.example/v1/messages', 'anthropic', 'https://gateway.example/v1'],
+    ['https://gateway.example/api/anthropic', 'anthropic', 'https://gateway.example/api/anthropic/v1'],
+    // OpenAI-compatible gateways keep custom prefixes; only an empty path gets /v1.
+    ['  gateway.example  ', undefined, 'https://gateway.example/v1'],
+    ['https://gateway.example//v1//', 'chat', 'https://gateway.example/v1'],
+    ['https://gateway.example/v1/chat/completions', 'chat', 'https://gateway.example/v1'],
+    ['https://gateway.example/api/plan/v3', 'responses', 'https://gateway.example/api/plan/v3'],
+    ['https://gateway.example/v1/responses', 'responses', 'https://gateway.example/v1'],
+    ['https://gateway.example/compatible-mode/v1/models', 'chat', 'https://gateway.example/compatible-mode/v1'],
+    ['localhost:11434', 'chat', 'http://localhost:11434/v1'],
+    ['https://gateway.example', 'gemini', 'https://gateway.example/v1beta'],
+    ['https://gateway.example/v1beta/models/gemini-pro', 'gemini', 'https://gateway.example/v1beta'],
+  ];
+  for (const [input, protocol, expected] of cases) assert.equal(modelEndpoint(input, protocol), expected, input);
+  assert.throws(() => modelEndpoint('gateway.example:8080/v1?key=secret'));
+  assert.throws(() => modelEndpoint('http://gateway.example/v1'));
+});
+test('an HTML page returned with 200 fails fast with a Base URL hint instead of retrying', async (t) => {
+  let requests = 0;
+  const base = await server(t, async (req, res) => {
+    for await (const _ of req) {
+    }
+    requests++;
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end('<!doctype html><html><body>gateway home</body></html>');
+  });
+  const client = new ModelClient(
+    () => ({ baseUrl: base, model: 'test', contextTokens: 32000, hasKey: false }),
+    () => '',
+  );
+  await assert.rejects(() => client.complete([{ role: 'user', content: 'go' }], [], new AbortController().signal), {
+    code: 'model.html_response',
+  });
+  assert.equal(requests, 1);
 });
 test('file tools reject traversal and host paths', () => {
   assert.equal(safeRelativePath('reports/proof.txt'), 'reports/proof.txt');

@@ -15,7 +15,7 @@ import {
   type UsageRecord,
   type ContextUsage,
 } from '../../../shared/types/runtime-types';
-import type { NativeAssistant } from '../../../shared/types/model-types';
+import type { ModelProtocol, NativeAssistant } from '../../../shared/types/model-types';
 import { nativeKey, protocolRequest, StreamAccumulator } from './model-protocol';
 import { redactHost } from '../host/host';
 import { contextBudget, estimateRequest } from '../context/context-budget';
@@ -81,15 +81,39 @@ class RequestError extends Error {
     super(message);
   }
 }
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
 export function validateModelEndpoint(value: string) {
-  const url = new URL(value);
+  let text = value.trim();
+  // A bare host ("api.example.com/v1", "localhost:11434") gets a scheme; local hosts default to HTTP.
+  if (!/^[a-z][a-z\d+.-]*:\/\//i.test(text))
+    text = (/^(localhost|127\.0\.0\.1|\[::1\])(?=[:/]|$)/i.test(text) ? 'http://' : 'https://') + text;
+  const url = new URL(text);
   if (url.username || url.password || url.search || url.hash) throw Error('API 地址不能包含凭据、查询参数或片段');
-  if (
-    url.protocol !== 'https:' &&
-    !(url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname))
-  )
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && LOCAL_HOSTS.includes(url.hostname)))
     throw Error('API 必须使用 HTTPS，本地模型可使用 localhost HTTP');
-  return url.toString().replace(/\/$/, '');
+  url.pathname = url.pathname.replace(/\/{2,}/g, '/');
+  return url.toString().replace(/\/+$/, '');
+}
+// Endpoint suffixes users paste from provider docs; the request builders append these themselves.
+const ENDPOINT_SUFFIXES: Record<ModelProtocol, RegExp> = {
+  chat: /\/(chat\/completions|models)$/i,
+  responses: /\/(responses|models)$/i,
+  anthropic: /\/(messages|models)$/i,
+  gemini: /\/models(\/[^/]+)?$/i,
+};
+const VERSION_SEGMENT = /\/v\d+[a-z\d]*$/i;
+/**
+ * Normalizes a provider Base URL into the prefix the protocol builders append paths to.
+ * Anthropic follows the SDK/Claude Code convention: the base URL omits /v1, so it is added unless
+ * the path already ends with a version. OpenAI-compatible and Gemini URLs only get their default
+ * version when the path is empty, because gateways use other prefixes (/api/v3, /compatible-mode/v1).
+ */
+export function modelEndpoint(value: string, protocol: ModelProtocol = 'chat') {
+  const url = new URL(validateModelEndpoint(value));
+  let path = url.pathname.replace(/\/+$/, '').replace(ENDPOINT_SUFFIXES[protocol], '');
+  if (protocol === 'anthropic' ? !VERSION_SEGMENT.test(path) : !path) path += protocol === 'gemini' ? '/v1beta' : '/v1';
+  url.pathname = path;
+  return url.toString().replace(/\/+$/, '');
 }
 export function imageContext(messages: WireMessage[], resolveImage: (id: string) => string) {
   const ids = new Set(visibleImages(messages).map((i) => i.id));
@@ -161,7 +185,7 @@ export class ModelClient {
     if (!cfg.model.trim()) throw Error('请先为这个 Bot 选择 Provider 和模型');
     cfg = {
       ...cfg,
-      baseUrl: validateModelEndpoint(cfg.baseUrl),
+      baseUrl: modelEndpoint(cfg.baseUrl, cfg.protocol),
       ...(options.hostedImageGeneration === false ? { hostedImageGeneration: undefined } : {}),
       ...(options.hostedImageGeneration === true ? { hostedWebSearch: undefined, hostedImageGeneration: true } : {}),
     };
@@ -398,6 +422,17 @@ export class ModelClient {
           );
         }
         if (!response.body) throw new RequestError('模型返回空响应', true);
+        // A wrong path on a gateway often lands on its website's SPA fallback with 200 text/html.
+        if (response.headers.get('content-type')?.includes('text/html')) {
+          await response.body.cancel();
+          throw new RequestError(
+            `服务返回了网页而不是模型响应，请检查 Base URL（当前地址 ${cfg.baseUrl}）`,
+            false,
+            0,
+            false,
+            'model.html_response',
+          );
+        }
         let streamed = '',
           visible = '';
         accumulator = new StreamAccumulator(cfg.protocol || 'chat', nativeKey(cfg), (delta) => {

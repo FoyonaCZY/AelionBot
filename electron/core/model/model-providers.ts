@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ModelProvider, ModelSelection, ProviderInput, ProviderModel } from '../../../shared/types/core';
 import { Store, atomicJson, type StoredProvider } from '../storage/store';
-import { validateModelEndpoint } from './model';
+import { modelEndpoint } from './model';
 import { redactHost } from '../host/host';
 import type { ModelParameters } from '../../../shared/types/model-types';
 import { asImageAspect, asImageProtocol, asImageQuality } from '../../../shared/types/image-types';
@@ -112,6 +112,10 @@ function text(value: unknown, label: string, max: number) {
 }
 async function jsonBody(response: Response) {
   if (!response.body) throw new Error('Provider 返回空响应');
+  if (response.headers.get('content-type')?.includes('text/html')) {
+    await response.body.cancel();
+    throw new AppError('provider.html_response', '服务返回了网页而不是模型列表，请检查 Base URL');
+  }
   const reader = response.body.getReader();
   let length = 0;
   const chunks: Uint8Array[] = [];
@@ -366,7 +370,7 @@ export class ModelProviders {
     } else if (provider.protocol === 'gemini') {
       if (key) headers['x-goog-api-key'] = key;
     } else if (key) headers.Authorization = `Bearer ${key}`;
-    await prewarmModelEndpoint(provider.baseUrl, headers);
+    await prewarmModelEndpoint(modelEndpoint(provider.baseUrl, provider.protocol), headers);
   }
   selection(value: unknown): ModelSelection | undefined {
     if (value === null) return undefined;
@@ -390,9 +394,12 @@ export class ModelProviders {
     this.commit({ bots: this.store.data.bots.map((bot) => (bot.id === botId ? { ...bot, model: selection } : bot)) });
   }
   save(input: ProviderInput) {
-    const name = text(input?.name, 'Provider 名称', 80),
-      baseUrl = validateModelEndpoint(text(input.baseUrl, 'Base URL', 2000));
+    const name = text(input?.name, 'Provider 名称', 80);
     const previous = input.id ? this.provider(text(input.id, 'Provider', 80)) : undefined;
+    const parameters = modelParameters({ ...previous, ...input });
+    delete parameters.reasoningEffort;
+    // Store the normalized endpoint so the settings form shows the URL requests actually use.
+    const baseUrl = modelEndpoint(text(input.baseUrl, 'Base URL', 2000), parameters.protocol);
     if (this.store.data.providers?.some((provider) => provider.id !== previous?.id && provider.name === name))
       throw new Error('已有同名 Provider，请使用不同名称');
     if (input.apiKey !== undefined && input.apiKey !== null && typeof input.apiKey !== 'string')
@@ -408,8 +415,6 @@ export class ModelProviders {
       : input.apiKey === null
         ? undefined
         : previous?.encryptedKey;
-    const parameters = modelParameters({ ...previous, ...input });
-    delete parameters.reasoningEffort;
     const connectionChanged =
       !previous ||
       previous.baseUrl !== baseUrl ||
@@ -471,7 +476,7 @@ export class ModelProviders {
         } else if (provider.protocol === 'gemini') {
           if (key) headers['x-goog-api-key'] = key;
         } else if (key) headers.Authorization = `Bearer ${key}`;
-        const response = await modelFetch(`${validateModelEndpoint(provider.baseUrl)}/models`, {
+        const response = await modelFetch(`${modelEndpoint(provider.baseUrl, provider.protocol)}/models`, {
           headers,
           redirect: 'error',
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
@@ -503,7 +508,7 @@ export class ModelProviders {
           if (typeof cursor !== 'string' || cursor.length > 4000 || page >= 19 || cursors.has(cursor))
             throw Error('Provider 模型列表分页异常');
           cursors.add(cursor);
-          const url = new URL(`${validateModelEndpoint(provider.baseUrl)}/models`);
+          const url = new URL(`${modelEndpoint(provider.baseUrl, provider.protocol)}/models`);
           url.searchParams.set(provider.protocol === 'gemini' ? 'pageToken' : 'after_id', cursor);
           const next = await modelFetch(url.href, {
             headers,

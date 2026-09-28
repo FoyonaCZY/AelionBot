@@ -483,6 +483,23 @@ test('model lists use each Provider base URL and key, coalesce requests and reta
   assert.match(unsafe.modelsError || '', /凭据/);
   assert.equal(unsafe.models.length, 2);
 });
+test('an Anthropic Base URL without /v1 is saved normalized and lists models from /v1/models', async (t) => {
+  const f = fixture(t),
+    providers = f.router(),
+    a = await f.endpoint('alpha'),
+    root = a.url.replace(/\/v1$/, '');
+  const p = providers.save({ name: 'Claude gateway', baseUrl: root + '/', protocol: 'anthropic' });
+  assert.equal(p.baseUrl, a.url);
+  const listed = await providers.refresh(p.id);
+  assert.deepEqual(
+    a.requests.map((request) => request.url),
+    ['/v1/models'],
+  );
+  assert.deepEqual(
+    listed.models.map((model) => model.id),
+    ['alpha-model'],
+  );
+});
 
 test('a late model-list response cannot overwrite an edited or deleted Provider', async (t) => {
   const f = fixture(t),
