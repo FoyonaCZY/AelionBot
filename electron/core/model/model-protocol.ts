@@ -5,6 +5,7 @@ import type { Completion, ToolDefinition } from './model';
 import { visibleImages } from '../../../shared/chat/model-images';
 import { modelUsage } from './model-usage';
 import { anthropicHistoryEndpoints } from '../context/anthropic-cache';
+import { anthropicReasoning } from './anthropic-thinking';
 import { repairToolHistory } from '../tools/tool-history';
 import { hiddenClientTools, hostedResponseTools } from '../tools/hosted-tools';
 
@@ -230,9 +231,7 @@ function buildProtocolRequest(
       ...(index === 0 || index === system.length - 1 ? { cache_control: { type: 'ephemeral' } } : {}),
     }));
     for (const part of [...new Set(cacheCandidates)].slice(-2)) part.cache_control = { type: 'ephemeral' };
-    // Thinking may use at most half of the output so text and tool calls are never starved; the API requires at least 1024 and rejects a custom temperature with thinking.
-    const thinkingBudget = cfg.thinkingBudget ? Math.min(cfg.thinkingBudget, Math.floor(output / 2)) : 0,
-      thinking = thinkingBudget >= 1024;
+    const reasoning = anthropicReasoning(cfg, output);
     return {
       url: base + '/messages',
       headers,
@@ -242,8 +241,9 @@ function buildProtocolRequest(
         messages: wire,
         stream: true,
         max_tokens: output,
-        ...(thinking ? {} : temperature),
-        ...(thinking ? { thinking: { type: 'enabled', budget_tokens: thinkingBudget } } : {}),
+        ...(reasoning.dropTemperature ? {} : temperature),
+        ...(reasoning.thinking ? { thinking: reasoning.thinking } : {}),
+        ...(reasoning.effort ? { output_config: { effort: reasoning.effort } } : {}),
         ...(tools.length
           ? {
               tools: tools.map((t) => ({

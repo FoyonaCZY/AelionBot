@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { ContextCapacityInput } from './ContextCapacityInput';
 import type { ModelProvider, ModelSelection } from '../../shared/types/core';
 import { EditableSelect } from '../ui/EditableSelect';
-import { REASONING_PRESETS } from '../../shared/chat/reasoning';
+import { REASONING_PROTOCOLS, reasoningPresets } from '../../shared/chat/reasoning';
 import { useI18n } from '../i18n';
 
 export function validModelSelection(value: ModelSelection | null, providers: ModelProvider[]) {
@@ -110,7 +110,7 @@ export function ModelSelectionFields({
       ...patch,
     });
   const reason =
-    !image && effective && ['chat', 'responses'].includes(effective.protocol || 'chat') ? (
+    !image && effective && REASONING_PROTOCOLS.includes(effective.protocol || 'chat') ? (
       <label className="settings-row">
         <span>{t('推理强度')}</span>
         <EditableSelect
@@ -119,7 +119,7 @@ export function ModelSelectionFields({
           onChange={(text) =>
             onReasoningChange ? onReasoningChange(text) : update({ reasoningEffort: text || undefined })
           }
-          options={REASONING_PRESETS}
+          options={reasoningPresets(effective.protocol)}
           maxLength={80}
           placeholder={t('模型默认，可输入自定义值')}
           disabled={disabled}

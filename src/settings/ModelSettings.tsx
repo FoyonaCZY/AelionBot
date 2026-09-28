@@ -12,7 +12,7 @@ import { Icon } from '../ui/Icon';
 import { ModelSelectionFields, validModelSelection } from './ModelSelectionFields';
 import { ContextCapacityInput } from './ContextCapacityInput';
 import { EditableSelect } from '../ui/EditableSelect';
-import { REASONING_PRESETS } from '../../shared/chat/reasoning';
+import { REASONING_PROTOCOLS, reasoningPresets } from '../../shared/chat/reasoning';
 import { useI18n } from '../i18n';
 import './model-settings.css';
 
@@ -817,14 +817,14 @@ function ProviderModelCatalog({
                 onChange={(contextTokens) => Number.isInteger(contextTokens) && void save({ ...model, contextTokens })}
               />
             </label>
-            {['chat', 'responses'].includes(provider.protocol || 'chat') && (
+            {REASONING_PROTOCOLS.includes(provider.protocol || 'chat') && (
               <label className="settings-row">
                 <span>{t('推理强度')}</span>
                 <EditableSelect
                   label={t('推理强度')}
                   value={model.reasoningEffort || ''}
                   onChange={(text) => void save({ ...model, reasoningEffort: text || undefined })}
-                  options={REASONING_PRESETS}
+                  options={reasoningPresets(provider.protocol)}
                   maxLength={80}
                   placeholder={t('模型默认，可输入自定义值')}
                   disabled={disabled}
