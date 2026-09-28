@@ -1,3 +1,6 @@
+import { LayaDecisionLog } from './core/model/laya-decision-log';
+import { LayaGroupDecisions } from './core/group/laya-decision';
+import { LayaGameDecisions } from './core/games/laya-decision';
 import { gameProviders } from './core/games/providers';
 import { GameRuntime } from './core/games/runtime';
 import { gameInstructions, gamePrompt, parseGameAction } from './core/games/model-player';
@@ -40,7 +43,7 @@ import { CommandPermissions } from './core/host/command-permissions';
 import { Cognition } from './core/memory/cognition';
 import { PeerChats } from './core/peer/peer-chats';
 import { GroupChats } from './core/group/group-chats';
-import { LayaShadow } from './core/model/laya-shadow';
+import { LayaRuntime } from './core/model/laya-runtime';
 import { LayaFeature } from './core/model/laya-feature';
 import { ChatPinQueue } from './core/agent/chat-pins';
 import { TaskScheduler } from './core/scheduler/task-scheduler';
@@ -85,7 +88,7 @@ let cognition: Cognition;
 let peerChats: PeerChats | undefined;
 let groupChats: GroupChats | undefined;
 let games: GameRuntime | undefined;
-let laya: LayaShadow | undefined;
+let laya: LayaRuntime | undefined;
 let layaFeature: LayaFeature | undefined;
 let chatPins: ChatPinQueue | undefined;
 let scheduler: TaskScheduler | undefined;
@@ -424,8 +427,7 @@ async function initialize() {
     { homeDir, defaultModel: () => providers.approvalConfig() },
   );
   interactions.setHostPolicy(hostApprovals);
-  laya = new LayaShadow(
-    store.dir,
+  laya = new LayaRuntime(
     join(
       app.isPackaged ? join(process.resourcesPath, 'app.asar.unpacked') : app.getAppPath(),
       'assets',
@@ -435,6 +437,7 @@ async function initialize() {
     () => groupChats?.layaChanged(),
     { runtime: undefined },
   );
+  const layaLog = new LayaDecisionLog(store.dir, () => groupChats?.layaChanged());
   layaFeature = new LayaFeature(store.dir, laya, changed);
   games = new GameRuntime(
     join(store.dir, 'games'),
@@ -499,7 +502,7 @@ async function initialize() {
       }
     },
     { aiTimeoutMs: 90000 },
-    laya,
+    new LayaGameDecisions(laya, layaLog),
   );
   cognition = new Cognition(
     store,
@@ -625,7 +628,7 @@ async function initialize() {
     changed,
     attachments,
     host,
-    laya,
+    new LayaGroupDecisions(laya, layaLog),
   );
   chatPins = new ChatPinQueue(
     store,

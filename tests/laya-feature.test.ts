@@ -4,14 +4,14 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { LayaFeature, preferredLayaVariant } from '../electron/core/model/laya-feature';
-import { LayaShadow } from '../electron/core/model/laya-shadow';
+import { LayaRuntime } from '../electron/core/model/laya-runtime';
 
 test('desktop opt-in ignores a legacy startup environment variable', () => {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-decision-optin-'));
   const previous = process.env.AELION_LAYA_RUNTIME;
   try {
     process.env.AELION_LAYA_RUNTIME = 'mlx';
-    const shadow = new LayaShadow(dir, join(dir, 'unused.py'), () => {}, { runtime: undefined });
+    const shadow = new LayaRuntime(join(dir, 'unused.py'), () => {}, { runtime: undefined });
     assert.equal(shadow.enabled, false);
     shadow.warmup();
     assert.equal(shadow.isReady, false);
@@ -46,7 +46,7 @@ test('decision models stay absent until chosen, then can switch and pause', asyn
     },
     waitReady: async () => {},
   };
-  const shadow = fake as unknown as LayaShadow;
+  const shadow = fake as unknown as LayaRuntime;
   try {
     const feature = new LayaFeature(dir, shadow, () => {}, true);
     assert.deepEqual(feature.snapshot().installed, []);
@@ -95,7 +95,7 @@ test('cancel keeps download busy until the pending load has stopped', async () =
       new Promise<void>((_, reject) => {
         rejectLoad = reject;
       }),
-  } as unknown as LayaShadow;
+  } as unknown as LayaRuntime;
   try {
     process.env.AELION_LAYA_RUNTIME = 'mlx';
     process.env.AELION_LAYA_PYTHON = python;
@@ -135,7 +135,7 @@ test('an old load callback cannot overwrite a newer enabled state', async () => 
     configure() {},
     waitReady: () => new Promise<void>((resolve, reject) => waits.push({ resolve, reject })),
   };
-  const shadow = fake as unknown as LayaShadow;
+  const shadow = fake as unknown as LayaRuntime;
   try {
     const feature = new LayaFeature(dir, shadow, () => {}, true);
     assert.equal(waits.length, 1);

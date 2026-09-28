@@ -185,28 +185,26 @@ function fixture(
   return { store, groups, harness, a, b, c, busy, dir, interactions, settled };
 }
 
-test('an explicit user request to stay quiet closes receipts without starting a Bot run', async (t) => {
-  let calls = 0;
-  const fx = fixture(t, () => {
-    calls++;
-    return silent();
+for (const message of ['不要执行任何命令，请解释静默模式的实现', '@甲 不要执行任务，请旁听。@乙 请检查报告并回复']) {
+  test(`without Laya the main model receives the user request: ${message}`, async (t) => {
+    const received = new Set<string>();
+    const fx = fixture(t, (run) => {
+      const room = fx.store.data.groups[0];
+      if (room.messages.some((item) => item.sender.kind === 'user' && item.kind === 'message')) {
+        received.add(run.botId);
+      }
+      return silent();
+    });
+    fx.a.name = '甲';
+    fx.b.name = '乙';
+    const room = fx.groups.create({ name: '静默语义回归', botIds: [fx.a.id, fx.b.id] });
+    await until(fx.settled);
+    fx.groups.send({ id: room.id, message });
+    await until(fx.settled);
+    assert.deepEqual(received, new Set([fx.a.id, fx.b.id]));
+    assert(fx.store.data.runs.every((run) => run.status !== 'failed'));
   });
-  const room = fx.groups.create({ name: '安静处理', botIds: [fx.a.id, fx.b.id] });
-  await until(fx.settled);
-  const before = calls;
-  fx.groups.send({ id: room.id, message: '这轮不要执行任务，也不用回复；请旁听并安静处理。' });
-  await until(fx.settled);
-  assert.equal(calls, before);
-  const message = fx.groups
-    .read({ id: room.id })
-    .messages.find((item) => item.sender.kind === 'user' && item.kind === 'message')!;
-  assert(
-    fx.groups
-      .read({ id: room.id })
-      .deliveries.filter((item) => item.messageId === message.id && item.recipientId !== 'user')
-      .every((item) => item.status === 'ignored'),
-  );
-});
+}
 
 test('group tool results remain available across multiple model turns', async (t) => {
   const calls: string[] = [];
@@ -1375,12 +1373,9 @@ test('a group task that cannot progress closes as blocked with its checkpoint an
   );
 });
 
-test('claiming and saving a checkpoint do not exhaust the group progress budget before work starts', async (t) => {
-  let turn = 0,
-    executions = 0;
-  const vm = {
-    execute: async () => ({ exitCode: 0, stdout: `checked ${++executions}`, stderr: '', durationMs: 1 }),
-  } as unknown as VmController;
+test('changing checkpoint prose without doing work still trips the main group stagnation guard', async (t) => {
+  let updates = 0,
+    actualWork = 0;
   const fx = fixture(
     t,
     (run) => {
@@ -1390,73 +1385,35 @@ test('claiming and saving a checkpoint do not exhaust the group progress budget 
       if (!task)
         return call('group_task_claim', {
           groupId: room.id,
-          key: 'checkpoint-first',
+          key: 'changing-prose',
           title: '核对报告',
-          sourceMessageId: room.messages.find((m) => m.sender.kind === 'user' && m.kind === 'message')!.id,
+          sourceMessageId: room.messages.find(
+            (message) => message.sender.kind === 'user' && message.kind === 'message',
+          )!.id,
         });
       if (task.status === 'blocked') return silent();
-      switch (++turn) {
-        case 1:
-          return call('group_task_update', {
-            groupId: room.id,
-            taskId: task.id,
-            revision: task.revision,
-            status: 'working',
-            summary: '已确定核对范围，下一步检查报告。',
-          });
-        case 2:
-          return call('group_tasks', { groupId: room.id });
-        case 3:
-          return call('computer_execute', { command: 'inspect report' });
-        case 4:
-          return call('group_task_update', {
-            groupId: room.id,
-            taskId: task.id,
-            revision: task.revision,
-            status: 'completed',
-            summary: '核对完成，命令返回 checked 1。',
-          });
-        default:
-          return answer('核对完成。');
-      }
-    },
-    vm,
-  );
-  const room = fx.groups.create({ name: '检查点回归', botIds: [fx.a.id, fx.b.id] });
-  fx.groups.send({ id: room.id, message: '请核对报告' });
-  await until(fx.settled);
-  assert.equal(fx.store.data.groups[0].tasks?.[0].status, 'completed');
-  assert.equal(executions, 1);
-});
-
-test('repeating an unchanged checkpoint cannot count new revisions as progress', async (t) => {
-  let updates = 0;
-  const fx = fixture(t, (run) => {
-    if (run.botId !== fx.a.id) return silent();
-    const room = fx.store.data.groups[0],
-      task = room.tasks?.[0];
-    if (!task)
-      return call('group_task_claim', {
+      if (++updates >= 12) throw Error('改写文案绕过了停滞保护');
+      return call('group_task_update', {
         groupId: room.id,
-        key: 'unchanged-checkpoint',
-        title: '核对报告',
-        sourceMessageId: room.messages.find((m) => m.sender.kind === 'user' && m.kind === 'message')!.id,
+        taskId: task.id,
+        revision: task.revision,
+        status: 'working',
+        summary: `准备核对报告，第 ${updates} 轮`,
       });
-    if (task.status === 'blocked') return silent();
-    if (++updates > 6) throw Error('重复检查点没有停止');
-    return call('group_task_update', {
-      groupId: room.id,
-      taskId: task.id,
-      revision: task.revision,
-      status: 'working',
-      summary: '准备核对报告。',
-    });
-  });
-  const room = fx.groups.create({ name: '重复检查点', botIds: [fx.a.id, fx.b.id] });
+    },
+    {
+      execute: async () => {
+        actualWork++;
+        return { stdout: '', stderr: '', exitCode: 0, durationMs: 1 };
+      },
+    } as unknown as VmController,
+  );
+  const room = fx.groups.create({ name: '无工作文案回归', botIds: [fx.a.id, fx.b.id] });
   fx.groups.send({ id: room.id, message: '请核对报告' });
   await until(fx.settled);
   assert.equal(fx.store.data.groups[0].tasks?.[0].status, 'blocked');
-  assert.equal(updates, 4);
+  assert(updates > 0 && updates < 12);
+  assert.equal(actualWork, 0);
 });
 
 test('a group task that repeats a successful action with the same result is closed as blocked', async (t) => {

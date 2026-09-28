@@ -15,8 +15,7 @@ import {
   reactionRestrictionContext,
 } from '../tools/tool-availability';
 import { botIdentity } from '../../../shared/chat/bot-colors';
-import { randomUUID } from 'node:crypto';
-import { groupProgressFingerprint } from '../group/group-progress';
+import { createHash, randomUUID } from 'node:crypto';
 import { ExecutionLedger, commandResultFailed, executionBlocksCompletion } from './execution-ledger';
 import { WorkItems, PLANNING_TOOLS } from './work-items';
 import { effectiveWorkspace } from '../storage/workspaces';
@@ -54,7 +53,6 @@ import { groupReplyContent } from '../../../shared/chat/message-envelope';
 import { ContextCapacityError } from '../context/context-error';
 import { contextModelKey, isContextCapacityFailure } from '../../../shared/chat/context-issue';
 import { resumableRun } from './resume-run';
-import { textTokens } from '../context/context-budget';
 import type { GroupGateway } from '../group/group-runtime-types';
 import { groupMainContext } from '../group/group-context';
 import { isGroupWorkTool } from '../../../shared/types/group-types';
@@ -140,6 +138,26 @@ const privateTools = new Set([
   'attachment_read',
   'start_main_task',
 ]);
+const groupNonProgressTools = new Set([
+  'group_task_claim',
+  'group_task_update',
+  'group_tasks',
+  'group_outbox',
+  'group_send_message',
+  'group_pin',
+  'chat_pin',
+  'execution_list',
+  'execution_resolve',
+  'task_read',
+  'task_update',
+  'plan_update',
+  'goal_read',
+  'goal_set',
+  'goal_update',
+  'start_main_task',
+  'bot_send_message',
+  'groups_list',
+]);
 const COMPACT_TOOLS = new Set([
   'open_preview',
   'code_exec',
@@ -155,6 +173,36 @@ const COMPACT_TOOLS = new Set([
   'generate_image',
 ]);
 const isReactionTool = (name: string) => name === 'chat_pin' || name === 'group_pin';
+function groupProgressFingerprint(name: string, args: unknown, output: unknown) {
+  const normalize = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(normalize);
+    if (typeof value === 'string' && value.length > 12000)
+      return { length: value.length, sha256: createHash('sha256').update(value).digest('hex') };
+    if (!value || typeof value !== 'object') return value;
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(
+          ([key, item]) =>
+            ![
+              'durationMs',
+              'elapsedMs',
+              'createdAt',
+              'updatedAt',
+              'startedAt',
+              'endedAt',
+              'requestId',
+              'resultId',
+              'executionId',
+            ].includes(key) && !(key === 'id' && typeof item === 'string' && /^[\da-f-]{36}$/i.test(item)),
+        )
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, item]) => [key, normalize(item)]),
+    );
+  };
+  return createHash('sha256')
+    .update(JSON.stringify([name, normalize(args), normalize(output)]))
+    .digest('hex');
+}
 function reactionOnlyRun(store: Store, run: RunRecord) {
   const seen = new Set<string>();
   let current: RunRecord | undefined = run;
@@ -1297,6 +1345,28 @@ export class Harness {
             if (continueUnfinishedWork(GROUP_TASK_WORKING)) return;
             continue;
           }
+          if (pendingProcesses.length) {
+            visible.status = 'done';
+            visible.presentation = 'progress';
+            if (!readableContent(visible.content)) visible.content = '';
+            history.push({
+              role: 'system',
+              content: unfinishedProcesses(pendingProcesses),
+            });
+            visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
+            continue;
+          }
+          if (options.groupOrigin && this.groups?.unfinished?.(botId, run.id)) {
+            if (continueUnfinishedWork(GROUP_TASK_WORKING)) return;
+            continue;
+          }
+          if (
+            !['planning', 'blocked'].includes(work.forRun(run)?.status || '') &&
+            new RunPolicy(this.store).incomplete(botId, run.id)
+          ) {
+            if (continueUnfinishedWork(PLAN_INCOMPLETE)) return;
+            continue;
+          }
           const currentWork = work.forRun(run);
           if (
             (currentWork?.status === 'planning' && !run.plan?.steps.length) ||
@@ -1684,7 +1754,7 @@ export class Harness {
         if (hasUnfinishedGroupWork() && !this.interactions?.pendingQuestions(botId, run.id).length) {
           let madeProgress = false;
           for (const job of jobs) {
-            if (job.display.status !== 'done') continue;
+            if (job.display.status !== 'done' || groupNonProgressTools.has(job.call.function.name)) continue;
             let args: unknown;
             try {
               args = JSON.parse(job.call.function.arguments);
@@ -1692,7 +1762,7 @@ export class Harness {
               args = job.call.function.arguments;
             }
             const fingerprint = groupProgressFingerprint(job.call.function.name, args, job.output);
-            if (!fingerprint || seenGroupProgress.has(fingerprint)) continue;
+            if (seenGroupProgress.has(fingerprint)) continue;
             seenGroupProgress.add(fingerprint);
             groupProgressOrder.push(fingerprint);
             if (groupProgressOrder.length > 1024) seenGroupProgress.delete(groupProgressOrder.shift()!);
@@ -1851,20 +1921,15 @@ export class Harness {
         availableTools[index] = batch;
       }
     }
-    const modelCapacity = this.store.modelFor(botId).contextTokens;
-    const compactForBudget =
-      !privateSessionId &&
-      (options.groupOrigin
-        ? textTokens(JSON.stringify(availableTools)) > Math.max(3000, Math.floor(modelCapacity * 0.12))
-        : modelCapacity < 32000);
-    const modelTools = compactForBudget
-      ? availableTools.filter(
-          (tool) =>
-            COMPACT_TOOLS.has(tool.function.name) ||
-            (Boolean(options.groupOrigin) &&
-              (/^groups?_/.test(tool.function.name) || tool.function.name.startsWith('history_'))),
-        )
-      : availableTools;
+    const modelTools =
+      this.store.modelFor(botId).contextTokens < 32000 && !privateSessionId
+        ? availableTools.filter(
+            (tool) =>
+              COMPACT_TOOLS.has(tool.function.name) ||
+              (Boolean(options.groupOrigin) &&
+                (/^groups?_/.test(tool.function.name) || tool.function.name.startsWith('history_'))),
+          )
+        : availableTools;
     return { availableTools, modelTools };
   }
   /** Releases everything a run holds once it has finished, failed or been cancelled. */

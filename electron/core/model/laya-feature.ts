@@ -1,9 +1,15 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
-import { DECISION_MODELS, type LayaFeatureState, type LayaVariant } from '../../../shared/types/laya-types';
-import { LayaShadow } from './laya-shadow';
+import {
+  DECISION_MODELS,
+  isLayaVariant,
+  type LayaFeatureState,
+  type LayaVariant,
+} from '../../../shared/types/laya-types';
+import { LayaRuntime } from './laya-runtime';
+import { atomicJson } from '../storage/store';
 import { verifiedDownload } from '../vm/download';
 
 const UV_VERSION = '0.12.18';
@@ -49,7 +55,7 @@ export class LayaFeature {
 
   constructor(
     private dir: string,
-    private shadow: LayaShadow,
+    private runtime: LayaRuntime,
     private changed: () => void,
     private supported = Boolean(preferredLayaVariant(process.platform, process.arch)),
   ) {
@@ -61,19 +67,21 @@ export class LayaFeature {
         python?: string;
       };
       const installed =
-        value.installed === true && value.variant && value.python ? { [value.variant]: value.python } : value.installed;
+        value.installed === true && isLayaVariant(value.variant) && value.python
+          ? { [value.variant]: value.python }
+          : value.installed;
       if (installed && typeof installed === 'object') {
         const paths: Saved['installed'] = {};
-        for (const variant of ['mlx', 'standard'] as const)
+        for (const { id: variant } of DECISION_MODELS)
           if (typeof installed[variant] === 'string' && existsSync(installed[variant]))
             paths[variant] = installed[variant];
         if (Object.keys(paths).length)
           this.saved = {
             installed: paths,
             active:
-              value.active && paths[value.active]
+              isLayaVariant(value.active) && paths[value.active]
                 ? value.active
-                : value.variant && paths[value.variant]
+                : isLayaVariant(value.variant) && paths[value.variant]
                   ? value.variant
                   : undefined,
             enabled: Boolean(value.enabled),
@@ -87,10 +95,10 @@ export class LayaFeature {
   }
 
   snapshot(): LayaFeatureState {
-    const stopped = this.phase === 'ready' && !this.shadow.isReady;
+    const stopped = this.phase === 'ready' && !this.runtime.isReady;
     return {
       phase: stopped ? 'error' : this.phase,
-      installed: (['standard', 'mlx'] as const).filter((variant) => Boolean(this.saved?.installed[variant])),
+      installed: DECISION_MODELS.map((model) => model.id).filter((variant) => Boolean(this.saved?.installed[variant])),
       enabled: Boolean(this.saved?.enabled),
       active: this.saved?.active,
       recommended: preferredLayaVariant(process.platform, process.arch),
@@ -102,9 +110,7 @@ export class LayaFeature {
 
   private save(value: Saved) {
     mkdirSync(dirname(this.file), { recursive: true });
-    const next = this.file + '.new';
-    writeFileSync(next, JSON.stringify(value), { mode: 0o600 });
-    renameSync(next, this.file);
+    atomicJson(this.file, value);
     this.saved = value;
     this.changed();
   }
@@ -115,8 +121,8 @@ export class LayaFeature {
     this.phase = 'loading';
     this.error = undefined;
     this.changed();
-    this.shadow.configure(this.saved.active, this.saved.installed[this.saved.active], 120_000);
-    void this.shadow.waitReady().then(
+    this.runtime.configure(this.saved.active, this.saved.installed[this.saved.active], 120_000);
+    void this.runtime.waitReady().then(
       () => {
         if (generation === this.generation && this.saved?.enabled) {
           this.phase = 'ready';
@@ -140,7 +146,7 @@ export class LayaFeature {
     if (enabled) this.start();
     else {
       this.generation++;
-      this.shadow.configure();
+      this.runtime.configure();
       this.phase = 'disabled';
       this.error = undefined;
       this.changed();
@@ -148,7 +154,7 @@ export class LayaFeature {
   }
 
   select(variant: LayaVariant) {
-    if (!['mlx', 'standard'].includes(variant) || !this.saved?.installed[variant]) throw Error('请先下载这个决策模型');
+    if (!isLayaVariant(variant) || !this.saved?.installed[variant]) throw Error('请先下载这个决策模型');
     if (this.installing) throw Error('决策模型正在下载');
     this.save({ ...this.saved, active: variant, enabled: true });
     this.start();
@@ -161,7 +167,7 @@ export class LayaFeature {
   }
 
   async install(variant: LayaVariant) {
-    if (!['mlx', 'standard'].includes(variant)) throw Error('不支持的 Laya 版本');
+    if (!isLayaVariant(variant)) throw Error('不支持的 Laya 版本');
     if (!this.supported) throw Error('当前系统暂不支持一键安装 Laya');
     if (this.installing) throw Error('Laya 正在下载');
     if (this.saved?.installed[variant]) {
@@ -208,8 +214,8 @@ export class LayaFeature {
       if (generation !== this.generation) throw Error('下载已取消');
       this.phase = 'loading';
       this.changed();
-      this.shadow.configure(variant, python, 15 * 60_000);
-      await this.shadow.waitReady();
+      this.runtime.configure(variant, python, 15 * 60_000);
+      await this.runtime.waitReady();
       if (generation !== this.generation) throw Error('下载已取消');
       this.save({ installed: { ...this.saved?.installed, [variant]: python }, enabled: true, active: variant });
       this.phase = 'ready';
@@ -218,7 +224,7 @@ export class LayaFeature {
       if (generation !== this.generation) return;
       if (this.saved?.enabled && this.saved.active) this.start();
       else {
-        this.shadow.configure();
+        this.runtime.configure();
         this.phase = 'error';
       }
       this.error = (error as Error).message;
@@ -241,7 +247,7 @@ export class LayaFeature {
     this.generation++;
     this.downloadAbort?.abort();
     this.child?.kill();
-    this.shadow.configure();
+    this.runtime.configure();
     this.phase = 'cancelling';
     this.error = undefined;
     this.changed();
@@ -252,7 +258,7 @@ export class LayaFeature {
     this.generation++;
     this.downloadAbort?.abort();
     this.child?.kill();
-    this.shadow.configure();
+    this.runtime.configure();
     this.installing = false;
   }
 

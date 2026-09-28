@@ -1,3 +1,4 @@
+import type { GroupDecisionRecord, LayaVariant } from './laya-types';
 import type { MessageReply } from '../chat/message-replies';
 import type { Attachment } from './attachment-types';
 import type { MessagePin, PinEvent } from '../chat/reactions';
@@ -169,22 +170,8 @@ export interface GroupDelivery {
   runId?: string;
   replyMessageId?: string;
 }
-interface GroupLayaDecision {
-  sourceId: string;
+interface GroupLayaDecision extends GroupDecisionRecord {
   messageId: string;
-  actorId: string;
-  choice: string;
-  appliedChoice?: 'observe' | 'participate' | 'reply' | 'act';
-  adjustment?: string;
-  probabilities?: Record<string, number>;
-  confidence?: number;
-  criteria?: Record<string, string>;
-  features?: { events: number; recent: number; mentioned: boolean; ownTask: boolean };
-  input?: unknown;
-  runtime: string;
-  model: string;
-  elapsedMs: number;
-  time?: string;
   deliveryStatus: GroupDeliveryStatus;
   replyMessageId?: string;
   runId?: string;
@@ -215,7 +202,7 @@ export interface GroupPage {
   group: GroupSummary;
   messages: GroupMessage[];
   deliveries: GroupDelivery[];
-  laya?: { runtime?: string; enabled: boolean; ready?: boolean; decisions: GroupLayaDecision[] };
+  laya?: { runtime?: LayaVariant; enabled: boolean; ready?: boolean; decisions: GroupLayaDecision[] };
   before?: string;
 }
 export interface GroupsView {

@@ -6,14 +6,14 @@ export function GroupDecisionSetting({ laya }: { laya: LayaFeatureState }) {
   const { t } = useI18n();
   const [layaPending, setLayaPending] = useState(false),
     [layaError, setLayaError] = useState('');
-  const downloading = Boolean(laya?.downloading),
-    cancelling = laya?.phase === 'cancelling',
-    variant = laya?.active || laya?.recommended,
-    installed = Boolean(variant && laya?.installed.includes(variant)),
-    active = Boolean(variant && laya?.active === variant && laya.enabled);
-  const modelName = DECISION_MODELS.find((model) => model.id === variant)?.name || 'Laya';
+  const downloading = Boolean(laya.downloading),
+    cancelling = laya.phase === 'cancelling',
+    variant = laya.active || laya.recommended,
+    installed = Boolean(variant && laya.installed.includes(variant)),
+    active = Boolean(variant && laya.active === variant && laya.enabled);
+  const modelName = t(DECISION_MODELS.find((model) => model.id === variant)?.name || 'Laya');
   const changeLaya = async () => {
-    if (!laya || (layaPending && !downloading)) return;
+    if (layaPending && !downloading) return;
     setLayaError('');
     setLayaPending(true);
     try {
@@ -29,22 +29,23 @@ export function GroupDecisionSetting({ laya }: { laya: LayaFeatureState }) {
     }
   };
   const layaStatus = cancelling
-    ? '正在取消下载…'
+    ? t('正在取消下载…')
     : downloading
       ? (
-          { preparing: '正在准备下载组件…', installing: '正在安装模型环境…', loading: '正在加载模型…' } as Record<
-            string,
-            string
-          >
-        )[laya?.phase || ''] || '正在下载…'
-      : active && laya?.phase === 'ready'
-        ? `${modelName} 已启用，适用于所有群聊`
-        : active && laya?.phase === 'loading'
-          ? `${modelName} 正在加载…`
-          : active && laya?.phase === 'error'
-            ? laya.error || '模型加载失败'
+          {
+            preparing: t('正在准备下载组件…'),
+            installing: t('正在安装模型环境…'),
+            loading: t('正在加载模型…'),
+          } as Record<string, string>
+        )[laya.phase] || t('正在下载…')
+      : active && laya.phase === 'ready'
+        ? t('{model} 已启用，适用于所有群聊', { model: modelName })
+        : active && laya.phase === 'loading'
+          ? t('{model} 正在加载…', { model: modelName })
+          : active && laya.phase === 'error'
+            ? t(laya.error || '模型加载失败')
             : installed
-              ? `${modelName} 已下载，当前未启用`
+              ? t('{model} 已下载，当前未启用', { model: modelName })
               : undefined;
   return (
     <div className="group-laya-setting">
@@ -71,7 +72,9 @@ export function GroupDecisionSetting({ laya }: { laya: LayaFeatureState }) {
         </button>
       </div>
       {(layaError || !laya.supported || layaStatus) && (
-        <small role="status">{layaError || (!laya.supported ? '当前系统暂不支持本地决策模型' : layaStatus)}</small>
+        <small role="status">
+          {layaError ? t(layaError) : !laya.supported ? t('当前系统暂不支持本地决策模型') : layaStatus}
+        </small>
       )}
     </div>
   );
