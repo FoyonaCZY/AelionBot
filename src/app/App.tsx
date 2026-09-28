@@ -412,6 +412,7 @@ function AppContent() {
           />
           {groupEditor && (
             <GroupEditor
+              laya={state.layaFeature}
               key={groupEditor}
               bots={state.bots}
               group={state.groups?.rooms.find((room) => room.id === groupEditor)}

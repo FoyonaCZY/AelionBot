@@ -1,3 +1,5 @@
+import { LayaDecisionLog } from './core/model/laya-decision-log';
+import { LayaGroupDecisions } from './core/group/laya-decision';
 import { gameProviders } from './core/games/providers';
 import { GameRuntime } from './core/games/runtime';
 import { gameInstructions, gamePrompt, parseGameAction } from './core/games/model-player';
@@ -40,6 +42,8 @@ import { CommandPermissions } from './core/host/command-permissions';
 import { Cognition } from './core/memory/cognition';
 import { PeerChats } from './core/peer/peer-chats';
 import { GroupChats } from './core/group/group-chats';
+import { LayaRuntime } from './core/model/laya-runtime';
+import { LayaFeature } from './core/model/laya-feature';
 import { ChatPinQueue } from './core/agent/chat-pins';
 import { TaskScheduler } from './core/scheduler/task-scheduler';
 import { groupPending } from '../shared/types/group-types';
@@ -83,6 +87,8 @@ let cognition: Cognition;
 let peerChats: PeerChats | undefined;
 let groupChats: GroupChats | undefined;
 let games: GameRuntime | undefined;
+let laya: LayaRuntime | undefined;
+let layaFeature: LayaFeature | undefined;
 let chatPins: ChatPinQueue | undefined;
 let scheduler: TaskScheduler | undefined;
 let greetings: BotGreetings | undefined;
@@ -145,6 +151,7 @@ function snapshot(): Snapshot {
     cognition: cognition?.view(),
     peers: peerChats?.snapshot(),
     groups: groupChats?.snapshot(),
+    layaFeature: layaFeature?.snapshot(),
     greetingBotIds: greetings?.botIds || [],
     streamingReplies: [...(harness?.streams.snapshot() || []), ...(greetings?.streams.snapshot() || [])],
     runtime: store ? new RunPolicy(store).settings() : undefined,
@@ -419,6 +426,18 @@ async function initialize() {
     { homeDir, defaultModel: () => providers.approvalConfig() },
   );
   interactions.setHostPolicy(hostApprovals);
+  laya = new LayaRuntime(
+    join(
+      app.isPackaged ? join(process.resourcesPath, 'app.asar.unpacked') : app.getAppPath(),
+      'assets',
+      'laya',
+      'sidecar.py',
+    ),
+    () => groupChats?.layaChanged(),
+    { runtime: undefined },
+  );
+  const layaLog = new LayaDecisionLog(store.dir, () => groupChats?.layaChanged());
+  layaFeature = new LayaFeature(store.dir, laya, changed);
   games = new GameRuntime(
     join(store.dir, 'games'),
     async (player, context, request, signal, options) => {
@@ -481,6 +500,7 @@ async function initialize() {
           throw Error('模型缺少 API Key');
       }
     },
+    { aiTimeoutMs: 90000 },
   );
   cognition = new Cognition(
     store,
@@ -606,6 +626,7 @@ async function initialize() {
     changed,
     attachments,
     host,
+    new LayaGroupDecisions(laya, layaLog),
   );
   chatPins = new ChatPinQueue(
     store,
@@ -876,6 +897,9 @@ async function initialize() {
     saveAppearance({ ...normalizeAppearance(store.data.appearance), zoom: Math.max(50, Math.min(200, percent)) });
   });
   registerIpc({
+    get layaFeature() {
+      return layaFeature;
+    },
     handle,
     get window() {
       return window;
@@ -1002,6 +1026,8 @@ async function initialize() {
         },
         () => providers.dispose(),
         () => games?.dispose(),
+        () => layaFeature?.dispose(),
+        () => laya?.dispose(),
         () => model?.dispose(),
         () => harness.disposeTools(),
         () => videoInspector?.dispose(),

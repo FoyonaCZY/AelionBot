@@ -1,3 +1,4 @@
+import type { LayaFeature } from '../core/model/laya-feature';
 import type { BrowserWindow } from 'electron';
 import type { IpcHandler, IpcMethod } from '../../shared/ipc';
 import type { Snapshot } from '../../shared/types/core';
@@ -61,6 +62,7 @@ export interface IpcContext {
   readonly peerChats: PeerChats | undefined;
   readonly groupChats: GroupChats | undefined;
   readonly games: GameRuntime | undefined;
+  readonly layaFeature: LayaFeature | undefined;
   readonly chatPins: ChatPinQueue | undefined;
   readonly scheduler: TaskScheduler | undefined;
   readonly greetings: BotGreetings | undefined;

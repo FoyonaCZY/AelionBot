@@ -185,6 +185,27 @@ function fixture(
   return { store, groups, harness, a, b, c, busy, dir, interactions, settled };
 }
 
+for (const message of ['不要执行任何命令，请解释静默模式的实现', '@甲 不要执行任务，请旁听。@乙 请检查报告并回复']) {
+  test(`without Laya the main model receives the user request: ${message}`, async (t) => {
+    const received = new Set<string>();
+    const fx = fixture(t, (run) => {
+      const room = fx.store.data.groups[0];
+      if (room.messages.some((item) => item.sender.kind === 'user' && item.kind === 'message')) {
+        received.add(run.botId);
+      }
+      return silent();
+    });
+    fx.a.name = '甲';
+    fx.b.name = '乙';
+    const room = fx.groups.create({ name: '静默语义回归', botIds: [fx.a.id, fx.b.id] });
+    await until(fx.settled);
+    fx.groups.send({ id: room.id, message });
+    await until(fx.settled);
+    assert.deepEqual(received, new Set([fx.a.id, fx.b.id]));
+    assert(fx.store.data.runs.every((run) => run.status !== 'failed'));
+  });
+}
+
 test('group tool results remain available across multiple model turns', async (t) => {
   const calls: string[] = [];
   let turns = 0;
@@ -1350,6 +1371,49 @@ test('a group task that cannot progress closes as blocked with its checkpoint an
   assert.ok(
     !fx.store.data.groupDeliveries.some((delivery) => delivery.recipientId === fx.a.id && delivery.status === 'failed'),
   );
+});
+
+test('changing checkpoint prose without doing work still trips the main group stagnation guard', async (t) => {
+  let updates = 0,
+    actualWork = 0;
+  const fx = fixture(
+    t,
+    (run) => {
+      if (run.botId !== fx.a.id) return silent();
+      const room = fx.store.data.groups[0],
+        task = room.tasks?.[0];
+      if (!task)
+        return call('group_task_claim', {
+          groupId: room.id,
+          key: 'changing-prose',
+          title: '核对报告',
+          sourceMessageId: room.messages.find(
+            (message) => message.sender.kind === 'user' && message.kind === 'message',
+          )!.id,
+        });
+      if (task.status === 'blocked') return silent();
+      if (++updates >= 12) throw Error('改写文案绕过了停滞保护');
+      return call('group_task_update', {
+        groupId: room.id,
+        taskId: task.id,
+        revision: task.revision,
+        status: 'working',
+        summary: `准备核对报告，第 ${updates} 轮`,
+      });
+    },
+    {
+      execute: async () => {
+        actualWork++;
+        return { stdout: '', stderr: '', exitCode: 0, durationMs: 1 };
+      },
+    } as unknown as VmController,
+  );
+  const room = fx.groups.create({ name: '无工作文案回归', botIds: [fx.a.id, fx.b.id] });
+  fx.groups.send({ id: room.id, message: '请核对报告' });
+  await until(fx.settled);
+  assert.equal(fx.store.data.groups[0].tasks?.[0].status, 'blocked');
+  assert(updates > 0 && updates < 12);
+  assert.equal(actualWork, 0);
 });
 
 test('a group task that repeats a successful action with the same result is closed as blocked', async (t) => {

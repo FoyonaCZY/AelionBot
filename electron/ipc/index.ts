@@ -1,3 +1,4 @@
+import { registerDecisions } from './register-decisions';
 import type { IpcContext } from './context';
 import { registerApp } from './register-app';
 import { registerAttachments } from './register-attachments';
@@ -22,6 +23,7 @@ export function registerIpc(ctx: IpcContext) {
   registerApp(ctx);
   registerChat(ctx);
   registerModels(ctx);
+  registerDecisions(ctx);
   registerTasks(ctx);
   registerWorkspace(ctx);
   registerIntegrations(ctx);

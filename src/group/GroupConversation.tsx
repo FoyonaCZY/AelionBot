@@ -1,3 +1,4 @@
+import { GroupDecisionTrail } from './GroupDecisionTrail';
 import { GroupGames } from './GroupGames';
 import { DesignerTaskCard } from '../designer/DesignerTaskCard';
 import { usePreviewWorkbench } from '../preview/PreviewWorkbench';
@@ -412,6 +413,13 @@ export function GroupConversation({
                       <MentionContent content={formatted.content} mentions={formatted.mentions} markdown />
                       <AttachmentList files={message.attachments} />
                     </MessageActions>
+                    {message.sender.kind === 'user' && page && (
+                      <GroupDecisionTrail
+                        deliveries={page.deliveries.filter((item) => item.messageId === message.id)}
+                        page={page}
+                        bots={members}
+                      />
+                    )}
                     {message.sender.kind === 'bot' &&
                       message.designSessionId &&
                       state.designer?.sessions

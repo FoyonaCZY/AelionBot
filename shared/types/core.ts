@@ -397,6 +397,7 @@ export interface Snapshot {
   cognition?: CognitionView;
   peers?: PeerView;
   groups?: GroupsView;
+  layaFeature?: import('./laya-types').LayaFeatureState;
   greetingBotIds?: string[];
   commandPermissions?: CommandPermissionRule[];
   hostWorkspace?: HostWorkspaceSettings;
@@ -527,6 +528,10 @@ export interface AelionAPI {
   saveAttachment(id: string): Promise<string | null>;
   snapshot(): Promise<Snapshot>;
   saveRuntimeSettings(settings: RuntimeSettings): Promise<void>;
+  installLaya(): Promise<void>;
+  selectLaya(variant: import('./laya-types').LayaVariant): Promise<void>;
+  setLayaEnabled(enabled: boolean): Promise<void>;
+  cancelLayaInstall(): Promise<void>;
   compactContext(input: {
     botId: string;
     focus?: string;

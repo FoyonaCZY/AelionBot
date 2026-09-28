@@ -1,3 +1,5 @@
+import type { LayaFeatureState } from '../../shared/types/laya-types';
+import { GroupDecisionSetting } from './GroupDecisionSetting';
 import { useEffect, useRef, useState } from 'react';
 import type { Bot } from '../../shared/types/core';
 import { soulSummary } from '../../shared/chat/bot-soul';
@@ -10,12 +12,14 @@ import { useI18n } from '../i18n';
 export function GroupEditor({
   bots,
   group,
+  laya,
   onClose,
   onSaved,
   onDeleted,
 }: {
   bots: Bot[];
   group?: GroupSummary;
+  laya?: LayaFeatureState;
   onClose: () => void;
   onSaved: (id: string) => void;
   onDeleted: (id: string) => void;
@@ -129,6 +133,7 @@ export function GroupEditor({
           ))}
           {bots.length < 2 && !group && <p className="subtle">{t('至少需要两位 Bot 才能建群。')}</p>}
         </div>
+        {group && laya && <GroupDecisionSetting laya={laya} />}
         {error && (
           <p className="group-error" role="alert">
             {error}

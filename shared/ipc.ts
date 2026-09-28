@@ -130,6 +130,11 @@ export const INVOKE_CHANNELS = {
   readSkill: 'skills:read',
   setMcpEnabled: 'mcp:enabled',
   testMcp: 'mcp:test',
+  // Experimental local decision model
+  installLaya: 'laya:install',
+  selectLaya: 'laya:select',
+  setLayaEnabled: 'laya:enabled',
+  cancelLayaInstall: 'laya:cancel',
   // Scheduled tasks and work items
   createScheduledTask: 'tasks:create',
   updateScheduledTask: 'tasks:update',
