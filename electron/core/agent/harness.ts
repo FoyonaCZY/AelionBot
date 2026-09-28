@@ -1853,7 +1853,9 @@ export class Harness {
     const modelCapacity = this.store.modelFor(botId).contextTokens;
     const compactForBudget =
       !privateSessionId &&
-      textTokens(JSON.stringify(availableTools)) > Math.max(3000, Math.floor(modelCapacity * 0.12));
+      (options.groupOrigin
+        ? textTokens(JSON.stringify(availableTools)) > Math.max(3000, Math.floor(modelCapacity * 0.12))
+        : modelCapacity < 32000);
     const modelTools = compactForBudget
       ? availableTools.filter(
           (tool) =>
