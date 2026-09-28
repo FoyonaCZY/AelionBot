@@ -1,0 +1,185 @@
+import { zipSync, strToU8 } from 'fflate';
+import { AppError } from '../../../shared/errors';
+export const DECK_LAYOUTS = [
+  'title',
+  'split',
+  'statement',
+  'quote',
+  'compare',
+  'timeline',
+  'stat',
+  'agenda',
+  'cta',
+] as const;
+type DeckLayout = (typeof DECK_LAYOUTS)[number];
+export interface DeckSlide {
+  title: string;
+  body?: string;
+  accent?: string;
+  layout?: DeckLayout;
+  kicker?: string;
+  left?: string;
+  right?: string;
+  items?: string[];
+  metric?: string;
+  caption?: string;
+}
+const xml = (s: string) =>
+  s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]!);
+const color = (s: string | undefined, fallback: string) => (s && /^#[a-f\d]{6}$/i.test(s) ? s.slice(1) : fallback);
+const text = (value: unknown, max: number) => {
+  if (value === undefined || value === null) return '';
+  if (typeof value !== 'string' || value.length > max) throw Error('演示文案过长或无效');
+  return value;
+};
+/** A small, editable OOXML scaffold; model-generated content is never executed as code. */
+export function designerDeck(
+  title: string,
+  slides: DeckSlide[],
+  options: { background?: string; foreground?: string; accent?: string } = {},
+) {
+  if (!title.trim() || title.length > 200 || !Array.isArray(slides) || !slides.length || slides.length > 40)
+    throw Error('演示需要标题与 1–40 页内容');
+  const bg = color(options.background, 'FAF9F5'),
+    fg = color(options.foreground, '1B1C1B'),
+    accent = color(options.accent, 'DF3025');
+  const files: Record<string, Uint8Array> = {},
+    add = (p: string, v: string) => (files[p] = strToU8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + v));
+  const ns = 'http://schemas.openxmlformats.org',
+    a = ns + '/drawingml/2006/main',
+    p = ns + '/presentationml/2006/main',
+    r = ns + '/officeDocument/2006/relationships';
+  const rels = (items: Array<[string, string, string]>) =>
+    `<Relationships xmlns="${ns}/package/2006/relationships">${items.map(([id, type, target]) => `<Relationship Id="${id}" Type="${r}/${type}" Target="${target}"/>`).join('')}</Relationships>`;
+  const group = `<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>`;
+  const shape = (
+    id: number,
+    name: string,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    fill: string,
+    value = '',
+    size = 28,
+  ) =>
+    `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${Math.round(x * 9525)}" y="${Math.round(y * 9525)}"/><a:ext cx="${Math.round(w * 9525)}" cy="${Math.round(h * 9525)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>${fill ? `<a:solidFill><a:srgbClr val="${fill}"/></a:solidFill>` : '<a:noFill/>'}<a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square"/><a:lstStyle/>${value
+      .split('\n')
+      .map(
+        (line) =>
+          `<a:p><a:r><a:rPr lang="zh-CN" sz="${size * 100}"><a:solidFill><a:srgbClr val="${fg}"/></a:solidFill><a:latin typeface="Arial"/><a:ea typeface="Microsoft YaHei"/></a:rPr><a:t>${xml(line)}</a:t></a:r><a:endParaRPr lang="zh-CN"/></a:p>`,
+      )
+      .join('')}</p:txBody></p:sp>`;
+  const htmlSlides = slides.map((slide, i) => {
+    const heading = text(slide.title, 120);
+    if (!heading.trim()) throw Error('每页需要简洁标题');
+    const body = text(slide.body, 900),
+      kicker = text(slide.kicker, 80),
+      left = text(slide.left, 400),
+      right = text(slide.right, 400),
+      metric = text(slide.metric, 24),
+      caption = text(slide.caption, 160);
+    const items = Array.isArray(slide.items) ? slide.items.map((item) => text(item, 120)) : undefined;
+    if (items && (items.length < 2 || items.length > 6)) throw Error('时间线或列表需要 2–6 条');
+    const layout = slide.layout || 'title';
+    if (!(DECK_LAYOUTS as readonly string[]).includes(layout))
+      throw new AppError('design.deck_layout_unsupported', '不支持的幻灯片布局');
+    if (layout === 'compare' && !left && !right && !body) throw Error('对比页需要左右文案');
+    if ((layout === 'timeline' || layout === 'agenda') && !items) throw Error('时间线或目录页需要 items');
+    if (layout === 'stat' && !metric.trim()) throw Error('数据页需要 metric，没有真实数据时写成占位如「—」');
+    const split = layout === 'split',
+      statement = layout === 'statement',
+      quote = layout === 'quote',
+      compare = layout === 'compare',
+      list = layout === 'timeline' || layout === 'agenda',
+      stat = layout === 'stat',
+      cta = layout === 'cta';
+    const c = color(slide.accent, accent),
+      compareLeft = left || body.split(/\n---\n/)[0] || '',
+      compareRight = right || body.split(/\n---\n/)[1] || '';
+    const extras = compare
+      ? shape(6, 'Left', 72, 340, 540, 280, '', compareLeft, 20) +
+        shape(7, 'Right', 660, 340, 540, 280, '', compareRight, 20)
+      : list
+        ? shape(6, 'Steps', 72, 340, 1140, 300, '', (items || []).map((item, n) => `${n + 1}. ${item}`).join('\n'), 18)
+        : stat
+          ? shape(6, 'Metric', 72, 280, 1140, 160, '', metric, 72) +
+            shape(7, 'Caption', 72, 460, 1140, 120, '', caption || body, 20)
+          : quote
+            ? shape(6, 'Quote', 72, 300, 1140, 220, '', body || heading, 28)
+            : '';
+    add(
+      `ppt/slides/slide${i + 1}.xml`,
+      `<p:sld xmlns:a="${a}" xmlns:r="${r}" xmlns:p="${p}"><p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="${bg}"/></a:solidFill><a:effectLst/></p:bgPr></p:bg><p:spTree>${group}${shape(2, 'Accent', split ? 830 : 72, split ? 0 : 66, split ? 450 : 76, split ? 720 : 10, c)}${kicker ? shape(8, 'Kicker', 72, 86, 900, 40, '', kicker, 14) : ''}${shape(3, 'Title', 72, statement || quote || cta ? 180 : kicker ? 130 : 116, split || compare ? 710 : 1120, quote ? 80 : 220, '', heading, statement || stat || cta ? 48 : quote ? 18 : 40)}${compare || list || stat || quote ? '' : shape(4, 'Body', 72, statement || cta ? 410 : 350, split ? 710 : 1100, 260, '', body, 22)}${extras}${shape(5, 'Page', 1140, 664, 70, 35, '', String(i + 1).padStart(2, '0'), 12)}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`,
+    );
+    add(`ppt/slides/_rels/slide${i + 1}.xml.rels`, rels([['rId1', 'slideLayout', '../slideLayouts/slideLayout1.xml']]));
+    const inner = compare
+      ? `<div class="cols"><div><p>${xml(compareLeft)}</p></div><div><p>${xml(compareRight)}</p></div></div>`
+      : list
+        ? `<ol>${(items || []).map((item) => `<li>${xml(item)}</li>`).join('')}</ol>`
+        : stat
+          ? `<strong class="metric">${xml(metric)}</strong><p>${xml(caption || body)}</p>`
+          : `<p>${xml(quote ? body || heading : body)}</p>`;
+    return `<section data-slide-id="slide-${i + 1}" data-design-id="slide-${i + 1}" class="${layout}" style="--accent:#${c}" ${i ? 'hidden' : ''}><i></i>${kicker ? `<em>${xml(kicker)}</em>` : ''}<h1>${xml(heading)}</h1>${inner}<cite>${xml(title)}</cite><small>${String(i + 1).padStart(2, '0')}</small></section>`;
+  });
+  add(
+    '[Content_Types].xml',
+    `<Types xmlns="${ns}/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/><Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/><Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>${slides.map((_, i) => `<Override PartName="/ppt/slides/slide${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`).join('')}</Types>`,
+  );
+  add('_rels/.rels', rels([['rId1', 'officeDocument', 'ppt/presentation.xml']]));
+  add(
+    'ppt/presentation.xml',
+    `<p:presentation xmlns:a="${a}" xmlns:r="${r}" xmlns:p="${p}"><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst><p:sldIdLst>${slides.map((_, i) => `<p:sldId id="${256 + i}" r:id="rId${i + 2}"/>`).join('')}</p:sldIdLst><p:sldSz cx="12192000" cy="6858000" type="screen16x9"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>`,
+  );
+  add(
+    'ppt/_rels/presentation.xml.rels',
+    rels([
+      ['rId1', 'slideMaster', 'slideMasters/slideMaster1.xml'],
+      ...slides.map((_, i) => [`rId${i + 2}`, 'slide', `slides/slide${i + 1}.xml`] as [string, string, string]),
+    ]),
+  );
+  const clr = `<p:clrMap accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" bg1="lt1" bg2="lt2" folHlink="folHlink" hlink="hlink" tx1="dk1" tx2="dk2"/>`;
+  add(
+    'ppt/slideMasters/slideMaster1.xml',
+    `<p:sldMaster xmlns:a="${a}" xmlns:r="${r}" xmlns:p="${p}"><p:cSld><p:spTree>${group}</p:spTree></p:cSld>${clr}<p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst><p:txStyles><p:titleStyle/><p:bodyStyle/><p:otherStyle/></p:txStyles></p:sldMaster>`,
+  );
+  add(
+    'ppt/slideMasters/_rels/slideMaster1.xml.rels',
+    rels([
+      ['rId1', 'slideLayout', '../slideLayouts/slideLayout1.xml'],
+      ['rId2', 'theme', '../theme/theme1.xml'],
+    ]),
+  );
+  add(
+    'ppt/slideLayouts/slideLayout1.xml',
+    `<p:sldLayout xmlns:a="${a}" xmlns:r="${r}" xmlns:p="${p}" type="blank" preserve="1"><p:cSld name="Blank"><p:spTree>${group}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>`,
+  );
+  add(
+    'ppt/slideLayouts/_rels/slideLayout1.xml.rels',
+    rels([['rId1', 'slideMaster', '../slideMasters/slideMaster1.xml']]),
+  );
+  const fill = '<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>';
+  add(
+    'ppt/theme/theme1.xml',
+    `<a:theme xmlns:a="${a}" name="Aelion"><a:themeElements><a:clrScheme name="Design">${Object.entries({
+      dk1: fg,
+      lt1: bg,
+      dk2: '343434',
+      lt2: 'EEEEEE',
+      accent1: accent,
+      accent2: '174CC0',
+      accent3: 'EEB235',
+      accent4: '779580',
+      accent5: '9B759E',
+      accent6: '75999E',
+      hlink: '174CC0',
+      folHlink: '9B759E',
+    })
+      .map(([key, value]) => `<a:${key}><a:srgbClr val="${value}"/></a:${key}>`)
+      .join(
+        '',
+      )}</a:clrScheme><a:fontScheme name="Design">${['majorFont', 'minorFont'].map((k) => `<a:${k}><a:latin typeface="Arial"/><a:ea typeface="Microsoft YaHei"/><a:cs typeface="Arial"/></a:${k}>`).join('')}</a:fontScheme><a:fmtScheme name="Design"><a:fillStyleLst>${fill.repeat(3)}</a:fillStyleLst><a:lnStyleLst>${[6350, 12700, 19050].map((w) => `<a:ln w="${w}">${fill}<a:prstDash val="solid"/></a:ln>`).join('')}</a:lnStyleLst><a:effectStyleLst>${'<a:effectStyle><a:effectLst/></a:effectStyle>'.repeat(3)}</a:effectStyleLst><a:bgFillStyleLst>${fill.repeat(3)}</a:bgFillStyleLst></a:fmtScheme></a:themeElements></a:theme>`,
+  );
+  const html = `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${xml(title)}</title><style>*{box-sizing:border-box}body{margin:0;background:#161513;color:#${fg};font-family:Georgia,'Times New Roman','Songti SC','Microsoft YaHei',serif}main{position:absolute;inset:0 0 72px;overflow:hidden}article{position:absolute;width:1280px;height:720px;transform-origin:top left}section{position:absolute;inset:0;background:#${bg};padding:92px 88px;overflow:hidden}section[hidden]{display:none}h1{margin:0;font-size:64px;line-height:1.08;letter-spacing:-.03em;max-width:1040px;font-weight:500}p{margin:0;font-size:26px;white-space:pre-wrap;line-height:1.45}section>p{position:absolute;top:360px;left:88px;right:88px;max-width:920px}i{position:absolute;top:0;left:0;width:100%;height:8px;background:var(--accent)}em{position:absolute;top:44px;left:88px;font-style:normal;letter-spacing:.18em;text-transform:uppercase;font-size:13px;opacity:.62;font-family:Arial,'Microsoft YaHei',sans-serif}small{position:absolute;right:48px;bottom:36px;font-family:Arial,sans-serif;letter-spacing:.12em}cite{position:absolute;left:48px;bottom:36px;font-style:normal;font-size:13px;opacity:.5;font-family:Arial,sans-serif}.split i{inset:0 0 0 auto;width:420px;height:auto}.split h1,.split>p{max-width:680px}.statement h1,.cta h1{padding-top:48px;font-size:76px;max-width:980px}.quote h1{padding-top:28px;font-size:18px;letter-spacing:.16em;text-transform:uppercase;opacity:.55;font-weight:500;font-family:Arial,sans-serif}.statement>p,.cta>p{top:430px}.quote>p{top:250px;font-size:42px;font-style:italic;max-width:960px;line-height:1.22}.cols{position:absolute;top:330px;left:88px;right:88px;display:grid;grid-template-columns:1fr 1fr;gap:56px}.cols p{position:static;font-size:22px}ol{position:absolute;top:320px;left:88px;right:88px;margin:0;padding:0;list-style:none;counter-reset:step}ol li{counter-increment:step;padding:14px 0 14px 72px;font-size:24px;position:relative;border-bottom:1px solid color-mix(in srgb,#${fg} 12%,transparent)}ol li:before{content:counter(step,decimal-leading-zero);position:absolute;left:0;opacity:.4;font-family:Arial,sans-serif;font-size:16px;letter-spacing:.08em;top:18px}.metric{display:block;margin-top:120px;font-size:108px;line-height:.92;letter-spacing:-.05em}section.stat>p{position:static;margin-top:28px;max-width:720px}nav{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:20px;color:#f4efe4;font-family:Arial,sans-serif}button{padding:8px 16px;border:1px solid #6e685c;border-radius:999px;background:transparent;color:#f4efe4;cursor:pointer}button:focus-visible{outline:3px solid #eeb235}@media print{body{background:white}main,article{position:static;overflow:visible;transform:none!important}section,section[hidden]{display:block;position:relative;break-after:page}nav{display:none}@page{size:1280px 720px;margin:0}}</style><main><article class="magazine">${htmlSlides.join('')}</article></main><nav><button aria-label="上一页">←</button><span aria-live="polite"></span><button aria-label="下一页">→</button></nav><script>const slides=[...document.querySelectorAll('section')],stage=document.querySelector('article'),frame=document.querySelector('main'),buttons=document.querySelectorAll('button');let current=0;function fit(){const s=Math.min(frame.clientWidth/1280,frame.clientHeight/720);stage.style.transform='translate('+((frame.clientWidth-1280*s)/2)+'px,'+((frame.clientHeight-720*s)/2)+'px) scale('+s+')'}function show(n){current=Math.max(0,Math.min(slides.length-1,n));slides.forEach((s,i)=>s.hidden=i!==current);document.querySelector('nav span').textContent=(current+1)+' / '+slides.length;buttons[0].disabled=!current;buttons[1].disabled=current===slides.length-1;const id=slides[current].getAttribute('data-slide-id');if(id&&location.hash!=='#'+id)history.replaceState(null,'','#'+id)}buttons[0].onclick=()=>show(current-1);buttons[1].onclick=()=>show(current+1);document.addEventListener('keydown',e=>{if(['ArrowRight',' ','ArrowLeft'].includes(e.key)){e.preventDefault();show(current+(e.key==='ArrowLeft'?-1:1))}});window.addEventListener('hashchange',()=>{const n=Number((location.hash.match(/slide-(\\d+)/)||[])[1]);if(n)show(n-1)});window.addEventListener('resize',fit);fit();const start=Number((location.hash.match(/slide-(\\d+)/)||[])[1]);show(start?start-1:0)</script></html>`;
+  return { pptx: Buffer.from(zipSync(files)), html: Buffer.from(html) };
+}

@@ -1,10 +1,7 @@
 {
   "reviewDate": "2026-09-08",
   "verifiedAt": "2026-09-08T15:20:39.122Z",
-  "concurrentChangesAtFinalCheck": [
-    "electron/core/attachments.ts",
-    "electron/main.ts"
-  ],
+  "concurrentChangesAtFinalCheck": ["electron/core/attachments.ts", "electron/main.ts"],
   "concurrentChangeReview": "attachments.ts and main.ts pending changes add user-facing rich previews; inspected diff does not change model attachment wire/read or Cognition initialization. All source hashes use pinned Git blobs.",
   "method": "Static source trace and existing test review; actual local tokenizer/budget-function measurements. No live provider benchmark or test-suite rerun.",
   "measured": {

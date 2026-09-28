@@ -1,0 +1,38 @@
+import { registerDecisions } from './register-decisions';
+import type { IpcContext } from './context';
+import { registerApp } from './register-app';
+import { registerAttachments } from './register-attachments';
+import { registerBots } from './register-bots';
+import { registerChat } from './register-chat';
+import { registerComputer } from './register-computer';
+import { registerDesign } from './register-design';
+import { registerFiles } from './register-files';
+import { registerGames } from './register-games';
+import { registerGroups } from './register-groups';
+import { registerIntegrations } from './register-integrations';
+import { registerModels } from './register-models';
+import { registerPeers } from './register-peers';
+import { registerPreview } from './register-preview';
+import { registerTasks } from './register-tasks';
+import { registerWebPreview } from './register-web-preview';
+import { registerWorkspace } from './register-workspace';
+
+export function registerIpc(ctx: IpcContext) {
+  registerPreview(ctx);
+  registerWebPreview(ctx);
+  registerApp(ctx);
+  registerChat(ctx);
+  registerModels(ctx);
+  registerDecisions(ctx);
+  registerTasks(ctx);
+  registerWorkspace(ctx);
+  registerIntegrations(ctx);
+  registerBots(ctx);
+  registerAttachments(ctx);
+  registerDesign(ctx);
+  registerGroups(ctx);
+  registerPeers(ctx);
+  registerGames(ctx);
+  registerComputer(ctx);
+  registerFiles(ctx);
+}

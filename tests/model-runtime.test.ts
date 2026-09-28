@@ -1,173 +1,685 @@
-import type {ModelRequestStatus} from '../src/model-request-status';
+import type { ModelRequestStatus } from '../shared/types/model-request-status';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createServer,type RequestListener} from 'node:http';
-import {ModelClient,assistantMessage} from '../electron/core/model';
-import {ContentPolicyError,omitToolResultBodies,persistOmittedToolOutputs,quarantinePolicyContext} from '../electron/core/model-content-policy';
-import {protocolRequest,StreamAccumulator,nativeKey} from '../electron/core/model-protocol';
-import {DEFAULT_RUNTIME} from '../src/runtime-types';
-import type {ModelConfig} from '../src/shared';
-async function server(t:test.TestContext,handler:RequestListener){const s=createServer(handler);await new Promise<void>(r=>s.listen(0,'127.0.0.1',r));t.after(()=>{s.closeAllConnections();s.close();});return `http://127.0.0.1:${(s.address() as any).port}/v1`;}
-const cfg:ModelConfig={baseUrl:'http://localhost:1/v1',model:'test',hasKey:false,contextTokens:32000};
-
-test('requests use the full configured output allowance immediately and honor explicit smaller limits',async t=>{
- const limits:number[]=[];const baseUrl=await server(t,async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;limits.push(JSON.parse(body).max_tokens);res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({choices:[{message:{content:'ok'},finish_reason:'stop'}]}));});
- const model=new ModelClient(()=>({...cfg,baseUrl,contextTokens:128000}),()=> '');t.after(()=>model.dispose());
- await model.complete([{role:'user',content:'long document'}],[],new AbortController().signal);
- await model.complete([],[],new AbortController().signal,undefined,{maxOutputTokens:1024});
- const configured=new ModelClient(()=>({...cfg,baseUrl,contextTokens:128000}),()=> '',undefined,()=>({...DEFAULT_RUNTIME,maxOutputTokens:8192}));t.after(()=>configured.dispose());await configured.complete([],[],new AbortController().signal);
- assert.deepEqual(limits,[65536,1024,8192]);
-});
-test('429 retries are bounded; failed partial previews reset before retry and only complete calls escape',async t=>{
- let count=0,resets=0,visible='';const statuses:ModelRequestStatus[]=[];const baseUrl=await server(t,async(req,res)=>{for await(const _ of req){}count++;if(count===1){res.writeHead(429,{'retry-after':'0.001'});res.end('busy');return;}res.writeHead(200,{'content-type':'text/event-stream'});res.write('data: '+JSON.stringify({choices:[{delta:{content:count===2?'partial':'finished'}}]})+'\n\n');if(count===3)res.write('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n');res.end();});
- const model=new ModelClient(()=>({...cfg,baseUrl}),()=> '');const result=await model.complete([{role:'user',content:'test'}],[],new AbortController().signal,t=>visible+=t,{onStatus:status=>statuses.push(status),onReset:()=>{resets++;visible='';}});
- assert.equal(count,3);assert.equal(resets,1);assert.equal(visible,'finished');assert.equal(result.content,'finished');assert.deepEqual(statuses.filter(s=>s.phase!=='streaming').map(s=>s.phase),['waiting','retrying','waiting','retrying','waiting']);assert.equal(statuses[1].reason,'rate_limit');assert.equal(statuses[1].attempt,1);assert.doesNotMatch(JSON.stringify(statuses),/busy|partial|finished/);
-});
-test('tool result omission keeps identifiers and drops command output',()=>{
-  const history:import('../src/shared').WireMessage[]=[{role:'tool',tool_call_id:'c1',content:JSON.stringify({resultId:'rid',result:{stdout:'flagged-output',stderr:'boom',exitCode:1,path:'out.txt'}})}];
-  assert.equal(persistOmittedToolOutputs(history),true);
-  const parsed=JSON.parse(history[0].content||'');assert.equal(parsed.result.omitted,true);assert.equal(parsed.result.resultId,'rid');assert.equal(parsed.result.exitCode,1);assert.equal(parsed.result.path,'out.txt');assert.equal(parsed.result.stdout,undefined);assert.equal(persistOmittedToolOutputs(history),false);assert.equal(omitToolResultBodies(history)[0],history[0]);
-});
-test('provider content-policy refusals omit historical tool bodies and retry once',async t=>{
-  const requests:any[]=[];const marker='POLICY_FLAGGED_STDOUT';const baseUrl=await server(t,async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;requests.push(JSON.parse(body));const tools=JSON.parse(body).messages?.filter((message:any)=>message.role==='tool')||[];const flagged=tools.some((message:any)=>String(message.content).includes(marker));
-  res.setHeader('content-type','application/json');if(flagged){res.statusCode=400;res.end(JSON.stringify({error:{message:'Content Exists Risk',type:'invalid_request_error',code:'invalid_request_error'}}));return;}
-  res.end(JSON.stringify({choices:[{message:{content:'ok'},finish_reason:'stop'}]}));
- });
-  const model=new ModelClient(()=>({...cfg,baseUrl}),()=> '');t.after(()=>model.dispose());
-  const history:import('../src/shared').WireMessage[]=[{role:'user',content:'continue'},{role:'assistant',content:null,tool_calls:[{id:'call-1',type:'function',function:{name:'computer_execute',arguments:'{}'}}]},{role:'tool',tool_call_id:'call-1',content:JSON.stringify({resultId:'rid',result:{stdout:marker,stderr:'AttributeError',exitCode:1}})}];
-  const snapshot=JSON.stringify(history);const result=await model.complete(history,[],new AbortController().signal);
-  assert.equal(result.content,'ok');assert.equal(result.toolOutputsOmitted,true);assert.equal(JSON.stringify(history),snapshot);assert.equal(requests.length,2);
-  const retried=requests[1].messages.find((message:any)=>message.role==='tool');assert.match(retried.content,/provider_content_policy/);assert.doesNotMatch(retried.content,new RegExp(marker));assert.match(retried.content,/rid/);
-});
-test('content-policy refusals without tool output are not retried',async t=>{
-  let count=0;const baseUrl=await server(t,async(req,res)=>{for await(const _ of req){}count++;res.writeHead(400);res.end(JSON.stringify({error:{message:'Content Exists Risk',type:'invalid_request_error'}}));});
-  const model=new ModelClient(()=>({...cfg,baseUrl}),()=> '');t.after(()=>model.dispose());
-  await assert.rejects(model.complete([{role:'user',content:'hello'}],[],new AbortController().signal),error=>{assert.equal((error as Error).name,'ContentPolicyError');assert.equal((error as ContentPolicyError).sanitized,false);assert.match((error as Error).message,/内容审核/);return true;});assert.equal(count,1);
-});
-test('content-policy refusals also drop tool-call arguments when results are not enough',async t=>{
-  const marker='POLICY_FLAGGED_ARGS';const requests:any[]=[];const baseUrl=await server(t,async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;const parsed=JSON.parse(body);requests.push(parsed);
-    const flagged=JSON.stringify(parsed).includes(marker);res.setHeader('content-type','application/json');if(flagged){res.statusCode=400;res.end(JSON.stringify({error:{message:'Content Exists Risk'}}));return;}
-    res.end(JSON.stringify({choices:[{message:{content:'ok'},finish_reason:'stop'}]}));
+import { createServer, type RequestListener } from 'node:http';
+import { ModelClient, assistantMessage } from '../electron/core/model/model';
+import {
+  ContentPolicyError,
+  omitToolResultBodies,
+  persistOmittedToolOutputs,
+  quarantinePolicyContext,
+} from '../electron/core/model/model-content-policy';
+import { protocolRequest, StreamAccumulator, nativeKey } from '../electron/core/model/model-protocol';
+import { DEFAULT_RUNTIME } from '../shared/types/runtime-types';
+import type { ModelConfig } from '../shared/types/core';
+async function server(t: test.TestContext, handler: RequestListener) {
+  const s = createServer(handler);
+  await new Promise<void>((r) => s.listen(0, '127.0.0.1', r));
+  t.after(() => {
+    s.closeAllConnections();
+    s.close();
   });
-  const model=new ModelClient(()=>({...cfg,baseUrl}),()=> '');t.after(()=>model.dispose());
-  const history:import('../src/shared').WireMessage[]=[{role:'user',content:'continue'},{role:'assistant',content:null,tool_calls:[{id:'call-1',type:'function',function:{name:'file_write',arguments:JSON.stringify({path:'demo.py',content:marker})}}]},{role:'tool',tool_call_id:'call-1',content:JSON.stringify({result:{stdout:'wrote',exitCode:0}})}];
-  const result=await model.complete(history,[],new AbortController().signal);
-  assert.equal(result.content,'ok');assert.equal(result.toolOutputsOmitted,true);assert.equal(requests.length,3);assert.doesNotMatch(JSON.stringify(requests[2]),new RegExp(marker));
+  return `http://127.0.0.1:${(s.address() as any).port}/v1`;
+}
+const cfg: ModelConfig = { baseUrl: 'http://localhost:1/v1', model: 'test', hasKey: false, contextTokens: 32000 };
+
+test('requests use the full configured output allowance immediately and honor explicit smaller limits', async (t) => {
+  const limits: number[] = [];
+  const baseUrl = await server(t, async (req, res) => {
+    let body = '';
+    for await (const chunk of req) body += chunk;
+    limits.push(JSON.parse(body).max_tokens);
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] }));
+  });
+  const model = new ModelClient(
+    () => ({ ...cfg, baseUrl, contextTokens: 128000 }),
+    () => '',
+  );
+  t.after(() => model.dispose());
+  await model.complete([{ role: 'user', content: 'long document' }], [], new AbortController().signal);
+  await model.complete([], [], new AbortController().signal, undefined, { maxOutputTokens: 1024 });
+  const configured = new ModelClient(
+    () => ({ ...cfg, baseUrl, contextTokens: 128000 }),
+    () => '',
+    undefined,
+    () => ({ ...DEFAULT_RUNTIME, maxOutputTokens: 8192 }),
+  );
+  t.after(() => configured.dispose());
+  await configured.complete([], [], new AbortController().signal);
+  assert.deepEqual(limits, [65536, 1024, 8192]);
 });
-test('quarantine writes omitted tools back and drops compaction summaries',()=>{
-  const history:import('../src/shared').WireMessage[]=[{role:'assistant',content:null,tool_calls:[{id:'c1',type:'function',function:{name:'file_write',arguments:JSON.stringify({content:'flagged'})}}]},{role:'tool',tool_call_id:'c1',content:JSON.stringify({result:{stdout:'flagged',exitCode:1}})}];
-  const summaries={bot:'old summary with flagged text'},offsets={bot:12};
-  assert.equal(quarantinePolicyContext(history,summaries,offsets,'bot'),true);
-  assert.equal(summaries.bot,undefined);assert.equal(offsets.bot,undefined);
-  assert.match(history[0].tool_calls![0].function.arguments,/provider_content_policy/);
-  assert.doesNotMatch(history[1].content||'',/flagged/);
+test('429 retries are bounded; failed partial previews reset before retry and only complete calls escape', async (t) => {
+  let count = 0,
+    resets = 0,
+    visible = '';
+  const statuses: ModelRequestStatus[] = [];
+  const baseUrl = await server(t, async (req, res) => {
+    for await (const _ of req) {
+    }
+    count++;
+    if (count === 1) {
+      res.writeHead(429, { 'retry-after': '0.001' });
+      res.end('busy');
+      return;
+    }
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    res.write(
+      'data: ' + JSON.stringify({ choices: [{ delta: { content: count === 2 ? 'partial' : 'finished' } }] }) + '\n\n',
+    );
+    if (count === 3) res.write('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n');
+    res.end();
+  });
+  const model = new ModelClient(
+    () => ({ ...cfg, baseUrl }),
+    () => '',
+  );
+  const result = await model.complete(
+    [{ role: 'user', content: 'test' }],
+    [],
+    new AbortController().signal,
+    (t) => (visible += t),
+    {
+      onStatus: (status) => statuses.push(status),
+      onReset: () => {
+        resets++;
+        visible = '';
+      },
+    },
+  );
+  assert.equal(count, 3);
+  assert.equal(resets, 1);
+  assert.equal(visible, 'finished');
+  assert.equal(result.content, 'finished');
+  assert.deepEqual(
+    statuses.filter((s) => s.phase !== 'streaming').map((s) => s.phase),
+    ['waiting', 'retrying', 'waiting', 'retrying', 'waiting'],
+  );
+  assert.equal(statuses[1].reason, 'rate_limit');
+  assert.equal(statuses[1].attempt, 1);
+  assert.doesNotMatch(JSON.stringify(statuses), /busy|partial|finished/);
 });
-test('authentication failures are not retried and cancellation interrupts backoff',async t=>{
- let count=0;const baseUrl=await server(t,async(req,res)=>{for await(const _ of req){}count++;res.writeHead(count===1?401:429,{'retry-after':'30'});res.end('denied');});
- const model=new ModelClient(()=>({...cfg,baseUrl}),()=> '');await assert.rejects(model.complete([],[],new AbortController().signal),/401/);assert.equal(count,1);
- const controller=new AbortController();setTimeout(()=>controller.abort(Error('cancelled by test')),100);await assert.rejects(model.complete([],[],controller.signal),/cancelled by test/);assert.equal(count,2);
+test('tool result omission keeps identifiers and drops command output', () => {
+  const history: import('../shared/types/core').WireMessage[] = [
+    {
+      role: 'tool',
+      tool_call_id: 'c1',
+      content: JSON.stringify({
+        resultId: 'rid',
+        result: { stdout: 'flagged-output', stderr: 'boom', exitCode: 1, path: 'out.txt' },
+      }),
+    },
+  ];
+  assert.equal(persistOmittedToolOutputs(history), true);
+  const parsed = JSON.parse(history[0].content || '');
+  assert.equal(parsed.result.omitted, true);
+  assert.equal(parsed.result.resultId, 'rid');
+  assert.equal(parsed.result.exitCode, 1);
+  assert.equal(parsed.result.path, 'out.txt');
+  assert.equal(parsed.result.stdout, undefined);
+  assert.equal(persistOmittedToolOutputs(history), false);
+  assert.equal(omitToolResultBodies(history)[0], history[0]);
 });
-test('chat tool deltas concatenate by numeric or string index and by call id',()=>{
- const parser=new StreamAccumulator('chat',nativeKey(cfg),()=>{});
- parser.consume({choices:[{delta:{tool_calls:[{index:'0',id:'call-1',function:{name:'host_search_files',arguments:'{"q'}}]}}]});
- parser.consume({choices:[{delta:{tool_calls:[{id:'call-1',function:{arguments:'uery":"TODO"}'}}]}}]});
- parser.consume({choices:[{delta:{},finish_reason:'tool_calls'}]});
- const result=parser.result();
- assert.equal(result.calls.length,1);
- assert.deepEqual(JSON.parse(result.calls[0].function.arguments),{query:'TODO'});
+test('provider content-policy refusals omit historical tool bodies and retry once', async (t) => {
+  const requests: any[] = [];
+  const marker = 'POLICY_FLAGGED_STDOUT';
+  const baseUrl = await server(t, async (req, res) => {
+    let body = '';
+    for await (const chunk of req) body += chunk;
+    requests.push(JSON.parse(body));
+    const tools = JSON.parse(body).messages?.filter((message: any) => message.role === 'tool') || [];
+    const flagged = tools.some((message: any) => String(message.content).includes(marker));
+    res.setHeader('content-type', 'application/json');
+    if (flagged) {
+      res.statusCode = 400;
+      res.end(
+        JSON.stringify({
+          error: { message: 'Content Exists Risk', type: 'invalid_request_error', code: 'invalid_request_error' },
+        }),
+      );
+      return;
+    }
+    res.end(JSON.stringify({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] }));
+  });
+  const model = new ModelClient(
+    () => ({ ...cfg, baseUrl }),
+    () => '',
+  );
+  t.after(() => model.dispose());
+  const history: import('../shared/types/core').WireMessage[] = [
+    { role: 'user', content: 'continue' },
+    {
+      role: 'assistant',
+      content: null,
+      tool_calls: [{ id: 'call-1', type: 'function', function: { name: 'computer_execute', arguments: '{}' } }],
+    },
+    {
+      role: 'tool',
+      tool_call_id: 'call-1',
+      content: JSON.stringify({ resultId: 'rid', result: { stdout: marker, stderr: 'AttributeError', exitCode: 1 } }),
+    },
+  ];
+  const snapshot = JSON.stringify(history);
+  const result = await model.complete(history, [], new AbortController().signal);
+  assert.equal(result.content, 'ok');
+  assert.equal(result.toolOutputsOmitted, true);
+  assert.equal(JSON.stringify(history), snapshot);
+  assert.equal(requests.length, 2);
+  const retried = requests[1].messages.find((message: any) => message.role === 'tool');
+  assert.match(retried.content, /provider_content_policy/);
+  assert.doesNotMatch(retried.content, new RegExp(marker));
+  assert.match(retried.content, /rid/);
 });
-test('Responses reasoning and call IDs survive the next tool turn but never cross model boundaries',()=>{
- const config={...cfg,protocol:'responses' as const},parser=new StreamAccumulator('responses',nativeKey(config),()=>{});
- const reasoning={type:'reasoning',id:'rs_1',summary:[],encrypted_content:'opaque-signature'};
- parser.consume({type:'response.completed',response:{output:[reasoning,{type:'function_call',id:'fc_1',call_id:'call_1',name:'file_read',arguments:'{"path":"a"}'}],usage:{input_tokens:30,output_tokens:20,input_tokens_details:{cached_tokens:10},output_tokens_details:{reasoning_tokens:5}}}});
- const result=parser.result();assert.equal(result.calls[0].id,'call_1');assert.equal(result.usage?.cachedTokens,10);
- const history=[assistantMessage(result),{role:'tool' as const,tool_call_id:'call_1',content:'a'}];
- const body=protocolRequest(config,history,[],4096,'',()=> '') .body as any;assert.deepEqual(body.input[0],reasoning);assert.equal(body.input[2].type,'function_call_output');assert.equal(body.store,false);
- const other=protocolRequest({...config,model:'different'},history,[],4096,'',()=> '').body as any;assert.ok(!JSON.stringify(other).includes('opaque-signature'));
+test('content-policy refusals without tool output are not retried', async (t) => {
+  let count = 0;
+  const baseUrl = await server(t, async (req, res) => {
+    for await (const _ of req) {
+    }
+    count++;
+    res.writeHead(400);
+    res.end(JSON.stringify({ error: { message: 'Content Exists Risk', type: 'invalid_request_error' } }));
+  });
+  const model = new ModelClient(
+    () => ({ ...cfg, baseUrl }),
+    () => '',
+  );
+  t.after(() => model.dispose());
+  await assert.rejects(
+    model.complete([{ role: 'user', content: 'hello' }], [], new AbortController().signal),
+    (error) => {
+      assert.equal((error as Error).name, 'ContentPolicyError');
+      assert.equal((error as ContentPolicyError).sanitized, false);
+      assert.equal((error as ContentPolicyError).code, 'model.content_policy');
+      return true;
+    },
+  );
+  assert.equal(count, 1);
 });
-test('Claude thinking signatures and fragmented JSON remain opaque and are returned unchanged',()=>{
- const config={...cfg,protocol:'anthropic' as const},parser=new StreamAccumulator('anthropic',nativeKey(config),()=>{});
- for(const event of [{type:'message_start',message:{usage:{input_tokens:10,cache_read_input_tokens:5}}},{type:'content_block_start',index:0,content_block:{type:'thinking',thinking:'',signature:''}},{type:'content_block_delta',index:0,delta:{type:'thinking_delta',thinking:'private reasoning'}},{type:'content_block_delta',index:0,delta:{type:'signature_delta',signature:'signature'}},{type:'content_block_start',index:1,content_block:{type:'tool_use',id:'t',name:'read',input:{}}},{type:'content_block_delta',index:1,delta:{type:'input_json_delta',partial_json:'{"path":"a"}'}},{type:'message_delta',delta:{stop_reason:'tool_use'},usage:{output_tokens:30}},{type:'message_stop'}])parser.consume(event);
- const result=parser.result();assert.equal(result.content,'');assert.equal(result.calls[0].function.arguments,'{"path":"a"}');
- const body=protocolRequest(config,[assistantMessage(result),{role:'tool',tool_call_id:'t',content:'ok'}],[],4096,'',()=> '').body as any;assert.equal(body.messages[0].content[0].signature,'signature');assert.equal(body.messages[1].content[0].tool_use_id,'t');
+test('content-policy refusals also drop tool-call arguments when results are not enough', async (t) => {
+  const marker = 'POLICY_FLAGGED_ARGS';
+  const requests: any[] = [];
+  const baseUrl = await server(t, async (req, res) => {
+    let body = '';
+    for await (const chunk of req) body += chunk;
+    const parsed = JSON.parse(body);
+    requests.push(parsed);
+    const flagged = JSON.stringify(parsed).includes(marker);
+    res.setHeader('content-type', 'application/json');
+    if (flagged) {
+      res.statusCode = 400;
+      res.end(JSON.stringify({ error: { message: 'Content Exists Risk' } }));
+      return;
+    }
+    res.end(JSON.stringify({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] }));
+  });
+  const model = new ModelClient(
+    () => ({ ...cfg, baseUrl }),
+    () => '',
+  );
+  t.after(() => model.dispose());
+  const history: import('../shared/types/core').WireMessage[] = [
+    { role: 'user', content: 'continue' },
+    {
+      role: 'assistant',
+      content: null,
+      tool_calls: [
+        {
+          id: 'call-1',
+          type: 'function',
+          function: { name: 'file_write', arguments: JSON.stringify({ path: 'demo.py', content: marker }) },
+        },
+      ],
+    },
+    { role: 'tool', tool_call_id: 'call-1', content: JSON.stringify({ result: { stdout: 'wrote', exitCode: 0 } }) },
+  ];
+  const result = await model.complete(history, [], new AbortController().signal);
+  assert.equal(result.content, 'ok');
+  assert.equal(result.toolOutputsOmitted, true);
+  assert.equal(requests.length, 3);
+  assert.doesNotMatch(JSON.stringify(requests[2]), new RegExp(marker));
 });
-test('Gemini preserves thoughtSignature with the exact function-call part',()=>{
- const config={...cfg,protocol:'gemini' as const},parser=new StreamAccumulator('gemini',nativeKey(config),()=>{});
- parser.consume({candidates:[{content:{parts:[{functionCall:{name:'read',args:{path:'a'},id:'g1'},thoughtSignature:'opaque'}]},finishReason:'STOP'}]});
- const result=parser.result(),body=protocolRequest(config,[assistantMessage(result),{role:'tool',tool_call_id:'g1',content:'ok'}],[],4096,'',()=> '').body as any;
- assert.equal(body.contents[0].parts[0].thoughtSignature,'opaque');assert.equal(body.contents[1].parts[0].functionResponse.name,'read');
+test('quarantine writes omitted tools back and drops compaction summaries', () => {
+  const history: import('../shared/types/core').WireMessage[] = [
+    {
+      role: 'assistant',
+      content: null,
+      tool_calls: [
+        {
+          id: 'c1',
+          type: 'function',
+          function: { name: 'file_write', arguments: JSON.stringify({ content: 'flagged' }) },
+        },
+      ],
+    },
+    { role: 'tool', tool_call_id: 'c1', content: JSON.stringify({ result: { stdout: 'flagged', exitCode: 1 } }) },
+  ];
+  const summaries = { bot: 'old summary with flagged text' },
+    offsets = { bot: 12 };
+  assert.equal(quarantinePolicyContext(history, summaries, offsets, 'bot'), true);
+  assert.equal(summaries.bot, undefined);
+  assert.equal(offsets.bot, undefined);
+  assert.match(history[0].tool_calls![0].function.arguments, /provider_content_policy/);
+  assert.doesNotMatch(history[1].content || '', /flagged/);
+});
+test('authentication failures are not retried and cancellation interrupts backoff', async (t) => {
+  let count = 0;
+  const baseUrl = await server(t, async (req, res) => {
+    for await (const _ of req) {
+    }
+    count++;
+    res.writeHead(count === 1 ? 401 : 429, { 'retry-after': '30' });
+    res.end('denied');
+  });
+  const model = new ModelClient(
+    () => ({ ...cfg, baseUrl }),
+    () => '',
+  );
+  await assert.rejects(model.complete([], [], new AbortController().signal), /401/);
+  assert.equal(count, 1);
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(Error('cancelled by test')), 100);
+  await assert.rejects(model.complete([], [], controller.signal), /cancelled by test/);
+  assert.equal(count, 2);
+});
+test('chat tool deltas concatenate by numeric or string index and by call id', () => {
+  const parser = new StreamAccumulator('chat', nativeKey(cfg), () => {});
+  parser.consume({
+    choices: [
+      {
+        delta: {
+          tool_calls: [{ index: '0', id: 'call-1', function: { name: 'host_search_files', arguments: '{"q' } }],
+        },
+      },
+    ],
+  });
+  parser.consume({
+    choices: [{ delta: { tool_calls: [{ id: 'call-1', function: { arguments: 'uery":"TODO"}' } }] } }],
+  });
+  parser.consume({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] });
+  const result = parser.result();
+  assert.equal(result.calls.length, 1);
+  assert.deepEqual(JSON.parse(result.calls[0].function.arguments), { query: 'TODO' });
+});
+test('Responses reasoning and call IDs survive the next tool turn but never cross model boundaries', () => {
+  const config = { ...cfg, protocol: 'responses' as const },
+    parser = new StreamAccumulator('responses', nativeKey(config), () => {});
+  const reasoning = { type: 'reasoning', id: 'rs_1', summary: [], encrypted_content: 'opaque-signature' };
+  parser.consume({
+    type: 'response.completed',
+    response: {
+      output: [
+        reasoning,
+        { type: 'function_call', id: 'fc_1', call_id: 'call_1', name: 'file_read', arguments: '{"path":"a"}' },
+      ],
+      usage: {
+        input_tokens: 30,
+        output_tokens: 20,
+        input_tokens_details: { cached_tokens: 10 },
+        output_tokens_details: { reasoning_tokens: 5 },
+      },
+    },
+  });
+  const result = parser.result();
+  assert.equal(result.calls[0].id, 'call_1');
+  assert.equal(result.usage?.cachedTokens, 10);
+  const history = [assistantMessage(result), { role: 'tool' as const, tool_call_id: 'call_1', content: 'a' }];
+  const body = protocolRequest(config, history, [], 4096, '', () => '').body as any;
+  assert.deepEqual(body.input[0], reasoning);
+  assert.equal(body.input[2].type, 'function_call_output');
+  assert.equal(body.store, false);
+  const other = protocolRequest({ ...config, model: 'different' }, history, [], 4096, '', () => '').body as any;
+  assert.ok(!JSON.stringify(other).includes('opaque-signature'));
+});
+test('Claude thinking signatures and fragmented JSON remain opaque and are returned unchanged', () => {
+  const config = { ...cfg, protocol: 'anthropic' as const },
+    parser = new StreamAccumulator('anthropic', nativeKey(config), () => {});
+  for (const event of [
+    { type: 'message_start', message: { usage: { input_tokens: 10, cache_read_input_tokens: 5 } } },
+    { type: 'content_block_start', index: 0, content_block: { type: 'thinking', thinking: '', signature: '' } },
+    { type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: 'private reasoning' } },
+    { type: 'content_block_delta', index: 0, delta: { type: 'signature_delta', signature: 'signature' } },
+    { type: 'content_block_start', index: 1, content_block: { type: 'tool_use', id: 't', name: 'read', input: {} } },
+    { type: 'content_block_delta', index: 1, delta: { type: 'input_json_delta', partial_json: '{"path":"a"}' } },
+    { type: 'message_delta', delta: { stop_reason: 'tool_use' }, usage: { output_tokens: 30 } },
+    { type: 'message_stop' },
+  ])
+    parser.consume(event);
+  const result = parser.result();
+  assert.equal(result.content, '');
+  assert.equal(result.calls[0].function.arguments, '{"path":"a"}');
+  const body = protocolRequest(
+    config,
+    [assistantMessage(result), { role: 'tool', tool_call_id: 't', content: 'ok' }],
+    [],
+    4096,
+    '',
+    () => '',
+  ).body as any;
+  assert.equal(body.messages[0].content[0].signature, 'signature');
+  assert.equal(body.messages[1].content[0].tool_use_id, 't');
+});
+test('Gemini preserves thoughtSignature with the exact function-call part', () => {
+  const config = { ...cfg, protocol: 'gemini' as const },
+    parser = new StreamAccumulator('gemini', nativeKey(config), () => {});
+  parser.consume({
+    candidates: [
+      {
+        content: {
+          parts: [{ functionCall: { name: 'read', args: { path: 'a' }, id: 'g1' }, thoughtSignature: 'opaque' }],
+        },
+        finishReason: 'STOP',
+      },
+    ],
+  });
+  const result = parser.result(),
+    body = protocolRequest(
+      config,
+      [assistantMessage(result), { role: 'tool', tool_call_id: 'g1', content: 'ok' }],
+      [],
+      4096,
+      '',
+      () => '',
+    ).body as any;
+  assert.equal(body.contents[0].parts[0].thoughtSignature, 'opaque');
+  assert.equal(body.contents[1].parts[0].functionResponse.name, 'read');
 });
 
-
-test('request context telemetry arrives before the response and cannot break inference',async t=>{
- let reported=false;let observed:import("../src/context-overview").ContextOverview|undefined;
- const baseUrl=await server(t,async(req,res)=>{for await(const _ of req){}assert.ok(reported);res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({choices:[{message:{content:'ok'},finish_reason:'stop'}]}));});
- const model=new ModelClient(()=>({...cfg,baseUrl}),()=> '');t.after(()=>model.dispose());
- const result=await model.complete([{role:'user',content:'Current request'}],[],new AbortController().signal,undefined,{onContext:overview=>{reported=true;observed=overview;throw Error('UI observer failure');}});
- assert.equal(result.content,'ok');assert.equal(observed?.capacity,32000);assert.ok(observed!.parts.conversation>0);
+test('request context telemetry arrives before the response and cannot break inference', async (t) => {
+  let reported = false;
+  let observed: import('../shared/chat/context-overview').ContextOverview | undefined;
+  const baseUrl = await server(t, async (req, res) => {
+    for await (const _ of req) {
+    }
+    assert.ok(reported);
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] }));
+  });
+  const model = new ModelClient(
+    () => ({ ...cfg, baseUrl }),
+    () => '',
+  );
+  t.after(() => model.dispose());
+  const result = await model.complete(
+    [{ role: 'user', content: 'Current request' }],
+    [],
+    new AbortController().signal,
+    undefined,
+    {
+      onContext: (overview) => {
+        reported = true;
+        observed = overview;
+        throw Error('UI observer failure');
+      },
+    },
+  );
+  assert.equal(result.content, 'ok');
+  assert.equal(observed?.capacity, 32000);
+  assert.ok(observed!.parts.conversation > 0);
 });
 
-
-test('connect timeouts retain a specific public reason and retries remain bounded',async t=>{
- const original=globalThis.fetch;let count=0;const states:ModelRequestStatus[]=[];
- globalThis.fetch=async()=>{count++;throw new TypeError('fetch failed',{cause:Object.assign(new Error('sensitive transport details'),{code:'UND_ERR_CONNECT_TIMEOUT'})});};
- t.after(()=>{globalThis.fetch=original;});
- const model=new ModelClient(()=>cfg,()=> '');t.after(()=>model.dispose());
- await assert.rejects(model.complete([{role:'user',content:'test'}],[],new AbortController().signal,undefined,{retries:2,onStatus:status=>states.push(status)}),/fetch failed/);
- assert.equal(count,3);assert.equal(states.filter(s=>s.phase==='retrying').length,2);
- assert.ok(states.filter(s=>s.phase==='retrying').every(s=>s.reason==='connect_timeout'));
- assert.deepEqual(states.filter(s=>s.phase==='waiting').map(s=>s.attempt),[0,1,2]);
- assert.doesNotMatch(JSON.stringify(states),/sensitive transport details/);
+test('connect timeouts retain a specific public reason and retries remain bounded', async (t) => {
+  const original = globalThis.fetch;
+  let count = 0;
+  const states: ModelRequestStatus[] = [];
+  globalThis.fetch = async () => {
+    count++;
+    throw new TypeError('fetch failed', {
+      cause: Object.assign(new Error('sensitive transport details'), { code: 'UND_ERR_CONNECT_TIMEOUT' }),
+    });
+  };
+  t.after(() => {
+    globalThis.fetch = original;
+  });
+  const model = new ModelClient(
+    () => cfg,
+    () => '',
+  );
+  t.after(() => model.dispose());
+  await assert.rejects(
+    model.complete([{ role: 'user', content: 'test' }], [], new AbortController().signal, undefined, {
+      retries: 2,
+      onStatus: (status) => states.push(status),
+    }),
+    /fetch failed/,
+  );
+  assert.equal(count, 3);
+  assert.equal(states.filter((s) => s.phase === 'retrying').length, 2);
+  assert.ok(states.filter((s) => s.phase === 'retrying').every((s) => s.reason === 'connect_timeout'));
+  assert.deepEqual(
+    states.filter((s) => s.phase === 'waiting').map((s) => s.attempt),
+    [0, 1, 2],
+  );
+  assert.doesNotMatch(JSON.stringify(states), /sensitive transport details/);
 });
 
+for (const protocol of ['chat', 'responses', 'anthropic', 'gemini'] as const)
+  test(`${protocol} updates the same request overview from normalized provider input usage`, async (t) => {
+    const updates: import('../shared/chat/context-overview').ContextOverview[] = [];
+    let requests = 0,
+      observed = false;
+    let observedSource: string | undefined;
+    const baseUrl = await server(t, async (req, res) => {
+      for await (const _ of req) {
+      }
+      requests++;
+      if (protocol === 'chat' || protocol === 'responses') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(
+          JSON.stringify(
+            protocol === 'chat'
+              ? {
+                  choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }],
+                  usage: {
+                    prompt_tokens: 321,
+                    completion_tokens: 7,
+                    total_tokens: 328,
+                    prompt_tokens_details: { cached_tokens: 200 },
+                  },
+                }
+              : {
+                  status: 'completed',
+                  output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'ok' }] }],
+                  usage: {
+                    input_tokens: 321,
+                    output_tokens: 7,
+                    total_tokens: 328,
+                    input_tokens_details: { cached_tokens: 200 },
+                  },
+                },
+          ),
+        );
+      } else {
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        const events =
+          protocol === 'anthropic'
+            ? [
+                {
+                  type: 'message_start',
+                  message: {
+                    usage: { input_tokens: 21, cache_read_input_tokens: 200, cache_creation_input_tokens: 100 },
+                  },
+                },
+                { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+                { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'ok' } },
+                { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 7 } },
+                { type: 'message_stop' },
+              ]
+            : [
+                {
+                  candidates: [{ content: { role: 'model', parts: [{ text: 'ok' }] }, finishReason: 'STOP' }],
+                  usageMetadata: {
+                    promptTokenCount: 321,
+                    candidatesTokenCount: 7,
+                    totalTokenCount: 328,
+                    cachedContentTokenCount: 200,
+                  },
+                },
+              ];
+        res.end(events.map((event) => 'data: ' + JSON.stringify(event) + '\n\n').join(''));
+      }
+    });
+    const model = new ModelClient(
+      () => ({ ...cfg, baseUrl, protocol }),
+      () => '',
+      undefined,
+      () => DEFAULT_RUNTIME,
+      (record) => {
+        if (!record.error) {
+          observed = true;
+          observedSource = updates.at(-1)?.estimateSource;
+        }
+      },
+    );
+    t.after(() => model.dispose());
+    const result = await model.complete(
+      [{ role: 'user', content: 'request' }],
+      [],
+      new AbortController().signal,
+      undefined,
+      {
+        onContext: (value) => updates.push(value),
+        contextStats: {
+          estimatedTokens: 1000,
+          displayTokens: 650,
+          displaySource: 'calibrated',
+          calibration: 1,
+          prunedOutputs: 1,
+          epoch: 0,
+        },
+      },
+    );
+    assert.equal(requests, 1, 'statistics must not make an extra inference or counting request');
+    assert.equal(observed, true);
+    assert.equal(observedSource, 'provider-usage');
+    assert.equal(updates[0].tokens, 650);
+    assert.equal(updates[0].estimateSource, 'calibrated');
+    assert.equal(updates.at(-1)?.tokens, 321);
+    assert.equal(result.usage?.inputTokens, 321);
+    assert.equal(
+      Object.values(updates.at(-1)!.parts).reduce((sum, value) => sum + value, 0),
+      321,
+    );
+    assert.equal(updates[0].tokens, 650, 'the estimated snapshot remains immutable');
+  });
 
-for(const protocol of ['chat','responses','anthropic','gemini'] as const)test(`${protocol} updates the same request overview from normalized provider input usage`,async t=>{
- const updates:import('../src/context-overview').ContextOverview[]=[];let requests=0,observed=false;let observedSource:string|undefined;
- const baseUrl=await server(t,async(req,res)=>{
-  for await(const _ of req){}requests++;
-  if(protocol==='chat'||protocol==='responses'){
-   res.writeHead(200,{'content-type':'application/json'});
-   res.end(JSON.stringify(protocol==='chat'?{choices:[{message:{content:'ok'},finish_reason:'stop'}],usage:{prompt_tokens:321,completion_tokens:7,total_tokens:328,prompt_tokens_details:{cached_tokens:200}}}:{status:'completed',output:[{type:'message',role:'assistant',content:[{type:'output_text',text:'ok'}]}],usage:{input_tokens:321,output_tokens:7,total_tokens:328,input_tokens_details:{cached_tokens:200}}}));
-  }else{
-   res.writeHead(200,{'content-type':'text/event-stream'});
-   const events=protocol==='anthropic'?[
-    {type:'message_start',message:{usage:{input_tokens:21,cache_read_input_tokens:200,cache_creation_input_tokens:100}}},
-    {type:'content_block_start',index:0,content_block:{type:'text',text:''}},
-    {type:'content_block_delta',index:0,delta:{type:'text_delta',text:'ok'}},
-    {type:'message_delta',delta:{stop_reason:'end_turn'},usage:{output_tokens:7}},
-    {type:'message_stop'}
-   ]:[{candidates:[{content:{role:'model',parts:[{text:'ok'}]},finishReason:'STOP'}],usageMetadata:{promptTokenCount:321,candidatesTokenCount:7,totalTokenCount:328,cachedContentTokenCount:200}}];
-   res.end(events.map(event=>'data: '+JSON.stringify(event)+'\n\n').join(''));
-  }
- });
- const model=new ModelClient(()=>({...cfg,baseUrl,protocol}),()=> '',undefined,()=>DEFAULT_RUNTIME,record=>{if(!record.error){observed=true;observedSource=updates.at(-1)?.estimateSource;}});t.after(()=>model.dispose());
- const result=await model.complete([{role:'user',content:'request'}],[],new AbortController().signal,undefined,{onContext:value=>updates.push(value),contextStats:{estimatedTokens:1000,displayTokens:650,displaySource:'calibrated',calibration:1,prunedOutputs:1,epoch:0}});
- assert.equal(requests,1,'statistics must not make an extra inference or counting request');
- assert.equal(observed,true);assert.equal(observedSource,'provider-usage');assert.equal(updates[0].tokens,650);assert.equal(updates[0].estimateSource,'calibrated');
- assert.equal(updates.at(-1)?.tokens,321);assert.equal(result.usage?.inputTokens,321);
- assert.equal(Object.values(updates.at(-1)!.parts).reduce((sum,value)=>sum+value,0),321);
- assert.equal(updates[0].tokens,650,'the estimated snapshot remains immutable');
+test('missing provider input counts preserve the estimate instead of inventing zero', async (t) => {
+  const updates: import('../shared/chat/context-overview').ContextOverview[] = [];
+  const baseUrl = await server(t, async (req, res) => {
+    for await (const _ of req) {
+    }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }],
+        usage: { completion_tokens: 7 },
+      }),
+    );
+  });
+  const model = new ModelClient(
+    () => ({ ...cfg, baseUrl }),
+    () => '',
+  );
+  t.after(() => model.dispose());
+  await model.complete([{ role: 'user', content: 'request' }], [], new AbortController().signal, undefined, {
+    onContext: (value) => updates.push(value),
+  });
+  assert.equal(updates.length, 1);
+  assert.ok(updates[0].tokens > 0);
+  assert.equal(updates[0].estimateSource, 'tokenizer');
 });
 
-test('missing provider input counts preserve the estimate instead of inventing zero',async t=>{
- const updates:import('../src/context-overview').ContextOverview[]=[];
- const baseUrl=await server(t,async(req,res)=>{for await(const _ of req){}res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({choices:[{message:{content:'ok'},finish_reason:'stop'}],usage:{completion_tokens:7}}));});
- const model=new ModelClient(()=>({...cfg,baseUrl}),()=> '');t.after(()=>model.dispose());
- await model.complete([{role:'user',content:'request'}],[],new AbortController().signal,undefined,{onContext:value=>updates.push(value)});
- assert.equal(updates.length,1);assert.ok(updates[0].tokens>0);assert.equal(updates[0].estimateSource,'tokenizer');
+test('fallback usage is identified with the model that actually handled the request', async (t) => {
+  let calls = 0;
+  const updates: import('../shared/chat/context-overview').ContextOverview[] = [];
+  const baseUrl = await server(t, async (req, res) => {
+    for await (const _ of req) {
+    }
+    calls++;
+    if (calls === 1) {
+      res.writeHead(503);
+      res.end('unavailable');
+      return;
+    }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 123, completion_tokens: 2 },
+      }),
+    );
+  });
+  const model = new ModelClient(
+    () => ({ ...cfg, baseUrl, fallbackModel: 'fallback' }),
+    () => '',
+  );
+  t.after(() => model.dispose());
+  const result = await model.complete(
+    [{ role: 'user', content: 'request' }],
+    [],
+    new AbortController().signal,
+    undefined,
+    { retries: 0, onContext: (value) => updates.push(value) },
+  );
+  assert.equal(updates[0].model, 'test');
+  assert.equal(updates.at(-1)?.model, 'fallback');
+  assert.equal(updates.at(-1)?.tokens, 123);
+  assert.notEqual(result.requestModelKey, nativeKey({ ...cfg, baseUrl }));
 });
 
-test('fallback usage is identified with the model that actually handled the request',async t=>{
- let calls=0;const updates:import('../src/context-overview').ContextOverview[]=[];
- const baseUrl=await server(t,async(req,res)=>{for await(const _ of req){}calls++;if(calls===1){res.writeHead(503);res.end('unavailable');return;}res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({choices:[{message:{content:'ok'},finish_reason:'stop'}],usage:{prompt_tokens:123,completion_tokens:2}}));});
- const model=new ModelClient(()=>({...cfg,baseUrl,fallbackModel:'fallback'}),()=> '');t.after(()=>model.dispose());
- const result=await model.complete([{role:'user',content:'request'}],[],new AbortController().signal,undefined,{retries:0,onContext:value=>updates.push(value)});
- assert.equal(updates[0].model,'test');assert.equal(updates.at(-1)?.model,'fallback');assert.equal(updates.at(-1)?.tokens,123);
- assert.notEqual(result.requestModelKey,nativeKey({...cfg,baseUrl}));
-});
-
-test('designer timeout recovery changes a stalled large response into a smaller complete request',async t=>{
- let count=0;const bodies:any[]=[];const baseUrl=await server(t,async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;bodies.push(JSON.parse(body));count++;res.writeHead(200,{'content-type':'text/event-stream'});if(count===1){res.write('data: '+JSON.stringify({choices:[{delta:{tool_calls:[{index:0,id:'partial',type:'function',function:{name:'file_write',arguments:'{"content":"unfinished'}}]}}]})+'\n\n');return;}res.end('data: '+JSON.stringify({choices:[{delta:{content:'Use smaller files'},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n');});
- const client=new ModelClient(()=>({...cfg,baseUrl}),()=> '');t.after(()=>client.dispose());const result=await client.complete([{role:'user',content:'Build the requested page'}],[],new AbortController().signal,()=>{},{timeoutMs:100,retries:1,splitOnTimeout:true});
- assert.equal(count,2);assert.equal(result.content,'Use smaller files');assert.deepEqual(result.calls,[]);assert.match(bodies[1].messages.at(-1).content,/None of its tool calls were executed/);assert.match(bodies[1].messages.at(-1).content,/split large code generation/);assert.equal(bodies[0].messages.length,1);
+test('designer timeout recovery changes a stalled large response into a smaller complete request', async (t) => {
+  let count = 0;
+  const bodies: any[] = [];
+  const baseUrl = await server(t, async (req, res) => {
+    let body = '';
+    for await (const chunk of req) body += chunk;
+    bodies.push(JSON.parse(body));
+    count++;
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    if (count === 1) {
+      res.write(
+        'data: ' +
+          JSON.stringify({
+            choices: [
+              {
+                delta: {
+                  tool_calls: [
+                    {
+                      index: 0,
+                      id: 'partial',
+                      type: 'function',
+                      function: { name: 'file_write', arguments: '{"content":"unfinished' },
+                    },
+                  ],
+                },
+              },
+            ],
+          }) +
+          '\n\n',
+      );
+      return;
+    }
+    res.end(
+      'data: ' +
+        JSON.stringify({ choices: [{ delta: { content: 'Use smaller files' }, finish_reason: 'stop' }] }) +
+        '\n\ndata: [DONE]\n\n',
+    );
+  });
+  const client = new ModelClient(
+    () => ({ ...cfg, baseUrl }),
+    () => '',
+  );
+  t.after(() => client.dispose());
+  const result = await client.complete(
+    [{ role: 'user', content: 'Build the requested page' }],
+    [],
+    new AbortController().signal,
+    () => {},
+    { timeoutMs: 100, retries: 1, splitOnTimeout: true },
+  );
+  assert.equal(count, 2);
+  assert.equal(result.content, 'Use smaller files');
+  assert.deepEqual(result.calls, []);
+  assert.match(bodies[1].messages.at(-1).content, /None of its tool calls were executed/);
+  assert.match(bodies[1].messages.at(-1).content, /split large code generation/);
+  assert.equal(bodies[0].messages.length, 1);
 });

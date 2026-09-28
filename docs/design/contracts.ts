@@ -11,11 +11,11 @@ export type Digest = string; // sha256:...
 
 /** 首版安装级策略；由应用内核执行，不能只靠 UI 隐藏创建入口。 */
 export interface LocalV1ProvisioningPolicy {
-  hostSlot: "host-computer";
-  managedVmSlot: "managed-work-computer";
+  hostSlot: 'host-computer';
+  managedVmSlot: 'managed-work-computer';
   maxActiveManagedVms: 1;
   maxRegisteredManagedComputers: 1;
-  provisioningOwner: "application";
+  provisioningOwner: 'application';
   userCanCreateComputer: false;
   botCanCreateComputer: false;
   customImageImport: false;
@@ -26,12 +26,19 @@ export interface LocalV1ProvisioningPolicy {
 }
 
 export type Capability =
-  | "files.read" | "files.write" | "process.exec"
-  | "browser.observe" | "browser.act"
-  | "desktop.observe" | "desktop.input"
-  | "clipboard.read" | "clipboard.write"
-  | "office.read" | "office.write"
-  | "network.fetch" | "connector.invoke";
+  | 'files.read'
+  | 'files.write'
+  | 'process.exec'
+  | 'browser.observe'
+  | 'browser.act'
+  | 'desktop.observe'
+  | 'desktop.input'
+  | 'clipboard.read'
+  | 'clipboard.write'
+  | 'office.read'
+  | 'office.write'
+  | 'network.fetch'
+  | 'connector.invoke';
 
 export interface Bot {
   id: Id;
@@ -48,28 +55,28 @@ export interface Bot {
 export type Computer = {
   id: Id;
   name: string;
-  os: "windows" | "linux" | "macos";
-  architecture: "x64" | "arm64";
-  state: "stopped" | "starting" | "ready" | "asleep" | "unavailable";
+  os: 'windows' | 'linux' | 'macos';
+  architecture: 'x64' | 'arm64';
+  state: 'stopped' | 'starting' | 'ready' | 'asleep' | 'unavailable';
   bootEpoch: Epoch;
   availableCapabilities: Capability[];
   enforcement: {
-    filesystem: "os-enforced" | "gateway-only" | "unrestricted";
-    network: "os-enforced" | "gateway-only" | "unrestricted";
-    credentials: "outside-guest" | "same-user-trust";
+    filesystem: 'os-enforced' | 'gateway-only' | 'unrestricted';
+    network: 'os-enforced' | 'gateway-only' | 'unrestricted';
+    credentials: 'outside-guest' | 'same-user-trust';
   };
 } & (
   | {
-      kind: "host";
-      slot: "host-computer";
-      provider: "windows-host" | "macos-host" | "linux-host";
+      kind: 'host';
+      slot: 'host-computer';
+      provider: 'windows-host' | 'macos-host' | 'linux-host';
     }
   | {
-      kind: "managed-vm";
-      slot: "managed-work-computer";
-      managedBy: "application";
+      kind: 'managed-vm';
+      slot: 'managed-work-computer';
+      managedBy: 'application';
       imageProfileId: Id;
-      provider: "qemu-whpx" | "hyper-v" | "apple-vz" | "qemu-kvm";
+      provider: 'qemu-whpx' | 'hyper-v' | 'apple-vz' | 'qemu-kvm';
       imageDigest: Digest;
       resourceLimit: { vcpus: number; memoryMiB: number; diskMiB: number }; // 内部策略，不是用户配置项
     }
@@ -80,7 +87,7 @@ export interface BotComputerBinding {
   botId: Id;
   computerId: Id;
   revision: Revision;
-  status: "active" | "revoked";
+  status: 'active' | 'revoked';
   userGrantIds: Id[];
   capabilities: Capability[];
   workspaceIds: Id[];
@@ -102,18 +109,18 @@ export interface Workspace {
 export interface ComputerSession {
   id: Id;
   computerId: Id;
-  kind: "desktop" | "browser" | "terminal" | "office";
+  kind: 'desktop' | 'browser' | 'terminal' | 'office';
   parentSessionId?: Id; // browser 需要系统交互时追溯到 desktop
   controlEpoch: Epoch;
-  controller: { kind: "user" } | { kind: "run"; runId: Id } | null;
+  controller: { kind: 'user' } | { kind: 'run'; runId: Id } | null;
   credentialBindingIds: Id[];
 }
 
 export interface ResourceLease {
   id: Id;
   resourceKey: string;
-  mode: "shared-read" | "exclusive-write";
-  owner: { kind: "run"; runId: Id } | { kind: "user"; userId: Id };
+  mode: 'shared-read' | 'exclusive-write';
+  owner: { kind: 'run'; runId: Id } | { kind: 'user'; userId: Id };
   fencingToken: Epoch;
   computerBootEpoch: Epoch;
   expiresAt: Timestamp;
@@ -157,10 +164,19 @@ export interface Run {
   ownerEpoch: Epoch;
   lastCommittedSeq: Epoch;
   state:
-    | "queued" | "running" | "verifying" | "succeeded"
-    | "waiting-input" | "waiting-approval" | "waiting-resource"
-    | "paused" | "budget-exhausted" | "recovering"
-    | "needs-reconciliation" | "failed" | "cancelled";
+    | 'queued'
+    | 'running'
+    | 'verifying'
+    | 'succeeded'
+    | 'waiting-input'
+    | 'waiting-approval'
+    | 'waiting-resource'
+    | 'paused'
+    | 'budget-exhausted'
+    | 'recovering'
+    | 'needs-reconciliation'
+    | 'failed'
+    | 'cancelled';
   // Run 不固定 computerId；每条工具意图声明具体目标。
 }
 
@@ -201,7 +217,7 @@ export interface ToolIntent {
 
 export interface ToolReceipt {
   invocationId: Id;
-  state: "succeeded" | "failed" | "cancelled" | "unknown";
+  state: 'succeeded' | 'failed' | 'cancelled' | 'unknown';
   startedAt: Timestamp;
   finishedAt?: Timestamp;
   externalOperationId?: string;
@@ -214,9 +230,9 @@ export interface ToolReceipt {
 export interface BotMessage {
   id: Id;
   channelId: Id;
-  from: { kind: "user"; userId: Id } | { kind: "bot"; botId: Id };
+  from: { kind: 'user'; userId: Id } | { kind: 'bot'; botId: Id };
   toBotIds: Id[];
-  kind: "information" | "request" | "reply" | "task-result";
+  kind: 'information' | 'request' | 'reply' | 'task-result';
   correlationId: Id;
   causationId?: Id;
   taskId?: Id;

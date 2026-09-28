@@ -1,9 +1,77 @@
-import type {SiteLanguage} from './site-i18n';
-import {capabilityCopy} from './capability-content';
-import {productScenes,sceneCopy} from './product-scenes';
+import type { SiteLanguage } from './site-i18n';
+import { capabilityCopy } from './capability-content';
+import { productScenes, sceneCopy } from './product-scenes';
 import './capabilities.css';
-export function CapabilitySections({language,part='core',onOpen}:{language:SiteLanguage;part?:'core'|'design';onOpen:(index:number)=>void}){
- const copy=capabilityCopy[language],images=productScenes(language),scenes=sceneCopy[language];
- const features=part==='core'?[{id:'group-chat',copy:copy.group,image:1},{id:'vm',copy:copy.vm,image:4}]:[{id:'design-systems',copy:copy.design,image:7}];
- return <div className="capabilities">{part==='core'&&<nav className="capability-jump section-shell" aria-label={language==='en'?'Capabilities':'功能介绍'}>{copy.nav.map((label,index)=><a key={label} href={'#'+['group-chat','vm','design-systems'][index]}>{label}<span aria-hidden="true">↗</span></a>)}</nav>}{features.map(feature=><section className="capability-section section-shell capability-with-screenshot" id={feature.id} key={feature.id} aria-labelledby={feature.id+'-title'}><div className="capability-copy"><p className="section-kicker">{feature.copy.kicker}</p><h2 id={feature.id+'-title'}>{feature.copy.title}</h2><p className="capability-description">{feature.copy.description}</p><ul>{feature.copy.points.map(point=><li key={point}>{point}</li>)}</ul><p className="capability-note">{feature.copy.note}</p></div><figure className="capability-visual"><button className="capability-real-shot" onClick={()=>onOpen(feature.image)} aria-label={(language==='en'?'Enlarge screenshot: ':'放大截图：')+feature.copy.title}><img src={images[feature.image]} alt={scenes.alt[feature.image]} width="1400" height="900" loading="lazy"/><span className="studio-expand" aria-hidden="true">↗</span></button><figcaption>{scenes.caption}</figcaption></figure></section>)}</div>;
+export function CapabilitySections({
+  language,
+  part = 'core',
+  onOpen,
+}: {
+  language: SiteLanguage;
+  part?: 'core' | 'design';
+  onOpen: (index: number) => void;
+}) {
+  const copy = capabilityCopy[language],
+    images = productScenes(language),
+    scenes = sceneCopy[language];
+  const features =
+    part === 'core'
+      ? [
+          { id: 'group-chat', copy: copy.group, image: 1 },
+          { id: 'vm', copy: copy.vm, image: 4 },
+        ]
+      : [{ id: 'design-systems', copy: copy.design, image: 7 }];
+  return (
+    <div className="capabilities">
+      {part === 'core' && (
+        <nav className="capability-jump section-shell" aria-label={language === 'en' ? 'Capabilities' : '功能介绍'}>
+          {copy.nav.map((label, index) => (
+            <a key={label} href={'#' + ['group-chat', 'vm', 'design-systems'][index]}>
+              {label}
+              <span aria-hidden="true">↗</span>
+            </a>
+          ))}
+        </nav>
+      )}
+      {features.map((feature) => (
+        <section
+          className="capability-section section-shell capability-with-screenshot"
+          id={feature.id}
+          key={feature.id}
+          aria-labelledby={feature.id + '-title'}
+        >
+          <div className="capability-copy">
+            <p className="section-kicker">{feature.copy.kicker}</p>
+            <h2 id={feature.id + '-title'}>{feature.copy.title}</h2>
+            <p className="capability-description">{feature.copy.description}</p>
+            <ul>
+              {feature.copy.points.map((point) => (
+                <li key={point}>{point}</li>
+              ))}
+            </ul>
+            <p className="capability-note">{feature.copy.note}</p>
+          </div>
+          <figure className="capability-visual">
+            <button
+              className="capability-real-shot"
+              onClick={() => onOpen(feature.image)}
+              aria-label={(language === 'en' ? 'Enlarge screenshot: ' : '放大截图：') + feature.copy.title}
+            >
+              <img
+                src={images[feature.image]}
+                alt={scenes.alt[feature.image]}
+                width="1400"
+                height="900"
+                loading="lazy"
+              />
+              <span className="studio-expand" aria-hidden="true">
+                ↗
+              </span>
+            </button>
+            <figcaption>{scenes.caption}</figcaption>
+          </figure>
+        </section>
+      ))}
+    </div>
+  );
 }

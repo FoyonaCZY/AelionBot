@@ -1,0 +1,21 @@
+# Generated, vendored and local-only output
+node_modules/
+dist/
+dist-electron/
+release/
+runtime/
+output/
+build/
+.local/
+.playwright-cli/
+website/dist/
+pnpm-lock.yaml
+
+# Bundled content shipped to the VM or model as-is
+assets/
+
+# Prose and config kept in their authored layout
+*.md
+*.yml
+*.yaml
+*.html

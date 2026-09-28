@@ -1,15 +1,36 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {spawnSync} from 'node:child_process';
-import {PACKAGE_INSTALLER} from '../electron/core/package-installer';
-import {installationProgress,workstationProgress,workstationFailure} from '../electron/core/workstation-progress';
+import { spawnSync } from 'node:child_process';
+import { PACKAGE_INSTALLER } from '../electron/core/host/package-installer';
+import {
+  installationProgress,
+  workstationProgress,
+  workstationFailure,
+} from '../electron/core/vm/workstation-progress';
 
-const python=process.env.AELION_TEST_PYTHON||(process.platform==='win32'?'python':'python3');
-const probe=spawnSync(python,['--version'],{windowsHide:true,timeout:10000});
-if(process.env.AELION_TEST_PYTHON)assert.equal(probe.status,0,'Configured test Python must be available');
-function run(code:string){const result=spawnSync(python,['-c',`import json,sys\np=json.load(sys.stdin)\nns={'__name__':'fixture'}\nexec(p['source'],ns)\n${code}`],{input:JSON.stringify({source:PACKAGE_INSTALLER}),encoding:'utf8',windowsHide:true,timeout:25000,env:{...process.env,PYTHONIOENCODING:'utf-8'}});assert.equal(result.status,0,result.stderr||String(result.error));}
+const python = process.env.AELION_TEST_PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
+const probe = spawnSync(python, ['--version'], { windowsHide: true, timeout: 10000 });
+if (process.env.AELION_TEST_PYTHON) assert.equal(probe.status, 0, 'Configured test Python must be available');
+function run(code: string) {
+  const result = spawnSync(
+    python,
+    ['-c', `import json,sys\np=json.load(sys.stdin)\nns={'__name__':'fixture'}\nexec(p['source'],ns)\n${code}`],
+    {
+      input: JSON.stringify({ source: PACKAGE_INSTALLER }),
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 25000,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+    },
+  );
+  assert.equal(result.status, 0, result.stderr || String(result.error));
+}
 
-test('package retries preserve existing sources/proxy and separate downloads from configuration',{skip:probe.status!==0},()=>run(String.raw`
+test(
+  'package retries preserve existing sources/proxy and separate downloads from configuration',
+  { skip: probe.status !== 0 },
+  () =>
+    run(String.raw`
 import tempfile,pathlib,os
 with tempfile.TemporaryDirectory() as root:
  state=pathlib.Path(root)/'state';cache=pathlib.Path(root)/'cache';cache.mkdir();(cache/'kept.deb').write_bytes(b'cached')
@@ -29,9 +50,14 @@ with tempfile.TemporaryDirectory() as root:
  assert (cache/'kept.deb').read_bytes()==b'cached'
  assert json.loads((state/'desktop-progress.json').read_text())['phase']=='complete'
  calls.clear();installer.install('browser',['chromium']);assert [(s,p) for s,p,a in calls]==[('tuna','downloading'),('tuna','installing'),('tuna','cleaning')]
-`));
+`),
+);
 
-test('source exhaustion is bounded and configuration failures do not blindly rotate mirrors',{skip:probe.status!==0},()=>run(String.raw`
+test(
+  'source exhaustion is bounded and configuration failures do not blindly rotate mirrors',
+  { skip: probe.status !== 0 },
+  () =>
+    run(String.raw`
 import tempfile,pathlib
 with tempfile.TemporaryDirectory() as root:
  class Offline(ns['Installer']):
@@ -47,18 +73,22 @@ with tempfile.TemporaryDirectory() as root:
  except RuntimeError: pass
  else: raise AssertionError('Broken configuration succeeded')
  assert json.loads((pathlib.Path(root)/'desktop-progress.json').read_text())['error']=='package-configure'
-`));
+`),
+);
 
-test('package configuration continues while active and stops when output stalls',{skip:probe.status!==0},()=>run(String.raw`
+test('package configuration continues while active and stops when output stalls', { skip: probe.status !== 0 }, () =>
+  run(String.raw`
 import tempfile,pathlib
 with tempfile.TemporaryDirectory() as root:
  installer=ns['Installer'](root,root,codename='bookworm')
  assert installer.run([sys.executable,'-u','-c','import os,stat; assert stat.S_ISREG(os.fstat(1).st_mode); print("regular stdout"); print("error stream",file=__import__("sys").stderr)'],'installing',0,2)==0
  assert installer.run([sys.executable,'-u','-c','import time\nfor i in range(8):\n print("Configuring package", i, flush=True); time.sleep(.2)'],'installing',0,1)==0
  assert installer.run([sys.executable,'-u','-c','import time; print("Configuration started", flush=True); time.sleep(10)'],'installing',0,.5)==124
-`));
+`),
+);
 
-test('real subprocess progress is captured and stalled downloads are terminated',{skip:probe.status!==0},()=>run(String.raw`
+test('real subprocess progress is captured and stalled downloads are terminated', { skip: probe.status !== 0 }, () =>
+  run(String.raw`
 import tempfile,pathlib,time
 with tempfile.TemporaryDirectory() as root:
  installer=ns['Installer'](root,root,codename='bookworm')
@@ -70,12 +100,20 @@ with tempfile.TemporaryDirectory() as root:
  begin=time.monotonic();assert installer.run([sys.executable,'-c','import time; time.sleep(15)'],'downloading',10,.25)==124
  assert time.monotonic()-begin<8
  assert json.loads((pathlib.Path(root)/'desktop-progress.json').read_text())['phase']=='retrying'
-`));
+`),
+);
 
-test('installation progress is scoped to the current stage and rejects unsafe fields',()=>{
-  const output='READY\nSTAGE:office\nINSTALL_PROGRESS:'+JSON.stringify({stage:'office',phase:'downloading',percent:42.5,source:'tuna',updatedAt:1})+'\n';
-  assert.equal(installationProgress(output)?.percent,42.5);assert.match(workstationProgress(output),/正在下载办公软件 · 42%/);
-  assert.equal(installationProgress(output.replace('STAGE:office','STAGE:finishing')),undefined);
-  assert.equal(installationProgress(output.replace('42.5','140'))?.percent,undefined);
-  const failed=output.replace('"downloading"','"failed"').replace('"updatedAt":1','"updatedAt":1,"error":"sources-unavailable"');assert.match(workstationFailure(failed),/已下载的软件包保留/);
+test('installation progress is scoped to the current stage and rejects unsafe fields', () => {
+  const output =
+    'READY\nSTAGE:office\nINSTALL_PROGRESS:' +
+    JSON.stringify({ stage: 'office', phase: 'downloading', percent: 42.5, source: 'tuna', updatedAt: 1 }) +
+    '\n';
+  assert.equal(installationProgress(output)?.percent, 42.5);
+  assert.match(workstationProgress(output), /正在下载办公软件 · 42%/);
+  assert.equal(installationProgress(output.replace('STAGE:office', 'STAGE:finishing')), undefined);
+  assert.equal(installationProgress(output.replace('42.5', '140'))?.percent, undefined);
+  const failed = output
+    .replace('"downloading"', '"failed"')
+    .replace('"updatedAt":1', '"updatedAt":1,"error":"sources-unavailable"');
+  assert.match(workstationFailure(failed), /已下载的软件包保留/);
 });

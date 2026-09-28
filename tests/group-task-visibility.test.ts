@@ -1,70 +1,203 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,rmSync,existsSync,readFileSync} from 'node:fs';
-import {tmpdir} from 'node:os';
-import {join,dirname,resolve} from 'node:path';
-import {randomUUID} from 'node:crypto';
-import {Store} from '../electron/core/store';
-import {CognitiveStore} from '../electron/core/cognitive-store';
-import type {RunRecord} from '../src/shared';
-import {isGroupWorkTool} from '../src/group-types';
+import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, dirname, resolve } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { Store } from '../electron/core/storage/store';
+import { CognitiveStore } from '../electron/core/memory/cognitive-store';
+import type { RunRecord } from '../shared/types/core';
+import { isGroupWorkTool } from '../shared/types/group-types';
 
-function fixture(t:test.TestContext){
-  const dir=mkdtempSync(join(tmpdir(),'aelion-group-visibility-')),store=new Store(dir),bot=store.data.bots[0],groupId=randomUUID(),rootId=randomUUID(),time=new Date().toISOString();
-  store.data.groups.push({id:groupId,name:'大家庭',members:[{id:bot.id,name:bot.name,color:bot.color,joinedAt:time}],createdBy:{kind:'user',id:'user',name:'你'},createdAt:time,updatedAt:time,messages:[{id:randomUUID(),seq:1,groupId,sender:{kind:'user',id:'user',name:'你'},kind:'message',content:'这是什么',time,rootId}],lastReadSeq:0});
-  store.data.groupRounds.push({id:rootId,groupId,request:'这是什么',status:'stopped',createdAt:time,botMessages:0,botCounts:{},decisions:0,createdGroups:0});
-  function legacyMainMessage(...args:Parameters<Store['message']>){const message=store.message(...args);store.data.groupRunMessages=store.data.groupRunMessages.filter(item=>item.id!==message.id);store.data.messages.push(message);return message;}
-  function add(tool?:string,updated=false,root=rootId){
-    const run:RunRecord={id:randomUUID(),botId:bot.id,groupOrigin:{groupId,rootId:root,deliveryId:randomUUID()},groupTask:true,groupUpdated:updated||undefined,status:updated?'cancelled':'completed',startedAt:time,endedAt:time,toolCalls:tool?1:0,modelCalls:1};store.data.runs.push(run);
-    legacyMainMessage(bot.id,'event','这是什么',{runId:run.id,groupTaskSource:{groupId,name:'大家庭',continuation:store.data.runs.length>1}});
-    if(tool)legacyMainMessage(bot.id,'tool','必须完整保留的原始工具输出',{runId:run.id,tool,status:'done'});
-    legacyMainMessage(bot.id,'assistant',updated?'':'原始回答',{runId:run.id,status:updated?'cancelled':'done',presentation:updated?'progress':'answer'});return run;
+function fixture(t: test.TestContext) {
+  const dir = mkdtempSync(join(tmpdir(), 'aelion-group-visibility-')),
+    store = new Store(dir),
+    bot = store.data.bots[0],
+    groupId = randomUUID(),
+    rootId = randomUUID(),
+    time = new Date().toISOString();
+  store.data.groups.push({
+    id: groupId,
+    name: '大家庭',
+    members: [{ id: bot.id, name: bot.name, color: bot.color, joinedAt: time }],
+    createdBy: { kind: 'user', id: 'user', name: '你' },
+    createdAt: time,
+    updatedAt: time,
+    messages: [
+      {
+        id: randomUUID(),
+        seq: 1,
+        groupId,
+        sender: { kind: 'user', id: 'user', name: '你' },
+        kind: 'message',
+        content: '这是什么',
+        time,
+        rootId,
+      },
+    ],
+    lastReadSeq: 0,
+  });
+  store.data.groupRounds.push({
+    id: rootId,
+    groupId,
+    request: '这是什么',
+    status: 'stopped',
+    createdAt: time,
+    botMessages: 0,
+    botCounts: {},
+    decisions: 0,
+    createdGroups: 0,
+  });
+  function legacyMainMessage(...args: Parameters<Store['message']>) {
+    const message = store.message(...args);
+    store.data.groupRunMessages = store.data.groupRunMessages.filter((item) => item.id !== message.id);
+    store.data.messages.push(message);
+    return message;
   }
-  t.after(()=>{assert.equal(dirname(resolve(dir)),resolve(tmpdir()));rmSync(dir,{recursive:true,force:true});});return {dir,store,bot,groupId,rootId,add};
+  function add(tool?: string, updated = false, root = rootId) {
+    const run: RunRecord = {
+      id: randomUUID(),
+      botId: bot.id,
+      groupOrigin: { groupId, rootId: root, deliveryId: randomUUID() },
+      groupTask: true,
+      groupUpdated: updated || undefined,
+      status: updated ? 'cancelled' : 'completed',
+      startedAt: time,
+      endedAt: time,
+      toolCalls: tool ? 1 : 0,
+      modelCalls: 1,
+    };
+    store.data.runs.push(run);
+    legacyMainMessage(bot.id, 'event', '这是什么', {
+      runId: run.id,
+      groupTaskSource: { groupId, name: '大家庭', continuation: store.data.runs.length > 1 },
+    });
+    if (tool) legacyMainMessage(bot.id, 'tool', '必须完整保留的原始工具输出', { runId: run.id, tool, status: 'done' });
+    legacyMainMessage(bot.id, 'assistant', updated ? '' : '原始回答', {
+      runId: run.id,
+      status: updated ? 'cancelled' : 'done',
+      presentation: updated ? 'progress' : 'answer',
+    });
+    return run;
+  }
+  t.after(() => {
+    assert.equal(dirname(resolve(dir)), resolve(tmpdir()));
+    rmSync(dir, { recursive: true, force: true });
+  });
+  return { dir, store, bot, groupId, rootId, add };
 }
-const records=(store:Store)=>[...store.data.messages,...store.data.groupRunMessages].map(({id,content,role,tool,status})=>({id,content,role,tool,status})).sort((a,b)=>a.id.localeCompare(b.id));
+const records = (store: Store) =>
+  [...store.data.messages, ...store.data.groupRunMessages]
+    .map(({ id, content, role, tool, status }) => ({ id, content, role, tool, status }))
+    .sort((a, b) => a.id.localeCompare(b.id));
 
-test('reading an attachment or expanding its result is conversational; saving or producing work still promotes a task',()=>{
-  assert.equal(isGroupWorkTool('attachment_read'),false);assert.equal(isGroupWorkTool('read_result'),false);
-  for(const name of ['attachment_save','message_attach','computer_execute','python_execute','host_execute','file_write'])assert.equal(isGroupWorkTool(name),true);
+test('reading an attachment or expanding its result is conversational; saving or producing work still promotes a task', () => {
+  assert.equal(isGroupWorkTool('attachment_read'), false);
+  assert.equal(isGroupWorkTool('read_result'), false);
+  for (const name of [
+    'attachment_save',
+    'message_attach',
+    'computer_execute',
+    'python_execute',
+    'host_execute',
+    'file_write',
+  ])
+    assert.equal(isGroupWorkTool(name), true);
 });
 
-test('legacy group records leave the private chat without losing any execution records',t=>{
-  const f=fixture(t),first=f.add('attachment_read',true),second=f.add('read_result',true),third=f.add(undefined,true),fourth=f.add();
-  const legitimate=f.add('computer_execute',false,randomUUID());f.store.message(f.bot.id,'user','保留我的单聊消息');f.store.save();const before=records(f.store),group=JSON.stringify(f.store.data.groups);
-  const restored=new Store(f.dir),hidden=new Set([first.id,second.id,third.id,fourth.id,legitimate.id]);
-  assert.ok(!restored.data.messages.some(message=>message.runId&&hidden.has(message.runId)));assert.ok(restored.data.runs.filter(run=>hidden.has(run.id)).every(run=>!run.groupTask));
-  assert.equal(restored.data.messages.filter(message=>message.groupTaskSource).length,0);assert.ok(restored.data.groupRunMessages.some(message=>message.runId===legitimate.id&&message.tool==='computer_execute'));assert.ok(restored.data.messages.some(message=>message.content==='保留我的单聊消息'));
-  assert.deepEqual(records(restored),before);assert.equal(JSON.stringify(restored.data.groups),group);const backup=join(f.dir,'group-task-visibility-backup.json');assert.ok(existsSync(backup));const backupText=readFileSync(backup,'utf8');
-  const once=JSON.stringify(restored.data),again=new Store(f.dir);assert.equal(JSON.stringify(again.data),once);assert.equal(readFileSync(backup,'utf8'),backupText);
-});
-
-test('migrating group records removes them from private history search and reading',t=>{
-  const f=fixture(t),groupRun=f.add('computer_execute'),privateMessage=f.store.message(f.bot.id,'user','保留这条私聊历史');
+test('legacy group records leave the private chat without losing any execution records', (t) => {
+  const f = fixture(t),
+    first = f.add('attachment_read', true),
+    second = f.add('read_result', true),
+    third = f.add(undefined, true),
+    fourth = f.add();
+  const legitimate = f.add('computer_execute', false, randomUUID());
+  f.store.message(f.bot.id, 'user', '保留我的单聊消息');
   f.store.save();
-  const before=new CognitiveStore(f.store),groupMessage=f.store.data.messages.find(message=>message.runId===groupRun.id&&message.role==='tool')!;
-  assert.equal(before.search(f.bot.id,'必须完整保留的原始工具输出')[0]?.messageId,groupMessage.id);
-  before.close();f.store.close();
-
-  const restored=new Store(f.dir),after=new CognitiveStore(restored);
-  try{
-    assert.ok(!restored.data.messages.some(message=>message.id===groupMessage.id));
-    assert.ok(restored.data.groupRunMessages.some(message=>message.id===groupMessage.id));
-    assert.deepEqual(after.search(f.bot.id,'必须完整保留的原始工具输出'),[]);
-    assert.throws(()=>after.readHistory(f.bot.id,groupMessage.id,0,0),/不存在或无权访问/);
-    assert.equal(after.search(f.bot.id,'保留这条私聊历史')[0]?.messageId,privateMessage.id);
-  }finally{after.close();restored.close();}
+  const before = records(f.store),
+    group = JSON.stringify(f.store.data.groups);
+  const restored = new Store(f.dir),
+    hidden = new Set([first.id, second.id, third.id, fourth.id, legitimate.id]);
+  assert.ok(!restored.data.messages.some((message) => message.runId && hidden.has(message.runId)));
+  assert.ok(restored.data.runs.filter((run) => hidden.has(run.id)).every((run) => !run.groupTask));
+  assert.equal(restored.data.messages.filter((message) => message.groupTaskSource).length, 0);
+  assert.ok(
+    restored.data.groupRunMessages.some(
+      (message) => message.runId === legitimate.id && message.tool === 'computer_execute',
+    ),
+  );
+  assert.ok(restored.data.messages.some((message) => message.content === '保留我的单聊消息'));
+  assert.deepEqual(records(restored), before);
+  assert.equal(JSON.stringify(restored.data.groups), group);
+  const backup = join(f.dir, 'group-task-visibility-backup.json');
+  assert.ok(existsSync(backup));
+  const backupText = readFileSync(backup, 'utf8');
+  const once = JSON.stringify(restored.data),
+    again = new Store(f.dir);
+  assert.equal(JSON.stringify(again.data), once);
+  assert.equal(readFileSync(backup, 'utf8'), backupText);
 });
 
-test('all old group continuations migrate to the isolated group execution log',t=>{
-  const f=fixture(t),reader=f.add('attachment_read',true),writer=f.add('file_write',true),follow=f.add();f.store.save();
-  const restored=new Store(f.dir);assert.ok(!restored.data.messages.some(message=>message.runId===reader.id));
-  const sources=restored.data.groupRunMessages.filter(message=>message.groupTaskSource);assert.equal(sources.length,3);assert.equal(sources.find(message=>message.runId===reader.id)?.groupTaskSource?.continuation,false);assert.equal(sources.find(message=>message.runId===writer.id)?.groupTaskSource?.continuation,true);assert.equal(sources.find(message=>message.runId===follow.id)?.groupTaskSource?.continuation,true);
-  assert.equal(restored.data.runs.find(run=>run.id===writer.id)?.groupTask,undefined);assert.equal(restored.data.runs.find(run=>run.id===follow.id)?.groupTask,undefined);
+test('migrating group records removes them from private history search and reading', (t) => {
+  const f = fixture(t),
+    groupRun = f.add('computer_execute'),
+    privateMessage = f.store.message(f.bot.id, 'user', '保留这条私聊历史');
+  f.store.save();
+  const before = new CognitiveStore(f.store),
+    groupMessage = f.store.data.messages.find((message) => message.runId === groupRun.id && message.role === 'tool')!;
+  assert.equal(before.search(f.bot.id, '必须完整保留的原始工具输出')[0]?.messageId, groupMessage.id);
+  before.close();
+  f.store.close();
+
+  const restored = new Store(f.dir),
+    after = new CognitiveStore(restored);
+  try {
+    assert.ok(!restored.data.messages.some((message) => message.id === groupMessage.id));
+    assert.ok(restored.data.groupRunMessages.some((message) => message.id === groupMessage.id));
+    assert.deepEqual(after.search(f.bot.id, '必须完整保留的原始工具输出'), []);
+    assert.throws(() => after.readHistory(f.bot.id, groupMessage.id, 0, 0), { code: 'memory.history_not_found' });
+    assert.equal(after.search(f.bot.id, '保留这条私聊历史')[0]?.messageId, privateMessage.id);
+  } finally {
+    after.close();
+    restored.close();
+  }
 });
 
-test('a group-only source marker stays in the isolated log when work is appended later',t=>{
-  const f=fixture(t),reader=f.add('attachment_read');f.store.save();const marker=f.store.data.messages.find(message=>message.groupTaskSource)!.id;
-  const restored=new Store(f.dir);restored.message(f.bot.id,'tool','实际写入记录',{runId:reader.id,tool:'file_write',status:'done'});
-  const repaired=new Store(f.dir);assert.equal(repaired.data.messages.filter(message=>message.runId===reader.id&&message.groupTaskSource).length,0);assert.equal(repaired.data.groupRunMessages.filter(message=>message.runId===reader.id&&message.groupTaskSource).length,1);assert.equal(repaired.data.groupRunMessages.find(message=>message.runId===reader.id&&message.groupTaskSource)!.id,marker);
+test('all old group continuations migrate to the isolated group execution log', (t) => {
+  const f = fixture(t),
+    reader = f.add('attachment_read', true),
+    writer = f.add('file_write', true),
+    follow = f.add();
+  f.store.save();
+  const restored = new Store(f.dir);
+  assert.ok(!restored.data.messages.some((message) => message.runId === reader.id));
+  const sources = restored.data.groupRunMessages.filter((message) => message.groupTaskSource);
+  assert.equal(sources.length, 3);
+  assert.equal(sources.find((message) => message.runId === reader.id)?.groupTaskSource?.continuation, false);
+  assert.equal(sources.find((message) => message.runId === writer.id)?.groupTaskSource?.continuation, true);
+  assert.equal(sources.find((message) => message.runId === follow.id)?.groupTaskSource?.continuation, true);
+  assert.equal(restored.data.runs.find((run) => run.id === writer.id)?.groupTask, undefined);
+  assert.equal(restored.data.runs.find((run) => run.id === follow.id)?.groupTask, undefined);
+});
+
+test('a group-only source marker stays in the isolated log when work is appended later', (t) => {
+  const f = fixture(t),
+    reader = f.add('attachment_read');
+  f.store.save();
+  const marker = f.store.data.messages.find((message) => message.groupTaskSource)!.id;
+  const restored = new Store(f.dir);
+  restored.message(f.bot.id, 'tool', '实际写入记录', { runId: reader.id, tool: 'file_write', status: 'done' });
+  const repaired = new Store(f.dir);
+  assert.equal(
+    repaired.data.messages.filter((message) => message.runId === reader.id && message.groupTaskSource).length,
+    0,
+  );
+  assert.equal(
+    repaired.data.groupRunMessages.filter((message) => message.runId === reader.id && message.groupTaskSource).length,
+    1,
+  );
+  assert.equal(
+    repaired.data.groupRunMessages.find((message) => message.runId === reader.id && message.groupTaskSource)!.id,
+    marker,
+  );
 });

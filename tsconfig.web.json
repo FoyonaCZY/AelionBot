@@ -1,0 +1,6 @@
+{
+  // Renderer: browser APIs only. Node built-ins are unavailable in the sandboxed renderer.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": { "types": [] },
+  "include": ["src", "shared", "types"]
+}
