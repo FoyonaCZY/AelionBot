@@ -3,6 +3,7 @@ import type { DesignComment, DesignFinding, DesignSession } from '../../shared/t
 import { primaryDesignArtifact as primaryArtifact } from '../../shared/preview/designer-canvas';
 import { Icon } from '../ui/Icon';
 import { PreviewIcon } from '../preview/PreviewIcon';
+import { useI18n } from '../i18n';
 
 /**
  * Deliverables, checks and the accept action, kept out of the conversation scroll so they stay
@@ -10,7 +11,6 @@ import { PreviewIcon } from '../preview/PreviewIcon';
  */
 export function DesignerDelivery({
   task,
-  en,
   findings,
   blocking,
   comments,
@@ -19,7 +19,6 @@ export function DesignerDelivery({
   onAccept,
 }: {
   task: DesignSession;
-  en: boolean;
   findings: Array<DesignFinding & { path: string }>;
   blocking: number;
   comments: DesignComment[];
@@ -28,6 +27,7 @@ export function DesignerDelivery({
   onAccept: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const { t } = useI18n();
   const primary = task.artifacts.find((artifact) => primaryArtifact(task.kind, artifact.path)) || task.artifacts[0];
   const details = task.artifacts.length + comments.length + findings.length + task.checks.length;
   const accepted = task.status === 'completed';
@@ -35,21 +35,15 @@ export function DesignerDelivery({
   const canAccept = Boolean(primary && formatCheck?.status === 'passed');
   const issues = blocking + findings.filter((f) => f.level === 'P1').length;
   const checkLabel = issues
-    ? en
-      ? `${issues} issues`
-      : `${issues} 项问题`
+    ? t('{count} 项问题', { count: issues })
     : formatCheck?.status === 'passed'
-      ? en
-        ? 'Checked'
-        : '检查通过'
+      ? t('检查通过')
       : formatCheck?.status === 'failed'
-        ? en
-          ? 'Check failed'
-          : '检查未通过'
+        ? t('检查未通过')
         : '';
   if (!details && !accepted) return null;
   return (
-    <section className="designer-delivery-bar" aria-label={en ? 'Deliverables' : '交付成果'}>
+    <section className="designer-delivery-bar" aria-label={t('交付成果')}>
       <div className="designer-delivery-row">
         {primary ? (
           <button
@@ -67,7 +61,7 @@ export function DesignerDelivery({
         ) : (
           <span className="designer-delivery-label">
             <Icon name="check" size={15} />
-            {en ? 'Review' : '检查'}
+            {t('检查')}
           </span>
         )}
         <div className="designer-delivery-actions">
@@ -90,7 +84,7 @@ export function DesignerDelivery({
                   {issues > 0 && <b>{issues}</b>}
                 </span>
               )}
-              <span>{en ? 'Details' : '详情'}</span>
+              <span>{t('详情')}</span>
               <Icon name="down" size={12} />
             </button>
           )}
@@ -100,13 +94,11 @@ export function DesignerDelivery({
               className="designer-accept"
               disabled={busy || accepted || !canAccept}
               data-accepted={accepted || undefined}
-              title={
-                !canAccept && !accepted ? (en ? 'Complete the file check first' : '文件检查通过后可确认') : undefined
-              }
+              title={!canAccept && !accepted ? t('文件检查通过后可确认') : undefined}
               onClick={onAccept}
             >
               <Icon name="check" size={14} />
-              {accepted ? (en ? 'Accepted' : '已确认') : en ? 'Accept' : '确认完成'}
+              {accepted ? t('已确认') : t('确认完成')}
             </button>
           )}
         </div>

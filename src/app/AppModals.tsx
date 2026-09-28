@@ -87,16 +87,14 @@ export function AppModals({
   openPreview: (file: PreviewFile) => void;
   setToast: (message: string) => void;
 }) {
-  const { t, language } = useI18n(),
+  const { t } = useI18n(),
     previewWorkbench = usePreviewWorkbench();
   const { vmReady, desktopBot, desktop, controlled, takeover, controlPending, computerAction, toggleComputerControl } =
     computer;
   const anyRunning = state.runs.some((run) => run.status === 'running') || false;
   const title =
     modal === 'switch-type'
-      ? language === 'en'
-        ? 'Switch Bot type?'
-        : '切换 Bot 类型？'
+      ? t('切换 Bot 类型？')
       : modal === 'computer-setup'
         ? t('工作电脑设置')
         : modal === 'settings'
@@ -150,16 +148,8 @@ export function AppModals({
         {profileForm}
         {modal === 'switch-type' && (
           <div className="delete-bot-confirmation">
-            <p>
-              {language === 'en'
-                ? 'Switching Bot type will permanently clear all of this Bot’s context: conversations, memory, task history and design sessions.'
-                : '切换 Bot 类型将永久清空这个 Bot 的所有上下文，包括对话、记忆、任务历史和设计会话。'}
-            </p>
-            <p>
-              {language === 'en'
-                ? 'Workspace files, installed plugins, group membership and shared chat records are retained. This cannot be undone.'
-                : '工作文件、已安装插件、群成员关系与共享聊天记录会保留。此操作无法撤销。'}
-            </p>
+            <p>{t('切换 Bot 类型将永久清空这个 Bot 的所有上下文，包括对话、记忆、任务历史和设计会话。')}</p>
+            <p>{t('工作文件、已安装插件、群成员关系与共享聊天记录会保留。此操作无法撤销。')}</p>
             <div className="dialog-actions">
               <button className="secondary-button" autoFocus disabled={busy} onClick={() => setModal('profile')}>
                 {t('取消')}
@@ -169,7 +159,7 @@ export function AppModals({
                 disabled={busy}
                 onClick={() => previewWorkbench?.navigate(() => void act(() => saveProfile(true)))}
               >
-                {language === 'en' ? 'Clear context and switch' : '清空上下文并切换'}
+                {t('清空上下文并切换')}
               </button>
             </div>
           </div>

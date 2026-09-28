@@ -8,6 +8,7 @@ import type {
 import { PreviewPicker } from './PreviewPicker';
 import { PreviewIcon } from './PreviewIcon';
 import { useI18n } from '../i18n';
+import { translate } from '../../shared/i18n';
 import './web-element-inspector.css';
 type Command = (command: EditorCommand) => Promise<EditorResult>;
 function color(value: string) {
@@ -53,7 +54,7 @@ function TreeBranch({
           <div className="web-element-tree-row" style={{ paddingLeft: Math.min(depth, 12) * 10 }}>
             <button
               disabled={!node.hasChildren}
-              aria-label={open[node.id] ? '收起子元素' : '展开子元素'}
+              aria-label={translate(open[node.id] ? '收起子元素' : '展开子元素')}
               aria-expanded={open[node.id] || false}
               onClick={() => setOpen((old) => ({ ...old, [node.id]: !old[node.id] }))}
             >
@@ -70,7 +71,7 @@ function TreeBranch({
           {open[node.id] && <TreeBranch id={node.id} command={command} selected={selected} depth={depth + 1} />}
         </div>
       ))}
-      {more && <button onClick={() => load(nodes.length)}>更多元素</button>}
+      {more && <button onClick={() => load(nodes.length)}>{translate('更多元素')}</button>}
     </div>
   );
 }
@@ -91,8 +92,8 @@ export function WebElementInspector({
   busy: boolean;
   onClose: () => void;
 }) {
-  const { language } = useI18n(),
-    l = (cn: string, en: string) => (language === 'en' ? en : cn);
+  const { t } = useI18n();
+
   const [tab, setTab] = useState<'style' | 'attrs' | 'html' | 'tree'>(initialTab),
     [fields, setFields] = useState<Record<string, string>>({}),
     [attrs, setAttrs] = useState<Array<[string, string]>>([]),
@@ -110,12 +111,12 @@ export function WebElementInspector({
   }, [selected?.id, selected?.html]);
   useEffect(() => setTab(initialTab), [initialTab]);
   const fontOptions = [
-    { value: 'system-ui, sans-serif', label: l('系统默认', 'System UI') },
-    { value: '"Microsoft YaHei", sans-serif', label: l('微软雅黑', 'Microsoft YaHei') },
-    { value: '"Noto Sans SC", sans-serif', label: l('思源黑体', 'Noto Sans SC') },
-    { value: 'Georgia, "Noto Serif SC", serif', label: l('衬线字体', 'Serif') },
+    { value: 'system-ui, sans-serif', label: t('系统默认') },
+    { value: '"Microsoft YaHei", sans-serif', label: t('微软雅黑') },
+    { value: '"Noto Sans SC", sans-serif', label: t('思源黑体') },
+    { value: 'Georgia, "Noto Serif SC", serif', label: t('衬线字体') },
     { value: 'Arial, sans-serif', label: 'Arial' },
-    { value: '"JetBrains Mono", Consolas, monospace', label: l('等宽字体', 'Monospace') },
+    { value: '"JetBrains Mono", Consolas, monospace', label: t('等宽字体') },
   ];
   const fontValue = fields['font-family'] || '';
   const applyField = (name: string) => {
@@ -136,22 +137,15 @@ export function WebElementInspector({
     }
   };
   return (
-    <aside
-      className={`web-element-inspector ${tab === 'html' ? 'is-code' : ''}`}
-      aria-label={l('网页元素编辑', 'Web element editor')}
-    >
+    <aside className={`web-element-inspector ${tab === 'html' ? 'is-code' : ''}`} aria-label={t('网页元素编辑')}>
       <header>
-        <strong title={selected?.label}>{selected?.label || l('页面结构', 'Page structure')}</strong>
+        <strong title={selected?.label}>{selected?.label || t('页面结构')}</strong>
         {selected?.parentId && (
-          <button
-            aria-label={l('选择父级', 'Select parent')}
-            title={l('选择父级', 'Select parent')}
-            onClick={() => void act({ type: 'parent' })}
-          >
+          <button aria-label={t('选择父级')} title={t('选择父级')} onClick={() => void act({ type: 'parent' })}>
             <PreviewIcon name="left" />
           </button>
         )}
-        <button aria-label={l('关闭面板', 'Close inspector')} onClick={onClose}>
+        <button aria-label={t('关闭面板')} onClick={onClose}>
           <PreviewIcon name="close" />
         </button>
       </header>
@@ -160,14 +154,10 @@ export function WebElementInspector({
           {selected.path.map((p) => p.replace(/:\d+$/, '')).join(' › ')}
         </div>
       )}
-      <nav aria-label={l('编辑分类', 'Editor sections')}>
+      <nav aria-label={t('编辑分类')}>
         {(['style', 'attrs', 'html', 'tree'] as const).map((key) => (
           <button key={key} aria-pressed={tab === key} onClick={() => setTab(key)}>
-            {
-              { style: l('样式', 'Style'), attrs: l('属性', 'Attributes'), html: 'HTML', tree: l('结构', 'Structure') }[
-                key
-              ]
-            }
+            {{ style: t('样式'), attrs: t('属性'), html: 'HTML', tree: t('结构') }[key]}
           </button>
         ))}
       </nav>
@@ -177,14 +167,12 @@ export function WebElementInspector({
             <TreeBranch command={command} selected={selected?.id} />
           </div>
         ) : !selected ? (
-          <p className="web-element-hint">
-            {l('点选网页中的任意元素，或从结构中选择。', 'Select an element on the page or from Structure.')}
-          </p>
+          <p className="web-element-hint">{t('点选网页中的任意元素，或从结构中选择。')}</p>
         ) : tab === 'style' ? (
           <>
             {selected.leaf && (
               <label className="web-element-text-label">
-                {l('文字', 'Text')}
+                {t('文字')}
                 <textarea
                   value={text}
                   onChange={(e) => setText(e.target.value)}
@@ -195,19 +183,16 @@ export function WebElementInspector({
               </label>
             )}
             <p className="web-element-hint web-element-manipulation-hint">
-              {l(
-                '拖动选中元素或蓝色标签移动，拖动边角调整大小。',
-                'Drag the selected element or blue label to move. Drag an edge or corner to resize.',
-              )}
+              {t('拖动选中元素或蓝色标签移动，拖动边角调整大小。')}
             </p>
             <div className="web-element-font">
-              <span>{l('字体', 'Font family')}</span>
+              <span>{t('字体')}</span>
               <PreviewPicker
-                label={l('选择字体', 'Choose font')}
+                label={t('选择字体')}
                 value={fontValue}
                 options={[
                   ...(!fontOptions.some((f) => f.value === fontValue)
-                    ? [{ value: fontValue, label: l('当前字体', 'Current font') }]
+                    ? [{ value: fontValue, label: t('当前字体') }]
                     : []),
                   ...fontOptions,
                 ]}
@@ -217,8 +202,8 @@ export function WebElementInspector({
                 }}
               />
               <input
-                aria-label={l('自定义字体', 'Custom font family')}
-                placeholder={l('输入字体名称或字体栈', 'Font name or font stack')}
+                aria-label={t('自定义字体')}
+                placeholder={t('输入字体名称或字体栈')}
                 value={fontValue}
                 onChange={(e) => setFields((old) => ({ ...old, 'font-family': e.target.value }))}
                 onBlur={() => applyField('font-family')}
@@ -226,25 +211,20 @@ export function WebElementInspector({
                   if (e.key === 'Enter') e.currentTarget.blur();
                 }}
               />
-              <small>
-                {l(
-                  '使用网页已加载或电脑已安装的字体。',
-                  'Uses fonts loaded by the page or installed on this computer.',
-                )}
-              </small>
+              <small>{t('使用网页已加载或电脑已安装的字体。')}</small>
             </div>
             <div className="web-element-fields">
               {[
-                ['font-size', l('字号', 'Font size')],
-                ['font-weight', l('字重', 'Weight')],
-                ['line-height', l('行高', 'Line height')],
-                ['letter-spacing', l('字间距', 'Letter spacing')],
-                ['color', l('文字颜色', 'Color')],
-                ['background-color', l('背景', 'Background')],
-                ['width', l('宽度', 'Width')],
-                ['height', l('高度', 'Height')],
-                ['padding', l('内边距', 'Padding')],
-                ['margin', l('外边距', 'Margin')],
+                ['font-size', t('字号')],
+                ['font-weight', t('字重')],
+                ['line-height', t('行高')],
+                ['letter-spacing', t('字间距')],
+                ['color', t('文字颜色')],
+                ['background-color', t('背景')],
+                ['width', t('宽度')],
+                ['height', t('高度')],
+                ['padding', t('内边距')],
+                ['margin', t('外边距')],
               ].map(([name, label]) => (
                 <label key={name}>
                   {label}
@@ -261,7 +241,7 @@ export function WebElementInspector({
               ))}
             </div>
             <details>
-              <summary>{l('完整 CSS', 'Full CSS')}</summary>
+              <summary>{t('完整 CSS')}</summary>
               <textarea
                 className="web-element-code"
                 spellCheck={false}
@@ -269,7 +249,7 @@ export function WebElementInspector({
                 onChange={(e) => setCss(e.target.value)}
               />
               <footer>
-                <button onClick={() => void act({ type: 'css', value: css })}>{l('应用 CSS', 'Apply CSS')}</button>
+                <button onClick={() => void act({ type: 'css', value: css })}>{t('应用 CSS')}</button>
               </footer>
             </details>
           </>
@@ -279,26 +259,23 @@ export function WebElementInspector({
               {attrs.map(([name, value], i) => (
                 <div key={i}>
                   <input
-                    aria-label={l('属性名', 'Attribute name')}
+                    aria-label={t('属性名')}
                     value={name}
                     onChange={(e) => setAttrs((old) => old.map((row, j) => (j === i ? [e.target.value, row[1]] : row)))}
                   />
                   <input
-                    aria-label={l('属性值', 'Attribute value')}
+                    aria-label={t('属性值')}
                     value={value}
                     onChange={(e) => setAttrs((old) => old.map((row, j) => (j === i ? [row[0], e.target.value] : row)))}
                   />
-                  <button
-                    aria-label={l('删除属性', 'Remove attribute')}
-                    onClick={() => setAttrs((old) => old.filter((_, j) => j !== i))}
-                  >
+                  <button aria-label={t('删除属性')} onClick={() => setAttrs((old) => old.filter((_, j) => j !== i))}>
                     <PreviewIcon name="close" />
                   </button>
                 </div>
               ))}
             </div>
             <button className="web-element-add" onClick={() => setAttrs((old) => [...old, ['', '']])}>
-              + {l('添加属性', 'Add attribute')}
+              + {t('添加属性')}
             </button>
             <footer>
               <button
@@ -306,7 +283,7 @@ export function WebElementInspector({
                   void act({ type: 'attributes', values: Object.fromEntries(attrs.filter(([name]) => name.trim())) })
                 }
               >
-                {l('应用属性', 'Apply attributes')}
+                {t('应用属性')}
               </button>
             </footer>
           </>
@@ -320,19 +297,17 @@ export function WebElementInspector({
               spellCheck={false}
               onChange={(e) => setHtml(e.target.value)}
             />
-            {selected.truncated && (
-              <p>{l('元素较大，请使用源码编辑。', 'Use the source editor for this large element.')}</p>
-            )}
+            {selected.truncated && <p>{t('元素较大，请使用源码编辑。')}</p>}
             <footer>
-              <button onClick={() => void act({ type: 'revert-preview' })}>{l('撤回预览', 'Revert preview')}</button>
+              <button onClick={() => void act({ type: 'revert-preview' })}>{t('撤回预览')}</button>
               <button
                 disabled={selected.truncated}
                 onClick={() => void act({ type: 'html', value: html, preview: true })}
               >
-                {l('预览', 'Preview')}
+                {t('预览')}
               </button>
               <button disabled={selected.truncated} onClick={() => void act({ type: 'html', value: html })}>
-                {l('应用 HTML', 'Apply HTML')}
+                {t('应用 HTML')}
               </button>
             </footer>
           </>
@@ -341,9 +316,7 @@ export function WebElementInspector({
       {(error || errorMessage) && (
         <div className="web-element-error" role="alert">
           {error || errorMessage}
-          {errorMessage && onSendChanges && (
-            <button onClick={onSendChanges}>{l('把修改发给 Bot', 'Send changes to Bot')}</button>
-          )}
+          {errorMessage && onSendChanges && <button onClick={onSendChanges}>{t('把修改发给 Bot')}</button>}
         </div>
       )}
     </aside>

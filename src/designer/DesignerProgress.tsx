@@ -3,25 +3,25 @@ import type { ChatMessage, RunRecord } from '../../shared/types/core';
 import type { DesignSession } from '../../shared/types/designer-types';
 import { toolOperation } from '../../shared/chat/activity';
 import { liveBotProgress, waitingExplanation } from '../app/live-bot-progress';
-import { useI18n } from '../i18n';
+import { translate } from '../../shared/i18n';
 import { Icon } from '../ui/Icon';
-const designLabels: Record<string, [string, string]> = {
-  design_tasks: ['查看设计任务', 'Review design tasks'],
-  design_start: ['创建设计任务', 'Create design task'],
-  design_use: ['读取任务状态', 'Read task state'],
-  design_system: ['选择设计系统', 'Select a design system'],
-  design_spec: ['保存设计约定', 'Save design direction'],
-  design_resource: ['读取设计资料', 'Read design resources'],
-  design_check: ['检查实际画面', 'Inspect rendered output'],
-  design_publish: ['整理交付文件', 'Prepare deliverables'],
-  design_deck: ['生成演示文稿', 'Build the deck'],
-  design_file_create: ['写入设计文件', 'Write a design file'],
-  design_image: ['生成插图', 'Generate an illustration'],
-  design_export_pdf: ['导出 PDF', 'Export PDF'],
-  design_plugin: ['读取设计插件', 'Read a design plugin'],
+const designLabels: Record<string, string> = {
+  design_tasks: '查看设计任务',
+  design_start: '创建设计任务',
+  design_use: '读取任务状态',
+  design_system: '选择设计系统',
+  design_spec: '保存设计约定',
+  design_resource: '读取设计资料',
+  design_check: '检查实际画面',
+  design_publish: '整理交付文件',
+  design_deck: '生成演示文稿',
+  design_file_create: '写入设计文件',
+  design_image: '生成插图',
+  design_export_pdf: '导出 PDF',
+  design_plugin: '读取设计插件',
 };
-function designOperationLabel(tool: string, en = false) {
-  return designLabels[tool]?.[en ? 1 : 0] || toolOperation(tool).label;
+function designOperationLabel(tool: string) {
+  return designLabels[tool] ? translate(designLabels[tool]) : toolOperation(tool).label;
 }
 function designRecentOperations(messages: ChatMessage[], run: RunRecord) {
   return messages
@@ -48,9 +48,7 @@ export function DesignerProgress({
   waiting?: 'host_permission' | 'vm_takeover' | 'user_input';
   reviewing?: boolean;
 }) {
-  const { language } = useI18n(),
-    en = language === 'en',
-    [now, setNow] = useState(Date.now),
+  const [now, setNow] = useState(Date.now()),
     [expanded, setExpanded] = useState(false);
   useEffect(() => {
     setExpanded(false);
@@ -66,27 +64,21 @@ export function DesignerProgress({
     elapsed = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
   const fallback =
     task.stage === 'delivery'
-      ? en
-        ? 'Preparing your draft'
-        : '正在整理初版'
+      ? translate('正在整理初版')
       : task.stage === 'verify'
-        ? en
-          ? 'Checking the files'
-          : '正在核对文件'
-        : en
-          ? 'Preparing the next step'
-          : '正在准备下一步';
+        ? translate('正在核对文件')
+        : translate('正在准备下一步');
   const label =
     waiting || step?.retry
       ? step?.label
       : current
-        ? (en ? 'In progress: ' : '正在') + designOperationLabel(current.tool || '', en)
+        ? translate('正在{label}', { label: designOperationLabel(current.tool || '') })
         : run.modelRequest?.phase === 'streaming'
-          ? step?.label || (en ? 'Creating your draft' : '正在生成内容')
+          ? step?.label || translate('正在生成内容')
           : fallback;
   const note = step && (waitingExplanation(step, now) || (waiting || step.retry ? step.description : undefined));
   return (
-    <section className="designer-activity" aria-label={en ? 'Task progress' : '任务进度'}>
+    <section className="designer-activity" aria-label={translate('任务进度')}>
       <div className="designer-activity-line">
         <div className="designer-activity-copy">
           <div role="status" aria-live="polite">
@@ -94,12 +86,12 @@ export function DesignerProgress({
             {note && <p>{note}</p>}
           </div>
           <div className="designer-activity-meta">
-            <time aria-label={en ? 'Elapsed time' : '已用时间'}>{elapsed}</time>
+            <time aria-label={translate('已用时间')}>{elapsed}</time>
             {recent.length > 0 && (
               <>
                 <span aria-hidden="true">·</span>
                 <button type="button" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
-                  {en ? 'Activity' : '查看进展'}
+                  {translate('查看进展')}
                   <Icon name="down" size={11} />
                 </button>
               </>
@@ -117,7 +109,7 @@ export function DesignerProgress({
           {recent.map((m) => (
             <li key={m.id}>
               <span className="designer-activity-pin" aria-hidden="true" />
-              {designOperationLabel(m.tool || '', en)}
+              {designOperationLabel(m.tool || '')}
             </li>
           ))}
         </ol>

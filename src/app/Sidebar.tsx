@@ -54,7 +54,7 @@ export function Sidebar({
   onPlugins: () => void;
   onSettings: (tab?: SettingsTab) => void;
 }) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const requests = state.interactions || [];
   const rows = conversationRows(state.bots, state.messages, state.groups?.rooms || [], state.runs);
   return (
@@ -183,7 +183,7 @@ export function Sidebar({
       <div className="sidebar-bottom">
         <button className="sidebar-link" aria-current={page === 'plugins' ? 'page' : undefined} onClick={onPlugins}>
           <Icon name="plugin" />
-          <span>{language === 'en' ? 'Plugins' : language === 'zh-TW' ? '外掛' : '插件'}</span>
+          <span>{t('插件')}</span>
         </button>
         <button className="sidebar-link" onClick={() => onSettings()}>
           <Icon name="settings" />

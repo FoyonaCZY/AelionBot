@@ -58,7 +58,7 @@ export function BotProfileForm({
         onSave();
       }}
     >
-      <div className="bot-profile-types" aria-label={language === 'en' ? 'Bot type' : 'Bot 类型'}>
+      <div className="bot-profile-types" aria-label={t('Bot 类型')}>
         {(['general', 'designer'] as const).map((type) => (
           <button
             type="button"
@@ -72,15 +72,7 @@ export function BotProfileForm({
           >
             <BotTypeArt type={type} />
             <span className="bot-type-copy">
-              <strong>
-                {type === 'general'
-                  ? language === 'en'
-                    ? 'General Bot'
-                    : '通用 Bot'
-                  : language === 'en'
-                    ? 'Designer'
-                    : '设计师'}
-              </strong>
+              <strong>{type === 'general' ? t('通用 Bot') : t('设计师')}</strong>
             </span>
           </button>
         ))}

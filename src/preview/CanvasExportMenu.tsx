@@ -17,8 +17,7 @@ export function CanvasExportMenu({
   exporting?: boolean;
   onExport: (format: CanvasExportFormat | 'original') => void;
 }) {
-  const { language } = useI18n(),
-    l = (cn: string, en: string) => (language === 'en' ? en : cn);
+  const { t } = useI18n();
   const trigger = useRef<HTMLButtonElement>(null),
     menu = useRef<HTMLDivElement>(null),
     generation = useRef(0);
@@ -69,34 +68,34 @@ export function CanvasExportMenu({
           {
             format: 'sketch',
             name: 'Sketch',
-            detail: l('保真图层与可编辑文字，可导入 Figma', 'Appearance layers and editable text; import into Figma'),
+            detail: t('保真图层与可编辑文字，可导入 Figma'),
             extension: '.sketch',
           },
-          { format: 'pdf', name: 'PDF', detail: l('文档交付与打印', 'For sharing and printing'), extension: '.pdf' },
-          { format: 'png', name: 'PNG', detail: l('完整页面图片', 'Full-page image'), extension: '.png' },
+          { format: 'pdf', name: 'PDF', detail: t('文档交付与打印'), extension: '.pdf' },
+          { format: 'png', name: 'PNG', detail: t('完整页面图片'), extension: '.png' },
           {
             format: 'svg',
             name: 'SVG',
-            detail: l('可导入 Figma，复杂效果可能不同', 'Import into Figma; complex effects may differ'),
+            detail: t('可导入 Figma，复杂效果可能不同'),
             extension: '.svg',
           },
           {
             format: 'html',
             name: 'HTML',
-            detail: l('包含字体和图片的独立网页', 'Standalone page with fonts and images'),
+            detail: t('包含字体和图片的独立网页'),
             extension: '.html',
           },
           {
             format: 'zip',
-            name: l('项目 ZIP', 'Project ZIP'),
-            detail: l('网页、资源与字体授权文件', 'Page, assets and font licenses'),
+            name: t('项目 ZIP'),
+            detail: t('网页、资源与字体授权文件'),
             extension: '.zip',
           },
         ]
       : [
           {
             format: 'original',
-            name: l('原格式', 'Original format'),
+            name: t('原格式'),
             detail: name,
             extension: name.includes('.') ? '.' + name.split('.').at(-1) : '',
           },
@@ -109,7 +108,7 @@ export function CanvasExportMenu({
         className="fp-export-trigger"
         disabled={disabled || exporting}
         aria-busy={exporting}
-        aria-label={exporting ? l('导出中', 'Exporting') : l('导出', 'Export')}
+        aria-label={exporting ? t('导出中') : t('导出')}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => void show()}
@@ -132,7 +131,7 @@ export function CanvasExportMenu({
           <path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" />
         </svg>
         {exporting && <span className="fp-export-spinner" aria-hidden="true" />}
-        <span>{exporting ? l('导出中…', 'Exporting…') : l('导出', 'Export')}</span>
+        <span>{exporting ? t('导出中…') : t('导出')}</span>
         <svg
           width="11"
           height="11"
@@ -151,7 +150,7 @@ export function CanvasExportMenu({
             ref={menu}
             popover="auto"
             role="menu"
-            aria-label={l('导出格式', 'Export format')}
+            aria-label={t('导出格式')}
             className="fp-export-menu"
             style={position}
             onToggle={(event) => {

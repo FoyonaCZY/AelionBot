@@ -17,18 +17,17 @@ export function CanvasExportStatus({
   onDismiss: () => void;
   onRetry?: () => void;
 }) {
-  const { language } = useI18n(),
-    l = (cn: string, en: string) => (language === 'en' ? en : cn);
+  const { t } = useI18n();
   const format =
-    state.format === 'original' ? l('文件', 'file') : state.format === 'sketch' ? 'Sketch' : state.format.toUpperCase();
+    state.format === 'original' ? t('文件') : state.format === 'sketch' ? 'Sketch' : state.format.toUpperCase();
   const title =
     state.phase === 'running'
-      ? l('正在导出 ' + format + '…', 'Exporting ' + format + '…')
+      ? t('正在导出 {format}…', { format })
       : state.phase === 'success'
-        ? l(format + ' 已导出', format + ' exported')
+        ? t('{format} 已导出', { format })
         : state.phase === 'error'
-          ? l('导出失败', 'Export failed')
-          : l('已取消导出', 'Export cancelled');
+          ? t('导出失败')
+          : t('已取消导出');
   return (
     <div
       className={'fp-export-status is-' + state.phase}
@@ -49,16 +48,11 @@ export function CanvasExportStatus({
       </div>
       {state.phase === 'error' && onRetry && (
         <button type="button" onClick={onRetry}>
-          {l('重试', 'Retry')}
+          {t('重试')}
         </button>
       )}
       {state.phase !== 'running' && (
-        <button
-          type="button"
-          className="fp-export-dismiss"
-          onClick={onDismiss}
-          aria-label={l('关闭导出提示', 'Dismiss export status')}
-        >
+        <button type="button" className="fp-export-dismiss" onClick={onDismiss} aria-label={t('关闭导出提示')}>
           ×
         </button>
       )}

@@ -465,7 +465,7 @@ export function FilePreview({
         annotations,
         setFileAnnotations,
         sendEdits: async (changes) => {
-          if (!feedbackSubmit.current) throw Error('请从会话中打开预览后发送修改');
+          if (!feedbackSubmit.current) throw Error(t('请从会话中打开预览后发送修改'));
           await feedbackSubmit.current({
             text: t('请将预览中的修改应用到项目源码，保留原有功能并验证结果。'),
             edits: changes,

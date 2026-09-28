@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { translate } from '../../shared/i18n';
 import type { AnnotationTool, PreviewAnnotation, PreviewMode } from '../../shared/types/preview-editor-types';
 export function FileAnnotationLayer({
   itemId,
@@ -258,7 +259,7 @@ export function FileAnnotationLayer({
         visibility: mode === 'edit' ? 'hidden' : undefined,
       }}
       viewBox={`0 0 ${geometry.hostWidth} ${geometry.hostHeight}`}
-      aria-label="文件标注"
+      aria-label={translate('文件标注')}
       onPointerDown={(e) => {
         if (e.button !== 0 || mode !== 'annotate' || marks.length >= 100 || pointer.current !== undefined) return;
         const target = targets.current;

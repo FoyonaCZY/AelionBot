@@ -33,16 +33,14 @@ export function PluginSwitch({
   );
 }
 export function PluginOwner({ bot, privateSkill = false }: { bot?: Bot; privateSkill?: boolean }) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   return bot ? (
     <span className="plugin-owner" title={bot.name}>
       <Avatar bot={bot} size={22} />
       <span>{bot.name}</span>
     </span>
   ) : (
-    <span className="plugin-shared">
-      {privateSkill ? t('Bot 私有') : language === 'en' ? 'Shared' : language === 'zh-TW' ? '共享' : '共享'}
-    </span>
+    <span className="plugin-shared">{privateSkill ? t('Bot 私有') : t('共享')}</span>
   );
 }
 type Act = (operation: () => Promise<unknown>) => Promise<void>;
@@ -61,8 +59,7 @@ export function PluginDetails({
   act: Act;
   onBack: () => void;
 }) {
-  const { t, language } = useI18n(),
-    label = (cn: string, en: string, tw = cn) => (language === 'en' ? en : language === 'zh-TW' ? tw : cn);
+  const { t } = useI18n();
   const [full, setFull] = useState<Skill>(),
     [error, setError] = useState(''),
     [loading, setLoading] = useState(false),
@@ -112,16 +109,16 @@ export function PluginDetails({
       <div className="plugin-detail">
         <button className="plugin-back" onClick={onBack}>
           <Icon name="back" size={15} />
-          {label('返回插件', 'Back to plugins', '返回外掛')}
+          {t('返回插件')}
         </button>
-        <p>{label('这个插件已被移除。', 'This plugin was removed.', '此外掛已被移除。')}</p>
+        <p>{t('这个插件已被移除。')}</p>
       </div>
     );
   return (
     <article className="plugin-detail">
       <button className="plugin-back" onClick={onBack}>
         <Icon name="back" size={15} />
-        {label('返回插件', 'Back to plugins', '返回外掛')}
+        {t('返回插件')}
       </button>
       <header className="plugin-detail-heading">
         <span className="plugin-detail-icon">
@@ -162,7 +159,7 @@ export function PluginDetails({
             </p>
           )}
           <details className="plugin-detail-source">
-            <summary>{label('来源与文件', 'Source & files', '來源與檔案')}</summary>
+            <summary>{t('来源与文件')}</summary>
             {skill.source && <code>{skill.source.path}</code>}
             {full?.availableFiles?.map((path) => (
               <code key={path}>{path}</code>
@@ -189,20 +186,20 @@ export function PluginDetails({
           </div>
           <dl className="plugin-detail-meta">
             <div>
-              <dt>{label('连接方式', 'Transport', '連接方式')}</dt>
+              <dt>{t('连接方式')}</dt>
               <dd>{server!.transport.toUpperCase()}</dd>
             </div>
             <div>
-              <dt>{label('地址', 'Endpoint', '位址')}</dt>
+              <dt>{t('地址')}</dt>
               <dd>{server!.endpoint}</dd>
             </div>
             <div>
-              <dt>{label('来源', 'Source', '來源')}</dt>
+              <dt>{t('来源')}</dt>
               <dd>{server!.source.label}</dd>
             </div>
             {server!.toolCount !== undefined && (
               <div>
-                <dt>{label('可用工具', 'Available tools', '可用工具')}</dt>
+                <dt>{t('可用工具')}</dt>
                 <dd>{server!.toolCount}</dd>
               </div>
             )}
@@ -250,7 +247,7 @@ export function PluginDetails({
             </p>
           )}
           <details className="plugin-detail-source">
-            <summary>{label('配置文件', 'Configuration file', '設定檔')}</summary>
+            <summary>{t('配置文件')}</summary>
             <code>{server!.source.path}</code>
           </details>
         </>

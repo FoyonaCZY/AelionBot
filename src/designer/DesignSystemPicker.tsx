@@ -18,8 +18,7 @@ export function DesignSystemPicker({
   onClose: () => void;
   onImport?: () => Promise<void>;
 }) {
-  const { language } = useI18n(),
-    en = language === 'en';
+  const { t } = useI18n();
   const [query, setQuery] = useState(''),
     [category, setCategory] = useState(''),
     [selected, setSelected] = useState(value),
@@ -59,17 +58,12 @@ export function DesignSystemPicker({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label={en ? 'Design systems' : '设计系统'}
-        className="designer-system-dialog"
-      >
+      <section role="dialog" aria-modal="true" aria-label={t('设计系统')} className="designer-system-dialog">
         <header>
           <div>
-            <h2>{en ? 'Choose a design system' : '选择设计系统'}</h2>
+            <h2>{t('选择设计系统')}</h2>
           </div>
-          <button className="icon-button" aria-label={en ? 'Close' : '关闭'} onClick={onClose}>
+          <button className="icon-button" aria-label={t('关闭')} onClick={onClose}>
             <Icon name="close" />
           </button>
         </header>
@@ -77,20 +71,20 @@ export function DesignSystemPicker({
           <Icon name="search" size={17} />
           <input
             autoFocus
-            aria-label={en ? 'Search design systems' : '搜索设计系统'}
-            placeholder={en ? 'Name, style or category' : '名称、风格或分类'}
+            aria-label={t('搜索设计系统')}
+            placeholder={t('名称、风格或分类')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
-        <div className="designer-system-facets" role="group" aria-label={en ? 'Filter by category' : '按分类筛选'}>
+        <div className="designer-system-facets" role="group" aria-label={t('按分类筛选')}>
           <button
             type="button"
             aria-pressed={!category}
             className={category ? '' : 'selected'}
             onClick={() => setCategory('')}
           >
-            {en ? 'All' : '全部'}
+            {t('全部')}
             <em>{systems.length}</em>
           </button>
           {categories.map(([name, count]) => (
@@ -113,7 +107,7 @@ export function DesignSystemPicker({
             aria-pressed={selected === null}
           >
             <div className="designer-system-specimen is-neutral">Aa.</div>
-            <strong>{en ? 'Unspecified' : '未指定'}</strong>
+            <strong>{t('未指定')}</strong>
           </button>
           {list.map((s) => (
             <button
@@ -132,16 +126,14 @@ export function DesignSystemPicker({
               </div>
               <strong>
                 {s.name}
-                {s.origin === 'custom' && <em className="designer-system-origin">{en ? 'Local' : '本机'}</em>}
+                {s.origin === 'custom' && <em className="designer-system-origin">{t('本机')}</em>}
               </strong>
               <small className="designer-system-description">
                 <span>{s.description || s.category}</span>
               </small>
             </button>
           ))}
-          {!list.length && (
-            <p className="designer-plugin-empty">{en ? 'No matching design system' : '没有匹配的设计系统'}</p>
-          )}
+          {!list.length && <p className="designer-plugin-empty">{t('没有匹配的设计系统')}</p>}
         </div>
         <footer>
           {onImport && (
@@ -157,11 +149,11 @@ export function DesignSystemPicker({
                   .finally(() => setImporting(false));
               }}
             >
-              {importing ? (en ? 'Importing…' : '正在导入…') : en ? 'Import DESIGN.md folder' : '导入 DESIGN.md 文件夹'}
+              {importing ? t('正在导入…') : t('导入 DESIGN.md 文件夹')}
             </button>
           )}
           <button className="primary-button" onClick={() => onSelect(selected)}>
-            {en ? 'Apply' : '应用'}
+            {t('应用设计系统')}
           </button>
         </footer>
         {importError && (

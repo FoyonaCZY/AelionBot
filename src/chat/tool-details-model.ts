@@ -121,7 +121,7 @@ export function errorExplanation(raw: string): ErrorExplanation {
   const last = [...clean.matchAll(exception)].at(-1),
     frame = [...clean.matchAll(/File "([^"]+)", line (\d+)/g)].at(-1);
   const location = frame
-    ? `${frame[1] === '<string>' ? '当前脚本' : fileName(frame[1])} · 第 ${frame[2]} 行`
+    ? `${frame[1] === '<string>' ? translate('当前脚本') : fileName(frame[1])} · ${translate('第 {line} 行', { line: frame[2] })}`
     : undefined;
   if (last) {
     const kind = last[1],
@@ -140,11 +140,11 @@ export function errorExplanation(raw: string): ErrorExplanation {
     };
     const message =
       kind === 'KeyError'
-        ? `返回数据中没有“${value}”字段。`
+        ? translate('返回数据中没有“{field}”字段。', { field: value })
         : kind === 'AssertionError'
-          ? detail || '实际结果与校验条件不一致。'
-          : detail || '请检查出错位置后继续。';
-    return { title: titles[kind], message, code: kind, location };
+          ? detail || translate('实际结果与校验条件不一致。')
+          : detail || translate('请检查出错位置后继续。');
+    return { title: translate(titles[kind]), message, code: kind, location };
   }
   let message = clean;
   const at = clean.indexOf('{');

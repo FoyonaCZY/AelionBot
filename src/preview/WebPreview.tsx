@@ -25,8 +25,7 @@ export function WebPreview({
   fileEditor?: PreviewItem['editor'];
   editorContent?: string;
 }) {
-  const { language } = useI18n(),
-    label = (cn: string, en: string) => (language === 'en' ? en : cn);
+  const { t } = useI18n();
   const runtime = usePreviewRuntime(),
     runtimeRef = useRef(runtime);
   runtimeRef.current = runtime;
@@ -239,7 +238,7 @@ export function WebPreview({
     try {
       await command({ type: 'lock', locked: true });
       const original = await readBase();
-      if (!original) throw Error('源文件不可用');
+      if (!original) throw Error(t('源文件不可用'));
       const result = await command({ type: 'export' });
       if (!result.edits?.length) return true;
       const content = await window.aelion.patchPreviewHtml({ content: original.content, edits: result.edits });
@@ -289,7 +288,7 @@ export function WebPreview({
       command,
       save,
       discard: async () => {
-        if (saveLock.current) throw Error('正在保存，请稍候');
+        if (saveLock.current) throw Error(t('正在保存，请稍候'));
         try {
           await command({ type: 'cancel' });
         } catch {
@@ -311,16 +310,8 @@ export function WebPreview({
             .then(() => command({ type: 'mode', mode: 'edit' }))
             .catch((e) => setError(e.message));
       },
-      primaryLabel: pageEditor
-        ? pageEditor.write
-          ? label('保存修改', 'Save changes')
-          : label('另存为', 'Save copy')
-        : label('发送修改', 'Send changes'),
-      saveLabel: pageEditor
-        ? pageEditor.write
-          ? label('保存并继续', 'Save and continue')
-          : label('另存为并继续', 'Save copy and continue')
-        : label('发送修改并继续', 'Send changes and continue'),
+      primaryLabel: pageEditor ? (pageEditor.write ? t('保存修改') : t('另存为')) : t('发送修改'),
+      saveLabel: pageEditor ? (pageEditor.write ? t('保存并继续') : t('另存为并继续')) : t('发送修改并继续'),
     });
     return () => runtime.setWeb(undefined);
   }, [ready, state?.loading, state?.localDocument, editorState, command, fileEditor, busy]);
@@ -403,33 +394,18 @@ export function WebPreview({
         if (isUrl) void action('navigate', address);
       }}
     >
-      <button
-        type="button"
-        disabled={!state?.canBack}
-        onClick={() => void action('back')}
-        aria-label={label('后退', 'Back')}
-      >
+      <button type="button" disabled={!state?.canBack} onClick={() => void action('back')} aria-label={t('后退')}>
         <PreviewIcon name="left" />
       </button>
-      <button
-        type="button"
-        disabled={!state?.canForward}
-        onClick={() => void action('forward')}
-        aria-label={label('前进', 'Forward')}
-      >
+      <button type="button" disabled={!state?.canForward} onClick={() => void action('forward')} aria-label={t('前进')}>
         <PreviewIcon name="right" />
       </button>
-      <button
-        type="button"
-        disabled={!state}
-        onClick={() => void action('reload')}
-        aria-label={label('刷新网页', 'Reload page')}
-      >
+      <button type="button" disabled={!state} onClick={() => void action('reload')} aria-label={t('刷新网页')}>
         <PreviewIcon name="refresh" />
       </button>
       {isUrl ? (
         <input
-          aria-label={label('网页地址', 'Web address')}
+          aria-label={t('网页地址')}
           value={address}
           onChange={(event) => setAddress(event.target.value)}
           spellCheck={false}
@@ -443,14 +419,12 @@ export function WebPreview({
           {error}
         </output>
       )}
-      {state?.loading && (
-        <span className="web-preview-loading" role="status" aria-label={label('正在加载', 'Loading')} />
-      )}
+      {state?.loading && <span className="web-preview-loading" role="status" aria-label={t('正在加载')} />}
       {onSource && (
         <button
           type="button"
           onClick={() => (runtime ? runtime.request(onSource) : onSource())}
-          aria-label={label('查看源码', 'View source')}
+          aria-label={t('查看源码')}
         >
           <PreviewIcon name="code" />
         </button>
@@ -475,7 +449,7 @@ export function WebPreview({
           <button
             type="button"
             disabled={!state || (state.zoomFactor || 1) <= 0.25}
-            aria-label={label('缩小画布', 'Zoom out')}
+            aria-label={t('缩小画布')}
             onClick={() =>
               void window.aelion
                 .webPreviewAction({
@@ -491,12 +465,12 @@ export function WebPreview({
           </button>
           <PreviewPicker
             className="fp-zoom-picker"
-            label={label('画布显示比例', 'Canvas zoom')}
+            label={t('画布显示比例')}
             value={String(Math.round((state?.zoomFactor || 1) * 100))}
             disabled={!state}
             options={[25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300].map((value) => ({
               value: String(value),
-              label: value + '%' + (value === 100 ? ' · ' + label('默认', 'Default') : ''),
+              label: value + '%' + (value === 100 ? ' · ' + t('默认') : ''),
             }))}
             onChange={(value) =>
               void window.aelion
@@ -508,7 +482,7 @@ export function WebPreview({
           <button
             type="button"
             disabled={!state || (state.zoomFactor || 1) >= 3}
-            aria-label={label('放大画布', 'Zoom in')}
+            aria-label={t('放大画布')}
             onClick={() =>
               void window.aelion
                 .webPreviewAction({
@@ -526,18 +500,18 @@ export function WebPreview({
       </PreviewToolbar>
       {navigationHost ? createPortal(navigation, navigationHost) : navigation}
       <div className="web-preview-surface">
-        <div ref={slot} className="web-preview-slot" tabIndex={0} aria-label={label('网页预览', 'Web preview')}>
+        <div ref={slot} className="web-preview-slot" tabIndex={0} aria-label={t('网页预览')}>
           {frozen && <img className="web-preview-frozen" src={frozen} alt="" />}
           {error || state?.error ? (
             <div className="fp-state" role="alert">
-              <strong>{label('暂时无法打开网页', 'Unable to open page')}</strong>
+              <strong>{t('暂时无法打开网页')}</strong>
               <p>{error || state?.error}</p>
             </div>
           ) : (
             !state && (
               <div className="fp-state" role="status">
                 <span className="fp-loading" />
-                <strong>{label('正在连接', 'Connecting')}</strong>
+                <strong>{t('正在连接')}</strong>
               </div>
             )
           )}

@@ -5,6 +5,7 @@ import { Avatar } from '../ui/Avatar';
 import type { GameView, GameAction } from '../../shared/types/game-types';
 import { ROLE_NAMES as roles } from '../../shared/games/game-boards';
 import { GameActionControls } from './GameActionControls';
+import { translate } from '../../shared/i18n';
 export function WerewolfTable({
   game,
   onUpdate,
@@ -80,20 +81,20 @@ export function WerewolfTable({
         <h2>
           {game.status === 'finished'
             ? game.winner === 'wolves'
-              ? '狼人获胜'
+              ? translate('狼人获胜')
               : game.winner === 'village'
-                ? '好人获胜'
-                : '对局结束'
-            : '狼人杀 · ' +
-              (game.board === 'guard12' ? '预女猎守' : game.board === 'standard12' ? '预女猎白' : '七人局')}
+                ? translate('好人获胜')
+                : translate('对局结束')
+            : translate('狼人杀 · ') +
+              translate(game.board === 'guard12' ? '预女猎守' : game.board === 'standard12' ? '预女猎白' : '七人局')}
         </h2>
         <div className="wg-actions">
           <button className="secondary-button" onClick={() => setDiagnostics((v) => !v)}>
-            运行记录
+            {translate('运行记录')}
           </button>
           {!game.humanId && (
             <button className="secondary-button" aria-pressed={omniscient} onClick={onOmniscient}>
-              {omniscient ? '全知视角' : '公共视角'}
+              {translate(omniscient ? '全知视角' : '公共视角')}
             </button>
           )}
           {game.status !== 'finished' && (
@@ -103,14 +104,14 @@ export function WerewolfTable({
                 disabled={busy || !!syncError || !!syncError}
                 onClick={() => void control(game.status === 'paused' ? 'resume' : 'pause')}
               >
-                {game.status === 'paused' ? '继续' : '暂停'}
+                {translate(game.status === 'paused' ? '继续' : '暂停')}
               </button>
               <button
                 className="secondary-button"
                 disabled={busy || !!syncError || !!syncError}
                 onClick={() => setConfirmStop(true)}
               >
-                结束对局
+                {translate('结束对局')}
               </button>
             </>
           )}
@@ -118,15 +119,15 @@ export function WerewolfTable({
       </div>
       {syncError && (
         <div role="alert" className="wg-confirm">
-          连接中断，当前显示最后一次同步的状态。{syncError}
+          {translate('连接中断，当前显示最后一次同步的状态。{error}', { error: syncError })}
         </div>
       )}
       {diagnostics && <GameDiagnostics game={game} />}{' '}
       {confirmStop && (
         <div className="wg-confirm" role="alert">
-          <span>结束后本局不计胜负，并保留操作记录。</span>
+          <span>{translate('结束后本局不计胜负，并保留操作记录。')}</span>
           <button className="secondary-button" onClick={() => setConfirmStop(false)}>
-            取消
+            {translate('取消')}
           </button>
           <button
             className="primary-button"
@@ -136,22 +137,24 @@ export function WerewolfTable({
               void control('stop');
             }}
           >
-            确认结束
+            {translate('确认结束')}
           </button>
         </div>
       )}
       {self && !self.alive && game.status !== 'finished' && (
         <div className="wg-death" role="status">
-          <strong>你已出局</strong>
+          <strong>{translate('你已出局')}</strong>
           <span>
-            {death?.text || '你已出局。'} {request ? '请完成遗言、技能或警徽操作。' : '可继续观战。'}
+            {death?.text || translate('你已出局。')}{' '}
+            {translate(request ? '请完成遗言、技能或警徽操作。' : '可继续观战。')}
           </span>
         </div>
       )}
       <div className="gg-table">
         <aside className="gg-seats">
           <div className="gg-section-label">
-            玩家 <span>{game.seats.filter((p) => p.alive).length} 人存活</span>
+            {translate('玩家')}{' '}
+            <span>{translate('{count} 人存活', { count: game.seats.filter((p) => p.alive).length })}</span>
           </div>
           {game.seats.map((p, i) => (
             <div key={p.id} className="gg-seat" style={{ opacity: p.alive ? 1 : 0.5 }}>
@@ -160,13 +163,13 @@ export function WerewolfTable({
               <div>
                 <strong>
                   {p.name}
-                  {p.human && p.name !== '你' ? ' · 你' : ''}
+                  {p.human && p.name !== '你' ? translate(' · 你') : ''}
                 </strong>
                 <small>
                   {p.role ? roles[p.role] : ''}
-                  {game.sheriffId === p.id ? ' · 警长' : ''}
-                  {p.canVote === false ? ' · 无投票权' : ''}
-                  {!p.alive ? ' · 已出局' : ''}
+                  {game.sheriffId === p.id ? translate(' · 警长') : ''}
+                  {p.canVote === false ? translate(' · 无投票权') : ''}
+                  {!p.alive ? translate(' · 已出局') : ''}
                 </small>
                 {electionLabel(game, p.id) && (
                   <span className="wg-election-tag" data-active={game.candidates?.includes(p.id) || undefined}>
@@ -216,15 +219,15 @@ export function WerewolfTable({
               )}
               {game.status === 'finished' ? (
                 <button className="primary-button" onClick={onClose}>
-                  返回群聊
+                  {translate('返回群聊')}
                 </button>
               ) : game.status === 'paused' ? (
-                <span>对局已暂停</span>
+                <span>{translate('对局已暂停')}</span>
               ) : !request ? (
                 <span>
                   {game.seats.find((p) => p.id === game.humanId)?.alive === false
-                    ? '你已出局，可继续观战。'
-                    : '等待 AI 行动…'}
+                    ? translate('你已出局，可继续观战。')
+                    : translate('等待 AI 行动…')}
                 </span>
               ) : (
                 <GameActionControls request={request} game={game} busy={busy || !!syncError} submit={submit} />

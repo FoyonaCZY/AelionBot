@@ -1,4 +1,5 @@
 import { WORKSTATION_VERSION, type VmState } from '../../shared/types/core';
+import { translate } from '../../shared/i18n';
 
 export function computerDesktopReady(vm: VmState) {
   return vm.status === 'ready' && !vm.operationPending && Boolean(vm.appsReady) && !vm.maintenance && !vm.needsReboot;
@@ -23,22 +24,28 @@ export function shouldOfferComputerSetup(vm: VmState, dismissed: boolean) {
 }
 export function computerSetupState(vm: VmState) {
   if (vm.status === 'preparing')
-    return { kind: 'download', title: '正在下载系统镜像', step: 0, working: true } as const;
-  if (vm.status === 'starting') return { kind: 'starting', title: '正在启动工作电脑', step: 1, working: true } as const;
-  if (vm.status === 'stopping') return { kind: 'stopping', title: '正在关闭工作电脑', step: 3, working: true } as const;
+    return { kind: 'download', title: translate('正在下载系统镜像'), step: 0, working: true } as const;
+  if (vm.status === 'starting')
+    return { kind: 'starting', title: translate('正在启动工作电脑'), step: 1, working: true } as const;
+  if (vm.status === 'stopping')
+    return { kind: 'stopping', title: translate('正在关闭工作电脑'), step: 3, working: true } as const;
   if (vm.operationPending && !vm.maintenance)
-    return { kind: 'starting', title: '正在启动工作电脑', step: 1, working: true } as const;
-  if (vm.maintenance) return { kind: 'installing', title: '正在安装工作环境', step: 2, working: true } as const;
+    return { kind: 'starting', title: translate('正在启动工作电脑'), step: 1, working: true } as const;
+  if (vm.maintenance)
+    return { kind: 'installing', title: translate('正在安装工作环境'), step: 2, working: true } as const;
   if (vm.status === 'ready' && vm.needsReboot)
-    return { kind: 'restart', title: '重启后完成初始化', step: 3, working: false } as const;
+    return { kind: 'restart', title: translate('重启后完成初始化'), step: 3, working: false } as const;
   if (vm.status === 'error' || vm.lastError)
-    return { kind: 'error', title: '工作电脑准备未完成', step: 2, working: false } as const;
-  if (computerDesktopReady(vm)) return { kind: 'ready', title: '工作电脑已就绪', step: 4, working: false } as const;
+    return { kind: 'error', title: translate('工作电脑准备未完成'), step: 2, working: false } as const;
+  if (computerDesktopReady(vm))
+    return { kind: 'ready', title: translate('工作电脑已就绪'), step: 4, working: false } as const;
   if (vm.status === 'stopped' && vm.appsReady === false)
-    return { kind: 'upgrade', title: '更新工作环境', step: 2, working: false } as const;
-  if (vm.status === 'ready') return { kind: 'incomplete', title: '继续准备工作环境', step: 2, working: false } as const;
-  if (vm.status === 'stopped') return { kind: 'stopped', title: '工作电脑已关闭', step: 1, working: false } as const;
-  return { kind: 'invite', title: '初始化工作电脑', step: -1, working: false } as const;
+    return { kind: 'upgrade', title: translate('更新工作环境'), step: 2, working: false } as const;
+  if (vm.status === 'ready')
+    return { kind: 'incomplete', title: translate('继续准备工作环境'), step: 2, working: false } as const;
+  if (vm.status === 'stopped')
+    return { kind: 'stopped', title: translate('工作电脑已关闭'), step: 1, working: false } as const;
+  return { kind: 'invite', title: translate('初始化工作电脑'), step: -1, working: false } as const;
 }
 export function computerSetupActions(vm: VmState): Array<'start' | 'restart' | 'repair-tools'> {
   const view = computerSetupState(vm);
@@ -50,14 +57,14 @@ export function computerSetupActions(vm: VmState): Array<'start' | 'restart' | '
 export function computerSetupActionLabel(vm: VmState) {
   const kind = computerSetupState(vm).kind;
   return kind === 'restart'
-    ? '重启并完成初始化'
+    ? translate('重启并完成初始化')
     : kind === 'error'
-      ? '重试'
+      ? translate('重试')
       : kind === 'stopped'
-        ? '启动工作电脑'
+        ? translate('启动工作电脑')
         : kind === 'incomplete'
-          ? '继续初始化'
+          ? translate('继续初始化')
           : kind === 'upgrade'
-            ? '更新工作环境'
-            : '开始初始化';
+            ? translate('更新工作环境')
+            : translate('开始初始化');
 }

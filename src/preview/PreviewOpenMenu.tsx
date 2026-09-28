@@ -16,8 +16,7 @@ export function PreviewOpenMenu({
   disabled: boolean;
   onAction: (action: Action) => void;
 }) {
-  const { language } = useI18n(),
-    l = (cn: string, en: string) => (language === 'en' ? en : cn);
+  const { t } = useI18n();
   const trigger = useRef<HTMLButtonElement>(null),
     menu = useRef<HTMLDivElement>(null),
     generation = useRef(0);
@@ -64,12 +63,12 @@ export function PreviewOpenMenu({
   const options: Array<{ action: Action; label: string }> = [
     ...(canOpen
       ? [
-          { action: 'default' as const, label: l('默认应用', 'Default app') },
-          { action: 'choose' as const, label: l('选择其他应用…', 'Choose another app…') },
-          { action: 'folder' as const, label: l('打开所在文件夹', 'Show in folder') },
+          { action: 'default' as const, label: t('默认应用') },
+          { action: 'choose' as const, label: t('选择其他应用…') },
+          { action: 'folder' as const, label: t('打开所在文件夹') },
         ]
       : []),
-    ...(canSave ? [{ action: 'save' as const, label: l('另存为…', 'Save as…') }] : []),
+    ...(canSave ? [{ action: 'save' as const, label: t('另存为…') }] : []),
   ];
   const act = (action: Action) => {
     close();
@@ -83,7 +82,7 @@ export function PreviewOpenMenu({
           type="button"
           className="fp-open-default"
           disabled={disabled}
-          aria-label={canOpen ? l('用默认应用打开', 'Open with default app') : l('另存为', 'Save as')}
+          aria-label={canOpen ? t('用默认应用打开') : t('另存为')}
           onClick={() => onAction(canOpen ? 'default' : 'save')}
         >
           <svg
@@ -99,14 +98,14 @@ export function PreviewOpenMenu({
           >
             <path d="M3 8V5a1 1 0 0 1 1-1h6l2 3h8a1 1 0 0 1 1 1v2M3 9h18l-3 11H3Z" />
           </svg>
-          <span>{l('打开', 'Open')}</span>
+          <span>{t('打开')}</span>
         </button>
         <button
           ref={trigger}
           type="button"
           className="fp-open-options"
           disabled={disabled}
-          aria-label={l('选择打开方式', 'Choose how to open')}
+          aria-label={t('选择打开方式')}
           aria-haspopup="menu"
           aria-expanded={open}
           onClick={() => void show()}
@@ -136,7 +135,7 @@ export function PreviewOpenMenu({
             ref={menu}
             popover="auto"
             role="menu"
-            aria-label={l('打开方式', 'Open with')}
+            aria-label={t('打开方式')}
             className="fp-open-menu"
             style={position}
             onToggle={(event) => {

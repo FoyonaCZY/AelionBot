@@ -24,7 +24,7 @@ import { workspaceKey } from '../../shared/types/work-types';
 import { usePreviewWorkbench } from '../preview/PreviewWorkbench';
 import { useFilePreview } from '../preview/FilePreviewContext';
 import { workspacePreviewItem } from '../preview/workspace-preview';
-import { useI18n } from '../i18n';
+import { translate as t, useI18n } from '../i18n';
 import { ConversationInteractions } from '../chat/InteractionPrompts';
 import { DesignSystemPicker } from './DesignSystemPicker';
 import { DesignPluginPicker } from './DesignPluginPicker';
@@ -42,13 +42,13 @@ const lastDesign = (botId: string) => {
     return '';
   }
 };
-const kindLabel = (kind: DesignTaskKind, en: boolean) =>
+const kindLabel = (kind: DesignTaskKind) =>
   ({
-    prototype: en ? 'Prototype' : '原型设计',
-    ppt: en ? 'Presentation' : 'PPT 演示',
-    clone: en ? 'Site clone' : '网站复刻',
-    mobile: en ? 'Mobile' : '移动端',
-    document: en ? 'Document' : '多页文档',
+    prototype: t('原型设计'),
+    ppt: t('PPT 演示'),
+    clone: t('网站复刻'),
+    mobile: t('移动端'),
+    document: t('多页文档'),
   })[kind];
 const KIND_ICONS: Record<DesignTaskKind, ReactNode> = {
   prototype: (
@@ -208,7 +208,7 @@ export function DesignerWorkspace({
       : [
           {
             id: 'canvas:' + task.id,
-            name: task.title || kindLabel(task.kind, en),
+            name: task.title || kindLabel(task.kind),
             size: 0,
             designSessionId: task.id,
             load: async () => ({ kind: 'html' as const, content: emptyCanvasHtml() }),
@@ -296,7 +296,7 @@ export function DesignerWorkspace({
       const created = await window.aelion.createDesignSession({
         botId: bot.id,
         kind,
-        brief: draft.text || (en ? 'Design from the attached reference' : '根据附件进行设计'),
+        brief: draft.text || t('根据附件进行设计'),
         systemId,
         plugins: pluginIds,
       });
@@ -322,20 +322,12 @@ export function DesignerWorkspace({
   const systemControl = (
     <div
       className="composer-workspace designer-system-control"
-      title={
-        systemLocked
-          ? en
-            ? 'Stop the task to change its design system'
-            : '停止任务后可更改设计系统'
-          : en
-            ? 'Design system'
-            : '设计系统'
-      }
+      title={systemLocked ? t('停止任务后可更改设计系统') : t('设计系统')}
     >
       <button
         type="button"
         disabled={systemLocked}
-        aria-label={(en ? 'Design system: ' : '设计系统：') + (system?.name || (en ? 'Unspecified' : '未指定'))}
+        aria-label={t('设计系统：') + (system?.name || t('未指定'))}
         aria-haspopup="dialog"
         onClick={() => {
           setPluginPicker(false);
@@ -343,7 +335,7 @@ export function DesignerWorkspace({
         }}
       >
         <Icon name="layers" size={15} />
-        <span>{system?.name || (en ? 'Unspecified' : '未指定')}</span>
+        <span>{system?.name || t('未指定')}</span>
         <Icon name="down" size={12} />
       </button>
     </div>
@@ -376,15 +368,12 @@ export function DesignerWorkspace({
     (id) => designPluginCopy(plugins.find((plugin) => plugin.id === id) || { id, name: id, description: '' }, en).name,
   );
   const pluginControl = plugins.length ? (
-    <div className="composer-workspace designer-plugin-control" title={en ? 'Optional checks' : '可选检查'}>
+    <div className="composer-workspace designer-plugin-control" title={t('可选检查')}>
       <button
         type="button"
         aria-haspopup="dialog"
         aria-expanded={pluginPicker}
-        aria-label={
-          (en ? 'Optional checks: ' : '可选检查：') +
-          (pluginIds.length ? pluginNames.join('、') : en ? 'None' : '未选用')
-        }
+        aria-label={t('可选检查：') + (pluginIds.length ? pluginNames.join('、') : t('未选用'))}
         onClick={() => {
           setPicker(false);
           setPluginPicker((open) => !open);
@@ -437,12 +426,12 @@ export function DesignerWorkspace({
         <button className="designer-identity no-drag" onClick={onProfile}>
           <Avatar bot={bot} size={31} />
           <strong>{bot.name}</strong>
-          <small>{en ? 'Designer' : '设计师'}</small>
+          <small>{t('设计师')}</small>
         </button>
         {task && (
           <div className="designer-task-top">
             <PreviewPicker
-              label={en ? 'Design task' : '设计任务'}
+              label={t('设计任务')}
               value={task.id}
               options={sessions.map((s) => ({ value: s.id, label: s.title }))}
               onChange={select}
@@ -450,12 +439,12 @@ export function DesignerWorkspace({
             {!initialSessionId && (
               <button
                 className="designer-new-task"
-                aria-label={en ? 'New task' : '新任务'}
-                title={en ? 'New task' : '新任务'}
+                aria-label={t('新任务')}
+                title={t('新任务')}
                 onClick={() => select('')}
               >
                 <Icon name="plus" size={15} />
-                <span>{en ? 'New' : '新任务'}</span>
+                <span>{t('新任务')}</span>
               </button>
             )}
           </div>
@@ -463,11 +452,11 @@ export function DesignerWorkspace({
         {task && (
           <button type="button" className="designer-font-trigger no-drag" aria-haspopup="dialog" onClick={openFonts}>
             <span aria-hidden="true">Aa</span>
-            {en ? 'Fonts' : '字体'}
+            {t('字体')}
           </button>
         )}
         {onClose && (
-          <button className="icon-button no-drag" onClick={onClose} aria-label={en ? 'Close' : '关闭'}>
+          <button className="icon-button no-drag" onClick={onClose} aria-label={t('关闭')}>
             <Icon name="close" />
           </button>
         )}
@@ -498,7 +487,7 @@ export function DesignerWorkspace({
               <b />
             </figure>
           </div>
-          <div className="designer-task-kinds" role="group" aria-label={en ? 'Design task type' : '设计任务类型'}>
+          <div className="designer-task-kinds" role="group" aria-label={t('设计任务类型')}>
             {DESIGN_TASK_KINDS.map((value) => (
               <button type="button" key={value} onClick={() => setKind(value)} aria-pressed={kind === value}>
                 <svg
@@ -516,14 +505,14 @@ export function DesignerWorkspace({
                   {KIND_ICONS[value]}
                 </svg>
                 <div>
-                  <strong>{kindLabel(value, en)}</strong>
+                  <strong>{kindLabel(value)}</strong>
                 </div>
               </button>
             ))}
           </div>
           <div className="designer-home-composer">
             <BotComposer
-              placeholder={en ? 'Describe your design…' : '输入设计需求…'}
+              placeholder={t('输入设计需求…')}
               permissionMode={permissionMode}
               fixedDesignWorkspace
               contextOverview={activeRun?.contextOverview}
@@ -547,7 +536,7 @@ export function DesignerWorkspace({
           </div>
           {sessions.length > 0 && (
             <div className="designer-recent">
-              <h3>{en ? 'Recent designs' : '最近设计'}</h3>
+              <h3>{t('最近设计')}</h3>
               {sessions
                 .slice()
                 .reverse()
@@ -569,7 +558,7 @@ export function DesignerWorkspace({
               <div ref={conversationScroll.content} className="designer-conversation-sheet">
                 {task.designSpec && (
                   <details key={task.id} className="designer-spec">
-                    <summary>{en ? 'Design brief' : '设计要求'}</summary>
+                    <summary>{t('设计要求')}</summary>
                     <p>{task.designSpec}</p>
                     {task.constraints.map((c, i) => (
                       <p key={i}>• {c}</p>
@@ -578,7 +567,7 @@ export function DesignerWorkspace({
                 )}
                 {enabledPlugins.length > 0 && (
                   <p className="designer-plugin-note">
-                    {en ? 'Checks: ' : '本次检查：'}
+                    {t('本次检查：')}
                     {enabledPlugins.map((plugin) => designPluginCopy(plugin, en).name).join(' · ')}
                   </p>
                 )}
@@ -609,12 +598,12 @@ export function DesignerWorkspace({
                       <strong>{failure.title}</strong>
                       {canContinue && (
                         <button type="button" disabled={busy || botRunning} onClick={() => void act(continueTask)}>
-                          {busy ? (en ? 'Please wait…' : '正在处理…') : en ? 'Continue task' : '继续任务'}
+                          {busy ? t('正在处理…') : t('继续任务')}
                         </button>
                       )}
                     </div>
                     <details className="designer-failure-details" open>
-                      <summary>{en ? 'View details' : '查看详情'}</summary>
+                      <summary>{t('查看详情')}</summary>
                       <p>{failure.detail}</p>
                     </details>
                   </div>
@@ -624,7 +613,6 @@ export function DesignerWorkspace({
             <footer className="designer-task-footer">
               <DesignerDelivery
                 task={task}
-                en={en}
                 findings={designFindings}
                 blocking={blockingCount}
                 comments={openComments}
@@ -637,16 +625,14 @@ export function DesignerWorkspace({
               <div className="designer-task-composer">
                 {task.origin.kind === 'peer' ? (
                   <>
-                    <p className="designer-collaboration-note">
-                      {en ? 'Send changes in the original conversation.' : '请在发起会话中发送修改意见。'}
-                    </p>
+                    <p className="designer-collaboration-note">{t('请在发起会话中发送修改意见。')}</p>
                     {systemControl}
                   </>
                 ) : (
                   <>
                     <ConversationInteractions requests={requests} botId={bot.id} onTakeover={onTakeover} />
                     <BotComposer
-                      placeholder={en ? 'Describe your changes…' : '输入修改意见…'}
+                      placeholder={t('输入修改意见…')}
                       permissionMode={permissionMode}
                       fixedDesignWorkspace
                       designSessionId={task?.id}
@@ -670,11 +656,7 @@ export function DesignerWorkspace({
               </div>
             </footer>
           </div>
-          <aside
-            className="designer-canvas"
-            data-designer-canvas={task.id}
-            aria-label={en ? 'Live design canvas' : '实时设计画布'}
-          />
+          <aside className="designer-canvas" data-designer-canvas={task.id} aria-label={t('实时设计画布')} />
         </>
       )}
       {fontPicker && task && (

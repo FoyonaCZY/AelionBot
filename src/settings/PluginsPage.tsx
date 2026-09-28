@@ -19,8 +19,7 @@ export function PluginsPage({
   act: (operation: () => Promise<unknown>) => Promise<void>;
   onClose: () => void;
 }) {
-  const { t, language } = useI18n(),
-    label = (cn: string, en: string, tw = cn) => (language === 'en' ? en : language === 'zh-TW' ? tw : cn);
+  const { t } = useI18n();
   const [query, setQuery] = useState(''),
     [filter, setFilter] = useState<PluginFilter>(initialFilter),
     [selected, setSelected] = useState<{ kind: 'skill' | 'mcp'; id: string }>(),
@@ -59,10 +58,10 @@ export function PluginsPage({
         <div className="plugins-header-inner">
           <div>
             <h1 id="plugins-heading" ref={heading} tabIndex={-1}>
-              {label('插件', 'Plugins', '外掛')}
+              {t('插件')}
             </h1>
           </div>
-          <button className="icon-button" aria-label={label('返回聊天', 'Back to chat', '返回聊天')} onClick={onClose}>
+          <button className="icon-button" aria-label={t('返回聊天')} onClick={onClose}>
             <Icon name="close" size={20} />
           </button>
         </div>
@@ -85,8 +84,8 @@ export function PluginsPage({
                 <Icon name="search" size={18} />
                 <input
                   type="search"
-                  aria-label={label('搜索插件', 'Search plugins', '搜尋外掛')}
-                  placeholder={label('搜索插件', 'Search plugins', '搜尋外掛')}
+                  aria-label={t('搜索插件')}
+                  placeholder={t('搜索插件')}
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                 />
@@ -106,19 +105,15 @@ export function PluginsPage({
                 onClick={() => void act(() => window.aelion.addIntegrationSource('skills'))}
               >
                 <Icon name="plus" size={15} />
-                {label('添加技能', 'Add skills', '新增技能')}
+                {t('添加技能')}
               </button>
               <button className="primary-button" disabled={busy} onClick={() => setAddingMcp(true)}>
                 <Icon name="plus" size={15} />
-                {label('添加 MCP', 'Add MCP', '新增 MCP')}
+                {t('添加 MCP')}
               </button>
             </div>
             <div className="plugins-filters">
-              <div
-                className="plugins-filter-group"
-                role="group"
-                aria-label={label('插件分类', 'Plugin categories', '外掛分類')}
-              >
+              <div className="plugins-filter-group" role="group" aria-label={t('插件分类')}>
                 {filters.map((item) => (
                   <button key={item.id} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)}>
                     {item.name}
@@ -223,14 +218,10 @@ export function PluginsPage({
                   <span>
                     <Icon name={search ? 'search' : 'plugin'} size={24} />
                   </span>
-                  <h2>
-                    {search
-                      ? label('没有找到相关插件', 'No matching plugins', '找不到相關外掛')
-                      : label('暂无插件', 'No plugins', '尚無外掛')}
-                  </h2>
+                  <h2>{search ? t('没有找到相关插件') : t('暂无插件')}</h2>
                   {search && (
                     <button className="text-button" onClick={() => setQuery('')}>
-                      {label('清除搜索', 'Clear search', '清除搜尋')}
+                      {t('清除搜索')}
                     </button>
                   )}
                 </div>
@@ -239,11 +230,11 @@ export function PluginsPage({
             {state.integrations && (
               <details className="plugins-sources">
                 <summary>
-                  {label('来源与配置', 'Sources & configuration', '來源與設定')}
+                  {t('来源与配置')}
                   <Icon name="down" size={15} />
                 </summary>
                 <div>
-                  <span>{label('共享技能', 'Shared skills', '共享技能')}</span>
+                  <span>{t('共享技能')}</span>
                   <code>{state.integrations.sharedSkillDir}</code>
                   <button
                     className="text-button"
@@ -254,7 +245,7 @@ export function PluginsPage({
                   </button>
                 </div>
                 <div>
-                  <span>{label('MCP 配置', 'MCP configuration', 'MCP 設定')}</span>
+                  <span>{t('MCP 配置')}</span>
                   <code>{state.integrations.mcpFile}</code>
                   <button
                     className="text-button"

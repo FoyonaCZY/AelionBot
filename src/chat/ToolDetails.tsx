@@ -501,7 +501,7 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
     );
   if (tool === 'skill_file_read' || tool === 'file_read' || tool === 'host_file_read') {
     const path = textValue(result.path) || display.detail || '',
-      name = fileName(path) || '文件内容',
+      name = fileName(path) || t('文件内容'),
       content =
         tool === 'skill_file_read' || tool === 'host_file_read' ? textValue(result.content) : textValue(result.stdout);
     return (
@@ -510,8 +510,10 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
           icon="file"
           title={name}
           subtitle={path.includes('/') ? path : undefined}
-          meta={`${content.split('\n').filter((line, index, list) => index < list.length - 1 || line).length} 行`}
-          action={content ? <CopyText value={content} label="复制内容" /> : undefined}
+          meta={t('{count} 行', {
+            count: content.split('\n').filter((line, index, list) => index < list.length - 1 || line).length,
+          })}
+          action={content ? <CopyText value={content} label={t('复制内容')} /> : undefined}
         />
         <Section>
           <TextPreview text={content} name={name} />
@@ -524,18 +526,18 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
       <>
         <DetailHeader
           icon="folder"
-          title={textValue(result.name) || '技能文件'}
-          subtitle="已同步到工作电脑"
-          meta={`${arrayValue(result.files).length} 个文件`}
+          title={textValue(result.name) || t('技能文件')}
+          subtitle={t('已同步到工作电脑')}
+          meta={t('{count} 个文件', { count: arrayValue(result.files).length })}
         />
         <FileList files={result.files} />
         {textValue(result.vmPath) && (
           <footer className="detail-location">
             <span>
               <Icon name="computer" size={14} />
-              工作电脑中的技能副本
+              {t('工作电脑中的技能副本')}
             </span>
-            <CopyText value={textValue(result.vmPath)} label="复制目录" />
+            <CopyText value={textValue(result.vmPath)} label={t('复制目录')} />
           </footer>
         )}
       </>
@@ -545,7 +547,7 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
       <>
         <DetailHeader
           icon="book"
-          title={textValue(result.name) || '技能说明'}
+          title={textValue(result.name) || t('技能说明')}
           subtitle={textValue(objectValue(result.source).label)}
         />
         {textValue(result.description) && <p className="detail-description">{textValue(result.description)}</p>}
@@ -559,22 +561,22 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
     return (
       <DetailHeader
         icon="book"
-        title={textValue(result.name) || display.detail || '技能已保存'}
-        subtitle="已保存到这个 Bot 的私有技能库"
-        action={textValue(result.path) ? <CopyText value={textValue(result.path)} label="复制位置" /> : undefined}
+        title={textValue(result.name) || display.detail || t('技能已保存')}
+        subtitle={t('已保存到这个 Bot 的私有技能库')}
+        action={textValue(result.path) ? <CopyText value={textValue(result.path)} label={t('复制位置')} /> : undefined}
       />
     );
   if (tool === 'skills_list')
     return (
       <>
-        <DetailHeader icon="book" title="匹配的技能" meta={`${arrayValue(value).length} 项`} />
+        <DetailHeader icon="book" title={t('匹配的技能')} meta={t('{count} 项', { count: arrayValue(value).length })} />
         <Collection items={arrayValue(value)} kind="skills" />
       </>
     );
   if (tool === 'mcp_list_servers')
     return (
       <>
-        <DetailHeader icon="globe" title="可用服务" meta={`${arrayValue(value).length} 项`} />
+        <DetailHeader icon="globe" title={t('可用服务')} meta={t('{count} 项', { count: arrayValue(value).length })} />
         <Collection items={arrayValue(value)} kind="servers" />
       </>
     );
@@ -583,9 +585,9 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
       <>
         <DetailHeader
           icon="globe"
-          title={textValue(result.name) || '外部服务'}
-          subtitle={textValue(result.location).replace(/ · Windows 本机$/, ' · 本机')}
-          meta={`${arrayValue(result.tools).length} 个工具`}
+          title={textValue(result.name) || t('外部服务')}
+          subtitle={textValue(result.location).replace(/ · Windows 本机$/, t(' · 本机'))}
+          meta={t('{count} 个工具', { count: arrayValue(result.tools).length })}
         />
         <Collection items={arrayValue(result.tools)} kind="tools" />
       </>
@@ -593,7 +595,7 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
   if (tool === 'mcp_call')
     return (
       <>
-        <DetailHeader icon="globe" title={textValue(result.tool) || display.detail || '外部工具'} />
+        <DetailHeader icon="globe" title={textValue(result.tool) || display.detail || t('外部工具')} />
         <Section>
           <McpContent result={result} />
         </Section>
@@ -605,8 +607,8 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
       <>
         <DetailHeader
           icon="book"
-          title={resources ? '服务资源' : '提示模板'}
-          meta={`${arrayValue(result[resources ? 'resources' : 'prompts']).length} 项`}
+          title={resources ? t('服务资源') : t('提示模板')}
+          meta={t('{count} 项', { count: arrayValue(result[resources ? 'resources' : 'prompts']).length })}
         />
         <Collection
           items={arrayValue(result[resources ? 'resources' : 'prompts'])}
@@ -622,12 +624,14 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
           const resource = objectValue(item);
           return (
             <div key={index}>
-              <DetailHeader icon="file" title={fileName(textValue(resource.uri)) || '服务资源'} />
+              <DetailHeader icon="file" title={fileName(textValue(resource.uri)) || t('服务资源')} />
               <Section>
                 {typeof resource.text === 'string' ? (
                   <TextPreview text={resource.text} />
                 ) : (
-                  <p className="detail-muted">返回了二进制资源 · {textValue(resource.mimeType) || '文件'}</p>
+                  <p className="detail-muted">
+                    {t('返回了二进制资源')} · {textValue(resource.mimeType) || t('文件')}
+                  </p>
                 )}
               </Section>
             </div>
@@ -638,7 +642,7 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
   if (tool === 'mcp_get_prompt')
     return (
       <>
-        <DetailHeader icon="book" title="提示模板内容" subtitle={textValue(result.description)} />
+        <DetailHeader icon="book" title={t('提示模板内容')} subtitle={textValue(result.description)} />
         {arrayValue(result.messages).map((item, index) => (
           <Section key={index}>
             <McpContent result={{ content: [objectValue(item).content] }} />
@@ -648,10 +652,14 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
     );
   if (tool === 'memory')
     return result.duplicate ? (
-      <DetailHeader icon="book" title="已有这条记忆" />
+      <DetailHeader icon="book" title={t('已有这条记忆')} />
     ) : (
       <>
-        <DetailHeader icon="book" title="长期记忆已更新" meta={`${arrayValue(result.memories).length} 项`} />
+        <DetailHeader
+          icon="book"
+          title={t('长期记忆已更新')}
+          meta={t('{count} 项', { count: arrayValue(result.memories).length })}
+        />
         <Section>
           <DataView value={arrayValue(result.memories)} />
         </Section>
@@ -661,9 +669,9 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
     return (
       <DetailHeader
         icon="file"
-        title={fileName(textValue(result.path)) || '文件已保存'}
+        title={fileName(textValue(result.path)) || t('文件已保存')}
         subtitle={textValue(result.path)}
-        meta="本机"
+        meta={t('本机')}
       />
     );
   if (tool === 'file_write') {
@@ -671,8 +679,8 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
     return (
       <DetailHeader
         icon="file"
-        title={fileName(textValue(file.path)) || display.detail || '文件已保存'}
-        subtitle="已保存到工作电脑"
+        title={fileName(textValue(file.path)) || display.detail || t('文件已保存')}
+        subtitle={t('已保存到工作电脑')}
         meta={typeof file.bytes === 'number' ? bytes(file.bytes) : undefined}
       />
     );

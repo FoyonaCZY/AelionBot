@@ -16,7 +16,7 @@ export function DesignPluginPicker({
   onChange: (ids: string[]) => void;
   onClose: () => void;
 }) {
-  const { language } = useI18n(),
+  const { t, language } = useI18n(),
     en = language === 'en';
   const [query, setQuery] = useState('');
   const list = useMemo(() => filterDesignPlugins(plugins, query, en), [plugins, query, en]);
@@ -42,14 +42,14 @@ export function DesignPluginPicker({
       <section
         role="dialog"
         aria-modal="true"
-        aria-label={en ? 'Optional checks' : '可选检查'}
+        aria-label={t('可选检查')}
         className="designer-system-dialog designer-plugin-dialog"
       >
         <header>
           <div>
-            <h2>{en ? 'Optional checks' : '可选检查'}</h2>
+            <h2>{t('可选检查')}</h2>
           </div>
-          <button className="icon-button" aria-label={en ? 'Close' : '关闭'} onClick={onClose}>
+          <button className="icon-button" aria-label={t('关闭')} onClick={onClose}>
             <Icon name="close" />
           </button>
         </header>
@@ -57,8 +57,8 @@ export function DesignPluginPicker({
           <Icon name="search" size={17} />
           <input
             autoFocus
-            aria-label={en ? 'Search checks' : '搜索检查'}
-            placeholder={en ? 'Name or purpose' : '名称或用途'}
+            aria-label={t('搜索检查')}
+            placeholder={t('名称或用途')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -85,7 +85,7 @@ export function DesignPluginPicker({
               </button>
             );
           })}
-          {!list.length && <p className="designer-plugin-empty">{en ? 'No matching checks' : '没有匹配的检查'}</p>}
+          {!list.length && <p className="designer-plugin-empty">{t('没有匹配的检查')}</p>}
         </div>
         <footer>
           <button
@@ -94,10 +94,10 @@ export function DesignPluginPicker({
             disabled={!selected.length}
             onClick={() => onChange([])}
           >
-            {en ? 'Clear selection' : '全部取消'}
+            {t('全部取消')}
           </button>
           <button className="primary-button" onClick={onClose}>
-            {en ? 'Done' : '完成'}
+            {t('完成')}
           </button>
         </footer>
       </section>
