@@ -8,6 +8,7 @@ import { anthropicHistoryEndpoints } from '../context/anthropic-cache';
 import { anthropicReasoning } from './anthropic-thinking';
 import { repairToolHistory } from '../tools/tool-history';
 import { hiddenClientTools, hostedResponseTools } from '../tools/hosted-tools';
+import { taggedReasoning } from '../../../shared/chat/activity';
 
 export const nativeKey = (cfg: ModelConfig) => `${cfg.providerId || ''}:${cfg.baseUrl.replace(/\/$/, '')}:${cfg.model}`;
 const rawCall = (name: string, args: unknown, id?: string): ToolCall => ({
@@ -144,7 +145,15 @@ function buildProtocolRequest(
         ...(cacheKey ? { prompt_cache_key: cacheKey } : {}),
         max_output_tokens: output,
         ...temperature,
-        ...(cfg.reasoningEffort ? { reasoning: { effort: cfg.reasoningEffort } } : {}),
+        // A summary is the only readable reasoning the Responses API returns; with effort none there is nothing to summarize.
+        ...(cfg.reasoningEffort
+          ? {
+              reasoning: {
+                effort: cfg.reasoningEffort,
+                ...(cfg.reasoningEffort === 'none' ? {} : { summary: 'auto' }),
+              },
+            }
+          : {}),
         ...(responseTools.length ? { tools: responseTools, parallel_tool_calls: true } : {}),
       },
     };
@@ -266,7 +275,14 @@ function buildProtocolRequest(
       generationConfig: {
         maxOutputTokens: output,
         ...temperature,
-        ...(cfg.thinkingBudget !== undefined ? { thinkingConfig: { thinkingBudget: cfg.thinkingBudget } } : {}),
+        ...(cfg.thinkingBudget !== undefined
+          ? {
+              thinkingConfig: {
+                thinkingBudget: cfg.thinkingBudget,
+                ...(cfg.thinkingBudget ? { includeThoughts: true } : {}),
+              },
+            }
+          : {}),
       },
       ...(tools.length
         ? {
@@ -285,8 +301,12 @@ function buildProtocolRequest(
   };
 }
 
+const INLINE_OPENERS = ['\x3cthink>', '\x3cthinking>', '\x3canalysis>'];
 export class StreamAccumulator {
   content = '';
+  reasoning = '';
+  private reasoningSource = '';
+  private inline: 'unknown' | 'open' | 'closed' | 'none' = 'unknown';
   finishReason = '';
   ended = false;
   usage?: Completion['usage'];
@@ -300,12 +320,39 @@ export class StreamAccumulator {
     private protocol: ModelProtocol,
     private key: string,
     private onText: (delta: string) => void,
+    private onReasoning?: (text: string) => void,
   ) {}
   private text(value: unknown) {
     if (typeof value === 'string') {
       this.content += value;
       this.onText(value);
+      this.inlineReasoning();
     }
+  }
+  private reason(value: unknown, source: string) {
+    if (typeof value !== 'string' || !value) return;
+    // Providers may stream the same reasoning under two fields; the first kind seen is the one kept.
+    if (this.reasoningSource && this.reasoningSource !== source) return;
+    this.reasoningSource = source;
+    this.reasoning += value;
+    this.onReasoning?.(this.reasoning);
+  }
+  private separateReasoning() {
+    if (this.reasoning && !this.reasoning.endsWith('\n\n')) this.reasoning += '\n\n';
+  }
+  // Some compatible providers wrap reasoning in tags at the start of the content stream.
+  private inlineReasoning() {
+    if (this.reasoningSource || this.inline === 'closed' || this.inline === 'none') return;
+    if (this.inline === 'unknown') {
+      const head = this.content.trimStart();
+      if (/^\x3c(think|thinking|analysis)>/i.test(head)) this.inline = 'open';
+      else if (head && !INLINE_OPENERS.some((tag) => tag.startsWith(head.slice(0, tag.length).toLowerCase())))
+        this.inline = 'none';
+      if (this.inline !== 'open') return;
+    }
+    if (/\x3c\/(think|thinking|analysis)>/i.test(this.content)) this.inline = 'closed';
+    const text = taggedReasoning(this.content);
+    if (text) this.onReasoning?.(text);
   }
   private callSlot(part: any) {
     if (part.index !== undefined && part.index !== null && Number.isFinite(Number(part.index)))
@@ -322,6 +369,10 @@ export class StreamAccumulator {
       throw Error(`模型流错误：${item.error?.message || item.response?.error?.message || 'unknown'}`);
     if (this.protocol === 'responses') {
       if (item.type === 'response.output_text.delta') this.text(item.delta);
+      if (item.type === 'response.reasoning_summary_text.delta') this.reason(item.delta, 'summary');
+      if (item.type === 'response.reasoning_text.delta') this.reason(item.delta, 'text');
+      if (item.type === 'response.reasoning_summary_part.added' && this.reasoningSource === 'summary')
+        this.separateReasoning();
       if (item.type === 'response.completed' || item.type === 'response.incomplete') {
         const r = item.response;
         this.output = r.output || [];
@@ -340,6 +391,11 @@ export class StreamAccumulator {
           .join('');
         if (!this.content && completedText) this.text(completedText);
         else this.content = completedText || this.content;
+        // A JSON (non-streaming) response carries its reasoning only in the completed output.
+        if (!this.reasoning) {
+          const reasoning = responseReasoning(this.output);
+          if (reasoning) this.reason(reasoning.text, reasoning.source);
+        }
         for (const i of this.output)
           if (i.type === 'function_call')
             this.calls.set(this.calls.size, rawCall(i.name, i.arguments, i.call_id || ''));
@@ -352,6 +408,10 @@ export class StreamAccumulator {
       if (item.type === 'content_block_start') {
         this.blocks.set(item.index, structuredClone(item.content_block));
         if (item.content_block.type === 'text') this.text(item.content_block.text);
+        if (item.content_block.type === 'thinking') {
+          this.separateReasoning();
+          this.reason(item.content_block.thinking, 'thinking');
+        }
       }
       if (item.type === 'content_block_delta') {
         const b = this.blocks.get(item.index),
@@ -363,7 +423,10 @@ export class StreamAccumulator {
         }
         if (d.type === 'input_json_delta')
           this.json.set(item.index, (this.json.get(item.index) || '') + d.partial_json);
-        if (d.type === 'thinking_delta') b.thinking = (b.thinking || '') + d.thinking;
+        if (d.type === 'thinking_delta') {
+          b.thinking = (b.thinking || '') + d.thinking;
+          this.reason(d.thinking, 'thinking');
+        }
         if (d.type === 'signature_delta') b.signature = (b.signature || '') + d.signature;
       }
       if (item.type === 'message_delta') {
@@ -389,6 +452,7 @@ export class StreamAccumulator {
         for (const part of c.content?.parts || []) {
           this.parts.push(structuredClone(part));
           if (part.text && !part.thought) this.text(part.text);
+          if (part.text && part.thought) this.reason(part.text, 'thought');
           if (part.functionCall) {
             const f = part.functionCall;
             this.calls.set(this.calls.size, rawCall(f.name, f.args, f.id));
@@ -411,6 +475,11 @@ export class StreamAccumulator {
     }
     const d = c.delta || c.message || {};
     if (typeof d.content === 'string') this.text(d.content);
+    if (typeof d.reasoning_content === 'string') this.reason(d.reasoning_content, 'reasoning_content');
+    if (typeof d.reasoning === 'string') this.reason(d.reasoning, 'reasoning');
+    if (Array.isArray(d.reasoning_details))
+      for (const detail of d.reasoning_details)
+        this.reason(typeof detail?.text === 'string' ? detail.text : detail?.summary, 'reasoning_details');
     for (const key of ['reasoning_content', 'reasoning', 'reasoning_details'])
       if (d[key] !== undefined) {
         if (typeof d[key] === 'string') this.extras[key] = (this.extras[key] || '') + d[key];
@@ -426,6 +495,9 @@ export class StreamAccumulator {
     }
   }
   result(): Completion {
+    const reasoning = (
+      this.reasoning || (['open', 'closed'].includes(this.inline) ? taggedReasoning(this.content) : '')
+    ).trim();
     const data =
       this.protocol === 'responses'
         ? this.output
@@ -439,7 +511,21 @@ export class StreamAccumulator {
       calls: [...this.calls.entries()].sort(([a], [b]) => a - b).map(([, call]) => call),
       finishReason: this.finishReason,
       usage: this.usage,
+      ...(reasoning ? { reasoning } : {}),
       native: { protocol: this.protocol, key: this.key, data } satisfies NativeAssistant,
     };
   }
+}
+function responseReasoning(output: any[]) {
+  const items = output.filter((item) => item?.type === 'reasoning');
+  const read = (key: 'summary' | 'content') =>
+    items
+      .flatMap((item) => (Array.isArray(item[key]) ? item[key] : []))
+      .map((part: any) => (typeof part?.text === 'string' ? part.text.trim() : ''))
+      .filter(Boolean)
+      .join('\n\n');
+  const summary = read('summary');
+  if (summary) return { text: summary, source: 'summary' };
+  const text = read('content');
+  return text ? { text, source: 'text' } : undefined;
 }

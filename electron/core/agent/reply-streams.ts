@@ -1,9 +1,11 @@
-import type { StreamingReply } from '../../../shared/types/core';
+import type { MessageReasoning, StreamingReply } from '../../../shared/types/core';
 import type { BotIdentity } from '../../../shared/types/peer-types';
 import { botMentions } from '../../../shared/chat/mentions';
 import { streamingReplyText } from '../../../shared/chat/streaming';
 
-export type StreamTarget = Omit<StreamingReply, 'content' | 'mentions'>;
+export type StreamTarget = Omit<StreamingReply, 'content' | 'mentions' | 'reasoning'>;
+// The live view shows only the last lines of reasoning, so snapshots carry just its tail.
+const LIVE_REASONING_CHARS = 1200;
 export class ReplyStreams {
   private entries = new Map<string, { reply: StreamingReply; token: symbol }>();
   private timer?: ReturnType<typeof setTimeout>;
@@ -17,12 +19,17 @@ export class ReplyStreams {
   snapshot() {
     return [...this.entries.values()]
       .map((entry) => structuredClone(entry.reply))
-      .filter((reply) => reply.content)
+      .filter((reply) => reply.content || reply.reasoning?.text)
       .sort((a, b) => a.time.localeCompare(b.time) || a.id.localeCompare(b.id));
   }
   begin(target: StreamTarget, members?: () => BotIdentity[]) {
     // Group messages appear only after publication. Promoted tasks may still stream in their Bot's main chat.
-    if (target.groupId && !target.main) return { update: (_delta: string) => {}, close: (_notify = true) => {} };
+    if (target.groupId && !target.main)
+      return {
+        update: (_delta: string) => {},
+        reason: (_update: MessageReasoning) => {},
+        close: (_notify = true) => {},
+      };
     const token = Symbol(target.id);
     let raw = '',
       closed = false;
@@ -40,12 +47,24 @@ export class ReplyStreams {
         );
       const formatted = allowed ? botMentions(content, allowed, target.botId, false) : { content, mentions: [] };
       if (previous?.reply.content === formatted.content) return;
-      this.entries.set(target.id, { token, reply: { ...target, ...formatted } });
+      this.entries.set(target.id, { token, reply: { ...previous.reply, ...formatted } });
       if (!previous.reply.content && formatted.content) this.emit();
+      else this.schedule();
+    };
+    const reason = (update: MessageReasoning) => {
+      const previous = this.entries.get(target.id);
+      if (closed || previous?.token !== token) return;
+      const chars = Array.from(update.text),
+        text = chars.length > LIVE_REASONING_CHARS ? chars.slice(-LIVE_REASONING_CHARS).join('') : update.text;
+      const shown = previous.reply.reasoning;
+      this.entries.set(target.id, { token, reply: { ...previous.reply, reasoning: { ...update, text } } });
+      // Starting and finishing reasoning are shown at once; the text in between follows the stream interval.
+      if (!shown || (update.durationMs !== undefined && shown.durationMs === undefined)) this.emit();
       else this.schedule();
     };
     return {
       update,
+      reason,
       close: (notify = true) => {
         if (closed) return;
         closed = true;

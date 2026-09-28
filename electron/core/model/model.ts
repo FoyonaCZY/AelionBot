@@ -1,6 +1,7 @@
 import { RequestIdleTimeout } from './request-idle-timeout';
 import { AppError } from '../../../shared/errors';
 import { readModelResponse, modelEventActivity } from './model-stream';
+import { readableContent } from '../../../shared/chat/activity';
 import { RequestTiming } from './request-timing';
 import { contextOverview, countedContextOverview } from '../context/context-overview';
 import type { ContextOverview } from '../../../shared/chat/context-overview';
@@ -40,6 +41,9 @@ export interface Completion {
   inputImagesOmitted?: boolean;
   toolOutputsOmitted?: boolean;
   content: string;
+  /** Readable reasoning for display only; replaying reasoning to the model goes through native. */
+  reasoning?: string;
+  reasoningMs?: number;
   calls: ToolCall[];
   finishReason: string;
   usage?: ModelUsage;
@@ -60,6 +64,8 @@ export interface CompletionOptions {
   timeoutMs?: number;
   retries?: number;
   onReset?: () => void;
+  /** Cumulative readable reasoning of the current attempt; durationMs arrives once visible output starts. */
+  onReasoning?: (update: { text: string; startedAt: string; durationMs?: number }) => void;
   hostedImageGeneration?: boolean;
   config?: ModelConfig;
   key?: string;
@@ -236,6 +242,7 @@ export class ModelClient {
     }
     const retries = options.retries ?? settings.modelRetries;
     let emitted = false,
+      reasoned = false,
       fallback = false,
       inputAdjusted = false,
       timeoutAdjusted = false;
@@ -434,19 +441,52 @@ export class ModelClient {
           );
         }
         let streamed = '',
-          visible = '';
-        accumulator = new StreamAccumulator(cfg.protocol || 'chat', nativeKey(cfg), (delta) => {
-          streamed += delta;
-          const trimmed = streamed.trimStart();
-          if ('</think>'.startsWith(trimmed) && trimmed !== '</think>') return;
-          const clean = streamed.replace(/^\s*<\/think>\s*/, '');
-          if (clean.length > visible.length) {
-            timing.mark('firstTextMs');
-            onText(clean.slice(visible.length));
-            visible = clean;
-            emitted = true;
+          visible = '',
+          firstEventAt = 0,
+          reasoningText = '',
+          reasoningMs: number | undefined;
+        const reportReasoning = () => {
+          try {
+            options.onReasoning?.({
+              text: reasoningText,
+              startedAt: new Date(firstEventAt || Date.now()).toISOString(),
+              durationMs: reasoningMs,
+            });
+          } catch {
+            /* Display observers cannot fail inference. */
           }
-        });
+        };
+        // Reasoning time runs from the first stream event until readable text or a tool call begins.
+        const endReasoning = () => {
+          if (!reasoningText || reasoningMs !== undefined) return;
+          reasoningMs = Date.now() - (firstEventAt || start);
+          reportReasoning();
+        };
+        accumulator = new StreamAccumulator(
+          cfg.protocol || 'chat',
+          nativeKey(cfg),
+          (delta) => {
+            streamed += delta;
+            const trimmed = streamed.trimStart();
+            if ('</think>'.startsWith(trimmed) && trimmed !== '</think>') return;
+            const clean = streamed.replace(/^\s*<\/think>\s*/, '');
+            if (clean.length > visible.length) {
+              timing.mark('firstTextMs');
+              onText(clean.slice(visible.length));
+              visible = clean;
+              emitted = true;
+              if (reasoningText && reasoningMs === undefined && readableContent(clean)) endReasoning();
+            }
+          },
+          options.onReasoning
+            ? (text) => {
+                if (reasoningMs !== undefined || text === reasoningText) return;
+                reasoningText = text;
+                reasoned = true;
+                reportReasoning();
+              }
+            : undefined,
+        );
         let activityAt = 0,
           lastActivity = '',
           receivedBytes = 0,
@@ -465,6 +505,7 @@ export class ModelClient {
           jsonProgress: () => timeout.touch(),
           consume: (event) => {
             timing.mark('firstEventMs');
+            firstEventAt ||= Date.now();
             if (response.headers.get('content-type')?.includes('application/json') && cfg.protocol === 'responses')
               event = { type: 'response.' + (event.status || 'completed'), response: event };
             try {
@@ -476,6 +517,7 @@ export class ModelClient {
               );
             }
             const activity = modelEventActivity(cfg.protocol || 'chat', event);
+            if (activity?.kind === 'tool') endReasoning();
             if (activity) {
               timeout.touch();
               toolArgumentChars += activity.argumentChars || 0;
@@ -500,7 +542,9 @@ export class ModelClient {
           },
         });
         signal.throwIfAborted();
+        endReasoning();
         const result = accumulator.result();
+        if (result.reasoning && reasoningMs !== undefined) result.reasoningMs = reasoningMs;
         result.requestModelKey = nativeKey(cfg);
         if (currentOverview && accumulator.ended && result.usage?.inputTokens !== undefined)
           publishOverview(countedContextOverview(currentOverview, result.usage.inputTokens, 'provider-usage'));
@@ -618,9 +662,10 @@ export class ModelClient {
             ];
           }
         }
-        if (emitted) {
+        if (emitted || reasoned) {
           options.onReset?.();
           emitted = false;
+          reasoned = false;
         }
         if (error instanceof RequestError && error.truncated) {
           if (output >= ceiling) {

@@ -114,6 +114,13 @@ export interface StreamingReply {
   peerThreadId?: string;
   purpose?: 'reply' | 'progress' | 'greeting';
   mentions?: BotMention[];
+  reasoning?: MessageReasoning;
+}
+/** Readable model reasoning shown beside a reply; it never re-enters model context. */
+export interface MessageReasoning {
+  text: string;
+  startedAt?: string;
+  durationMs?: number;
 }
 export interface Artifact {
   id: string;
@@ -161,6 +168,7 @@ export interface ChatMessage {
   activity?: { label: string; detail?: string };
   presentation?: 'progress' | 'answer' | 'error';
   mentions?: BotMention[];
+  reasoning?: MessageReasoning;
   peer?: PeerNotice;
   groupLink?: GroupLink;
   groupTaskSource?: { groupId: string; name: string; messageId?: string; continuation?: boolean };

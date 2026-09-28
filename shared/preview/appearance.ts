@@ -1,4 +1,5 @@
 export type ThemePreference = 'system' | 'light' | 'dark';
+export type ReasoningDisplay = 'collapsed' | 'expanded' | 'hidden';
 export interface AppearanceSettings {
   theme: ThemePreference;
   font: 'bundled' | 'system' | 'custom';
@@ -11,6 +12,7 @@ export interface AppearanceSettings {
   codeSize: number;
   lineHeight: number;
   zoom: number;
+  reasoning: ReasoningDisplay;
 }
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
   theme: 'system',
@@ -24,6 +26,7 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
   codeSize: 13,
   lineHeight: 1.8,
   zoom: 100,
+  reasoning: 'collapsed',
 };
 const family = (value: unknown) =>
   typeof value === 'string' && /^[\p{L}\p{N} ._-]{0,80}$/u.test(value) ? value.trim() : '';
@@ -47,6 +50,7 @@ export function normalizeAppearance(value: unknown): AppearanceSettings {
     codeSize: number('codeSize', 11, 20),
     lineHeight: Number(number('lineHeight', 1.4, 2.2, 0.1).toFixed(1)),
     zoom: number('zoom', 50, 200),
+    reasoning: choice('reasoning', ['collapsed', 'expanded', 'hidden'], 'collapsed'),
   };
 }
 export function appearanceVariables(value: AppearanceSettings) {

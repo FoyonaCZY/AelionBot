@@ -10,6 +10,7 @@ import { QuestionAnswerMessage } from '../chat/QuestionAnswerMessage';
 import { MessageActions } from '../chat/MessagePins';
 import { Icon } from './Icon';
 import { MentionContent } from './MentionContent';
+import { MessageReasoning } from '../chat/MessageReasoning';
 import { useI18n } from '../i18n';
 import '../chat/message-surfaces.css';
 
@@ -41,7 +42,8 @@ export function Message({
   if (message.reaction) return null;
   if (message.role === 'event') return <div className="event-message">{message.content}</div>;
   if (message.role === 'tool') return null;
-  if (!message.content && !message.attachments?.length && message.status !== 'running') return null;
+  if (!message.content && !message.attachments?.length && message.status !== 'running' && !message.reasoning?.text)
+    return null;
   const presentation = previewFeedbackDisplay(message);
   const answer =
     message.role === 'user' ? message.questionAnswer || legacyQuestionAnswerData(message.content) : undefined;
@@ -51,10 +53,24 @@ export function Message({
         ? t('发现校验问题，继续检查并修正。')
         : readableContent(message.content)
       : readableQuestionAnswer(presentation.content);
+  // A model call that only reasoned before its tool calls leaves a single disclosure line, no bubble.
+  if (
+    message.role === 'assistant' &&
+    message.reasoning?.text &&
+    !content &&
+    !message.attachments?.length &&
+    message.status !== 'running'
+  )
+    return (
+      <div className="message-row assistant reasoning-only" data-message-id={message.id}>
+        <MessageReasoning reasoning={message.reasoning} />
+      </div>
+    );
   return (
     <>
       <MessageTime id={message.id} time={message.time} />
       <div className={`message-row ${message.role}`} data-message-id={message.id}>
+        {message.role === 'assistant' && <MessageReasoning reasoning={message.reasoning} />}
         <MessageActions
           messageId={message.id}
           content={content || attachmentSummary(message.attachments)}

@@ -1,6 +1,7 @@
 import type { Bot, StreamingReply as Reply } from '../../shared/types/core';
 import { Avatar } from '../ui/Avatar';
 import { MentionContent } from '../ui/MentionContent';
+import { MessageReasoning } from './MessageReasoning';
 import { useI18n } from '../i18n';
 import './streaming.css';
 
@@ -41,7 +42,8 @@ export function StreamingReply({
       aria-busy="true"
       aria-label={label}
     >
-      <div className="bubble">{text}</div>
+      <MessageReasoning reasoning={reply.reasoning} streaming />
+      {reply.content && <div className="bubble">{text}</div>}
     </div>
   );
 }

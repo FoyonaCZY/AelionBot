@@ -1,0 +1,101 @@
+/* A quiet line above the reply bubble; the bubble stays the reply's only surface. */
+.message-reasoning {
+  max-width: min(86%, 700px);
+  margin: 0 0 8px 2px;
+  min-width: 0;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+}
+.reasoning-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: -6px;
+  padding: 4px 8px 4px 6px;
+  border-radius: 8px;
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  color: light-dark(#8d8898, #aaa5b0);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.reasoning-toggle:not(:disabled):hover,
+.reasoning-toggle:focus-visible {
+  background: light-dark(#f5f4f7, #232127);
+  color: light-dark(#5f5a69, #d0ccd4);
+  outline: none;
+}
+.reasoning-toggle:focus-visible {
+  box-shadow: 0 0 0 2px light-dark(#cbbfe2, #6d5f86);
+}
+.reasoning-toggle:disabled {
+  cursor: default;
+}
+.reasoning-toggle > svg:first-child {
+  flex: 0 0 auto;
+  color: light-dark(#a99bc4, #9d8fb8);
+}
+.reasoning-toggle > svg:last-child:not(:first-child) {
+  opacity: 0.7;
+  transition: transform 0.18s;
+}
+.message-reasoning.is-open .reasoning-toggle > svg:last-child:not(:first-child) {
+  transform: rotate(90deg);
+}
+.reasoning-meta {
+  color: light-dark(#b3afbb, #86828c);
+  font-variant-numeric: tabular-nums;
+}
+.reasoning-body {
+  margin: 6px 0 2px 6px;
+  padding: 2px 0 2px 14px;
+  border-left: 2px solid light-dark(#ebe7f1, #34303b);
+  color: light-dark(#77737f, #aaa6ae);
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 320px;
+  overflow: auto;
+}
+/* While streaming, only the newest three lines show and the oldest fades out. */
+.message-reasoning.is-live .reasoning-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  max-height: calc(1.75em * 3);
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, transparent 0, #000 1.6em);
+}
+.message-reasoning.is-live .reasoning-tail {
+  flex-shrink: 0;
+}
+.message-reasoning.is-live .reasoning-label {
+  background: linear-gradient(90deg, currentColor 0 35%, light-dark(#d4cfdc, #5a5561) 50%, currentColor 65% 100%) 0 0 /
+    250% 100%;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: reasoning-shimmer 1.8s linear infinite;
+}
+@keyframes reasoning-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .message-reasoning.is-live .reasoning-label {
+    animation: none;
+    -webkit-text-fill-color: currentColor;
+  }
+  .reasoning-toggle > svg:last-child:not(:first-child) {
+    transition: none;
+  }
+}
+/* Consecutive reasoning-only model calls read as a compact list, not separate messages. */
+.message-row.reasoning-only {
+  margin: 4px 0 6px;
+}
+.message-row.reasoning-only .message-reasoning {
+  margin-bottom: 0;
+}

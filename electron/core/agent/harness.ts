@@ -31,7 +31,7 @@ import { FileCheckpoints } from '../tools/file-checkpoints';
 import { PythonSessions } from '../tools/python-sessions';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Bot, WireMessage, RunRecord } from '../../../shared/types/core';
+import type { Bot, WireMessage, RunRecord, MessageReasoning } from '../../../shared/types/core';
 import { Store } from '../storage/store';
 import type { TaskScheduler } from '../scheduler/task-scheduler';
 import { ModelClient, ContextOverflowError, type Completion, type ToolDefinition } from '../model/model';
@@ -202,6 +202,15 @@ function groupProgressFingerprint(name: string, args: unknown, output: unknown) 
   return createHash('sha256')
     .update(JSON.stringify([name, normalize(args), normalize(output)]))
     .digest('hex');
+}
+// Reasoning can run to tens of thousands of characters; the saved copy keeps its beginning.
+const STORED_REASONING_CHARS = 20000;
+function storedReasoning(text: string, durationMs?: number): MessageReasoning {
+  const chars = Array.from(text);
+  return {
+    text: chars.length > STORED_REASONING_CHARS ? chars.slice(0, STORED_REASONING_CHARS).join('') + '…' : text,
+    ...(durationMs !== undefined ? { durationMs } : {}),
+  };
 }
 function reactionOnlyRun(store: Store, run: RunRecord) {
   const seen = new Set<string>();
@@ -760,6 +769,7 @@ export class Harness {
     options.onStarted?.(run.id);
     this.changed();
     let visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
+    const showReasoning = !options.groupOrigin && !options.peerOrigin;
     this.changed();
     const modelConfig = this.store.modelFor(botId);
     const system: WireMessage = {
@@ -1075,6 +1085,7 @@ export class Harness {
           let accepting = true;
           const target = this.streamTarget(botId, run.id, message.id, message.time);
           let preview = this.streams.begin(target, this.streamMembers(target.groupId));
+          delete message.reasoning;
           try {
             return await abortable(inferenceSignal, () =>
               this.model.complete(
@@ -1111,6 +1122,15 @@ export class Harness {
                   contextStats: groupPrepared?.stats || prepared?.stats,
                   requiredImageIds: [...requiredImageIds],
                   maxOutputTokens,
+                  // Reasoning is shown only in a Bot's own conversation, not in group or Bot-to-Bot chats.
+                  ...(showReasoning
+                    ? {
+                        onReasoning: (update: MessageReasoning) => {
+                          if (accepting && !inferenceSignal.aborted && !controller.signal.aborted)
+                            preview.reason(update);
+                        },
+                      }
+                    : {}),
                   onReset: () => {
                     message.content = '';
                     preview.close(false);
@@ -1254,6 +1274,8 @@ export class Harness {
         }
         run.modelCalls++;
         visible.content = silentReaction || standaloneReaction ? '' : result.content;
+        if (showReasoning && result.reasoning && !silentReaction)
+          visible.reasoning = storedReasoning(result.reasoning, result.reasoningMs);
         visible.status = 'done';
         visible.presentation = result.calls.length ? 'progress' : 'answer';
         if ((!groupKey || result.calls.length) && !silentReaction)

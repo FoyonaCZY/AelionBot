@@ -13,6 +13,7 @@ function applyAppearance(value: AppearanceSettings) {
   for (const [name, v] of Object.entries(appearanceVariables(value))) root.style.setProperty(name, v);
   const theme = resolvedTheme(value.theme, window.matchMedia('(prefers-color-scheme: dark)').matches);
   root.dataset.theme = theme;
+  root.dataset.reasoning = value.reasoning;
   root.style.colorScheme = theme;
   window.dispatchEvent(new Event('aelion-appearance-change'));
 }

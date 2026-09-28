@@ -200,6 +200,20 @@ export function AppearanceSettings({
           </Select>
         </Row>
       </section>
+      <section className="appearance-section">
+        <h3>{t('对话')}</h3>
+        <Row title={t('思考过程')} hint={t('模型返回的推理内容在对话中的展示方式')}>
+          <Select
+            aria-label={t('思考过程')}
+            value={settings.reasoning}
+            onChange={(e) => change({ reasoning: e.target.value as Values['reasoning'] })}
+          >
+            <option value="collapsed">{t('自动收起')}</option>
+            <option value="expanded">{t('始终展开')}</option>
+            <option value="hidden">{t('不显示')}</option>
+          </Select>
+        </Row>
+      </section>
       <footer className="appearance-footer">
         <button type="button" className="text-button" onClick={() => change({ ...DEFAULT_APPEARANCE })}>
           {t('恢复默认')}

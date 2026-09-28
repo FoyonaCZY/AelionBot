@@ -93,7 +93,7 @@ export function RunMessage({
       message.presentation !== 'error' &&
       !['running', 'cancelled'].includes(message.status || 'done') &&
       (!isLast || message.id !== view.final?.id) &&
-      Boolean(readableContent(message.content) || message.attachments?.length) &&
+      Boolean(readableContent(message.content) || message.attachments?.length || message.reasoning?.text) &&
       !(view.error && message.content.includes(view.error)),
   );
   const showError = failed && latest,

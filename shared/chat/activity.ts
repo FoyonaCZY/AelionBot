@@ -245,6 +245,15 @@ export function readableContent(content: string) {
     .trim();
 }
 
+// Reasoning a compatible provider wrapped in tags inside the content stream; an unclosed block is still streaming.
+const TAGGED_REASONING = /\x3c(think|thinking|analysis)>([\s\S]*?)(?:\x3c\/\1>|$)/gi;
+export function taggedReasoning(content: string) {
+  return [...content.matchAll(TAGGED_REASONING)]
+    .map((match) => match[2].trim())
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 export interface Notice {
   title: string;
   description: string;
