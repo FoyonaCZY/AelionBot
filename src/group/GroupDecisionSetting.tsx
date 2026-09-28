@@ -28,25 +28,29 @@ export function GroupDecisionSetting({ laya }: { laya: LayaFeatureState }) {
       setLayaPending(false);
     }
   };
-  const layaStatus = cancelling
-    ? t('正在取消下载…')
-    : downloading
-      ? (
-          {
-            preparing: t('正在准备下载组件…'),
-            installing: t('正在安装模型环境…'),
-            loading: t('正在加载模型…'),
-          } as Record<string, string>
-        )[laya.phase] || t('正在下载…')
-      : active && laya.phase === 'ready'
-        ? t('{model} 已启用，适用于所有群聊', { model: modelName })
-        : active && laya.phase === 'loading'
-          ? t('{model} 正在加载…', { model: modelName })
-          : active && laya.phase === 'error'
-            ? t(laya.error || '模型加载失败')
-            : installed
-              ? t('{model} 已下载，当前未启用', { model: modelName })
-              : undefined;
+  let statusText: string | undefined;
+  let buttonText = t('一键下载并启用');
+  if (cancelling) {
+    buttonText = t('取消中…');
+    statusText = t('正在取消下载…');
+  } else if (downloading) {
+    buttonText = t('取消下载');
+    if (laya.phase === 'preparing') statusText = t('正在准备下载组件…');
+    else if (laya.phase === 'installing') statusText = t('正在安装模型环境…');
+    else if (laya.phase === 'loading') statusText = t('正在加载模型…');
+    else statusText = t('正在下载…');
+  } else if (active) {
+    buttonText = t('暂停');
+    if (laya.phase === 'ready') statusText = t('{model} 已启用，适用于所有群聊', { model: modelName });
+    else if (laya.phase === 'loading') statusText = t('{model} 正在加载…', { model: modelName });
+    else if (laya.phase === 'error') statusText = t(laya.error || '模型加载失败');
+    else if (installed) statusText = t('{model} 已下载，当前未启用', { model: modelName });
+  } else if (installed) {
+    buttonText = t('启用');
+    statusText = t('{model} 已下载，当前未启用', { model: modelName });
+  }
+  if (!laya.supported) statusText = t('当前系统暂不支持本地决策模型');
+  if (layaError) statusText = t(layaError);
   return (
     <div className="group-laya-setting">
       <div className="group-laya-setting-row">
@@ -60,22 +64,10 @@ export function GroupDecisionSetting({ laya }: { laya: LayaFeatureState }) {
           disabled={cancelling || (layaPending && !downloading) || !laya.supported}
           onClick={() => void changeLaya()}
         >
-          {cancelling
-            ? t('取消中…')
-            : downloading
-              ? t('取消下载')
-              : active
-                ? t('暂停')
-                : installed
-                  ? t('启用')
-                  : t('一键下载并启用')}
+          {buttonText}
         </button>
       </div>
-      {(layaError || !laya.supported || layaStatus) && (
-        <small role="status">
-          {layaError ? t(layaError) : !laya.supported ? t('当前系统暂不支持本地决策模型') : layaStatus}
-        </small>
-      )}
+      {statusText && <small role="status">{statusText}</small>}
     </div>
   );
 }

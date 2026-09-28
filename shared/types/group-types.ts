@@ -157,7 +157,6 @@ export type GroupDeliveryStatus =
   | 'read';
 export interface GroupDelivery {
   retryRunId?: string;
-  layaMode?: 'v2';
   layaDecisionId?: string;
   id: string;
   groupId: string;

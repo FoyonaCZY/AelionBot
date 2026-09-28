@@ -89,7 +89,7 @@ function assertDeliveriesSettled(store: Store) {
 
 async function ready(runtime: LayaRuntime) {
   runtime.warmup();
-  for (let i = 0; i < 100 && !runtime.isReady; i++) await new Promise((resolve) => setTimeout(resolve, 20));
+  await until(() => runtime.isReady, { message: 'Laya 未就绪' });
   assert.equal(runtime.isReady, true);
 }
 
@@ -100,10 +100,7 @@ test('cold start and excess requests fall back; a stuck worker is stopped', asyn
     script,
     'import json,sys,time\ntime.sleep(0.3)\nprint(json.dumps({"ready":True}),flush=True)\nfor line in sys.stdin:\n time.sleep(30)\n',
   );
-  const previous = { runtime: process.env.AELION_LAYA_RUNTIME, python: process.env.AELION_LAYA_PYTHON };
-  process.env.AELION_LAYA_RUNTIME = 'mlx';
-  process.env.AELION_LAYA_PYTHON = 'python3';
-  const runtime = new LayaRuntime(script);
+  const runtime = new LayaRuntime(script, () => {}, { runtime: 'mlx', python: 'python3' });
   const log = new LayaDecisionLog(dir);
   const decisions = new LayaGroupDecisions(runtime, log);
   try {
@@ -119,10 +116,6 @@ test('cold start and excess requests fall back; a stuck worker is stopped', asyn
     assert.equal(runtime.isReady, false);
   } finally {
     runtime.dispose();
-    if (previous.runtime === undefined) delete process.env.AELION_LAYA_RUNTIME;
-    else process.env.AELION_LAYA_RUNTIME = previous.runtime;
-    if (previous.python === undefined) delete process.env.AELION_LAYA_PYTHON;
-    else process.env.AELION_LAYA_PYTHON = previous.python;
     rmSync(dir, { recursive: true, force: true });
   }
 });
@@ -134,10 +127,7 @@ test('local Laya records a two-way group decision', async () => {
     script,
     'import json,sys\nprint(json.dumps({"ready":True}),flush=True)\nfor line in sys.stdin:\n request=json.loads(line)\n print(json.dumps({"id":request["id"],"result":{"answers":{"decision":{"choice":"participate","confidence":0.73,"probabilities":{"observe":0.3,"participate":0.7}}}}}),flush=True)\n',
   );
-  const previous = { runtime: process.env.AELION_LAYA_RUNTIME, python: process.env.AELION_LAYA_PYTHON };
-  process.env.AELION_LAYA_RUNTIME = 'mlx';
-  process.env.AELION_LAYA_PYTHON = 'python3';
-  const runtime = new LayaRuntime(script);
+  const runtime = new LayaRuntime(script, () => {}, { runtime: 'mlx', python: 'python3' });
   const log = new LayaDecisionLog(dir);
   const decisions = new LayaGroupDecisions(runtime, log);
   try {
@@ -163,10 +153,6 @@ test('local Laya records a two-way group decision', async () => {
     assert.equal(adjusted.adjustment, undefined);
   } finally {
     runtime.dispose();
-    if (previous.runtime === undefined) delete process.env.AELION_LAYA_RUNTIME;
-    else process.env.AELION_LAYA_RUNTIME = previous.runtime;
-    if (previous.python === undefined) delete process.env.AELION_LAYA_PYTHON;
-    else process.env.AELION_LAYA_PYTHON = previous.python;
     rmSync(dir, { recursive: true, force: true });
   }
 });
@@ -201,9 +187,8 @@ test('30 cancelled callers keep at most three backend requests until responses f
         return false;
       }
     });
-    // Receiving the last response happens after the Python completion marker is written.
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    assert.equal(await choose(decisions, 'after-stop', 'bot', decisionInput()), 'participate');
+    // The completion marker can precede receipt of the response; retry until a slot is free.
+    await until(async () => (await choose(decisions, 'after-stop', 'bot', decisionInput())) === 'participate');
     assert.equal(readFileSync(completed, 'utf8').trim().split('\n').length, 4);
     assert.equal(runtime.isReady, true);
     assert.deepEqual(log.groupDecisions(new Set(Array.from({ length: 30 }, (_, index) => `stopped-${index}`))), []);
@@ -220,13 +205,10 @@ test('group broadcast sends each Bot a separate decision', async () => {
     script,
     'import json,sys\nprint(json.dumps({"ready":True}),flush=True)\nfor line in sys.stdin:\n request=json.loads(line)\n print(json.dumps({"id":request["id"],"result":{"answers":{"decision":{"choice":"observe"}}}}),flush=True)\n',
   );
-  const previous = { runtime: process.env.AELION_LAYA_RUNTIME, python: process.env.AELION_LAYA_PYTHON };
-  process.env.AELION_LAYA_RUNTIME = 'mlx';
-  process.env.AELION_LAYA_PYTHON = 'python3';
   const store = new Store(dir),
     first = store.data.bots[0],
     second = store.createBot('第二个 Bot', '');
-  const runtime = new LayaRuntime(script);
+  const runtime = new LayaRuntime(script, () => {}, { runtime: 'mlx', python: 'python3' });
   const log = new LayaDecisionLog(dir);
   const decisions = new LayaGroupDecisions(runtime, log);
   let runs = 0;
@@ -246,16 +228,15 @@ test('group broadcast sends each Bot a separate decision', async () => {
     groups.send({ id: group.id, message: '请看这条群消息' });
     groups.start();
     let events: Record<string, string>[] = [];
-    for (let attempt = 0; attempt < 50; attempt++) {
+    await until(() => {
       try {
         events = readFileSync(join(dir, 'laya-decisions.jsonl'), 'utf8')
           .trim()
           .split('\n')
           .map((line) => JSON.parse(line));
       } catch {}
-      if (events.length >= 2) break;
-      await new Promise((resolve) => setTimeout(resolve, 40));
-    }
+      return events.length >= 2;
+    });
     assert.deepEqual(new Set(events.map((event) => event.actorId)), new Set([first.id, second.id]));
     assert(events.every((event) => event.scope === 'group' && event.choice === 'observe'));
     await until(() => !groups.busy);
@@ -288,10 +269,6 @@ test('group broadcast sends each Bot a separate decision', async () => {
     groups.dispose();
     runtime.dispose();
     store.close();
-    if (previous.runtime === undefined) delete process.env.AELION_LAYA_RUNTIME;
-    else process.env.AELION_LAYA_RUNTIME = previous.runtime;
-    if (previous.python === undefined) delete process.env.AELION_LAYA_PYTHON;
-    else process.env.AELION_LAYA_PYTHON = previous.python;
     rmSync(dir, { recursive: true, force: true });
   }
 });
@@ -303,13 +280,10 @@ test('Laya participation reaches each Bot for questions and work', async () => {
     script,
     'import json,sys\nprint(json.dumps({"ready":True}),flush=True)\nfor line in sys.stdin:\n request=json.loads(line)\n event=request["state"]["events"][-1]\n choice="participate" if event["from"]["kind"]=="user" else "observe"\n print(json.dumps({"id":request["id"],"result":{"answers":{"decision":{"choice":choice,"probabilities":{"observe":0.1,"participate":0.9}}}}}),flush=True)\n',
   );
-  const previous = { runtime: process.env.AELION_LAYA_RUNTIME, python: process.env.AELION_LAYA_PYTHON };
-  process.env.AELION_LAYA_RUNTIME = 'mlx';
-  process.env.AELION_LAYA_PYTHON = 'python3';
   const store = new Store(dir),
     first = store.data.bots[0],
     second = store.createBot('第二个 Bot', '');
-  const runtime = new LayaRuntime(script);
+  const runtime = new LayaRuntime(script, () => {}, { runtime: 'mlx', python: 'python3' });
   const log = new LayaDecisionLog(dir);
   const decisions = new LayaGroupDecisions(runtime, log);
   const calls: Array<{ botId: string; choice: string }> = [];
@@ -327,17 +301,12 @@ test('Laya participation reaches each Bot for questions and work', async () => {
     await ready(runtime);
     const room = groups.create({ name: '路由测试', botIds: [first.id, second.id] });
     groups.start();
-    const wait = async () => {
-      for (let i = 0; i < 100; i++) {
-        if (
+    const wait = () =>
+      until(
+        () =>
           !groups.busy &&
-          !store.data.groupDeliveries.some((item) => ['queued', 'deciding', 'running'].includes(item.status))
-        )
-          return;
-        await new Promise((resolve) => setTimeout(resolve, 25));
-      }
-      throw Error('路由测试超时');
-    };
+          !store.data.groupDeliveries.some((item) => ['queued', 'deciding', 'running'].includes(item.status)),
+      );
     await wait();
     groups.send({ id: room.id, message: '请回复这条消息。' });
     await wait();
@@ -351,10 +320,6 @@ test('Laya participation reaches each Bot for questions and work', async () => {
     groups.dispose();
     runtime.dispose();
     store.close();
-    if (previous.runtime === undefined) delete process.env.AELION_LAYA_RUNTIME;
-    else process.env.AELION_LAYA_RUNTIME = previous.runtime;
-    if (previous.python === undefined) delete process.env.AELION_LAYA_PYTHON;
-    else process.env.AELION_LAYA_PYTHON = previous.python;
     rmSync(dir, { recursive: true, force: true });
   }
 });
@@ -494,17 +459,12 @@ test('enabled Laya receives each Bot identity and cannot globally suppress anoth
     undefined,
     decisions,
   );
-  const wait = async () => {
-    for (let i = 0; i < 100; i++) {
-      if (
+  const wait = () =>
+    until(
+      () =>
         !groups.busy &&
-        !store.data.groupDeliveries.some((item) => ['queued', 'deciding', 'running'].includes(item.status))
-      )
-        return;
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    }
-    throw Error('群聊未结束');
-  };
+        !store.data.groupDeliveries.some((item) => ['queued', 'deciding', 'running'].includes(item.status)),
+    );
   try {
     const room = groups.create({ name: '指令对象', botIds: [first.id, second.id] });
     groups.start();

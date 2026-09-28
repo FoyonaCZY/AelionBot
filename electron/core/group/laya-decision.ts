@@ -1,3 +1,7 @@
+import { soulExcerpt } from '../../../shared/chat/bot-soul';
+import { groupReplyContent } from '../../../shared/chat/message-envelope';
+import type { Bot } from '../../../shared/types/core';
+import type { GroupRoom, GroupRound, GroupDelivery } from '../../../shared/types/group-types';
 import type { LayaRuntime } from '../model/laya-runtime';
 import type { LayaDecisionLog } from '../model/laya-decision-log';
 import type { GroupDecisionInput, GroupDecisionRecord, LayaVariant } from '../../../shared/types/laya-types';
@@ -76,4 +80,63 @@ export class LayaGroupDecisions implements GroupDecisions {
     }
     return undefined;
   }
+}
+
+export function buildGroupDecisionInput(
+  room: GroupRoom,
+  round: GroupRound,
+  bot: Bot,
+  deliveries: GroupDelivery[],
+): GroupDecisionInput {
+  const firstCurrentSeq = Math.min(
+    ...deliveries.map(
+      (delivery) => room.messages.find((message) => message.id === delivery.messageId)?.seq || Infinity,
+    ),
+  );
+  const layaPriorMessages = room.messages
+    .filter((message) => (!bot.contextResetAt || message.time >= bot.contextResetAt) && message.seq < firstCurrentSeq)
+    .slice(-2);
+  const decisionRecent = layaPriorMessages.map((message) => ({
+    from: { kind: message.sender.kind, name: message.sender.name },
+    text: groupReplyContent(message.content, message.sender.kind === 'bot' ? message.sender.id : undefined).slice(
+      0,
+      300,
+    ),
+  }));
+  const ownedTask = room.tasks?.find((task) => task.ownerId === bot.id && task.status !== 'completed');
+  const rootRequestMessage = room.messages.find(
+    (message) => message.rootId === round.id && message.sender.kind === 'user' && message.kind === 'message',
+  );
+  const decisionDeliveries = deliveries.slice(-3);
+  const decisionEvents = decisionDeliveries.map((delivery) => {
+    const message = room.messages.find((item) => item.id === delivery.messageId)!;
+    return {
+      from: { kind: message.sender.kind, name: message.sender.name },
+      text: groupReplyContent(message.content, message.sender.kind === 'bot' ? message.sender.id : undefined).slice(
+        0,
+        600,
+      ),
+      mentioned: message.mentions?.some((mention) => mention.id === bot.id) || false,
+    };
+  });
+  const rootRequestPrefix = round.request.trim().slice(0, 400);
+  const rootRequestIsPresent = Boolean(
+    rootRequestPrefix && [...decisionEvents, ...decisionRecent].some((item) => item.text.includes(rootRequestPrefix)),
+  );
+  const followupNeedsRootRequest = deliveries.some((delivery) => {
+    const message = room.messages.find((item) => item.id === delivery.messageId);
+    return Boolean(
+      message &&
+      (message.kind === 'continue' ||
+        message.scheduled ||
+        (rootRequestMessage && message.id !== rootRequestMessage.id)),
+    );
+  });
+  return {
+    bot: { name: bot.name, soul: soulExcerpt(bot.soul, 500) },
+    events: decisionEvents,
+    recent: decisionRecent,
+    ...(ownedTask ? { myTask: { title: ownedTask.title, status: ownedTask.status } } : {}),
+    ...(followupNeedsRootRequest && !rootRequestIsPresent ? { rootRequest: round.request.slice(0, 400) } : {}),
+  };
 }

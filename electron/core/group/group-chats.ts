@@ -1,6 +1,5 @@
-import { soulExcerpt } from '../../../shared/chat/bot-soul';
-import type { GroupDecisionRecord, GroupDecisionInput } from '../../../shared/types/laya-types';
-import type { GroupDecisions } from './laya-decision';
+import type { GroupDecisionRecord } from '../../../shared/types/laya-types';
+import { buildGroupDecisionInput, type GroupDecisions } from './laya-decision';
 import { previewFeedbackDisplay } from '../../../shared/preview/preview-feedback';
 import { groupEventPrompt, GROUP_STATE_EVENT_PROMPT } from './group-prompt';
 import { userDisplayName } from '../../../shared/chat/user-profile';
@@ -507,7 +506,7 @@ export class GroupChats implements GroupGateway {
       pins: Object.fromEntries(
         room.messages.filter((message) => message.pins?.length).map((message) => [message.id, message.pins!]),
       ),
-      deliveries: laya ? deliveries : deliveries.map(({ layaMode: _, layaDecisionId: __, ...delivery }) => delivery),
+      deliveries: laya ? deliveries : deliveries.map(({ layaDecisionId: _, ...delivery }) => delivery),
       laya,
       ...(start > 0 ? { before: messages[0].id } : {}),
     });
@@ -998,7 +997,6 @@ export class GroupChats implements GroupGateway {
     for (const delivery of deliveries) {
       delivery.status = this.laya?.isReady ? 'deciding' : 'running';
       if (this.laya?.isReady) {
-        delivery.layaMode = 'v2';
         delivery.layaDecisionId = trigger.id;
       }
     }
@@ -1059,60 +1057,7 @@ export class GroupChats implements GroupGateway {
       }));
     let decision: GroupDecisionRecord | undefined;
     if (this.laya?.isReady) {
-      const firstCurrentSeq = Math.min(
-        ...deliveries.map(
-          (delivery) => room.messages.find((message) => message.id === delivery.messageId)?.seq || Infinity,
-        ),
-      );
-      const layaPriorMessages = room.messages
-        .filter(
-          (message) => (!bot.contextResetAt || message.time >= bot.contextResetAt) && message.seq < firstCurrentSeq,
-        )
-        .slice(-2);
-      const decisionRecent = layaPriorMessages.map((message) => ({
-        from: { kind: message.sender.kind, name: message.sender.name },
-        text: groupReplyContent(message.content, message.sender.kind === 'bot' ? message.sender.id : undefined).slice(
-          0,
-          300,
-        ),
-      }));
-      const ownedTask = room.tasks?.find((task) => task.ownerId === bot.id && task.status !== 'completed');
-      const rootRequestMessage = room.messages.find(
-        (message) => message.rootId === round.id && message.sender.kind === 'user' && message.kind === 'message',
-      );
-      const decisionDeliveries = deliveries.slice(-3);
-      const decisionEvents = decisionDeliveries.map((delivery) => {
-        const message = room.messages.find((item) => item.id === delivery.messageId)!;
-        return {
-          from: { kind: message.sender.kind, name: message.sender.name },
-          text: groupReplyContent(message.content, message.sender.kind === 'bot' ? message.sender.id : undefined).slice(
-            0,
-            600,
-          ),
-          mentioned: message.mentions?.some((mention) => mention.id === bot.id) || false,
-        };
-      });
-      const rootRequestPrefix = round.request.trim().slice(0, 400);
-      const rootRequestIsPresent = Boolean(
-        rootRequestPrefix &&
-        [...decisionEvents, ...decisionRecent].some((item) => item.text.includes(rootRequestPrefix)),
-      );
-      const followupNeedsRootRequest = deliveries.some((delivery) => {
-        const message = room.messages.find((item) => item.id === delivery.messageId);
-        return Boolean(
-          message &&
-          (message.kind === 'continue' ||
-            message.scheduled ||
-            (rootRequestMessage && message.id !== rootRequestMessage.id)),
-        );
-      });
-      const decisionInput: GroupDecisionInput = {
-        bot: { name: bot.name, soul: soulExcerpt(bot.soul, 500) },
-        events: decisionEvents,
-        recent: decisionRecent,
-        ...(ownedTask ? { myTask: { title: ownedTask.title, status: ownedTask.status } } : {}),
-        ...(followupNeedsRootRequest && !rootRequestIsPresent ? { rootRequest: round.request.slice(0, 400) } : {}),
-      };
+      const decisionInput = buildGroupDecisionInput(room, round, bot, deliveries);
       decision = await this.laya.decide(
         {
           sourceId: trigger.id,
