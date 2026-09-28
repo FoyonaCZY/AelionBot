@@ -1,6 +1,5 @@
 import { LayaDecisionLog } from './core/model/laya-decision-log';
 import { LayaGroupDecisions } from './core/group/laya-decision';
-import { LayaGameDecisions } from './core/games/laya-decision';
 import { gameProviders } from './core/games/providers';
 import { GameRuntime } from './core/games/runtime';
 import { gameInstructions, gamePrompt, parseGameAction } from './core/games/model-player';
@@ -502,7 +501,6 @@ async function initialize() {
       }
     },
     { aiTimeoutMs: 90000 },
-    new LayaGameDecisions(laya, layaLog),
   );
   cognition = new Cognition(
     store,

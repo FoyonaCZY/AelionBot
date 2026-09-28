@@ -54,4 +54,3 @@ export interface GroupDecisionRecord extends DecisionRecord {
   features?: { events: number; recent: number; mentioned: boolean; ownTask: boolean };
   input?: GroupDecisionInput;
 }
-export type LayaDecisionRecord = GroupDecisionRecord | (DecisionRecord & { scope: 'game' | 'game_speech' });

@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
-import type { GroupChoice, GroupDecisionRecord, LayaDecisionRecord } from '../../../shared/types/laya-types';
+import type { GroupChoice, GroupDecisionRecord } from '../../../shared/types/laya-types';
 
 const MAX_LOG_BYTES = 4 * 1024 * 1024;
 const MAX_HISTORY = 500;
@@ -18,11 +18,10 @@ const groupChoice = (value: unknown): GroupChoice | undefined =>
   value === 'observe' ? 'observe' : ['participate', 'reply', 'act'].includes(String(value)) ? 'participate' : undefined;
 
 // Legacy three-way choices are converted at the persistence boundary, never in UI components.
-function normalizeRecord(value: unknown): LayaDecisionRecord | undefined {
+function normalizeRecord(value: unknown): GroupDecisionRecord | undefined {
   if (!value || typeof value !== 'object') return;
-  const event = value as LayaDecisionRecord;
+  const event = value as GroupDecisionRecord;
   if (typeof event.sourceId !== 'string' || typeof event.choice !== 'string') return;
-  if (event.scope === 'game' || event.scope === 'game_speech') return event;
   if (event.scope !== 'group') return;
   const choice = groupChoice(event.choice);
   if (!choice) return;
@@ -46,7 +45,7 @@ function normalizeRecord(value: unknown): LayaDecisionRecord | undefined {
 
 export class LayaDecisionLog {
   private readonly file: string;
-  private history: LayaDecisionRecord[] = [];
+  private history: GroupDecisionRecord[] = [];
   private logBytes = 0;
   constructor(
     dir: string,
@@ -107,7 +106,7 @@ export class LayaDecisionLog {
       rmSync(temporary, { force: true });
     }
   }
-  record(event: LayaDecisionRecord) {
+  record(event: GroupDecisionRecord) {
     event.time = new Date().toISOString();
     this.history.push(event);
     if (this.history.length > MAX_HISTORY) this.history.shift();

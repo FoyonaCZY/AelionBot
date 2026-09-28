@@ -1,4 +1,4 @@
-"""Line-delimited local Laya inference for AelionBot's opt-in shadow decisions."""
+"""Line-delimited local Laya inference for AelionBot's opt-in group decisions."""
 
 import json
 import os

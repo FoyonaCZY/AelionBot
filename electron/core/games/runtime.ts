@@ -1,4 +1,3 @@
-import type { LayaGameDecisions } from './laya-decision';
 import type { ResponseMetrics } from '../../../shared/types/game-types';
 import { settleLimited } from './request-pool';
 import { gameSkills } from './skills';
@@ -37,7 +36,6 @@ export class GameRuntime {
     private decide: Decide,
     private check: (players: GamePlayer[]) => void = () => {},
     private timing = { aiTimeoutMs: 90000 },
-    private laya?: LayaGameDecisions,
   ) {
     mkdirSync(dir, { recursive: true });
     const file = join(dir, 'matches.json');
@@ -342,7 +340,6 @@ export class GameRuntime {
       const results = await settleLimited(requests, 3, signal, async (r) => {
         const seat = snapshot.seats.find((p) => p.id === r.seatId)!,
           context = view(snapshot, seat.id);
-        if (this.laya?.isReady) void this.laya.game(r.id, seat.id, context, r);
         const dispatched = structuredClone(this.state(id)),
           pending = dispatched.requests.find((p) => p.id === r.id);
         if (!pending) return;
@@ -454,8 +451,6 @@ export class GameRuntime {
           acceptAction(next, r.id, result);
           this.record(next, 'action_accepted', { requestId: r.id, seatId: r.seatId, kind: r.kind, action: result });
           this.commitTransition(current, next);
-          if (this.laya?.isReady && result.text && ['speak', 'campaign', 'pk_speak', 'last_words'].includes(r.kind))
-            void this.laya.speech(r.id, r.seatId, result.text);
           return;
         }
       });

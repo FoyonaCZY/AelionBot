@@ -1,5 +1,3 @@
-import { LayaGameDecisions } from '../electron/core/games/laya-decision';
-import { createWerewolf, view } from '../electron/core/games/werewolf';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -483,54 +481,6 @@ test('enabled Laya receives each Bot identity and cannot globally suppress anoth
   } finally {
     groups.dispose();
     store.close();
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-test('game adapter only logs candidates using player-visible context and bounded public speech', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'aelion-laya-game-'));
-  try {
-    const players = Array.from({ length: 7 }, (_, index) => ({
-      id: String(index),
-      name: `Player ${index}`,
-      color: '#887799',
-      human: false,
-    }));
-    const state = createWerewolf('laya-game', players, [
-      'wolf',
-      'wolf',
-      'seer',
-      'witch',
-      'villager',
-      'villager',
-      'villager',
-    ]);
-    const request = state.requests.find((item) => item.seatId === '0')!;
-    const before = JSON.stringify(state);
-    const inputs: unknown[] = [];
-    const runtime = {
-      async predict(input: unknown, question: { criteria: Record<string, string> }) {
-        inputs.push(input);
-        return { choice: Object.keys(question.criteria)[0], runtime: 'mlx', model: 'fake', elapsedMs: 0 };
-      },
-    } as unknown as LayaRuntime;
-    const log = new LayaDecisionLog(dir),
-      decisions = new LayaGameDecisions(runtime, log);
-    await decisions.game(request.id, '0', view(state, '0'), request);
-    await decisions.speech('public-speech', '0', '公开发言'.repeat(500));
-    assert(!JSON.stringify(inputs[0]).includes('seer'));
-    assert.equal((inputs[1] as string).length, 800);
-    assert.equal(JSON.stringify(state), before);
-    const records = readFileSync(join(dir, 'laya-decisions.jsonl'), 'utf8')
-      .trim()
-      .split('\n')
-      .map((line) => JSON.parse(line));
-    assert.deepEqual(
-      records.map((record) => record.scope),
-      ['game', 'game_speech'],
-    );
-    assert.deepEqual(log.groupDecisions(new Set([request.id, 'public-speech'])), []);
-  } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
