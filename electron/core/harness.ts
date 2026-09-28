@@ -80,14 +80,14 @@ const tool=(name:string,description:string,properties:Record<string,unknown>,req
 const string={type:'string'};
 const attachmentList={type:'array',maxItems:10,items:{type:'object',properties:{attachmentId:{type:'string',description:'已有附件 ID'},path:{type:'string',description:'文件路径。默认是 Bot 工作目录相对路径；本机绝对路径或 location=host 读取用户电脑上的文件'},location:{type:'string',enum:['vm','host'],description:'vm 为当前 Bot 工作目录，host 为用户本机。本机绝对路径可省略此项'}},additionalProperties:false}};
 const privateTools=new Set(['bots_list','bot_read_messages','bot_send_message','attachment_read','start_main_task']);
-const groupNonProgressTools=new Set(['group_task_claim','group_task_update','group_tasks','group_outbox','group_send_message','group_pin','chat_pin','execution_list','execution_resolve','task_read','task_update','plan_update','goal_read','goal_set','goal_update','start_main_task','bot_send_message','groups_list']);
+const groupNonProgressTools=new Set(['group_tasks','group_outbox','group_send_message','group_pin','chat_pin','execution_list','task_read','goal_read','goal_set','goal_update','start_main_task','bot_send_message','groups_list']);
 const isReactionTool=(name:string)=>name==='chat_pin'||name==='group_pin';
 function groupProgressFingerprint(name:string,args:unknown,output:unknown){
   const normalize=(value:unknown):unknown=>{
     if(Array.isArray(value))return value.map(normalize);
     if(typeof value==='string'&&value.length>12000)return {length:value.length,sha256:createHash('sha256').update(value).digest('hex')};
     if(!value||typeof value!=='object')return value;
-    return Object.fromEntries(Object.entries(value as Record<string,unknown>).filter(([key,item])=>!['durationMs','elapsedMs','createdAt','updatedAt','startedAt','endedAt','requestId','resultId','executionId'].includes(key)&&!(key==='id'&&typeof item==='string'&&/^[\da-f-]{36}$/i.test(item))).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>[key,normalize(item)]));
+    return Object.fromEntries(Object.entries(value as Record<string,unknown>).filter(([key,item])=>!['revision','durationMs','elapsedMs','createdAt','updatedAt','startedAt','endedAt','requestId','resultId','executionId'].includes(key)&&!(key==='id'&&typeof item==='string'&&/^[\da-f-]{36}$/i.test(item))).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>[key,normalize(item)]));
   };
   return createHash('sha256').update(JSON.stringify([name,normalize(args),normalize(output)])).digest('hex');
 }
@@ -507,9 +507,6 @@ export class Harness {
           if(pendingProcesses.length){visible.status='done';visible.presentation='progress';if(!readableContent(visible.content))visible.content='';history.push({role:'system',content:'以下后台任务尚未核对完成，请用 process_wait/status 检查状态、日志与退出码，不能仅凭启动成功交付：'+JSON.stringify(pendingProcesses)});visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});continue;}
           if(!['planning','blocked'].includes(work.forRun(run)?.status||'')&&new RunPolicy(this.store).incomplete(botId,run.id)){if(continueUnfinishedWork(options.groupOrigin?'群任务计划仍有未完成步骤。继续实际执行并用 plan_update 保存真实证据，或明确记录阻碍；不要只回复稍后处理。':'任务清单仍有未完成步骤，请继续执行并更新 task_update 或 plan_update。不要提前宣称完成；无法继续时用 goal_update(status=blocked) 说明阻碍。'))return;continue;}
           if(options.groupOrigin&&this.groups?.unfinished?.(botId,run.id)){if(continueUnfinishedWork('你认领的群任务仍为 working。继续执行并用 group_task_update 更新完成依据，或标记 blocked 并说明阻碍；不要只承诺稍后再做。'))return;continue;}
-          if(pendingProcesses.length){visible.status='done';visible.presentation='progress';if(!readableContent(visible.content))visible.content='';history.push({role:'system',content:'以下后台任务尚未核对完成，请用 process_wait/status 检查状态、日志与退出码，不能仅凭启动成功交付：'+JSON.stringify(pendingProcesses)});visible=this.store.message(botId,'assistant','',{runId:run.id,status:'running'});continue;}
-          if(options.groupOrigin&&this.groups?.unfinished?.(botId,run.id)){if(continueUnfinishedWork('你认领的群任务仍为 working。继续执行并用 group_task_update 更新完成依据，或标记 blocked 并说明阻碍；不要只承诺稍后再做。'))return;continue;}
-          if(!['planning','blocked'].includes(work.forRun(run)?.status||'')&&new RunPolicy(this.store).incomplete(botId,run.id)){if(continueUnfinishedWork('任务清单仍有未完成步骤，请继续执行并更新 task_update 或 plan_update。不要提前宣称完成；无法继续时用 goal_update(status=blocked) 说明阻碍。'))return;continue;}
           const currentWork=work.forRun(run);
           if(currentWork?.status==='planning'&&!run.plan?.steps.length||currentWork?.kind==='goal'&&currentWork.status==='running'){
             if(continueUnfinishedWork(currentWork?.status==='planning'?'请先调用 plan_update 保存具体计划，再结束规划。':'目标尚未完成。请继续执行；实际验收后用 goal_update 标记完成，无法继续则报告 blocked 及阻碍。'))return;continue;

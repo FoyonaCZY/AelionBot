@@ -383,6 +383,40 @@ test('a group task that cannot progress closes as blocked with its checkpoint an
  assert.ok(!fx.store.data.groupDeliveries.some(delivery=>delivery.recipientId===fx.a.id&&delivery.status==='failed'));
 });
 
+test('claiming and saving a checkpoint do not exhaust the group progress budget before work starts',async t=>{
+ let turn=0,executions=0;
+ const vm={execute:async()=>({exitCode:0,stdout:`checked ${++executions}`,stderr:'',durationMs:1})} as unknown as VmController;
+ const fx=fixture(t,run=>{
+  if(run.botId!==fx.a.id)return silent();
+  const room=fx.store.data.groups[0],task=room.tasks?.[0];
+  if(!task)return call('group_task_claim',{groupId:room.id,key:'checkpoint-first',title:'核对报告',sourceMessageId:room.messages.find(m=>m.sender.kind==='user'&&m.kind==='message')!.id});
+  if(task.status==='blocked')return silent();
+  switch(++turn){
+   case 1:return call('group_task_update',{groupId:room.id,taskId:task.id,revision:task.revision,status:'working',summary:'已确定核对范围，下一步检查报告。'});
+   case 2:return call('group_tasks',{groupId:room.id});
+   case 3:return call('computer_execute',{command:'inspect report'});
+   case 4:return call('group_task_update',{groupId:room.id,taskId:task.id,revision:task.revision,status:'completed',summary:'核对完成，命令返回 checked 1。'});
+   default:return answer('核对完成。');
+  }
+ },vm);
+ const room=fx.groups.create({name:'检查点回归',botIds:[fx.a.id,fx.b.id]});fx.groups.send({id:room.id,message:'请核对报告'});await until(fx.settled);
+ assert.equal(fx.store.data.groups[0].tasks?.[0].status,'completed');assert.equal(executions,1);
+});
+
+test('repeating an unchanged checkpoint cannot count new revisions as progress',async t=>{
+ let updates=0;
+ const fx=fixture(t,run=>{
+  if(run.botId!==fx.a.id)return silent();
+  const room=fx.store.data.groups[0],task=room.tasks?.[0];
+  if(!task)return call('group_task_claim',{groupId:room.id,key:'unchanged-checkpoint',title:'核对报告',sourceMessageId:room.messages.find(m=>m.sender.kind==='user'&&m.kind==='message')!.id});
+  if(task.status==='blocked')return silent();
+  if(++updates>6)throw Error('重复检查点没有停止');
+  return call('group_task_update',{groupId:room.id,taskId:task.id,revision:task.revision,status:'working',summary:'准备核对报告。'});
+ });
+ const room=fx.groups.create({name:'重复检查点',botIds:[fx.a.id,fx.b.id]});fx.groups.send({id:room.id,message:'请核对报告'});await until(fx.settled);
+ assert.equal(fx.store.data.groups[0].tasks?.[0].status,'blocked');assert.equal(updates,4);
+});
+
 test('a group task that repeats a successful action with the same result is closed as blocked',async t=>{
  let executions=0;const vm={execute:async()=>{executions++;return {exitCode:0,stdout:'same inspection result',stderr:'',durationMs:1};}} as unknown as VmController;
  const fx=fixture(t,(run)=>{
