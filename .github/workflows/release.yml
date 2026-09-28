@@ -68,9 +68,10 @@ jobs:
       - name: Install native test Python dependencies
         run: python -m pip install --disable-pip-version-check --no-input python-pptx
       - name: Test
-        # Windows process startup makes the full suite slower on hosted runners.
-        # Individual tests still retain the 30-second limit in pnpm test.
-        timeout-minutes: ${{ runner.os == 'Windows' && 15 || 5 }}
+        # Windows process startup makes the full suite slower on hosted runners, and Intel Mac
+        # runners vary a lot in speed. Same limits as the CI workflow; individual tests still
+        # retain the 30-second limit in pnpm test.
+        timeout-minutes: ${{ runner.os == 'Windows' && 15 || 8 }}
         env:
           AELION_TEST_PYTHON: ${{ steps.python.outputs.python-path }}
         run: pnpm test
