@@ -193,19 +193,24 @@ test(
     assert.equal((await manager.stop(bot.id, id, signal)).status, 'stopped');
   },
 );
-test('Windows prefers PowerShell 7 from an absolute PATH entry and keeps 5.1 as the fallback', (t) => {
-  const dir = temporary(t),
-    bin = join(dir, 'pwsh-bin');
-  mkdirSync(bin);
-  writeFileSync(join(bin, 'pwsh.exe'), '');
-  const none = { SYSTEMROOT: 'C:\\Windows', PATH: '', ProgramFiles: join(dir, 'missing') };
-  assert.equal(windowsPwsh(none, 'win32'), undefined);
-  assert.equal(shellName('win32', none), 'Windows PowerShell 5.1');
-  assert.equal(windowsPwsh({ ...none, PATH: 'pwsh-bin;.' }, 'win32'), undefined);
-  const found = { ...none, PATH: bin };
-  assert.equal(hostShell('Write-Output ok', found, 'win32').executable, join(bin, 'pwsh.exe'));
-  assert.equal(shellName('win32', found), 'PowerShell 7');
-  assert.equal(windowsPwsh({ ...found, AELION_PWSH: 'off' }, 'win32'), undefined);
-  assert.equal(windowsPwsh(found, 'darwin'), undefined);
-  assert.equal(windowsPwsh({ ...none, ProgramFiles: dir.replace(/[/][^/]+$/, '') }, 'win32'), undefined);
-});
+// Uses a real temporary directory as a Windows PATH entry, which is only an absolute win32 path on Windows.
+test(
+  'Windows prefers PowerShell 7 from an absolute PATH entry and keeps 5.1 as the fallback',
+  { skip: process.platform !== 'win32' },
+  (t) => {
+    const dir = temporary(t),
+      bin = join(dir, 'pwsh-bin');
+    mkdirSync(bin);
+    writeFileSync(join(bin, 'pwsh.exe'), '');
+    const none = { SYSTEMROOT: 'C:\\Windows', PATH: '', ProgramFiles: join(dir, 'missing') };
+    assert.equal(windowsPwsh(none, 'win32'), undefined);
+    assert.equal(shellName('win32', none), 'Windows PowerShell 5.1');
+    assert.equal(windowsPwsh({ ...none, PATH: 'pwsh-bin;.' }, 'win32'), undefined);
+    const found = { ...none, PATH: bin };
+    assert.equal(hostShell('Write-Output ok', found, 'win32').executable, join(bin, 'pwsh.exe'));
+    assert.equal(shellName('win32', found), 'PowerShell 7');
+    assert.equal(windowsPwsh({ ...found, AELION_PWSH: 'off' }, 'win32'), undefined);
+    assert.equal(windowsPwsh(found, 'darwin'), undefined);
+    assert.equal(windowsPwsh({ ...none, ProgramFiles: dir.replace(/[/][^/]+$/, '') }, 'win32'), undefined);
+  },
+);

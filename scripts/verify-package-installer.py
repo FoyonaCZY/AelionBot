@@ -1,11 +1,14 @@
 """Run only in a disposable Debian container; installs a small signed package."""
 import json
 import pathlib
+import re
 import subprocess
 import tempfile
 
 repo=pathlib.Path(__file__).resolve().parent.parent
-source=(repo/'electron/core/host/package-installer.ts').read_text().split('export const PACKAGE_INSTALLER=String.raw`',1)[1].split('\n`;',1)[0]
+# Match the embedded script regardless of how the surrounding TypeScript is formatted.
+installer=(repo/'electron/core/host/package-installer.ts').read_text()
+source=re.search(r'export const PACKAGE_INSTALLER\s*=\s*String\.raw`(.*?)\n`;',installer,re.S).group(1)
 namespace={'__name__':'fixture'}
 exec(compile(source,'aelion-packages','exec'),namespace)
 assert pathlib.Path('/etc/os-release').read_text().find('bookworm')>=0
