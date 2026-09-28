@@ -169,7 +169,7 @@ export interface GroupDelivery {
   runId?: string;
   replyMessageId?: string;
 }
-export interface GroupLayaDecision {
+interface GroupLayaDecision {
   sourceId: string;
   messageId: string;
   actorId: string;

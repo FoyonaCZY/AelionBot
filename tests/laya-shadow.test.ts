@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -261,6 +261,80 @@ test('Laya participation reaches each Bot for questions and work', async () => {
     else process.env.AELION_LAYA_RUNTIME = previous.runtime;
     if (previous.python === undefined) delete process.env.AELION_LAYA_PYTHON;
     else process.env.AELION_LAYA_PYTHON = previous.python;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('startup bounds legacy logs and recovers valid records around damaged lines', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'aelion-laya-log-tail-'));
+  const file = join(dir, 'laya-decisions.jsonl');
+  const event = (index: number) => JSON.stringify({ scope: 'group', sourceId: String(index), choice: 'observe' });
+  writeFileSync(
+    file,
+    '中'.repeat(2 * 1024 * 1024) +
+      '\n' +
+      Array.from({ length: 502 }, (_, index) => event(index)).join('\n') +
+      '\ninvalid\n' +
+      event(502) +
+      '\n{"scope":',
+  );
+  const shadow = new LayaShadow(dir, '', () => {}, {});
+  try {
+    const decisions = shadow.groupDecisions(new Set(Array.from({ length: 503 }, (_, index) => String(index))));
+    assert.equal(decisions.length, 500);
+    assert.equal(decisions[0].sourceId, '3');
+    assert.equal(decisions.at(-1)?.sourceId, '502');
+    assert(statSync(file).size <= 4 * 1024 * 1024);
+    const lines = readFileSync(file, 'utf8')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+    assert.equal(lines.length, 500);
+    assert.equal(lines.at(-1).sourceId, '502');
+  } finally {
+    shadow.dispose();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('decision log rotates by UTF-8 bytes and oversized snapshots cannot exceed its limit', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'aelion-laya-log-rotate-'));
+  const script = join(dir, 'fake.py');
+  const file = join(dir, 'laya-decisions.jsonl');
+  writeFileSync(
+    script,
+    'import json,sys\nprint(json.dumps({"ready":True}),flush=True)\nfor line in sys.stdin:\n request=json.loads(line)\n print(json.dumps({"id":request["id"],"result":{"answers":{"decision":{"choice":"participate"}}}}),flush=True)\n',
+  );
+  const shadow = new LayaShadow(dir, script, () => {}, { runtime: 'mlx', python: 'python3' });
+  try {
+    await ready(shadow);
+    for (let index = 0; index < 4; index++) {
+      assert.equal(await shadow.group(String(index), 'bot', { message: '中'.repeat(600_000) }), 'participate');
+      assert(statSync(file).size <= 4 * 1024 * 1024);
+    }
+    assert.equal(await shadow.group('oversized', 'bot', { message: '中'.repeat(1_500_000) }), 'participate');
+    assert(statSync(file).size <= 4 * 1024 * 1024);
+    assert.equal(shadow.groupDecisions(new Set(['oversized'])).length, 1);
+    assert.equal(await shadow.group('latest', 'bot', {}), 'participate');
+    const records = readFileSync(file, 'utf8')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+    assert.deepEqual(
+      records.map((event) => event.sourceId),
+      ['2', '3', 'latest'],
+    );
+    const reloaded = new LayaShadow(dir, '', () => {}, {});
+    try {
+      assert.deepEqual(
+        reloaded.groupDecisions(new Set(['0', '2', '3', 'latest'])).map((event) => event.sourceId),
+        ['2', '3', 'latest'],
+      );
+    } finally {
+      reloaded.dispose();
+    }
+  } finally {
+    shadow.dispose();
     rmSync(dir, { recursive: true, force: true });
   }
 });

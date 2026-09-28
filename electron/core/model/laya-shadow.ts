@@ -1,9 +1,22 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  closeSync,
+  fstatSync,
+  mkdirSync,
+  openSync,
+  readSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { GameRequest, GameView } from '../../../shared/types/game-types';
 import { DECISION_MODELS } from '../../../shared/types/laya-types';
+
+const MAX_LOG_BYTES = 4 * 1024 * 1024;
+const MAX_HISTORY = 500;
 
 type Question = { type: 'choice'; instructions: string; criteria: Record<string, string> };
 type Prediction = {
@@ -58,6 +71,7 @@ export class LayaShadow {
   private readyWaiters = new Set<{ resolve: () => void; reject: (error: Error) => void }>();
   private readonly file: string;
   private history: LayaShadowEvent[] = [];
+  private logBytes = 0;
   constructor(
     dir: string,
     private script: string,
@@ -72,12 +86,31 @@ export class LayaShadow {
       DECISION_MODELS[0].modelId;
     this.file = join(dir, 'laya-decisions.jsonl');
     try {
-      this.history = readFileSync(this.file, 'utf8')
-        .trim()
-        .split('\n')
-        .slice(-500)
-        .map((line) => JSON.parse(line) as LayaShadowEvent)
-        .filter((event) => event.scope && event.sourceId);
+      const fd = openSync(this.file, 'r');
+      let tail: string;
+      try {
+        this.logBytes = fstatSync(fd).size;
+        const offset = Math.max(0, this.logBytes - MAX_LOG_BYTES);
+        const buffer = Buffer.alloc(Math.min(this.logBytes, MAX_LOG_BYTES));
+        const bytes = readSync(fd, buffer, 0, buffer.length, offset);
+        tail = buffer.subarray(0, bytes).toString('utf8');
+        // The bounded read may begin inside a record (or a UTF-8 character).
+        if (offset) {
+          const newline = tail.indexOf('\n');
+          tail = newline < 0 ? '' : tail.slice(newline + 1);
+        }
+      } finally {
+        closeSync(fd);
+      }
+      for (const line of tail.split('\n')) {
+        try {
+          const event = JSON.parse(line) as LayaShadowEvent;
+          if (event?.scope && event.sourceId) this.history.push(event);
+        } catch {}
+      }
+      this.history = this.history.slice(-MAX_HISTORY);
+      // Repair oversized legacy files and incomplete final writes before appending.
+      if (this.logBytes > MAX_LOG_BYTES || (tail && !tail.endsWith('\n'))) this.compactLog();
     } catch {}
   }
   get enabled() {
@@ -254,13 +287,40 @@ export class LayaShadow {
       });
     });
   }
+  private compactLog() {
+    const lines: string[] = [];
+    let bytes = 0;
+    for (const event of this.history.slice().reverse()) {
+      const line = JSON.stringify(event) + '\n';
+      const size = Buffer.byteLength(line);
+      // A single oversized snapshot stays in memory but cannot defeat the disk limit.
+      if (size > MAX_LOG_BYTES) continue;
+      if (bytes + size > MAX_LOG_BYTES) break;
+      lines.push(line);
+      bytes += size;
+    }
+    const temporary = this.file + '.tmp';
+    try {
+      writeFileSync(temporary, lines.reverse().join(''), { mode: 0o600 });
+      renameSync(temporary, this.file);
+      this.logBytes = bytes;
+    } finally {
+      rmSync(temporary, { force: true });
+    }
+  }
   private record(event: LayaShadowEvent) {
     event.time = new Date().toISOString();
     this.history.push(event);
-    if (this.history.length > 500) this.history.shift();
+    if (this.history.length > MAX_HISTORY) this.history.shift();
     try {
       mkdirSync(dirname(this.file), { recursive: true });
-      appendFileSync(this.file, JSON.stringify(event) + '\n', { mode: 0o600 });
+      const line = JSON.stringify(event) + '\n';
+      const bytes = Buffer.byteLength(line);
+      if (this.logBytes + bytes > MAX_LOG_BYTES) this.compactLog();
+      else {
+        appendFileSync(this.file, line, { mode: 0o600 });
+        this.logBytes += bytes;
+      }
     } catch (error) {
       console.warn('Laya decision log:', error);
     }
