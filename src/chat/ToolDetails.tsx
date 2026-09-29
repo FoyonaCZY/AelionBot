@@ -15,7 +15,10 @@ import {
   objectValue,
   parameterRows,
   parsedText,
+  readableResult,
   scalarText,
+  searchFiles,
+  type SearchFile,
   textValue,
 } from './tool-details-model';
 import { currentLanguage, useI18n } from '../i18n';
@@ -121,6 +124,49 @@ function FileList({ files }: { files: unknown }) {
           <Icon name="down" size={12} />
         </button>
       )}
+    </div>
+  );
+}
+function SearchResults({ files, more }: { files: SearchFile[]; more: boolean }) {
+  const { t } = useI18n();
+  const [all, setAll] = useState(false);
+  const visible = all ? files : files.slice(0, 8);
+  return (
+    <div className="detail-search">
+      {visible.map((file) => (
+        <section className="detail-search-file" key={file.path}>
+          <div className="detail-search-name" title={file.path}>
+            <Icon name="file" size={14} />
+            <strong>{file.name}</strong>
+            {file.dir && <small>{file.dir}</small>}
+            {file.count !== undefined && file.count > 0 && <span className="detail-search-count">{file.count}</span>}
+          </div>
+          {file.lines.length > 0 && (
+            <ol className="detail-search-lines">
+              {file.lines.slice(0, all ? 60 : 12).map((line, index, list) => (
+                <li
+                  className={
+                    [line.context ? 'is-context' : '', index && line.line > list[index - 1].line + 1 ? 'is-gap' : '']
+                      .filter(Boolean)
+                      .join(' ') || undefined
+                  }
+                  key={line.line}
+                >
+                  <span className="detail-search-line">{line.line}</span>
+                  <code>{line.text.slice(0, 400)}</code>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+      ))}
+      {files.length > 8 && (
+        <button className="detail-show-more" onClick={() => setAll(!all)}>
+          {all ? t('收起文件清单') : t('查看全部 {count} 个文件', { count: files.length })}
+          <Icon name="down" size={12} />
+        </button>
+      )}
+      {more && <p className="detail-muted detail-search-more">{t('还有更多结果未显示')}</p>}
     </div>
   );
 }
@@ -665,6 +711,84 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
         </Section>
       </>
     );
+  if (tool === 'host_search_files' || tool === 'host_find_files') {
+    const files = searchFiles(result),
+      matches = files.reduce((sum, file) => sum + (file.count || 0), 0);
+    return (
+      <>
+        <DetailHeader
+          icon="search"
+          title={tool === 'host_find_files' ? t('找到的文件') : t('搜索结果')}
+          subtitle={textValue(result.path) || undefined}
+          meta={
+            matches
+              ? t('{count} 处匹配', { count: matches })
+              : files.length
+                ? t('{count} 个文件', { count: files.length })
+                : undefined
+          }
+        />
+        {files.length ? (
+          <SearchResults files={files} more={result.eof === false} />
+        ) : (
+          <Section>
+            <p className="detail-empty">{t('没有找到匹配内容')}</p>
+          </Section>
+        )}
+      </>
+    );
+  }
+  if (tool === 'host_list_directory') {
+    const items = arrayValue(result.items).map(objectValue),
+      total = typeof result.total === 'number' ? result.total : items.length;
+    return (
+      <>
+        <DetailHeader
+          icon="folder"
+          title={fileName(textValue(result.path)) || t('目录')}
+          subtitle={textValue(result.path) || undefined}
+          meta={t('{count} 项', { count: total })}
+        />
+        <Section>
+          {items.length ? (
+            <div className="detail-entries">
+              {items.map((item, index) => (
+                <div className="detail-entry" key={index}>
+                  <Icon name={item.kind === 'directory' ? 'folder' : 'file'} size={14} />
+                  <span>{textValue(item.name)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="detail-empty">{t('目录为空')}</p>
+          )}
+          {total > items.length && (
+            <p className="detail-muted">
+              {t('显示前 {shown} 项，共 {count} 项。', { shown: items.length, count: total })}
+            </p>
+          )}
+        </Section>
+      </>
+    );
+  }
+  if (tool === 'host_file_patch' || tool === 'file_patch') {
+    const file = objectValue(result.path ? result : parsedText(output)),
+      path = textValue(file.path) || display.detail || '',
+      count = Number(file.replacements) || 0;
+    return (
+      <DetailHeader
+        icon="file"
+        title={fileName(path) || t('文件已修改')}
+        subtitle={path.includes('/') || path.includes('\\') ? path : undefined}
+        meta={[
+          count > 1 ? t('已修改 {count} 处', { count }) : '',
+          typeof file.bytes === 'number' ? bytes(file.bytes) : '',
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+      />
+    );
+  }
   if (tool === 'host_file_write')
     return (
       <DetailHeader
@@ -764,7 +888,7 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
         {value === undefined ? (
           <p className="detail-muted">{t('结果暂时无法预览，工作记录已保留。')}</p>
         ) : (
-          <DataView value={value} />
+          <DataView value={readableResult(value)} />
         )}
       </Section>
     </>

@@ -107,6 +107,96 @@ export function fileGroups(files: unknown) {
   }
   return [...groups].map(([label, files]) => ({ label: translate(label), files }));
 }
+/** Path shown relative to the searched root; absolute paths are only kept when they sit outside it. */
+export function relativePath(path: string, root: string) {
+  const clean = path.replace(/\\/g, '/'),
+    base = root.replace(/\\/g, '/').replace(/\/+$/, '');
+  if (base && clean.toLowerCase().startsWith(base.toLowerCase() + '/')) return clean.slice(base.length + 1);
+  return clean === base ? fileName(clean) : clean;
+}
+export interface SearchFile {
+  path: string;
+  name: string;
+  dir: string;
+  count?: number;
+  lines: Array<{ line: number; text: string; context?: boolean }>;
+}
+/** Groups file-search output (content, files or count mode) by file, preserving result order. */
+export function searchFiles(result: Record<string, unknown>): SearchFile[] {
+  const root = textValue(result.path),
+    groups = new Map<string, SearchFile>();
+  const group = (raw: string) => {
+    const path = relativePath(raw, root);
+    let item = groups.get(path);
+    if (!item) {
+      item = {
+        path,
+        name: fileName(path),
+        dir: path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '',
+        lines: [],
+      };
+      groups.set(path, item);
+    }
+    return item;
+  };
+  for (const value of arrayValue(result.files)) if (typeof value === 'string') group(value);
+  for (const value of arrayValue(result.counts)) {
+    const entry = objectValue(value);
+    if (typeof entry.path === 'string') group(entry.path).count = Number(entry.count) || 0;
+  }
+  for (const value of arrayValue(result.matches)) {
+    const match = objectValue(value);
+    if (typeof match.path !== 'string') continue;
+    const item = group(match.path),
+      line = Number(match.line) || 0;
+    const add = (number: number, text: unknown, context: boolean) => {
+      if (typeof text !== 'string' || item.lines.some((entry) => entry.line === number)) return;
+      item.lines.push({ line: number, text, ...(context ? { context: true } : {}) });
+    };
+    arrayValue(match.before).forEach((text, index, list) => add(line - list.length + index, text, true));
+    const existing = item.lines.find((entry) => entry.line === line);
+    if (existing) delete existing.context;
+    else add(line, match.text, false);
+    arrayValue(match.after).forEach((text, index) => add(line + index + 1, text, true));
+    item.count = item.lines.filter((entry) => !entry.context).length;
+  }
+  for (const item of groups.values()) item.lines.sort((a, b) => a.line - b.line);
+  return [...groups.values()];
+}
+// Tool bookkeeping that helps the model page through results but means nothing to a reader.
+const bookkeeping = new Set([
+  'location',
+  'sha256',
+  'bom',
+  'redacted',
+  'written',
+  'offset',
+  'nextOffset',
+  'nextLine',
+  'eof',
+  'truncated',
+  'partialLine',
+  'rangeTruncated',
+  'withLineNumbers',
+  'scanLimited',
+  'visitedEntries',
+  'scannedFiles',
+  'scannedBytes',
+  'skipped',
+  'backend',
+  'textStartColumn',
+  'executionId',
+  'resultId',
+]);
+export function readableResult(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(readableResult);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => !bookkeeping.has(key))
+      .map(([key, item]) => [key, readableResult(item)]),
+  );
+}
 export interface ErrorExplanation {
   title: string;
   message: string;

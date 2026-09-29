@@ -169,27 +169,133 @@
   margin: 0;
   border-top: 1px solid light-dark(#edf0f3, #3e3945);
 }
+.detail-fields {
+  padding-top: 6px;
+}
 .detail-fields > div {
   display: grid;
-  grid-template-columns: minmax(85px, 25%) minmax(0, 1fr);
-  gap: 14px;
-  padding: 11px 0;
-  border-bottom: 1px solid light-dark(#edf0f3, #3e3945);
-  line-height: 1.8;
-}
-.detail-fields > div:last-child {
-  border-bottom: 0;
+  grid-template-columns: minmax(72px, max-content) minmax(0, 1fr);
+  gap: 16px;
+  padding: 3px 0;
+  line-height: 1.7;
 }
 .detail-fields dt {
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#96a1ad, #b8b5bb);
+  color: light-dark(#98a2ad, #a9a5ae);
   overflow-wrap: anywhere;
+  min-width: 72px;
 }
+/* The global dd rule right-aligns values for settings rows; tool results read left to right. */
 .detail-fields dd {
   margin: 0;
   min-width: 0;
-  color: light-dark(#64758a, #b9c1cc);
+  text-align: left;
+  color: light-dark(#4f5d6d, #cfcbd4);
+  font-family: var(--font-code);
   overflow-wrap: anywhere;
+}
+.detail-search {
+  padding: 0 17px 12px;
+}
+.detail-search-file {
+  padding: 10px 0 6px;
+  border-top: 1px solid light-dark(#edf0f3, #3e3945);
+  min-width: 0;
+}
+.detail-search-name {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+  color: light-dark(#8d9daf, #bac2cb);
+}
+.detail-search-name > svg {
+  align-self: center;
+  flex-shrink: 0;
+}
+.detail-search-name > strong {
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
+  color: light-dark(#4f5d6d, #d2ced6);
+  white-space: nowrap;
+}
+.detail-search-name > small {
+  flex: 1;
+  min-width: 0;
+  font-size: calc(11px * var(--appearance-text-scale, 1));
+  color: light-dark(#a3adb8, #9d99a3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+.detail-search-count {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: light-dark(#eef1f5, #2c2932);
+  color: light-dark(#7d8a98, #b7b3bd);
+  font-size: calc(11px * var(--appearance-text-scale, 1));
+  line-height: 18px;
+}
+.detail-search-lines {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 4px 0;
+  border-radius: 8px;
+  background: light-dark(#f6f7f9, #25232a);
+  overflow-x: auto;
+  font: calc(12px * var(--appearance-text-scale, 1)) / 1.7 var(--font-code);
+}
+.detail-search-lines > li {
+  display: flex;
+  gap: 12px;
+  padding: 0 10px;
+  white-space: pre;
+  color: light-dark(#3f4a57, #dcd8e0);
+}
+.detail-search-lines > li.is-context {
+  color: light-dark(#9aa4af, #8f8b95);
+}
+.detail-search-lines > li.is-gap {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed light-dark(#e2e6eb, #3a3640);
+}
+.detail-search-line {
+  flex-shrink: 0;
+  min-width: 3ch;
+  text-align: right;
+  color: light-dark(#b0b8c2, #77737d);
+  user-select: none;
+}
+.detail-search-more {
+  margin: 8px 0 0;
+}
+.detail-entries {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 2px 14px;
+  border-top: 1px solid light-dark(#edf0f3, #3e3945);
+  padding-top: 8px;
+}
+.detail-entry {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  line-height: 1.9;
+  color: light-dark(#8d9daf, #aaa6b0);
+}
+.detail-entry > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: light-dark(#4f5d6d, #d2ced6);
+  font-size: calc(12px * var(--appearance-text-scale, 1));
 }
 .detail-fields > .detail-nested {
   display: block;
