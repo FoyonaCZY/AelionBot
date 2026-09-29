@@ -39,7 +39,7 @@ export const HOST_SEARCH_TOOLS: ToolDefinition[] = [
   ),
   tool(
     'host_search_files',
-    '在本机目录或单个文件中按行检索，默认 query 为普通文本；regex=true 使用 JavaScript 正则，caseSensitive 默认 true。glob 限定文件，respectIgnore 默认 true。outputMode 可为 content、files 或 count（匹配行数）；结果含行号和字符 offset，方便定位读取。先脱敏再匹配；跳过凭据、链接、二进制和过大文件。scanLimited=true 时缩小范围，eof=true 时停止翻页。修改前先读取文件的 sha256。沿用会话读取权限。',
+    '在本机目录或单个文件中按行检索，默认 query 为普通文本；regex=true 使用 JavaScript 正则，caseSensitive 默认 true。glob 限定文件，respectIgnore 默认 true。outputMode 可为 content、files 或 count（匹配行数）；结果含行号和字符 offset，方便定位读取。先脱敏再匹配；跳过凭据、链接、二进制和过大文件。scanLimited=true 时缩小范围，eof=true 时停止翻页。检索结果不带 sha256，修改前仍需读取目标文件。沿用会话读取权限。',
     {
       path: string,
       reason: string,
@@ -59,7 +59,7 @@ export const HOST_SEARCH_TOOLS: ToolDefinition[] = [
 export const HOST_FILE_TOOLS: ToolDefinition[] = [
   tool(
     'host_execute',
-    '在本机执行命令（Windows 优先 PowerShell 7，未安装时为 Windows PowerShell 5.1；macOS zsh；实际 shell 见本机环境）。5.1 不支持 && 与 ||，用 ; 加 if($LASTEXITCODE -eq 0){...} 或分次调用。沿用 gh/git 登录和当前会话权限；拒绝时本次操作不执行，将结果交回模型继续处理其他已获允许的工作，不得重试或绕过拒绝。cwd 省略时使用选定工作目录。命令最多 6000 字符；默认 120 秒，timeoutMs 最长 600 秒。不接受交互输入；需要输入时用 stdin 一次性传入（例如 git commit -F -、node -），带 stdin 的命令每次单独审核，不匹配已保存的命令规则。stdout/stderr 分别保留有界首尾，返回实际退出码、字节计数及 truncated。需完整日志时首次执行就重定向文件；超时或取消后先核对结果，不盲目重试。长任务用 process_start。',
+    '在本机执行命令（Windows 优先 PowerShell 7，未安装时为 Windows PowerShell 5.1；macOS zsh；实际 shell 见本机环境）。5.1 不支持 && 与 ||，用 ; 加 if($LASTEXITCODE -eq 0){...} 或分次调用。沿用 gh/git 登录和当前会话权限；被拒绝时命令不会执行。cwd 省略时使用选定工作目录。命令最多 6000 字符；默认 120 秒，timeoutMs 最长 600 秒。不接受交互输入；需要输入时用 stdin 一次性传入（例如 git commit -F -、node -），带 stdin 的命令每次单独审核，不匹配已保存的命令规则。stdout/stderr 分别保留有界首尾，返回实际退出码、字节计数及 truncated。需完整日志时首次执行就重定向文件；超时或取消后先核对结果，不盲目重试。长任务用 process_start。',
     {
       command: { type: 'string', minLength: 1, maxLength: 6000 },
       cwd: string,

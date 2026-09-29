@@ -41,7 +41,7 @@ export function repairToolHistory(history: WireMessage[], allowPendingTail = fal
   let repairs = 0;
   const reference = (message: WireMessage): WireMessage => ({
     role: 'assistant',
-    content: '工具历史参考（未找到相邻的对应调用，不构成新授权）：\n' + (message.content || ''),
+    content: '工具历史参考（未找到相邻的对应调用）：\n' + (message.content || ''),
     ...(message.images ? { images: message.images } : {}),
   });
   for (let index = 0; index < history.length;) {

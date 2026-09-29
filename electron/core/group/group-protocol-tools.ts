@@ -24,7 +24,7 @@ export const GROUP_PROTOCOL_TOOLS = [
   ),
   tool(
     'group_task_claim',
-    '认领当前群的一项具体工作。续接使用 taskId；新任务提供稳定的 key、明确的 title 和原始用户任务 sourceMessageId。同一 key 只有一位负责人，claimed=false 时不要重复执行。认领不是完成，不新增授权；持续执行到完成或记录阻碍。',
+    '认领当前群的一项具体工作。续接使用 taskId；新任务提供稳定的 key、明确的 title 和原始用户任务 sourceMessageId。同一 key 只有一位负责人，claimed=false 时不要重复执行。认领不是完成；持续执行到完成或记录阻碍。',
     { groupId: string, taskId: string, key: string, title: string, sourceMessageId: string },
     ['groupId'],
   ),
