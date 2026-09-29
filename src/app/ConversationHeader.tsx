@@ -1,6 +1,7 @@
 import type { Bot } from '../../shared/types/core';
 import type { BotActivity } from '../bots/bot-activity';
 import { Avatar } from '../ui/Avatar';
+import { ChatSearch } from '../chat/ChatSearch';
 import { useI18n } from '../i18n';
 import type { BotConversationData } from './bot-conversation';
 
@@ -24,6 +25,7 @@ export function ConversationHeader({
         <strong>{bot.name}</strong>
       </button>
       <div className="header-actions no-drag">
+        <ChatSearch messages={conversation.messages} scopeKey={bot.id} />
         <button className="bot-model-button" aria-label={t('选择 Bot 模型')} onClick={onProfile}>
           {currentModel?.model || t('选择模型')}
         </button>

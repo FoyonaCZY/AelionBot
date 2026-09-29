@@ -14,7 +14,13 @@ import { ComputerController } from '../electron/core/vm/computer';
 import type { ModelClient, Completion, ToolDefinition } from '../electron/core/model/model';
 import type { VmController } from '../electron/core/vm/vm';
 import type { WireMessage } from '../shared/types/core';
-import { conversationTimeline } from '../shared/chat/activity';
+import { conversationTimeline, runSteps } from '../shared/chat/activity';
+import type { ChatMessage } from '../shared/types/core';
+/** Progress is kept as a step of its run segment, folded behind the answer, not as a separate chat row. */
+const inRunSteps = (messages: ChatMessage[], id: string) =>
+  conversationTimeline(messages).some(
+    (item) => item.kind === 'run' && runSteps(item.messages).some((step) => step.kind === 'note' && step.id === id),
+  );
 const tool = (name: string, args: object): Completion => ({
   content: '',
   calls: [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }],
@@ -336,9 +342,7 @@ test('model-authored progress stays visible without a separate summary request',
     (m) => m.presentation === 'progress' && m.content === '已核对前三项，继续检查。',
   );
   assert.equal(updates.length, 1);
-  assert.ok(
-    conversationTimeline(fx.store.data.messages).some((item) => item.kind === 'message' && item.id === updates[0].id),
-  );
+  assert.ok(inRunSteps(fx.store.data.messages, updates[0].id));
   assert.equal(fx.store.data.runs[0].status, 'completed');
 });
 
@@ -370,7 +374,7 @@ test('a new input preserves progress already spoken before an in-flight operatio
   await until(fx.idle);
   assert.equal(progress.status, 'done');
   assert.equal(progress.content, '我先核对现有文件，再继续处理。');
-  assert.ok(conversationTimeline(fx.store.data.messages).some((item) => item.kind === 'message' && item.id === id));
+  assert.ok(inRunSteps(fx.store.data.messages, id));
   assert.ok(fx.store.data.runs[0].inputUpdated);
 });
 

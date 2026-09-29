@@ -18,12 +18,16 @@ export function Message({
   message,
   allowPins = true,
   onReply,
+  showReasoning = true,
 }: {
   message: ChatMessage;
   allowPins?: boolean;
   onReply?: (message: ChatMessage) => void;
+  /** False when the reasoning is already shown elsewhere, e.g. inside the folded run process. */
+  showReasoning?: boolean;
 }) {
   const { t } = useI18n();
+  if (!showReasoning && message.reasoning) message = { ...message, reasoning: undefined };
   if (message.scheduled)
     return (
       <>

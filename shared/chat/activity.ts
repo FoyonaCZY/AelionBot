@@ -324,25 +324,12 @@ const internalVerificationNotice = (message: ChatMessage) =>
   message.status === 'failed' &&
   message.presentation === 'progress' &&
   message.content === '发现校验问题，正在检查并修正。';
+// Progress text, reasoning and tool steps stay inside their run segment so the segment can show them in the
+// order they happened, folded behind the final answer. Only user-facing items (user input, peer notices,
+// delegated tasks) split a run into segments.
 export function conversationTimeline(messages: ChatMessage[]): TimelineItem[] {
   messages = placeQuestionAnswers(messages.filter((message) => !internalVerificationNotice(message)));
   const timeline: TimelineItem[] = [];
-  const progress = new Set<string>(),
-    laterActivity = new Set<string>();
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-    if (!message.runId) continue;
-    const text = message.role === 'assistant' && Boolean(readableContent(message.content));
-    if (
-      text &&
-      message.status !== 'running' &&
-      message.status !== 'cancelled' &&
-      (message.presentation === 'progress' ||
-        (!message.presentation && message.status !== 'failed' && laterActivity.has(message.runId)))
-    )
-      progress.add(message.id);
-    if (message.role === 'tool' || (text && message.status !== 'running')) laterActivity.add(message.runId);
-  }
   const lastSegments = new Map<string, Extract<TimelineItem, { kind: 'run' }>>();
   let current: Extract<TimelineItem, { kind: 'run' }> | undefined;
   for (const message of messages) {
@@ -352,8 +339,7 @@ export function conversationTimeline(messages: ChatMessage[]): TimelineItem[] {
       message.peer ||
       message.taskSource ||
       message.groupTaskSource ||
-      !message.runId ||
-      progress.has(message.id)
+      !message.runId
     ) {
       timeline.push({ kind: 'message', id: message.id, message });
       current = undefined;
@@ -406,22 +392,56 @@ export function runPresentation(messages: ChatMessage[], run?: RunRecord) {
   const current = [...tools].reverse().find((message) => message.status === 'running');
   return { status, tools, final, error, notes, current };
 }
-const OUTCOME_TOOLS = new Set([
-  'host_execute',
-  'computer_execute',
-  'python_execute',
-  'apply_patch',
-  'file_write',
-  'file_patch',
-  'host_file_write',
-  'host_file_patch',
-  'process_start',
-  'terminal_start',
-]);
-export function runOutcomeMessages(messages: ChatMessage[]) {
-  return messages.filter(
-    (message) => message.role === 'tool' && message.status === 'done' && OUTCOME_TOOLS.has(message.tool || ''),
-  );
+export type RunStep =
+  | { kind: 'reasoning'; id: string; message: ChatMessage }
+  | { kind: 'note'; id: string; message: ChatMessage }
+  | { kind: 'tool'; id: string; message: ChatMessage };
+/**
+ * The work that led to a run's answer, in the order it happened: reasoning, progress text and tool steps
+ * interleave exactly as the model produced them. The final answer text, in-flight drafts, cancelled drafts and
+ * the failure text shown by the run notice are excluded; the final answer's reasoning is kept as the last step.
+ */
+export function runSteps(messages: ChatMessage[], options: { finalId?: string; error?: string } = {}): RunStep[] {
+  const steps: RunStep[] = [];
+  for (const message of messages) {
+    if (message.reaction || internalVerificationNotice(message)) continue;
+    if (message.id === options.finalId) {
+      if (message.reasoning?.text.trim()) steps.push({ kind: 'reasoning', id: message.id, message });
+      continue;
+    }
+    if (message.role === 'tool') {
+      if (message.tool) steps.push({ kind: 'tool', id: message.id, message });
+      continue;
+    }
+    if (message.role === 'event') {
+      if (message.content) steps.push({ kind: 'note', id: message.id, message });
+      continue;
+    }
+    if (message.role !== 'assistant' || message.presentation === 'error') continue;
+    if (['running', 'cancelled'].includes(message.status || 'done')) continue;
+    if (options.error && message.content.includes(options.error)) continue;
+    const text = Boolean(readableContent(message.content) || message.attachments?.length);
+    if (text) steps.push({ kind: 'note', id: message.id, message });
+    else if (message.reasoning?.text.trim()) steps.push({ kind: 'reasoning', id: message.id, message });
+  }
+  return steps;
+}
+/** Wall-clock time of a finished run, or undefined while it runs or when timestamps are missing. */
+export function runDurationMs(run?: RunRecord) {
+  if (!run?.endedAt) return;
+  const ms = Date.parse(run.endedAt) - Date.parse(run.startedAt);
+  return Number.isFinite(ms) && ms >= 0 ? ms : undefined;
+}
+/** Messages whose text contains every whitespace-separated term of the query, oldest first. */
+export function searchMessages(messages: ChatMessage[], query: string) {
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!terms.length) return [];
+  return messages.filter((message) => {
+    if (message.reaction || (message.role !== 'user' && message.role !== 'assistant')) return false;
+    if (message.status === 'running' || message.status === 'cancelled') return false;
+    const text = (message.role === 'assistant' ? readableContent(message.content) : message.content).toLowerCase();
+    return terms.every((term) => text.includes(term));
+  });
 }
 export function technicalOutput(message: ChatMessage) {
   const result = toolResult(message);

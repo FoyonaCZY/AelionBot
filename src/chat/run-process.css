@@ -1,0 +1,182 @@
+/* One quiet line above the answer; expanding it shows the run's steps as a vertical timeline. */
+.run-process {
+  max-width: min(86%, 700px);
+  margin: 2px 0 10px;
+  min-width: 0;
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+}
+.run-process-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: -6px;
+  padding: 4px 9px 4px 6px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.run-process-toggle:hover,
+.run-process-toggle:focus-visible {
+  background: var(--appearance-fill);
+  color: var(--text-secondary);
+  outline: none;
+}
+.run-process-toggle:focus-visible {
+  box-shadow: 0 0 0 2px light-dark(#cbbfe2, #6d5f86);
+}
+.run-process-mark {
+  display: inline-flex;
+  width: 16px;
+  justify-content: center;
+  color: light-dark(#a99bc4, #9d8fb8);
+}
+.run-process-summary {
+  font-variant-numeric: tabular-nums;
+}
+.run-process-toggle > svg:last-child {
+  opacity: 0.7;
+  transition: transform 0.18s;
+}
+.run-process.is-expanded .run-process-toggle > svg:last-child {
+  transform: rotate(90deg);
+}
+
+.run-process-steps {
+  list-style: none;
+  margin: 4px 0 0 1px;
+  padding: 0 0 0 16px;
+  border-left: 1.5px solid var(--appearance-line);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.run-step {
+  position: relative;
+  min-width: 0;
+}
+/* A small dot on the rail marks each step. */
+.run-step::before {
+  content: '';
+  position: absolute;
+  left: -20px;
+  top: 12px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: light-dark(#fff, #201e24);
+  border: 1.5px solid light-dark(#cfc8da, #5a5363);
+}
+.run-step-tool.is-running::before {
+  border-color: light-dark(#9d8cc0, #a597c2);
+  background: light-dark(#9d8cc0, #a597c2);
+}
+.run-step-tool.is-failed::before {
+  border-color: light-dark(#d39a8e, #c58f86);
+}
+.run-step-more::before {
+  display: none;
+}
+
+.run-step-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 5px 8px;
+  margin-left: -8px;
+  border-radius: 7px;
+  text-align: left;
+  color: var(--text-secondary);
+}
+.run-step-row:not(:disabled):hover,
+.run-step-row:focus-visible {
+  background: var(--appearance-fill);
+  outline: none;
+}
+.run-step-row:disabled {
+  cursor: default;
+}
+.run-step-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.run-step-label {
+  flex-shrink: 0;
+  color: var(--text-ink);
+}
+.run-step-detail {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-family: var(--font-code);
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+}
+.run-step-state {
+  display: inline-flex;
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.run-step-tool.is-failed .run-step-state {
+  color: light-dark(#b0685a, #d59d93);
+}
+.run-step-row[aria-expanded='true'] .run-step-state svg {
+  transform: rotate(90deg);
+}
+.run-step-body {
+  margin: 2px 0 8px;
+}
+.run-step-body .tool-detail {
+  margin: 0;
+}
+
+.run-step-note {
+  padding: 4px 0 6px;
+  color: var(--text-secondary);
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+.run-step-note .markdown > :first-child {
+  margin-top: 0;
+}
+.run-step-note .markdown > :last-child {
+  margin-bottom: 0;
+}
+.run-step-reasoning .message-reasoning {
+  margin: 0;
+  max-width: none;
+}
+
+.run-step-more button {
+  padding: 3px 0;
+  color: var(--text-muted);
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+}
+.run-step-more button:hover {
+  color: var(--text-secondary);
+}
+
+.run-step-spinner {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid light-dark(#ddd6e6, #4a4452);
+  border-top-color: light-dark(#8f7fb3, #b3a6cc);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .run-step-spinner {
+    animation: none;
+  }
+  .run-process-toggle > svg:last-child {
+    transition: none;
+  }
+}

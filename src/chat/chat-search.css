@@ -1,0 +1,73 @@
+.chat-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 4px 0 10px;
+  border: 1px solid var(--appearance-line);
+  border-radius: 9px;
+  background: var(--appearance-fill);
+  color: var(--text-muted);
+  min-width: 0;
+}
+.chat-search:focus-within {
+  border-color: light-dark(#cbbfe2, #6d5f86);
+}
+.chat-search input {
+  width: 180px;
+  min-width: 60px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-ink);
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+}
+.chat-search-count {
+  flex-shrink: 0;
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.chat-search-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: var(--text-muted);
+}
+.chat-search-step:not(:disabled):hover,
+.chat-search-step:focus-visible {
+  background: light-dark(#eeeaf3, #35313b);
+  color: var(--text-secondary);
+  outline: none;
+}
+.chat-search-step:disabled {
+  opacity: 0.4;
+}
+.chat-search-step.is-prev svg {
+  transform: rotate(180deg);
+}
+/* The matched message briefly highlights after the view scrolls to it. */
+.messages .is-search-hit {
+  border-radius: 12px;
+  animation: search-hit 1.6s ease-out;
+}
+.messages .is-search-hit .bubble,
+.messages .run-step-note.is-search-hit {
+  box-shadow: 0 0 0 2px light-dark(#cbbfe2, #6d5f86);
+}
+@keyframes search-hit {
+  from {
+    background: light-dark(#f1ecf8, #2f2a37);
+  }
+  to {
+    background: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .messages .is-search-hit {
+    animation: none;
+  }
+}

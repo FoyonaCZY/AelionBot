@@ -1,45 +1,14 @@
 import type { ChatMessage, RunRecord, StreamingReply as Reply, ModelConfig } from '../../shared/types/core';
 import { contextNeedsChange } from '../../shared/chat/context-issue';
 import { StreamingReply } from './StreamingReply';
-import {
-  friendlyError,
-  readableContent,
-  runOutcomeMessages,
-  runPresentation,
-  toolDisplay,
-} from '../../shared/chat/activity';
-import { ToolDetails } from './ToolDetails';
+import { friendlyError, runDurationMs, runPresentation, runSteps } from '../../shared/chat/activity';
 import { Icon } from '../ui/Icon';
 import { Message } from '../ui/Message';
 import { useI18n } from '../i18n';
 import './activity.css';
-import './run-outcomes.css';
 import { OperationDenial } from './OperationDenial';
+import { RunProcess } from './RunProcess';
 
-function RunOutcomes({ messages }: { messages: ChatMessage[] }) {
-  const { t } = useI18n();
-  const items = runOutcomeMessages(messages);
-  if (!items.length) return null;
-  return (
-    <details className="run-outcomes">
-      <summary>
-        {t('本轮操作')} · {items.length}
-      </summary>
-      {items.map((message) => {
-        const display = toolDisplay(message);
-        return (
-          <details key={message.id} className="run-outcome">
-            <summary>
-              <span>{display.label}</span>
-              {display.detail && <small>{display.detail}</small>}
-            </summary>
-            <ToolDetails message={message} />
-          </details>
-        );
-      })}
-    </details>
-  );
-}
 export function RunMessage({
   messages,
   isLast = true,
@@ -83,33 +52,14 @@ export function RunMessage({
             budget: run.contextIssue.inputBudget.toLocaleString(),
           })
         : notice.description;
-  // Committed progress remains a normal chat message; tool traces never become
-  // history rows. conversationTimeline already places other progress between runs.
-  const notes = messages.filter(
-    (message) =>
-      (message.presentation === 'progress' || view.status === 'completed' || !isLast) &&
-      message.role === 'assistant' &&
-      !message.reaction &&
-      message.presentation !== 'error' &&
-      !['running', 'cancelled'].includes(message.status || 'done') &&
-      (!isLast || message.id !== view.final?.id) &&
-      Boolean(readableContent(message.content) || message.attachments?.length || message.reasoning?.text) &&
-      !(view.error && message.content.includes(view.error)),
-  );
+  // Everything before the answer (reasoning, progress text, tool steps) folds into one process line, in the
+  // order it happened. Only the final answer stays in the chat as a full message.
+  const final = isLast ? view.final : undefined;
+  const steps = runSteps(messages, { finalId: final?.id, error: view.error });
   const showError = failed && latest,
     showStopped = cancelled && latest && !run?.groupUpdated && !run?.inputUpdated;
   const denials = messages.filter((message) => message.operationDenial);
-  const outcomes = runOutcomeMessages(messages);
-  if (
-    !notes.length &&
-    !denials.length &&
-    !outcomes.length &&
-    !showError &&
-    !showStopped &&
-    !(stream && running) &&
-    !(isLast && view.final)
-  )
-    return null;
+  if (!steps.length && !denials.length && !showError && !showStopped && !(stream && running) && !final) return null;
   return (
     <div
       className="run-message"
@@ -117,10 +67,7 @@ export function RunMessage({
       data-run-segment={messages[0]?.id}
       data-run-terminal={isLast}
     >
-      {notes.map((message) => (
-        <Message key={message.id} message={message} allowPins={!run?.groupOrigin} onReply={onReply} />
-      ))}
-      <RunOutcomes messages={messages} />
+      <RunProcess steps={steps} running={running} durationMs={isLast ? runDurationMs(run) : undefined} />
       {denials.map((message) => (
         <OperationDenial key={message.id} denial={message.operationDenial!} />
       ))}
@@ -167,7 +114,7 @@ export function RunMessage({
         </div>
       )}
       {stream && running && <StreamingReply reply={stream} />}
-      {isLast && view.final && <Message message={view.final} allowPins={!run?.groupOrigin} onReply={onReply} />}
+      {final && <Message message={final} allowPins={!run?.groupOrigin} onReply={onReply} showReasoning={false} />}
     </div>
   );
 }

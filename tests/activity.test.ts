@@ -5,8 +5,9 @@ import {
   describeTool,
   friendlyError,
   readableContent,
-  runOutcomeMessages,
   runPresentation,
+  runSteps,
+  searchMessages,
   technicalOutput,
   liveBotStep,
 } from '../shared/chat/activity';
@@ -44,17 +45,48 @@ test('command and patch activity show a short detail without dumping the payload
     'app.ts · README.md',
   );
 });
-test('run outcomes keep writes and commands, not intermediate reads', () => {
-  const items = runOutcomeMessages([
+test('run steps interleave reasoning, progress and tools in the order they happened', () => {
+  const thought = (text: string) => ({ reasoning: { text, durationMs: 1000 } });
+  const messages = [
+    message('think-1', 'assistant', '', thought('先看目录')),
     message('read', 'tool', '{}', { tool: 'file_read' }),
-    message('run', 'tool', '{}', { tool: 'host_execute', activity: { label: '执行本机命令', detail: 'npm test' } }),
-    message('patch', 'tool', '{}', { tool: 'apply_patch' }),
+    message('think-2', 'assistant', '', thought('再看入口')),
     message('search', 'tool', '{}', { tool: 'host_search_files' }),
-  ]);
+    message('note', 'assistant', '入口已找到，开始修改。', { presentation: 'progress', ...thought('准备修改') }),
+    message('patch', 'tool', '{}', { tool: 'apply_patch', status: 'failed' }),
+    message('draft', 'assistant', '未完成', { status: 'running' }),
+    message('final', 'assistant', '改好了。', { presentation: 'answer', ...thought('总结') }),
+  ];
+  const steps = runSteps(messages, { finalId: 'final' });
   assert.deepEqual(
-    items.map((item) => item.id),
-    ['run', 'patch'],
+    steps.map((step) => [step.kind, step.id]),
+    [
+      ['reasoning', 'think-1'],
+      ['tool', 'read'],
+      ['reasoning', 'think-2'],
+      ['tool', 'search'],
+      ['note', 'note'],
+      ['tool', 'patch'],
+      ['reasoning', 'final'],
+    ],
   );
+  // The failure text already shown by the run notice is not repeated as a step.
+  assert.deepEqual(runSteps([message('err', 'assistant', '执行失败：超时')], { error: '执行失败：超时' }), []);
+});
+test('chat search matches every term in readable user and assistant text only', () => {
+  const messages = [
+    message('u', 'user', '帮我修复 Login 页面'),
+    message('a', 'assistant', '<think>login secret</think>已修复登录页面'),
+    message('t', 'tool', 'login page tool output', { tool: 'file_read' }),
+    message('d', 'assistant', 'login draft', { status: 'running' }),
+    message('b', 'assistant', 'Login 页面的按钮已调整'),
+  ];
+  assert.deepEqual(
+    searchMessages(messages, 'login 页面').map((item) => item.id),
+    ['u', 'b'],
+  );
+  assert.deepEqual(searchMessages(messages, 'secret'), []);
+  assert.deepEqual(searchMessages(messages, '   '), []);
 });
 test('live status follows the current step and vanishes for every terminal state', () => {
   const read = message('read', 'tool', 'private command', {
@@ -119,8 +151,9 @@ test('legacy internal verification placeholders are absent from chat and progres
       presentation: 'progress',
     }),
     progress = message('progress', 'assistant', '已读取项目入口。', { presentation: 'progress' });
+  const timeline = conversationTimeline([placeholder, progress]);
   assert.deepEqual(
-    conversationTimeline([placeholder, progress]).map((item) => item.id),
+    timeline.flatMap((item) => (item.kind === 'run' ? item.messages.map((message) => message.id) : [item.id])),
     ['progress'],
   );
   assert.deepEqual(
@@ -131,7 +164,7 @@ test('legacy internal verification placeholders are absent from chat and progres
   );
 });
 
-test('completed progress stays between chronological tool segments and the final answer', () => {
+test('progress, tools and the final answer share one run segment in chronological order', () => {
   const messages = [
     message('user', 'user', '生成报告'),
     message('plan', 'assistant', '先读取资料'),
@@ -141,11 +174,16 @@ test('completed progress stays between chronological tool segments and the final
     message('final', 'assistant', '报告已完成'),
   ];
   const timeline = conversationTimeline(messages);
-  assert.equal(timeline.length, 3);
+  assert.equal(timeline.length, 2);
   assert.equal(timeline[0].kind, 'message');
-  assert.equal(timeline[1].kind, 'message');
-  assert.equal(timeline[1].id, 'plan');
-  assert.equal(timeline[2].kind, 'run');
+  assert.equal(timeline[1].kind, 'run');
+  assert.deepEqual(timeline[1].kind === 'run' && timeline[1].messages.map((item) => item.id), [
+    'plan',
+    'read',
+    'empty',
+    'write',
+    'final',
+  ]);
   const view = runPresentation(messages.slice(1), run('completed'));
   assert.equal(view.final?.id, 'final');
   assert.deepEqual(
@@ -172,7 +210,7 @@ test('a mid-run question answer stays after the question and before later tool w
   ];
   assert.deepEqual(
     conversationTimeline(messages).map((item) => (item.kind === 'message' ? item.id : item.segmentId)),
-    ['user', 'ask', 'question', 'answer', 'search'],
+    ['user', 'ask', 'answer', 'search'],
   );
 });
 test('an answer waits for a later restated question instead of appearing above it', () => {
@@ -190,7 +228,7 @@ test('an answer waits for a later restated question instead of appearing above i
   ];
   assert.deepEqual(
     conversationTimeline(messages).map((item) => (item.kind === 'message' ? item.id : item.segmentId)),
-    ['user', 'done', 'question', 'ask', 'answer', 'next'],
+    ['user', 'done', 'answer', 'next'],
   );
 });
 
@@ -221,7 +259,7 @@ test('private-chat notices stay clickable between stable run segments without du
   );
 });
 
-test('every committed progress message survives new steps, completion and serialization in its original position', () => {
+test('every committed progress message survives new steps, completion and serialization in one run segment', () => {
   const messages = [
     message('user', 'user', '处理资料'),
     message('plan', 'assistant', '先核对资料', { presentation: 'progress' }),
@@ -232,7 +270,7 @@ test('every committed progress message survives new steps, completion and serial
   const first = conversationTimeline(messages);
   assert.deepEqual(
     first.map((item) => (item.kind === 'message' ? item.id : item.segmentId)),
-    ['user', 'plan', 'read', 'update', 'write'],
+    ['user', 'plan', 'update', 'write'],
   );
   messages.push(
     message('check', 'assistant', '报告已生成，正在验证', { presentation: 'progress' }),
@@ -243,7 +281,7 @@ test('every committed progress message survives new steps, completion and serial
     timeline = conversationTimeline(serialized);
   assert.deepEqual(
     timeline.map((item) => (item.kind === 'message' ? item.id : item.segmentId)),
-    ['user', 'plan', 'read', 'update', 'write', 'check', 'verify'],
+    ['user', 'plan', 'update', 'write'],
   );
   assert.equal(timeline.filter((item) => item.kind === 'run' && item.isLast).length, 1);
   assert.equal(
@@ -256,14 +294,14 @@ test('every committed progress message survives new steps, completion and serial
 });
 
 test('cancelled and unfinished drafts never become permanent progress', () => {
-  const timeline = conversationTimeline([
+  const steps = runSteps([
     message('partial', 'assistant', '未完成的草稿', { status: 'running', presentation: 'progress' }),
     message('cancelled', 'assistant', '过期草稿', { status: 'cancelled', presentation: 'progress' }),
     message('thinking', 'assistant', '<think>隐藏思考</think>', { presentation: 'progress' }),
     message('correction', 'assistant', '发现问题，正在修正', { status: 'failed', presentation: 'progress' }),
   ]);
   assert.deepEqual(
-    timeline.filter((item) => item.kind === 'message').map((item) => item.id),
+    steps.map((step) => step.id),
     ['correction'],
   );
 });

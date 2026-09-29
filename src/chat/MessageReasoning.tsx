@@ -10,6 +10,8 @@ const subscribe = (change: () => void) => {
   return () => window.removeEventListener('aelion-appearance-change', change);
 };
 const display = () => (document.documentElement.dataset.reasoning || 'collapsed') as ReasoningDisplay;
+/** The appearance setting for reasoning: collapsed, expanded or hidden. */
+export const useReasoningDisplay = () => useSyncExternalStore(subscribe, display);
 
 function useElapsed(startedAt: string | undefined, running: boolean) {
   const [now, setNow] = useState(Date.now);
