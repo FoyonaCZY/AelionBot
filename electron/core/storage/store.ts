@@ -1,4 +1,5 @@
 import { botType } from '../../../shared/types/designer-types';
+import { hostedSearchProtocol } from '../../../shared/types/model-types';
 import { normalizeSoul } from '../../../shared/chat/bot-soul';
 import { defaultBotName, defaultSoul, upgradedLegacySoul } from '../../../shared/chat/soul-presets';
 import { repairToolHistory } from '../tools/tool-history';
@@ -630,7 +631,7 @@ export class Store {
       supportsImages: catalog?.supportsImages,
       protocol: provider?.protocol,
       responsesTransport: provider?.responsesTransport,
-      hostedWebSearch: provider?.protocol === 'responses' ? provider.hostedWebSearch : undefined,
+      hostedWebSearch: hostedSearchProtocol(provider?.protocol) ? provider?.hostedWebSearch : undefined,
       hostedImageGeneration: provider?.protocol === 'responses' ? provider.hostedImageGeneration : undefined,
       imageProtocol: provider?.imageProtocol,
       imageAspect: catalog?.imageAspect ?? provider?.imageAspect,

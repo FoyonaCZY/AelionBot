@@ -7,7 +7,7 @@ import { modelUsage } from './model-usage';
 import { anthropicHistoryEndpoints } from '../context/anthropic-cache';
 import { anthropicReasoning } from './anthropic-thinking';
 import { repairToolHistory } from '../tools/tool-history';
-import { hiddenClientTools, hostedResponseTools } from '../tools/hosted-tools';
+import { hiddenClientTools, hostedAnthropicTools, hostedResponseTools } from '../tools/hosted-tools';
 import { taggedReasoning } from '../../../shared/chat/activity';
 
 export const nativeKey = (cfg: ModelConfig) => `${cfg.providerId || ''}:${cfg.baseUrl.replace(/\/$/, '')}:${cfg.model}`;
@@ -241,6 +241,17 @@ function buildProtocolRequest(
     }));
     for (const part of [...new Set(cacheCandidates)].slice(-2)) part.cache_control = { type: 'ephemeral' };
     const reasoning = anthropicReasoning(cfg, output);
+    const hidden = hiddenClientTools(cfg),
+      anthropicTools = [
+        ...hostedAnthropicTools(cfg),
+        ...tools
+          .filter((t) => !hidden.has(t.function.name))
+          .map((t) => ({
+            name: t.function.name,
+            description: t.function.description,
+            input_schema: t.function.parameters,
+          })),
+      ];
     return {
       url: base + '/messages',
       headers,
@@ -253,15 +264,7 @@ function buildProtocolRequest(
         ...(reasoning.dropTemperature ? {} : temperature),
         ...(reasoning.thinking ? { thinking: reasoning.thinking } : {}),
         ...(reasoning.effort ? { output_config: { effort: reasoning.effort } } : {}),
-        ...(tools.length
-          ? {
-              tools: tools.map((t) => ({
-                name: t.function.name,
-                description: t.function.description,
-                input_schema: t.function.parameters,
-              })),
-            }
-          : {}),
+        ...(anthropicTools.length ? { tools: anthropicTools } : {}),
       },
     };
   }
@@ -428,6 +431,7 @@ export class StreamAccumulator {
           this.reason(d.thinking, 'thinking');
         }
         if (d.type === 'signature_delta') b.signature = (b.signature || '') + d.signature;
+        if (d.type === 'citations_delta' && d.citation) b.citations = [...(b.citations || []), d.citation];
       }
       if (item.type === 'message_delta') {
         if (item.delta?.stop_reason)
@@ -437,11 +441,11 @@ export class StreamAccumulator {
       if (item.type === 'message_stop') {
         this.ended = true;
         for (const [index, b] of this.blocks) {
-          if (b.type === 'tool_use') {
-            const raw = this.json.has(index) ? this.json.get(index)! : JSON.stringify(b.input || {});
-            if (this.json.has(index)) b.input = objectArgs(raw);
-            this.calls.set(index, rawCall(b.name, raw, b.id || ''));
-          }
+          if (b.type !== 'tool_use' && b.type !== 'server_tool_use') continue;
+          const raw = this.json.has(index) ? this.json.get(index)! : JSON.stringify(b.input || {});
+          if (this.json.has(index)) b.input = objectArgs(raw);
+          // Server tools already ran on the provider; their blocks are replayed as-is, never executed locally.
+          if (b.type === 'tool_use') this.calls.set(index, rawCall(b.name, raw, b.id || ''));
         }
       }
       return;

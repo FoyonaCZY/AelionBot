@@ -1,9 +1,21 @@
 import type { ModelConfig } from '../../../shared/types/core';
+import { hostedSearchProtocol } from '../../../shared/types/model-types';
+
+/** Upper bound on server-side searches Claude may run in one request. */
+const ANTHROPIC_WEB_SEARCH_MAX_USES = 5;
 
 export function hiddenClientTools(config: Pick<ModelConfig, 'protocol' | 'hostedWebSearch' | 'hostedImageGeneration'>) {
   const hidden = new Set<string>();
-  if ((config.protocol || 'chat') === 'responses' && config.hostedWebSearch) hidden.add('web_search');
+  // The hosted tool takes over the client tool's name, so both cannot be offered together.
+  if (hostedSearchProtocol(config.protocol) && config.hostedWebSearch) hidden.add('web_search');
   return hidden;
+}
+
+export function hostedAnthropicTools(config: Pick<ModelConfig, 'protocol' | 'hostedWebSearch'>) {
+  if (config.protocol !== 'anthropic' || !config.hostedWebSearch) return [] as Array<Record<string, unknown>>;
+  return [{ type: 'web_search_20250305', name: 'web_search', max_uses: ANTHROPIC_WEB_SEARCH_MAX_USES }] as Array<
+    Record<string, unknown>
+  >;
 }
 
 export function hostedResponseTools(

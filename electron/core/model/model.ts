@@ -144,6 +144,38 @@ export function assistantMessage(result: Completion): WireMessage {
     ...(result.native ? { native: result.native } : {}),
   };
 }
+const MAX_PAUSE_RESUMES = 4;
+const addUsage = (a?: ModelUsage, b?: ModelUsage): ModelUsage | undefined => {
+  if (!a || !b) return b || a;
+  const sum = (key: keyof ModelUsage) =>
+    a[key] === undefined && b[key] === undefined ? undefined : Number(a[key] || 0) + Number(b[key] || 0);
+  return {
+    ...b,
+    outputTokens: sum('outputTokens'),
+    totalTokens: sum('totalTokens'),
+    reasoningTokens: sum('reasoningTokens'),
+    latencyMs: sum('latencyMs'),
+    attempts: sum('attempts'),
+  };
+};
+/** Joins a paused Claude turn with its continuation into the single assistant turn the provider produced. */
+function mergePausedTurn(paused: Completion, next: Completion): Completion {
+  const blocks = (value: Completion) => (Array.isArray(value.native?.data) ? value.native.data : []);
+  const reasoning = [paused.reasoning, next.reasoning].filter(Boolean).join('\n\n');
+  return {
+    ...next,
+    content: paused.content + next.content,
+    calls: [...paused.calls, ...next.calls],
+    usage: addUsage(paused.usage, next.usage),
+    ...(reasoning ? { reasoning } : {}),
+    ...(paused.reasoningMs !== undefined || next.reasoningMs !== undefined
+      ? { reasoningMs: (paused.reasoningMs || 0) + (next.reasoningMs || 0) }
+      : {}),
+    ...(paused.inputImagesOmitted || next.inputImagesOmitted ? { inputImagesOmitted: true } : {}),
+    ...(paused.toolOutputsOmitted || next.toolOutputsOmitted ? { toolOutputsOmitted: true } : {}),
+    ...(next.native ? { native: { ...next.native, data: [...blocks(paused), ...blocks(next)] } } : {}),
+  };
+}
 export async function backoff(ms: number, signal: AbortSignal) {
   signal.throwIfAborted();
   await new Promise<void>((resolve, reject) => {
@@ -184,6 +216,22 @@ export class ModelClient {
     signal: AbortSignal,
     onText: (text: string) => void = () => {},
     options: CompletionOptions = {},
+  ): Promise<Completion> {
+    let result = await this.request(messages, tools, signal, onText, options);
+    // Claude pauses long server-tool turns; sending the paused content back as the assistant turn resumes it.
+    for (let resumed = 0; result.finishReason === 'pause_turn'; resumed++) {
+      if (resumed >= MAX_PAUSE_RESUMES) throw Error('模型服务端工具多次暂停仍未完成，请缩小搜索范围后重试');
+      const next = await this.request([...messages, assistantMessage(result)], tools, signal, onText, options);
+      result = mergePausedTurn(result, next);
+    }
+    return result;
+  }
+  private async request(
+    messages: WireMessage[],
+    tools: ToolDefinition[],
+    signal: AbortSignal,
+    onText: (text: string) => void,
+    options: CompletionOptions,
   ): Promise<Completion> {
     let timing = new RequestTiming();
     let cfg = options.config || this.getConfig(options.botId);
@@ -562,7 +610,9 @@ export class ModelClient {
           throw new RequestError('模型输出达到上限，未执行不完整响应，请拆分任务后继续', true, 0, true);
         if (['content_filter', 'SAFETY', 'RECITATION', 'BLOCKLIST', 'PROHIBITED_CONTENT'].includes(result.finishReason))
           throw new RequestError('模型未能提供本次回复：' + result.finishReason);
-        if (!result.content.trim() && !result.calls.length) throw new RequestError('模型返回空响应', true);
+        // A paused server-tool turn may hold only provider tool blocks; complete() resumes it.
+        if (!result.content.trim() && !result.calls.length && result.finishReason !== 'pause_turn')
+          throw new RequestError('模型返回空响应', true);
         const seen = new Set<string>();
         for (const call of result.calls) {
           if (!call.function) call.function = { name: '', arguments: '' };

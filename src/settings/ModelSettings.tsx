@@ -1,7 +1,7 @@
 import { Select } from '../ui/Select';
 import { useEffect, useRef, useState } from 'react';
 import type { ModelProvider, ModelSelection, ProviderModel, Snapshot } from '../../shared/types/core';
-import type { ModelParameters, ModelProtocol } from '../../shared/types/model-types';
+import { hostedSearchProtocol, type ModelParameters, type ModelProtocol } from '../../shared/types/model-types';
 import {
   IMAGE_ASPECTS,
   IMAGE_QUALITIES,
@@ -643,9 +643,9 @@ function ProviderEditor({
             />
           </label>
         </div>
-        {responses && (
+        {hostedSearchProtocol(parameters.protocol) && (
           <div className="settings-card provider-tools-card">
-            <p className="provider-card-kicker">{t('Responses 工具')}</p>
+            <p className="provider-card-kicker">{responses ? t('Responses 工具') : t('Claude 工具')}</p>
             <label className="settings-row provider-hosted-row">
               <span>{t('服务端搜索')}</span>
               <input
@@ -656,16 +656,18 @@ function ProviderEditor({
                 aria-label={t('使用服务端内置搜索，不再提供应用内 web_search')}
               />
             </label>
-            <label className="settings-row provider-hosted-row">
-              <span>{t('服务端生图')}</span>
-              <input
-                type="checkbox"
-                checked={Boolean(parameters.hostedImageGeneration)}
-                disabled={disabled || pending}
-                onChange={(event) => setParameters({ ...parameters, hostedImageGeneration: event.target.checked })}
-                aria-label={t('使用服务端内置生图，由 Responses 直接出图')}
-              />
-            </label>
+            {responses && (
+              <label className="settings-row provider-hosted-row">
+                <span>{t('服务端生图')}</span>
+                <input
+                  type="checkbox"
+                  checked={Boolean(parameters.hostedImageGeneration)}
+                  disabled={disabled || pending}
+                  onChange={(event) => setParameters({ ...parameters, hostedImageGeneration: event.target.checked })}
+                  aria-label={t('使用服务端内置生图，由 Responses 直接出图')}
+                />
+              </label>
+            )}
           </div>
         )}
       </div>

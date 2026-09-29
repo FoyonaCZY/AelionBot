@@ -48,6 +48,12 @@ export function modelEventActivity(protocol: ModelProtocol, event: any): ModelAc
         return { kind: 'reasoning' };
     }
     if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') return { kind: 'tool' };
+    // Server tools (hosted web search) run on the provider; their blocks mean the turn is still progressing.
+    if (
+      event.type === 'content_block_start' &&
+      /^(server_tool_use|.+_tool_result)$/.test(event.content_block?.type || '')
+    )
+      return { kind: 'response' };
   } else if (protocol === 'gemini') {
     const parts = event.candidates?.[0]?.content?.parts || [];
     const call = parts.find((p: any) => p.functionCall);

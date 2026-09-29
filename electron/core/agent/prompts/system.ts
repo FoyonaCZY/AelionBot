@@ -62,7 +62,7 @@ export function harnessInstructions(options: HarnessPromptOptions) {
   text +=
     '\nThe visible tool menu may be reduced for the model context capacity. Discover omitted capabilities with tool_search, then invoke tools.TOOL_NAME(arguments) inside code_exec. Every call is still subject to permission checks; await its result. Use apply_patch for multiple files. Use terminal_start and terminal_read/terminal_input for interactive CLIs; existing command tools remain available for short commands. Ask request_user_input when requirements are unclear instead of guessing. ' +
     (options.hostedWebSearch
-      ? 'Hosted web search is enabled on this Responses provider; do not call the client web_search tool. '
+      ? 'Web search runs on the model provider; use its built-in web search and web_read for pages. '
       : 'Use web_search/web_read for the web. ') +
     (options.imageGeneration === 'model'
       ? 'A dedicated image model is configured; use generate_image for illustrations and never claim an image was created without returned bytes. '

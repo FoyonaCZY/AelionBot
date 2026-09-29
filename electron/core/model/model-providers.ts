@@ -5,7 +5,7 @@ import type { ModelProvider, ModelSelection, ProviderInput, ProviderModel } from
 import { Store, atomicJson, type StoredProvider } from '../storage/store';
 import { modelEndpoint } from './model';
 import { redactHost } from '../host/host';
-import type { ModelParameters } from '../../../shared/types/model-types';
+import { hostedSearchProtocol, type ModelParameters } from '../../../shared/types/model-types';
 import { asImageAspect, asImageProtocol, asImageQuality } from '../../../shared/types/image-types';
 import { imageCapability } from './model-vision';
 import { reasoningEffort as cleanReasoning } from '../../../shared/chat/reasoning';
@@ -62,7 +62,7 @@ export function modelParameters(input: ModelParameters): ModelParameters {
     reasoningEffort,
     thinkingBudget,
     fallbackModel: fallbackModel?.trim() || undefined,
-    ...(responses && hostedWebSearch ? { hostedWebSearch: true } : {}),
+    ...(hostedSearchProtocol(protocol) && hostedWebSearch ? { hostedWebSearch: true } : {}),
     ...(responses && hostedImageGeneration ? { hostedImageGeneration: true } : {}),
     ...(image !== 'auto' ? { imageProtocol: image } : {}),
     ...(asImageAspect(imageAspect) ? { imageAspect: asImageAspect(imageAspect) } : {}),

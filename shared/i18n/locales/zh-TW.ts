@@ -1939,4 +1939,5 @@ export const zhTW: Record<string, string> = {
   上一个结果: '上一個結果',
   下一个结果: '下一個結果',
   关闭搜索: '關閉搜尋',
+  'Claude 工具': 'Claude 工具',
 };

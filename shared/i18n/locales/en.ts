@@ -1965,4 +1965,5 @@ export const en: Record<string, string> = {
   上一个结果: 'Previous match',
   下一个结果: 'Next match',
   关闭搜索: 'Close search',
+  'Claude 工具': 'Claude tools',
 };
