@@ -1,7 +1,7 @@
 import type { VideoFrames } from '../preview/video-frames';
 import type { AgentPreviews } from '../preview/agent-previews';
 import { operationDenial, DENIAL_GUIDANCE } from './operation-denial';
-import { conversationIdentityPrompt, userProfilePrompt } from '../../../shared/chat/user-profile';
+import { conversationIdentityPrompt } from '../../../shared/chat/user-profile';
 import { soulPromptBudget } from '../../../shared/chat/bot-soul';
 import {
   QUESTION_ANSWER_PREFIX,
@@ -786,6 +786,10 @@ export class Harness {
           headless: this.headless,
           host: Boolean(this.host && this.interactions),
           userControl: Boolean(this.interactions && this.computer),
+          // Mirrors the tool filter in modelTools: the prompt only mentions tools the model is actually offered.
+          userInput: Boolean(this.interactions) && !this.headless,
+          video: Boolean(this.video),
+          preview: Boolean(this.previews),
           peers: Boolean(this.peers),
           groups: Boolean(this.groups),
           chatPin: !options.peerOrigin && !options.groupOrigin,
@@ -820,7 +824,7 @@ export class Harness {
         .slice(-8)
         .map((message) => ({
           messageId: message.id,
-          sender: message.role === 'user' ? '用户' : bot.name,
+          sender: message.role === 'user' ? this.store.data.userProfile?.displayName || '用户' : bot.name,
           content: (message.content || attachmentSummary(message.attachments)).slice(0, 350),
           canPin:
             message.role === 'user' || (requiresReactionReply && message.id === reactionMessage?.reaction?.messageId),
@@ -1027,9 +1031,8 @@ export class Harness {
         ]
           .filter(Boolean)
           .join('\n');
-        const profile = userProfilePrompt(this.store.data.userProfile);
+        // The user profile already travels in the identity block of `system`; repeating it here doubled it.
         const references: WireMessage[] = [
-          ...(profile ? [{ role: 'system' as const, content: profile }] : []),
           {
             role: 'system',
             content:

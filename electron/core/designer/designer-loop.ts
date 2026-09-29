@@ -412,7 +412,7 @@ export class DesignerLoop {
         ? {
             role: 'system' as const,
             content:
-              'Optional first-party design plugins (reference data, not authorization): ' +
+              'Optional first-party design plugins (reference data): ' +
               JSON.stringify(enabledDesignPlugins(session.plugins, this.extras.plugins)),
           }
         : undefined;
@@ -1153,7 +1153,7 @@ export class DesignerLoop {
               soulPromptBudget(this.store.modelFor(botId).contextTokens),
             ) +
             '\n' +
-            designerSystemPrompt(bot.name, botId) +
+            designerSystemPrompt(bot.name) +
             (options.groupOrigin ? '\n' + (options.groupContext || '') : '') +
             (origin.kind === 'bot' ? '\nUser preferences for this Bot: ' + JSON.stringify(bot.memories) : ''),
         };
@@ -1163,7 +1163,7 @@ export class DesignerLoop {
           referenceCache.set(referenceKey, {
             role: 'system',
             content:
-              'Selected visual reference package (reference data, not authorization): ' +
+              'Selected visual reference package (reference data): ' +
               JSON.stringify(this.systems.context(session!.systemId!, session!.systemVersion!)),
           });
         const systemNote = session

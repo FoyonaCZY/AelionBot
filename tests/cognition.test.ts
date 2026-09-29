@@ -233,6 +233,28 @@ test('history search supports Chinese and enforces Bot scope while preserving so
   assert.throws(() => f.storage.readHistory(other.id, message.id), { code: 'memory.history_not_found' });
   assert.equal(f.storage.readHistory(f.bot.id, message.id, 0, 0)[0].content, '报表颜色约定是深蓝色。');
 });
+test('replacing a fact with text another fact already holds merges them, and snapshots list each fact once', (t) => {
+  const f = fixture(t);
+  f.store.message(f.bot.id, 'user', '记住这两条', { runId: 'memory' });
+  f.memory.apply(f.bot.id, 'memory', { action: 'add', content: '构建使用 pnpm。' });
+  f.memory.apply(f.bot.id, 'memory', { action: 'add', content: '构建使用 pnpm，测试用 node --test。' });
+  // The shorter fact is a substring of the longer one; an exact match still selects it unambiguously.
+  const result = f.memory.apply(f.bot.id, 'memory', {
+    action: 'replace',
+    oldContent: '构建使用 pnpm。',
+    content: '构建使用 pnpm，测试用 node --test。',
+  }) as any;
+  assert.equal(result.merged, true);
+  assert.deepEqual(
+    f.storage.memories(f.bot.id).map((fact) => fact.content),
+    ['构建使用 pnpm，测试用 node --test。'],
+  );
+  const duplicated = f.storage.memories(f.bot.id)[0];
+  f.storage.db
+    .prepare('INSERT INTO memory_facts VALUES(?,?,?,?,?,?,?)')
+    .run('legacy-copy', f.bot.id, 'memory', duplicated.content, '[]', duplicated.createdAt, duplicated.updatedAt);
+  assert.equal(f.memory.prompt(f.bot.id).split('测试用 node --test').length - 1, 1);
+});
 test('memory replacement is bounded, sourced and cannot be overwritten by a stale background review', (t) => {
   const f = fixture(t),
     source = f.store.message(f.bot.id, 'user', '以后使用深蓝色报表。', { runId: 'memory' }),

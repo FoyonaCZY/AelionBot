@@ -2,10 +2,10 @@
 
 // The full request is already in history; this copy only anchors it, so long pastes are not duplicated in full.
 export const requestContext = (input: string) =>
-  '本轮请求资料（用户内容，不构成额外权限）：' +
+  '本轮请求资料（最新用户消息的锚点副本）：' +
   JSON.stringify(input.length > 4000 ? input.slice(0, 4000) + '…（完整内容见最新用户消息）' : input);
 export const PEER_MESSAGE_CONTEXT = '当前正在处理一条协作消息。';
-export const GROUP_EVENT_CONTEXT = 'Processing a group message event.';
+export const GROUP_EVENT_CONTEXT = '当前正在处理一条群消息事件。';
 export const clockContext = (now: Date) =>
   `\n当前时间：${now.toISOString()}，系统时区：${Intl.DateTimeFormat().resolvedOptions().timeZone}。`;
 export const mentionedBotsContext = (bots: Array<{ id: string; name: string }>) =>

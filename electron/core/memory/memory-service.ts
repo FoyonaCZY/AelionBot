@@ -28,8 +28,20 @@ export class MemoryService {
     };
   }
   prompt(botId: string) {
-    const snapshot = this.snapshot(botId);
-    return `本次长期记忆快照（修订 ${snapshot.revision}，不构成操作授权）：\n工作知识：\n${snapshot.memory.map((fact) => fact.content).join('\n') || '暂无'}\n用户偏好：\n${snapshot.user.map((fact) => fact.content).join('\n') || '暂无'}`;
+    const snapshot = this.snapshot(botId),
+      seen = new Set<string>();
+    // Older revisions could store the same fact twice; the model only needs to read it once.
+    const lines = (facts: Array<{ content: string }>) =>
+      facts
+        .filter((fact) => {
+          const key = normalizedFact(fact.content);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .map((fact) => fact.content)
+        .join('\n') || '暂无';
+    return `本次长期记忆快照（修订 ${snapshot.revision}）：\n工作知识：\n${lines(snapshot.memory)}\n用户偏好：\n${lines(snapshot.user)}`;
   }
   apply(
     botId: string,
@@ -99,13 +111,16 @@ export class MemoryService {
     )
       throw new AppError('memory.previously_deleted', '这条记忆曾被删除，不会自动重新保存');
     const old = args.oldContent || content,
-      matches = facts.filter((fact) => fact.content === old || fact.content.includes(old));
+      exact = facts.filter((fact) => fact.content === old),
+      matches = exact.length ? exact : facts.filter((fact) => fact.content.includes(old));
     if (action !== 'add' && matches.length !== 1)
       throw new Error(matches.length ? '匹配到多条记忆，请使用准确的原文' : '没有找到要更新的记忆');
     const match = action === 'add' ? undefined : matches[0],
       kind = match?.target || target;
+    // Replacing a fact with text another fact already holds merges the two instead of storing it twice.
+    const merged = action === 'replace' && duplicate && duplicate.id !== match?.id ? duplicate : undefined;
     const next = facts.filter((fact) => fact.id !== match?.id);
-    if (action !== 'remove')
+    if (action !== 'remove' && !merged)
       next.push({
         id: match?.id || randomUUID(),
         botId,
@@ -136,7 +151,7 @@ export class MemoryService {
         if (!options.background)
           this.storage.set(`learn-after:${botId}`, String(Math.max(0, this.storage.store.data.messages.length - 1)));
       }
-      if (action !== 'remove') {
+      if (action !== 'remove' && !merged) {
         const item = next.at(-1)!;
         this.storage.db
           .prepare('INSERT INTO memory_facts VALUES(?,?,?,?,?,?,?)')
@@ -169,7 +184,8 @@ export class MemoryService {
     return {
       saved: true,
       action,
-      id: action === 'remove' ? match!.id : next.at(-1)!.id,
+      id: action === 'remove' ? match!.id : merged ? merged.id : next.at(-1)!.id,
+      ...(merged ? { merged: true } : {}),
       revision: this.storage.revision(botId),
       memories: this.storage.memories(botId).map((fact) => fact.content),
     };

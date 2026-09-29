@@ -308,6 +308,8 @@ test('greetings and ongoing conversations receive current personal identity, inc
   assert.match(ongoing, /你的名字："梁若飞"/);
   assert.match(ongoing, /腾讯程序员\n\n---\n你是 AI 队友/);
   assert.match(ongoing, /描述的是对方，不是你/);
+  // The profile rides in the identity block only; it must not be injected a second time.
+  assert.equal(ongoing.split('描述的是对方，不是你').length - 1, 1);
   store.data.userProfile = normalizeUserProfile({});
   await harness.run(bot.id, '再聊聊');
   const latest = captured.at(-1)!,
