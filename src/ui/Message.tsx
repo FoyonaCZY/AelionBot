@@ -1,3 +1,4 @@
+import { memo, useRef } from 'react';
 import { previewFeedbackDisplay } from '../../shared/preview/preview-feedback';
 import { MessageQuote } from '../chat/MessageQuote';
 import { MessageTime } from '../chat/ConversationTime';
@@ -11,21 +12,41 @@ import { MessageActions } from '../chat/MessagePins';
 import { Icon } from './Icon';
 import { MentionContent } from './MentionContent';
 import { MessageReasoning } from '../chat/MessageReasoning';
+import { sameMessage } from '../chat/render-equality';
 import { useI18n } from '../i18n';
 import '../chat/message-surfaces.css';
 
-export function Message({
-  message,
-  allowPins = true,
-  onReply,
-  showReasoning = true,
-}: {
+type MessageProps = {
   message: ChatMessage;
   allowPins?: boolean;
   onReply?: (message: ChatMessage) => void;
   /** False when the reasoning is already shown elsewhere, e.g. inside the folded run process. */
   showReasoning?: boolean;
-}) {
+};
+// Snapshots arrive as fresh structured clones; a message re-renders only when something it shows changed.
+// onReply is compared by presence and read through a ref, so a skipped render still calls the latest callback.
+const MemoMessage = memo(
+  MessageView,
+  (a: MessageProps & { reply: ReplyRef }, b: MessageProps & { reply: ReplyRef }) =>
+    a.allowPins === b.allowPins &&
+    a.showReasoning === b.showReasoning &&
+    Boolean(a.onReply) === Boolean(b.onReply) &&
+    sameMessage(a.message, b.message),
+);
+type ReplyRef = { current?: (message: ChatMessage) => void };
+export function Message(props: MessageProps) {
+  const reply = useRef<(message: ChatMessage) => void>(undefined);
+  reply.current = props.onReply;
+  return <MemoMessage {...props} reply={reply} />;
+}
+function MessageView({
+  message,
+  allowPins = true,
+  onReply: hasReply,
+  showReasoning = true,
+  reply,
+}: MessageProps & { reply: ReplyRef }) {
+  const onReply = hasReply ? (value: ChatMessage) => reply.current?.(value) : undefined;
   const { t } = useI18n();
   if (!showReasoning && message.reasoning) message = { ...message, reasoning: undefined };
   if (message.scheduled)

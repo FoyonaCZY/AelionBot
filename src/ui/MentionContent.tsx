@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { defaultUrlTransform } from 'react-markdown';
 import type { BotMention } from '../../shared/types/core';
 import { mentionMarkdown, validMentions } from '../../shared/chat/mentions';
 import Markdown from '../chat/MessageMarkdown';
 import { MessageLink } from '../chat/MessageLink';
+import { sameMentions } from '../chat/render-equality';
 import { Avatar } from './Avatar';
 
 function MentionTag({ mention }: { mention: BotMention }) {
@@ -13,15 +14,14 @@ function MentionTag({ mention }: { mention: BotMention }) {
     </span>
   );
 }
-export function MentionContent({
-  content,
-  mentions = [],
-  markdown = false,
-}: {
-  content: string;
-  mentions?: BotMention[];
-  markdown?: boolean;
-}) {
+type MentionContentProps = { content: string; mentions?: BotMention[]; markdown?: boolean };
+// Every snapshot delivers fresh message objects; compare by value so unchanged text is not parsed again.
+export const MentionContent = memo(
+  MentionContentView,
+  (a: MentionContentProps, b: MentionContentProps) =>
+    a.content === b.content && a.markdown === b.markdown && sameMentions(a.mentions, b.mentions),
+);
+function MentionContentView({ content, mentions = [], markdown = false }: MentionContentProps) {
   const prepared = useMemo(
     () => (markdown && mentions.length ? mentionMarkdown(content, mentions) : undefined),
     [content, JSON.stringify(mentions), markdown],

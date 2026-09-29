@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { memo, useEffect, useId, useRef, useState } from 'react';
 import type { ChatMessage } from '../../shared/types/core';
 import { readableContent, toolDisplay, type RunStep } from '../../shared/chat/activity';
 import { AttachmentList } from '../files/Attachments';
@@ -7,6 +7,7 @@ import { MentionContent } from '../ui/MentionContent';
 import { MessageReasoning, useReasoningDisplay } from './MessageReasoning';
 import { ToolDetails } from './ToolDetails';
 import { useI18n } from '../i18n';
+import { sameSteps } from './render-equality';
 import './run-process.css';
 
 /** Steps kept visible while a run is working and the list is not expanded. */
@@ -98,15 +99,13 @@ const durationLabel = (t: ReturnType<typeof useI18n>['t'], ms: number) => {
  * Everything a run did before its answer, folded into one line once the run ends. While the run works the newest
  * steps stay visible so progress is readable without the history growing without bound.
  */
-export function RunProcess({
-  steps: allSteps,
-  running,
-  durationMs,
-}: {
-  steps: RunStep[];
-  running: boolean;
-  durationMs?: number;
-}) {
+type RunProcessProps = { steps: RunStep[]; running: boolean; durationMs?: number };
+export const RunProcess = memo(
+  RunProcessView,
+  (a: RunProcessProps, b: RunProcessProps) =>
+    a.running === b.running && a.durationMs === b.durationMs && sameSteps(a.steps, b.steps),
+);
+function RunProcessView({ steps: allSteps, running, durationMs }: RunProcessProps) {
   const { t } = useI18n();
   const reasoning = useReasoningDisplay(),
     steps = reasoning === 'hidden' ? allSteps.filter((step) => step.kind !== 'reasoning') : allSteps;
