@@ -55,6 +55,7 @@ export class GameRuntime {
           this.record(s, 'recovered');
           s.revision++;
         }
+        for (const old of this.states.values()) if (old.groupId === s.groupId) this.states.delete(old.id);
         this.states.set(s.id, s);
       }
       this.persist();
@@ -225,7 +226,15 @@ export class GameRuntime {
       detail: `规则 ${s.twelve ? s.twelve.board + '-sheriff-v1' : 'seven-player-v1'}；真人发言120秒、行动45秒；AI响应90秒，超时暂停且保留行动`,
     });
     for (const r of s.requests) this.record(s, 'request_created', { requestId: r.id, seatId: r.seatId, kind: r.kind });
-    this.commit(s);
+    // Only the latest match per group is readable; dropping older ones keeps every persist from rewriting their traces.
+    const replaced = [...this.states.values()].filter((old) => old.groupId === input.groupId);
+    for (const old of replaced) this.states.delete(old.id);
+    try {
+      this.commit(s);
+    } catch (e) {
+      for (const old of replaced) this.states.set(old.id, old);
+      throw e;
+    }
     this.pump(s.id);
     return this.public(s);
   }

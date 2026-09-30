@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { settle, until } from './helpers';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createWerewolf, acceptAction, view } from '../electron/core/games/werewolf';
@@ -110,6 +110,44 @@ test('runtime rejects spectator action, persists and resumes after restart', asy
     assert.equal(recovered.read('g')?.status, 'finished');
     recovered.dispose();
   } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+test('runtime keeps only the latest match per group on disk', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'werewolf-'));
+  const decide = async () => new Promise<never>(() => {});
+  const seven = [...players.map((p) => ({ ...p, human: false })), { ...players[0], id: '6', human: false }];
+  const runtime = new GameRuntime(dir, decide);
+  try {
+    const first = runtime.create({ groupId: 'g', players: seven });
+    runtime.control(first.id, 'stop');
+    const other = runtime.create({ groupId: 'h', players: seven });
+    const second = runtime.create({ groupId: 'g', players: seven });
+    assert.throws(() => runtime.inspect(first.id));
+    const saved = JSON.parse(readFileSync(join(dir, 'matches.json'), 'utf8')) as { id: string }[];
+    assert.deepEqual(saved.map((s) => s.id).sort(), [other.id, second.id].sort());
+  } finally {
+    runtime.dispose();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+test('runtime drops superseded matches from older files on load', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'werewolf-'));
+  const seven = [...players.map((p) => ({ ...p, human: false })), { ...players[0], id: '6', human: false }];
+  const older = createWerewolf('g', seven),
+    newer = createWerewolf('g', seven);
+  older.status = newer.status = 'finished';
+  writeFileSync(join(dir, 'matches.json'), JSON.stringify([older, newer]));
+  const runtime = new GameRuntime(dir, async () => new Promise<never>(() => {}));
+  try {
+    assert.equal(runtime.read('g')?.id, newer.id);
+    const saved = JSON.parse(readFileSync(join(dir, 'matches.json'), 'utf8')) as { id: string }[];
+    assert.deepEqual(
+      saved.map((s) => s.id),
+      [newer.id],
+    );
+  } finally {
+    runtime.dispose();
     rmSync(dir, { recursive: true, force: true });
   }
 });

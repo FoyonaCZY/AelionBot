@@ -76,6 +76,14 @@ export function GroupGames({
     [mbtiPresets, setMbtiPresets] = useState<Record<string, GameMbti>>({}),
     [configNotice, setConfigNotice] = useState('');
   const [sessionMbti, setSessionMbti] = useState<Record<string, GameMbti | 'random'>>({});
+  // The last match stays readable after it ends; its chat card only shows until that report has been viewed once.
+  const [seenReport, setSeenReport] = useState(() => {
+    try {
+      return localStorage.getItem(storageKey + ':seen-report') || '';
+    } catch {
+      return '';
+    }
+  });
   const resolvedMbti = (id: string) => {
     const type = sessionMbti[id];
     return type === 'random' ? undefined : type || mbtiPresets[id];
@@ -176,6 +184,13 @@ export function GroupGames({
       setMbtiPresets(personalities);
     } catch {}
   }, [storageKey]);
+  useEffect(() => {
+    if (!open || screen !== 'table' || match?.status !== 'finished' || seenReport === match.id) return;
+    setSeenReport(match.id);
+    try {
+      localStorage.setItem(storageKey + ':seen-report', match.id);
+    } catch {}
+  }, [open, screen, match?.id, match?.status, seenReport, storageKey]);
   useEffect(() => {
     if (open && !dialog.current?.open) dialog.current?.showModal();
     if (!open && dialog.current?.open) dialog.current?.close();
@@ -282,6 +297,7 @@ export function GroupGames({
       </div>
       {match &&
         cardContainer &&
+        (match.status !== 'finished' || seenReport !== match.id) &&
         createPortal(
           <button className="gg-chat-card" onClick={enter}>
             <span className="gg-card-mark">☾</span>
@@ -577,9 +593,9 @@ export function GroupGames({
                   {gameError || readError}
                 </p>
               )}
-              {match && match.status !== 'finished' && (
+              {match && (
                 <button className="secondary-button" onClick={() => setScreen('table')}>
-                  {t('返回当前对局')}
+                  {t(match.status === 'finished' ? '查看战报' : '返回当前对局')}
                 </button>
               )}
               <footer className="gg-room-footer">
