@@ -198,6 +198,28 @@
 .group-messages {
   position: relative;
 }
+.group-round-stopped {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 20px 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.group-round-stopped button {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+}
+.group-round-stopped button:hover {
+  background: var(--surface-hover);
+}
 .group-system {
   padding: 12px 0;
 }
@@ -301,7 +323,6 @@
     max-height: 40vh;
   }
 }
-
 
 .group-decision-trail {
   display: grid;

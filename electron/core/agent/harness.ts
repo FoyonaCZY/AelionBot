@@ -1117,6 +1117,7 @@ export class Harness {
                   contextStats: groupPrepared?.stats || prepared?.stats,
                   requiredImageIds: [...requiredImageIds],
                   maxOutputTokens,
+                  allowEmpty: Boolean(options.groupOrigin),
                   // Reasoning is shown only in a Bot's own conversation, not in group or Bot-to-Bot chats.
                   ...(showReasoning
                     ? {

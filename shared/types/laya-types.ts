@@ -55,6 +55,7 @@ export interface GroupDecisionRecord extends DecisionRecord {
   scope: 'group';
   choice: GroupChoice;
   appliedChoice: GroupChoice;
+  /** Only in records written before Laya became a single relevance question. */
   adjustment?: string;
   criteria?: Record<string, string>;
   features?: { repliedTo: boolean; answered: boolean; working: boolean };

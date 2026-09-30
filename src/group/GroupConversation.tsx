@@ -407,6 +407,17 @@ export function GroupConversation({
         )}
         <WorkItemsPanel items={state.workItems} scope={{ kind: 'group', id: group.id }} bots={state.bots} />
         <LiveWorkStrip items={(state.liveWork || []).filter((item) => members.some((bot) => bot.id === item.botId))} />
+        {group.round?.status === 'stopped' && !group.pending && (
+          <div className="group-round-stopped">
+            <span>{group.round.reason || t('本轮讨论已停止')}</span>
+            <button
+              type="button"
+              onClick={() => void window.aelion.continueGroup(group.id).catch((error) => setError(ipcErrorText(error)))}
+            >
+              {t('继续本轮讨论')}
+            </button>
+          </div>
+        )}
         <BotComposer
           extraTools={
             <GroupGames
@@ -428,12 +439,12 @@ export function GroupConversation({
           bot={group}
           bots={members}
           draft={draft}
-          running={false}
+          running={group.pending > 0 || Boolean(group.activities?.length)}
           onChange={onDraft}
           onSend={() => {
             if (!sending) void send();
           }}
-          onStop={() => {}}
+          onStop={() => void window.aelion.stopGroup(group.id).catch((error) => setError(ipcErrorText(error)))}
         />
       </div>
     </>

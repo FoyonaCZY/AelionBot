@@ -69,6 +69,8 @@ export interface CompletionOptions {
   hostedImageGeneration?: boolean;
   config?: ModelConfig;
   key?: string;
+  /** A finished turn with no text and no tool calls is a valid answer (a group member with nothing to say). */
+  allowEmpty?: boolean;
 }
 export class ContextOverflowError extends Error {
   constructor() {
@@ -611,7 +613,12 @@ export class ModelClient {
         if (['content_filter', 'SAFETY', 'RECITATION', 'BLOCKLIST', 'PROHIBITED_CONTENT'].includes(result.finishReason))
           throw new RequestError('模型未能提供本次回复：' + result.finishReason);
         // A paused server-tool turn may hold only provider tool blocks; complete() resumes it.
-        if (!result.content.trim() && !result.calls.length && result.finishReason !== 'pause_turn')
+        if (
+          !result.content.trim() &&
+          !result.calls.length &&
+          result.finishReason !== 'pause_turn' &&
+          !(options.allowEmpty && ['stop', 'end_turn', 'stop_sequence', 'STOP'].includes(result.finishReason))
+        )
           throw new RequestError('模型返回空响应', true);
         const seen = new Set<string>();
         for (const call of result.calls) {

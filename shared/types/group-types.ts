@@ -6,7 +6,6 @@ import type { BotIdentity, BotMention } from './peer-types';
 import type { ScheduledTrigger } from './scheduled-types';
 export const GROUP_LIMITS = {
   bots: 8,
-  repetitions: 3,
   groupsPerTask: 2,
   /** Bot-to-bot messages since the user's last message before Bots stop waking each other. */
   botStreak: 10,
@@ -141,11 +140,8 @@ export interface GroupRound {
   status: 'active' | 'limited' | 'stopped';
   createdAt: string;
   botMessages: number;
-  botCounts: Record<string, number>;
-  decisions: number;
   createdGroups: number;
   reason?: string;
-  repetitions?: number;
 }
 export type GroupDeliveryStatus =
   | 'queued'
@@ -176,6 +172,8 @@ export interface GroupDelivery {
   triage?: 'wake' | 'skip';
   /** The recipient was addressed and must answer, at least with a reaction. */
   must?: boolean;
+  /** Cut off by quitting or a crash; continuing the group resumes it until the user moves on. */
+  resumable?: boolean;
 }
 interface GroupLayaDecision extends GroupDecisionRecord {
   messageId: string;

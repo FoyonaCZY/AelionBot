@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { until } from './helpers';
 import { Store } from '../electron/core/storage/store';
 import { GroupChats } from '../electron/core/group/group-chats';
 import { groupHistory, groupContextKey } from '../electron/core/group/group-history';
@@ -169,4 +170,96 @@ test('restart reconciles a committed reply before marking the remaining inbox in
   assert.equal(restored.data.runs.find((r) => r.id === f.ra.id)?.groupReplyMessageId, sent.messageId);
   groups.dispose();
   restored.close();
+});
+
+test('continuing after a restart resumes the interrupted work with its run, not a fresh round', async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'aelion-group-restart-'));
+  const first = new Store(dir),
+    a = first.data.bots[0],
+    b = first.createBot('B', '');
+  const hanging = new GroupChats(
+    first,
+    {
+      isRunning: () => false,
+      run: (_id, _input, options) => {
+        const run: RunRecord = {
+          id: randomUUID(),
+          botId: _id,
+          status: 'running',
+          modelCalls: 1,
+          toolCalls: 1,
+          startedAt: new Date().toISOString(),
+          groupOrigin: options.groupOrigin,
+        };
+        first.data.runs.push(run);
+        options.onStarted?.(run.id);
+        return new Promise(() => {});
+      },
+      cancel: () => {},
+    },
+    () => {},
+  );
+  const id = hanging.create({ name: '重启', botIds: [a.id, b.id] }).id;
+  hanging.send({
+    id,
+    message: `@${a.name} 生成报告`,
+    mentions: [{ id: a.id, name: a.name, color: a.color, start: 0, end: a.name.length + 1 }],
+  });
+  hanging.start();
+  const question = first.data.groups[0].messages.at(-1)!;
+  const delivery = () => first.data.groupDeliveries.find((d) => d.messageId === question.id && d.recipientId === a.id)!;
+  await until(() => Boolean(delivery().runId));
+  const firstRun = delivery().runId;
+  hanging.dispose();
+  first.close();
+  // Simulate the app quitting mid-run: the hanging service is dropped without stopping the round.
+  const restored = new Store(dir),
+    resumed: Array<{ botId: string; from?: string; input: string }> = [];
+  const groups = new GroupChats(
+    restored,
+    {
+      isRunning: () => false,
+      run: async (botId, input, options) => {
+        resumed.push({ botId, from: options.groupTaskFrom, input });
+      },
+      cancel: () => {},
+    },
+    () => {},
+  );
+  t.after(() => {
+    groups.dispose();
+    restored.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+  const interrupted = restored.data.groupDeliveries.find((d) => d.messageId === question.id && d.recipientId === a.id)!;
+  assert.equal(interrupted.status, 'interrupted');
+  const messages = restored.data.groups[0].messages.length;
+  groups.start();
+  groups.continue(id);
+  await until(() => resumed.some((item) => item.botId === a.id));
+  assert.equal(resumed.find((item) => item.botId === a.id)!.from, firstRun);
+  assert.equal(restored.data.groups[0].messages.length, messages, 'no new "continue" message or round');
+  // Once resumed, the same deliveries are not revived again.
+  assert.throws(() => groups.continue(id), /仍可继续/);
+});
+
+test('sending a new message after quitting leaves the interrupted work alone', (t) => {
+  const f = fixture(t);
+  f.deliver(f.ra);
+  f.groups.dispose();
+  const restored = new Store(f.dir);
+  const interrupted = () => restored.data.groupDeliveries.find((d) => d.id === f.ra.groupOrigin!.deliveryId)!;
+  assert.equal(interrupted().status, 'interrupted');
+  assert.equal(interrupted().reason, '应用退出，等待用户继续');
+  assert.equal(interrupted().resumable, true);
+  assert.notEqual(restored.data.groupRounds[0].reason, '你停止了本轮讨论');
+  const groups = new GroupChats(restored, { isRunning: () => false, run: async () => {}, cancel: () => {} }, () => {});
+  try {
+    groups.send({ id: f.room.id, message: '换个话题' });
+    assert.equal(interrupted().resumable, undefined);
+    assert.equal(interrupted().status, 'interrupted');
+  } finally {
+    groups.dispose();
+    restored.close();
+  }
 });

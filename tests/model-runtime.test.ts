@@ -49,6 +49,24 @@ test('requests use the full configured output allowance immediately and honor ex
   await configured.complete([], [], new AbortController().signal);
   assert.deepEqual(limits, [65536, 1024, 8192]);
 });
+test('an empty finished turn is an answer only when the caller allows it; truncation still fails', async (t) => {
+  let reason = 'stop';
+  const baseUrl = await server(t, (_req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ choices: [{ message: { content: '' }, finish_reason: reason }] }));
+  });
+  const model = new ModelClient(
+    () => ({ ...cfg, baseUrl }),
+    () => '',
+  );
+  t.after(() => model.dispose());
+  const signal = new AbortController().signal;
+  const quiet = await model.complete([], [], signal, undefined, { allowEmpty: true, retries: 0 });
+  assert.equal(quiet.content, '');
+  await assert.rejects(model.complete([], [], signal, undefined, { retries: 0 }), /模型返回空响应/);
+  reason = 'length';
+  await assert.rejects(model.complete([], [], signal, undefined, { allowEmpty: true, retries: 0 }), /输出达到上限/);
+});
 test('429 retries are bounded; failed partial previews reset before retry and only complete calls escape', async (t) => {
   let count = 0,
     resets = 0,

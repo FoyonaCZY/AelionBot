@@ -492,8 +492,6 @@ test('group design context includes only that group and task, never main-chat or
     status: 'active',
     createdAt: time,
     botMessages: 0,
-    botCounts: {},
-    decisions: 0,
     createdGroups: 0,
   });
   f.store.data.groupDeliveries.push({
@@ -660,8 +658,6 @@ test('shared group references exclude private history, memories and unrelated gr
       status: 'active',
       createdAt: time,
       botMessages: 0,
-      botCounts: {},
-      decisions: 0,
       createdGroups: 0,
     });
   }

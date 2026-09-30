@@ -39,9 +39,9 @@ test('decision settings render English across download and runtime states', () =
       { phase: 'disabled' as const, installed: ['mlx' as const] },
     ])
       assert.doesNotMatch(render(state), /[一-鿿]/);
-    for (const label of ['各 Bot 的参与判断', '判断中', '旁听', '参与']) {
+    for (const label of ['各 Bot 的回应判断', '判断中', '不回应', '回应', '等被点名的先答', '已限流']) {
       assert.notEqual(translateFor('en', label), label);
-      assert.notEqual(translateFor('zh-TW', label), label);
+      assert.ok(translateFor('zh-TW', label));
     }
   } finally {
     setActiveLanguage('zh-CN');

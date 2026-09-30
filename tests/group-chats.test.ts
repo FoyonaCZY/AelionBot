@@ -599,36 +599,6 @@ test('two Bots stop waking each other after two rounds and whoever spoke first s
     ),
   );
 });
-test('a new user message resets the Bot-to-Bot limits', async (t) => {
-  const fx = fixture(t);
-  const room = fx.groups.create({ name: '限流重置', botIds: [fx.a.id, fx.b.id] }),
-    stored = fx.store.data.groups[0];
-  await until(fx.settled);
-  fx.busy.add(fx.a.id);
-  fx.busy.add(fx.b.id);
-  const round = fx.store.data.groupRounds.at(-1)!;
-  for (let i = 0; i < 4; i++) {
-    const [from, to] = i % 2 ? [fx.b, fx.a] : [fx.a, fx.b];
-    (fx.groups as any).append(stored, { kind: 'bot', ...botIdentity(from) }, `@${to.name} 第 ${i + 1} 条`, round, [
-      { ...botIdentity(to), start: 0, end: to.name.length + 1 },
-    ]);
-  }
-  (fx.groups as any).pump();
-  const limited = fx.store.data.groupDeliveries.find(
-    (d) => d.messageId === stored.messages.at(-1)!.id && d.recipientId === fx.a.id,
-  )!;
-  assert.equal(limited.triage, 'wake');
-  fx.ask(room.id, fx.a, '继续讨论');
-  (fx.groups as any).append(stored, { kind: 'bot', ...botIdentity(fx.a) }, `@${fx.b.name} 用户发言后的第一条`, round, [
-    { ...botIdentity(fx.b), start: 0, end: fx.b.name.length + 1 },
-  ]);
-  const last = stored.messages.at(-1)!;
-  (fx.groups as any).pump();
-  const delivery = fx.store.data.groupDeliveries.find((d) => d.messageId === last.id && d.recipientId === fx.b.id)!;
-  assert.equal(delivery.triage, 'wake');
-  assert.equal(delivery.must, true);
-  fx.busy.clear();
-});
 test('an addressed Bot ending silently is reminded once to answer', async (t) => {
   const seen: string[] = [];
   const fx = fixture(t, (run, messages) => {
@@ -717,6 +687,80 @@ test('an explicit send answers the addressed message even when other messages ar
     fx.store.data.groupDeliveries.find((d) => d.messageId === question.id && d.recipientId === fx.a.id)?.status,
     'replied',
   );
+});
+test('others wait for a busy addressed Bot and are released when it is removed or the round is stopped', async (t) => {
+  const woke: string[] = [];
+  const fx = fixture(t, (run, messages) => {
+    if (publishedMessages(messages).some((m) => /问 [AB]$/.test(m.content))) woke.push(run.botId);
+    return silent();
+  });
+  const room = fx.groups.create({ name: '等待释放', botIds: [fx.a.id, fx.b.id, fx.c.id] });
+  await until(fx.settled);
+  fx.busy.add(fx.a.id);
+  fx.ask(room.id, fx.a, '先问 A');
+  await until(() =>
+    fx.store.data.groupDeliveries.some(
+      (d) =>
+        d.recipientId === fx.b.id &&
+        d.status === 'queued' &&
+        !d.triage &&
+        d.rootId === fx.store.data.groups[0].activeRootId,
+    ),
+  );
+  // B is held for A. Removing A releases B right away instead of after the full wait.
+  fx.groups.update({ id: room.id, name: room.name, botIds: [fx.b.id, fx.c.id] });
+  await until(fx.settled);
+  assert.ok(woke.includes(fx.b.id));
+  fx.busy.clear();
+  // Stopping while someone is held cancels the wait; nobody runs afterwards.
+  woke.length = 0;
+  fx.busy.add(fx.b.id);
+  fx.ask(room.id, fx.b, '再问 B');
+  await delay(50);
+  fx.groups.stop(room.id);
+  fx.busy.clear();
+  fx.groups.wake();
+  await until(fx.settled);
+  assert.deepEqual(woke, []);
+  assert.ok(!fx.store.data.groupDeliveries.some((d) => groupPending(d.status)));
+});
+test('a correction to a busy Bot joins its running work at the next safe boundary', async (t) => {
+  let finish: (value: unknown) => void = () => {},
+    executions = 0;
+  const vm = {
+    execute: async () => {
+      executions++;
+      return new Promise((resolve) => (finish = resolve));
+    },
+  } as unknown as VmController;
+  const fx = fixture(
+    t,
+    (run, messages) => {
+      if (run.botId !== fx.a.id || publishedMessages(messages).at(-1)?.event) return silent();
+      if (!messages.some((m) => m.role === 'tool')) return call('computer_execute', { command: 'export' });
+      assert.match(JSON.stringify(messages), /按钮改成蓝色/);
+      return answer('导出完成，按钮也改成蓝色了。');
+    },
+    vm,
+  );
+  const room = fx.groups.create({ name: '中途修正', botIds: [fx.a.id, fx.b.id] });
+  await until(fx.settled);
+  fx.ask(room.id, fx.a, '做导出页面');
+  await until(() => executions === 1);
+  fx.ask(room.id, fx.a, '按钮改成蓝色');
+  finish({ stdout: 'ok', stderr: '', exitCode: 0, durationMs: 1 });
+  await until(fx.settled);
+  assert.equal(executions, 1);
+  assert.equal(fx.store.data.runs.filter((r) => r.botId === fx.a.id && r.groupOrigin && !publishedEvent(r)).length, 1);
+  assert.equal(
+    fx.store.data.groups[0].messages.filter((m) => m.sender.id === fx.a.id && m.content.includes('蓝色')).length,
+    1,
+  );
+  function publishedEvent(run: RunRecord) {
+    return fx.store.data.groups[0].messages.some(
+      (m) => m.event && fx.store.data.groupDeliveries.some((d) => d.runId === run.id && d.messageId === m.id),
+    );
+  }
 });
 test('exact retries are idempotent per sender while each member may express the same conclusion', async (t) => {
   const fx = fixture(t, (_run, messages) =>

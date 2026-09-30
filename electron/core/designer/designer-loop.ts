@@ -1248,6 +1248,7 @@ export class DesignerLoop {
               },
               maxOutputTokens: prepared.maxOutputTokens,
               hostedImageGeneration: false,
+              allowEmpty: Boolean(options.groupOrigin),
               onStatus: (status) => {
                 run.modelRequest = status;
                 this.changed();
