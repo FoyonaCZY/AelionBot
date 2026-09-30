@@ -13,6 +13,7 @@ import type { HarnessRunOptions } from '../electron/core/agent/peer-runtime-type
 import type { RunRecord } from '../shared/types/core';
 import { until } from './helpers';
 import { GroupChats } from '../electron/core/group/group-chats';
+import { unanswered } from '../shared/chat/group-answers';
 
 const decisionInput = (text = ''): GroupDecisionInput => ({
   bot: { name: '测试 Bot', role: '' },
@@ -238,8 +239,14 @@ test('group broadcast sends each Bot a separate decision', async () => {
     assert.deepEqual(new Set(events.map((event) => event.actorId)), new Set([first.id, second.id]));
     assert(events.every((event) => event.scope === 'group' && event.choice === 'observe'));
     await until(() => !groups.busy && !store.data.groupDeliveries.some((item) => item.status === 'queued'));
-    // Nobody answered the unaddressed message, so the group was told once to @ someone.
-    assert.equal(store.data.groups[0].messages.filter((message) => message.notice === 'unanswered').length, 1);
+    // Nobody answered: the app shows a hint under the message, but nothing is added to the group log.
+    const asked = store.data.groups[0].messages.find((message) => message.content === '请看这条群消息')!;
+    assert.ok(unanswered(store.data.groups[0].messages, store.data.groupDeliveries, asked));
+    assert.ok(
+      !store.data.groups[0].messages.some(
+        (message) => message.sender.kind === 'system' && message.replyTo === asked.id,
+      ),
+    );
     // Only the group-created event woke them; Laya kept both away from the message.
     assert.equal(runs, 2);
     assertDeliveriesSettled(store);

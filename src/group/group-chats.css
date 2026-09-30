@@ -198,6 +198,11 @@
 .group-messages {
   position: relative;
 }
+.group-unanswered {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
 .group-round-stopped {
   display: flex;
   align-items: center;

@@ -11,6 +11,7 @@ export const en: Record<string, string> = {
   等被点名的先答: 'Waiting for the addressed member',
   本轮讨论已停止: 'This round has stopped',
   继续本轮讨论: 'Continue this round',
+  '没有 Bot 回应，可以 @ 一个': 'No Bot replied. @ one to ask directly.',
   已限流: 'Paused by limit',
   参与: 'Participate',
   'Laya 标准版': 'Laya Standard',

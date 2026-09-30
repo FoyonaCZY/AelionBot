@@ -1,7 +1,8 @@
 import { buildGroupDecisionInput, type GroupDecisions } from './laya-decision';
 import { previewFeedbackDisplay } from '../../../shared/preview/preview-feedback';
 import { groupEventPrompt, groupMustAnswerNote, groupReviewNote, GROUP_STATE_EVENT_PROMPT } from './group-prompt';
-import { answerFrom, noticed, replyTarget, sinceUser, triage, unanswered } from './group-triage';
+import { answerFrom, noticed, sinceUser, triage } from './group-triage';
+import { replyTarget } from '../../../shared/chat/group-answers';
 import { userDisplayName } from '../../../shared/chat/user-profile';
 import { resolveGroupReply } from '../agent/message-replies';
 import { workCommand, type WorkItem } from '../../../shared/types/work-types';
@@ -984,11 +985,16 @@ export class GroupChats implements GroupGateway {
     );
   }
   /** Apply the wake rules to one queued delivery. Returns true when its state changed. */
-  private triageDelivery(room: GroupRoom, delivery: GroupDelivery, holds: number[]) {
+  private triageDelivery(
+    room: GroupRoom,
+    delivery: GroupDelivery,
+    holds: number[],
+    deliveries = this.store.data.groupDeliveries.filter((item) => item.groupId === room.id),
+  ) {
     const message = room.messages.find((item) => item.id === delivery.messageId);
     const result = triage(delivery, {
       room,
-      deliveries: this.store.data.groupDeliveries.filter((item) => item.groupId === room.id),
+      deliveries,
       now: Date.now(),
       holdMs: GROUP_LIMITS.holdSeconds * 1000,
       scheduledBy: message?.scheduled
@@ -1021,7 +1027,6 @@ export class GroupChats implements GroupGateway {
             ? '两个 Bot 之间来回已达上限'
             : 'Bot 之间的发言已达上限，等待用户发言';
       if (result.kind === 'limited') this.noticeLimit(room, message!, delivery.recipientId, result.peerId);
-      if (message) this.noticeUnanswered(room, message);
       return true;
     }
     if (!this.laya?.isReady) {
@@ -1059,7 +1064,6 @@ export class GroupChats implements GroupGateway {
       delivery.triage = 'skip';
       delivery.status = 'ignored';
       delivery.reason = '已看过，和自己无关';
-      this.noticeUnanswered(room, message);
     } else {
       delivery.triage = 'wake';
       delivery.status = 'queued';
@@ -1118,20 +1122,17 @@ export class GroupChats implements GroupGateway {
       { notice: 'pair_limit' },
     );
   }
-  /** When no Bot answers an unaddressed user message, say so once and suggest an @. */
-  private noticeUnanswered(room: GroupRoom, message: GroupMessage) {
-    const round = message.rootId ? this.store.data.groupRounds.find((item) => item.id === message.rootId) : undefined;
-    if (!round || round.status !== 'active' || !unanswered(room, this.store.data.groupDeliveries, message)) return;
-    if (room.messages.some((item) => item.notice === 'unanswered' && item.replyTo === message.id)) return;
-    this.append(room, system, '没有 Bot 回应，可以 @ 一个。', round, undefined, 'system', message.id, {
-      notice: 'unanswered',
-    });
-  }
   private pump() {
     if (this.closing) return;
     let dirty = false;
     const holds: number[] = [];
     // Triage everything queued first, so a batch that starts now includes every message that wakes it.
+    const byGroup = new Map<string, GroupDelivery[]>();
+    for (const delivery of this.store.data.groupDeliveries) {
+      const list = byGroup.get(delivery.groupId);
+      if (list) list.push(delivery);
+      else byGroup.set(delivery.groupId, [delivery]);
+    }
     for (const delivery of this.store.data.groupDeliveries)
       if (delivery.status === 'queued' && !delivery.triage) {
         const room = this.store.data.groups.find((room) => room.id === delivery.groupId);
@@ -1139,7 +1140,7 @@ export class GroupChats implements GroupGateway {
           room &&
           this.members(room).some((member) => member.id === delivery.recipientId) &&
           this.round(delivery.rootId).status === 'active' &&
-          this.triageDelivery(room, delivery, holds)
+          this.triageDelivery(room, delivery, holds, byGroup.get(room.id))
         )
           dirty = true;
       }
@@ -1352,10 +1353,6 @@ export class GroupChats implements GroupGateway {
       for (const delivery of deliveries) {
         delivery.status = 'ignored';
         delivery.reason = '已看过，没有发言';
-      }
-      for (const messageId of new Set(deliveries.map((delivery) => delivery.messageId))) {
-        const message = room.messages.find((item) => item.id === messageId);
-        if (message) this.noticeUnanswered(room, message);
       }
       return;
     }

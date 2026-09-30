@@ -1,4 +1,5 @@
 import { GROUP_LIMITS, type GroupDelivery, type GroupMessage, type GroupRoom } from '../../../shared/types/group-types';
+import { replyTarget } from '../../../shared/chat/group-answers';
 
 // Who a published message wakes. Every member still receives it; triage only decides whether the
 // recipient starts working on it (design section 4.1). Rules are tried in order and the first hit wins.
@@ -20,7 +21,6 @@ export interface TriageContext {
   designOwner?: string;
 }
 
-export const replyTarget = (message: GroupMessage) => message.reply?.messageId || message.replyTo;
 const woken = (delivery: GroupDelivery) =>
   delivery.status === 'deciding' ||
   delivery.status === 'running' ||
@@ -149,18 +149,4 @@ export function triage(delivery: GroupDelivery, context: TriageContext): Triage 
 /** A notice of this kind already posted since the user last spoke. */
 export function noticed(room: GroupRoom, notice: GroupMessage['notice'], key?: string) {
   return sinceUser(room).some((item) => item.notice === notice && (!key || item.content.includes(key)));
-}
-/** A user message nobody addressed, that every Bot looked at and none answered. */
-export function unanswered(room: GroupRoom, deliveries: GroupDelivery[], message: GroupMessage) {
-  if (message.sender.kind !== 'user' || message.kind !== 'message' || message.mentions?.length) return false;
-  const own = deliveries.filter((item) => item.messageId === message.id && item.recipientId !== 'user');
-  return (
-    own.length > 0 &&
-    own.every((item) => item.status === 'ignored') &&
-    !room.messages.some(
-      (item) =>
-        item.sender.kind !== 'user' &&
-        (replyTarget(item) === message.id || item.answers === message.id || item.reaction?.messageId === message.id),
-    )
-  );
 }

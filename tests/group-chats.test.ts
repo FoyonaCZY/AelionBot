@@ -662,7 +662,6 @@ test('an unaddressed reply is published directly, and ending without text publis
     fx.store.data.groupDeliveries.find((d) => d.messageId === question.id && d.recipientId === fx.b.id)?.status,
     'ignored',
   );
-  assert.ok(!messages.some((m) => m.notice === 'unanswered'));
 });
 test('an explicit send answers the addressed message even when other messages arrived in the same run', async (t) => {
   const fx = fixture(t, (run, messages) => {

@@ -1,4 +1,5 @@
 import { GroupDecisionTrail } from './GroupDecisionTrail';
+import { unanswered } from '../../shared/chat/group-answers';
 import { GroupGames } from './GroupGames';
 import { DesignerTaskCard } from '../designer/DesignerTaskCard';
 import { usePreviewWorkbench } from '../preview/PreviewWorkbench';
@@ -354,6 +355,9 @@ export function GroupConversation({
                       <MentionContent content={formatted.content} mentions={formatted.mentions} markdown />
                       <AttachmentList files={message.attachments} />
                     </MessageActions>
+                    {page && unanswered(page.messages, page.deliveries, message) && (
+                      <div className="group-unanswered">{t('没有 Bot 回应，可以 @ 一个')}</div>
+                    )}
                     {message.sender.kind === 'user' && page && (
                       <GroupDecisionTrail
                         deliveries={page.deliveries.filter((item) => item.messageId === message.id)}

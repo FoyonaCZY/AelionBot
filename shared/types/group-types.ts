@@ -99,7 +99,7 @@ export interface GroupMessage {
   /** The message whose delivery woke the Bot that sent this message. */
   answers?: string;
   /** A system notice about the discussion itself; it is posted at most once per user message. */
-  notice?: 'pair_limit' | 'bot_limit' | 'unanswered';
+  notice?: 'pair_limit' | 'bot_limit';
 }
 export interface GroupOutbox {
   id: string;

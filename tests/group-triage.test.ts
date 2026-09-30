@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { triage, sinceUser, unanswered, type TriageContext } from '../electron/core/group/group-triage';
+import { triage, sinceUser, type TriageContext } from '../electron/core/group/group-triage';
+import { unanswered } from '../shared/chat/group-answers';
 import { GROUP_LIMITS, type GroupDelivery, type GroupMessage, type GroupRoom } from '../shared/types/group-types';
 
 const bot = (id: string) => ({ kind: 'bot' as const, id, name: id.toUpperCase(), color: '#000' });
@@ -164,12 +165,12 @@ test('an unaddressed user message is unanswered only when every Bot looked and n
   const f = room();
   const question = f.post(user);
   for (const id of ['a', 'b', 'c']) f.delivery(question, id).status = 'ignored';
-  assert.equal(unanswered(f.room, f.deliveries, question), true);
+  assert.equal(unanswered(f.room.messages, f.deliveries, question), true);
   f.post(bot('a'), { kind: 'reaction', reaction: { messageId: question.id, emoji: '👀', removed: false } });
-  assert.equal(unanswered(f.room, f.deliveries, question), false);
+  assert.equal(unanswered(f.room.messages, f.deliveries, question), false);
   const addressed = f.post(user, { mentions: [mention('a')] });
   for (const id of ['a', 'b', 'c']) f.delivery(addressed, id).status = 'ignored';
-  assert.equal(unanswered(f.room, f.deliveries, addressed), false);
+  assert.equal(unanswered(f.room.messages, f.deliveries, addressed), false);
 });
 
 test('user feedback on a design goes to its owner; the designer’s own messages follow the normal rules', () => {
