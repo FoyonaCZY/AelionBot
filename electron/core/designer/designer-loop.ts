@@ -39,7 +39,6 @@ import { renderDesignPdf } from './design-pdf';
 import type { DesignFonts } from './design-fonts';
 import { applyDesignFont, designFontText, designHtmlPath } from './design-font-application';
 import { prepareDesignHtml, exportDesignHtmlBundle } from './design-export';
-import { enabledDesignPlugins, type DesignPlugins } from './design-plugins';
 import { hostedGeneratedImages } from '../tools/hosted-tools';
 import { generateModelImage, imageExtension, imageMediaType, storeImageRoutes } from '../image/image-generation';
 import { imageJobFromArgs, imageReferences } from '../image/image-tool';
@@ -54,7 +53,6 @@ import { designerSystemPrompt } from './designer-prompt';
 export type DesignerLoopExtras = {
   fonts?: DesignFonts;
   pdf?: { render(html: string): Promise<Buffer> };
-  plugins?: DesignPlugins;
   craft?: DesignCraft;
   imageModel?: (botId: string) => { config: import('../../../shared/types/core').ModelConfig; key: string } | undefined;
 };
@@ -407,15 +405,6 @@ export class DesignerLoop {
     let visible: ChatMessage | undefined;
     let previewed = '';
     const pendingNotes: string[] = [];
-    const pluginPrefix =
-      session?.plugins?.length && this.extras.plugins
-        ? {
-            role: 'system' as const,
-            content:
-              'Optional first-party design plugins (reference data): ' +
-              JSON.stringify(enabledDesignPlugins(session.plugins, this.extras.plugins)),
-          }
-        : undefined;
     const openLivePreview = async (inputPath: string) => {
       if (
         !session ||
@@ -491,7 +480,6 @@ export class DesignerLoop {
           brief: String(args.brief),
           title: String(args.title),
           systemId: args.systemId === undefined ? bot.defaultDesignSystemId : (args.systemId as string),
-          plugins: Array.isArray(args.plugins) ? (args.plugins as string[]) : undefined,
         });
         bind(this.designs.get(created.id));
         return { task: this.designs.frame(session!) };
@@ -768,21 +756,6 @@ export class DesignerLoop {
           this.files.write(session, output, pdf, expected);
           mutated = true;
           return { path: this.files.virtual(session, output), bytes: pdf.length };
-        }
-        if (name === 'design_plugin') {
-          if (!this.extras.plugins) throw Error('设计插件目录未就绪');
-          const action = String(args.action);
-          if (action === 'list') return this.extras.plugins.list();
-          if (action === 'read') return this.extras.plugins.read(String(args.id));
-          const id = String(args.id);
-          this.extras.plugins.read(id);
-          const current = new Set(session.plugins || []);
-          if (action === 'enable') current.add(id);
-          else if (action === 'disable') current.delete(id);
-          else throw Error('未知插件操作');
-          session.plugins = [...current];
-          this.designs.touch(session);
-          return { plugins: session.plugins };
         }
         if (name === 'design_spec') {
           if (String(args.spec).length > 12000 || (args.constraints as string[]).some((v) => v.length > 800))
@@ -1183,7 +1156,6 @@ export class DesignerLoop {
           { role: 'system' as const, content: designerPlaybook(playbookName) },
           { role: 'system' as const, content: systemNote },
           ...(referenceKey ? [referenceCache.get(referenceKey)!] : []),
-          ...(pluginPrefix ? [pluginPrefix] : []),
         ];
         const contextInput = {
           botId,

@@ -35,6 +35,8 @@ export interface PreviewRuntime {
   setFileAnnotations: (value: PreviewAnnotation[]) => void;
   sendEdits: (edits: DomEdit[]) => Promise<boolean>;
   saved: (value: EditableText) => void;
+  /** Phone previews only: which device(s) and colour scheme to show. */
+  device?: import('../../shared/preview/preview-devices').PreviewDevicePreset;
 }
 export const PreviewRuntimeContext = createContext<PreviewRuntime | undefined>(undefined);
 export const usePreviewRuntime = () => useContext(PreviewRuntimeContext);

@@ -18,7 +18,6 @@ const designLabels: Record<string, string> = {
   design_file_create: '写入设计文件',
   design_image: '生成插图',
   design_export_pdf: '导出 PDF',
-  design_plugin: '读取设计插件',
 };
 function designOperationLabel(tool: string) {
   return designLabels[tool] ? translate(designLabels[tool]) : toolOperation(tool).label;

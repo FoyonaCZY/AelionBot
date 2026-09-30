@@ -73,12 +73,6 @@ export interface DesignComment {
   page?: number;
   annotation?: PreviewAnnotation;
 }
-export interface DesignPluginSummary {
-  id: string;
-  name: string;
-  description: string;
-  bytes: number;
-}
 /** Static design-check results. P0 blocks publication; P1/P2 are advisory and surface as badges. */
 export type DesignFindingLevel = 'P0' | 'P1' | 'P2';
 export interface DesignFinding {
@@ -117,8 +111,9 @@ export interface DesignSession {
   userEdits: DesignUserEdit[];
   checks: DesignCheck[];
   comments?: DesignComment[];
-  plugins?: string[];
   findings?: DesignFileFindings[];
+  /** Files each run wrote, keyed by run id then virtual path. */
+  changes?: import('../designer/design-changes').DesignRunChanges;
   runIds: string[];
   activeRunId?: string;
   workspacePath: string;
@@ -131,7 +126,6 @@ export interface DesignSessionInput {
   title?: string;
   brief: string;
   systemId?: string | null;
-  plugins?: string[];
 }
 export interface DesignSessionUpdate {
   id: string;
@@ -140,12 +134,10 @@ export interface DesignSessionUpdate {
   systemId?: string | null;
   designSpec?: string;
   constraints?: string[];
-  plugins?: string[];
 }
 export interface DesignerSnapshot {
   systems: DesignSystemSummary[];
   sessions: DesignSession[];
-  plugins?: DesignPluginSummary[];
 }
 export interface DesignHistory {
   messages: WireMessage[];

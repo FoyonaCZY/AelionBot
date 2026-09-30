@@ -35,6 +35,8 @@ export const INVOKE_CHANNELS = {
   layoutWebPreview: 'web-preview:layout',
   webPreviewAction: 'web-preview:action',
   closeWebPreview: 'web-preview:close',
+  webPreviewAppearance: 'web-preview:appearance',
+  layoutWebPreviewMirror: 'web-preview:mirror',
   // Chat
   send: 'chat:send',
   resumeChat: 'chat:resume',

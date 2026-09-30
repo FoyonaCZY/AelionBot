@@ -51,7 +51,6 @@
       "docs/THIRD-PARTY-NOTICES.md",
       "docs/licenses/**",
       "assets/design-systems/**",
-      "assets/design-plugins/**",
       "assets/design-craft/**"
     ],
     "win": {
@@ -102,7 +101,6 @@
       "assets/skills/**",
       "assets/game-skills/**",
       "assets/design-systems/**",
-      "assets/design-plugins/**",
       "assets/design-craft/**",
       "node_modules/node-pty/**"
     ]

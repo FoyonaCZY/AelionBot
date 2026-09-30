@@ -23,6 +23,7 @@ import { CompanionGlyph } from '../bots/CompanionCard';
 import { botIdentity, normalizeBotAvatarStyle, type BotPalette } from '../../shared/chat/bot-colors';
 import { botAvatarDataUrl } from '../bots/bot-avatar';
 import { useI18n } from '../i18n';
+import { PreviewAnnotationChips } from '../preview/PreviewAnnotationChips';
 
 export interface ComposerDraft {
   reply?: MessageReply;
@@ -549,6 +550,7 @@ export function BotComposer({
           }}
         />
       )}
+      <PreviewAnnotationChips scope={scope} />
       <AttachmentList
         files={draft.attachments}
         compact

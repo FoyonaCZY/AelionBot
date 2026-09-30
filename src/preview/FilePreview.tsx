@@ -6,6 +6,7 @@ import { FileAnnotationLayer } from './FileAnnotationLayer';
 import { PreviewRuntimeContext, type WebPreviewControls } from './preview-runtime';
 import type { AnnotationTool, PreviewAnnotation, PreviewMode } from '../../shared/types/preview-editor-types';
 import { PreviewPicker } from './PreviewPicker';
+import { PREVIEW_DEVICE_PRESETS, previewDevicePreset } from '../../shared/preview/preview-devices';
 import { CanvasExportMenu } from './CanvasExportMenu';
 import { canvasDesignSource, type CanvasExportFormat } from '../../shared/preview/canvas-export';
 import type { PreviewChatInput } from './PreviewWorkbench';
@@ -30,6 +31,7 @@ import './file-preview.css';
 import './file-preview-compact.css';
 import './preview-workbench.css';
 import './preview-editing-tools.css';
+import './preview-shell.css';
 
 const SourceEditor = lazy(() => import('./SourceEditor'));
 export function FilePreview({
@@ -90,6 +92,20 @@ export function FilePreview({
       return 340;
     }
   });
+  const [deviceId, setDeviceId] = useState(() => {
+    try {
+      return localStorage.getItem('aelion-preview-device') || 'pixel';
+    } catch {
+      return 'pixel';
+    }
+  });
+  const devicePreset = previewDevicePreset(deviceId);
+  const chooseDevice = (id: string) => {
+    setDeviceId(id);
+    try {
+      localStorage.setItem('aelion-preview-device', id);
+    } catch {}
+  };
   const [mode, setMode] = useState<PreviewMode>('browse'),
     [tool, setTool] = useState<AnnotationTool>('rect'),
     [web, setWeb] = useState<WebPreviewControls>(),
@@ -157,6 +173,16 @@ export function FilePreview({
     } else if (selectedAnnotationId && !annotations.some((mark) => mark.id === selectedAnnotationId))
       setSelectedAnnotationId(annotations.at(-1)?.id);
   }, [annotations, mode, tool]);
+  const annotationsRef = useRef(annotations);
+  annotationsRef.current = annotations;
+  useEffect(
+    () =>
+      workbench?.registerAnnotations({
+        remove: (id) => void setAnnotations(annotationsRef.current.filter((mark) => mark.id !== id)),
+        select: (id) => selectAnnotation(id),
+      }),
+    [workbench?.registerAnnotations, web],
+  );
   const captureAnnotations = async () => {
     const view = webRef.current;
     if (!view) return { annotations: fileAnnotations };
@@ -242,6 +268,26 @@ export function FilePreview({
     },
     [onSessionChange],
   );
+  // One segmented control replaces the old preview/edit/source buttons spread over two rows.
+  const segments = [
+    { key: 'preview', label: t('预览') },
+    ...(web && item.editor ? [{ key: 'source', label: t('源码') }] : []),
+    ...(web ? [{ key: 'edit', label: t('编辑') }] : item.editor ? [{ key: 'source', label: t('编辑') }] : []),
+    { key: 'annotate', label: t('标注') },
+  ];
+  const segment = draft?.editing ? 'source' : mode === 'edit' ? 'edit' : mode === 'annotate' ? 'annotate' : 'preview';
+  const toolsOpen = !draft?.editing && (mode === 'annotate' || (Boolean(web) && mode === 'edit'));
+  const chooseSegment = (key: string) => {
+    if (key === segment) return;
+    if (key === 'source') {
+      setMode('browse');
+      request(() => void edits.edit(item));
+      return;
+    }
+    if (draft?.editing) void edits.edit(item);
+    setMode(key === 'edit' ? 'edit' : key === 'annotate' ? 'annotate' : 'browse');
+    if (key === 'annotate' && !web && tool === 'element') setTool('rect');
+  };
   const previewKindLabel = t(previewKind(item.name)),
     directoryBotId = item.workspace?.botId || item.directoryBotId;
   useEffect(
@@ -453,6 +499,7 @@ export function FilePreview({
   return createPortal(
     <PreviewRuntimeContext.Provider
       value={{
+        device: item.deviceFrame === 'phone' ? devicePreset : undefined,
         request,
         initialAnnotations: annotationCache.current['web:' + item.id],
         rememberAnnotations: (value) => rememberAnnotations({ ['web:' + item.id]: value }),
@@ -479,6 +526,8 @@ export function FilePreview({
         <div
           className={`fp-layer is-immersive ${wantsStudio ? 'is-studio' : modal ? 'is-expanded' : 'is-docked'} ${feedbackScope ? 'has-feedback' : ''} ${exportState ? 'has-export-status' : ''}`}
           data-device={item.deviceFrame || undefined}
+          data-tools={toolsOpen ? 'on' : undefined}
+          data-pair={item.deviceFrame === 'phone' && devicePreset.mirror ? 'on' : undefined}
           onMouseDown={(event) => {
             if (event.target === event.currentTarget && modal && !feedbackLock.current) request(onClose);
           }}
@@ -558,17 +607,30 @@ export function FilePreview({
               </div>
               <div className="fp-web-navigation-slot" />
               <div className="fp-file-controls-slot" />
-              <div className="fp-tools fp-actions">
-                {item.editor && (
+              {item.deviceFrame === 'phone' && (
+                <PreviewPicker
+                  className="fp-device-select"
+                  label={t('预览设备')}
+                  value={devicePreset.id}
+                  onChange={chooseDevice}
+                  options={PREVIEW_DEVICE_PRESETS.map((preset) => ({ value: preset.id, label: t(preset.label) }))}
+                />
+              )}
+              <div className="fp-mode" role="radiogroup" aria-label={t('预览方式')}>
+                {segments.map((option) => (
                   <button
-                    aria-label={draft?.editing ? t('查看预览') : web ? t('源码') : t('编辑文件')}
-                    title={draft?.editing ? t('查看预览') : web ? t('源码') : t('编辑文件')}
-                    disabled={draft?.loading || edits.saving}
-                    onClick={() => request(() => void edits.edit(item))}
+                    key={option.key}
+                    type="button"
+                    role="radio"
+                    aria-checked={segment === option.key}
+                    disabled={option.key === 'source' && (draft?.loading || edits.saving)}
+                    onClick={() => chooseSegment(option.key)}
                   >
-                    <PreviewIcon name={draft?.editing ? 'eye' : web ? 'code' : 'edit'} />
+                    {option.label}
                   </button>
-                )}
+                ))}
+              </div>
+              <div className="fp-tools fp-actions">
                 <button
                   aria-label={directoryOpen ? t('收起文件目录') : t('显示文件目录')}
                   title={t('文件目录')}
@@ -627,135 +689,115 @@ export function FilePreview({
               </div>
             </header>
 
-            <div
-              className="fp-workbench-tools"
-              inert={Boolean(edits.pending) || Boolean(domPending) || feedbackSending}
-            >
-              <div className="fp-tool-group">
-                <button
-                  aria-pressed={mode === 'browse' && !draft?.editing}
-                  onClick={() => {
-                    setMode('browse');
-                    if (draft?.editing) void edits.edit(item);
-                  }}
-                >
-                  <PreviewIcon name="eye" />
-                  {t('预览')}
-                </button>
-                {(web || item.editor) && (
-                  <button
-                    aria-pressed={mode === 'edit' || draft?.editing}
-                    onClick={() => {
-                      if (web) setMode('edit');
-                      else {
-                        setMode('browse');
-                        void edits.edit(item);
-                      }
-                    }}
-                  >
-                    <PreviewIcon name="edit" />
-                    {t('编辑')}
-                  </button>
+            {toolsOpen && (
+              <div
+                className="fp-workbench-tools"
+                data-tools={mode}
+                inert={Boolean(edits.pending) || Boolean(domPending) || feedbackSending}
+              >
+                {mode === 'annotate' && (
+                  <div className="fp-tool-group">
+                    {(['rect', ...(web ? ['element'] : [])] as AnnotationTool[]).map((type) => (
+                      <button
+                        key={type}
+                        aria-pressed={mode === 'annotate' && tool === type}
+                        onClick={() => {
+                          setMode('annotate');
+                          setTool(type);
+                        }}
+                      >
+                        <PreviewIcon name={type === 'rect' ? 'rect' : 'comment'} />
+                        {type === 'rect' ? l('圈选', 'Region') : l('元素', 'Element')}
+                      </button>
+                    ))}
+                  </div>
                 )}
-              </div>
-              <div className="fp-tool-group">
-                {(['rect', ...(web ? ['element'] : [])] as AnnotationTool[]).map((type) => (
-                  <button
-                    key={type}
-                    aria-pressed={mode === 'annotate' && tool === type}
-                    onClick={() => {
-                      setMode('annotate');
-                      setTool(type);
-                    }}
-                  >
-                    <PreviewIcon name={type === 'rect' ? 'rect' : 'comment'} />
-                    {type === 'rect' ? l('圈选提问', 'Ask about a region') : l('元素提问', 'Ask about an element')}
-                  </button>
-                ))}
-              </div>
-              <div className="fp-tool-group" role="group" aria-label={l('标记工具', 'Markup tools')}>
-                {(['arrow', 'pen', 'text'] as const).map((type) => (
-                  <button
-                    key={type}
-                    aria-pressed={mode === 'annotate' && tool === type}
-                    title={l(
-                      { arrow: '箭头', pen: '画笔', text: '文字标注' }[type],
-                      { arrow: 'Arrow', pen: 'Pen', text: 'Text note' }[type],
-                    )}
-                    aria-label={l(
-                      { arrow: '箭头', pen: '画笔', text: '文字标注' }[type],
-                      { arrow: 'Arrow', pen: 'Pen', text: 'Text note' }[type],
-                    )}
-                    onClick={() => {
-                      setMode('annotate');
-                      setTool(type);
-                    }}
-                  >
-                    <PreviewIcon name={{ arrow: 'arrow', pen: 'edit', text: 'text' }[type]} />
-                  </button>
-                ))}
-              </div>
-              <span className="fp-tools-space" />
-              {mode !== 'edit' && (
-                <div className="fp-tool-group">
-                  <button
-                    disabled={web ? !web.state.annotationCanUndo : !annotations.length}
-                    title={t('撤销标注')}
-                    aria-label={t('撤销标注')}
-                    onClick={() => {
-                      if (web) void web.command({ type: 'annotation-undo' }).catch((error) => setNotice(error.message));
-                      else void setAnnotations(annotations.slice(0, -1));
-                    }}
-                  >
-                    <PreviewIcon name="left" />
-                  </button>
-                  {web && (
+                {mode === 'annotate' && (
+                  <div className="fp-tool-group" role="group" aria-label={l('标记工具', 'Markup tools')}>
+                    {(['arrow', 'pen', 'text'] as const).map((type) => (
+                      <button
+                        key={type}
+                        aria-pressed={mode === 'annotate' && tool === type}
+                        title={l(
+                          { arrow: '箭头', pen: '画笔', text: '文字标注' }[type],
+                          { arrow: 'Arrow', pen: 'Pen', text: 'Text note' }[type],
+                        )}
+                        aria-label={l(
+                          { arrow: '箭头', pen: '画笔', text: '文字标注' }[type],
+                          { arrow: 'Arrow', pen: 'Pen', text: 'Text note' }[type],
+                        )}
+                        onClick={() => {
+                          setMode('annotate');
+                          setTool(type);
+                        }}
+                      >
+                        <PreviewIcon name={{ arrow: 'arrow', pen: 'edit', text: 'text' }[type]} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {mode === 'annotate' && (
+                  <div className="fp-tool-group">
                     <button
-                      disabled={!web.state.annotationCanRedo}
-                      title={l('重做标注', 'Redo annotation')}
-                      aria-label={l('重做标注', 'Redo annotation')}
-                      onClick={() =>
-                        void web.command({ type: 'annotation-redo' }).catch((error) => setNotice(error.message))
-                      }
+                      disabled={web ? !web.state.annotationCanUndo : !annotations.length}
+                      title={t('撤销标注')}
+                      aria-label={t('撤销标注')}
+                      onClick={() => {
+                        if (web)
+                          void web.command({ type: 'annotation-undo' }).catch((error) => setNotice(error.message));
+                        else void setAnnotations(annotations.slice(0, -1));
+                      }}
+                    >
+                      <PreviewIcon name="left" />
+                    </button>
+                    {web && (
+                      <button
+                        disabled={!web.state.annotationCanRedo}
+                        title={l('重做标注', 'Redo annotation')}
+                        aria-label={l('重做标注', 'Redo annotation')}
+                        onClick={() =>
+                          void web.command({ type: 'annotation-redo' }).catch((error) => setNotice(error.message))
+                        }
+                      >
+                        <PreviewIcon name="right" />
+                      </button>
+                    )}
+                  </div>
+                )}
+                {web && mode === 'edit' && (
+                  <div className="fp-tool-group">
+                    <button onClick={() => web.inspect()}>
+                      <PreviewIcon name="pages" />
+                      {t('结构')}
+                    </button>
+                    <button
+                      disabled={web.busy || !web.state.canUndo}
+                      title={t('撤销') + ' (Ctrl+Z)'}
+                      aria-label={t('撤销')}
+                      onClick={() => void web.command({ type: 'undo' }).catch((e) => setNotice(e.message))}
+                    >
+                      <PreviewIcon name="left" />
+                    </button>
+                    <button
+                      disabled={web.busy || !web.state.canRedo}
+                      title={t('重做') + ' (Ctrl+Shift+Z)'}
+                      aria-label={t('重做')}
+                      onClick={() => void web.command({ type: 'redo' }).catch((e) => setNotice(e.message))}
                     >
                       <PreviewIcon name="right" />
                     </button>
-                  )}
-                </div>
-              )}
-              {web && mode === 'edit' && (
-                <div className="fp-tool-group">
-                  <button onClick={() => web.inspect()}>
-                    <PreviewIcon name="pages" />
-                    {t('结构')}
-                  </button>
-                  <button
-                    disabled={web.busy || !web.state.canUndo}
-                    title={t('撤销') + ' (Ctrl+Z)'}
-                    aria-label={t('撤销')}
-                    onClick={() => void web.command({ type: 'undo' }).catch((e) => setNotice(e.message))}
-                  >
-                    <PreviewIcon name="left" />
-                  </button>
-                  <button
-                    disabled={web.busy || !web.state.canRedo}
-                    title={t('重做') + ' (Ctrl+Shift+Z)'}
-                    aria-label={t('重做')}
-                    onClick={() => void web.command({ type: 'redo' }).catch((e) => setNotice(e.message))}
-                  >
-                    <PreviewIcon name="right" />
-                  </button>
-                  <button
-                    className="fp-save-dom"
-                    title={web.primaryLabel + ' (Ctrl+S)'}
-                    disabled={!web.state.dirty || web.busy}
-                    onClick={() => void web.save()}
-                  >
-                    {web.primaryLabel}
-                  </button>
-                </div>
-              )}
-            </div>
+                    <button
+                      className="fp-save-dom"
+                      title={web.primaryLabel + ' (Ctrl+S)'}
+                      disabled={!web.state.dirty || web.busy}
+                      onClick={() => void web.save()}
+                    >
+                      {web.primaryLabel}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             {exportState && (
               <CanvasExportStatus
                 state={exportState}
@@ -896,6 +938,7 @@ export function FilePreview({
                   focusRequest={feedbackFocus}
                   captureState={captureAnnotations}
                   registerSend={registerFeedbackSend}
+                  composer={modal}
                   onBusy={(value) => {
                     feedbackLock.current = value;
                     setFeedbackSending(value);

@@ -30,6 +30,29 @@ interface Active {
   token: string;
   bounds: { x: number; y: number; width: number; height: number };
   visible: boolean;
+  url?: string;
+  scheme?: PreviewScheme;
+  mirror?: Mirror;
+}
+type PreviewScheme = 'light' | 'dark';
+/** A second device beside the main one: same page, no editor, no input. */
+interface Mirror {
+  view: WebContentsView;
+  bounds: { x: number; y: number; width: number; height: number };
+  visible: boolean;
+  scheme?: PreviewScheme;
+}
+/** Emulates prefers-color-scheme for the page, like the DevTools rendering panel. */
+async function emulateScheme(contents: Electron.WebContents, scheme: PreviewScheme | undefined) {
+  if (contents.isDestroyed()) return;
+  const debug = contents.debugger;
+  if (!debug.isAttached()) {
+    if (!scheme) return;
+    debug.attach('1.3');
+  }
+  await debug.sendCommand('Emulation.setEmulatedMedia', {
+    features: [{ name: 'prefers-color-scheme', value: scheme || '' }],
+  });
 }
 export class WebPreviewBrowser {
   readonly editor: WebPreviewEditor;
@@ -70,8 +93,15 @@ export class WebPreviewBrowser {
   private emit(active: Active) {
     if (this.active !== active) return;
     active.view.setVisible(active.visible && !active.state.error && !active.frozen);
+    this.placeMirror(active);
     if (this.feedbackLayout) this.feedback(this.feedbackLayout);
     if (!this.window.isDestroyed()) this.window.webContents.send('web-preview:event', active.state);
+  }
+  private placeMirror(active: Active) {
+    const mirror = active.mirror;
+    if (!mirror) return;
+    mirror.view.setBounds(mirror.bounds);
+    mirror.view.setVisible(mirror.visible && active.visible && !active.state.error && !active.frozen);
   }
   private applyZoom(active: Active) {
     const factor = (active.state.zoomFactor ?? 1) * this.window.webContents.getZoomFactor();
@@ -163,6 +193,7 @@ export class WebPreviewBrowser {
         },
       });
       const active: Active = {
+        url,
         botId: source.kind === 'url' && source.location === 'vm' ? source.botId : undefined,
         document: source.kind === 'document',
         id,
@@ -271,7 +302,12 @@ export class WebPreviewBrowser {
       view.webContents.on('did-stop-loading', () => {
         active.state.loading = false;
         update();
+        // The second device follows the main page after each load (edits, reloads, navigation).
+        const mirror = active.mirror;
+        if (mirror && !mirror.view.webContents.isDestroyed())
+          void mirror.view.webContents.loadURL(view.webContents.getURL() || url).catch(() => {});
       });
+      view.webContents.on('did-navigate', () => void emulateScheme(view.webContents, active.scheme).catch(() => {}));
       view.webContents.on('did-navigate', update);
       view.webContents.on('did-navigate-in-page', update);
       view.webContents.on('page-title-updated', update);
@@ -317,6 +353,69 @@ export class WebPreviewBrowser {
     active.view.setBounds(active.bounds);
     this.applyZoom(active);
     this.emit(active);
+  }
+  /** Light or dark prefers-color-scheme for the main page and, when shown, the second device. */
+  async appearance(id: string, primary: unknown, mirror: unknown) {
+    const active = this.active;
+    if (!active || active.id !== id) throw Error('网页预览已关闭');
+    const scheme = (value: unknown) => (value === 'light' || value === 'dark' ? value : undefined);
+    active.scheme = scheme(primary);
+    await emulateScheme(active.view.webContents, active.scheme);
+    if (active.mirror) {
+      active.mirror.scheme = scheme(mirror);
+      await emulateScheme(active.mirror.view.webContents, active.mirror.scheme);
+    }
+  }
+  /** Shows the second device at rect, or removes it when rect is null. */
+  mirror(id: string, rect: { x: number; y: number; width: number; height: number } | null, visible: boolean) {
+    const active = this.active;
+    if (!active || active.id !== id) return;
+    if (!rect) {
+      this.closeMirror(active);
+      return;
+    }
+    if (![rect.x, rect.y, rect.width, rect.height].every(Number.isFinite)) throw Error('网页范围无效');
+    if (!active.mirror) {
+      const view = new WebContentsView({
+        webPreferences: {
+          session: active.session,
+          nodeIntegration: false,
+          nodeIntegrationInSubFrames: false,
+          contextIsolation: true,
+          sandbox: true,
+          webSecurity: true,
+        },
+      });
+      const contents = view.webContents;
+      // Read-only: it never navigates on its own, opens windows, or takes keyboard and mouse input.
+      contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+      contents.on('will-navigate', (event) => event.preventDefault());
+      contents.on('before-input-event', (event) => event.preventDefault());
+      contents.setAudioMuted(true);
+      active.mirror = { view, bounds: { x: 0, y: 0, width: 1, height: 1 }, visible: false };
+      this.window.contentView.addChildView(view);
+      view.setVisible(false);
+      const mirror = active.mirror;
+      contents.on('did-navigate', () => void emulateScheme(contents, mirror.scheme).catch(() => {}));
+      void contents.loadURL(active.view.webContents.getURL() || active.url || 'about:blank').catch(() => {});
+    }
+    const zoom = this.window.webContents.getZoomFactor(),
+      [w, h] = this.window.getContentSize();
+    const x = Math.max(0, Math.round(rect.x * zoom)),
+      y = Math.max(0, Math.round(rect.y * zoom)),
+      width = Math.max(1, Math.min(w - x, Math.round(rect.width * zoom))),
+      height = Math.max(1, Math.min(h - y, Math.round(rect.height * zoom)));
+    active.mirror.bounds = { x, y, width, height };
+    active.mirror.visible = visible && x < w && y < h && rect.width > 1 && rect.height > 1;
+    active.mirror.view.webContents.setZoomFactor(zoom);
+    this.placeMirror(active);
+  }
+  private closeMirror(active: Active) {
+    const mirror = active.mirror;
+    if (!mirror) return;
+    active.mirror = undefined;
+    if (!this.window.isDestroyed()) this.window.contentView.removeChildView(mirror.view);
+    if (!mirror.view.webContents.isDestroyed()) mirror.view.webContents.close();
   }
   async action(id: string, action: string, url?: string, factor?: number) {
     const active = this.active;
@@ -437,6 +536,7 @@ export class WebPreviewBrowser {
     this.feedbackOverlay?.close();
     this.feedbackLayout = undefined;
     if (!active) return;
+    this.closeMirror(active);
     active.closeTunnel?.();
     if (!this.window.isDestroyed()) this.window.contentView.removeChildView(active.view);
     if (!active.view.webContents.isDestroyed()) active.view.webContents.close();

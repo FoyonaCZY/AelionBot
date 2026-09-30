@@ -22,7 +22,6 @@ export const DESIGN_TOOLS = [
       title: str,
       brief: str,
       systemId: { type: 'string' },
-      plugins: { type: 'array', items: str, maxItems: 8 },
     },
     ['kind', 'title', 'brief'],
   ),
@@ -160,11 +159,5 @@ export const DESIGN_TOOLS = [
     '把当前任务的 HTML 预览打印为本机 PDF，写入任务目录。用于演示或文档导出，不改写 PPTX。',
     { path: str, output: str, reason: { type: 'string', minLength: 1, maxLength: 1000 } },
     ['path', 'reason'],
-  ),
-  tool(
-    'design_plugin',
-    '列出或读取可选的第一方设计插件（不是通用技能），或为当前任务启用/停用。',
-    { action: { type: 'string', enum: ['list', 'read', 'enable', 'disable'] }, id: str },
-    ['action'],
   ),
 ];

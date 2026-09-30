@@ -35,7 +35,10 @@ export function PreviewFeedback({
   focusRequest,
   captureState,
   registerSend,
+  composer = true,
 }: {
+  /** False when a conversation composer sits beside the preview; marks and captions stay here, text goes there. */
+  composer?: boolean;
   scope: AttachmentScope;
   item: PreviewItem;
   panel: { current: HTMLElement | null };
@@ -90,7 +93,7 @@ export function PreviewFeedback({
       .then(() => {
         if (live)
           frame = requestAnimationFrame(() => {
-            const target = focusRequest.note ? noteRef.current : input.current;
+            const target = focusRequest.note || !composer ? noteRef.current : input.current;
             target?.focus({ preventScroll: true });
           });
       });
@@ -239,7 +242,11 @@ export function PreviewFeedback({
     ' ' +
     (mark.elementLabel || t({ rect: '区域', element: '元素', arrow: '箭头', pen: '画笔', text: '文字' }[mark.type]));
   return (
-    <div className="fp-feedback-wrap" ref={wrapper}>
+    <div
+      className={`fp-feedback-wrap ${composer ? '' : 'is-captions'}`}
+      ref={wrapper}
+      hidden={!composer && !status && !annotations.length}
+    >
       {status && (
         <div className={`fp-feedback-status ${failed ? 'is-error' : ''}`} role={failed ? 'alert' : 'status'}>
           {status}
@@ -310,55 +317,57 @@ export function PreviewFeedback({
           />
         </div>
       )}
-      <form
-        className="fp-feedback"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void send();
-        }}
-        aria-label={t('画布提问')}
-      >
-        <textarea
-          ref={input}
-          rows={1}
-          maxLength={12000}
-          value={text}
-          readOnly={pending}
-          aria-label={t('输入问题或修改意见')}
-          placeholder={annotations.length ? t('针对标注提问或提出修改…') : t('输入问题或修改意见…')}
-          onChange={(event) => setDrafts((value) => ({ ...value, [item.id]: event.target.value }))}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) {
-              event.preventDefault();
-              void send();
-            }
+      {composer && (
+        <form
+          className="fp-feedback"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void send();
           }}
-        />
-        <button
-          type="submit"
-          disabled={pending || (!text.trim() && !note.trim())}
-          aria-label={t('发送问题和截图')}
-          title={t('发送问题和截图')}
+          aria-label={t('画布提问')}
         >
-          {pending ? (
-            <span className="fp-feedback-spinner" />
-          ) : (
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M12 19V5m-6 6 6-6 6 6" />
-            </svg>
-          )}
-        </button>
-      </form>
+          <textarea
+            ref={input}
+            rows={1}
+            maxLength={12000}
+            value={text}
+            readOnly={pending}
+            aria-label={t('输入问题或修改意见')}
+            placeholder={annotations.length ? t('针对标注提问或提出修改…') : t('输入问题或修改意见…')}
+            onChange={(event) => setDrafts((value) => ({ ...value, [item.id]: event.target.value }))}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) {
+                event.preventDefault();
+                void send();
+              }
+            }}
+          />
+          <button
+            type="submit"
+            disabled={pending || (!text.trim() && !note.trim())}
+            aria-label={t('发送问题和截图')}
+            title={t('发送问题和截图')}
+          >
+            {pending ? (
+              <span className="fp-feedback-spinner" />
+            ) : (
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 19V5m-6 6 6-6 6 6" />
+              </svg>
+            )}
+          </button>
+        </form>
+      )}
     </div>
   );
 }

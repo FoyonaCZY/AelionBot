@@ -1,3 +1,4 @@
+import { lineChanges, recordDesignChange } from '../../../shared/designer/design-changes';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   existsSync,
@@ -126,7 +127,8 @@ export class DesignerFiles {
     const path = this.absolute(session, input);
     mkdirSync(dirname(path), { recursive: true });
     this.absolute(session, path);
-    const current = existsSync(path) ? createHash('sha256').update(readFileSync(path)).digest('hex') : null;
+    const previous = existsSync(path) ? readFileSync(path) : undefined,
+      current = previous ? createHash('sha256').update(previous).digest('hex') : null;
     if (expected !== undefined && current !== expected) throw Error('文件已被修改，未覆盖原文件');
     const temp = path + '.aelion-' + randomUUID() + '.tmp';
     try {
@@ -138,6 +140,14 @@ export class DesignerFiles {
     } finally {
       if (existsSync(temp)) unlinkSync(temp);
     }
+    // Writes made by the designer during a run feed the "第 N 轮产出" card.
+    if (session.activeRunId && current !== createHash('sha256').update(bytes).digest('hex'))
+      session.changes = recordDesignChange(
+        session.changes,
+        session.activeRunId,
+        this.virtual(session, path),
+        lineChanges(previous, bytes),
+      );
     return {
       path: this.virtual(session, path),
       absolutePath: path,

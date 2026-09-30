@@ -8,7 +8,6 @@ import { DesignerLoop } from './core/designer/designer-loop';
 import { DesignerFiles } from './core/designer/designer-files';
 import { DesignStore } from './core/designer/design-store';
 import { DesignSystems } from './core/designer/design-systems';
-import { DesignPlugins } from './core/designer/design-plugins';
 import { DesignCraft } from './core/designer/design-craft';
 import { DesignFonts } from './core/designer/design-fonts';
 import { renderCanvasExport } from './windows/canvas-export-renderer';
@@ -535,15 +534,8 @@ async function initialize() {
     join(store.dir, 'design-system-cache'),
     join(store.dir, 'custom-design-systems'),
   );
-  const designPlugins = new DesignPlugins(join(app.getAppPath(), 'assets', 'design-plugins'));
   const designCraft = new DesignCraft(join(app.getAppPath(), 'assets', 'design-craft'));
-  designStore = new DesignStore(
-    store,
-    designSystems,
-    changed,
-    () => host.workspaceSettings().workspaceDir,
-    designPlugins,
-  );
+  designStore = new DesignStore(store, designSystems, changed, () => host.workspaceSettings().workspaceDir);
   const designerFiles = new DesignerFiles(store, designStore);
   artifacts.designerFiles = designerFiles;
   artifacts.openLocal = (path) => shell.openPath(path);
@@ -568,7 +560,6 @@ async function initialize() {
     {
       pdf: { render: renderDesignPdf },
       fonts: designFonts,
-      plugins: designPlugins,
       craft: designCraft,
       imageModel: imageModelAccess,
     },

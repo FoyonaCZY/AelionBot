@@ -13,4 +13,10 @@ export function registerWebPreview(ctx: IpcContext) {
     ctx.webPreview!.action(String(input?.id), String(input?.action), input?.url, input?.factor),
   );
   handle('closeWebPreview', (id) => ctx.webPreview!.close(String(id)));
+  handle('webPreviewAppearance', (input) =>
+    ctx.webPreview!.appearance(String(input?.id), input?.primary, input?.mirror),
+  );
+  handle('layoutWebPreviewMirror', (input) =>
+    ctx.webPreview!.mirror(String(input?.id), input?.rect ?? null, input?.visible === true),
+  );
 }

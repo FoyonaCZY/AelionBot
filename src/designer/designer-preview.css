@@ -261,15 +261,13 @@
   flex: none;
   border-radius: 6px;
 }
-.designer-workspace.is-preview-docked .designer-system-control,
-.designer-workspace.is-preview-docked .designer-plugin-control {
+.designer-workspace.is-preview-docked .designer-system-control {
   min-width: 0;
   max-width: 200px;
   border-radius: 6px;
   font-size: 11px;
 }
-.designer-workspace.is-preview-docked .designer-system-control button,
-.designer-workspace.is-preview-docked .designer-plugin-control button {
+.designer-workspace.is-preview-docked .designer-system-control button {
   padding: 4px 7px;
   gap: 5px;
   min-height: 27px;

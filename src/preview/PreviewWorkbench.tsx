@@ -17,6 +17,11 @@ export interface PreviewWorkbenchInfo {
   studio?: boolean;
   annotations: PreviewAnnotation[];
 }
+/** Lets the conversation composer show and remove the preview's marks as chips. */
+export interface PreviewAnnotationControls {
+  remove: (id: string) => void;
+  select: (id: string) => void;
+}
 export interface PreviewWorkbench {
   info?: PreviewWorkbenchInfo;
   activate: (scope?: AttachmentScope) => void;
@@ -25,6 +30,8 @@ export interface PreviewWorkbench {
   update: (info: PreviewWorkbenchInfo) => void;
   registerSender: (sender: (input: PreviewChatInput) => Promise<unknown>) => () => void;
   send: (scope: AttachmentScope, input: PreviewChatInput) => Promise<boolean>;
+  registerAnnotations: (controls: PreviewAnnotationControls) => () => void;
+  annotations?: PreviewAnnotationControls;
 }
 export const WorkbenchContext = createContext<PreviewWorkbench | undefined>(undefined);
 export const usePreviewWorkbench = () => useContext(WorkbenchContext);

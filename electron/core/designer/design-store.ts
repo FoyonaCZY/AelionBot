@@ -16,7 +16,6 @@ import {
 import type { Store } from '../storage/store';
 import { atomicJson } from '../storage/store';
 import type { DesignSystems } from './design-systems';
-import type { DesignPlugins } from './design-plugins';
 import type { HarnessRunOptions } from '../agent/peer-runtime-types';
 import { AppError } from '../../../shared/errors';
 interface DesignData {
@@ -26,16 +25,6 @@ interface DesignData {
   histories: Record<string, DesignHistory>;
 }
 const originKey = (origin: DesignOrigin) => `${origin.kind}:${origin.id}`;
-function pluginIds(value: unknown) {
-  if (value === undefined) return [] as string[];
-  if (
-    !Array.isArray(value) ||
-    value.length > 8 ||
-    value.some((id) => typeof id !== 'string' || !/^[a-z0-9-]{1,40}$/.test(id))
-  )
-    throw new AppError('design.plugin_invalid', '设计插件无效');
-  return [...new Set(value as string[])];
-}
 export class DesignStore {
   readonly file: string;
   data: DesignData;
@@ -44,7 +33,6 @@ export class DesignStore {
     readonly systems: DesignSystems,
     private changed: () => void = () => {},
     private workspaceRoot: () => string = () => join(store.dir, 'workspace'),
-    readonly plugins?: DesignPlugins,
   ) {
     const dir = join(store.dir, 'designer');
     mkdirSync(dir, { recursive: true });
@@ -52,6 +40,8 @@ export class DesignStore {
     this.data = existsSync(this.file)
       ? JSON.parse(readFileSync(this.file, 'utf8'))
       : { version: 1, sessions: [], histories: {} };
+    // Optional design checks were removed; sessions saved by older versions may still carry their ids.
+    for (const session of this.data.sessions) delete (session as { plugins?: unknown }).plugins;
     if (this.data.version !== 1 || !Array.isArray(this.data.sessions)) throw Error('设计任务数据版本无效');
     for (const session of this.data.sessions)
       if (session.activeRunId || session.status === 'running') {
@@ -84,7 +74,6 @@ export class DesignStore {
     return {
       systems: this.systems.list(),
       sessions: structuredClone(this.data.sessions.filter((s) => this.store.data.bots.some((b) => b.id === s.botId))),
-      plugins: this.plugins?.list() || [],
     };
   }
   validateOrigin(botId: string, origin: DesignOrigin) {
@@ -139,7 +128,6 @@ export class DesignStore {
       userEdits: [],
       checks: [],
       comments: [],
-      plugins: pluginIds(input.plugins),
       runIds: [],
       workspacePath: `designers/${bot.id}/${id}`,
       location: 'host',
@@ -197,7 +185,6 @@ export class DesignStore {
         throw Error('设计约束无效');
       session.constraints = input.constraints;
     }
-    if (input.plugins !== undefined) session.plugins = pluginIds(input.plugins);
     this.data.sessions[this.data.sessions.indexOf(current)] = session;
     this.touch(session);
     return structuredClone(session);
@@ -278,7 +265,6 @@ export class DesignStore {
       userEdits: session.userEdits.slice(-20),
       checks: session.checks,
       comments: (session.comments || []).filter((comment) => comment.status === 'open').slice(-20),
-      plugins: session.plugins || [],
     });
   }
 }
