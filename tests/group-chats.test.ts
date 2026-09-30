@@ -683,18 +683,24 @@ test('unaddressed final text is not published; the model is told once and nobody
     return answer('我觉得还行。');
   });
   const room = fx.groups.create({ name: '不点名', botIds: [fx.a.id, fx.b.id] });
+  await until(fx.settled);
+  const before = fx.store.data.groups[0].messages.length;
+  notes.length = 0;
   fx.groups.send({ id: room.id, message: '随便聊聊' });
   await until(fx.settled);
-  assert.deepEqual(notes.sort(), [fx.a.id, fx.b.id].sort());
+  assert.deepEqual([...new Set(notes)].sort(), [fx.a.id, fx.b.id].sort());
   const messages = fx.store.data.groups[0].messages;
-  assert.ok(!messages.some((m) => m.sender.kind === 'bot'));
+  assert.ok(!messages.slice(before).some((m) => m.sender.kind === 'bot'));
   const notice = messages.filter((m) => m.notice === 'unanswered');
   assert.equal(notice.length, 1);
   assert.equal(notice[0].replyTo, messages.find((m) => m.content === '随便聊聊')!.id);
 });
 test('exact retries are idempotent per sender while each member may express the same conclusion', async (t) => {
-  const fx = fixture(t, () => answer('我们已确认采用消息队列进行订单通知。'));
+  const fx = fixture(t, (_run, messages) =>
+    publishedMessages(messages).at(-1)?.event ? silent() : answer('我们已确认采用消息队列进行订单通知。'),
+  );
   const room = fx.groups.create({ name: '去重', botIds: [fx.a.id, fx.b.id, fx.c.id] });
+  await until(fx.settled);
   fx.ask(room.id, [fx.a, fx.b, fx.c], '讨论通知机制');
   await until(fx.settled);
   assert.equal(fx.store.data.groupRounds.at(-1)!.botMessages, 3);
@@ -1267,7 +1273,7 @@ test('user group pins add and remove once, refresh old message badges and cannot
   assert.equal(reactionsSeen, 0);
 });
 
-test('creating a group delivers one persisted lifecycle event that wakes nobody and later reaches the model', async (t) => {
+test('creating a group broadcasts one persisted lifecycle event to every member and the model receives its identities', async (t) => {
   const seen: string[] = [];
   const fx = fixture(t, (run, messages) => {
     const event = publishedMessages(messages).find((message) => message.event);
@@ -1288,15 +1294,12 @@ test('creating a group delivers one persisted lifecycle event that wakes nobody 
   assert.equal(events.length, 1);
   assert.equal(events[0].event!.left.length, 0);
   assert.deepEqual(page.deliveries.map((delivery) => delivery.recipientId).sort(), ['user', fx.a.id, fx.b.id].sort());
-  assert.ok(page.deliveries.filter((d) => d.recipientId !== 'user').every((d) => d.status === 'ignored'));
-  assert.equal(seen.length, 0);
+  assert.deepEqual(seen.sort(), [fx.a.id, fx.b.id].sort());
   fx.groups.wake();
+  fx.groups.read({ id: group.id });
   await settle();
-  assert.equal(seen.length, 0);
+  assert.equal(seen.length, 2);
   assert.equal(fx.groups.read({ id: group.id }).messages.length, 1);
-  fx.ask(group.id, fx.a, '你好');
-  await until(fx.settled);
-  assert.ok(seen.includes(fx.a.id));
   const restored = new Store(fx.dir),
     before = restored.data.groupDeliveries.length;
   const service = new GroupChats(
@@ -1352,13 +1355,8 @@ test('one membership save combines joins and removals and broadcasts only to the
       .sort(),
     ['user', fx.a.id, fx.c.id, d.id].sort(),
   );
-  // Membership notices are delivered to the resulting members and wake none of them.
-  assert.deepEqual(seen, []);
-  assert.ok(
-    page.deliveries
-      .filter((delivery) => delivery.messageId === event.id && delivery.recipientId !== 'user')
-      .every((delivery) => delivery.status === 'ignored'),
-  );
+  assert.deepEqual(seen.map((item) => item.botId).sort(), [fx.a.id, fx.c.id, d.id].sort());
+  assert.ok(seen.every((item) => item.event.type === 'members_changed'));
   const count = fx.store.data.groupDeliveries.length;
   fx.groups.update({ id: group.id, name: group.name, botIds: [d.id, fx.a.id, fx.c.id] });
   fx.groups.update({ id: group.id, name: '仅改群名', botIds: [fx.a.id, fx.c.id, d.id] });

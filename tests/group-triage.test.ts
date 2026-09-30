@@ -60,20 +60,21 @@ function room() {
   return { room: value, deliveries, post, delivery, judge, later: (ms: number) => (time += ms) };
 }
 
-test('reactions, membership notices and unaddressed system notices wake nobody', () => {
+test('events wake members: a user reaction wakes its target, membership changes wake everyone', () => {
   const f = room();
-  const target = f.post(user);
-  assert.equal(
-    f.judge(
-      f.post(bot('a'), { kind: 'reaction', reaction: { messageId: target.id, emoji: '👍', removed: false } }),
-      'b',
-    ).kind,
-    'skip',
-  );
-  assert.equal(
-    f.judge(f.post(system, { event: { type: 'created', actor: user, joined: [], left: [], members: [] } }), 'a').kind,
-    'skip',
-  );
+  const target = f.post(user),
+    mine = f.post(bot('a'));
+  const reaction = (sender: GroupMessage['sender'], messageId: string) =>
+    f.post(sender, { kind: 'reaction', reaction: { messageId, emoji: '👍', removed: false } });
+  // Bot reactions wake nobody, so reactions cannot loop.
+  assert.equal(f.judge(reaction(bot('b'), mine.id), 'a').kind, 'skip');
+  assert.equal(f.judge(reaction(bot('a'), target.id), 'b').kind, 'skip');
+  const liked = reaction(user, mine.id);
+  assert.deepEqual(f.judge(liked, 'a'), { kind: 'wake', must: false });
+  assert.equal(f.judge(liked, 'b').kind, 'skip');
+  const created = f.post(system, { event: { type: 'created', actor: user, joined: [], left: [], members: [] } });
+  assert.deepEqual(f.judge(created, 'a'), { kind: 'wake', must: false });
+  assert.deepEqual(f.judge(created, 'b'), { kind: 'wake', must: false });
   assert.equal(f.judge(f.post(system, { content: '群名称已修改' }), 'a').kind, 'skip');
   assert.deepEqual(f.judge(f.post(system, { mentions: [mention('a')] }), 'a'), { kind: 'wake', must: true });
 });

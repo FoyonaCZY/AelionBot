@@ -240,7 +240,8 @@ test('group broadcast sends each Bot a separate decision', async () => {
     await until(() => !groups.busy && !store.data.groupDeliveries.some((item) => item.status === 'queued'));
     // Nobody answered the unaddressed message, so the group was told once to @ someone.
     assert.equal(store.data.groups[0].messages.filter((message) => message.notice === 'unanswered').length, 1);
-    assert.equal(runs, 0);
+    // Only the group-created event woke them; Laya kept both away from the message.
+    assert.equal(runs, 2);
     assertDeliveriesSettled(store);
     const page = groups.read({ id: group.id });
     assert.equal(page.laya?.decisions.length, 2);
@@ -308,6 +309,9 @@ test('Laya participation reaches each Bot for questions and work', async () => {
           !store.data.groupDeliveries.some((item) => ['queued', 'deciding', 'running'].includes(item.status)),
       );
     await wait();
+    // Both members heard the group being created; Laya is not asked about events.
+    assert.equal(calls.length, 2);
+    calls.length = 0;
     groups.send({ id: room.id, message: '请回复这条消息。' });
     await wait();
     assert.equal(calls.length, 2);
@@ -517,6 +521,7 @@ test('requeued group work resumes without asking Laya while other members are st
   const groups = new GroupChats(
     store,
     completedGroupRunner(store, (botId, _input, options) => {
+      if (!options.groupTaskFrom) return;
       resumed.push(botId);
       assert.equal(options.groupTaskFrom, previousRunId);
       return '报告已核对。';

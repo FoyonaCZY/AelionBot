@@ -775,9 +775,9 @@ test('private replies and group notifications use each recipient own Provider', 
     () =>
       !groups.busy && !harness.busy && !f.store.data.groupDeliveries.some((delivery) => groupPending(delivery.status)),
   );
-  // Creating the group is a membership notice and wakes nobody.
-  assert.equal(a.requests.length, 0);
-  assert.equal(b.requests.length, 0);
+  assert.equal(a.requests.length, 1);
+  assert.equal(b.requests.length, 1);
+  a.requests.length = b.requests.length = 0;
   groups.send({ id: room.id, message: '请回复状态' });
   await until(
     () =>

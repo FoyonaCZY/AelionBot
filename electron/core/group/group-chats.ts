@@ -289,14 +289,19 @@ export class GroupChats implements GroupGateway {
     }
   }
   /**
-   * Final text is published only for addressed messages or when the work did something for the user,
-   * counting the run a retried or requeued run continues.
+   * Final text is published for addressed messages, for events (a user reaction to this Bot, the group
+   * being created, members changing), or when the work did something for the user, counting the run a
+   * retried or requeued run continues.
    */
   private publishable(worker: Worker, runId: string) {
-    const run = this.store.data.runs.find((item) => item.id === runId),
+    const room = this.store.data.groups.find((item) => item.id === worker.groupId),
+      run = this.store.data.runs.find((item) => item.id === runId),
       runs = [runId, run?.resumedFromRunId, worker.continues].filter(Boolean) as string[];
     return (
-      worker.deliveries.some((delivery) => delivery.must) ||
+      worker.deliveries.some((delivery) => {
+        const message = room?.messages.find((item) => item.id === delivery.messageId);
+        return delivery.must || Boolean(message?.event) || message?.kind === 'reaction';
+      }) ||
       runs.some((id) =>
         this.store.runMessages(id).some((message) => message.role === 'tool' && isGroupWorkTool(message.tool)),
       )

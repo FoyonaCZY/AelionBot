@@ -82,9 +82,15 @@ export function triage(delivery: GroupDelivery, context: TriageContext): Triage 
     message = room.messages.find((item) => item.id === delivery.messageId),
     me = delivery.recipientId;
   if (!message) return { kind: 'skip', reason: '消息已不存在' };
-  // 1. Reactions and notices wake nobody. A reaction still counts as an answer to its message.
-  if (message.kind === 'reaction') return { kind: 'skip', reason: '表情回应，不叫醒' };
-  if (message.event) return { kind: 'skip', reason: '成员变化通知，不叫醒' };
+  // 1. Events. A user reaction wakes the author of the message it reacts to; a Bot reaction wakes
+  // nobody, so reactions cannot loop. Either one still counts as an answer to its message.
+  if (message.kind === 'reaction') {
+    const target = room.messages.find((item) => item.id === message.reaction?.messageId);
+    if (message.sender.kind === 'user' && target?.sender.id === me) return { kind: 'wake', must: false };
+    return { kind: 'skip', reason: '表情回应，不叫醒' };
+  }
+  // Group created or membership changed: every member hears it and decides whether to say something.
+  if (message.event) return { kind: 'wake', must: false };
   if (message.scheduled) {
     if (!context.scheduledBy) return { kind: 'wake', must: false };
     return context.scheduledBy === me ? { kind: 'wake', must: true } : { kind: 'skip', reason: '其他成员的定时任务' };
