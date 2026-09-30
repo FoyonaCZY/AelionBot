@@ -50,6 +50,7 @@ import { peerPending } from '../shared/types/peer-types';
 import { BotGreetings } from './core/agent/bot-greetings';
 import { AppUpdates } from './core/app/app-updates';
 import { Diagnostics } from './core/app/diagnostics';
+import { slowOperations, watchEventLoop } from './core/app/slow-operations';
 import { availableParallelism, release as osRelease, totalmem } from 'node:os';
 import { createWindowsUpdater, UPDATE_REPOSITORY } from './core/app/windows-updater';
 import {
@@ -166,12 +167,15 @@ function snapshot(): Snapshot {
 // the thread that also handles scrolling and typing.
 const STATE_INTERVAL_MS = 150;
 let stateTimer: ReturnType<typeof setTimeout> | undefined,
-  lastStateAt = 0;
+  lastStateAt = 0,
+  slow: ReturnType<typeof slowOperations> | undefined;
 function sendState() {
   stateTimer = undefined;
   if (exiting) return;
   lastStateAt = Date.now();
+  const started = performance.now();
   if (window && !window.isDestroyed()) window.webContents.send('app:event', { type: 'state', snapshot: snapshot() });
+  slow?.('state-push', performance.now() - started);
 }
 function changed() {
   if (exiting) return;
@@ -358,6 +362,9 @@ async function initialize() {
     },
   });
   diagnostics.record('app.started', `AelionBot ${app.getVersion()} (${process.platform} ${process.arch})`);
+  slow = slowOperations((source, message) => diagnostics?.record(source, message));
+  store.onWrite = (mode, ms) => slow?.('state-write', ms, mode);
+  watchEventLoop((source, ms) => slow?.(source, ms));
   host = new HostComputer(
     {
       imagePreview,

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { startTransition, useEffect, useRef, useState } from 'react';
 import type { Bot, Snapshot } from '../../shared/types/core';
 import { ipcErrorText } from '../ui/ipc-error';
 
@@ -30,13 +30,13 @@ export function useAppSnapshot(onError: (message: string) => void) {
         setSelected(value.messages.at(-1)?.botId || value.bots[0]?.id || '');
       })
       .catch((error) => onError(ipcErrorText(error)));
-    return window.aelion.onEvent((event) =>
-      setState((previous) =>
-        event.type === 'streams'
-          ? previous && { ...previous, streamingReplies: event.streamingReplies }
-          : event.snapshot,
-      ),
-    );
+    return window.aelion.onEvent((event) => {
+      if (event.type === 'streams')
+        setState((previous) => previous && { ...previous, streamingReplies: event.streamingReplies });
+      // A full snapshot re-renders the whole app. As a transition that render yields to typing, clicks and scrolling
+      // instead of holding them until it finishes; streaming text above stays urgent.
+      else startTransition(() => setState(event.snapshot));
+    });
   }, []);
   useEffect(() => {
     if (!state) return;

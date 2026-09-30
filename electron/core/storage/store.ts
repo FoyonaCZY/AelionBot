@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import type { PythonSession } from '../tools/python-sessions';
 import type { FileCheckpoint } from '../tools/file-checkpoints';
 import type { BackgroundProcess } from '../../../shared/types/process-types';
-import { StateDatabase } from './state-database';
+import { StateDatabase, type WriteMode } from './state-database';
 import type { RuntimeSettings, UsageRecord } from '../../../shared/types/runtime-types';
 import {
   appendFileSync,
@@ -109,6 +109,8 @@ export class Store {
   private readonly deferWrites: boolean;
   private writeTimer?: ReturnType<typeof setTimeout>;
   private dirtySince?: number;
+  /** Reports how long each write took, for slow-operation diagnostics. */
+  onWrite?: (mode: WriteMode, ms: number) => void;
   readonly file: string;
   data: Persisted;
   constructor(
@@ -119,6 +121,8 @@ export class Store {
     mkdirSync(dir, { recursive: true });
     this.file = join(dir, 'state.json');
     if (options.incremental) this.database = new StateDatabase(dir);
+    // Rows edited in place are found by the database's background sweep; write them like any other change.
+    if (this.database && this.deferWrites) this.database.onStale = () => this.save();
     const restored = this.database?.read(),
       isNew = !restored && !existsSync(this.file);
     this.data =
@@ -242,7 +246,8 @@ export class Store {
   /**
    * With deferred writes (the desktop app), a save only schedules one coalesced write: serializing the whole state
    * takes ~120 ms on a large profile, and a single tool step used to save four times, blocking the main process and
-   * with it every scroll, click and keystroke. A burst is written at most WRITE_MAX_WAIT_MS after its first change.
+   * with it every scroll, click and keystroke. A burst is written at most WRITE_MAX_WAIT_MS after its first change,
+   * as a quick write that only serializes what changed. Closing and replacing the data still write everything.
    */
   save() {
     if (!this.deferWrites) return this.flush();
@@ -251,7 +256,7 @@ export class Store {
     const wait = Math.max(0, Math.min(WRITE_DEBOUNCE_MS, this.dirtySince + WRITE_MAX_WAIT_MS - Date.now()));
     this.writeTimer = setTimeout(() => {
       try {
-        this.flush();
+        this.flush('quick');
       } catch (error) {
         // Keep the change pending so the next save or close retries it.
         this.dirtySince ??= Date.now();
@@ -260,12 +265,14 @@ export class Store {
     }, wait);
   }
   /** Writes pending state now. */
-  flush() {
+  flush(mode: WriteMode = 'full') {
     clearTimeout(this.writeTimer);
     this.writeTimer = undefined;
     this.dirtySince = undefined;
-    if (this.database) this.database.write(this.data);
+    const started = performance.now();
+    if (this.database) this.database.write(this.data, mode);
     else atomicJson(this.file, this.data);
+    this.onWrite?.(this.database ? mode : 'full', performance.now() - started);
   }
   replaceData(next: Persisted) {
     const previous = this.data;
