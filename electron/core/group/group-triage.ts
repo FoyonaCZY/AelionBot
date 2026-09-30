@@ -19,6 +19,8 @@ export interface TriageContext {
   scheduledBy?: string;
   /** The designer Bot that owns the design session a message belongs to. */
   designOwner?: string;
+  /** The recipient is not running anything right now. */
+  idle?: boolean;
 }
 
 const woken = (delivery: GroupDelivery) =>
@@ -143,7 +145,9 @@ export function triage(delivery: GroupDelivery, context: TriageContext): Triage 
       if (theirs && woken(theirs) && context.now < until) return { kind: 'hold', until };
     }
   }
-  // 4. Everything else: ask Laya whether it relates to my role or current work.
+  // 4. A user message addressed to nobody: an idle Bot always answers it, even with just a reaction.
+  if (!addressed.size && message.sender.kind === 'user' && context.idle) return { kind: 'wake', must: true };
+  // 5. Everything else: ask Laya whether it relates to my role or current work.
   return { kind: 'ask', answer };
 }
 /** A notice of this kind already posted since the user last spoke. */

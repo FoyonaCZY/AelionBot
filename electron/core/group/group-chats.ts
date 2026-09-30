@@ -968,6 +968,23 @@ export class GroupChats implements GroupGateway {
         delivery.reason = undefined;
       }
   }
+  /**
+   * The message a reply answers when it names none: the last one that @ or replied to this Bot, else the
+   * last one it must answer, else the last one that woke it.
+   */
+  private answered(room: GroupRoom, botId: string, deliveries: GroupDelivery[]) {
+    const messages = deliveries.map((delivery) => room.messages.find((item) => item.id === delivery.messageId));
+    const addressed = (message: GroupMessage | undefined) =>
+      Boolean(
+        message?.mentions?.some((mention) => mention.id === botId) ||
+        room.messages.find((item) => item.id === (message && replyTarget(message)))?.sender.id === botId,
+      );
+    return (
+      [...messages].reverse().find(addressed)?.id ||
+      deliveries.filter((delivery) => delivery.must).at(-1)?.messageId ||
+      deliveries.at(-1)?.messageId
+    );
+  }
   /** One generated line about what a Bot is doing, without a model call (design section 10.1). */
   private status(room: GroupRoom, botId: string) {
     const worker = this.workers.get(botId);
@@ -1007,6 +1024,7 @@ export class GroupChats implements GroupGateway {
             (run) => run.designSessionId === message.designSessionId && run.groupOrigin?.groupId === room.id,
           )?.botId
         : undefined,
+      idle: !this.workers.has(delivery.recipientId) && !this.runner.isRunning(delivery.recipientId),
     });
     if (result.kind === 'hold') {
       holds.push(result.until);
@@ -1344,11 +1362,7 @@ export class GroupChats implements GroupGateway {
       }
       return;
     }
-    // The final reply answers the last addressed message, or else the last message that woke this Bot.
-    const triggerMessage = room.messages.find(
-      (message) =>
-        message.id === (deliveries.filter((delivery) => delivery.must).at(-1) || deliveries.at(-1))?.messageId,
-    );
+    const triggerMessage = room.messages.find((message) => message.id === this.answered(room, bot.id, deliveries));
     if (finalReply.kind === 'silent') {
       for (const delivery of deliveries) {
         delivery.status = 'ignored';
@@ -1564,9 +1578,7 @@ export class GroupChats implements GroupGateway {
         throw new AppError('group.reply_target_invalid', '只能回复本群已发送的消息');
       const worker = this.workers.get(botId),
         own = worker?.runId === runId ? worker.deliveries : [],
-        answers =
-          own.find((delivery) => delivery.messageId === replyTo)?.messageId ||
-          (own.filter((delivery) => delivery.must).at(-1) || own.at(-1))?.messageId;
+        answers = own.find((delivery) => delivery.messageId === replyTo)?.messageId || this.answered(room, botId, own);
       const message = this.publish(room, run, round, formatted.content, formatted.mentions, {
         key,
         kind: args.kind === 'progress' ? 'progress' : 'message',

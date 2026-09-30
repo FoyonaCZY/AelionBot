@@ -128,9 +128,9 @@ test('a reply to my question waits for the others still answering the same quest
   assert.deepEqual(f.judge(first, 'a'), { kind: 'wake', must: false });
 });
 
-test('unaddressed messages go to Laya; scheduled tasks wake their owner only', () => {
+test('unaddressed messages go to Laya for a busy Bot; scheduled tasks wake their owner only', () => {
   const f = room();
-  assert.equal(f.judge(f.post(user), 'a').kind, 'ask');
+  assert.equal(f.judge(f.post(user), 'a', { idle: false }).kind, 'ask');
   const scheduled = f.post(system, {
     scheduled: { taskId: 't', occurrenceId: 'o', title: '日报', scheduledFor: '' },
   });
@@ -180,4 +180,17 @@ test('user feedback on a design goes to its owner; the designer’s own messages
   assert.equal(f.judge(feedback, 'b', { designOwner: 'a' }).kind, 'skip');
   const draft = f.post(bot('a'), { designSessionId: 'd' });
   assert.equal(f.judge(draft, 'b', { designOwner: 'a' }).kind, 'ask');
+});
+
+test('a user message to the whole group must be answered by idle Bots; busy Bots ask Laya', () => {
+  const f = room();
+  const open = f.post(user);
+  assert.deepEqual(f.judge(open, 'a', { idle: true }), { kind: 'wake', must: true });
+  assert.equal(f.judge(open, 'b', { idle: false }).kind, 'ask');
+  // Addressed to someone else, or written by a Bot: the idle rule does not apply.
+  const toA = f.post(user, { mentions: [mention('a')] });
+  f.delivery(toA, 'a').status = 'replied';
+  f.post(bot('a'), { replyTo: toA.id, answers: toA.id });
+  assert.equal(f.judge(toA, 'b', { idle: true }).kind, 'ask');
+  assert.equal(f.judge(f.post(bot('c')), 'a', { idle: true }).kind, 'ask');
 });

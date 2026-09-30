@@ -516,7 +516,7 @@ test('each human or bot message broadcasts equally without aborting busy recipie
   assert.equal(fx.store.data.runs.filter((r) => r.status === 'cancelled').length, 0);
   assert.equal(fx.store.data.messages.length, 0);
 });
-test('every member handles a notification even when all choose silence', async (t) => {
+test('idle members must answer a message to the whole group; each is reminded once before staying quiet', async (t) => {
   let calls = 0;
   const fx = fixture(t, () => {
     calls++;
@@ -525,7 +525,8 @@ test('every member handles a notification even when all choose silence', async (
   const room = fx.groups.create({ name: '安静', botIds: [fx.a.id, fx.b.id] });
   fx.groups.send({ id: room.id, message: '谢谢，不用回复' });
   await until(fx.settled);
-  assert.equal(calls, 2);
+  // Both were idle, so both were woken and each was reminded once before ending quietly.
+  assert.equal(calls, 4);
   assert.ok(fx.store.data.groupDeliveries.filter((d) => d.recipientId !== 'user').every((d) => d.status === 'ignored'));
   assert.equal(fx.store.data.groups[0].messages.filter((m) => m.kind === 'message').length, 1);
 });
@@ -612,7 +613,7 @@ test('an addressed Bot ending silently is reminded once to answer', async (t) =>
   fx.ask(room.id, fx.a, '看一下这个问题');
   const question = fx.store.data.groups[0].messages.at(-1)!.id;
   await until(fx.settled);
-  assert.match(seen[1], /addressed you and have no answer yet/);
+  assert.match(seen[1], /waiting for your answer/);
   assert.ok(fx.store.data.groups[0].messages.some((m) => m.kind === 'reaction' && m.sender.id === fx.a.id));
 });
 test('a reply written while another member answered the same message is reviewed once before publishing', async (t) => {
