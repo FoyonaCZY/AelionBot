@@ -37,7 +37,6 @@ export interface GroupDecisionInput {
   bot: { name: string; soul: string };
   events: Array<DecisionMessage & { mentioned: boolean }>;
   recent: DecisionMessage[];
-  myTask?: { title: string; status: import('./group-types').GroupTask['status'] };
   rootRequest?: string;
 }
 interface DecisionRecord extends LayaPrediction {
@@ -51,6 +50,6 @@ export interface GroupDecisionRecord extends DecisionRecord {
   appliedChoice: GroupChoice;
   adjustment?: string;
   criteria?: Record<string, string>;
-  features?: { events: number; recent: number; mentioned: boolean; ownTask: boolean };
+  features?: { events: number; recent: number; mentioned: boolean };
   input?: GroupDecisionInput;
 }

@@ -47,7 +47,7 @@ test('a group reaction alongside file work preserves the final reply and its del
         return {
           content: '先看文件内容，再把结论发到群里。',
           calls: [
-            ...call('group_pin', { groupId: room.id, messageId: user.id, emoji: '👀' }).calls,
+            ...call('group_react', { groupId: room.id, messageId: user.id, emoji: '👀' }).calls,
             ...call('file_read', { path: 'README.md' }).calls,
           ],
           finishReason: 'tool_calls',
@@ -282,6 +282,48 @@ test('stalled group plans close as blocked and publish a truthful result instead
   assert.equal(
     fx.store.data.groupDeliveries.find((d) => d.recipientId === fx.a.id && d.status === 'replied')?.status,
     'replied',
+  );
+});
+
+test('a group plan that repeats a successful action with the same result is closed as blocked', async (t) => {
+  let executions = 0,
+    planned = false;
+  const vm = {
+    execute: async () => {
+      executions++;
+      return { exitCode: 0, stdout: 'same inspection result', stderr: '', durationMs: 1 };
+    },
+  } as unknown as VmController;
+  const fx = fixture(
+    t,
+    (run) => {
+      if (run.botId !== fx.a.id) return silent();
+      if (!planned) {
+        planned = true;
+        return call('plan_update', {
+          revision: 0,
+          goal: '核对报告',
+          steps: [{ id: 'check', title: '核对报告', acceptance: '引用核对结果', status: 'pending', evidenceIds: [] }],
+        });
+      }
+      if (fx.store.data.workItems?.[0]?.status === 'blocked') return silent();
+      if (executions > 8) throw Error('test: repeated action was not stopped');
+      return call('computer_execute', { command: 'inspect report' });
+    },
+    vm,
+  );
+  const room = fx.groups.create({ name: '重复操作收尾', botIds: [fx.a.id, fx.b.id] });
+  fx.groups.send({ id: room.id, message: '请核对报告' });
+  await until(fx.settled);
+  assert.equal(fx.store.data.workItems?.[0]?.status, 'blocked');
+  assert.equal(executions, 4);
+  assert.ok(
+    fx.groups
+      .read({ id: room.id })
+      .messages.some((message) => message.sender.id === fx.a.id && /标记为受阻/.test(message.content)),
+  );
+  assert.ok(
+    !fx.store.data.groupDeliveries.some((delivery) => delivery.recipientId === fx.a.id && delivery.status === 'failed'),
   );
 });
 
@@ -1007,7 +1049,7 @@ test('a Bot pin is one broadcast utterance, retains tool pairing, and replaces a
       return silent();
     }
     if (run.botId === fx.a.id)
-      return call('group_pin', { groupId: run.groupOrigin!.groupId, messageId: latest.messageId, emoji: '👍' });
+      return call('group_react', { groupId: run.groupOrigin!.groupId, messageId: latest.messageId, emoji: '👍' });
     return silent();
   });
   const room = fx.groups.create({ name: '表态', botIds: [fx.a.id, fx.b.id] });
@@ -1028,7 +1070,7 @@ test('a Bot pin is one broadcast utterance, retains tool pairing, and replaces a
     ['user', fx.b.id].sort(),
   );
   const history = fx.store.data.groupContexts['group:' + room.id + ':' + fx.a.id],
-    at = history.findIndex((m) => m.tool_calls?.some((c) => c.function.name === 'group_pin'));
+    at = history.findIndex((m) => m.tool_calls?.some((c) => c.function.name === 'group_react'));
   assert.ok(at >= 0);
   assert.equal(history[at + 1].role, 'tool');
   assert.equal(history[at].tool_calls?.[0].id, history[at + 1].tool_call_id);
@@ -1290,245 +1332,6 @@ test('Bot creation and invitations broadcast once with the true actor and deleti
       .sort(),
     ['user', fx.a.id, fx.c.id].sort(),
   );
-});
-
-test('a claimed task continues to completion in the same run even when the group is quiet', async (t) => {
-  let executions = 0;
-  const vm = {
-    execute: async () => ({ stdout: `checked ${++executions}`, stderr: '', exitCode: 0, durationMs: 1 }),
-  } as unknown as VmController;
-  const fx = fixture(
-    t,
-    (run, messages, tools) => {
-      if (run.botId !== fx.a.id) return silent();
-      const room = fx.store.data.groups[0],
-        task = room.tasks?.[0];
-      assert.ok(tools.some((t) => t.function.name === 'group_task_claim'));
-      if (!task)
-        return call('group_task_claim', {
-          groupId: room.id,
-          key: 'verify-report',
-          title: '核对报告',
-          sourceMessageId: room.messages.find((m) => m.sender.kind === 'user')!.id,
-        });
-      if (task.status === 'completed') return answer('报告核对完成。');
-      if (!executions) return call('computer_execute', { command: 'verify-report' });
-      assert.ok(JSON.stringify(messages).includes('checked 1'));
-      return call('group_task_update', {
-        groupId: room.id,
-        taskId: task.id,
-        revision: task.revision,
-        status: 'completed',
-        summary: '已运行核对命令，结果 checked 1。',
-      });
-    },
-    vm,
-  );
-  const room = fx.groups.create({ name: '自主认领', botIds: [fx.a.id, fx.b.id] });
-  fx.groups.send({ id: room.id, message: '请核对报告' });
-  await until(fx.settled);
-  assert.equal(executions, 1);
-  assert.equal(fx.store.data.groups[0].tasks?.[0].status, 'completed');
-  assert.equal(fx.store.data.groups[0].tasks?.[0].runIds.length, 1);
-  assert.ok(fx.store.data.runs.every((r) => r.status === 'completed'));
-  assert.equal(fx.groups.read({ id: room.id }).messages.filter((m) => m.content === '报告核对完成。').length, 1);
-});
-
-test('a group task that cannot progress closes as blocked with its checkpoint and a visible response', async (t) => {
-  let turns = 0;
-  const fx = fixture(t, (run) => {
-    if (run.botId !== fx.a.id) return silent();
-    const task = fx.store.data.groups.find((group) => group.id === run.groupOrigin!.groupId)?.tasks?.[0];
-    if (!task) {
-      turns++;
-      return call('group_task_claim', {
-        groupId: run.groupOrigin!.groupId,
-        key: 'stuck-report',
-        title: '核对报告',
-        sourceMessageId: fx.store.data.groups[0].messages.find((message) => message.sender.kind === 'user')!.id,
-      });
-    }
-    if (task.status === 'blocked') return silent();
-    turns++;
-    return answer('我还在继续核对，稍后完成。');
-  });
-  const room = fx.groups.create({ name: '可收尾任务', botIds: [fx.a.id, fx.b.id] });
-  fx.groups.send({ id: room.id, message: '请核对报告' });
-  await until(fx.settled);
-  const task = fx.store.data.groups[0].tasks?.[0];
-  assert.ok(task);
-  assert.equal(task.status, 'blocked');
-  assert.match(task.reason || '', /连续 3 次/);
-  assert.equal(turns, 4);
-  assert.ok(
-    fx.groups
-      .read({ id: room.id })
-      .messages.some(
-        (message) =>
-          message.sender.id === fx.a.id && message.kind === 'message' && /任务未能确认完成/.test(message.content),
-      ),
-  );
-  assert.ok(
-    !fx.store.data.groupDeliveries.some((delivery) => delivery.recipientId === fx.a.id && delivery.status === 'failed'),
-  );
-});
-
-test('changing checkpoint prose without doing work still trips the main group stagnation guard', async (t) => {
-  let updates = 0,
-    actualWork = 0;
-  const fx = fixture(
-    t,
-    (run) => {
-      if (run.botId !== fx.a.id) return silent();
-      const room = fx.store.data.groups[0],
-        task = room.tasks?.[0];
-      if (!task)
-        return call('group_task_claim', {
-          groupId: room.id,
-          key: 'changing-prose',
-          title: '核对报告',
-          sourceMessageId: room.messages.find(
-            (message) => message.sender.kind === 'user' && message.kind === 'message',
-          )!.id,
-        });
-      if (task.status === 'blocked') return silent();
-      if (++updates >= 12) throw Error('改写文案绕过了停滞保护');
-      return call('group_task_update', {
-        groupId: room.id,
-        taskId: task.id,
-        revision: task.revision,
-        status: 'working',
-        summary: `准备核对报告，第 ${updates} 轮`,
-      });
-    },
-    {
-      execute: async () => {
-        actualWork++;
-        return { stdout: '', stderr: '', exitCode: 0, durationMs: 1 };
-      },
-    } as unknown as VmController,
-  );
-  const room = fx.groups.create({ name: '无工作文案回归', botIds: [fx.a.id, fx.b.id] });
-  fx.groups.send({ id: room.id, message: '请核对报告' });
-  await until(fx.settled);
-  assert.equal(fx.store.data.groups[0].tasks?.[0].status, 'blocked');
-  assert(updates > 0 && updates < 12);
-  assert.equal(actualWork, 0);
-});
-
-test('a group task that repeats a successful action with the same result is closed as blocked', async (t) => {
-  let executions = 0;
-  const vm = {
-    execute: async () => {
-      executions++;
-      return { exitCode: 0, stdout: 'same inspection result', stderr: '', durationMs: 1 };
-    },
-  } as unknown as VmController;
-  const fx = fixture(
-    t,
-    (run) => {
-      if (run.botId !== fx.a.id) return silent();
-      const task = fx.store.data.groups.find((group) => group.id === run.groupOrigin!.groupId)?.tasks?.[0];
-      if (!task)
-        return call('group_task_claim', {
-          groupId: run.groupOrigin!.groupId,
-          key: 'repeat-check',
-          title: '核对报告',
-          sourceMessageId: fx.store.data.groups[0].messages.find(
-            (message) => message.sender.kind === 'user' && message.kind === 'message',
-          )!.id,
-        });
-      if (task.status === 'blocked') return silent();
-      return call('computer_execute', { command: 'inspect report' });
-    },
-    vm,
-  );
-  const room = fx.groups.create({ name: '重复操作收尾', botIds: [fx.a.id, fx.b.id] });
-  fx.groups.send({ id: room.id, message: '请核对报告' });
-  await until(fx.settled);
-  const task = fx.store.data.groups[0].tasks?.[0];
-  assert.equal(task?.status, 'blocked');
-  assert.equal(executions, 4);
-  assert.ok(
-    fx.groups
-      .read({ id: room.id })
-      .messages.some((message) => message.sender.id === fx.a.id && /标记为受阻/.test(message.content)),
-  );
-  assert.ok(
-    !fx.store.data.groupDeliveries.some((delivery) => delivery.recipientId === fx.a.id && delivery.status === 'failed'),
-  );
-});
-
-test('explicitly resuming a blocked group task carries its checkpoint and does not repeat successful work', async (t) => {
-  let executions = 0,
-    continued = false;
-  const vm = {
-    execute: async () => ({ stdout: `REPORT_CHECKED_ONCE_${++executions}`, stderr: '', exitCode: 0, durationMs: 1 }),
-  } as unknown as VmController;
-  const fx = fixture(
-    t,
-    (run, messages) => {
-      if (run.botId !== fx.a.id) return silent();
-      const task = fx.store.data.groups.find((group) => group.id === run.groupOrigin!.groupId)?.tasks?.[0];
-      const continuation = JSON.stringify(messages).includes('请继续群任务');
-      if (!task)
-        return call('group_task_claim', {
-          groupId: run.groupOrigin!.groupId,
-          key: 'recover-report',
-          title: '核对报告',
-          sourceMessageId: fx.store.data.groups[0].messages.find(
-            (message) => message.sender.kind === 'user' && message.kind === 'message',
-          )!.id,
-        });
-      if (task.status === 'blocked') {
-        if (!continuation) return silent();
-        continued = true;
-        return call('group_task_claim', { groupId: run.groupOrigin!.groupId, taskId: task.id });
-      }
-      if (task.status === 'working' && task.runIds.includes(run.id)) {
-        if (continued) {
-          assert.match(JSON.stringify(messages), /REPORT_CHECKED_ONCE_1/);
-          return call('group_task_update', {
-            groupId: run.groupOrigin!.groupId,
-            taskId: task.id,
-            revision: task.revision,
-            status: 'completed',
-            summary: '读取上次已验证的报告结果，未重复执行。',
-          });
-        }
-        if (executions === 0) return call('computer_execute', { command: 'check-report-once' });
-        return answer('正在核对报告，稍后完成。');
-      }
-      return silent();
-    },
-    vm,
-  );
-  const room = fx.groups.create({ name: '受阻后续做', botIds: [fx.a.id, fx.b.id] });
-  fx.groups.send({ id: room.id, message: '请核对报告' });
-  await until(fx.settled);
-  const task = fx.store.data.groups[0].tasks?.[0],
-    firstRunId = task?.runIds[0];
-  assert.ok(task);
-  assert.equal(task.status, 'blocked');
-  assert.equal(executions, 1);
-  assert.ok(firstRunId);
-  let resumedOptions: Record<string, unknown> | undefined;
-  const runner = (fx.groups as any).runner,
-    original = runner.run;
-  runner.run = async (id: string, input: string, options: Record<string, unknown>) => {
-    if (id === fx.a.id && input.includes('请继续群任务')) resumedOptions = options;
-    return original(id, input, options);
-  };
-  fx.groups.send({
-    id: room.id,
-    message: `请继续群任务：${task.title}（taskId: ${task.id}）。先核对自己的执行检查点和已有结果，只完成剩余部分；完成后写明验收依据。`,
-  });
-  await until(fx.settled);
-  assert.ok(continued);
-  assert.equal(resumedOptions?.groupTaskFrom, firstRunId);
-  assert.equal(fx.store.data.groups[0].tasks?.[0].status, 'completed');
-  assert.equal(executions, 1);
-  assert.match(fx.store.data.groups[0].tasks?.[0].summary || '', /未重复执行/);
 });
 
 test('a group member can retrieve its own private history on demand without copying it into the public log or DM context', async (t) => {

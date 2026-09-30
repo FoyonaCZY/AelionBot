@@ -197,14 +197,6 @@ export class Store {
     this.data.groupRunMessages ||= [];
     this.data.groupOutbox ||= [];
     this.data.groupContextVersions ||= {};
-    for (const room of this.data.groups)
-      for (const task of room.tasks || [])
-        if (task.status === 'working') {
-          task.status = 'paused';
-          task.reason = '应用中断，请先核对已执行的操作再继续。';
-          task.updatedAt = new Date().toISOString();
-          task.revision++;
-        }
     for (const message of this.data.messages) if (message.inputState === 'queued') message.inputState = 'interrupted';
     this.separatePrivateMessages();
     for (const run of this.data.runs)

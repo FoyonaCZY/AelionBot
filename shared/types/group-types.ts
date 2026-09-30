@@ -40,12 +40,14 @@ const conversationTools = new Set([
   'bot_send_message',
   'history_search',
   'history_read',
-  'group_pin',
+  'group_react',
   'chat_pin',
+  'group_outbox',
+  // Legacy tool names that may still appear in stored execution records.
+  'group_pin',
   'group_tasks',
   'group_task_claim',
   'group_task_update',
-  'group_outbox',
 ]);
 export const isGroupWorkTool = (name: string | undefined) => Boolean(name && !conversationTools.has(name));
 export type GroupSender =
@@ -86,20 +88,6 @@ export interface GroupMessage {
   runIds?: string[];
   mentions?: BotMention[];
 }
-export interface GroupTask {
-  id: string;
-  key: string;
-  title: string;
-  ownerId?: string;
-  status: 'open' | 'working' | 'blocked' | 'paused' | 'completed';
-  summary: string;
-  reason?: string;
-  sourceMessageId: string;
-  revision: number;
-  createdAt: string;
-  updatedAt: string;
-  runIds: string[];
-}
 export interface GroupOutbox {
   id: string;
   botId: string;
@@ -127,7 +115,8 @@ export interface GroupRoom {
   messages: GroupMessage[];
   lastReadSeq: number;
   activeRootId?: string;
-  tasks?: GroupTask[];
+  /** Legacy group task records. They are kept untouched and no longer read or written. */
+  tasks?: unknown[];
 }
 export interface GroupRound {
   id: string;
@@ -196,7 +185,6 @@ export interface GroupSummary {
   activity?: { botId: string; phase: 'deciding' | 'running' };
 }
 export interface GroupPage {
-  tasks?: GroupTask[];
   pins?: Record<string, MessagePin[]>;
   group: GroupSummary;
   messages: GroupMessage[];

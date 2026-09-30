@@ -15,7 +15,7 @@ export const CHAT_TOOLS: ToolDefinition[] = [
     ['messageId', 'emoji'],
   ),
   tool(
-    'group_pin',
+    'group_react',
     '用 emoji 回应自己所在群的一条已发布消息，代替重复接话。表态会作为一次群发事件通知其他成员。不要回应别人的表态事件，也不要给自己表态。仅需要表态时用表情结束发言，不补发同义文字。承担任务或同时调用其他工具时继续执行，完成后仍需给出结果。',
     {
       groupId: string,

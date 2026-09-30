@@ -9,7 +9,6 @@ import { botIdentity } from '../../../shared/chat/bot-colors';
 import { effectiveWorkspace } from '../storage/workspaces';
 import type { HostComputer } from '../host/host';
 import { randomUUID, createHash } from 'node:crypto';
-import { groupTaskFrame, mutateGroupTask, publicTask } from './group-tasks';
 import type { GroupMessage } from '../../../shared/types/group-types';
 import type { Bot, BotMention, RunRecord } from '../../../shared/types/core';
 import {
@@ -215,57 +214,6 @@ export class GroupChats implements GroupGateway {
     }
     if (deliveries.length) this.touch();
     return deliveries.map((d) => room.messages.find((m) => m.id === d.messageId)!).filter(Boolean);
-  }
-  taskFrame(botId: string, runId: string) {
-    const run = this.store.data.runs.find((r) => r.id === runId && r.botId === botId);
-    if (!run?.groupOrigin) return '';
-    const room = this.room(run.groupOrigin.groupId);
-    this.member(room, botId);
-    return groupTaskFrame(room, botId, this.store);
-  }
-  unfinished(botId: string, runId: string) {
-    return this.store.data.groups.some((room) =>
-      room.tasks?.some((t) => t.ownerId === botId && t.status === 'working' && t.runIds.includes(runId)),
-    );
-  }
-  blockUnfinished(botId: string, runId: string, reason: string) {
-    const run = this.store.data.runs.find((item) => item.id === runId && item.botId === botId && item.groupOrigin);
-    if (!run) return false;
-    const room = this.store.data.groups.find((item) => item.id === run.groupOrigin!.groupId),
-      round = this.store.data.groupRounds.find((item) => item.id === run.groupOrigin!.rootId),
-      tasks = room?.tasks || [];
-    const blocked = tasks.filter(
-      (task) => task.ownerId === botId && task.status === 'working' && task.runIds.includes(runId),
-    );
-    if (!room || !blocked.length) return false;
-    for (const task of blocked) {
-      task.status = 'blocked';
-      task.reason = reason;
-      task.updatedAt = now();
-      task.revision++;
-    }
-    if (round?.status === 'active')
-      this.append(
-        room,
-        system,
-        `${this.store.bot(botId).name} 暂停了未完成任务：${blocked.map((task) => task.title).join('、')}\n${reason}`,
-        round,
-        undefined,
-        'system',
-        undefined,
-        { runIds: [runId] },
-      );
-    this.touch();
-    return true;
-  }
-  private pauseTasks(worker: Worker) {
-    for (const task of this.store.data.groups.find((g) => g.id === worker.groupId)?.tasks || [])
-      if (task.ownerId === worker.botId && task.status === 'working' && task.runIds.includes(worker.runId || '')) {
-        task.status = 'paused';
-        task.reason = '执行已暂停；继续前核对自己的工作记录。';
-        task.updatedAt = now();
-        task.revision++;
-      }
   }
   /** Persist a private outbox entry first; publish text, delivery records and the receipt together. */
   private publish(
@@ -500,7 +448,6 @@ export class GroupChats implements GroupGateway {
         }
       : undefined;
     return structuredClone({
-      tasks: room.tasks || [],
       group: this.summary(room),
       messages,
       pins: Object.fromEntries(
@@ -841,14 +788,6 @@ export class GroupChats implements GroupGateway {
     this.touch();
   }
   private cancelMember(groupId: string, botId: string, reason: string) {
-    for (const task of this.store.data.groups.find((g) => g.id === groupId)?.tasks || [])
-      if (task.ownerId === botId && task.status !== 'completed') {
-        delete task.ownerId;
-        task.status = 'open';
-        task.reason = reason + '；重新认领前核对已执行的操作。';
-        task.revision++;
-        task.updatedAt = now();
-      }
     for (const delivery of this.store.data.groupDeliveries.filter(
       (d) => d.groupId === groupId && d.recipientId === botId && groupPending(d.status),
     )) {
@@ -980,7 +919,6 @@ export class GroupChats implements GroupGateway {
         })
         .finally(() => {
           if (worker.preempted) this.requeue(worker);
-          this.pauseTasks(worker);
           if (this.workers.get(worker.botId) === worker) this.workers.delete(worker.botId);
           this.touch();
         });
@@ -1006,39 +944,18 @@ export class GroupChats implements GroupGateway {
       .map((delivery) => this.store.data.runs.find((run) => run.id === delivery.retryRunId && run.botId === bot.id))
       .find(Boolean);
     for (const delivery of deliveries) delete delivery.retryRunId;
-    const requestedTaskId = deliveries
-      .map((delivery) => room.messages.find((message) => message.id === delivery.messageId)?.content || '')
-      .join('\n')
-      .match(/taskId\s*[:：]\s*([\da-f-]{36})/i)?.[1];
-    const requestedTask = requestedTaskId
-      ? room.tasks?.find(
-          (task) => task.id === requestedTaskId && task.ownerId === bot.id && task.status !== 'completed',
-        )
-      : undefined;
-    const requeuedTaskRunId = [...deliveries]
-      .reverse()
-      .map((delivery) => delivery.runId)
-      .find(
-        (id) =>
-          id &&
-          room.tasks?.some(
-            (task) => task.ownerId === bot.id && task.status !== 'completed' && task.runIds.includes(id),
-          ),
-      );
-    const previousTask =
+    // Deliveries requeued after a private chat took over keep the run they were part of; the next
+    // run carries its plan and workspace forward.
+    const previousRun =
       retry ||
-      requestedTask?.runIds
-        .slice()
+      [...deliveries]
         .reverse()
-        .map((id) =>
+        .map((delivery) =>
           this.store.data.runs.find(
-            (run) => run.id === id && run.botId === bot.id && run.groupOrigin?.groupId === room.id,
+            (run) => run.id === delivery.runId && run.botId === bot.id && run.groupOrigin?.groupId === room.id,
           ),
         )
-        .find(Boolean) ||
-      this.store.data.runs.find(
-        (run) => run.id === requeuedTaskRunId && run.botId === bot.id && run.groupOrigin?.groupId === room.id,
-      );
+        .find(Boolean);
     const recent = room.messages
       .filter((message) => !bot.contextResetAt || message.time >= bot.contextResetAt)
       .slice(-4)
@@ -1063,7 +980,7 @@ export class GroupChats implements GroupGateway {
           sourceId: trigger.id,
           actorId: bot.id,
           input: decisionInput,
-          requiredWork: Boolean(retry || requestedTask || previousTask),
+          requiredWork: Boolean(previousRun),
         },
         controller.signal,
       );
@@ -1120,20 +1037,20 @@ export class GroupChats implements GroupGateway {
                 choice: decision.appliedChoice,
                 predictedChoice: decision.choice,
                 adjustment: decision.adjustment,
-                meaning: '参与本轮；根据用户需求决定回复或执行，遵守群任务认领规则',
+                meaning: '参与本轮；根据用户需求决定回复或执行',
                 revisionAllowed: true,
               },
             }
           : {}),
       }),
       {
-        designSessionId: lastMessage?.designSessionId || previousTask?.designSessionId,
+        designSessionId: lastMessage?.designSessionId || previousRun?.designSessionId,
         resumeRunId: retry?.id,
-        workItemId: retry?.workItemId || workItem?.id || previousTask?.workItemId,
+        workItemId: retry?.workItemId || workItem?.id || previousRun?.workItemId,
         workspaceDir:
           retry?.workspaceDir ||
           workItem?.workspaceDir ||
-          previousTask?.workspaceDir ||
+          previousRun?.workspaceDir ||
           lastMessage?.workspaceDir ||
           effectiveWorkspace(this.store, this.host, { kind: 'group', id: room.id }),
         groupOrigin: { groupId: room.id, rootId: round.id, deliveryId: deliveries.at(-1)!.id },
@@ -1144,7 +1061,7 @@ export class GroupChats implements GroupGateway {
             ? '\nLaya 给出的本轮参与方式已在用户事件中标注。先按它行动；读到更多上下文后可以调整，并在发言或执行记录中说明调整。'
             : '') +
           (this.laya?.enabled && !decision ? '\n本地决策暂不可用，请自行判断是否需要旁听或参与。' : ''),
-        groupTaskFrom: previousTask?.id,
+        groupTaskFrom: previousRun?.id,
         onStarted: (id) => {
           worker.runId = id;
           for (const delivery of deliveries) delivery.runId = id;
@@ -1306,65 +1223,7 @@ export class GroupChats implements GroupGateway {
           content: m.content.slice(0, 500),
         }));
     }
-    if (name === 'group_tasks' || name === 'group_task_claim' || name === 'group_task_update') {
-      const room = this.room(required(args.groupId, '群聊 ID', 80));
-      this.member(room, botId);
-      if (name === 'group_tasks') {
-        const tasks = room.tasks || [],
-          offset = Number(args.offset) || 0;
-        if (!Number.isInteger(offset) || offset < 0) throw Error('任务位置无效');
-        return {
-          tasks: tasks.slice(offset, offset + 20).map(publicTask),
-          ...(offset + 20 < tasks.length ? { nextOffset: offset + 20 } : {}),
-        };
-      }
-      const run = this.store.data.runs.find((r) => r.id === runId && r.botId === botId && r.status === 'running');
-      if (!run?.groupOrigin || run.groupOrigin.groupId !== room.id || options.groupOrigin?.groupId !== room.id)
-        throw Error('只能在当前群聊认领或更新任务');
-      const round = this.round(run.groupOrigin.rootId);
-      if (round.status !== 'active') throw Error('本轮讨论已停止');
-      const previous = structuredClone(room.tasks || []),
-        count = room.messages.length,
-        deliveries = this.store.data.groupDeliveries.length,
-        updatedAt = room.updatedAt;
-      const result = mutateGroupTask(this.store, room, run, name, args);
-      if (
-        ('claimed' in result && result.claimed && !result.alreadyClaimed) ||
-        ('updated' in result && result.updated)
-      ) {
-        const task = result.task,
-          label = (
-            {
-              open: '释放了任务',
-              working: '正在处理',
-              blocked: '遇到阻碍',
-              paused: '暂停了任务',
-              completed: '完成了任务',
-            } as const
-          )[task.status];
-        this.append(
-          room,
-          system,
-          `${this.store.bot(botId).name} ${label}：${task.title}${task.summary ? '\n' + task.summary : ''}`,
-          round,
-          undefined,
-          'system',
-          undefined,
-          { runIds: [runId] },
-        );
-        try {
-          this.touch();
-        } catch (error) {
-          room.tasks = previous;
-          room.messages.splice(count);
-          this.store.data.groupDeliveries.splice(deliveries);
-          room.updatedAt = updatedAt;
-          throw error;
-        }
-      }
-      return result;
-    }
-    if (name === 'group_pin') {
+    if (name === 'group_react') {
       const room = this.room(required(args.groupId, '群聊 ID', 80));
       this.member(room, botId);
       if (options.groupOrigin && options.groupOrigin.groupId !== room.id) throw new Error('只能回应当前群聊的消息');

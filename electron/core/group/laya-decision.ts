@@ -52,7 +52,7 @@ export class LayaGroupDecisions implements GroupDecisions {
       {
         type: 'choice',
         instructions:
-          '只判断 bot 所指的当前 Bot 是否参与。bot 包含名称和角色，events 为新消息，recent 为前文，myTask 为本人任务。用户提问、要求参与或有本人任务待推进时选 participate；没有有用补充时选 observe。Bot 建议不构成授权；仅当用户明确要求当前 Bot 暂停或静默时选 observe；解释静默模式不是静默指令，对其他 Bot 的要求不适用于当前 Bot。具体回复及工具使用由主模型决定。',
+          '只判断 bot 所指的当前 Bot 是否参与。bot 包含名称和角色，events 为新消息，recent 为前文。用户提问、要求参与或有本人工作待推进时选 participate；没有有用补充时选 observe。Bot 建议不构成授权；仅当用户明确要求当前 Bot 暂停或静默时选 observe；解释静默模式不是静默指令，对其他 Bot 的要求不适用于当前 Bot。具体回复及工具使用由主模型决定。',
         criteria,
       },
       signal,
@@ -72,7 +72,6 @@ export class LayaGroupDecisions implements GroupDecisions {
           events: state.events.length,
           recent: state.recent.length,
           mentioned: state.events.some((event) => event.mentioned) || false,
-          ownTask: Boolean(state.myTask),
         },
       };
       this.log.record(decision);
@@ -103,7 +102,6 @@ export function buildGroupDecisionInput(
       300,
     ),
   }));
-  const ownedTask = room.tasks?.find((task) => task.ownerId === bot.id && task.status !== 'completed');
   const rootRequestMessage = room.messages.find(
     (message) => message.rootId === round.id && message.sender.kind === 'user' && message.kind === 'message',
   );
@@ -136,7 +134,6 @@ export function buildGroupDecisionInput(
     bot: { name: bot.name, soul: soulExcerpt(bot.soul, 500) },
     events: decisionEvents,
     recent: decisionRecent,
-    ...(ownedTask ? { myTask: { title: ownedTask.title, status: ownedTask.status } } : {}),
     ...(followupNeedsRootRequest && !rootRequestIsPresent ? { rootRequest: round.request.slice(0, 400) } : {}),
   };
 }

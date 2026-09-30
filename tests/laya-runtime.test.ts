@@ -138,7 +138,7 @@ test('local Laya records a two-way group decision', async () => {
     assert.equal(result.confidence, 0.73);
     assert.equal(result.probabilities.participate, 0.7);
     assert.equal(result.criteria.participate, '这个 Bot 可以回应当前问题、补充有用信息，或开展及继续用户授权的工作');
-    assert.deepEqual(result.features, { events: 1, recent: 0, mentioned: false, ownTask: false });
+    assert.deepEqual(result.features, { events: 1, recent: 0, mentioned: false });
     assert.equal(typeof result.elapsedMs, 'number');
     assert(line.includes('PRIVATE_GROUP_CONTENT'));
     assert.equal(
@@ -485,7 +485,7 @@ test('enabled Laya receives each Bot identity and cannot globally suppress anoth
   }
 });
 
-test('resuming an owned task records and sends the same final participation decision', async () => {
+test('resuming preempted group work records and sends the same final participation decision', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-laya-resume-'));
   const store = new Store(dir),
     bot = store.data.bots[0],
@@ -510,7 +510,6 @@ test('resuming an owned task records and sends the same final participation deci
     completedGroupRunner(store, (_botId, input, options) => {
       sent = JSON.parse(input).layaDecision;
       assert.equal(options.groupTaskFrom, previousRunId);
-      store.data.groups[0].tasks![0].status = 'completed';
       return '报告已核对。';
     }),
     () => {},
@@ -518,11 +517,10 @@ test('resuming an owned task records and sends the same final participation deci
     undefined,
     decisions,
   );
-  const previousRunId = randomUUID(),
-    taskId = randomUUID();
+  const previousRunId = randomUUID();
   try {
     const room = groups.create({ name: '任务续跑', botIds: [bot.id, second.id] });
-    groups.send({ id: room.id, message: `请继续核对报告 taskId: ${taskId}` });
+    groups.send({ id: room.id, message: '请继续核对报告' });
     const storedRoom = store.data.groups[0],
       user = storedRoom.messages.find((message) => message.sender.kind === 'user' && message.kind === 'message')!;
     assert(user.rootId);
@@ -537,21 +535,9 @@ test('resuming an owned task records and sends the same final participation deci
       toolCalls: 1,
       groupOrigin: { groupId: room.id, rootId: user.rootId, deliveryId: 'previous-delivery' },
     });
-    storedRoom.tasks = [
-      {
-        id: taskId,
-        key: 'report',
-        title: '核对报告',
-        ownerId: bot.id,
-        status: 'working',
-        summary: '已有检查点',
-        sourceMessageId: user.id,
-        revision: 1,
-        createdAt: time,
-        updatedAt: time,
-        runIds: [previousRunId],
-      },
-    ];
+    // A private chat took over: the delivery was requeued and still names the run it was part of.
+    store.data.groupDeliveries.find((item) => item.messageId === user.id && item.recipientId === bot.id)!.runId =
+      previousRunId;
     groups.start();
     await until(
       () =>
@@ -573,7 +559,6 @@ test('resuming an owned task records and sends the same final participation deci
     const persisted = new LayaDecisionLog(dir).groupDecisions(new Set([applied.sourceId]))[0];
     assert.deepEqual(persisted, decisions.read(new Set([applied.sourceId]))[0]);
     assert(page.deliveries.some((delivery) => delivery.messageId === user.id && delivery.status === 'replied'));
-    assert.equal(store.data.groups[0].tasks![0].status, 'completed');
   } finally {
     groups.dispose();
     store.close();

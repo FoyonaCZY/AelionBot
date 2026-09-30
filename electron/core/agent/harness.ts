@@ -95,7 +95,6 @@ import {
   DUPLICATE_REACTION,
   GOAL_INCOMPLETE,
   GROUP_PLAN_INCOMPLETE,
-  GROUP_TASK_WORKING,
   MEMORY_NEEDS_MAIN_TASK,
   MEMORY_NOT_SAVED,
   PIN_NOT_COMPLETION,
@@ -139,12 +138,9 @@ const privateTools = new Set([
   'start_main_task',
 ]);
 const groupNonProgressTools = new Set([
-  'group_task_claim',
-  'group_task_update',
-  'group_tasks',
   'group_outbox',
   'group_send_message',
-  'group_pin',
+  'group_react',
   'chat_pin',
   'execution_list',
   'execution_resolve',
@@ -172,7 +168,7 @@ const COMPACT_TOOLS = new Set([
   'request_user_input',
   'generate_image',
 ]);
-const isReactionTool = (name: string) => name === 'chat_pin' || name === 'group_pin';
+const isReactionTool = (name: string) => name === 'chat_pin' || name === 'group_react';
 function groupProgressFingerprint(name: string, args: unknown, output: unknown) {
   const normalize = (value: unknown): unknown => {
     if (Array.isArray(value)) return value.map(normalize);
@@ -894,7 +890,6 @@ export class Harness {
       groupProgressOrder: string[] = [];
     const hasUnfinishedGroupWork = () => {
       if (!options.groupOrigin) return false;
-      if (this.groups?.unfinished?.(botId, run.id)) return true;
       const item = work.forRun(run);
       return Boolean(
         item?.scope.kind === 'group' &&
@@ -906,7 +901,6 @@ export class Harness {
       const reason =
         '连续 3 轮工具调用没有产生新的成功结果，任务已标记为受阻并保留执行记录。继续前请检查现有结果和后续步骤。';
       work.block(run, reason);
-      this.groups?.blockUnfinished?.(botId, run.id, reason);
       visible.content = '任务未能确认完成，已标记为受阻。' + reason;
       visible.status = 'done';
       visible.presentation = 'answer';
@@ -926,7 +920,6 @@ export class Harness {
         if (options.groupOrigin) {
           const blocked = `任务未能确认完成，已标记为受阻并保留执行记录。${reason}`;
           work.block(run, blocked);
-          this.groups?.blockUnfinished?.(botId, run.id, blocked);
           visible.content = blocked;
           visible.status = 'done';
           visible.presentation = 'answer';
@@ -1024,7 +1017,6 @@ export class Harness {
         );
         this.callableTools.set(run.id, availableTools);
         const taskFrame = [
-          options.groupOrigin ? this.groups?.taskFrame?.(botId, run.id) : '',
           new RunPolicy(this.store).frame(botId, run.id),
           work.frame(run),
           reactionRestrictionContext(Boolean(work.forRun(run)), duplicateReaction),
@@ -1366,10 +1358,6 @@ export class Harness {
             if (continueUnfinishedWork(options.groupOrigin ? GROUP_PLAN_INCOMPLETE : PLAN_INCOMPLETE)) return;
             continue;
           }
-          if (options.groupOrigin && this.groups?.unfinished?.(botId, run.id)) {
-            if (continueUnfinishedWork(GROUP_TASK_WORKING)) return;
-            continue;
-          }
           if (pendingProcesses.length) {
             visible.status = 'done';
             visible.presentation = 'progress';
@@ -1379,10 +1367,6 @@ export class Harness {
               content: unfinishedProcesses(pendingProcesses),
             });
             visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
-            continue;
-          }
-          if (options.groupOrigin && this.groups?.unfinished?.(botId, run.id)) {
-            if (continueUnfinishedWork(GROUP_TASK_WORKING)) return;
             continue;
           }
           if (
@@ -1653,7 +1637,7 @@ export class Harness {
           let output = job.output,
             denied = job.denied,
             dispatched = job.dispatched;
-          if (['chat_pin', 'group_pin'].includes(call.function.name) && typeof (output as any)?.pinned === 'boolean') {
+          if (isReactionTool(call.function.name) && typeof (output as any)?.pinned === 'boolean') {
             if (call.function.name === 'chat_pin' && requiresReactionReply && (output as any).alreadyApplied) {
               duplicateReaction = true;
               output = { ...(output as object), next: DUPLICATE_REACTION };
