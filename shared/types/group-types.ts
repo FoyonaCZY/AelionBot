@@ -4,7 +4,17 @@ import type { Attachment } from './attachment-types';
 import type { MessagePin, PinEvent } from '../chat/reactions';
 import type { BotIdentity, BotMention } from './peer-types';
 import type { ScheduledTrigger } from './scheduled-types';
-export const GROUP_LIMITS = { bots: 8, repetitions: 3, groupsPerTask: 2 } as const;
+export const GROUP_LIMITS = {
+  bots: 8,
+  repetitions: 3,
+  groupsPerTask: 2,
+  /** Bot-to-bot messages since the user's last message before Bots stop waking each other. */
+  botStreak: 10,
+  /** Messages exchanged by one pair of Bots since the user's last message before they stop waking each other. */
+  pairStreak: 4,
+  /** Seconds others wait for an addressed Bot, or for replies still being written, before continuing. */
+  holdSeconds: 20,
+} as const;
 const conversationTools = new Set([
   'open_preview',
   'code_exec',
@@ -87,6 +97,10 @@ export interface GroupMessage {
   replyTo?: string;
   runIds?: string[];
   mentions?: BotMention[];
+  /** The message whose delivery woke the Bot that sent this message. */
+  answers?: string;
+  /** A system notice about the discussion itself; it is posted at most once per user message. */
+  notice?: 'pair_limit' | 'bot_limit' | 'unanswered';
 }
 export interface GroupOutbox {
   id: string;
@@ -100,6 +114,7 @@ export interface GroupOutbox {
   attachments?: Attachment[];
   kind: 'message' | 'progress';
   replyTo?: string;
+  answers?: string;
   status: 'pending' | 'sent';
   createdAt: string;
   messageId?: string;
@@ -157,6 +172,10 @@ export interface GroupDelivery {
   reason?: string;
   runId?: string;
   replyMessageId?: string;
+  /** Result of triage: wake the recipient, or leave the message read without waking it. */
+  triage?: 'wake' | 'skip';
+  /** The recipient was addressed and must answer, at least with a reaction. */
+  must?: boolean;
 }
 interface GroupLayaDecision extends GroupDecisionRecord {
   messageId: string;

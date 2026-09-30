@@ -33,11 +33,18 @@ interface DecisionMessage {
   from: { kind: 'user' | 'bot' | 'system'; name: string };
   text: string;
 }
+/**
+ * One question per message: should this Bot respond? Short, decisive fields come first because an
+ * over-long input is truncated at the end.
+ */
 export interface GroupDecisionInput {
-  bot: { name: string; soul: string };
-  events: Array<DecisionMessage & { mentioned: boolean }>;
-  recent: DecisionMessage[];
-  rootRequest?: string;
+  bot: { name: string; role: string };
+  /** What the Bot is doing now, such as "在做：导出页面（计划 3/5）". */
+  work: string;
+  message: DecisionMessage;
+  repliedTo?: DecisionMessage;
+  /** The addressed Bot's first answer, when this Bot waited for it. */
+  answer?: DecisionMessage;
 }
 interface DecisionRecord extends LayaPrediction {
   sourceId: string;
@@ -50,6 +57,6 @@ export interface GroupDecisionRecord extends DecisionRecord {
   appliedChoice: GroupChoice;
   adjustment?: string;
   criteria?: Record<string, string>;
-  features?: { events: number; recent: number; mentioned: boolean };
+  features?: { repliedTo: boolean; answered: boolean; working: boolean };
   input?: GroupDecisionInput;
 }

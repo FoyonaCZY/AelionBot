@@ -15,9 +15,9 @@ import { until } from './helpers';
 import { GroupChats } from '../electron/core/group/group-chats';
 
 const decisionInput = (text = ''): GroupDecisionInput => ({
-  bot: { name: '测试 Bot', soul: '' },
-  events: [{ from: { kind: 'user', name: '用户' }, text, mentioned: false }],
-  recent: [],
+  bot: { name: '测试 Bot', role: '' },
+  work: '空闲',
+  message: { from: { kind: 'user', name: '用户' }, text },
 });
 
 async function choose(
@@ -137,8 +137,8 @@ test('local Laya records a two-way group decision', async () => {
     assert.equal(result.choice, 'participate');
     assert.equal(result.confidence, 0.73);
     assert.equal(result.probabilities.participate, 0.7);
-    assert.equal(result.criteria.participate, '这个 Bot 可以回应当前问题、补充有用信息，或开展及继续用户授权的工作');
-    assert.deepEqual(result.features, { events: 1, recent: 0, mentioned: false });
+    assert.equal(result.criteria.participate, '回应：这条消息和当前 Bot 的职责或手上的事有关');
+    assert.deepEqual(result.features, { repliedTo: false, answered: false, working: false });
     assert.equal(typeof result.elapsedMs, 'number');
     assert(line.includes('PRIVATE_GROUP_CONTENT'));
     assert.equal(
@@ -237,7 +237,9 @@ test('group broadcast sends each Bot a separate decision', async () => {
     });
     assert.deepEqual(new Set(events.map((event) => event.actorId)), new Set([first.id, second.id]));
     assert(events.every((event) => event.scope === 'group' && event.choice === 'observe'));
-    await until(() => !groups.busy);
+    await until(() => !groups.busy && !store.data.groupDeliveries.some((item) => item.status === 'queued'));
+    // Nobody answered the unaddressed message, so the group was told once to @ someone.
+    assert.equal(store.data.groups[0].messages.filter((message) => message.notice === 'unanswered').length, 1);
     assert.equal(runs, 0);
     assertDeliveriesSettled(store);
     const page = groups.read({ id: group.id });
@@ -276,7 +278,7 @@ test('Laya participation reaches each Bot for questions and work', async () => {
     script = join(dir, 'fake.py');
   writeFileSync(
     script,
-    'import json,sys\nprint(json.dumps({"ready":True}),flush=True)\nfor line in sys.stdin:\n request=json.loads(line)\n event=request["state"]["events"][-1]\n choice="participate" if event["from"]["kind"]=="user" else "observe"\n print(json.dumps({"id":request["id"],"result":{"answers":{"decision":{"choice":choice,"probabilities":{"observe":0.1,"participate":0.9}}}}}),flush=True)\n',
+    'import json,sys\nprint(json.dumps({"ready":True}),flush=True)\nfor line in sys.stdin:\n request=json.loads(line)\n event=request["state"]["message"]\n choice="participate" if event["from"]["kind"]=="user" else "observe"\n print(json.dumps({"id":request["id"],"result":{"answers":{"decision":{"choice":choice,"probabilities":{"observe":0.1,"participate":0.9}}}}}),flush=True)\n',
   );
   const store = new Store(dir),
     first = store.data.bots[0],
@@ -284,11 +286,11 @@ test('Laya participation reaches each Bot for questions and work', async () => {
   const runtime = new LayaRuntime(script, () => {}, { runtime: 'mlx', python: 'python3' });
   const log = new LayaDecisionLog(dir);
   const decisions = new LayaGroupDecisions(runtime, log);
-  const calls: Array<{ botId: string; choice: string }> = [];
+  const calls: string[] = [];
   const groups = new GroupChats(
     store,
-    completedGroupRunner(store, (botId, input) => {
-      calls.push({ botId, choice: (JSON.parse(input) as { layaDecision: { choice: string } }).layaDecision.choice });
+    completedGroupRunner(store, (botId) => {
+      calls.push(botId);
     }),
     () => {},
     undefined,
@@ -308,11 +310,13 @@ test('Laya participation reaches each Bot for questions and work', async () => {
     await wait();
     groups.send({ id: room.id, message: '请回复这条消息。' });
     await wait();
-    assert.equal(calls.filter((item) => item.choice === 'participate').length, 2);
+    assert.equal(calls.length, 2);
     groups.send({ id: room.id, message: '请执行本轮测试任务。' });
     await wait();
-    assert.equal(calls.filter((item) => item.choice === 'participate').length, 4);
-    assert.deepEqual(new Set(calls.map((item) => item.botId)), new Set([first.id, second.id]));
+    assert.equal(calls.length, 4);
+    assert.deepEqual(new Set(calls), new Set([first.id, second.id]));
+    // Membership notices never reach Laya; only the two user messages were judged, once per Bot.
+    assert.equal(log.groupDecisions(new Set(store.data.groupDeliveries.map((item) => item.id))).length, 4);
     assertDeliveriesSettled(store);
   } finally {
     groups.dispose();
@@ -436,7 +440,7 @@ test('enabled Laya receives each Bot identity and cannot globally suppress anoth
     runtimeName: 'mlx',
     async predict(state: GroupDecisionInput) {
       inputs.push(state);
-      const text = state.events.at(-1)!.text;
+      const text = state.message.text;
       return {
         choice: text.includes('@甲') && state.bot.name === '甲' ? 'observe' : 'participate',
         model: 'fake',
@@ -472,7 +476,8 @@ test('enabled Laya receives each Bot identity and cannot globally suppress anoth
     groups.send({ id: room.id, message: '不要执行任何命令，请解释静默模式的实现' });
     await wait();
     assert.deepEqual(new Set(runs), new Set([first.id, second.id]));
-    assert.equal(inputs.find((input) => input.bot.name === '甲')?.bot.soul, '数据分析 分析问题');
+    assert.equal(inputs.find((input) => input.bot.name === '甲')?.bot.role, '数据分析 分析问题');
+    assert.ok(inputs.every((input) => input.work === '空闲'));
     runs.length = 0;
     groups.send({ id: room.id, message: '@甲 不要执行任务，请旁听。@乙 请检查报告并回复' });
     await wait();
@@ -485,30 +490,34 @@ test('enabled Laya receives each Bot identity and cannot globally suppress anoth
   }
 });
 
-test('resuming preempted group work records and sends the same final participation decision', async () => {
+test('requeued group work resumes without asking Laya while other members are still judged', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-laya-resume-'));
   const store = new Store(dir),
     bot = store.data.bots[0],
     second = store.createBot('旁听伙伴', '');
+  const judged: string[] = [];
   const runtime = {
     enabled: true,
     isReady: true,
     runtimeName: 'mlx',
-    predict: async () => ({
-      choice: 'observe',
-      confidence: 0.9,
-      probabilities: { observe: 0.9, participate: 0.1 },
-      runtime: 'mlx',
-      model: 'fake',
-      elapsedMs: 0,
-    }),
+    predict: async (state: GroupDecisionInput) => {
+      judged.push(state.bot.name);
+      return {
+        choice: 'observe',
+        confidence: 0.9,
+        probabilities: { observe: 0.9, participate: 0.1 },
+        runtime: 'mlx',
+        model: 'fake',
+        elapsedMs: 0,
+      };
+    },
   } as unknown as LayaRuntime;
   const decisions = new LayaGroupDecisions(runtime, new LayaDecisionLog(dir));
-  let sent: { choice: string; predictedChoice: string; adjustment: string } | undefined;
+  const resumed: string[] = [];
   const groups = new GroupChats(
     store,
-    completedGroupRunner(store, (_botId, input, options) => {
-      sent = JSON.parse(input).layaDecision;
+    completedGroupRunner(store, (botId, _input, options) => {
+      resumed.push(botId);
       assert.equal(options.groupTaskFrom, previousRunId);
       return '报告已核对。';
     }),
@@ -535,9 +544,17 @@ test('resuming preempted group work records and sends the same final participati
       toolCalls: 1,
       groupOrigin: { groupId: room.id, rootId: user.rootId, deliveryId: 'previous-delivery' },
     });
-    // A private chat took over: the delivery was requeued and still names the run it was part of.
-    store.data.groupDeliveries.find((item) => item.messageId === user.id && item.recipientId === bot.id)!.runId =
-      previousRunId;
+    store.message(bot.id, 'tool', '{"stdout":"checked"}', {
+      runId: previousRunId,
+      tool: 'computer_execute',
+      status: 'done',
+    });
+    // A private chat took over: the delivery was requeued already woken and still names its run.
+    const requeued = store.data.groupDeliveries.find(
+      (item) => item.messageId === user.id && item.recipientId === bot.id,
+    )!;
+    requeued.runId = previousRunId;
+    requeued.triage = 'wake';
     groups.start();
     await until(
       () =>
@@ -545,20 +562,17 @@ test('resuming preempted group work records and sends the same final participati
         !store.data.groupDeliveries.some((item) => ['queued', 'deciding', 'running'].includes(item.status)),
     );
     assertDeliveriesSettled(store);
+    assert.deepEqual(resumed, [bot.id]);
+    // The resumed Bot skips Laya; the other member is judged on the user message (and on the reply).
+    assert.ok(judged.length && judged.every((name) => name === second.name));
     const page = groups.read({ id: room.id });
-    const applied = page.laya?.decisions.find((item) => item.messageId === user.id && item.actorId === bot.id);
-    assert(applied);
-    assert.equal(applied.choice, 'observe');
-    assert.equal(applied.appliedChoice, 'participate');
-    assert.equal(applied.confidence, 0.9);
-    assert.deepEqual(applied.probabilities, { observe: 0.9, participate: 0.1 });
-    assert.equal(sent?.choice, applied.appliedChoice);
-    assert.equal(sent?.predictedChoice, applied.choice);
-    assert.equal(sent?.adjustment, applied.adjustment);
-    assert(applied.adjustment);
-    const persisted = new LayaDecisionLog(dir).groupDecisions(new Set([applied.sourceId]))[0];
-    assert.deepEqual(persisted, decisions.read(new Set([applied.sourceId]))[0]);
-    assert(page.deliveries.some((delivery) => delivery.messageId === user.id && delivery.status === 'replied'));
+    assert.ok(page.messages.some((message) => message.sender.id === bot.id && message.content === '报告已核对。'));
+    const other = page.laya?.decisions.find((item) => item.messageId === user.id && item.actorId === second.id);
+    assert(other);
+    assert.equal(other.appliedChoice, 'observe');
+    assert.deepEqual(other.probabilities, { observe: 0.9, participate: 0.1 });
+    const persisted = new LayaDecisionLog(dir).groupDecisions(new Set([other.sourceId]))[0];
+    assert.deepEqual(persisted, decisions.read(new Set([other.sourceId]))[0]);
   } finally {
     groups.dispose();
     store.close();

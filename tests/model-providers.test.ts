@@ -775,9 +775,9 @@ test('private replies and group notifications use each recipient own Provider', 
     () =>
       !groups.busy && !harness.busy && !f.store.data.groupDeliveries.some((delivery) => groupPending(delivery.status)),
   );
-  assert.equal(a.requests.length, 1);
-  assert.equal(b.requests.length, 1);
-  a.requests.length = b.requests.length = 0;
+  // Creating the group is a membership notice and wakes nobody.
+  assert.equal(a.requests.length, 0);
+  assert.equal(b.requests.length, 0);
   groups.send({ id: room.id, message: '请回复状态' });
   await until(
     () =>
@@ -797,9 +797,11 @@ test('private replies and group notifications use each recipient own Provider', 
     () =>
       !groups.busy && !harness.busy && !f.store.data.groupDeliveries.some((delivery) => groupPending(delivery.status)),
   );
+  // Addressed, B stays silent and is reminded once to answer; A looks after B has given up.
   assert.equal(a.requests.length, 2);
-  assert.equal(b.requests.length, 2);
-  assert.equal(b.requests[1].body.model, 'beta-model');
+  assert.equal(b.requests.length, 3);
+  assert.ok(a.requests.every((request) => request.body.model === 'alpha-model'));
+  assert.ok(b.requests.every((request) => request.body.model === 'beta-model'));
 });
 
 test('image generation is configured per Provider and per model, and resolves through the Bot image selection', async (t) => {

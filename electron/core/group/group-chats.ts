@@ -1,7 +1,13 @@
-import type { GroupDecisionRecord } from '../../../shared/types/laya-types';
 import { buildGroupDecisionInput, type GroupDecisions } from './laya-decision';
 import { previewFeedbackDisplay } from '../../../shared/preview/preview-feedback';
-import { groupEventPrompt, GROUP_STATE_EVENT_PROMPT } from './group-prompt';
+import {
+  groupEventPrompt,
+  groupMustAnswerNote,
+  groupReviewNote,
+  GROUP_STATE_EVENT_PROMPT,
+  GROUP_UNSENT_NOTE,
+} from './group-prompt';
+import { answerFrom, noticed, replyTarget, sinceUser, triage, unanswered } from './group-triage';
 import { userDisplayName } from '../../../shared/chat/user-profile';
 import { resolveGroupReply } from '../agent/message-replies';
 import { workCommand, type WorkItem } from '../../../shared/types/work-types';
@@ -14,6 +20,7 @@ import type { Bot, BotMention, RunRecord } from '../../../shared/types/core';
 import {
   GROUP_LIMITS,
   groupPending,
+  isGroupWorkTool,
   type GroupDelivery,
   type GroupLifecycleEvent,
   type GroupPage,
@@ -51,6 +58,12 @@ interface Worker {
   controller: AbortController;
   runId?: string;
   preempted?: boolean;
+  /** The last room message this run has taken into account before its final reply. */
+  seenSeq: number;
+  /** One-time notes already sent back to the model before its final reply. */
+  noted: Set<'must' | 'unsent'>;
+  /** The earlier run this one continues after a retry or a private chat took over. */
+  continues?: string;
 }
 type FinalReplyDecision = { kind: 'silent' } | { kind: 'publish'; content: string };
 const now = () => new Date().toISOString();
@@ -74,7 +87,10 @@ export class GroupChats implements GroupGateway {
   private enabled = false;
   private closing = false;
   private timer?: ReturnType<typeof setTimeout>;
+  private holdTimer?: ReturnType<typeof setTimeout>;
   private workers = new Map<string, Worker>();
+  /** Laya relevance checks in flight, by delivery. */
+  private deciding = new Map<string, AbortController>();
   constructor(
     private store: Store,
     private runner: Runner,
@@ -178,12 +194,24 @@ export class GroupChats implements GroupGateway {
     this.member(room, botId);
     const run = this.store.data.runs.find((r) => r.id === runId),
       designId = room.messages.find((m) => m.id === worker.deliveries[0]?.messageId)?.designSessionId;
+    // Messages may reach this safe boundary before the pump has triaged them.
+    const holds: number[] = [];
+    for (const delivery of this.store.data.groupDeliveries)
+      if (
+        delivery.groupId === room.id &&
+        delivery.recipientId === botId &&
+        delivery.status === 'queued' &&
+        !delivery.triage
+      )
+        this.sort(room, delivery, holds);
+    if (holds.length) this.wake();
     const deliveries = this.store.data.groupDeliveries
       .filter((d) => {
         if (
           d.groupId !== room.id ||
           d.recipientId !== botId ||
           d.status !== 'queued' ||
+          d.triage !== 'wake' ||
           this.round(d.rootId).status !== 'active'
         )
           return false;
@@ -213,7 +241,66 @@ export class GroupChats implements GroupGateway {
       worker.deliveries.push(delivery);
     }
     if (deliveries.length) this.touch();
-    return deliveries.map((d) => room.messages.find((m) => m.id === d.messageId)!).filter(Boolean);
+    const received = deliveries.map((d) => room.messages.find((m) => m.id === d.messageId)!).filter(Boolean);
+    for (const message of received) worker.seenSeq = Math.max(worker.seenSeq, message.seq);
+    return received;
+  }
+  /**
+   * Checked when a run is about to end with a final reply. Returns a note to send the model back once,
+   * or nothing to settle the reply now (design sections 6.2 and 7.4).
+   */
+  beforeFinal(botId: string, runId: string, content: string) {
+    const worker = this.workers.get(botId);
+    if (!worker || worker.runId !== runId || worker.controller.signal.aborted) return;
+    const room = this.store.data.groups.find((item) => item.id === worker.groupId);
+    if (!room) return;
+    const silent = !content || hasSilenceMarker(content),
+      own = new Set(worker.deliveries.map((delivery) => delivery.messageId)),
+      excerpt = (message: GroupMessage) => ({
+        messageId: message.id,
+        from: message.sender.name,
+        content: groupReplyContent(
+          message.content,
+          message.sender.kind === 'bot' ? message.sender.id : undefined,
+        ).slice(0, 300),
+      });
+    // Look once more before speaking: someone answered the same message, or the user said something new.
+    const arrived = room.messages.filter(
+      (message) =>
+        message.seq > worker.seenSeq &&
+        message.sender.id !== botId &&
+        message.kind !== 'reaction' &&
+        ((message.sender.kind === 'user' && message.kind === 'message') ||
+          [replyTarget(message), message.answers].some((id) => id && own.has(id))),
+    );
+    worker.seenSeq = room.messages.at(-1)?.seq || worker.seenSeq;
+    if (arrived.length && !silent) return groupReviewNote(content, arrived.slice(-5).map(excerpt));
+    const unanswered = worker.deliveries
+      .filter((delivery) => delivery.must)
+      .map((delivery) => room.messages.find((message) => message.id === delivery.messageId)!)
+      .filter((message) => message && !answerFrom(room, message, botId));
+    if (silent && unanswered.length && !worker.noted.has('must')) {
+      worker.noted.add('must');
+      return groupMustAnswerNote(unanswered.slice(-5).map(excerpt));
+    }
+    if (!silent && !this.publishable(worker, runId) && !worker.noted.has('unsent')) {
+      worker.noted.add('unsent');
+      return GROUP_UNSENT_NOTE;
+    }
+  }
+  /**
+   * Final text is published only for addressed messages or when the work did something for the user,
+   * counting the run a retried or requeued run continues.
+   */
+  private publishable(worker: Worker, runId: string) {
+    const run = this.store.data.runs.find((item) => item.id === runId),
+      runs = [runId, run?.resumedFromRunId, worker.continues].filter(Boolean) as string[];
+    return (
+      worker.deliveries.some((delivery) => delivery.must) ||
+      runs.some((id) =>
+        this.store.runMessages(id).some((message) => message.role === 'tool' && isGroupWorkTool(message.tool)),
+      )
+    );
   }
   /** Persist a private outbox entry first; publish text, delivery records and the receipt together. */
   private publish(
@@ -222,7 +309,13 @@ export class GroupChats implements GroupGateway {
     round: GroupRound,
     content: string,
     mentions: BotMention[],
-    fields: { key: string; kind?: 'message' | 'progress'; replyTo?: string; attachments?: GroupMessage['attachments'] },
+    fields: {
+      key: string;
+      kind?: 'message' | 'progress';
+      replyTo?: string;
+      answers?: string;
+      attachments?: GroupMessage['attachments'];
+    },
   ) {
     this.member(room, run.botId);
     if (round.status !== 'active' || !['running', 'completed'].includes(run.status)) throw Error('本轮讨论已停止');
@@ -272,6 +365,7 @@ export class GroupChats implements GroupGateway {
         attachments: fields.attachments,
         kind,
         replyTo: fields.replyTo,
+        answers: fields.answers,
         status: 'pending',
         createdAt: now(),
         designSessionId: run.designSessionId,
@@ -302,7 +396,12 @@ export class GroupChats implements GroupGateway {
         entry.mentions,
         entry.kind,
         entry.replyTo,
-        { attachments: entry.attachments, designSessionId: entry.designSessionId, runIds: [run.id] },
+        {
+          attachments: entry.attachments,
+          designSessionId: entry.designSessionId,
+          runIds: [run.id],
+          ...(entry.answers ? { answers: entry.answers } : {}),
+        },
       );
       entry.status = 'sent';
       entry.messageId = message.id;
@@ -391,7 +490,16 @@ export class GroupChats implements GroupGateway {
       ...(round
         ? { round: { id: round.id, status: round.status, botMessages: round.botMessages, reason: round.reason } }
         : {}),
-      activities: workers.map((worker) => ({ botId: worker.botId, phase: 'running' })),
+      activities: [
+        ...workers.map((worker) => ({ botId: worker.botId, phase: 'running' as const })),
+        ...[
+          ...new Set(
+            this.store.data.groupDeliveries
+              .filter((d) => d.groupId === room.id && d.status === 'deciding' && !this.workers.has(d.recipientId))
+              .map((d) => d.recipientId),
+          ),
+        ].map((botId) => ({ botId, phase: 'deciding' as const })),
+      ],
     };
   }
   snapshot(): GroupsView {
@@ -511,6 +619,8 @@ export class GroupChats implements GroupGateway {
         | 'reply'
         | 'previewPrompt'
         | 'designSessionId'
+        | 'answers'
+        | 'notice'
       >
     > = {},
   ) {
@@ -778,6 +888,7 @@ export class GroupChats implements GroupGateway {
       )) {
         delivery.status = 'cancelled';
         delivery.reason = round.reason;
+        this.deciding.get(delivery.id)?.abort();
       }
       for (const worker of this.workers.values())
         if (worker.rootId === rootId) {
@@ -793,6 +904,7 @@ export class GroupChats implements GroupGateway {
     )) {
       delivery.status = 'cancelled';
       delivery.reason = reason;
+      this.deciding.get(delivery.id)?.abort();
     }
     const worker = this.workers.get(botId);
     if (worker?.groupId === groupId) {
@@ -848,6 +960,7 @@ export class GroupChats implements GroupGateway {
     round.status = 'active';
     delete round.reason;
     delivery.status = 'queued';
+    delivery.triage = 'wake';
     delivery.retryRunId = run.id;
     delete delivery.reason;
     this.touch();
@@ -859,12 +972,174 @@ export class GroupChats implements GroupGateway {
     for (const delivery of worker.deliveries)
       if (groupPending(delivery.status) && this.round(delivery.rootId).status === 'active') {
         delivery.status = 'queued';
+        delivery.triage = 'wake';
         delivery.reason = undefined;
       }
+  }
+  /** One generated line about what a Bot is doing, without a model call (design section 10.1). */
+  private status(room: GroupRoom, botId: string) {
+    const worker = this.workers.get(botId);
+    if (!worker) return this.runner.isRunning(botId) ? '忙碌' : '空闲';
+    if (worker.groupId !== room.id) return '忙碌';
+    const request = worker.deliveries
+        .map((delivery) => room.messages.find((message) => message.id === delivery.messageId))
+        .find((message) => message?.sender.kind === 'user' && message.kind === 'message'),
+      steps = this.store.data.runs.find((run) => run.id === worker.runId)?.plan?.steps || [],
+      done = steps.filter((step) => step.status === 'done' || step.status === 'skipped').length;
+    return (
+      '在做：' +
+      (groupReplyContent(request?.content || '').slice(0, 60) || '群里的讨论') +
+      (steps.length ? `（计划 ${done}/${steps.length}）` : '')
+    );
+  }
+  /** Apply the wake rules to one queued delivery. Returns true when its state changed. */
+  private sort(room: GroupRoom, delivery: GroupDelivery, holds: number[]) {
+    const message = room.messages.find((item) => item.id === delivery.messageId);
+    const result = triage(delivery, {
+      room,
+      deliveries: this.store.data.groupDeliveries.filter((item) => item.groupId === room.id),
+      now: Date.now(),
+      holdMs: GROUP_LIMITS.holdSeconds * 1000,
+      scheduledBy: message?.scheduled
+        ? this.store.data.scheduledTasks.find(
+            (task) => task.id === message.scheduled!.taskId && task.createdBy.kind === 'bot',
+          )?.createdBy.id
+        : undefined,
+      designOwner: message?.designSessionId
+        ? this.store.data.runs.find(
+            (run) => run.designSessionId === message.designSessionId && run.groupOrigin?.groupId === room.id,
+          )?.botId
+        : undefined,
+    });
+    if (result.kind === 'hold') {
+      holds.push(result.until);
+      return false;
+    }
+    if (result.kind === 'wake') {
+      delivery.triage = 'wake';
+      delivery.must = result.must || undefined;
+      return true;
+    }
+    if (result.kind === 'skip' || result.kind === 'limited') {
+      delivery.triage = 'skip';
+      delivery.status = result.kind === 'limited' ? 'limited' : 'ignored';
+      delivery.reason =
+        result.kind === 'skip'
+          ? result.reason
+          : result.reason === 'pair'
+            ? '两个 Bot 之间来回已达上限'
+            : 'Bot 之间的发言已达上限，等待用户发言';
+      if (result.kind === 'limited') this.noticeLimit(room, message!, delivery.recipientId, result.peerId);
+      if (message) this.noticeUnanswered(room, message);
+      return true;
+    }
+    if (!this.laya?.isReady) {
+      delivery.triage = 'wake';
+      return true;
+    }
+    void this.decide(room, delivery, message!, result.answer);
+    return true;
+  }
+  /** Laya's one question for messages nobody addressed to this Bot: does it relate to its role or work? */
+  private async decide(room: GroupRoom, delivery: GroupDelivery, message: GroupMessage, answer?: GroupMessage) {
+    const controller = new AbortController(),
+      bot = this.store.bot(delivery.recipientId);
+    this.deciding.set(delivery.id, controller);
+    delivery.status = 'deciding';
+    delivery.layaDecisionId = delivery.id;
+    let observe = false;
+    try {
+      const decision = await this.laya!.decide(
+        {
+          sourceId: delivery.id,
+          actorId: bot.id,
+          input: buildGroupDecisionInput(room, bot, message, this.status(room, bot.id), answer),
+        },
+        controller.signal,
+      );
+      observe = decision?.appliedChoice === 'observe';
+    } catch {
+      // An unavailable Laya counts as "respond"; the main model can still decide not to speak.
+    } finally {
+      this.deciding.delete(delivery.id);
+    }
+    if (this.closing || controller.signal.aborted || delivery.status !== 'deciding') return;
+    if (observe) {
+      delivery.triage = 'skip';
+      delivery.status = 'ignored';
+      delivery.reason = '已看过，和自己无关';
+      this.noticeUnanswered(room, message);
+    } else {
+      delivery.triage = 'wake';
+      delivery.status = 'queued';
+    }
+    this.touch();
+  }
+  private scheduleHold(holds: number[]) {
+    clearTimeout(this.holdTimer);
+    this.holdTimer = undefined;
+    if (!holds.length || this.closing) return;
+    this.holdTimer = setTimeout(
+      () => {
+        this.holdTimer = undefined;
+        this.pump();
+      },
+      Math.max(100, Math.min(...holds) - Date.now()),
+    );
+    this.holdTimer.unref?.();
+  }
+  /** Tell the pair that stopped waking each other who sums up, once per pair until the user speaks. */
+  private noticeLimit(room: GroupRoom, message: GroupMessage, recipientId: string, peerId?: string) {
+    const round = message.rootId ? this.store.data.groupRounds.find((item) => item.id === message.rootId) : undefined;
+    if (!round || round.status !== 'active') return;
+    if (!peerId) {
+      if (noticed(room, 'bot_limit')) return;
+      this.append(
+        room,
+        system,
+        `Bot 之间的发言已达 ${GROUP_LIMITS.botStreak} 条，在你发言前不再互相叫醒。`,
+        round,
+        undefined,
+        'system',
+        undefined,
+        { notice: 'bot_limit' },
+      );
+      return;
+    }
+    const pair = [peerId, recipientId].map((id) => this.store.bot(id)),
+      key = pair
+        .map((bot) => bot.name)
+        .sort()
+        .join('、');
+    if (noticed(room, 'pair_limit', key)) return;
+    // Whoever spoke first in this exchange sums it up.
+    const first = sinceUser(room).find((item) => pair.some((bot) => bot.id === item.sender.id)),
+      owner = pair.find((bot) => bot.id === first?.sender.id) || pair[0],
+      content = `@${owner.name} ${key} 已来回 ${GROUP_LIMITS.pairStreak / 2} 轮，彼此的消息不再叫醒对方。请汇总双方理由，自己决定，或交给用户决定。`;
+    this.append(
+      room,
+      system,
+      content,
+      round,
+      [{ ...identity(owner), start: 0, end: owner.name.length + 1 }],
+      'system',
+      undefined,
+      { notice: 'pair_limit' },
+    );
+  }
+  /** When no Bot answers an unaddressed user message, say so once and suggest an @. */
+  private noticeUnanswered(room: GroupRoom, message: GroupMessage) {
+    const round = message.rootId ? this.store.data.groupRounds.find((item) => item.id === message.rootId) : undefined;
+    if (!round || round.status !== 'active' || !unanswered(room, this.store.data.groupDeliveries, message)) return;
+    if (room.messages.some((item) => item.notice === 'unanswered' && item.replyTo === message.id)) return;
+    this.append(room, system, '没有 Bot 回应，可以 @ 一个。', round, undefined, 'system', message.id, {
+      notice: 'unanswered',
+    });
   }
   private pump() {
     if (this.closing) return;
     let dirty = false;
+    const holds: number[] = [];
     // A worker owns one Bot, never an entire group. All idle recipients start together.
     for (const delivery of this.store.data.groupDeliveries.filter((d) => d.status === 'queued')) {
       if (delivery.status !== 'queued') continue;
@@ -881,6 +1156,8 @@ export class GroupChats implements GroupGateway {
         dirty = true;
         continue;
       }
+      if (!delivery.triage && this.sort(room, delivery, holds)) dirty = true;
+      if (delivery.status !== 'queued' || delivery.triage !== 'wake') continue;
       if (this.workers.has(delivery.recipientId) || this.runner.isRunning(delivery.recipientId)) continue;
       const batch = this.store.data.groupDeliveries
         .filter(
@@ -888,6 +1165,7 @@ export class GroupChats implements GroupGateway {
             d.groupId === room.id &&
             d.recipientId === delivery.recipientId &&
             d.status === 'queued' &&
+            d.triage === 'wake' &&
             this.round(d.rootId).status === 'active',
         )
         .slice(0, 8);
@@ -905,6 +1183,8 @@ export class GroupChats implements GroupGateway {
         rootId: trigger.rootId,
         deliveries: batch,
         controller: new AbortController(),
+        seenSeq: room.messages.at(-1)?.seq || 0,
+        noted: new Set(),
       };
       this.workers.set(worker.botId, worker);
       void this.process(room, worker)
@@ -923,6 +1203,7 @@ export class GroupChats implements GroupGateway {
           this.touch();
         });
     }
+    this.scheduleHold(holds);
     if (dirty) this.touch();
   }
   private async process(room: GroupRoom, worker: Worker) {
@@ -931,13 +1212,7 @@ export class GroupChats implements GroupGateway {
       { deliveries, controller } = worker;
     this.member(room, bot.id);
     if (round.status !== 'active') return;
-    const trigger = deliveries.at(-1)!;
-    for (const delivery of deliveries) {
-      delivery.status = this.laya?.isReady ? 'deciding' : 'running';
-      if (this.laya?.isReady) {
-        delivery.layaDecisionId = trigger.id;
-      }
-    }
+    for (const delivery of deliveries) delivery.status = 'running';
     this.touch();
     const retry = [...deliveries]
       .reverse()
@@ -956,6 +1231,7 @@ export class GroupChats implements GroupGateway {
           ),
         )
         .find(Boolean);
+    worker.continues = previousRun?.id;
     const recent = room.messages
       .filter((message) => !bot.contextResetAt || message.time >= bot.contextResetAt)
       .slice(-4)
@@ -972,36 +1248,22 @@ export class GroupChats implements GroupGateway {
         event: message.event,
         mentions: message.mentions?.map((mention) => mention.id),
       }));
-    let decision: GroupDecisionRecord | undefined;
-    if (this.laya?.isReady) {
-      const decisionInput = buildGroupDecisionInput(room, round, bot, deliveries);
-      decision = await this.laya.decide(
-        {
-          sourceId: trigger.id,
-          actorId: bot.id,
-          input: decisionInput,
-          requiredWork: Boolean(previousRun),
-        },
-        controller.signal,
-      );
-    }
-    if (controller.signal.aborted || round.status !== 'active') return;
-    if (decision?.appliedChoice === 'observe') {
-      for (const delivery of deliveries) {
-        delivery.status = 'ignored';
-        delivery.reason = '已看过，本轮旁听';
-      }
-      this.touch();
-      return;
-    }
-    for (const delivery of deliveries) delivery.status = 'running';
-    this.touch();
+    // Only user requests handed to this Bot, never another member's request or this round's root.
+    const requests = deliveries.flatMap((delivery) => {
+      const message = room.messages.find((item) => item.id === delivery.messageId);
+      if (!message) return [];
+      if (message.scheduled || message.kind === 'continue')
+        return [this.store.data.groupRounds.find((item) => item.id === message.rootId)?.request || message.content];
+      if (message.sender.kind !== 'user' || message.kind !== 'message') return [];
+      if (message.mentions?.length && !message.mentions.some((mention) => mention.id === bot.id)) return [];
+      return [message.content || round.request];
+    });
     const context = groupEventPrompt(
       room.name,
       room.id,
       bot.name,
       this.identities(room).map((m) => ({ id: m.id, name: m.name })),
-      round.request,
+      requests,
     );
     const lastMessage = room.messages.find((m) => m.id === deliveries.at(-1)?.messageId),
       workItem = lastMessage?.workItemId
@@ -1031,17 +1293,6 @@ export class GroupChats implements GroupGateway {
           };
         }),
         recent,
-        ...(decision
-          ? {
-              layaDecision: {
-                choice: decision.appliedChoice,
-                predictedChoice: decision.choice,
-                adjustment: decision.adjustment,
-                meaning: '参与本轮；根据用户需求决定回复或执行',
-                revisionAllowed: true,
-              },
-            }
-          : {}),
       }),
       {
         designSessionId: lastMessage?.designSessionId || previousRun?.designSessionId,
@@ -1054,13 +1305,7 @@ export class GroupChats implements GroupGateway {
           lastMessage?.workspaceDir ||
           effectiveWorkspace(this.store, this.host, { kind: 'group', id: room.id }),
         groupOrigin: { groupId: room.id, rootId: round.id, deliveryId: deliveries.at(-1)!.id },
-        groupContext:
-          context +
-          GROUP_STATE_EVENT_PROMPT +
-          (decision
-            ? '\nLaya 给出的本轮参与方式已在用户事件中标注。先按它行动；读到更多上下文后可以调整，并在发言或执行记录中说明调整。'
-            : '') +
-          (this.laya?.enabled && !decision ? '\n本地决策暂不可用，请自行判断是否需要旁听或参与。' : ''),
+        groupContext: context + GROUP_STATE_EVENT_PROMPT,
         groupTaskFrom: previousRun?.id,
         onStarted: (id) => {
           worker.runId = id;
@@ -1083,7 +1328,8 @@ export class GroupChats implements GroupGateway {
         .filter((message) => message.presentation === 'answer')
         .at(-1),
       answer = readableContent(finalMessage?.content || attachmentSummary(finalMessage?.attachments)).trim();
-    const finalReply = this.beforeFinalReplyPublish(answer),
+    const publishable = this.publishable(worker, run.id),
+      finalReply = this.beforeFinalReplyPublish(publishable ? answer : ''),
       emitted = [...room.messages]
         .reverse()
         .find((message) => message.sender.id === bot.id && message.runIds?.includes(run.id));
@@ -1095,11 +1341,19 @@ export class GroupChats implements GroupGateway {
       }
       return;
     }
-    const triggerMessage = room.messages.find((message) => message.id === deliveries.at(-1)?.messageId);
+    // The final reply answers the last addressed message, or else the last message that woke this Bot.
+    const triggerMessage = room.messages.find(
+      (message) =>
+        message.id === (deliveries.filter((delivery) => delivery.must).at(-1) || deliveries.at(-1))?.messageId,
+    );
     if (finalReply.kind === 'silent') {
       for (const delivery of deliveries) {
         delivery.status = 'ignored';
-        delivery.reason = '已处理，无需公开回复';
+        delivery.reason = publishable ? '已处理，无需公开回复' : '已看过，没有发言';
+      }
+      for (const messageId of new Set(deliveries.map((delivery) => delivery.messageId))) {
+        const message = room.messages.find((item) => item.id === messageId);
+        if (message) this.noticeUnanswered(room, message);
       }
       return;
     }
@@ -1116,6 +1370,7 @@ export class GroupChats implements GroupGateway {
           )
           .digest('hex'),
       replyTo: triggerMessage?.id,
+      answers: triggerMessage?.id,
       attachments: finalMessage?.attachments,
     });
     run.groupReplyMessageId = message.id;
@@ -1308,9 +1563,16 @@ export class GroupChats implements GroupGateway {
               JSON.stringify([formatted.content, formatted.mentions.map((m) => m.id), attachments.map((a) => a.id)]),
             )
             .digest('hex');
+      const replyTo = args.replyToMessageId ? required(args.replyToMessageId, '回复的消息 ID', 80) : undefined;
+      if (replyTo && !room.messages.some((m) => m.id === replyTo && ['message', 'progress', 'system'].includes(m.kind)))
+        throw new AppError('group.reply_target_invalid', '只能回复本群已发送的消息');
+      const worker = this.workers.get(botId),
+        answers = worker?.runId === runId ? worker.deliveries.at(-1)?.messageId : undefined;
       const message = this.publish(room, run, round, formatted.content, formatted.mentions, {
         key,
         kind: args.kind === 'progress' ? 'progress' : 'message',
+        replyTo,
+        ...(args.kind === 'progress' ? {} : { answers }),
         attachments,
       });
       return {
@@ -1324,6 +1586,8 @@ export class GroupChats implements GroupGateway {
   dispose() {
     this.closing = true;
     clearTimeout(this.timer);
+    clearTimeout(this.holdTimer);
+    for (const controller of this.deciding.values()) controller.abort();
     for (const room of this.store.data.groups) this.stop(room.id);
   }
 }

@@ -1416,6 +1416,18 @@ export class Harness {
             visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
             continue;
           }
+          const groupNote =
+            options.groupOrigin && this.groups?.beforeFinal?.(botId, run.id, readableContent(result.content).trim());
+          if (groupNote) {
+            visible.status = 'done';
+            visible.presentation = 'progress';
+            if (!readableContent(visible.content)) visible.content = '';
+            history.push({ role: 'system', content: groupNote });
+            visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
+            this.store.save();
+            this.changed();
+            continue;
+          }
           if (options.groupOrigin && this.groups) {
             try {
               const reply = this.groups.prepareReply(botId, run.id, readableContent(result.content).trim());

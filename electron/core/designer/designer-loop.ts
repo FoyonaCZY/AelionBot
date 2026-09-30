@@ -1417,6 +1417,12 @@ export class DesignerLoop {
             }
             throw Error('仍有未解决的执行失败，不能确认完成');
           }
+          const groupNote = options.groupOrigin && this.groups?.beforeFinal?.(botId, run.id, result.content.trim());
+          if (groupNote) {
+            visible.presentation = 'progress';
+            history.push({ role: 'system', content: groupNote });
+            continue;
+          }
           if (!result.content.trim() && !run.attachments?.length) throw Error('模型没有返回答复');
           if (options.groupOrigin && this.groups) {
             const formatted = this.groups.prepareReply(botId, run.id, visible.content);

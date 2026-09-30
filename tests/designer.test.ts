@@ -15,6 +15,7 @@ import { DesignerLoop } from '../electron/core/designer/designer-loop';
 import { BotRuntime } from '../electron/core/agent/bot-runtime';
 import { zipSync, strToU8 } from 'fflate';
 import type { RunRecord } from '../shared/types/core';
+import { botIdentity } from '../shared/chat/bot-colors';
 
 function fixture(t: any) {
   const root = tempDir(t, 'aelion-design-');
@@ -1040,7 +1041,11 @@ test('designer uses the same group inbox and outbox without importing private de
   shared.setGroupGateway(groups);
   loop.setGroupGateway(groups);
   const room = groups.create({ name: 'Designer group', botIds: [f.bot.id, other.id] });
-  groups.send({ id: room.id, message: '请说明设计交付要求' });
+  groups.send({
+    id: room.id,
+    message: `@${f.bot.name} 请说明设计交付要求`,
+    mentions: [{ ...botIdentity(f.bot), start: 0, end: f.bot.name.length + 1 }],
+  });
   groups.start();
   try {
     await until(() => f.store.data.groups[0].messages.some((m) => m.content === '交付说明已核对。'));
