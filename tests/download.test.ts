@@ -2,7 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomBytes } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import {
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+  existsSync,
+  statSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { verifiedDownload } from '../electron/core/vm/download';
@@ -42,7 +51,16 @@ test('an interrupted image transfer resumes its actual stored bytes and verifies
     if (requests === 1) {
       response.writeHead(200, { 'Content-Length': body.length });
       response.write(body.subarray(0, 32768));
-      setTimeout(() => response.destroy(), 30);
+      // Drop the connection once the client has stored some bytes, so the retry must resume from them. A fixed
+      // delay raced the client's first write on slow CI runners and let it restart from zero.
+      const part = f.destination + '.part',
+        started = Date.now(),
+        poll = setInterval(() => {
+          if ((existsSync(part) && statSync(part).size > 0) || Date.now() - started > 5000) {
+            clearInterval(poll);
+            response.destroy();
+          }
+        }, 5);
     } else {
       resume = Number(/bytes=(\d+)-/.exec(request.headers.range || '')?.[1] || 0);
       serve(body, request, response);
