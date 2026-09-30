@@ -21,6 +21,7 @@ import type { RunRecord, WireMessage } from '../shared/types/core';
 import { groupPending } from '../shared/types/group-types';
 import { peerPending } from '../shared/types/peer-types';
 import { ATTACHMENT_LIMITS } from '../shared/types/attachment-types';
+import { botIdentity } from '../shared/chat/bot-colors';
 const tool = (name: string, args: object): Completion => ({
   content: '',
   calls: [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }],
@@ -418,7 +419,12 @@ test('reading a group attachment stays in the group and does not create work car
   const room = fx.groups.create({ name: '附件讨论', botIds: [fx.a.id, fx.b.id] }),
     [file] = fx.attachments.importFiles({ kind: 'group', id: room.id }, [{ name: '资料.csv', bytes: document }]);
   attachmentId = file.id;
-  fx.groups.send({ id: room.id, message: '这是什么', attachmentIds: [file.id] });
+  fx.groups.send({
+    id: room.id,
+    message: `@${fx.a.name} 这是什么`,
+    mentions: [{ ...botIdentity(fx.a), start: 0, end: fx.a.name.length + 1 }],
+    attachmentIds: [file.id],
+  });
   fx.groups.start();
   await until(fx.idle);
   const run = fx.store.data.runs.find((run) => run.botId === fx.a.id && run.toolCalls)!;

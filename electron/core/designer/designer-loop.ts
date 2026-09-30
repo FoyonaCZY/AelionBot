@@ -343,7 +343,7 @@ export class DesignerLoop {
         (SHARED.has(name) ||
           (Boolean(options.groupOrigin) &&
             (groupProtocolTool(name) ||
-              ['group_read', 'group_send_message', 'group_pin', 'history_search', 'history_read'].includes(name))) ||
+              ['group_read', 'group_send_message', 'group_react', 'history_search', 'history_read'].includes(name))) ||
           name.startsWith('scheduled_') ||
           (name === 'memory' && Boolean(memoryPermission?.targetBotIds.includes(botId)))) &&
         (!options.groupOrigin || !['bot_send_message', 'bot_delegate_task'].includes(name)) &&
@@ -354,8 +354,7 @@ export class DesignerLoop {
             'bot_read_messages',
             'group_read',
             'group_send_message',
-            'group_pin',
-            'group_tasks',
+            'group_react',
             'group_outbox',
             'history_search',
             'history_read',
@@ -1173,12 +1172,7 @@ export class DesignerLoop {
           tools,
           signal: controller.signal,
           scopeKey: scope.key,
-          taskFrame: [
-            session ? this.designs.frame(session) : 'Conversation only',
-            options.groupOrigin ? this.groups?.taskFrame?.(botId, run.id) : '',
-          ]
-            .filter(Boolean)
-            .join('\n'),
+          taskFrame: session ? this.designs.frame(session) : 'Conversation only',
           pendingFailures: ledger.failureMap(botId, run.id),
         };
         let prepared = await this.context.prepare(contextInput);
@@ -1226,6 +1220,7 @@ export class DesignerLoop {
               },
               maxOutputTokens: prepared.maxOutputTokens,
               hostedImageGeneration: false,
+              allowEmpty: Boolean(options.groupOrigin),
               onStatus: (status) => {
                 run.modelRequest = status;
                 this.changed();
@@ -1367,18 +1362,6 @@ export class DesignerLoop {
             }
             throw Error('仍有未结束的后台任务');
           }
-          if (options.groupOrigin && this.groups?.unfinished?.(botId, run.id)) {
-            if (corrections++ < 2) {
-              visible.presentation = 'progress';
-              history.push({
-                role: 'system',
-                content:
-                  '你认领的群任务仍为 working。继续实际执行，然后 group_task_update 标记完成或说明 blocked；不要仅承诺稍后再做。',
-              });
-              continue;
-            }
-            throw Error('群任务尚未完成，已保留工作记录');
-          }
           if (localFailures.size) {
             if (corrections++ < 2) {
               visible.presentation = 'progress';
@@ -1407,7 +1390,14 @@ export class DesignerLoop {
             }
             throw Error('仍有未解决的执行失败，不能确认完成');
           }
-          if (!result.content.trim() && !run.attachments?.length) throw Error('模型没有返回答复');
+          const groupNote = options.groupOrigin && this.groups?.beforeFinal?.(botId, run.id, result.content.trim());
+          if (groupNote) {
+            visible.presentation = 'progress';
+            history.push({ role: 'system', content: groupNote });
+            continue;
+          }
+          if (!result.content.trim() && !run.attachments?.length && !options.groupOrigin)
+            throw Error('模型没有返回答复');
           if (options.groupOrigin && this.groups) {
             const formatted = this.groups.prepareReply(botId, run.id, visible.content);
             visible.content = formatted.content;

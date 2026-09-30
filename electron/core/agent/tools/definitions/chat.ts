@@ -15,8 +15,8 @@ export const CHAT_TOOLS: ToolDefinition[] = [
     ['messageId', 'emoji'],
   ),
   tool(
-    'group_pin',
-    '用 emoji 回应自己所在群的一条已发布消息，代替重复接话。表态会作为一次群发事件通知其他成员。不要回应别人的表态事件，也不要给自己表态。仅需要表态时用表情结束发言，不补发同义文字。承担任务或同时调用其他工具时继续执行，完成后仍需给出结果。',
+    'group_react',
+    '用 emoji 回应自己所在群的一条已发布消息，代替重复接话，例如同意时用 👍。表态不叫醒任何人，但算作对那条消息的答复。不要回应别人的表态事件，也不要给自己表态。仅需要表态时用表情结束发言，不补发同义文字。承担任务或同时调用其他工具时继续执行，完成后仍需给出结果。',
     {
       groupId: string,
       messageId: string,
@@ -53,10 +53,11 @@ export const CHAT_TOOLS: ToolDefinition[] = [
   ),
   tool(
     'group_send_message',
-    '向自己参加的群发送一条具体协作消息。其他成员会收到事件并按需回应，无需轮询。message 可以包含 @{成员ID} 来 @ 群成员，唯一名字也可直接写 @名字。在群任务中可明确发布进展、提醒、问题或结果，其他执行草稿不会自动发送。clientMessageId 是本轮稳定的发件标识，重试复用；最终答复也会经发件箱发送，无需重复同一条。',
+    '向自己参加的群发送一条具体协作消息。其他成员都会收到，被 @ 或被回复的成员会被叫醒，无需轮询。message 可以包含 @{成员ID} 来 @ 群成员，唯一名字也可直接写 @名字；replyToMessageId 是接着回复的那条消息。可明确发布进展、提醒、问题或结果，其他执行草稿不会自动发送。clientMessageId 是本轮稳定的发件标识，重试复用；最终答复会自动发到群里，无需重复同一条。',
     {
       groupId: string,
       message: string,
+      replyToMessageId: string,
       attachments: attachmentList,
       clientMessageId: string,
       kind: { type: 'string', enum: ['message', 'progress'] },

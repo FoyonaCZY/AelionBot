@@ -783,8 +783,9 @@ test('private replies and group notifications use each recipient own Provider', 
     () =>
       !groups.busy && !harness.busy && !f.store.data.groupDeliveries.some((delivery) => groupPending(delivery.status)),
   );
-  assert.equal(a.requests.length, 1);
-  assert.equal(b.requests.length, 1);
+  // Both were idle, so both must answer; staying quiet gets one reminder each.
+  assert.equal(a.requests.length, 2);
+  assert.equal(b.requests.length, 2);
   assert.equal(a.requests[0].body.model, 'alpha-model');
   assert.equal(b.requests[0].body.model, 'beta-model');
   const tag = '@' + botB.name;
@@ -797,9 +798,11 @@ test('private replies and group notifications use each recipient own Provider', 
     () =>
       !groups.busy && !harness.busy && !f.store.data.groupDeliveries.some((delivery) => groupPending(delivery.status)),
   );
-  assert.equal(a.requests.length, 2);
-  assert.equal(b.requests.length, 2);
-  assert.equal(b.requests[1].body.model, 'beta-model');
+  // Addressed, B stays silent and is reminded once to answer; A looks after B has given up.
+  assert.equal(a.requests.length, 3);
+  assert.equal(b.requests.length, 4);
+  assert.ok(a.requests.every((request) => request.body.model === 'alpha-model'));
+  assert.ok(b.requests.every((request) => request.body.model === 'beta-model'));
 });
 
 test('image generation is configured per Provider and per model, and resolves through the Bot image selection', async (t) => {

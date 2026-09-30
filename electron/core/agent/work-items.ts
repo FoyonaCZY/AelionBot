@@ -11,7 +11,6 @@ import { AppError } from '../../../shared/errors';
 export const PLANNING_TOOLS = new Set([
   'groups_list',
   'group_read',
-  'group_tasks',
   'group_outbox',
   'open_preview',
   'code_exec',
@@ -237,7 +236,7 @@ export class WorkItems {
     return this.store.data.runs
       .filter((r) => r.botId === item.botId && item.runIds.includes(r.id))
       .flatMap((r) => r.executions || [])
-      .filter((e) => e.status === 'succeeded' && !/^(task_|plan_|goal_|execution_|group_task_)/.test(e.tool));
+      .filter((e) => e.status === 'succeeded' && !/^(task_|plan_|goal_|execution_)/.test(e.tool));
   }
   finish(run: RunRecord) {
     const item = this.sync(run);

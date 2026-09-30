@@ -44,8 +44,6 @@ function fixture(t: test.TestContext) {
     status: 'stopped',
     createdAt: time,
     botMessages: 0,
-    botCounts: {},
-    decisions: 0,
     createdGroups: 0,
   });
   function legacyMainMessage(...args: Parameters<Store['message']>) {
