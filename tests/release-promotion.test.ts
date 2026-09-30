@@ -21,17 +21,23 @@ function fixture() {
       head_repository: { full_name: 'example/AelionBot' },
       head_sha: 'a'.repeat(40),
     },
+    // Source checks run once in "Verify source"; packaging jobs carry only their build and verify steps.
     jobs: {
-      jobs: ['windows-x64', 'macos-arm64', 'macos-x64'].map((name) => ({
-        name,
-        conclusion: 'success',
-        steps: [
-          ...common,
-          ...(name === 'windows-x64'
+      jobs: [
+        {
+          name: 'Verify source',
+          conclusion: 'success',
+          steps: common.map((name) => ({ name, conclusion: 'success' })),
+        },
+        ...['windows-x64', 'macos-arm64', 'macos-x64'].map((name) => ({
+          name,
+          conclusion: 'success',
+          steps: (name === 'windows-x64'
             ? ['Build and verify Windows installer']
-            : ['Build and verify Mac installers', 'Verify packaged Mac app']),
-        ].map((name) => ({ name, conclusion: 'success' })),
-      })),
+            : ['Build and verify Mac installers', 'Verify packaged Mac app']
+          ).map((name) => ({ name, conclusion: 'success' })),
+        })),
+      ],
     },
     artifacts: {
       artifacts: ['AelionBot-windows-x64', 'AelionBot-macos-arm64', 'AelionBot-macos-x64'].map((name) => ({
@@ -78,12 +84,15 @@ test('release promotion pins the source from a complete three-platform build', (
 });
 test('Windows-only promotion requires Windows tests and assets without requiring Mac jobs', () => {
   const data = fixture();
-  data.jobs.jobs = data.jobs.jobs.slice(0, 1);
+  data.jobs.jobs = data.jobs.jobs.slice(0, 2);
   data.artifacts.artifacts = data.artifacts.artifacts.slice(0, 1);
   assert.equal(validate(data, '1234', 'windows'), 'sha=' + 'a'.repeat(40) + '\nrun_id=1234\n');
   assert.throws(() => validate(data), /Required checks/);
   data.jobs.jobs[0].steps.find((step) => step.name === 'Test')!.conclusion = 'skipped';
-  assert.throws(() => validate(data, '1234', 'windows'), /Required checks/);
+  assert.throws(() => validate(data, '1234', 'windows'), /Required checks did not pass: Verify source/);
+  const noVerify = fixture();
+  noVerify.jobs.jobs.shift();
+  assert.throws(() => validate(noVerify), /Required checks did not pass: Verify source/);
   assert.throws(() => validate(fixture(), '1234', 'invalid'), /Invalid release platforms/);
 });
 test('release promotion rejects unfinished builds, foreign code and missing Mac app verification', () => {
@@ -99,7 +108,7 @@ test('release promotion rejects unfinished builds, foreign code and missing Mac 
     Object.assign(data.run, patch);
     assert.throws(() => validate(data), /successful release build/);
   }
-  for (const index of [1, 2]) {
+  for (const index of [2, 3]) {
     const data = fixture();
     data.jobs.jobs[index].steps.at(-1)!.conclusion = 'skipped';
     assert.throws(() => validate(data), /Required checks did not pass/);

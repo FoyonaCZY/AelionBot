@@ -27,6 +27,18 @@ test('Mac desktop release matches the Windows packaging path by default', () => 
   assert.ok((cache as { with: { key: string } }).with.key.includes('runner.os'));
 });
 
+test('release runs the source checks once, beside packaging, and publishes only after all of them pass', () => {
+  const verify = release.jobs.verify.steps as { name?: string; run?: string }[];
+  assert.deepEqual(
+    ['Audit source', 'Typecheck', 'Test'].map((name) => verify.find((item) => item.name === name)?.run),
+    ['pnpm run audit:publish', 'pnpm run typecheck', 'pnpm test'],
+  );
+  // Packaging no longer waits for tests or the Debian check; the publish gate does.
+  assert.equal(release.jobs.build.needs, undefined);
+  assert.ok(!steps.some((item) => item.run === 'pnpm test'));
+  assert.deepEqual(release.jobs.publish.needs, ['guest-installer', 'verify', 'build']);
+});
+
 test('verified publish no longer boots a TCG guest and does not require the optional Mac smoke', () => {
   assert.equal(publish.jobs.packaged_vm, undefined);
   assert.deepEqual(publish.jobs.publish.needs, 'source');
