@@ -1463,7 +1463,9 @@ export class Harness {
           const record = this.store.data.runs.find((r) => r.id === run.id)!;
           visible.attachments =
             record.attachments || (options.peerOrigin?.kind === 'peer_summary' ? options.attachments : undefined);
-          if (!result.content.trim() && !visible.attachments?.length) throw new Error('模型没有返回结果');
+          // In a group, ending without text means having nothing to say.
+          if (!result.content.trim() && !visible.attachments?.length && !options.groupOrigin)
+            throw new Error('模型没有返回结果');
           if (!visible.content.trim() && visible.attachments?.length) visible.content = '已附上文件。';
           record.status = 'completed';
           record.endedAt = new Date().toISOString();

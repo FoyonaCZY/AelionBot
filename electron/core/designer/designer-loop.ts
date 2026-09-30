@@ -1423,7 +1423,8 @@ export class DesignerLoop {
             history.push({ role: 'system', content: groupNote });
             continue;
           }
-          if (!result.content.trim() && !run.attachments?.length) throw Error('模型没有返回答复');
+          if (!result.content.trim() && !run.attachments?.length && !options.groupOrigin)
+            throw Error('模型没有返回答复');
           if (options.groupOrigin && this.groups) {
             const formatted = this.groups.prepareReply(botId, run.id, visible.content);
             visible.content = formatted.content;

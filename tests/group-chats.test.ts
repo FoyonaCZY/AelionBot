@@ -22,7 +22,7 @@ import { conversationTimeline } from '../shared/chat/activity';
 import { groupParaphrases } from './fixtures/group-paraphrases';
 const publishedMessages = (messages: WireMessage[]) =>
   messages.filter((message) => message.groupMessageId).map((message) => JSON.parse(message.content!));
-const silent = () => answer('[群聊静默]');
+const silent = () => answer('');
 const call = (name: string, args: Record<string, unknown>): Completion => ({
   content: '',
   calls: [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }],
@@ -672,28 +672,27 @@ test('a reply written while another member answered the same message is reviewed
     ['补充：文件开头加 BOM，Excel 才不会乱码。'],
   );
 });
-test('unaddressed final text is not published; the model is told once and nobody answering is noted', async (t) => {
-  const notes: string[] = [];
+test('an unaddressed reply is published directly, and ending without text publishes nothing', async (t) => {
   const fx = fixture(t, (run, messages) => {
-    const note = messages.find((m) => m.role === 'system' && m.content?.includes('will not be published'));
-    if (note) {
-      notes.push(run.botId);
-      return silent();
-    }
-    return answer('我觉得还行。');
+    if (publishedMessages(messages).at(-1)?.event) return silent();
+    return run.botId === fx.a.id ? answer('我觉得还行。') : silent();
   });
   const room = fx.groups.create({ name: '不点名', botIds: [fx.a.id, fx.b.id] });
   await until(fx.settled);
-  const before = fx.store.data.groups[0].messages.length;
-  notes.length = 0;
   fx.groups.send({ id: room.id, message: '随便聊聊' });
   await until(fx.settled);
-  assert.deepEqual([...new Set(notes)].sort(), [fx.a.id, fx.b.id].sort());
-  const messages = fx.store.data.groups[0].messages;
-  assert.ok(!messages.slice(before).some((m) => m.sender.kind === 'bot'));
-  const notice = messages.filter((m) => m.notice === 'unanswered');
-  assert.equal(notice.length, 1);
-  assert.equal(notice[0].replyTo, messages.find((m) => m.content === '随便聊聊')!.id);
+  const messages = fx.store.data.groups[0].messages,
+    question = messages.find((m) => m.content === '随便聊聊')!;
+  assert.deepEqual(
+    messages.filter((m) => m.sender.kind === 'bot').map((m) => [m.sender.id, m.content, m.replyTo]),
+    [[fx.a.id, '我觉得还行。', question.id]],
+  );
+  assert.ok(fx.store.data.runs.every((run) => run.status === 'completed'));
+  assert.equal(
+    fx.store.data.groupDeliveries.find((d) => d.messageId === question.id && d.recipientId === fx.b.id)?.status,
+    'ignored',
+  );
+  assert.ok(!messages.some((m) => m.notice === 'unanswered'));
 });
 test('exact retries are idempotent per sender while each member may express the same conclusion', async (t) => {
   const fx = fixture(t, (_run, messages) =>

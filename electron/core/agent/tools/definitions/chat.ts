@@ -53,7 +53,7 @@ export const CHAT_TOOLS: ToolDefinition[] = [
   ),
   tool(
     'group_send_message',
-    '向自己参加的群发送一条具体协作消息。其他成员都会收到，被 @ 或被回复的成员会被叫醒，无需轮询。message 可以包含 @{成员ID} 来 @ 群成员，唯一名字也可直接写 @名字；replyToMessageId 是接着回复的那条消息。可明确发布进展、提醒、问题或结果，其他执行草稿不会自动发送。clientMessageId 是本轮稳定的发件标识，重试复用；只有被点名或为用户做了事时，最终答复才会自动发出，无需重复同一条。',
+    '向自己参加的群发送一条具体协作消息。其他成员都会收到，被 @ 或被回复的成员会被叫醒，无需轮询。message 可以包含 @{成员ID} 来 @ 群成员，唯一名字也可直接写 @名字；replyToMessageId 是接着回复的那条消息。可明确发布进展、提醒、问题或结果，其他执行草稿不会自动发送。clientMessageId 是本轮稳定的发件标识，重试复用；最终答复会自动发到群里，无需重复同一条。',
     {
       groupId: string,
       message: string,

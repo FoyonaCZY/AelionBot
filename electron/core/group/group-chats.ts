@@ -1,12 +1,6 @@
 import { buildGroupDecisionInput, type GroupDecisions } from './laya-decision';
 import { previewFeedbackDisplay } from '../../../shared/preview/preview-feedback';
-import {
-  groupEventPrompt,
-  groupMustAnswerNote,
-  groupReviewNote,
-  GROUP_STATE_EVENT_PROMPT,
-  GROUP_UNSENT_NOTE,
-} from './group-prompt';
+import { groupEventPrompt, groupMustAnswerNote, groupReviewNote, GROUP_STATE_EVENT_PROMPT } from './group-prompt';
 import { answerFrom, noticed, replyTarget, sinceUser, triage, unanswered } from './group-triage';
 import { userDisplayName } from '../../../shared/chat/user-profile';
 import { resolveGroupReply } from '../agent/message-replies';
@@ -20,7 +14,6 @@ import type { Bot, BotMention, RunRecord } from '../../../shared/types/core';
 import {
   GROUP_LIMITS,
   groupPending,
-  isGroupWorkTool,
   type GroupDelivery,
   type GroupLifecycleEvent,
   type GroupPage,
@@ -61,9 +54,7 @@ interface Worker {
   /** The last room message this run has taken into account before its final reply. */
   seenSeq: number;
   /** One-time notes already sent back to the model before its final reply. */
-  noted: Set<'must' | 'unsent'>;
-  /** The earlier run this one continues after a retry or a private chat took over. */
-  continues?: string;
+  noted: Set<'must'>;
 }
 type FinalReplyDecision = { kind: 'silent' } | { kind: 'publish'; content: string };
 const now = () => new Date().toISOString();
@@ -283,29 +274,6 @@ export class GroupChats implements GroupGateway {
       worker.noted.add('must');
       return groupMustAnswerNote(unanswered.slice(-5).map(excerpt));
     }
-    if (!silent && !this.publishable(worker, runId) && !worker.noted.has('unsent')) {
-      worker.noted.add('unsent');
-      return GROUP_UNSENT_NOTE;
-    }
-  }
-  /**
-   * Final text is published for addressed messages, for events (a user reaction to this Bot, the group
-   * being created, members changing), or when the work did something for the user, counting the run a
-   * retried or requeued run continues.
-   */
-  private publishable(worker: Worker, runId: string) {
-    const room = this.store.data.groups.find((item) => item.id === worker.groupId),
-      run = this.store.data.runs.find((item) => item.id === runId),
-      runs = [runId, run?.resumedFromRunId, worker.continues].filter(Boolean) as string[];
-    return (
-      worker.deliveries.some((delivery) => {
-        const message = room?.messages.find((item) => item.id === delivery.messageId);
-        return delivery.must || Boolean(message?.event) || message?.kind === 'reaction';
-      }) ||
-      runs.some((id) =>
-        this.store.runMessages(id).some((message) => message.role === 'tool' && isGroupWorkTool(message.tool)),
-      )
-    );
   }
   /** Persist a private outbox entry first; publish text, delivery records and the receipt together. */
   private publish(
@@ -1236,7 +1204,6 @@ export class GroupChats implements GroupGateway {
           ),
         )
         .find(Boolean);
-    worker.continues = previousRun?.id;
     const recent = room.messages
       .filter((message) => !bot.contextResetAt || message.time >= bot.contextResetAt)
       .slice(-4)
@@ -1333,8 +1300,7 @@ export class GroupChats implements GroupGateway {
         .filter((message) => message.presentation === 'answer')
         .at(-1),
       answer = readableContent(finalMessage?.content || attachmentSummary(finalMessage?.attachments)).trim();
-    const publishable = this.publishable(worker, run.id),
-      finalReply = this.beforeFinalReplyPublish(publishable ? answer : ''),
+    const finalReply = this.beforeFinalReplyPublish(answer),
       emitted = [...room.messages]
         .reverse()
         .find((message) => message.sender.id === bot.id && message.runIds?.includes(run.id));
@@ -1354,7 +1320,7 @@ export class GroupChats implements GroupGateway {
     if (finalReply.kind === 'silent') {
       for (const delivery of deliveries) {
         delivery.status = 'ignored';
-        delivery.reason = publishable ? '已处理，无需公开回复' : '已看过，没有发言';
+        delivery.reason = '已看过，没有发言';
       }
       for (const messageId of new Set(deliveries.map((delivery) => delivery.messageId))) {
         const message = room.messages.find((item) => item.id === messageId);
