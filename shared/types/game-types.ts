@@ -133,6 +133,8 @@ export interface GameTrace {
   model?: string;
   detail?: string;
   input?: string;
+  /** Raw reply excerpt when it could not be parsed as an action. */
+  output?: string;
   instruction?: string;
   skills?: { id: string; title: string; version: string }[];
   action?: GameAction;

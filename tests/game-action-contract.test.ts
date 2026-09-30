@@ -12,6 +12,22 @@ const r = (kind: GameRequest['kind']): GameRequest => ({
   witch: { canSave: false, canPoison: true },
 });
 const parse = (kind: GameRequest['kind'], a: unknown) => parseGameAction(JSON.stringify(a), kind, r(kind));
+test('replies that wrap the action in prose or a fenced block still parse, and truly invalid replies keep an excerpt', () => {
+  const plan = r('wolf_plan');
+  assert.equal(
+    parseGameAction(
+      '好的，这是我的夜聊：\n```json\n{"text":"今晚刀 3 号 {他像预言家}","note":"刀神"}\n```\n以上。',
+      'wolf_plan',
+      plan,
+    ).text,
+    '今晚刀 3 号 {他像预言家}',
+  );
+  assert.equal(parseGameAction('先想一下 {草稿} 然后 {"target":"b","note":"x"}', 'kill', r('kill')).target, 'b');
+  assert.throws(
+    () => parseGameAction('我觉得应该刀 3 号，他发言很像预言家。', 'wolf_plan', plan),
+    (e: any) => e.message === '模型输出不是有效 JSON' && e.output === '我觉得应该刀 3 号，他发言很像预言家。',
+  );
+});
 test('per-action contracts reject unrelated fields and enforce actual legal targets', () => {
   assert.equal(parse('sheriff_join', { choice: true }).choice, true);
   assert.throws(() => parse('sheriff_join', { direction: 'clockwise' }));

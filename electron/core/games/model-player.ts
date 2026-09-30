@@ -142,10 +142,32 @@ export class GameModelError extends Error {
     public code: 'http' | 'empty' | 'format',
     message: string,
     readonly reason?: string,
+    /** Excerpt of the model's raw reply, kept for the run records when it could not be parsed. */
+    readonly output?: string,
   ) {
     super(message);
     this.name = 'GameModelError';
   }
+}
+/** Top-level `{…}` spans in text, skipping braces inside JSON strings. */
+function jsonObjects(text: string) {
+  const spans: string[] = [];
+  let depth = 0,
+    start = -1,
+    quoted = false,
+    escaped = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (c === '\\') escaped = true;
+      else if (c === '"') quoted = false;
+    } else if (c === '"' && depth > 0) quoted = true;
+    else if (c === '{') {
+      if (depth++ === 0) start = i;
+    } else if (c === '}' && depth > 0 && --depth === 0) spans.push(text.slice(start, i + 1));
+  }
+  return spans;
 }
 export function parseGameAction(text: string, kind?: GameRequest['kind'], request?: GameRequest): GameAction {
   const clean = text
@@ -156,7 +178,15 @@ export function parseGameAction(text: string, kind?: GameRequest['kind'], reques
   try {
     parsed = JSON.parse(clean);
   } catch {
-    throw new GameModelError('format', '模型输出不是有效 JSON');
+    // Some models wrap the object in a sentence or a fenced block with text around it; the last object is the answer.
+    for (const span of jsonObjects(clean).reverse()) {
+      try {
+        parsed = JSON.parse(span);
+        break;
+      } catch {}
+    }
+    if (parsed === undefined)
+      throw new GameModelError('format', '模型输出不是有效 JSON', 'game.invalid_json', clean.slice(0, 800));
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
     throw new GameModelError('format', '行动格式错误');

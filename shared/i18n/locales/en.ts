@@ -2136,4 +2136,5 @@ export const en: Record<string, string> = {
   '4 民': '4 villagers',
   '4 狼 · 4 民 · 预言家 · 女巫 · 猎人 · 白痴': '4 wolves · 4 villagers · seer · witch · hunter · idiot',
   '4 狼 · 4 民 · 预言家 · 女巫 · 猎人 · 守卫': '4 wolves · 4 villagers · seer · witch · hunter · guard',
+  模型原始回复: 'Raw model reply',
 };

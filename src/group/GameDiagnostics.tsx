@@ -414,6 +414,12 @@ export function GameDiagnostics({ game }: { game: GameView }) {
                         {actionText(e.action, e.kind)}
                       </p>
                     )}
+                    {e.output !== undefined && (
+                      <details>
+                        <summary>{t('模型原始回复')}</summary>
+                        <pre className="wg-raw-output">{e.output || t('（空）')}</pre>
+                      </details>
+                    )}
                     {e.input && inputView(e)}
                   </details>
                 ))}
