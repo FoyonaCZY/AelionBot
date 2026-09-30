@@ -162,17 +162,21 @@ function snapshot(): Snapshot {
     liveWork: harness?.liveWork() || [],
   };
 }
-// Changes arrive in bursts (a message, its run, a journal entry…). Coalesce each burst into one snapshot
-// instead of serializing and cloning the whole state across IPC for every mutation.
-let stateTimer: NodeJS.Immediate | undefined;
+// Changes arrive in bursts (a message, its run, a journal entry…). Coalesce each burst into one snapshot, and send
+// at most one every STATE_INTERVAL_MS: a snapshot of a long history is ~20 MB that the renderer must deserialize on
+// the thread that also handles scrolling and typing.
+const STATE_INTERVAL_MS = 150;
+let stateTimer: ReturnType<typeof setTimeout> | undefined,
+  lastStateAt = 0;
 function sendState() {
   stateTimer = undefined;
   if (exiting) return;
+  lastStateAt = Date.now();
   if (window && !window.isDestroyed()) window.webContents.send('app:event', { type: 'state', snapshot: snapshot() });
 }
 function changed() {
   if (exiting) return;
-  stateTimer ??= setImmediate(sendState);
+  stateTimer ??= setTimeout(sendState, Math.max(0, lastStateAt + STATE_INTERVAL_MS - Date.now()));
   chatPins?.wake();
   peerChats?.wake();
   groupChats?.wake();
@@ -243,7 +247,7 @@ async function initialize() {
     : savedLaunch?.dataDir || (app.isPackaged ? profileDir : resolve('.local/app'));
   const projectDir = resolve(process.env.AELION_PROJECT_DIR || savedLaunch?.projectDir || process.cwd());
   mkdirSync(dataDir, { recursive: true });
-  store = new Store(dataDir, { incremental: true });
+  store = new Store(dataDir, { incremental: true, deferWrites: true });
   providers = new ModelProviders(
     store,
     {
