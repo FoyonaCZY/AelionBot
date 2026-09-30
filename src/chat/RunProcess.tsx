@@ -1,6 +1,7 @@
 import { memo, useEffect, useId, useRef, useState } from 'react';
 import type { ChatMessage } from '../../shared/types/core';
-import { readableContent, toolDisplay, type RunStep } from '../../shared/chat/activity';
+import { readableContent, toolDisplay, toolResult, type RunStep } from '../../shared/chat/activity';
+import { stepMeta } from './tool-details-model';
 import { AttachmentList } from '../files/Attachments';
 import { Icon } from '../ui/Icon';
 import { MentionContent } from '../ui/MentionContent';
@@ -32,9 +33,10 @@ function ToolStep({ message }: { message: ChatMessage }) {
   const bodyId = useId();
   const display = toolDisplay(message),
     status = message.status || 'done',
-    running = status === 'running';
+    running = status === 'running',
+    meta = running ? undefined : stepMeta(toolResult(message));
   return (
-    <li className={`run-step run-step-tool is-${status}`}>
+    <li className={`run-step run-step-tool is-${status} ${meta?.tone === 'bad' ? 'is-failed' : ''}`}>
       <button
         type="button"
         className="run-step-row"
@@ -52,6 +54,7 @@ function ToolStep({ message }: { message: ChatMessage }) {
             {display.detail}
           </span>
         )}
+        {meta && <span className={`run-step-meta ${meta.tone ? 'is-' + meta.tone : ''}`}>{meta.text}</span>}
         <span
           className="run-step-state"
           aria-label={running ? t('进行中') : status === 'failed' ? t('失败') : undefined}

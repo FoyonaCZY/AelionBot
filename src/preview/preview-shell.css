@@ -1,0 +1,393 @@
+/*
+ * Preview shell, shared by docked previews, the designer canvas and the expanded view.
+ * One header row, colours from the app theme (light-dark), and nothing floats over the native web surface:
+ * the tool band and the caption strip take their own space above and below it.
+ */
+.fp-layer.is-immersive {
+  --pv-bg: light-dark(#fff, #201e24);
+  --pv-stage: light-dark(#f3f2f5, #1a181e);
+  --pv-dot: light-dark(#dcd9e2, #2d2a33);
+  --pv-line: light-dark(#eeeef0, #34303b);
+  --pv-soft: light-dark(#f1f0f3, #2a2730);
+  --pv-hover: light-dark(#efeef2, #312d38);
+  --pv-raised: light-dark(#fff, #3a3542);
+  --pv-ink: light-dark(#34313c, #dfdce2);
+  --pv-title: light-dark(#24222a, #f1eef4);
+  --pv-muted: light-dark(#74777b, #a9a4b1);
+  --pv-accent: light-dark(#8f7fb3, #b3a4e0);
+  --pv-accent-soft: light-dark(#efeaf7, #332d40);
+  --pv-accent-ink: light-dark(#6a5a93, #d2c7ef);
+  --fp-canvas: var(--pv-stage);
+  --fp-ink: var(--pv-ink);
+  --fp-muted: var(--pv-muted);
+  --fp-header-height: 48px;
+  --fp-tools-height: 0px;
+  color-scheme: inherit;
+}
+.fp-layer.is-immersive[data-tools='on'] {
+  --fp-tools-height: 50px;
+}
+.fp-layer.is-immersive .fp-panel {
+  background: var(--pv-stage);
+}
+.fp-layer.is-immersive .fp-workspace,
+.fp-layer.is-immersive .fp-content {
+  background: var(--pv-stage);
+}
+
+/* ---------- header: one row ---------- */
+.fp-layer.is-immersive .fp-header {
+  padding: var(--fp-top-inset, 0px) 10px 0 12px;
+  gap: 4px;
+  align-items: center;
+  background: var(--pv-bg);
+  border-bottom: 1px solid var(--pv-line);
+  pointer-events: auto;
+}
+.fp-layer.is-immersive :is(.fp-title, .fp-actions) {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--pv-ink);
+  color-scheme: inherit;
+}
+.fp-layer.is-immersive .fp-title {
+  min-height: 32px;
+  padding: 0 2px;
+  max-width: 34%;
+}
+.fp-layer.is-immersive .fp-title h2 {
+  color: var(--pv-title);
+  font-weight: 600;
+}
+.fp-layer.is-immersive .fp-title .fp-file-select {
+  color: var(--pv-title);
+  font-weight: 600;
+  color-scheme: inherit;
+}
+.fp-layer.is-immersive .fp-title .fp-file-select:hover,
+.fp-layer.is-immersive .fp-title .fp-file-select:open {
+  background-color: var(--pv-hover);
+}
+.fp-layer.is-immersive .fp-title .fp-file-select::picker(select) {
+  background: var(--pv-bg);
+  color: var(--pv-ink);
+  border-color: var(--pv-line);
+  color-scheme: inherit;
+}
+.fp-layer.is-immersive .fp-title .fp-file-select option {
+  color: var(--pv-ink);
+  background: var(--pv-bg);
+}
+.fp-layer.is-immersive .fp-title .fp-file-select option:hover,
+.fp-layer.is-immersive .fp-title .fp-file-select option:checked {
+  background: var(--pv-hover);
+  color: var(--pv-title);
+}
+.fp-layer.is-immersive .fp-actions {
+  margin-left: 0;
+  padding: 0;
+  gap: 2px;
+}
+.fp-layer.is-immersive .fp-tools button,
+.fp-layer.is-immersive .fp-actions button {
+  min-width: 30px;
+  min-height: 30px;
+  height: 30px;
+  padding: 5px;
+  border-radius: 8px;
+  color: var(--pv-muted);
+}
+.fp-layer.is-immersive .fp-tools button:hover,
+.fp-layer.is-immersive .fp-actions button:hover {
+  background: var(--pv-hover);
+  color: var(--pv-title);
+}
+.fp-layer.is-immersive .fp-tools button[aria-pressed='true'] {
+  background: var(--pv-hover);
+  color: var(--pv-title);
+}
+.fp-layer.is-immersive .fp-tools button:focus-visible,
+.fp-layer.is-immersive .fp-actions button:focus-visible,
+.fp-layer.is-immersive .fp-mode button:focus-visible {
+  outline: 2px solid var(--pv-accent);
+  outline-offset: 1px;
+}
+.fp-layer.is-immersive .fp-action-divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--pv-line);
+  border: 0;
+}
+.fp-layer.is-immersive .fp-file-controls-slot {
+  flex: none;
+}
+.fp-layer.is-immersive .fp-file-controls-slot :is(.fp-toolbar, .fp-edit-toolbar) {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--pv-ink);
+  color-scheme: inherit;
+}
+.fp-layer.is-immersive .fp-zoom-picker {
+  background-color: var(--pv-soft);
+  border-color: transparent;
+  color: var(--pv-ink);
+  color-scheme: inherit;
+}
+.fp-layer.is-immersive .fp-zoom-picker:hover {
+  background-color: var(--pv-hover);
+}
+.fp-layer.is-immersive .fp-zoom-picker::picker(select),
+.fp-layer.is-immersive .fp-zoom-picker option {
+  background: var(--pv-bg);
+  color: var(--pv-ink);
+}
+.fp-layer.is-immersive .fp-zoom-picker option:checked,
+.fp-layer.is-immersive .fp-zoom-picker option:hover {
+  background: var(--pv-hover);
+}
+
+/* The mode segment: 预览 · 源码 · 编辑 · 标注. Without a web address bar it pushes the actions right. */
+.fp-mode {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  padding: 2px;
+  margin: 0 4px 0 auto;
+  border-radius: 9px;
+  background: var(--pv-soft);
+}
+.fp-layer:has(.web-preview) .fp-mode {
+  margin-left: 4px;
+}
+.fp-mode button {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  color: var(--pv-muted);
+  white-space: nowrap;
+}
+.fp-mode button:hover:not([aria-checked='true']) {
+  color: var(--pv-title);
+}
+.fp-mode button[aria-checked='true'] {
+  background: var(--pv-raised);
+  color: var(--pv-title);
+  font-weight: 600;
+  box-shadow: 0 1px 2px #0000000f;
+}
+.fp-mode button:disabled {
+  opacity: 0.45;
+}
+
+/* ---------- web address bar ---------- */
+.fp-layer.is-immersive:has(.web-preview) .fp-header {
+  background: var(--pv-bg);
+  border-bottom-color: var(--pv-line);
+}
+.fp-layer.is-immersive .web-preview-nav {
+  gap: 2px;
+}
+.fp-layer.is-immersive .web-preview-nav button {
+  color: var(--pv-muted);
+  border-radius: 8px;
+}
+.fp-layer.is-immersive .web-preview-nav button:hover {
+  background: var(--pv-hover);
+  color: var(--pv-title);
+}
+.fp-layer.is-immersive .web-preview-nav input,
+.fp-layer.is-immersive .web-preview-document {
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--pv-soft);
+  color: var(--pv-ink);
+  color-scheme: inherit;
+}
+.fp-layer.is-immersive .web-preview-nav input:focus {
+  background: var(--pv-bg);
+  outline: 1px solid var(--pv-accent);
+}
+.fp-layer.is-immersive .web-preview {
+  background: var(--pv-stage);
+  color: var(--pv-ink);
+  color-scheme: inherit;
+}
+.fp-layer.is-immersive .web-preview-surface {
+  background: var(--pv-stage);
+}
+.fp-layer.is-immersive[data-device] .web-preview-surface {
+  background-color: var(--pv-stage);
+  background-image: radial-gradient(var(--pv-dot) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+/* ---------- tool band: only while annotating or editing a web page ---------- */
+.fp-layer.is-immersive .fp-workbench-tools {
+  left: 50%;
+  right: auto;
+  top: calc(var(--fp-top-inset, 0px) + var(--fp-header-height) + 8px);
+  height: 36px;
+  max-width: calc(100% - 24px);
+  transform: translateX(-50%);
+  padding: 3px 4px;
+  gap: 4px;
+  border: 1px solid var(--pv-line);
+  border-radius: 12px;
+  background: var(--pv-bg);
+  color: var(--pv-muted);
+  color-scheme: inherit;
+  box-shadow: 0 6px 18px #2a223814;
+}
+.fp-layer.is-immersive .fp-workbench-tools .fp-tool-group + .fp-tool-group {
+  padding-left: 4px;
+  border-left-color: var(--pv-line);
+}
+.fp-layer.is-immersive .fp-workbench-tools button {
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 9px;
+  color: var(--pv-muted);
+}
+.fp-layer.is-immersive .fp-workbench-tools button:hover {
+  background: var(--pv-hover);
+  color: var(--pv-title);
+}
+.fp-layer.is-immersive .fp-workbench-tools button[aria-pressed='true'] {
+  background: var(--pv-accent-soft);
+  color: var(--pv-accent-ink);
+  font-weight: 600;
+}
+.fp-layer.is-immersive .fp-workbench-tools .fp-save-dom {
+  background: light-dark(#181818, #e0dbe6);
+  color: light-dark(#fff, #231f29);
+}
+.fp-layer.is-immersive .fp-workbench-tools .fp-save-dom:disabled {
+  background: var(--pv-soft);
+  color: var(--pv-muted);
+}
+
+/* ---------- floating notices and dialogs follow the theme ---------- */
+.fp-layer.is-immersive :is(.fp-notice, .fp-edit-toolbar, .fp-edit-banner, .fp-unsaved-dialog, .fp-truncated) {
+  background: var(--pv-bg);
+  color: var(--pv-ink);
+  border-color: var(--pv-line);
+  color-scheme: inherit;
+}
+.fp-layer.is-immersive .fp-unsaved-dialog h2 {
+  color: var(--pv-title);
+}
+.fp-layer.is-immersive .fp-unsaved-dialog button {
+  background: var(--pv-bg);
+  border-color: var(--pv-line);
+  color: var(--pv-ink);
+}
+.fp-layer.is-immersive .fp-unsaved-dialog button:last-child {
+  background: light-dark(#181818, #e0dbe6);
+  border-color: transparent;
+  color: light-dark(#fff, #231f29);
+}
+.fp-layer.is-immersive .fp-directory {
+  background: var(--pv-bg);
+  border-color: var(--pv-line);
+  color: var(--pv-ink);
+  color-scheme: inherit;
+}
+
+/* ---------- caption strip: marks are sent from the conversation composer ---------- */
+.fp-feedback-wrap[hidden] {
+  display: none !important;
+}
+.fp-layer .fp-feedback-wrap.is-captions {
+  padding: 8px 12px;
+  background: var(--pv-bg);
+  border-top: 1px solid var(--pv-line);
+}
+.fp-layer .fp-feedback-wrap.is-captions .fp-annotation-chips {
+  display: none;
+}
+.fp-layer .fp-feedback-wrap.is-captions .fp-feedback-context {
+  gap: 8px;
+}
+.fp-layer .fp-feedback-wrap.is-captions .fp-annotation-caption {
+  flex: 1;
+  width: auto;
+  max-width: none;
+  height: 30px;
+  border: 1px solid var(--pv-line);
+  border-radius: 9px;
+  background: var(--pv-bg);
+  color: var(--pv-ink);
+}
+.fp-layer .fp-feedback-wrap.is-captions .fp-annotation-caption:focus {
+  outline: none;
+  border-color: var(--pv-accent);
+}
+
+/* ---------- phone frames: one device, or two side by side at the same scale ---------- */
+.fp-layer.is-immersive[data-device='phone'] .web-preview-surface[data-devices] {
+  --device-gap: 48px;
+  --device-caption: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--device-gap);
+  padding: 20px 24px;
+}
+.fp-layer.is-immersive[data-device='phone'] .web-preview-device {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+.fp-layer.is-immersive[data-device='phone'] .web-preview-surface .web-preview-slot {
+  /* Width follows the tighter of the two limits, so both frames keep the same scale. */
+  --fit: min(
+    calc((100cqw - 48px) * var(--device-w) / var(--devices-w-num, 1)),
+    calc((100cqh - 40px - var(--device-caption)) * var(--device-w) / var(--devices-h-num, 1))
+  );
+  width: min(calc(var(--device-w) * 1px), var(--fit));
+  height: auto;
+  aspect-ratio: var(--device-w) / var(--device-h);
+  max-width: none;
+  max-height: none;
+  border-radius: 28px;
+  background: #fff;
+  box-shadow:
+    0 0 0 8px light-dark(#1c1c1e, #0e0e10),
+    0 0 0 9px light-dark(#00000014, #ffffff14),
+    0 24px 50px #2a22382a;
+}
+.fp-layer.is-immersive[data-device='phone'] .web-preview-surface .web-preview-mirror {
+  --fit: min(
+    calc((100cqw - 48px) * var(--mirror-w) / var(--devices-w-num, 1)),
+    calc((100cqh - 40px - var(--device-caption)) * var(--mirror-w) / var(--devices-h-num, 1))
+  );
+  width: min(calc(var(--mirror-w) * 1px), var(--fit));
+  aspect-ratio: var(--mirror-w) / var(--mirror-h);
+}
+.web-preview-device-caption {
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  color: var(--pv-muted, #74777b);
+  white-space: nowrap;
+}
+.fp-layer.is-immersive .fp-device-select {
+  max-width: 190px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 24px 0 9px;
+  border: 1px solid var(--pv-line);
+  border-radius: 8px;
+  background-color: var(--pv-bg);
+  color: var(--pv-ink);
+  font-size: 12px;
+  color-scheme: inherit;
+}
+.fp-layer.is-immersive .fp-device-select:hover {
+  background-color: var(--pv-hover);
+}

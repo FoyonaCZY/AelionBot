@@ -43,6 +43,40 @@ const forbidden =
   /(^|\/)(?:\.local|\.git|node_modules|dist|dist-electron|release|output|test-results|playwright-report)(?:\/|$)|^runtime\/(?:qemu|downloads|local-model)(?:\/|$)|(?:^|\/)(?:state\.json|\.env(?:\..*)?|id_rsa.*|id_ed25519.*)$|\.(?:qcow2|vhdx?|iso|sqlite(?:-wal|-shm)?|pfx|p12|pem|log)$/i;
 const credential =
   /(?:sk-(?:proj-)?[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{30,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/g;
+// Read every staged blob through one `git cat-file --batch` instead of one `git show` per file:
+// thousands of process spawns took two to three minutes on Windows and Mac runners.
+const staged = new Map();
+if (!worktree) {
+  const blobs = new Map();
+  for (const entry of execFileSync('git', ['ls-files', '--stage', '-z'], {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  })
+    .split('\0')
+    .filter(Boolean)) {
+    const tab = entry.indexOf('\t'),
+      [, blob] = entry.slice(0, tab).split(' ');
+    blobs.set(entry.slice(tab + 1), blob);
+  }
+  const wanted = [...new Set(files)].filter((file) => blobs.has(file));
+  const out = execFileSync('git', ['cat-file', '--batch'], {
+    input: wanted.map((file) => blobs.get(file)).join('\n') + '\n',
+    maxBuffer: 1024 * 1024 * 1024,
+  });
+  let at = 0;
+  for (const file of wanted) {
+    const end = out.indexOf(10, at),
+      header = out.subarray(at, end).toString('utf8').split(' ');
+    if (header[1] === 'missing') {
+      at = end + 1;
+      continue;
+    }
+    const size = Number(header[2]);
+    // Match the old 6 MB git-show buffer: larger blobs are reported as unreadable, as before.
+    if (size <= 6 * 1024 * 1024) staged.set(file, out.subarray(end + 1, end + 1 + size));
+    at = end + 1 + size + 1;
+  }
+}
 for (const file of new Set(files)) {
   if (forbidden.test(file) && !file.endsWith('.env.example')) {
     findings.push({ file, kind: 'local-or-sensitive-file' });
@@ -50,9 +84,8 @@ for (const file of new Set(files)) {
   }
   let data;
   try {
-    data = worktree
-      ? readFileSync(file)
-      : execFileSync('git', ['show', ':' + file], { maxBuffer: 6 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] });
+    data = worktree ? readFileSync(file) : staged.get(file);
+    if (!data) throw Error('missing');
   } catch {
     findings.push({ file, kind: 'unreadable-or-oversized-file' });
     continue;

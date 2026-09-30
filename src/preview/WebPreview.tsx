@@ -12,6 +12,23 @@ import { PreviewPicker } from './PreviewPicker';
 import { feedbackWebUrl, type WebPreviewSource, type WebPreviewState } from '../../shared/preview/web-preview';
 import { useI18n } from '../i18n';
 import './web-preview.css';
+import {
+  previewDeviceCaption,
+  type PreviewDevice,
+  type PreviewDevicePreset,
+} from '../../shared/preview/preview-devices';
+
+/** Device sizes as CSS variables; frames scale down together to fit the stage. */
+const deviceStyle = (preset: PreviewDevicePreset) =>
+  ({
+    '--device-w': preset.primary.width,
+    '--device-h': preset.primary.height,
+    '--mirror-w': (preset.mirror || preset.primary).width,
+    '--mirror-h': (preset.mirror || preset.primary).height,
+    // Totals used to fit both frames at one scale: widths plus the gap, and the taller height.
+    '--devices-w-num': preset.primary.width + (preset.mirror ? preset.mirror.width + 48 : 0),
+    '--devices-h-num': Math.max(preset.primary.height, preset.mirror?.height || 0) + 38,
+  }) as React.CSSProperties;
 
 /** The slot is a native browser surface. Keep app controls outside its rectangle. */
 export function WebPreview({
@@ -42,7 +59,8 @@ export function WebPreview({
     base = useRef<EditableText | undefined>(undefined);
   stateRef.current = editorState;
   const id = useRef(crypto.randomUUID()),
-    slot = useRef<HTMLDivElement>(null);
+    slot = useRef<HTMLDivElement>(null),
+    mirrorSlot = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<WebPreviewState>(),
     [error, setError] = useState(''),
     [address, setAddress] = useState('');
@@ -97,6 +115,9 @@ export function WebPreview({
           window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
         }
       });
+    let mirrorShown = false,
+      schemeKey = '';
+    const observed = new Set<Element>();
     const layout = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
@@ -111,13 +132,42 @@ export function WebPreview({
           Boolean(layer?.querySelector('.fp-unsaved-backdrop')) ||
           (innerWidth <= 700 && Boolean(layer?.querySelector('.fp-directory'))) ||
           (Boolean(node.closest('[inert]')) && !capture);
+        const shown = !blocked && document.visibilityState !== 'hidden';
         void window.aelion
           .layoutWebPreview({
             id: currentId,
             rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-            visible: !blocked && document.visibilityState !== 'hidden',
+            visible: shown,
           })
           .catch(() => {});
+        // The second device is a separate read-only view placed over its own slot.
+        const mirrorNode = mirrorSlot.current;
+        if (mirrorNode) {
+          if (!observed.has(mirrorNode)) {
+            observed.add(mirrorNode);
+            resize.observe(mirrorNode);
+          }
+          const m = mirrorNode.getBoundingClientRect();
+          mirrorShown = true;
+          void window.aelion
+            .layoutWebPreviewMirror({
+              id: currentId,
+              rect: { x: m.x, y: m.y, width: m.width, height: m.height },
+              visible: shown,
+            })
+            .catch(() => {});
+        } else if (mirrorShown) {
+          mirrorShown = false;
+          void window.aelion.layoutWebPreviewMirror({ id: currentId, rect: null, visible: false }).catch(() => {});
+        }
+        const device = runtimeRef.current?.device,
+          key = [device?.primary.scheme || '', device?.mirror?.scheme || '', mirrorNode ? 1 : 0].join('|');
+        if (key !== schemeKey) {
+          schemeKey = key;
+          void window.aelion
+            .webPreviewAppearance({ id: currentId, primary: device?.primary.scheme, mirror: device?.mirror?.scheme })
+            .catch(() => {});
+        }
       });
     };
     const resize = new ResizeObserver(layout),
@@ -131,7 +181,7 @@ export function WebPreview({
           subtree: true,
           childList: true,
           attributes: true,
-          attributeFilter: ['class', 'style', 'inert', 'data-feedback-capture'],
+          attributeFilter: ['class', 'style', 'inert', 'data-feedback-capture', 'data-pair'],
         });
     }
     const overlays = new MutationObserver((records) => {
@@ -431,6 +481,16 @@ export function WebPreview({
       )}
     </form>
   );
+  const device = runtime?.device;
+  const framed = (node: React.ReactNode, spec?: PreviewDevice) =>
+    spec ? (
+      <div className="web-preview-device">
+        {node}
+        <span className="web-preview-device-caption">{previewDeviceCaption(spec, t('深色'), t('浅色'))}</span>
+      </div>
+    ) : (
+      node
+    );
   return (
     <div
       className="web-preview"
@@ -499,23 +559,35 @@ export function WebPreview({
         </div>
       </PreviewToolbar>
       {navigationHost ? createPortal(navigation, navigationHost) : navigation}
-      <div className="web-preview-surface">
-        <div ref={slot} className="web-preview-slot" tabIndex={0} aria-label={t('网页预览')}>
-          {frozen && <img className="web-preview-frozen" src={frozen} alt="" />}
-          {error || state?.error ? (
-            <div className="fp-state" role="alert">
-              <strong>{t('暂时无法打开网页')}</strong>
-              <p>{error || state?.error}</p>
-            </div>
-          ) : (
-            !state && (
-              <div className="fp-state" role="status">
-                <span className="fp-loading" />
-                <strong>{t('正在连接')}</strong>
+      <div
+        className="web-preview-surface"
+        data-devices={device ? (device.mirror ? 2 : 1) : undefined}
+        style={device ? deviceStyle(device) : undefined}
+      >
+        {framed(
+          <div ref={slot} className="web-preview-slot" tabIndex={0} aria-label={t('网页预览')}>
+            {frozen && <img className="web-preview-frozen" src={frozen} alt="" />}
+            {error || state?.error ? (
+              <div className="fp-state" role="alert">
+                <strong>{t('暂时无法打开网页')}</strong>
+                <p>{error || state?.error}</p>
               </div>
-            )
+            ) : (
+              !state && (
+                <div className="fp-state" role="status">
+                  <span className="fp-loading" />
+                  <strong>{t('正在连接')}</strong>
+                </div>
+              )
+            )}
+          </div>,
+          device?.primary,
+        )}
+        {device?.mirror &&
+          framed(
+            <div ref={mirrorSlot} className="web-preview-slot web-preview-mirror" aria-hidden="true" />,
+            device.mirror,
           )}
-        </div>
         {inspecting && (
           <WebElementInspector
             errorMessage={error}

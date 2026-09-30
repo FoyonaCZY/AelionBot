@@ -1,4 +1,5 @@
 import { GroupDecisionTrail } from './GroupDecisionTrail';
+import { unanswered } from '../../shared/chat/group-answers';
 import { GroupGames } from './GroupGames';
 import { DesignerTaskCard } from '../designer/DesignerTaskCard';
 import { usePreviewWorkbench } from '../preview/PreviewWorkbench';
@@ -16,7 +17,7 @@ import { WorkItemsPanel } from '../chat/WorkItems';
 import { workspaceKey } from '../../shared/types/work-types';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { InteractionRequest, Snapshot } from '../../shared/types/core';
-import type { GroupPage, GroupSummary, GroupTask } from '../../shared/types/group-types';
+import type { GroupPage, GroupSummary } from '../../shared/types/group-types';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
 import { MentionContent } from '../ui/MentionContent';
@@ -207,23 +208,6 @@ export function GroupConversation({
       if (active.current) setSending(false);
     }
   };
-  const continueTask = async (task: GroupTask) => {
-    if (sendLock.current) return;
-    sendLock.current = true;
-    setSending(true);
-    try {
-      await window.aelion.sendGroup({
-        id: group.id,
-        message: `请继续群任务：${task.title}（taskId: ${task.id}）。先核对自己的执行检查点和已有结果，只完成剩余部分；完成后写明验收依据，无法完成则记录具体阻碍。`,
-      });
-      if (active.current) setError('');
-    } catch (error) {
-      if (active.current) setError(ipcErrorText(error));
-    } finally {
-      sendLock.current = false;
-      if (active.current) setSending(false);
-    }
-  };
   const older = async () => {
     if (!page?.before || loading) return;
     setLoading(true);
@@ -267,48 +251,6 @@ export function GroupConversation({
           </button>
         </div>
       </header>
-      {!!page?.tasks?.length && (
-        <details className="group-commitments">
-          <summary>
-            {t('群任务')} · {page.tasks.filter((task) => task.status !== 'completed').length} {t('未完成')}
-          </summary>
-          <ul>
-            {page.tasks.map((task) => (
-              <li key={task.id}>
-                <div>
-                  <strong>{task.title}</strong>
-                  <span>
-                    {state.bots.find((bot) => bot.id === task.ownerId)?.name || t('待认领')} ·{' '}
-                    {t(
-                      (
-                        {
-                          open: '待认领',
-                          working: '进行中',
-                          blocked: '有阻碍',
-                          paused: '已暂停',
-                          completed: '已完成',
-                        } as const
-                      )[task.status],
-                    )}
-                  </span>
-                </div>
-                {task.summary && <p>{task.summary}</p>}
-                {task.reason && <p>{task.reason}</p>}
-                {['open', 'blocked', 'paused'].includes(task.status) && (
-                  <button
-                    type="button"
-                    className="group-task-continue"
-                    disabled={sending}
-                    onClick={() => void continueTask(task)}
-                  >
-                    {sending ? t('正在处理…') : t('继续任务')}
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
       <div className="group-design-tasks">
         {state.designer?.sessions
           .filter(
@@ -413,6 +355,9 @@ export function GroupConversation({
                       <MentionContent content={formatted.content} mentions={formatted.mentions} markdown />
                       <AttachmentList files={message.attachments} />
                     </MessageActions>
+                    {page && unanswered(page.messages, page.deliveries, message) && (
+                      <div className="group-unanswered">{t('没有 Bot 回应，可以 @ 一个')}</div>
+                    )}
                     {message.sender.kind === 'user' && page && (
                       <GroupDecisionTrail
                         deliveries={page.deliveries.filter((item) => item.messageId === message.id)}
@@ -466,6 +411,17 @@ export function GroupConversation({
         )}
         <WorkItemsPanel items={state.workItems} scope={{ kind: 'group', id: group.id }} bots={state.bots} />
         <LiveWorkStrip items={(state.liveWork || []).filter((item) => members.some((bot) => bot.id === item.botId))} />
+        {group.round?.status === 'stopped' && !group.pending && (
+          <div className="group-round-stopped">
+            <span>{group.round.reason || t('本轮讨论已停止')}</span>
+            <button
+              type="button"
+              onClick={() => void window.aelion.continueGroup(group.id).catch((error) => setError(ipcErrorText(error)))}
+            >
+              {t('继续本轮讨论')}
+            </button>
+          </div>
+        )}
         <BotComposer
           extraTools={
             <GroupGames
@@ -487,12 +443,12 @@ export function GroupConversation({
           bot={group}
           bots={members}
           draft={draft}
-          running={false}
+          running={group.pending > 0 || Boolean(group.activities?.length)}
           onChange={onDraft}
           onSend={() => {
             if (!sending) void send();
           }}
-          onStop={() => {}}
+          onStop={() => void window.aelion.stopGroup(group.id).catch((error) => setError(ipcErrorText(error)))}
         />
       </div>
     </>

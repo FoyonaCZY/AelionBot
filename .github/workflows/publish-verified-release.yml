@@ -43,10 +43,11 @@ jobs:
           const run=api(`actions/runs/${id}`);
           if(run.status!=='completed'||run.conclusion!=='success'||run.path!=='.github/workflows/release.yml'||!['push','workflow_dispatch'].includes(run.event)||run.head_repository.full_name!==repo||! /^[a-f0-9]{40}$/.test(run.head_sha))throw Error('A completed, successful release build from this repository is required');
           const jobs=api(`actions/runs/${id}/jobs?per_page=100`).jobs;
-          for(const name of names){
+          // Source checks run once in "Verify source"; packaging jobs only carry their own build and verify steps.
+          const required=[['Verify source',['Audit source','Typecheck','Test']],...names.map(name=>[name,name==='windows-x64'?['Build and verify Windows installer']:['Build and verify Mac installers','Verify packaged Mac app']])];
+          for(const [name,checks] of required){
             const job=jobs.find(j=>j.name===name);
-            const checks=['Audit source','Typecheck','Test',...(name==='windows-x64'?['Build and verify Windows installer']:['Build and verify Mac installers','Verify packaged Mac app'])];
-            if(job?.conclusion!=='success'||checks.some(name=>!job.steps.some(s=>s.name===name&&s.conclusion==='success')))throw Error('Required checks did not pass: '+name);
+            if(job?.conclusion!=='success'||checks.some(check=>!job.steps.some(s=>s.name===check&&s.conclusion==='success')))throw Error('Required checks did not pass: '+name);
           }
           const artifacts=api(`actions/runs/${id}/artifacts?per_page=100`).artifacts;
           for(const name of names.map(name=>'AelionBot-'+name))if(!artifacts.some(a=>a.name===name&&!a.expired&&a.size_in_bytes>0))throw Error('Verified build artifact missing: '+name);

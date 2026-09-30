@@ -2,7 +2,12 @@ import { createContext, useCallback, useContext, useRef, useState, useMemo, type
 import type { AttachmentScope } from '../../shared/types/attachment-types';
 import type { ArtifactPreview } from '../../shared/types/core';
 import { FilePreview } from './FilePreview';
-import { WorkbenchContext, type PreviewWorkbenchInfo, type PreviewChatInput } from './PreviewWorkbench';
+import {
+  WorkbenchContext,
+  type PreviewWorkbenchInfo,
+  type PreviewChatInput,
+  type PreviewAnnotationControls,
+} from './PreviewWorkbench';
 export interface PreviewItem {
   designSessionId?: string;
   deviceFrame?: 'phone' | 'slide' | 'page';
@@ -65,7 +70,8 @@ export function FilePreviewProvider({ children }: { children: ReactNode }) {
     current = useRef<Session | undefined>(undefined),
     activeScope = useRef(''),
     cache = useRef(new Map<string, Session>()),
-    sender = useRef<((input: PreviewChatInput) => Promise<unknown>) | undefined>(undefined);
+    sender = useRef<((input: PreviewChatInput) => Promise<unknown>) | undefined>(undefined),
+    marks = useRef<PreviewAnnotationControls | undefined>(undefined);
   current.current = session;
   const show = (next?: Session) => {
     setInfo(undefined);
@@ -99,11 +105,26 @@ export function FilePreviewProvider({ children }: { children: ReactNode }) {
       if (sender.current === value) sender.current = undefined;
     };
   }, []);
+  const registerAnnotations = useCallback((value: PreviewAnnotationControls) => {
+    marks.current = value;
+    return () => {
+      if (marks.current === value) marks.current = undefined;
+    };
+  }, []);
+  const annotations = useMemo<PreviewAnnotationControls>(
+    () => ({ remove: (id) => marks.current?.remove(id), select: (id) => marks.current?.select(id) }),
+    [],
+  );
   const infoRef = useRef(info);
   infoRef.current = info;
   const send = useCallback(async (scope: AttachmentScope, input: PreviewChatInput) => {
     const view = infoRef.current;
-    if (!input.text.trim() || !view?.docked || scopeKey(view.scope) !== scopeKey(scope) || !sender.current)
+    if (
+      !input.text.trim() ||
+      !(view?.docked || view?.studio) ||
+      scopeKey(view.scope) !== scopeKey(scope) ||
+      !sender.current
+    )
       return false;
     await sender.current(input);
     return true;
@@ -128,7 +149,9 @@ export function FilePreviewProvider({ children }: { children: ReactNode }) {
     [],
   );
   return (
-    <WorkbenchContext.Provider value={{ info, activate, navigate, close, update, registerSender, send }}>
+    <WorkbenchContext.Provider
+      value={{ info, activate, navigate, close, update, registerSender, send, registerAnnotations, annotations }}
+    >
       <Context.Provider
         value={(items, index = 0, options) =>
           navigate(() => {

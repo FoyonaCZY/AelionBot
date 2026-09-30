@@ -15,6 +15,7 @@ import { DesignerLoop } from '../electron/core/designer/designer-loop';
 import { BotRuntime } from '../electron/core/agent/bot-runtime';
 import { zipSync, strToU8 } from 'fflate';
 import type { RunRecord } from '../shared/types/core';
+import { botIdentity } from '../shared/chat/bot-colors';
 
 function fixture(t: any) {
   const root = tempDir(t, 'aelion-design-');
@@ -491,8 +492,6 @@ test('group design context includes only that group and task, never main-chat or
     status: 'active',
     createdAt: time,
     botMessages: 0,
-    botCounts: {},
-    decisions: 0,
     createdGroups: 0,
   });
   f.store.data.groupDeliveries.push({
@@ -659,8 +658,6 @@ test('shared group references exclude private history, memories and unrelated gr
       status: 'active',
       createdAt: time,
       botMessages: 0,
-      botCounts: {},
-      decisions: 0,
       createdGroups: 0,
     });
   }
@@ -995,7 +992,7 @@ test('new private designer input after a group run does not bind the group desig
   );
 });
 
-test('designer uses the same group inbox, outbox and task claims without importing private design history', async (t) => {
+test('designer uses the same group inbox and outbox without importing private design history', async (t) => {
   const f = loopFixture(t),
     other = f.store.createBot('Observer', '');
   let groups: GroupChats,
@@ -1003,21 +1000,13 @@ test('designer uses the same group inbox, outbox and task claims without importi
   const shared = new Harness(f.store, {} as any, {} as any, () => {});
   f.shared.openToolSession = shared.openToolSession.bind(shared) as any;
   const loop = f.make(async (_messages: any, _tools: any, signal: AbortSignal) => {
-    const room = f.store.data.groups[0],
-      task = room.tasks?.[0];
+    const room = f.store.data.groups[0];
     assert.equal(signal.aborted, false);
     if (step++ === 0) {
       groups.send({ id: room.id, message: '补充：交付时写清文件位置' });
       return {
         content: 'PRIVATE_DESIGN_DRAFT',
-        calls: [
-          call('group_task_claim', {
-            groupId: room.id,
-            key: 'design-review',
-            title: '说明设计交付',
-            sourceMessageId: room.messages.find((m) => m.sender.kind === 'user')!.id,
-          }),
-        ],
+        calls: [call('group_read', { groupId: room.id })],
         finishReason: 'tool_calls',
       };
     }
@@ -1030,13 +1019,6 @@ test('designer uses the same group inbox, outbox and task claims without importi
             message: '正在核对交付说明。',
             kind: 'progress',
             clientMessageId: 'designer-progress',
-          }),
-          call('group_task_update', {
-            groupId: room.id,
-            taskId: task!.id,
-            revision: task!.revision,
-            status: 'completed',
-            summary: '已核对交付要求；本次仅说明，无文件修改。',
           }),
         ],
         finishReason: 'tool_calls',
@@ -1055,13 +1037,16 @@ test('designer uses the same group inbox, outbox and task claims without importi
   shared.setGroupGateway(groups);
   loop.setGroupGateway(groups);
   const room = groups.create({ name: 'Designer group', botIds: [f.bot.id, other.id] });
-  groups.send({ id: room.id, message: '请认领并说明设计交付要求' });
+  groups.send({
+    id: room.id,
+    message: `@${f.bot.name} 请说明设计交付要求`,
+    mentions: [{ ...botIdentity(f.bot), start: 0, end: f.bot.name.length + 1 }],
+  });
   groups.start();
   try {
     await until(() => f.store.data.groups[0].messages.some((m) => m.content === '交付说明已核对。'));
     const page = groups.read({ id: room.id });
     assert.ok(page.messages.some((m) => m.content === '交付说明已核对。'));
-    assert.equal(page.tasks?.[0].status, 'completed');
     assert.equal(f.store.data.runs.filter((r) => r.botId === f.bot.id).length, 1);
     assert.ok(f.requests[1].history.some((m: any) => m.content?.includes('补充：交付时写清文件位置')));
     assert.ok(f.requests[0].tools.some((t: any) => t.function.name === 'group_send_message'));

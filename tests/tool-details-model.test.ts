@@ -1,6 +1,37 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readableResult, relativePath, searchFiles } from '../src/chat/tool-details-model';
+import {
+  codeLanguage,
+  prettyJson,
+  readableResult,
+  relativePath,
+  searchFiles,
+  stepMeta,
+} from '../src/chat/tool-details-model';
+
+test('command output that is JSON, or one JSON value per line, is pretty-printed; anything else is left alone', () => {
+  assert.equal(prettyJson('{"a":1,"b":[2]}'), '{\n  "a": 1,\n  "b": [\n    2\n  ]\n}');
+  assert.equal(prettyJson('{"a":1}\n{"b":2}\n'), '{\n  "a": 1\n}\n\n{\n  "b": 2\n}');
+  assert.equal(prettyJson('exit=0\n{"a":1}'), undefined);
+  assert.equal(prettyJson('{not json'), undefined);
+  assert.equal(prettyJson(''), undefined);
+});
+
+test('file names map to highlighter languages', () => {
+  assert.equal(codeLanguage('src/a/stream.rs'), 'rust');
+  assert.equal(codeLanguage('C:\\x\\ToolDetails.tsx'), 'tsx');
+  assert.equal(codeLanguage('Dockerfile'), 'dockerfile');
+  assert.equal(codeLanguage('notes.txt'), '');
+});
+
+test('folded step rows show a failing exit code before duration, then hit counts', () => {
+  assert.deepEqual(stepMeta({ exitCode: 1, durationMs: 45000 }), { text: 'exit 1', tone: 'bad' });
+  assert.deepEqual(stepMeta({ exitCode: 0, durationMs: 3900 }), { text: '3.9s' });
+  assert.deepEqual(stepMeta({ durationMs: 45100 }), { text: '45s' });
+  assert.match(stepMeta({ matches: [{}, {}] })!.text, /2/);
+  assert.equal(stepMeta({ replacements: 1 }), undefined);
+  assert.equal(stepMeta('plain text'), undefined);
+});
 
 test('search results group matches per file, relative to the searched root, with context lines', () => {
   const files = searchFiles({

@@ -7,8 +7,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Bot, Snapshot } from '../../shared/types/core';
 import type { DesignTaskKind } from '../../shared/types/designer-types';
 import { DESIGN_TASK_KINDS } from '../../shared/types/designer-types';
-import { designPluginCopy, designPluginTriggerLabel } from './designer-plugin-copy';
 import {
+  deviceFrameKind,
   emptyCanvasHtml,
   pickDesignPreviewFiles,
   designPreviewSignature,
@@ -27,14 +27,32 @@ import { workspacePreviewItem } from '../preview/workspace-preview';
 import { translate as t, useI18n } from '../i18n';
 import { ConversationInteractions } from '../chat/InteractionPrompts';
 import { DesignSystemPicker } from './DesignSystemPicker';
-import { DesignPluginPicker } from './DesignPluginPicker';
 import { DesignerTaskCard } from './DesignerTaskCard';
 import { DesignerDelivery } from './DesignerDelivery';
+import { DesignerRoundCard } from './DesignerRoundCard';
+import { clampDesignerChatWidth } from './designer-round';
 import './designer-workspace.css';
 import './designer-bauhaus.css';
 import './designer-preview.css';
 import './designer-studio.css';
+import './designer-layout.css';
+import './designer-delivery.css';
 const designerDrafts = new Map<string, Record<string, ComposerDraft>>();
+type StudioLayout = 'chat' | 'split' | 'canvas';
+const LAYOUT_KEY = 'aelion-designer-layout',
+  WIDTH_KEY = 'aelion-designer-chat-width';
+const stored = <T,>(key: string, read: (value: string | null) => T): T => {
+  try {
+    return read(localStorage.getItem(key));
+  } catch {
+    return read(null);
+  }
+};
+const remember = (key: string, value: string) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch {}
+};
 const lastDesign = (botId: string) => {
   try {
     return localStorage.getItem('aelion-last-design:' + botId) || '';
@@ -110,20 +128,46 @@ export function DesignerWorkspace({
   const [activeId, setActiveId] = useState(initialSessionId || lastDesign(bot.id)),
     [kind, setKind] = useState<DesignTaskKind>('prototype'),
     [systemId, setSystemId] = useState<string | null>(bot.defaultDesignSystemId || null),
-    [pluginIds, setPluginIds] = useState<string[]>([]),
     [picker, setPicker] = useState(false),
-    [pluginPicker, setPluginPicker] = useState(false),
     [fontPicker, setFontPicker] = useState(false),
     [fontTarget, setFontTarget] = useState<string>(),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [drafts, setDrafts] = useState<Record<string, ComposerDraft>>(() => designerDrafts.get(draftCacheKey) || {}),
-    [workspaceFiles, setWorkspaceFiles] = useState<DesignWorkspaceFile[]>([]);
+    [workspaceFiles, setWorkspaceFiles] = useState<DesignWorkspaceFile[]>([]),
+    [layout, setLayout] = useState<StudioLayout>(() =>
+      stored(LAYOUT_KEY, (v) => (v === 'chat' || v === 'canvas' ? v : 'split')),
+    ),
+    [chatWidth, setChatWidth] = useState(() => stored(WIDTH_KEY, (v) => clampDesignerChatWidth(Number(v) || 452)));
+  const studioRoot = useRef<HTMLDivElement>(null),
+    studioFooter = useRef<HTMLElement>(null);
+  const chooseLayout = (next: StudioLayout) => {
+    setLayout(next);
+    remember(LAYOUT_KEY, next);
+  };
+  const resizeChat = (width: number) => {
+    const next = clampDesignerChatWidth(width, studioRoot.current?.clientWidth);
+    setChatWidth(next);
+    remember(WIDTH_KEY, String(next));
+  };
+  // In the canvas layout the composer floats under the canvas; the canvas ends above it.
+  useEffect(() => {
+    const node = studioFooter.current,
+      root = studioRoot.current;
+    if (!node || !root || layout !== 'canvas') {
+      root?.style.removeProperty('--designer-dock-height');
+      return;
+    }
+    const update = () => root.style.setProperty('--designer-dock-height', node.getBoundingClientRect().height + 'px');
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [layout, activeId]);
   const task = sessions.find((s) => s.id === activeId),
     key = task?.id || 'new',
     draft = drafts[key] || { text: '', mentions: [] },
     systems = state.designer?.systems || [],
-    plugins = state.designer?.plugins || [],
     system = systems.find((s) => s.id === (task ? task.systemId : systemId));
   const conversationScroll = useConversationBottom(bot.id + ':' + key);
   const permissionMode = state.hostPermissionModes?.[workspaceKey({ kind: 'bot', id: bot.id })];
@@ -204,6 +248,7 @@ export function DesignerWorkspace({
       ? picked.map((file) => ({
           ...workspacePreviewItem(task.botId, { name: file.name, path: file.path, size: file.size }),
           designSessionId: task.id,
+          deviceFrame: deviceFrameKind(task.kind),
         }))
       : [
           {
@@ -211,6 +256,7 @@ export function DesignerWorkspace({
             name: task.title || kindLabel(task.kind),
             size: 0,
             designSessionId: task.id,
+            deviceFrame: deviceFrameKind(task.kind),
             load: async () => ({ kind: 'html' as const, content: emptyCanvasHtml() }),
           },
         ];
@@ -249,7 +295,6 @@ export function DesignerWorkspace({
       preview.close();
       canvasSig.current = '';
       setPicker(false);
-      setPluginPicker(false);
       setFontPicker(false);
       setActiveId(id);
     }) ||
@@ -266,7 +311,11 @@ export function DesignerWorkspace({
       if (html >= 0) next = html;
     }
     const files = (picked.length ? picked : artifacts.map((a) => ({ name: a.name, path: a.path, size: a.bytes }))).map(
-      (file) => ({ ...workspacePreviewItem(task.botId, file), designSessionId: task.id }),
+      (file) => ({
+        ...workspacePreviewItem(task.botId, file),
+        designSessionId: task.id,
+        deviceFrame: deviceFrameKind(task.kind),
+      }),
     );
     if (!files.length) return;
     const target = artifacts[next]?.path;
@@ -275,6 +324,30 @@ export function DesignerWorkspace({
       files.findIndex((item) => item.workspace?.path === target),
     );
     open(files, fileIndex, { scope: previewScope });
+  };
+  // Rounds are numbered by the task's runs, so a resumed run keeps its number.
+  const roundOf = (runId?: string) => {
+    const index = runId && task ? task.runIds.indexOf(runId) : -1;
+    return index >= 0 ? index + 1 : (task?.runIds.length || 0) + 1;
+  };
+  const openDelivered = (file: { name: string }) => {
+    if (!task) return;
+    const base = (path: string) => path.split(/[\\/]/).pop();
+    const artifact = task.artifacts.findIndex((item) => item.name === file.name || base(item.path) === file.name);
+    if (artifact >= 0) return showArtifact(artifact);
+    const workspace = workspaceFiles.find((item) => base(item.path) === file.name);
+    if (workspace)
+      open(
+        [
+          {
+            ...workspacePreviewItem(task.botId, workspace),
+            designSessionId: task.id,
+            deviceFrame: deviceFrameKind(task.kind),
+          },
+        ],
+        0,
+        { scope: previewScope },
+      );
   };
   const send = async () => {
     if (!draft.text.trim() && !draft.attachments?.length) return;
@@ -298,12 +371,9 @@ export function DesignerWorkspace({
         kind,
         brief: draft.text || t('根据附件进行设计'),
         systemId,
-        plugins: pluginIds,
       });
       setActiveId(created.id);
       setSystemId(bot.defaultDesignSystemId || null);
-      setPluginIds([]);
-      setPluginPicker(false);
       await window.aelion.sendDesignMessage({
         id: created.id,
         message: draft.text || created.brief,
@@ -316,7 +386,6 @@ export function DesignerWorkspace({
   useEffect(() => {
     if (running || task?.activeRunId) {
       setPicker(false);
-      setPluginPicker(false);
     }
   }, [running, task?.activeRunId]);
   const systemControl = (
@@ -330,7 +399,6 @@ export function DesignerWorkspace({
         aria-label={t('设计系统：') + (system?.name || t('未指定'))}
         aria-haspopup="dialog"
         onClick={() => {
-          setPluginPicker(false);
           setPicker(true);
         }}
       >
@@ -350,7 +418,6 @@ export function DesignerWorkspace({
     const show = () => {
       setFontTarget(fontPath);
       setPicker(false);
-      setPluginPicker(false);
       setFontPicker(true);
     };
     if (preview) preview.navigate(show);
@@ -364,27 +431,6 @@ export function DesignerWorkspace({
       .then(setWorkspaceFiles)
       .catch((cause) => setError(ipcErrorText(cause)));
   };
-  const pluginNames = pluginIds.map(
-    (id) => designPluginCopy(plugins.find((plugin) => plugin.id === id) || { id, name: id, description: '' }, en).name,
-  );
-  const pluginControl = plugins.length ? (
-    <div className="composer-workspace designer-plugin-control" title={t('可选检查')}>
-      <button
-        type="button"
-        aria-haspopup="dialog"
-        aria-expanded={pluginPicker}
-        aria-label={t('可选检查：') + (pluginIds.length ? pluginNames.join('、') : t('未选用'))}
-        onClick={() => {
-          setPicker(false);
-          setPluginPicker((open) => !open);
-        }}
-      >
-        <Icon name="sliders" size={15} />
-        <span>{designPluginTriggerLabel(pluginIds.length, pluginNames, en)}</span>
-        <Icon name="down" size={12} />
-      </button>
-    </div>
-  ) : null;
   const taskRuns = task
       ? state.runs.filter((r) => r.botId === bot.id && (r.designSessionId === task.id || task.runIds.includes(r.id)))
       : [],
@@ -413,15 +459,27 @@ export function DesignerWorkspace({
       : [];
   const currentRequest = activeRun ? requests.find((r) => r.runId === activeRun.id) : undefined;
   const visible = task ? designConversationMessages(state.messages, state.runs, bot.id, task.id, task.runIds) : [];
+  const latestReply = [...designMessageTimeline(visible, live)]
+    .reverse()
+    .map(({ message }) => message)
+    .find((message) => message.role === 'assistant' && message.content.trim())
+    ?.content.replace(/[#*_`>-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 90);
   const designFindings = (task?.findings || [])
     .flatMap((entry) => entry.findings.map((finding) => ({ ...finding, path: entry.path })))
     .sort((a, b) => a.level.localeCompare(b.level));
   const blockingCount = designFindings.filter((finding) => finding.level === 'P0').length;
   const openComments = (task?.comments || []).filter((comment) => comment.status === 'open');
-  const enabledPlugins = plugins.filter((plugin) => (task?.plugins || pluginIds).includes(plugin.id));
 
   return (
-    <div className={`designer-workspace ${task ? 'has-task is-studio is-preview-docked' : ''}`}>
+    <div
+      ref={studioRoot}
+      className={`designer-workspace ${task ? 'has-task is-studio is-preview-docked' : ''}`}
+      data-layout={task ? layout : undefined}
+      style={task ? ({ '--designer-chat-width': chatWidth + 'px' } as React.CSSProperties) : undefined}
+    >
       <header className="designer-header chat-header drag">
         <button className="designer-identity no-drag" onClick={onProfile}>
           <Avatar bot={bot} size={31} />
@@ -447,6 +505,21 @@ export function DesignerWorkspace({
                 <span>{t('新任务')}</span>
               </button>
             )}
+          </div>
+        )}
+        {task && (
+          <div className="designer-layout-switch no-drag" role="radiogroup" aria-label={t('布局')}>
+            {(['chat', 'split', 'canvas'] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={layout === value}
+                onClick={() => chooseLayout(value)}
+              >
+                {t({ chat: '对话', split: '分栏', canvas: '画布' }[value])}
+              </button>
+            ))}
           </div>
         )}
         {task && (
@@ -517,12 +590,7 @@ export function DesignerWorkspace({
               fixedDesignWorkspace
               contextOverview={activeRun?.contextOverview}
               contextCapacity={(state.botModels?.[bot.id] || state.model).contextTokens}
-              contextControl={
-                <>
-                  {systemControl}
-                  {pluginControl}
-                </>
-              }
+              contextControl={<>{systemControl}</>}
               bot={bot}
               bots={state.bots}
               draft={draft}
@@ -548,6 +616,27 @@ export function DesignerWorkspace({
         </div>
       ) : (
         <>
+          {layout === 'canvas' && (
+            <nav className="designer-rail" aria-label={t('对话')}>
+              <button
+                type="button"
+                className="designer-rail-avatar"
+                title={t('展开对话')}
+                onClick={() => chooseLayout('split')}
+              >
+                <Avatar bot={bot} size={30} activity={running ? 'working' : 'idle'} />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={t('展开对话')}
+                onClick={() => chooseLayout('split')}
+              >
+                <Icon name="message" size={17} />
+              </button>
+              {running && <span className="designer-rail-status">{t('生成中')}</span>}
+            </nav>
+          )}
           <div className="designer-studio-chat">
             <div
               ref={conversationScroll.pane}
@@ -565,12 +654,6 @@ export function DesignerWorkspace({
                     ))}
                   </details>
                 )}
-                {enabledPlugins.length > 0 && (
-                  <p className="designer-plugin-note">
-                    {t('本次检查：')}
-                    {enabledPlugins.map((plugin) => designPluginCopy(plugin, en).name).join(' · ')}
-                  </p>
-                )}
                 {designMessageTimeline(visible, live).map(({ message, streaming }) => (
                   <div
                     key={message.id}
@@ -578,7 +661,19 @@ export function DesignerWorkspace({
                     data-design-message={message.id}
                     aria-busy={streaming || undefined}
                   >
-                    <Message message={message} allowPins={false} />
+                    {message.role === 'assistant' && message.attachments?.length ? (
+                      <>
+                        <Message message={{ ...message, attachments: undefined }} allowPins={false} />
+                        <DesignerRoundCard
+                          round={roundOf(message.runId)}
+                          attachments={message.attachments}
+                          changes={message.runId ? task.changes?.[message.runId] : undefined}
+                          onOpen={openDelivered}
+                        />
+                      </>
+                    ) : (
+                      <Message message={message} allowPins={false} />
+                    )}
                   </div>
                 ))}
                 {activeRun && (
@@ -610,13 +705,27 @@ export function DesignerWorkspace({
                 )}
               </div>
             </div>
-            <footer className="designer-task-footer">
+            <footer className="designer-task-footer" ref={studioFooter}>
+              {layout === 'canvas' && latestReply && (
+                <div className="designer-peek">
+                  <Avatar bot={bot} size={20} />
+                  <span>
+                    <b>{bot.name}</b>
+                    {latestReply}
+                  </span>
+                  <button type="button" onClick={() => chooseLayout('split')}>
+                    {t('展开对话')}
+                  </button>
+                </div>
+              )}
               <DesignerDelivery
                 task={task}
                 findings={designFindings}
                 blocking={blockingCount}
                 comments={openComments}
                 busy={busy || running}
+                running={running}
+                onStop={() => void window.aelion.cancel(bot.id)}
                 onShow={showArtifact}
                 onAccept={() =>
                   void act(() => window.aelion.acceptDesignSession({ id: task.id, revision: task.revision }))
@@ -656,6 +765,31 @@ export function DesignerWorkspace({
               </div>
             </footer>
           </div>
+          {layout === 'split' && (
+            <div
+              className="designer-divider"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label={t('调整对话宽度')}
+              aria-valuemin={360}
+              aria-valuemax={640}
+              aria-valuenow={chatWidth}
+              tabIndex={0}
+              onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
+              onPointerMove={(event) => {
+                if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+                const left = studioRoot.current?.getBoundingClientRect().left || 0;
+                resizeChat(event.clientX - left);
+              }}
+              onPointerUp={(event) => event.currentTarget.releasePointerCapture(event.pointerId)}
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                  event.preventDefault();
+                  resizeChat(chatWidth + (event.key === 'ArrowRight' ? 16 : -16));
+                }
+              }}
+            />
+          )}
           <aside className="designer-canvas" data-designer-canvas={task.id} aria-label={t('实时设计画布')} />
         </>
       )}
@@ -709,14 +843,6 @@ export function DesignerWorkspace({
               setPicker(false);
             }
           }}
-        />
-      )}
-      {pluginPicker && (
-        <DesignPluginPicker
-          plugins={plugins}
-          selected={pluginIds}
-          onChange={setPluginIds}
-          onClose={() => setPluginPicker(false)}
         />
       )}
     </div>

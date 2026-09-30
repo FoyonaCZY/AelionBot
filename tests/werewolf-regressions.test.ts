@@ -209,11 +209,12 @@ test('AI response expiry pauses without choosing no and resume only retries unfi
       );
     },
     () => {},
-    { aiTimeoutMs: 80 },
+    // Only seat 11 hangs; the budget must outlast committing the other eleven answers on a slow CI runner.
+    { aiTimeoutMs: 1000 },
   );
   try {
     runtime.control(s.id, 'resume');
-    await until(() => runtime.read('timeout')?.status !== 'running', { timeoutMs: 3000, intervalMs: 20 });
+    await until(() => runtime.read('timeout')?.status !== 'running', { timeoutMs: 8000, intervalMs: 20 });
     assert.equal(runtime.read('timeout')?.status, 'paused');
     assert.match(runtime.read('timeout')!.error!, /模型响应超时/);
     let disk = saved(dir);

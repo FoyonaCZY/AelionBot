@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import type { DesignComment, DesignFinding, DesignSession } from '../../shared/types/designer-types';
 import { primaryDesignArtifact as primaryArtifact } from '../../shared/preview/designer-canvas';
-import { Icon } from '../ui/Icon';
 import { PreviewIcon } from '../preview/PreviewIcon';
 import { useI18n } from '../i18n';
+import { deliveryState } from './designer-round';
 
 /**
  * Deliverables, checks and the accept action, kept out of the conversation scroll so they stay
@@ -15,9 +15,13 @@ export function DesignerDelivery({
   blocking,
   comments,
   busy,
+  running = false,
+  onStop,
   onShow,
   onAccept,
 }: {
+  running?: boolean;
+  onStop?: () => void;
   task: DesignSession;
   findings: Array<DesignFinding & { path: string }>;
   blocking: number;
@@ -33,75 +37,65 @@ export function DesignerDelivery({
   const accepted = task.status === 'completed';
   const formatCheck = task.checks.find((check) => check.id === 'format');
   const canAccept = Boolean(primary && formatCheck?.status === 'passed');
-  const issues = blocking + findings.filter((f) => f.level === 'P1').length;
-  const checkLabel = issues
-    ? t('{count} 项问题', { count: issues })
-    : formatCheck?.status === 'passed'
-      ? t('检查通过')
-      : formatCheck?.status === 'failed'
-        ? t('检查未通过')
-        : '';
-  if (!details && !accepted) return null;
+  const state = deliveryState({ accepted, running, blocking, canAccept });
+  const advisory = findings.filter((f) => f.level !== 'P0').length;
+  if (!details && !accepted && !running) return null;
+  const firstBlocking = findings.find((f) => f.level === 'P0');
+  const primaryIndex = primary ? Math.max(0, task.artifacts.indexOf(primary)) : 0;
   return (
-    <section className="designer-delivery-bar" aria-label={t('交付成果')}>
-      <div className="designer-delivery-row">
-        {primary ? (
+    <section className="designer-delivery-bar" data-state={state} aria-label={t('交付成果')}>
+      <div className="designer-delivery-status" role="status">
+        <span className="designer-delivery-dot" aria-hidden="true" />
+        <b>
+          {
+            {
+              running: t('生成中'),
+              blocked: t('有 {count} 个阻塞问题', { count: blocking }),
+              pending: t('待确认'),
+              accepted: t('已确认'),
+              empty: t('还没有可交付的文件'),
+            }[state]
+          }
+        </b>
+        <span className="designer-delivery-detail">
+          {state === 'blocked'
+            ? firstBlocking?.message
+            : state === 'running'
+              ? primary?.name || ''
+              : primary
+                ? primary.name + (task.artifacts.length > 1 ? ' +' + (task.artifacts.length - 1) : '')
+                : ''}
+        </span>
+        {state === 'pending' && advisory > 0 && (
+          <span className="designer-delivery-pill">{t('{count} 条建议', { count: advisory })}</span>
+        )}
+        <span className="designer-delivery-space" />
+        {state === 'running' && onStop && (
+          <button type="button" className="designer-delivery-button" onClick={onStop}>
+            {t('停止')}
+          </button>
+        )}
+        {state !== 'running' && details > 0 && (
           <button
             type="button"
-            className="designer-delivery-primary"
-            onClick={() => onShow(Math.max(0, task.artifacts.indexOf(primary)))}
-            title={primary.name}
+            className="designer-delivery-button"
+            aria-expanded={open}
+            aria-controls={'design-details-' + task.id}
+            onClick={() => setOpen((value) => !value)}
           >
-            <span className="designer-delivery-file-icon">
-              <PreviewIcon name={primary.kind === 'pptx' || primary.kind === 'pdf' ? 'pages' : 'code'} />
-            </span>
-            <span>{primary.name}</span>
-            {task.artifacts.length > 1 && <small>+{task.artifacts.length - 1}</small>}
+            {t(open ? '收起' : '查看')}
           </button>
-        ) : (
-          <span className="designer-delivery-label">
-            <Icon name="check" size={15} />
-            {t('检查')}
-          </span>
         )}
-        <div className="designer-delivery-actions">
-          {details > 0 && (
-            <button
-              type="button"
-              className="designer-delivery-toggle"
-              title={checkLabel || undefined}
-              aria-expanded={open}
-              aria-controls={'design-details-' + task.id}
-              onClick={() => setOpen((value) => !value)}
-            >
-              {checkLabel && (
-                <span
-                  className="designer-delivery-check"
-                  data-warning={issues > 0 || formatCheck?.status === 'failed' || undefined}
-                  title={checkLabel}
-                >
-                  <Icon name={issues > 0 || formatCheck?.status === 'failed' ? 'alert' : 'check'} size={14} />
-                  {issues > 0 && <b>{issues}</b>}
-                </span>
-              )}
-              <span>{t('详情')}</span>
-              <Icon name="down" size={12} />
-            </button>
-          )}
-          {(primary || accepted) && (
-            <button
-              type="button"
-              className="designer-accept"
-              disabled={busy || accepted || !canAccept}
-              data-accepted={accepted || undefined}
-              title={!canAccept && !accepted ? t('文件检查通过后可确认') : undefined}
-              onClick={onAccept}
-            >
-              <Icon name="check" size={14} />
-              {accepted ? t('已确认') : t('确认完成')}
-            </button>
-          )}
-        </div>
+        {state === 'pending' && (
+          <button type="button" className="designer-delivery-button is-primary" disabled={busy} onClick={onAccept}>
+            {t('确认交付')}
+          </button>
+        )}
+        {state === 'accepted' && primary && (
+          <button type="button" className="designer-delivery-button" onClick={() => onShow(primaryIndex)}>
+            {t('打开')}
+          </button>
+        )}
       </div>
       {open && (
         <div className="designer-delivery-details" id={'design-details-' + task.id}>

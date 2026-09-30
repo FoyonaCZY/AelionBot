@@ -13,11 +13,12 @@ import type { HarnessRunOptions } from '../electron/core/agent/peer-runtime-type
 import type { RunRecord } from '../shared/types/core';
 import { until } from './helpers';
 import { GroupChats } from '../electron/core/group/group-chats';
+import { unanswered } from '../shared/chat/group-answers';
 
 const decisionInput = (text = ''): GroupDecisionInput => ({
-  bot: { name: '测试 Bot', soul: '' },
-  events: [{ from: { kind: 'user', name: '用户' }, text, mentioned: false }],
-  recent: [],
+  bot: { name: '测试 Bot', role: '' },
+  work: '空闲',
+  message: { from: { kind: 'user', name: '用户' }, text },
 });
 
 async function choose(
@@ -35,10 +36,12 @@ async function choose(
 function completedGroupRunner(
   store: Store,
   onRun: (botId: string, input: string, options: HarnessRunOptions, run: RunRecord) => string | void = () => {},
+  // Bots a test keeps busy elsewhere, so Laya (not the idle rule) judges their messages.
+  elsewhere = new Set<string>(),
 ): ConstructorParameters<typeof GroupChats>[1] {
   const busy = new Set<string>();
   return {
-    isRunning: (botId) => busy.has(botId),
+    isRunning: (botId) => busy.has(botId) || elsewhere.has(botId),
     cancel: (botId) => {
       const run = store.data.runs.find((item) => item.botId === botId && item.status === 'running');
       if (run) run.status = 'cancelled';
@@ -85,6 +88,19 @@ function assertDeliveriesSettled(store: Store) {
   assert(store.data.runs.every((run) => run.status === 'completed'));
 }
 
+// Idle Bots always answer the user; Laya only judges for Bots busy with other work.
+async function whileBusy(groups: GroupChats, store: Store, elsewhere: Set<string>, ids: string[], send: () => void) {
+  for (const id of ids) elsewhere.add(id);
+  const before = store.data.groupDeliveries.length;
+  send();
+  await until(() =>
+    store.data.groupDeliveries
+      .slice(before)
+      .every((item) => item.recipientId === 'user' || (item.triage && item.status !== 'deciding')),
+  );
+  elsewhere.clear();
+  groups.wake();
+}
 async function ready(runtime: LayaRuntime) {
   runtime.warmup();
   await until(() => runtime.isReady, { message: 'Laya 未就绪' });
@@ -137,8 +153,8 @@ test('local Laya records a two-way group decision', async () => {
     assert.equal(result.choice, 'participate');
     assert.equal(result.confidence, 0.73);
     assert.equal(result.probabilities.participate, 0.7);
-    assert.equal(result.criteria.participate, '这个 Bot 可以回应当前问题、补充有用信息，或开展及继续用户授权的工作');
-    assert.deepEqual(result.features, { events: 1, recent: 0, mentioned: false, ownTask: false });
+    assert.equal(result.criteria.participate, '回应：这条消息和当前 Bot 的职责或手上的事有关');
+    assert.deepEqual(result.features, { repliedTo: false, answered: false, working: false });
     assert.equal(typeof result.elapsedMs, 'number');
     assert(line.includes('PRIVATE_GROUP_CONTENT'));
     assert.equal(
@@ -210,11 +226,16 @@ test('group broadcast sends each Bot a separate decision', async () => {
   const log = new LayaDecisionLog(dir);
   const decisions = new LayaGroupDecisions(runtime, log);
   let runs = 0;
+  const elsewhere = new Set<string>();
   const groups = new GroupChats(
     store,
-    completedGroupRunner(store, () => {
-      runs++;
-    }),
+    completedGroupRunner(
+      store,
+      () => {
+        runs++;
+      },
+      elsewhere,
+    ),
     () => {},
     undefined,
     undefined,
@@ -223,8 +244,10 @@ test('group broadcast sends each Bot a separate decision', async () => {
   try {
     await ready(runtime);
     const group = groups.create({ name: '测试群', botIds: [first.id, second.id] });
-    groups.send({ id: group.id, message: '请看这条群消息' });
     groups.start();
+    await whileBusy(groups, store, elsewhere, [first.id, second.id], () =>
+      groups.send({ id: group.id, message: '请看这条群消息' }),
+    );
     let events: Record<string, string>[] = [];
     await until(() => {
       try {
@@ -237,8 +260,17 @@ test('group broadcast sends each Bot a separate decision', async () => {
     });
     assert.deepEqual(new Set(events.map((event) => event.actorId)), new Set([first.id, second.id]));
     assert(events.every((event) => event.scope === 'group' && event.choice === 'observe'));
-    await until(() => !groups.busy);
-    assert.equal(runs, 0);
+    await until(() => !groups.busy && !store.data.groupDeliveries.some((item) => item.status === 'queued'));
+    // Nobody answered: the app shows a hint under the message, but nothing is added to the group log.
+    const asked = store.data.groups[0].messages.find((message) => message.content === '请看这条群消息')!;
+    assert.ok(unanswered(store.data.groups[0].messages, store.data.groupDeliveries, asked));
+    assert.ok(
+      !store.data.groups[0].messages.some(
+        (message) => message.sender.kind === 'system' && message.replyTo === asked.id,
+      ),
+    );
+    // Only the group-created event woke them; Laya kept both away from the message.
+    assert.equal(runs, 2);
     assertDeliveriesSettled(store);
     const page = groups.read({ id: group.id });
     assert.equal(page.laya?.decisions.length, 2);
@@ -276,7 +308,7 @@ test('Laya participation reaches each Bot for questions and work', async () => {
     script = join(dir, 'fake.py');
   writeFileSync(
     script,
-    'import json,sys\nprint(json.dumps({"ready":True}),flush=True)\nfor line in sys.stdin:\n request=json.loads(line)\n event=request["state"]["events"][-1]\n choice="participate" if event["from"]["kind"]=="user" else "observe"\n print(json.dumps({"id":request["id"],"result":{"answers":{"decision":{"choice":choice,"probabilities":{"observe":0.1,"participate":0.9}}}}}),flush=True)\n',
+    'import json,sys\nprint(json.dumps({"ready":True}),flush=True)\nfor line in sys.stdin:\n request=json.loads(line)\n event=request["state"]["message"]\n choice="participate" if event["from"]["kind"]=="user" else "observe"\n print(json.dumps({"id":request["id"],"result":{"answers":{"decision":{"choice":choice,"probabilities":{"observe":0.1,"participate":0.9}}}}}),flush=True)\n',
   );
   const store = new Store(dir),
     first = store.data.bots[0],
@@ -284,12 +316,17 @@ test('Laya participation reaches each Bot for questions and work', async () => {
   const runtime = new LayaRuntime(script, () => {}, { runtime: 'mlx', python: 'python3' });
   const log = new LayaDecisionLog(dir);
   const decisions = new LayaGroupDecisions(runtime, log);
-  const calls: Array<{ botId: string; choice: string }> = [];
+  const calls: string[] = [];
+  const elsewhere = new Set<string>();
   const groups = new GroupChats(
     store,
-    completedGroupRunner(store, (botId, input) => {
-      calls.push({ botId, choice: (JSON.parse(input) as { layaDecision: { choice: string } }).layaDecision.choice });
-    }),
+    completedGroupRunner(
+      store,
+      (botId) => {
+        calls.push(botId);
+      },
+      elsewhere,
+    ),
     () => {},
     undefined,
     undefined,
@@ -306,13 +343,21 @@ test('Laya participation reaches each Bot for questions and work', async () => {
           !store.data.groupDeliveries.some((item) => ['queued', 'deciding', 'running'].includes(item.status)),
       );
     await wait();
-    groups.send({ id: room.id, message: '请回复这条消息。' });
+    // Both members heard the group being created; Laya is not asked about events.
+    assert.equal(calls.length, 2);
+    calls.length = 0;
+    const both = [first.id, second.id];
+    await whileBusy(groups, store, elsewhere, both, () => groups.send({ id: room.id, message: '请回复这条消息。' }));
     await wait();
-    assert.equal(calls.filter((item) => item.choice === 'participate').length, 2);
-    groups.send({ id: room.id, message: '请执行本轮测试任务。' });
+    assert.equal(calls.length, 2);
+    await whileBusy(groups, store, elsewhere, both, () =>
+      groups.send({ id: room.id, message: '请执行本轮测试任务。' }),
+    );
     await wait();
-    assert.equal(calls.filter((item) => item.choice === 'participate').length, 4);
-    assert.deepEqual(new Set(calls.map((item) => item.botId)), new Set([first.id, second.id]));
+    assert.equal(calls.length, 4);
+    assert.deepEqual(new Set(calls), new Set([first.id, second.id]));
+    // Membership notices never reach Laya; only the two user messages were judged, once per Bot.
+    assert.equal(log.groupDecisions(new Set(store.data.groupDeliveries.map((item) => item.id))).length, 4);
     assertDeliveriesSettled(store);
   } finally {
     groups.dispose();
@@ -436,7 +481,7 @@ test('enabled Laya receives each Bot identity and cannot globally suppress anoth
     runtimeName: 'mlx',
     async predict(state: GroupDecisionInput) {
       inputs.push(state);
-      const text = state.events.at(-1)!.text;
+      const text = state.message.text;
       return {
         choice: text.includes('@甲') && state.bot.name === '甲' ? 'observe' : 'participate',
         model: 'fake',
@@ -447,11 +492,16 @@ test('enabled Laya receives each Bot identity and cannot globally suppress anoth
   } as unknown as LayaRuntime;
   const decisions = new LayaGroupDecisions(runtime, new LayaDecisionLog(dir));
   const runs: string[] = [];
+  const elsewhere = new Set<string>();
   const groups = new GroupChats(
     store,
-    completedGroupRunner(store, (botId) => {
-      runs.push(botId);
-    }),
+    completedGroupRunner(
+      store,
+      (botId) => {
+        runs.push(botId);
+      },
+      elsewhere,
+    ),
     () => {},
     undefined,
     undefined,
@@ -469,12 +519,18 @@ test('enabled Laya receives each Bot identity and cannot globally suppress anoth
     await wait();
     runs.length = 0;
     inputs.length = 0;
-    groups.send({ id: room.id, message: '不要执行任何命令，请解释静默模式的实现' });
+    const both = [first.id, second.id];
+    await whileBusy(groups, store, elsewhere, both, () =>
+      groups.send({ id: room.id, message: '不要执行任何命令，请解释静默模式的实现' }),
+    );
     await wait();
     assert.deepEqual(new Set(runs), new Set([first.id, second.id]));
-    assert.equal(inputs.find((input) => input.bot.name === '甲')?.bot.soul, '数据分析 分析问题');
+    assert.equal(inputs.find((input) => input.bot.name === '甲')?.bot.role, '数据分析 分析问题');
+    assert.ok(inputs.every((input) => input.work === '忙碌'));
     runs.length = 0;
-    groups.send({ id: room.id, message: '@甲 不要执行任务，请旁听。@乙 请检查报告并回复' });
+    await whileBusy(groups, store, elsewhere, both, () =>
+      groups.send({ id: room.id, message: '@甲 不要执行任务，请旁听。@乙 请检查报告并回复' }),
+    );
     await wait();
     assert.deepEqual(runs, [second.id]);
     assertDeliveriesSettled(store);
@@ -485,44 +541,52 @@ test('enabled Laya receives each Bot identity and cannot globally suppress anoth
   }
 });
 
-test('resuming an owned task records and sends the same final participation decision', async () => {
+test('requeued group work resumes without asking Laya while other members are still judged', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-laya-resume-'));
   const store = new Store(dir),
     bot = store.data.bots[0],
     second = store.createBot('旁听伙伴', '');
+  const judged: string[] = [];
   const runtime = {
     enabled: true,
     isReady: true,
     runtimeName: 'mlx',
-    predict: async () => ({
-      choice: 'observe',
-      confidence: 0.9,
-      probabilities: { observe: 0.9, participate: 0.1 },
-      runtime: 'mlx',
-      model: 'fake',
-      elapsedMs: 0,
-    }),
+    predict: async (state: GroupDecisionInput) => {
+      judged.push(state.bot.name);
+      return {
+        choice: 'observe',
+        confidence: 0.9,
+        probabilities: { observe: 0.9, participate: 0.1 },
+        runtime: 'mlx',
+        model: 'fake',
+        elapsedMs: 0,
+      };
+    },
   } as unknown as LayaRuntime;
   const decisions = new LayaGroupDecisions(runtime, new LayaDecisionLog(dir));
-  let sent: { choice: string; predictedChoice: string; adjustment: string } | undefined;
+  const resumed: string[] = [];
+  const elsewhere = new Set([second.id]);
   const groups = new GroupChats(
     store,
-    completedGroupRunner(store, (_botId, input, options) => {
-      sent = JSON.parse(input).layaDecision;
-      assert.equal(options.groupTaskFrom, previousRunId);
-      store.data.groups[0].tasks![0].status = 'completed';
-      return '报告已核对。';
-    }),
+    completedGroupRunner(
+      store,
+      (botId, _input, options) => {
+        if (!options.groupTaskFrom) return;
+        resumed.push(botId);
+        assert.equal(options.groupTaskFrom, previousRunId);
+        return '报告已核对。';
+      },
+      elsewhere,
+    ),
     () => {},
     undefined,
     undefined,
     decisions,
   );
-  const previousRunId = randomUUID(),
-    taskId = randomUUID();
+  const previousRunId = randomUUID();
   try {
     const room = groups.create({ name: '任务续跑', botIds: [bot.id, second.id] });
-    groups.send({ id: room.id, message: `请继续核对报告 taskId: ${taskId}` });
+    groups.send({ id: room.id, message: '请继续核对报告' });
     const storedRoom = store.data.groups[0],
       user = storedRoom.messages.find((message) => message.sender.kind === 'user' && message.kind === 'message')!;
     assert(user.rootId);
@@ -537,43 +601,39 @@ test('resuming an owned task records and sends the same final participation deci
       toolCalls: 1,
       groupOrigin: { groupId: room.id, rootId: user.rootId, deliveryId: 'previous-delivery' },
     });
-    storedRoom.tasks = [
-      {
-        id: taskId,
-        key: 'report',
-        title: '核对报告',
-        ownerId: bot.id,
-        status: 'working',
-        summary: '已有检查点',
-        sourceMessageId: user.id,
-        revision: 1,
-        createdAt: time,
-        updatedAt: time,
-        runIds: [previousRunId],
-      },
-    ];
+    store.message(bot.id, 'tool', '{"stdout":"checked"}', {
+      runId: previousRunId,
+      tool: 'computer_execute',
+      status: 'done',
+    });
+    // A private chat took over: the delivery was requeued already woken and still names its run.
+    const requeued = store.data.groupDeliveries.find(
+      (item) => item.messageId === user.id && item.recipientId === bot.id,
+    )!;
+    requeued.runId = previousRunId;
+    requeued.triage = 'wake';
     groups.start();
+    // The other member is busy elsewhere, so Laya judges the user message for it.
+    await until(() => judged.length > 0);
+    elsewhere.clear();
+    groups.wake();
     await until(
       () =>
         !groups.busy &&
         !store.data.groupDeliveries.some((item) => ['queued', 'deciding', 'running'].includes(item.status)),
     );
     assertDeliveriesSettled(store);
+    assert.deepEqual(resumed, [bot.id]);
+    // The resumed Bot skips Laya; the other member is judged on the user message (and on the reply).
+    assert.ok(judged.length && judged.every((name) => name === second.name));
     const page = groups.read({ id: room.id });
-    const applied = page.laya?.decisions.find((item) => item.messageId === user.id && item.actorId === bot.id);
-    assert(applied);
-    assert.equal(applied.choice, 'observe');
-    assert.equal(applied.appliedChoice, 'participate');
-    assert.equal(applied.confidence, 0.9);
-    assert.deepEqual(applied.probabilities, { observe: 0.9, participate: 0.1 });
-    assert.equal(sent?.choice, applied.appliedChoice);
-    assert.equal(sent?.predictedChoice, applied.choice);
-    assert.equal(sent?.adjustment, applied.adjustment);
-    assert(applied.adjustment);
-    const persisted = new LayaDecisionLog(dir).groupDecisions(new Set([applied.sourceId]))[0];
-    assert.deepEqual(persisted, decisions.read(new Set([applied.sourceId]))[0]);
-    assert(page.deliveries.some((delivery) => delivery.messageId === user.id && delivery.status === 'replied'));
-    assert.equal(store.data.groups[0].tasks![0].status, 'completed');
+    assert.ok(page.messages.some((message) => message.sender.id === bot.id && message.content === '报告已核对。'));
+    const other = page.laya?.decisions.find((item) => item.messageId === user.id && item.actorId === second.id);
+    assert(other);
+    assert.equal(other.appliedChoice, 'observe');
+    assert.deepEqual(other.probabilities, { observe: 0.9, participate: 0.1 });
+    const persisted = new LayaDecisionLog(dir).groupDecisions(new Set([other.sourceId]))[0];
+    assert.deepEqual(persisted, decisions.read(new Set([other.sourceId]))[0]);
   } finally {
     groups.dispose();
     store.close();

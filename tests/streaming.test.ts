@@ -15,6 +15,7 @@ import { BotGreetings } from '../electron/core/agent/bot-greetings';
 import { GroupChats } from '../electron/core/group/group-chats';
 import { PeerChats } from '../electron/core/peer/peer-chats';
 import { groupPending } from '../shared/types/group-types';
+import { botIdentity } from '../shared/chat/bot-colors';
 import type { VmController } from '../electron/core/vm/vm';
 
 const tool = (name: string, args: unknown): Completion => ({
@@ -310,7 +311,10 @@ test('group drafts stay hidden while both concurrent members finish and publish 
       onText?.('乙的半句');
       return second.promise;
     }
-    return answer('[群聊静默]');
+    // Reviewing its draft after 甲 answered the same question, 乙 sends it as is.
+    return JSON.stringify(messages).includes('Before your reply is published')
+      ? answer('乙已完整发表')
+      : answer('[群聊静默]');
   });
   const other = f.store.createBot('乙', '协作');
   const groups = new GroupChats(
@@ -328,7 +332,15 @@ test('group drafts stay hidden while both concurrent members finish and publish 
   groups.start();
   f.cleanup.push(() => groups.dispose());
   const room = groups.create({ name: '完整回复群', botIds: [f.bot.id, other.id] });
-  groups.send({ id: room.id, message: '分别发表观点' });
+  const tags = [f.bot, other].map((bot) => '@' + bot.name + ' ').join('');
+  groups.send({
+    id: room.id,
+    message: tags + '分别发表观点',
+    mentions: [f.bot, other].map((bot, index) => {
+      const start = [f.bot, other].slice(0, index).reduce((sum, item) => sum + item.name.length + 2, 0);
+      return { ...botIdentity(bot), start, end: start + bot.name.length + 1 };
+    }),
+  });
   await until(() => began === 2);
   const revision = groups.snapshot().revision;
   assert.equal(f.harness.streams.snapshot().length, 0);

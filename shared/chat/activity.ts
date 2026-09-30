@@ -54,6 +54,8 @@ const operations: Record<string, { label: string; active: string; icon: string }
   scheduled_task_update: { label: '修改定时任务', active: '正在修改定时任务', icon: 'clock' },
   scheduled_task_delete: { label: '删除定时任务', active: '正在删除定时任务', icon: 'clock' },
   chat_pin: { label: '添加 emoji 回应', active: '正在回应', icon: 'message' },
+  group_react: { label: '添加群聊 emoji 回应', active: '正在回应', icon: 'message' },
+  // Stored runs from before the rename.
   group_pin: { label: '添加群聊 emoji 回应', active: '正在回应', icon: 'message' },
   bots_list: { label: '查找协作伙伴', active: '正在查找协作伙伴', icon: 'bot' },
   bot_send_message: { label: '发送私聊消息', active: '正在发送私聊消息', icon: 'message' },

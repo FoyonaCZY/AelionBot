@@ -488,6 +488,14 @@ export interface AelionAPI {
     factor?: number;
   }): Promise<import('../preview/web-preview').WebPreviewState>;
   closeWebPreview(id: string): Promise<void>;
+  /** prefers-color-scheme emulation for the page and the second device; undefined follows the page default. */
+  webPreviewAppearance(input: { id: string; primary?: 'light' | 'dark'; mirror?: 'light' | 'dark' }): Promise<void>;
+  /** Places the read-only second device, or removes it with rect null. */
+  layoutWebPreviewMirror(input: {
+    id: string;
+    rect: { x: number; y: number; width: number; height: number } | null;
+    visible: boolean;
+  }): Promise<void>;
   onWebPreview(callback: (state: import('../preview/web-preview').WebPreviewState) => void): () => void;
   onWebPreviewEscape(callback: (id: string) => void): () => void;
   sendPreviewFeedback(

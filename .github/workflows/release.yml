@@ -25,8 +25,46 @@ jobs:
       - name: Verify signed package installation and source fallback
         run: |
           docker run --rm -v "$PWD:/src:ro" debian:bookworm-slim sh -ec 'apt-get -o Acquire::Retries=2 update && apt-get install -y --no-install-recommends python3 ca-certificates && python3 /src/scripts/verify-package-installer.py'
+  # Tests, typecheck and the source audit run once on Linux, in parallel with packaging. Every commit on main has
+  # already passed the full test suite on Windows, Linux and both Macs in CI; repeating it inside each packaging job
+  # doubled release time and made one flaky runner block the whole release.
+  verify:
+    name: Verify source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          run_install: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install dependencies
+        timeout-minutes: 8
+        run: pnpm install --frozen-lockfile --reporter=append-only
+      - name: Audit source
+        run: pnpm run audit:publish
+      - name: Typecheck
+        run: pnpm run typecheck
+      - name: Set up native test Python
+        id: python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.11'
+      - name: Install native test Python dependencies
+        run: python -m pip install --disable-pip-version-check --no-input python-pptx openpyxl
+      - name: Test
+        timeout-minutes: 8
+        env:
+          AELION_TEST_PYTHON: ${{ steps.python.outputs.python-path }}
+        run: pnpm test
   build:
-    needs: guest-installer
     name: ${{ matrix.name }}
     strategy:
       fail-fast: false
@@ -47,34 +85,9 @@ jobs:
           architecture: ${{ matrix.arch }}
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-      - name: Prepare Mac test temporary directory
-        if: runner.os == 'macOS'
-        run: |
-          mkdir -p "$RUNNER_TEMP/aelion-tests"
-          echo "TMPDIR=$RUNNER_TEMP/aelion-tests" >> "$GITHUB_ENV"
       - name: Install dependencies
         timeout-minutes: 8
         run: pnpm install --frozen-lockfile --reporter=append-only
-      - name: Audit source
-        run: pnpm run audit:publish
-      - name: Typecheck
-        run: pnpm run typecheck
-      - name: Set up native test Python
-        id: python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: '3.11'
-          architecture: ${{ matrix.arch }}
-      - name: Install native test Python dependencies
-        run: python -m pip install --disable-pip-version-check --no-input python-pptx
-      - name: Test
-        # Windows process startup makes the full suite slower on hosted runners, and Intel Mac
-        # runners vary a lot in speed. Same limits as the CI workflow; individual tests still
-        # retain the 30-second limit in pnpm test.
-        timeout-minutes: ${{ runner.os == 'Windows' && 15 || 8 }}
-        env:
-          AELION_TEST_PYTHON: ${{ steps.python.outputs.python-path }}
-        run: pnpm test
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: runtime
         with:
@@ -141,7 +154,7 @@ jobs:
           retention-days: 7
   publish:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: [guest-installer, verify, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write

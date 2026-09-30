@@ -8,7 +8,6 @@ import { DesignerLoop } from './core/designer/designer-loop';
 import { DesignerFiles } from './core/designer/designer-files';
 import { DesignStore } from './core/designer/design-store';
 import { DesignSystems } from './core/designer/design-systems';
-import { DesignPlugins } from './core/designer/design-plugins';
 import { DesignCraft } from './core/designer/design-craft';
 import { DesignFonts } from './core/designer/design-fonts';
 import { renderCanvasExport } from './windows/canvas-export-renderer';
@@ -162,17 +161,21 @@ function snapshot(): Snapshot {
     liveWork: harness?.liveWork() || [],
   };
 }
-// Changes arrive in bursts (a message, its run, a journal entry…). Coalesce each burst into one snapshot
-// instead of serializing and cloning the whole state across IPC for every mutation.
-let stateTimer: NodeJS.Immediate | undefined;
+// Changes arrive in bursts (a message, its run, a journal entry…). Coalesce each burst into one snapshot, and send
+// at most one every STATE_INTERVAL_MS: a snapshot of a long history is ~20 MB that the renderer must deserialize on
+// the thread that also handles scrolling and typing.
+const STATE_INTERVAL_MS = 150;
+let stateTimer: ReturnType<typeof setTimeout> | undefined,
+  lastStateAt = 0;
 function sendState() {
   stateTimer = undefined;
   if (exiting) return;
+  lastStateAt = Date.now();
   if (window && !window.isDestroyed()) window.webContents.send('app:event', { type: 'state', snapshot: snapshot() });
 }
 function changed() {
   if (exiting) return;
-  stateTimer ??= setImmediate(sendState);
+  stateTimer ??= setTimeout(sendState, Math.max(0, lastStateAt + STATE_INTERVAL_MS - Date.now()));
   chatPins?.wake();
   peerChats?.wake();
   groupChats?.wake();
@@ -243,7 +246,7 @@ async function initialize() {
     : savedLaunch?.dataDir || (app.isPackaged ? profileDir : resolve('.local/app'));
   const projectDir = resolve(process.env.AELION_PROJECT_DIR || savedLaunch?.projectDir || process.cwd());
   mkdirSync(dataDir, { recursive: true });
-  store = new Store(dataDir, { incremental: true });
+  store = new Store(dataDir, { incremental: true, deferWrites: true });
   providers = new ModelProviders(
     store,
     {
@@ -531,15 +534,8 @@ async function initialize() {
     join(store.dir, 'design-system-cache'),
     join(store.dir, 'custom-design-systems'),
   );
-  const designPlugins = new DesignPlugins(join(app.getAppPath(), 'assets', 'design-plugins'));
   const designCraft = new DesignCraft(join(app.getAppPath(), 'assets', 'design-craft'));
-  designStore = new DesignStore(
-    store,
-    designSystems,
-    changed,
-    () => host.workspaceSettings().workspaceDir,
-    designPlugins,
-  );
+  designStore = new DesignStore(store, designSystems, changed, () => host.workspaceSettings().workspaceDir);
   const designerFiles = new DesignerFiles(store, designStore);
   artifacts.designerFiles = designerFiles;
   artifacts.openLocal = (path) => shell.openPath(path);
@@ -564,7 +560,6 @@ async function initialize() {
     {
       pdf: { render: renderDesignPdf },
       fonts: designFonts,
-      plugins: designPlugins,
       craft: designCraft,
       imageModel: imageModelAccess,
     },

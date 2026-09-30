@@ -20,9 +20,7 @@ const controlTools = new Set([
   'memory',
   'skill_save',
   'chat_pin',
-  'group_pin',
-  'group_task_claim',
-  'group_task_update',
+  'group_react',
 ]);
 const COMMAND_RESULT_TOOLS = new Set([
   'host_execute',
@@ -39,7 +37,6 @@ const COMMAND_RESULT_TOOLS = new Set([
 ]);
 const nonBlockingFailures = new Set([
   ...READ_TOOLS,
-  'group_tasks',
   'group_outbox',
   'tools_batch',
   ...controlTools,
@@ -55,7 +52,7 @@ export function commandResultFailed(output: unknown) {
   return result?.isError === true || (Number.isInteger(result?.exitCode) && result!.exitCode !== 0);
 }
 const isEvidence = (entry: ToolExecution) =>
-  entry.status === 'succeeded' && !/^(execution_|task_|plan_|goal_|group_task_)/.test(entry.tool);
+  entry.status === 'succeeded' && !/^(execution_|task_|plan_|goal_)/.test(entry.tool);
 
 function stable(value: unknown): string {
   if (Array.isArray(value)) return '[' + value.map(stable).join(',') + ']';

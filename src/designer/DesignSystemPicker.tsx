@@ -133,7 +133,7 @@ export function DesignSystemPicker({
               </small>
             </button>
           ))}
-          {!list.length && <p className="designer-plugin-empty">{t('没有匹配的设计系统')}</p>}
+          {!list.length && <p className="designer-picker-empty">{t('没有匹配的设计系统')}</p>}
         </div>
         <footer>
           {onImport && (

@@ -16,8 +16,6 @@ export const GROUP_PLAN_INCOMPLETE =
   '群任务计划仍有未完成步骤。继续实际执行并用 plan_update 保存真实证据，或明确记录阻碍；不要只回复稍后处理。';
 export const PLAN_INCOMPLETE =
   '任务清单仍有未完成步骤，请继续执行并更新 task_update 或 plan_update。不要提前宣称完成；无法继续时用 goal_update(status=blocked) 说明阻碍。';
-export const GROUP_TASK_WORKING =
-  '你认领的群任务仍为 working。继续执行并用 group_task_update 更新完成依据，或标记 blocked 并说明阻碍；不要只承诺稍后再做。';
 export const PLAN_NOT_SAVED = '请先调用 plan_update 保存具体计划，再结束规划。';
 export const GOAL_INCOMPLETE =
   '目标尚未完成。请继续执行；实际验收后用 goal_update 标记完成，无法继续则报告 blocked 及阻碍。';

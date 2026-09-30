@@ -21,8 +21,17 @@ export function groupMainContext(
   const context = {
     bot: { id: bot.id, name: bot.name },
     groups: rooms.map((room) => ({ id: room.id, name: room.name })),
+    // Recent requests, leaving out user requests that @-addressed only other members.
     sharedRequests: store.data.groupRounds
-      .filter((round) => ids.has(round.groupId) && (!bot.contextResetAt || round.createdAt >= bot.contextResetAt))
+      .filter((round) => {
+        if (!ids.has(round.groupId) || (bot.contextResetAt && round.createdAt < bot.contextResetAt)) return false;
+        const request = rooms
+          .find((room) => room.id === round.groupId)
+          ?.messages.find(
+            (message) => message.rootId === round.id && message.sender.kind === 'user' && message.kind === 'message',
+          );
+        return !request?.mentions?.length || request.mentions.some((mention) => mention.id === botId);
+      })
       .slice(-4)
       .map((round) => ({ id: round.id, groupId: round.groupId, request: round.request.slice(0, 1200) })),
     tasks: runs.map((run) => ({

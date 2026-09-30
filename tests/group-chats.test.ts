@@ -14,14 +14,15 @@ import { groupMainContext } from '../electron/core/group/group-context';
 import { Interactions } from '../electron/core/agent/interactions';
 import { HostComputer } from '../electron/core/host/host';
 import type { ModelClient, Completion, ToolDefinition } from '../electron/core/model/model';
-import type { WireMessage, RunRecord } from '../shared/types/core';
+import type { Bot, WireMessage, RunRecord } from '../shared/types/core';
+import { botIdentity } from '../shared/chat/bot-colors';
 import type { VmController } from '../electron/core/vm/vm';
 import { groupPending } from '../shared/types/group-types';
 import { conversationTimeline } from '../shared/chat/activity';
 import { groupParaphrases } from './fixtures/group-paraphrases';
 const publishedMessages = (messages: WireMessage[]) =>
   messages.filter((message) => message.groupMessageId).map((message) => JSON.parse(message.content!));
-const silent = () => answer('[群聊静默]');
+const silent = () => answer('');
 const call = (name: string, args: Record<string, unknown>): Completion => ({
   content: '',
   calls: [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }],
@@ -47,7 +48,7 @@ test('a group reaction alongside file work preserves the final reply and its del
         return {
           content: '先看文件内容，再把结论发到群里。',
           calls: [
-            ...call('group_pin', { groupId: room.id, messageId: user.id, emoji: '👀' }).calls,
+            ...call('group_react', { groupId: room.id, messageId: user.id, emoji: '👀' }).calls,
             ...call('file_read', { path: 'README.md' }).calls,
           ],
           finishReason: 'tool_calls',
@@ -182,7 +183,17 @@ function fixture(
   });
   const settled = () =>
     !groups.busy && !harness.busy && !store.data.groupDeliveries.some((d) => groupPending(d.status));
-  return { store, groups, harness, a, b, c, busy, dir, interactions, settled };
+  /** Send a user message that @-addresses the given Bots, so each of them must answer. */
+  const ask = (id: string, to: Bot | Bot[], message: string) => {
+    let text = '';
+    const mentions = [to].flat().map((bot) => {
+      const start = text.length;
+      text += `@${bot.name} `;
+      return { ...botIdentity(bot), start, end: start + bot.name.length + 1 };
+    });
+    groups.send({ id, message: text + message, mentions });
+  };
+  return { store, groups, harness, a, b, c, busy, dir, interactions, settled, ask };
 }
 
 for (const message of ['不要执行任何命令，请解释静默模式的实现', '@甲 不要执行任务，请旁听。@乙 请检查报告并回复']) {
@@ -238,7 +249,7 @@ test('group tool results remain available across multiple model turns', async (t
     return answer('三次工具结果均已保留，核对完成。');
   });
   const room = fx.groups.create({ name: '历史回归', botIds: [fx.a.id, fx.b.id] });
-  fx.groups.send({ id: room.id, message: '核对群历史' });
+  fx.ask(room.id, fx.a, '核对群历史');
   await until(fx.settled);
   assert.equal(turns, 4);
   assert.equal(fx.store.data.runs.filter((run) => run.botId === fx.a.id).length, 1);
@@ -264,7 +275,7 @@ test('stalled group plans close as blocked and publish a truthful result instead
     return answer('材料已齐，现在发送正文。');
   });
   const room = fx.groups.create({ name: '循环回归', botIds: [fx.a.id, fx.b.id] });
-  fx.groups.send({ id: room.id, message: '核对材料后提交正文' });
+  fx.ask(room.id, fx.a, '核对材料后提交正文');
   await until(fx.settled);
   assert.equal(turns, 4);
   const messages = fx.groups.read({ id: room.id }).messages;
@@ -285,6 +296,48 @@ test('stalled group plans close as blocked and publish a truthful result instead
   );
 });
 
+test('a group plan that repeats a successful action with the same result is closed as blocked', async (t) => {
+  let executions = 0,
+    planned = false;
+  const vm = {
+    execute: async () => {
+      executions++;
+      return { exitCode: 0, stdout: 'same inspection result', stderr: '', durationMs: 1 };
+    },
+  } as unknown as VmController;
+  const fx = fixture(
+    t,
+    (run) => {
+      if (run.botId !== fx.a.id) return silent();
+      if (!planned) {
+        planned = true;
+        return call('plan_update', {
+          revision: 0,
+          goal: '核对报告',
+          steps: [{ id: 'check', title: '核对报告', acceptance: '引用核对结果', status: 'pending', evidenceIds: [] }],
+        });
+      }
+      if (fx.store.data.workItems?.[0]?.status === 'blocked') return silent();
+      if (executions > 8) throw Error('test: repeated action was not stopped');
+      return call('computer_execute', { command: 'inspect report' });
+    },
+    vm,
+  );
+  const room = fx.groups.create({ name: '重复操作收尾', botIds: [fx.a.id, fx.b.id] });
+  fx.groups.send({ id: room.id, message: '请核对报告' });
+  await until(fx.settled);
+  assert.equal(fx.store.data.workItems?.[0]?.status, 'blocked');
+  assert.equal(executions, 4);
+  assert.ok(
+    fx.groups
+      .read({ id: room.id })
+      .messages.some((message) => message.sender.id === fx.a.id && /标记为受阻/.test(message.content)),
+  );
+  assert.ok(
+    !fx.store.data.groupDeliveries.some((delivery) => delivery.recipientId === fx.a.id && delivery.status === 'failed'),
+  );
+});
+
 test('real group dispatch keeps mixed-language conversation without language rules', async (t) => {
   const captured: Array<{ text: string; botEvent: boolean }> = [];
   let replied = false;
@@ -301,7 +354,7 @@ test('real group dispatch keeps mixed-language conversation without language rul
     });
     if (run.botId === fx.a.id && !replied) {
       replied = true;
-      return answer('我建议做音乐项目。');
+      return call('group_send_message', { groupId: run.groupOrigin!.groupId, message: '我建议做音乐项目。' });
     }
     return silent();
   });
@@ -445,7 +498,7 @@ test('each human or bot message broadcasts equally without aborting busy recipie
   fx.groups.send({ id: room.id, message: '并行处理' });
   await until(() => releases.size === 3);
   first = false;
-  releases.get(fx.a.id)!(answer('第一份实际结果'));
+  releases.get(fx.a.id)!(call('group_send_message', { groupId: room.id, message: '第一份实际结果' }));
   await until(() => fx.store.data.groups[0].messages.some((m) => m.sender.id === fx.a.id));
   assert.ok(!signals.get(fx.b.id)!.aborted && !signals.get(fx.c.id)!.aborted);
   releases.get(fx.b.id)!(silent());
@@ -463,7 +516,7 @@ test('each human or bot message broadcasts equally without aborting busy recipie
   assert.equal(fx.store.data.runs.filter((r) => r.status === 'cancelled').length, 0);
   assert.equal(fx.store.data.messages.length, 0);
 });
-test('every member handles a notification even when all choose silence', async (t) => {
+test('idle members must answer a message to the whole group; each is reminded once before staying quiet', async (t) => {
   let calls = 0;
   const fx = fixture(t, () => {
     calls++;
@@ -472,7 +525,8 @@ test('every member handles a notification even when all choose silence', async (
   const room = fx.groups.create({ name: '安静', botIds: [fx.a.id, fx.b.id] });
   fx.groups.send({ id: room.id, message: '谢谢，不用回复' });
   await until(fx.settled);
-  assert.equal(calls, 2);
+  // Both were idle, so both were woken and each was reminded once before ending quietly.
+  assert.equal(calls, 4);
   assert.ok(fx.store.data.groupDeliveries.filter((d) => d.recipientId !== 'user').every((d) => d.status === 'ignored'));
   assert.equal(fx.store.data.groups[0].messages.filter((m) => m.kind === 'message').length, 1);
 });
@@ -501,7 +555,7 @@ test('busy recipients retain unread events and never automatically import privat
   assert.ok(fx.store.data.runs.every((r) => r.status === 'completed'));
   assert.equal(fx.store.data.messages.length, 2);
 });
-test('fresh information can sustain a discussion beyond both old reply caps', async (t) => {
+test('two Bots stop waking each other after two rounds and whoever spoke first sums up', async (t) => {
   const points = [
     '数据库事务可以保证订单与库存同时落库',
     '但外部支付无法参与数据库事务，应使用状态机',
@@ -509,28 +563,212 @@ test('fresh information can sustain a discussion beyond both old reply caps', as
     '回调事件也需要幂等键，防止重复发货',
     '发货前校验库存预占是否过期',
     '预占过期后不要直接扣款，先撤销支付授权',
-    '撤销失败应进入人工对账队列',
-    '对账队列要记录上游交易号与重试次数',
-    '重试次数不能作为唯一失败判断，还要检查错误类型',
-    '不可重试错误应该告警并冻结自动结算',
-    '告警需要附带订单状态与交易流水，方便定位',
-    '最后用故障注入验证乱序、重放和超时场景',
   ];
-  const fx = fixture(t, () => {
-    const n = fx.store.data.groups[0].messages.filter((m) => m.sender.kind === 'bot').length;
-    return n < points.length ? answer(points[n]) : silent();
+  let summary = 0;
+  const fx = fixture(t, (run, messages) => {
+    const room = fx.store.data.groups[0],
+      latest = publishedMessages(messages).at(-1),
+      other = run.botId === fx.a.id ? fx.b : fx.a;
+    if (latest?.sender.kind === 'system' && latest.content.includes('来回')) {
+      summary++;
+      return answer('结论：订单用状态机，支付回调按事件序号和幂等键处理。');
+    }
+    // Speak once per wake: A opens after the user, then each answers the other.
+    const opening = run.botId === fx.a.id && latest?.sender.kind === 'user';
+    if (!opening && latest?.sender.id !== other.id) return silent();
+    const n = room.messages.filter((m) => m.sender.kind === 'bot').length;
+    return n < points.length
+      ? call('group_send_message', { groupId: room.id, message: `@{${other.id}} ${points[n]}` })
+      : silent();
   });
   const room = fx.groups.create({ name: '深入讨论', botIds: [fx.a.id, fx.b.id] });
-  fx.groups.send({ id: room.id, message: '深入讨论支付方案' });
+  fx.ask(room.id, fx.a, '深入讨论支付方案');
   await until(fx.settled);
-  assert.equal(fx.store.data.groupRounds.at(-1)!.botMessages, 12);
-  assert.ok(Object.values(fx.store.data.groupRounds.at(-1)!.botCounts).some((n) => n > 2));
-  assert.equal(fx.store.data.groupRounds.at(-1)!.status, 'active');
+  const messages = fx.store.data.groups[0].messages,
+    exchanged = messages.filter((m) => m.sender.kind === 'bot' && m.mentions?.length);
+  // Two rounds wake each other; the fifth message is delivered but wakes nobody.
+  assert.equal(exchanged.length, 5);
+  const notice = messages.find((m) => m.notice === 'pair_limit')!;
+  assert.ok(notice);
+  assert.equal(notice.mentions?.[0].id, fx.a.id);
+  assert.equal(messages.filter((m) => m.notice === 'pair_limit').length, 1);
+  assert.equal(summary, 1);
+  assert.ok(messages.some((m) => m.sender.id === fx.a.id && m.content.includes('结论：')));
+  assert.ok(
+    fx.store.data.groupDeliveries.some(
+      (d) => d.messageId === exchanged.at(-1)!.id && d.recipientId === fx.b.id && d.status === 'limited',
+    ),
+  );
+});
+test('an addressed Bot ending silently is reminded once to answer', async (t) => {
+  const seen: string[] = [];
+  const fx = fixture(t, (run, messages) => {
+    if (run.botId !== fx.a.id) return silent();
+    seen.push(JSON.stringify(messages.filter((message) => message.role === 'system').map((m) => m.content)));
+    return seen.length === 1
+      ? silent()
+      : call('group_react', { groupId: run.groupOrigin!.groupId, messageId: question, emoji: '👀' });
+  });
+  const room = fx.groups.create({ name: '必须回', botIds: [fx.a.id, fx.b.id] });
+  fx.ask(room.id, fx.a, '看一下这个问题');
+  const question = fx.store.data.groups[0].messages.at(-1)!.id;
+  await until(fx.settled);
+  assert.match(seen[1], /waiting for your answer/);
+  assert.ok(fx.store.data.groups[0].messages.some((m) => m.kind === 'reaction' && m.sender.id === fx.a.id));
+});
+test('a reply written while another member answered the same message is reviewed once before publishing', async (t) => {
+  let release: (value: Completion) => void = () => {};
+  const notes: string[] = [];
+  const fx = fixture(t, (run, messages) => {
+    const system = messages.filter((m) => m.role === 'system').map((m) => m.content || '');
+    if (run.botId === fx.b.id) return answer('用 CSV，UTF-8 编码。');
+    if (run.botId !== fx.a.id) return silent();
+    const note = system.find((content) => content.includes('Before your reply is published'));
+    if (note) {
+      notes.push(note);
+      return answer('补充：文件开头加 BOM，Excel 才不会乱码。');
+    }
+    return new Promise((resolve) => (release = resolve));
+  });
+  const room = fx.groups.create({ name: '发前再看', botIds: [fx.a.id, fx.b.id] });
+  fx.ask(room.id, [fx.a, fx.b], '导出文件用什么格式？');
+  await until(() => fx.store.data.groups[0].messages.some((m) => m.sender.id === fx.b.id));
+  release(answer('用 CSV。'));
+  await until(fx.settled);
+  assert.equal(notes.length, 1);
+  assert.match(notes[0], /UTF-8/);
+  const replies = fx.store.data.groups[0].messages.filter((m) => m.sender.id === fx.a.id);
+  assert.deepEqual(
+    replies.map((m) => m.content),
+    ['补充：文件开头加 BOM，Excel 才不会乱码。'],
+  );
+});
+test('an unaddressed reply is published directly, and ending without text publishes nothing', async (t) => {
+  const fx = fixture(t, (run, messages) => {
+    if (publishedMessages(messages).at(-1)?.event) return silent();
+    return run.botId === fx.a.id ? answer('我觉得还行。') : silent();
+  });
+  const room = fx.groups.create({ name: '不点名', botIds: [fx.a.id, fx.b.id] });
+  await until(fx.settled);
+  fx.groups.send({ id: room.id, message: '随便聊聊' });
+  await until(fx.settled);
+  const messages = fx.store.data.groups[0].messages,
+    question = messages.find((m) => m.content === '随便聊聊')!;
+  assert.deepEqual(
+    messages.filter((m) => m.sender.kind === 'bot').map((m) => [m.sender.id, m.content, m.replyTo]),
+    [[fx.a.id, '我觉得还行。', question.id]],
+  );
+  assert.ok(fx.store.data.runs.every((run) => run.status === 'completed'));
+  assert.equal(
+    fx.store.data.groupDeliveries.find((d) => d.messageId === question.id && d.recipientId === fx.b.id)?.status,
+    'ignored',
+  );
+});
+test('an explicit send answers the addressed message even when other messages arrived in the same run', async (t) => {
+  const fx = fixture(t, (run, messages) => {
+    if (run.botId !== fx.a.id || publishedMessages(messages).at(-1)?.event) return silent();
+    if (run.toolCalls) return silent();
+    return call('group_send_message', { groupId: run.groupOrigin!.groupId, message: '看过了，没问题。' });
+  });
+  const room = fx.groups.create({ name: '显式答复', botIds: [fx.a.id, fx.b.id] });
+  await until(fx.settled);
+  fx.busy.add(fx.a.id);
+  fx.ask(room.id, fx.a, '帮我看一下');
+  fx.groups.send({ id: room.id, message: '顺便说一句，今天下午开会' });
+  fx.busy.clear();
+  fx.groups.wake();
+  await until(fx.settled);
+  const messages = fx.store.data.groups[0].messages,
+    question = messages.find((m) => m.content.endsWith('帮我看一下'))!,
+    reply = messages.find((m) => m.content === '看过了，没问题。')!;
+  assert.equal(reply.answers, question.id);
+  // Answered, so no reminder turned the silent end into another run.
+  assert.equal(
+    fx.store.data.groupDeliveries.find((d) => d.messageId === question.id && d.recipientId === fx.a.id)?.status,
+    'replied',
+  );
+});
+test('others wait for a busy addressed Bot and are released when it is removed or the round is stopped', async (t) => {
+  const woke: string[] = [];
+  const fx = fixture(t, (run, messages) => {
+    if (publishedMessages(messages).some((m) => /问 [AB]$/.test(m.content))) woke.push(run.botId);
+    return silent();
+  });
+  const room = fx.groups.create({ name: '等待释放', botIds: [fx.a.id, fx.b.id, fx.c.id] });
+  await until(fx.settled);
+  fx.busy.add(fx.a.id);
+  fx.ask(room.id, fx.a, '先问 A');
+  await until(() =>
+    fx.store.data.groupDeliveries.some(
+      (d) =>
+        d.recipientId === fx.b.id &&
+        d.status === 'queued' &&
+        !d.triage &&
+        d.rootId === fx.store.data.groups[0].activeRootId,
+    ),
+  );
+  // B is held for A. Removing A releases B right away instead of after the full wait.
+  fx.groups.update({ id: room.id, name: room.name, botIds: [fx.b.id, fx.c.id] });
+  await until(fx.settled);
+  assert.ok(woke.includes(fx.b.id));
+  fx.busy.clear();
+  // Stopping while someone is held cancels the wait; nobody runs afterwards.
+  woke.length = 0;
+  fx.busy.add(fx.b.id);
+  fx.ask(room.id, fx.b, '再问 B');
+  await delay(50);
+  fx.groups.stop(room.id);
+  fx.busy.clear();
+  fx.groups.wake();
+  await until(fx.settled);
+  assert.deepEqual(woke, []);
+  assert.ok(!fx.store.data.groupDeliveries.some((d) => groupPending(d.status)));
+});
+test('a correction to a busy Bot joins its running work at the next safe boundary', async (t) => {
+  let finish: (value: unknown) => void = () => {},
+    executions = 0;
+  const vm = {
+    execute: async () => {
+      executions++;
+      return new Promise((resolve) => (finish = resolve));
+    },
+  } as unknown as VmController;
+  const fx = fixture(
+    t,
+    (run, messages) => {
+      if (run.botId !== fx.a.id || publishedMessages(messages).at(-1)?.event) return silent();
+      if (!messages.some((m) => m.role === 'tool')) return call('computer_execute', { command: 'export' });
+      assert.match(JSON.stringify(messages), /按钮改成蓝色/);
+      return answer('导出完成，按钮也改成蓝色了。');
+    },
+    vm,
+  );
+  const room = fx.groups.create({ name: '中途修正', botIds: [fx.a.id, fx.b.id] });
+  await until(fx.settled);
+  fx.ask(room.id, fx.a, '做导出页面');
+  await until(() => executions === 1);
+  fx.ask(room.id, fx.a, '按钮改成蓝色');
+  finish({ stdout: 'ok', stderr: '', exitCode: 0, durationMs: 1 });
+  await until(fx.settled);
+  assert.equal(executions, 1);
+  assert.equal(fx.store.data.runs.filter((r) => r.botId === fx.a.id && r.groupOrigin && !publishedEvent(r)).length, 1);
+  assert.equal(
+    fx.store.data.groups[0].messages.filter((m) => m.sender.id === fx.a.id && m.content.includes('蓝色')).length,
+    1,
+  );
+  function publishedEvent(run: RunRecord) {
+    return fx.store.data.groups[0].messages.some(
+      (m) => m.event && fx.store.data.groupDeliveries.some((d) => d.runId === run.id && d.messageId === m.id),
+    );
+  }
 });
 test('exact retries are idempotent per sender while each member may express the same conclusion', async (t) => {
-  const fx = fixture(t, () => answer('我们已确认采用消息队列进行订单通知。'));
+  const fx = fixture(t, (_run, messages) =>
+    publishedMessages(messages).at(-1)?.event ? silent() : answer('我们已确认采用消息队列进行订单通知。'),
+  );
   const room = fx.groups.create({ name: '去重', botIds: [fx.a.id, fx.b.id, fx.c.id] });
-  fx.groups.send({ id: room.id, message: '讨论通知机制' });
+  await until(fx.settled);
+  fx.ask(room.id, [fx.a, fx.b, fx.c], '讨论通知机制');
   await until(fx.settled);
   assert.equal(fx.store.data.groupRounds.at(-1)!.botMessages, 3);
   assert.equal(
@@ -551,7 +789,7 @@ test('similar opinions and a slower correction are all published without a seman
   });
   for (let n = 3; n < 6; n++) fx.store.createBot('伙伴' + n, '协作');
   const group = fx.groups.create({ name: '自由讨论', botIds: fx.store.data.bots.map((b) => b.id) });
-  fx.groups.send({ id: group.id, message: '这是什么' });
+  fx.ask(group.id, fx.store.data.bots, '这是什么');
   await until(fx.settled);
   const replies = fx.groups.read({ id: group.id }).messages.filter((m) => m.sender.kind === 'bot');
   assert.equal(replies.length, 6);
@@ -561,7 +799,7 @@ test('similar opinions and a slower correction are all published without a seman
 test('an explicit vote can receive the same requested answer from each member only once', async (t) => {
   const fx = fixture(t, () => answer('同意'));
   const group = fx.groups.create({ name: '投票', botIds: [fx.a.id, fx.b.id, fx.c.id] });
-  fx.groups.send({ id: group.id, message: '请每个人投票表态' });
+  fx.ask(group.id, [fx.a, fx.b, fx.c], '请每个人投票表态');
   await until(fx.settled);
   const replies = fx.groups.read({ id: group.id }).messages.filter((message) => message.sender.kind === 'bot');
   assert.equal(replies.length, 3);
@@ -685,7 +923,12 @@ test('membership changes, user stop and resume, unread state and restart remain 
   service.dispose();
 });
 test('bot-created groups inherit the real user task and cannot turn broadcast into a private side channel', async (t) => {
-  const fx = fixture(t);
+  const prompts: string[] = [];
+  const fx = fixture(t, (run, messages) => {
+    if (run.botId === fx.b.id)
+      prompts.push(messages.map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n'));
+    return silent();
+  });
   const root: RunRecord = {
     id: randomUUID(),
     botId: fx.a.id,
@@ -707,6 +950,8 @@ test('bot-created groups inherit the real user task and cannot turn broadcast in
   root.status = 'completed';
   await until(fx.settled);
   assert.equal(fx.store.data.groupRounds[0].request, '组织协作');
+  // The invited member is handed the creator's user task, not told it has nothing to do.
+  assert.ok(prompts.some((prompt) => prompt.includes('User requests handed to you in this event: ["组织协作"]')));
   assert.ok(fx.store.data.messages.some((m) => m.groupLink?.groupId === created.groupId));
   assert.ok(groupMainContext(fx.store, fx.a.id).includes('组织协作'));
 });
@@ -746,7 +991,7 @@ test('a Bot @ is persisted as a real member identity and included in every broad
     return silent();
   });
   const room = fx.groups.create({ name: '点名协作', botIds: [fx.a.id, fx.b.id, fx.c.id] });
-  fx.groups.send({ id: room.id, message: '分派复核任务' });
+  fx.ask(room.id, fx.a, '分派复核任务');
   await until(fx.settled);
   const reply = fx.groups.read({ id: room.id }).messages.find((message) => message.sender.id === fx.a.id)!;
   assert.deepEqual(
@@ -874,7 +1119,7 @@ test('another Bot event joins the existing work without restarting tools or dupl
       if (run.botId === fx.b.id) {
         if (payload.events?.some((e: any) => e.sender.kind === 'user')) {
           await until(() => executions === 1);
-          return answer('补充：报告中请保留总计。');
+          return call('group_send_message', { groupId: run.groupOrigin!.groupId, message: '补充：报告中请保留总计。' });
         }
         return silent();
       }
@@ -980,7 +1225,7 @@ test('a completed reply keeps its original reply target when another message arr
     }
   };
   const room = fx.groups.create({ name: '发布前被抢话', botIds: [fx.a.id, fx.b.id] });
-  fx.groups.send({ id: room.id, message: '旧问题' });
+  fx.ask(room.id, fx.a, '旧问题');
   await until(() => held);
   fx.groups.send({ id: room.id, message: '补充一个新问题' });
   release();
@@ -989,34 +1234,33 @@ test('a completed reply keeps its original reply target when another message arr
   const page = fx.groups.read({ id: room.id }),
     reply = page.messages.find((m) => m.content === '原问题的完整答复')!;
   assert.ok(reply);
-  assert.equal(page.messages.find((m) => m.id === reply.replyTo)?.content, '旧问题');
+  assert.equal(page.messages.find((m) => m.id === reply.replyTo)?.content, `@${fx.a.name} 旧问题`);
   for (const history of Object.values(fx.store.data.groupContexts)) {
     const ids = history.filter((m) => m.groupMessageId).map((m) => m.groupMessageId);
     assert.equal(ids.length, new Set(ids).size);
   }
 });
 
-test('a Bot pin is one broadcast utterance, retains tool pairing, and replaces a text reply', async (t) => {
-  let received = false;
+test('a Bot reaction is delivered to everyone, wakes nobody, retains tool pairing, and answers the message', async (t) => {
   const fx = fixture(t, (run, messages) => {
-    const events = publishedMessages(messages),
-      latest = events.at(-1);
-    if (latest?.kind === 'reaction') {
-      received = true;
-      assert.equal(latest.reaction.emoji, '👍');
-      return silent();
-    }
-    if (run.botId === fx.a.id)
-      return call('group_pin', { groupId: run.groupOrigin!.groupId, messageId: latest.messageId, emoji: '👍' });
+    const latest = publishedMessages(messages).at(-1);
+    if (run.botId === fx.a.id && latest?.sender.kind === 'user')
+      return call('group_react', { groupId: run.groupOrigin!.groupId, messageId: latest.messageId, emoji: '👍' });
     return silent();
   });
   const room = fx.groups.create({ name: '表态', botIds: [fx.a.id, fx.b.id] });
-  fx.groups.send({ id: room.id, message: '这个方案我觉得可以' });
+  fx.ask(room.id, fx.a, '这个方案我觉得可以');
   await until(fx.settled);
   const page = fx.groups.read({ id: room.id }),
     reaction = page.messages.find((m) => m.kind === 'reaction')!,
     target = page.messages.find((m) => m.kind === 'message')!;
-  assert.ok(received);
+  assert.ok(
+    page.deliveries
+      .filter((d) => d.messageId === reaction.id && d.recipientId !== 'user')
+      .every((d) => d.status === 'ignored' && d.triage === 'skip'),
+  );
+  // The reaction answered the @, so there was no reminder and no extra text reply.
+  assert.ok(!page.messages.some((m) => m.sender.id === fx.a.id && m.kind === 'message'));
   assert.equal(target.pins?.[0].actor.id, fx.a.id);
   assert.equal(reaction.reaction?.messageId, target.id);
   assert.equal(page.messages.filter((m) => m.sender.kind === 'bot').length, 1);
@@ -1028,7 +1272,7 @@ test('a Bot pin is one broadcast utterance, retains tool pairing, and replaces a
     ['user', fx.b.id].sort(),
   );
   const history = fx.store.data.groupContexts['group:' + room.id + ':' + fx.a.id],
-    at = history.findIndex((m) => m.tool_calls?.some((c) => c.function.name === 'group_pin'));
+    at = history.findIndex((m) => m.tool_calls?.some((c) => c.function.name === 'group_react'));
   assert.ok(at >= 0);
   assert.equal(history[at + 1].role, 'tool');
   assert.equal(history[at].tool_calls?.[0].id, history[at + 1].tool_call_id);
@@ -1049,7 +1293,7 @@ test('wrapped group-silence markers suppress reaction chatter instead of publish
     return silent();
   });
   const room = fx.groups.create({ name: '静默标记', botIds: [fx.a.id, fx.b.id] });
-  fx.groups.send({ id: room.id, message: '介绍一下盖世游戏是什么平台' });
+  fx.ask(room.id, fx.a, '介绍一下盖世游戏是什么平台');
   await until(fx.settled);
   const before = fx.groups.read({ id: room.id }).messages,
     reply = before.find((message) => message.sender.id === fx.a.id && message.kind === 'message')!;
@@ -1083,7 +1327,8 @@ test('user group pins add and remove once, refresh old message badges and cannot
   await until(fx.settled);
   let page = fx.groups.read({ id: room.id });
   assert.equal(page.messages.filter((m) => m.kind === 'reaction').length, 1);
-  assert.equal(reactionsSeen, 2);
+  // Reactions are delivered but wake nobody.
+  assert.equal(reactionsSeen, 0);
   assert.equal(page.pins?.[target.id][0].actor.id, 'user');
   const reopened = new Store(fx.dir);
   assert.equal(reopened.data.groups[0].messages.find((m) => m.id === target.id)?.pins?.[0].emoji, '👀');
@@ -1099,13 +1344,13 @@ test('user group pins add and remove once, refresh old message badges and cannot
   page = fx.groups.read({ id: room.id });
   assert.equal(page.messages.filter((m) => m.kind === 'reaction').length, 2);
   assert.equal(page.pins?.[target.id], undefined);
-  assert.equal(reactionsSeen, 4);
+  assert.equal(reactionsSeen, 0);
 });
 
 test('creating a group broadcasts one persisted lifecycle event to every member and the model receives its identities', async (t) => {
   const seen: string[] = [];
   const fx = fixture(t, (run, messages) => {
-    const event = publishedMessages(messages).at(-1);
+    const event = publishedMessages(messages).find((message) => message.event);
     assert.equal(event.kind, 'system');
     assert.equal(event.event.type, 'created');
     assert.equal(event.event.actor.kind, 'user');
@@ -1292,245 +1537,6 @@ test('Bot creation and invitations broadcast once with the true actor and deleti
   );
 });
 
-test('a claimed task continues to completion in the same run even when the group is quiet', async (t) => {
-  let executions = 0;
-  const vm = {
-    execute: async () => ({ stdout: `checked ${++executions}`, stderr: '', exitCode: 0, durationMs: 1 }),
-  } as unknown as VmController;
-  const fx = fixture(
-    t,
-    (run, messages, tools) => {
-      if (run.botId !== fx.a.id) return silent();
-      const room = fx.store.data.groups[0],
-        task = room.tasks?.[0];
-      assert.ok(tools.some((t) => t.function.name === 'group_task_claim'));
-      if (!task)
-        return call('group_task_claim', {
-          groupId: room.id,
-          key: 'verify-report',
-          title: '核对报告',
-          sourceMessageId: room.messages.find((m) => m.sender.kind === 'user')!.id,
-        });
-      if (task.status === 'completed') return answer('报告核对完成。');
-      if (!executions) return call('computer_execute', { command: 'verify-report' });
-      assert.ok(JSON.stringify(messages).includes('checked 1'));
-      return call('group_task_update', {
-        groupId: room.id,
-        taskId: task.id,
-        revision: task.revision,
-        status: 'completed',
-        summary: '已运行核对命令，结果 checked 1。',
-      });
-    },
-    vm,
-  );
-  const room = fx.groups.create({ name: '自主认领', botIds: [fx.a.id, fx.b.id] });
-  fx.groups.send({ id: room.id, message: '请核对报告' });
-  await until(fx.settled);
-  assert.equal(executions, 1);
-  assert.equal(fx.store.data.groups[0].tasks?.[0].status, 'completed');
-  assert.equal(fx.store.data.groups[0].tasks?.[0].runIds.length, 1);
-  assert.ok(fx.store.data.runs.every((r) => r.status === 'completed'));
-  assert.equal(fx.groups.read({ id: room.id }).messages.filter((m) => m.content === '报告核对完成。').length, 1);
-});
-
-test('a group task that cannot progress closes as blocked with its checkpoint and a visible response', async (t) => {
-  let turns = 0;
-  const fx = fixture(t, (run) => {
-    if (run.botId !== fx.a.id) return silent();
-    const task = fx.store.data.groups.find((group) => group.id === run.groupOrigin!.groupId)?.tasks?.[0];
-    if (!task) {
-      turns++;
-      return call('group_task_claim', {
-        groupId: run.groupOrigin!.groupId,
-        key: 'stuck-report',
-        title: '核对报告',
-        sourceMessageId: fx.store.data.groups[0].messages.find((message) => message.sender.kind === 'user')!.id,
-      });
-    }
-    if (task.status === 'blocked') return silent();
-    turns++;
-    return answer('我还在继续核对，稍后完成。');
-  });
-  const room = fx.groups.create({ name: '可收尾任务', botIds: [fx.a.id, fx.b.id] });
-  fx.groups.send({ id: room.id, message: '请核对报告' });
-  await until(fx.settled);
-  const task = fx.store.data.groups[0].tasks?.[0];
-  assert.ok(task);
-  assert.equal(task.status, 'blocked');
-  assert.match(task.reason || '', /连续 3 次/);
-  assert.equal(turns, 4);
-  assert.ok(
-    fx.groups
-      .read({ id: room.id })
-      .messages.some(
-        (message) =>
-          message.sender.id === fx.a.id && message.kind === 'message' && /任务未能确认完成/.test(message.content),
-      ),
-  );
-  assert.ok(
-    !fx.store.data.groupDeliveries.some((delivery) => delivery.recipientId === fx.a.id && delivery.status === 'failed'),
-  );
-});
-
-test('changing checkpoint prose without doing work still trips the main group stagnation guard', async (t) => {
-  let updates = 0,
-    actualWork = 0;
-  const fx = fixture(
-    t,
-    (run) => {
-      if (run.botId !== fx.a.id) return silent();
-      const room = fx.store.data.groups[0],
-        task = room.tasks?.[0];
-      if (!task)
-        return call('group_task_claim', {
-          groupId: room.id,
-          key: 'changing-prose',
-          title: '核对报告',
-          sourceMessageId: room.messages.find(
-            (message) => message.sender.kind === 'user' && message.kind === 'message',
-          )!.id,
-        });
-      if (task.status === 'blocked') return silent();
-      if (++updates >= 12) throw Error('改写文案绕过了停滞保护');
-      return call('group_task_update', {
-        groupId: room.id,
-        taskId: task.id,
-        revision: task.revision,
-        status: 'working',
-        summary: `准备核对报告，第 ${updates} 轮`,
-      });
-    },
-    {
-      execute: async () => {
-        actualWork++;
-        return { stdout: '', stderr: '', exitCode: 0, durationMs: 1 };
-      },
-    } as unknown as VmController,
-  );
-  const room = fx.groups.create({ name: '无工作文案回归', botIds: [fx.a.id, fx.b.id] });
-  fx.groups.send({ id: room.id, message: '请核对报告' });
-  await until(fx.settled);
-  assert.equal(fx.store.data.groups[0].tasks?.[0].status, 'blocked');
-  assert(updates > 0 && updates < 12);
-  assert.equal(actualWork, 0);
-});
-
-test('a group task that repeats a successful action with the same result is closed as blocked', async (t) => {
-  let executions = 0;
-  const vm = {
-    execute: async () => {
-      executions++;
-      return { exitCode: 0, stdout: 'same inspection result', stderr: '', durationMs: 1 };
-    },
-  } as unknown as VmController;
-  const fx = fixture(
-    t,
-    (run) => {
-      if (run.botId !== fx.a.id) return silent();
-      const task = fx.store.data.groups.find((group) => group.id === run.groupOrigin!.groupId)?.tasks?.[0];
-      if (!task)
-        return call('group_task_claim', {
-          groupId: run.groupOrigin!.groupId,
-          key: 'repeat-check',
-          title: '核对报告',
-          sourceMessageId: fx.store.data.groups[0].messages.find(
-            (message) => message.sender.kind === 'user' && message.kind === 'message',
-          )!.id,
-        });
-      if (task.status === 'blocked') return silent();
-      return call('computer_execute', { command: 'inspect report' });
-    },
-    vm,
-  );
-  const room = fx.groups.create({ name: '重复操作收尾', botIds: [fx.a.id, fx.b.id] });
-  fx.groups.send({ id: room.id, message: '请核对报告' });
-  await until(fx.settled);
-  const task = fx.store.data.groups[0].tasks?.[0];
-  assert.equal(task?.status, 'blocked');
-  assert.equal(executions, 4);
-  assert.ok(
-    fx.groups
-      .read({ id: room.id })
-      .messages.some((message) => message.sender.id === fx.a.id && /标记为受阻/.test(message.content)),
-  );
-  assert.ok(
-    !fx.store.data.groupDeliveries.some((delivery) => delivery.recipientId === fx.a.id && delivery.status === 'failed'),
-  );
-});
-
-test('explicitly resuming a blocked group task carries its checkpoint and does not repeat successful work', async (t) => {
-  let executions = 0,
-    continued = false;
-  const vm = {
-    execute: async () => ({ stdout: `REPORT_CHECKED_ONCE_${++executions}`, stderr: '', exitCode: 0, durationMs: 1 }),
-  } as unknown as VmController;
-  const fx = fixture(
-    t,
-    (run, messages) => {
-      if (run.botId !== fx.a.id) return silent();
-      const task = fx.store.data.groups.find((group) => group.id === run.groupOrigin!.groupId)?.tasks?.[0];
-      const continuation = JSON.stringify(messages).includes('请继续群任务');
-      if (!task)
-        return call('group_task_claim', {
-          groupId: run.groupOrigin!.groupId,
-          key: 'recover-report',
-          title: '核对报告',
-          sourceMessageId: fx.store.data.groups[0].messages.find(
-            (message) => message.sender.kind === 'user' && message.kind === 'message',
-          )!.id,
-        });
-      if (task.status === 'blocked') {
-        if (!continuation) return silent();
-        continued = true;
-        return call('group_task_claim', { groupId: run.groupOrigin!.groupId, taskId: task.id });
-      }
-      if (task.status === 'working' && task.runIds.includes(run.id)) {
-        if (continued) {
-          assert.match(JSON.stringify(messages), /REPORT_CHECKED_ONCE_1/);
-          return call('group_task_update', {
-            groupId: run.groupOrigin!.groupId,
-            taskId: task.id,
-            revision: task.revision,
-            status: 'completed',
-            summary: '读取上次已验证的报告结果，未重复执行。',
-          });
-        }
-        if (executions === 0) return call('computer_execute', { command: 'check-report-once' });
-        return answer('正在核对报告，稍后完成。');
-      }
-      return silent();
-    },
-    vm,
-  );
-  const room = fx.groups.create({ name: '受阻后续做', botIds: [fx.a.id, fx.b.id] });
-  fx.groups.send({ id: room.id, message: '请核对报告' });
-  await until(fx.settled);
-  const task = fx.store.data.groups[0].tasks?.[0],
-    firstRunId = task?.runIds[0];
-  assert.ok(task);
-  assert.equal(task.status, 'blocked');
-  assert.equal(executions, 1);
-  assert.ok(firstRunId);
-  let resumedOptions: Record<string, unknown> | undefined;
-  const runner = (fx.groups as any).runner,
-    original = runner.run;
-  runner.run = async (id: string, input: string, options: Record<string, unknown>) => {
-    if (id === fx.a.id && input.includes('请继续群任务')) resumedOptions = options;
-    return original(id, input, options);
-  };
-  fx.groups.send({
-    id: room.id,
-    message: `请继续群任务：${task.title}（taskId: ${task.id}）。先核对自己的执行检查点和已有结果，只完成剩余部分；完成后写明验收依据。`,
-  });
-  await until(fx.settled);
-  assert.ok(continued);
-  assert.equal(resumedOptions?.groupTaskFrom, firstRunId);
-  assert.equal(fx.store.data.groups[0].tasks?.[0].status, 'completed');
-  assert.equal(executions, 1);
-  assert.match(fx.store.data.groups[0].tasks?.[0].summary || '', /未重复执行/);
-});
-
 test('a group member can retrieve its own private history on demand without copying it into the public log or DM context', async (t) => {
   let step = 0;
   const contexts: string[] = [];
@@ -1563,8 +1569,9 @@ test('a group member can retrieve its own private history on demand without copy
 });
 
 test('a private input that supersedes group work does not inherit the group plan or context', async (t) => {
-  const fx = fixture(t, (run) => (run.groupOrigin ? silent() : answer('私聊答复')));
+  const fx = fixture(t, (run) => (run.groupOrigin ? answer('收到') : answer('私聊答复')));
   const group = fx.groups.create({ name: '群工作', botIds: [fx.a.id, fx.b.id] });
+  fx.ask(group.id, fx.a, '开始群工作');
   await until(fx.settled);
   const previous = fx.store.data.runs.find((r) => r.botId === fx.a.id)!;
   previous.workItemId = 'group-plan';
@@ -1618,8 +1625,8 @@ test('yielding to private chat retains the group inbox and resumes successful to
   fx.groups.yieldToUser(fx.a.id);
   finish({ stdout: 'saved', stderr: '', exitCode: 0, durationMs: 1 });
   await until(() => !fx.groups.busy && !fx.harness.busy);
-  const queued = fx.store.data.groupDeliveries.filter((d) => d.recipientId === fx.a.id);
-  assert.ok(queued.every((d) => d.status === 'queued'));
+  const queued = fx.store.data.groupDeliveries.filter((d) => d.recipientId === fx.a.id && d.triage === 'wake');
+  assert.ok(queued.length && queued.every((d) => d.status === 'queued'));
   await fx.harness.run(fx.a.id, 'PRIVATE_QUESTION');
   fx.busy.clear();
   fx.groups.wake();

@@ -91,11 +91,17 @@ function MessageView({
         <MessageReasoning reasoning={message.reasoning} />
       </div>
     );
+  const images = (message.attachments || []).filter((file) => file.image || file.mime.startsWith('image/')),
+    // Images sit above the bubble. A message that is only images puts them in a see-through bubble so hover
+    // actions (reply, pin) still have a target.
+    mediaOnly =
+      images.length > 0 && !content && !answer && !message.reply && images.length === message.attachments?.length;
   return (
     <>
       <MessageTime id={message.id} time={message.time} />
       <div className={`message-row ${message.role}`} data-message-id={message.id}>
         {message.role === 'assistant' && <MessageReasoning reasoning={message.reasoning} />}
+        {!mediaOnly && <AttachmentList files={images} only="images" />}
         <MessageActions
           messageId={message.id}
           content={content || attachmentSummary(message.attachments)}
@@ -107,7 +113,7 @@ function MessageView({
               ? () => onReply({ ...message, content })
               : undefined
           }
-          bubbleClassName={`bubble ${answer ? 'question-answer-bubble' : ''} ${message.status === 'failed' ? 'failed' : ''}`}
+          bubbleClassName={`bubble ${answer ? 'question-answer-bubble' : ''} ${message.status === 'failed' ? 'failed' : ''} ${mediaOnly ? 'is-media' : ''}`}
           onPin={
             allowPins && (content || message.attachments?.length) && (!message.status || message.status === 'done')
               ? (input) => window.aelion.pinChat({ ...input, botId: message.botId })
@@ -132,7 +138,7 @@ function MessageView({
               <i />
             </span>
           )}
-          <AttachmentList files={message.attachments} />
+          <AttachmentList files={message.attachments} only={mediaOnly ? undefined : 'files'} />
         </MessageActions>
       </div>
     </>

@@ -101,14 +101,21 @@ export function atomicJson(path: string, value: unknown) {
   }
   renameSync(temp, path);
 }
+/** Quiet time after the last change before a coalesced write, and the longest a burst may stay unwritten. */
+const WRITE_DEBOUNCE_MS = 250;
+const WRITE_MAX_WAIT_MS = 1500;
 export class Store {
   private database?: StateDatabase;
+  private readonly deferWrites: boolean;
+  private writeTimer?: ReturnType<typeof setTimeout>;
+  private dirtySince?: number;
   readonly file: string;
   data: Persisted;
   constructor(
     readonly dir: string,
-    options: { incremental?: boolean } = {},
+    options: { incremental?: boolean; deferWrites?: boolean } = {},
   ) {
+    this.deferWrites = Boolean(options.deferWrites);
     mkdirSync(dir, { recursive: true });
     this.file = join(dir, 'state.json');
     if (options.incremental) this.database = new StateDatabase(dir);
@@ -190,14 +197,6 @@ export class Store {
     this.data.groupRunMessages ||= [];
     this.data.groupOutbox ||= [];
     this.data.groupContextVersions ||= {};
-    for (const room of this.data.groups)
-      for (const task of room.tasks || [])
-        if (task.status === 'working') {
-          task.status = 'paused';
-          task.reason = '应用中断，请先核对已执行的操作再继续。';
-          task.updatedAt = new Date().toISOString();
-          task.revision++;
-        }
     for (const message of this.data.messages) if (message.inputState === 'queued') message.inputState = 'interrupted';
     this.separatePrivateMessages();
     for (const run of this.data.runs)
@@ -240,7 +239,31 @@ export class Store {
     delete this.data.summaries[key];
     return true;
   }
+  /**
+   * With deferred writes (the desktop app), a save only schedules one coalesced write: serializing the whole state
+   * takes ~120 ms on a large profile, and a single tool step used to save four times, blocking the main process and
+   * with it every scroll, click and keystroke. A burst is written at most WRITE_MAX_WAIT_MS after its first change.
+   */
   save() {
+    if (!this.deferWrites) return this.flush();
+    this.dirtySince ??= Date.now();
+    clearTimeout(this.writeTimer);
+    const wait = Math.max(0, Math.min(WRITE_DEBOUNCE_MS, this.dirtySince + WRITE_MAX_WAIT_MS - Date.now()));
+    this.writeTimer = setTimeout(() => {
+      try {
+        this.flush();
+      } catch (error) {
+        // Keep the change pending so the next save or close retries it.
+        this.dirtySince ??= Date.now();
+        console.error('state write failed', error);
+      }
+    }, wait);
+  }
+  /** Writes pending state now. */
+  flush() {
+    clearTimeout(this.writeTimer);
+    this.writeTimer = undefined;
+    this.dirtySince = undefined;
     if (this.database) this.database.write(this.data);
     else atomicJson(this.file, this.data);
   }
@@ -248,7 +271,7 @@ export class Store {
     const previous = this.data;
     this.data = next;
     try {
-      this.save();
+      this.flush();
     } catch (error) {
       this.data = previous;
       throw error;
@@ -256,7 +279,7 @@ export class Store {
   }
   close() {
     if (this.database) {
-      this.save();
+      this.flush();
       atomicJson(this.file, this.data);
       this.database.close();
       this.database = undefined;

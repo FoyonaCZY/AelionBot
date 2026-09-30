@@ -2,12 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { tempDir } from './helpers';
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { Store } from '../electron/core/storage/store';
 import { DesignSystems } from '../electron/core/designer/design-systems';
 import { DesignStore } from '../electron/core/designer/design-store';
-import { DesignPlugins } from '../electron/core/designer/design-plugins';
 import {
   parseDesignTokens,
   checkDesignBrand,
@@ -26,7 +25,6 @@ import {
   previewFeedbackAlwaysVisible,
   primaryDesignArtifact,
 } from '../shared/preview/designer-canvas';
-import { designPluginCopy, designPluginTriggerLabel, filterDesignPlugins } from '../src/designer/designer-plugin-copy';
 import { designerPlaybook, designerPlaybookName } from '../electron/core/designer/designer-playbooks';
 
 function fixture(t: test.TestContext) {
@@ -169,48 +167,27 @@ test('brand checks repair nearby token colors and stay visible without blocking 
   assert.ok(off.issues.length);
 });
 
-test('first-party plugins list from disk and bind to a task without becoming default skills', (t) => {
-  const { root, store, bot } = fixture(t),
-    plugins = new DesignPlugins(resolve('assets/design-plugins'));
-  const listed = plugins.list();
-  assert.deepEqual(listed.map((item) => item.id).sort(), ['copy-tone', 'spacing-audit']);
-  const spacing = listed.find((item) => item.id === 'spacing-audit')!;
-  assert.equal(spacing.name, '间距节奏');
-  assert.match(spacing.description, /间距/);
-  assert.doesNotMatch(spacing.name, /Spacing audit/i);
-  assert.equal(designPluginCopy(spacing).name, '间距节奏');
-  assert.equal(designPluginCopy(listed.find((item) => item.id === 'copy-tone')!).name, '文案语气');
-  assert.equal(designPluginTriggerLabel(0, [], false), '可选检查');
-  assert.equal(designPluginTriggerLabel(2, ['间距节奏', '文案语气'], false), '已选 2 项检查');
-  const crowded = Array.from({ length: 24 }, (_, i) => ({
-    id: 'check-' + i,
-    name: '检查 ' + i,
-    description: '用途 ' + i,
-    bytes: 1,
-  }));
-  assert.equal(
-    filterDesignPlugins(crowded, '检查 23')
-      .map((item) => item.id)
-      .join(),
-    'check-23',
+test('sessions saved with the retired optional checks load without them', (t) => {
+  const { root, store, bot } = fixture(t);
+  const systems = new DesignSystems(catalog(root));
+  const first = new DesignStore(
+    store,
+    systems,
+    () => {},
+    () => join(root, 'ws'),
   );
-  assert.match(plugins.read('spacing-audit').content, /# Spacing audit/);
-  assert.match(plugins.read('copy-tone').content, /# Copy tone/);
-  assert.match(plugins.read('spacing-audit').content, /spacing tokens/);
-  const systems = new DesignSystems(catalog(root)),
-    designs = new DesignStore(
-      store,
-      systems,
-      () => {},
-      () => join(root, 'ws'),
-      plugins,
-    );
-  const task = designs.create({ botId: bot.id, kind: 'mobile', brief: 'App', plugins: ['spacing-audit'] });
-  assert.deepEqual(task.plugins, ['spacing-audit']);
-  assert.throws(() => designs.create({ botId: bot.id, kind: 'prototype', brief: 'x', plugins: ['../secret'] }), {
-    code: 'design.plugin_invalid',
-  });
-  assert.match(JSON.stringify(designs.snapshot().plugins), /spacing-audit/);
+  const task = first.create({ botId: bot.id, kind: 'mobile', brief: 'App' });
+  const saved = JSON.parse(readFileSync(first.file, 'utf8'));
+  saved.sessions[0].plugins = ['spacing-audit'];
+  writeFileSync(first.file, JSON.stringify(saved));
+  const reloaded = new DesignStore(
+    store,
+    systems,
+    () => {},
+    () => join(root, 'ws'),
+  );
+  assert.equal('plugins' in reloaded.get(task.id), false);
+  assert.doesNotMatch(JSON.stringify(reloaded.snapshot()), /plugins|spacing-audit/);
 });
 
 test('PDF export requires a %PDF- header and wraps fragment HTML', async () => {

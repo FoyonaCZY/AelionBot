@@ -1,0 +1,59 @@
+.composer-annotations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+.composer-annotation {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border-radius: 8px;
+  background: light-dark(#efeaf7, #2f2a3a);
+  color: light-dark(#6a5a93, #cbbfe8);
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+}
+.composer-annotation-body {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 3px 4px 3px 5px;
+  color: inherit;
+  border-radius: 8px 0 0 8px;
+}
+.composer-annotation-body > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.composer-annotation-body em {
+  font-style: normal;
+  margin-left: 4px;
+}
+.composer-annotation-body b {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: light-dark(#8f7fb3, #a898d4);
+  color: light-dark(#fff, #1f1c26);
+  font-size: 10px;
+  font-weight: 600;
+}
+.composer-annotation-remove {
+  padding: 0 7px 0 3px;
+  height: 23px;
+  color: light-dark(#a09aab, #8f889c);
+  border-radius: 0 8px 8px 0;
+}
+.composer-annotation button:hover {
+  color: light-dark(#4f416f, #fff);
+}
+.composer-annotation button:focus-visible {
+  outline: 2px solid light-dark(#8f7fb3, #b3a4e0);
+  outline-offset: 1px;
+}

@@ -426,6 +426,7 @@ export class GameRuntime {
                       : (e as Error).name === 'TimeoutError'
                         ? '模型请求超时'
                         : '模型请求或行动校验失败',
+              ...(e instanceof GameModelError && e.output !== undefined ? { output: e.output } : {}),
             });
             if (validating || (e instanceof GameModelError && e.code === 'format'))
               retryFeedback = (e as Error).message;

@@ -198,6 +198,33 @@
 .group-messages {
   position: relative;
 }
+.group-unanswered {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.group-round-stopped {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 20px 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.group-round-stopped button {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+}
+.group-round-stopped button:hover {
+  background: var(--surface-hover);
+}
 .group-system {
   padding: 12px 0;
 }
@@ -300,62 +327,6 @@
   .group-member-picker {
     max-height: 40vh;
   }
-}
-
-.group-commitments {
-  margin: 0 20px 8px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  font-size: 12px;
-  flex-shrink: 0;
-}
-.group-commitments summary {
-  cursor: pointer;
-  user-select: none;
-}
-.group-commitments ul {
-  max-height: 180px;
-  overflow: auto;
-  overscroll-behavior: contain;
-  list-style: none;
-  margin: 10px 0 0;
-  padding: 0;
-}
-.group-commitments li + li {
-  border-top: 1px solid var(--border);
-  padding-top: 8px;
-  margin-top: 8px;
-}
-.group-commitments li > div {
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
-}
-.group-commitments li span {
-  opacity: 0.7;
-  flex-shrink: 0;
-}
-.group-commitments p {
-  margin: 6px 0 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.group-task-continue {
-  margin-top: 7px;
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-muted);
-  font-size: 11px;
-}
-.group-task-continue:hover {
-  color: var(--text);
-  background: var(--surface-hover);
-}
-.group-task-continue:disabled {
-  opacity: 0.55;
-  cursor: default;
 }
 
 .group-decision-trail {
