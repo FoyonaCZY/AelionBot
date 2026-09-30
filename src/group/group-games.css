@@ -19,7 +19,7 @@
 }
 .gg-dialog {
   --gg-line: light-dark(#e7e7e9, #3e3945);
-  --gg-muted: light-dark(#8c939c, #bdbac0);
+  --gg-muted: var(--text-muted);
   --gg-soft: light-dark(#f6f6f7, #211f25);
   padding: 0;
   border: 1px solid var(--gg-line);
@@ -132,6 +132,8 @@
   font-weight: 500;
 }
 .gg-back {
+  min-height: 28px;
+  padding: 0 4px;
   font-size: 12px;
   color: var(--gg-muted);
 }
@@ -170,10 +172,15 @@
   cursor: pointer;
 }
 .gg-room-footer {
+  position: sticky;
+  bottom: 0;
   display: flex;
   justify-content: flex-end;
   gap: 9px;
-  margin-top: 22px;
+  margin: 22px -22px -22px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--gg-line);
+  background: light-dark(#fff, #201e24);
 }
 .gg-button {
   font-size: 12px;
@@ -212,7 +219,7 @@
 .gg-chat-card span span,
 .gg-chat-card > b {
   font-size: 12px;
-  color: light-dark(#8c939c, #bdbac0);
+  color: var(--text-muted);
   font-weight: 400;
 }
 .gg-chat-card small {
@@ -712,7 +719,7 @@
   flex: 1;
 }
 .wg-death strong {
-  color: #a26450;
+  color: light-dark(#a26450, #d99a84);
 }
 .gg-system time {
   opacity: 0.75;

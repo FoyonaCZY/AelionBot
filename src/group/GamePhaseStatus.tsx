@@ -22,6 +22,13 @@ export function GamePhaseStatus({
   const night = game.phase === 'night',
     finished = game.status === 'finished';
   const speaker = game.seats.find((p) => p.id === game.clock?.seatId);
+  // A finished match keeps its last stage; show how it ended instead.
+  const outcome = finished
+    ? game.winner
+      ? [...game.logs].reverse().find((l) => !l.seatId && !l.audience && l.text.includes('获胜'))?.text ||
+        translate(game.winner === 'wolves' ? '狼人获胜' : '好人获胜')
+      : translate('本局不计胜负')
+    : '';
   const names = (ids: string[]) =>
     ids
       .map((id) => {
@@ -42,7 +49,7 @@ export function GamePhaseStatus({
             {finished ? translate('对局结束') : translate(night ? '第 {day} 夜' : '第 {day} 天', { day: game.day })}
           </strong>
           <span>
-            {game.stage || translate(PHASE_NAMES[game.phase])}
+            {outcome || game.stage || translate(PHASE_NAMES[game.phase])}
             {speaker && game.status === 'running'
               ? ` · ${speaker.name}${translate(speaker.human ? '发言中' : '准备发言')}`
               : ''}

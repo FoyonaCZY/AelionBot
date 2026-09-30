@@ -1692,6 +1692,7 @@ export const en: Record<string, string> = {
   弃票: 'Abstain',
   '确认{action}': 'Confirm {action}',
   狼人获胜: 'Wolves win',
+  本局不计胜负: 'No result for this game',
   好人获胜: 'Villagers win',
   预女猎白: 'Seer · Witch · Hunter · Idiot',
   预女猎守: 'Seer · Witch · Hunter · Guard',
