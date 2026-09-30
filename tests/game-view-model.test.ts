@@ -8,8 +8,19 @@ import {
   phaseSteps,
   reportTimeline,
   seatFate,
+  syncSeats,
   transcriptItems,
 } from '../src/group/game-view-model';
+
+test('setup seats follow group membership: late joiners get free seats, leavers lose theirs', () => {
+  const seated = ['a', 'b'];
+  assert.equal(syncSeats(seated, ['a', 'b', 'c'], [], 11), seated);
+  assert.deepEqual(syncSeats(seated, ['a', 'b', 'c'], ['c'], 11), ['a', 'b', 'c']);
+  assert.deepEqual(syncSeats(seated, ['b', 'c'], ['c'], 11), ['b', 'c']);
+  const full = Array.from({ length: 11 }, (_, i) => 'm' + i);
+  assert.deepEqual(syncSeats(full, [...full, 'late'], ['late'], 11), full);
+  assert.deepEqual(syncSeats(full, [...full.slice(1), 'late'], ['late'], 11), [...full.slice(1), 'late']);
+});
 
 const names = [
   '你',

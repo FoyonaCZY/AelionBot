@@ -149,7 +149,7 @@ function Report({ game, onDiagnostics, onClose }: { game: GameView; onDiagnostic
       ? translate('狼人获胜')
       : game.winner === 'village'
         ? translate('好人获胜')
-        : translate('对局结束');
+        : translate('对局已中止');
   return (
     <div className="gg-report">
       <header className={`gg-report-hero is-${game.winner || 'none'}`}>
@@ -159,7 +159,9 @@ function Report({ game, onDiagnostics, onClose }: { game: GameView; onDiagnostic
         <div>
           <h2>{title}</h2>
           <p>
-            {translate('第 {day} 天结束', { day: game.day })}
+            {game.winner
+              ? translate('第 {day} 天结束', { day: game.day })
+              : translate('第 {day} 天中途结束，不计胜负', { day: game.day })}
             {self?.role
               ? ` · ${translate('你是{role}', { role: translate(roles[self.role]) })}`
               : game.humanId
@@ -206,7 +208,7 @@ function Report({ game, onDiagnostics, onClose }: { game: GameView; onDiagnostic
                 </div>
                 <small>
                   {seat.alive
-                    ? translate('存活')
+                    ? translate(game.winner ? '存活' : '中止时存活')
                     : fate
                       ? translate('第 {day} 天{text}', { day: fate.day, text: translate(fate.text) })
                       : translate('已出局')}

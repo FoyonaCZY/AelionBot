@@ -1,5 +1,6 @@
 import { BOARDS, PHASE_NAMES, TWELVE_RULES } from '../../shared/games/game-boards';
 import { WerewolfTable } from './WerewolfTable';
+import { syncSeats } from './game-view-model';
 import type { GameView } from '../../shared/types/game-types';
 import { GAME_MBTI_TYPES, isGameMbti, type GameMbti } from '../../shared/games/game-personality';
 import type { ModelProvider, ModelSelection } from '../../shared/types/core';
@@ -85,6 +86,23 @@ export function GroupGames({
     [mbtiPresets, setMbtiPresets] = useState<Record<string, GameMbti>>({}),
     [configNotice, setConfigNotice] = useState('');
   const [sessionMbti, setSessionMbti] = useState<Record<string, GameMbti | 'random'>>({});
+  // Selection is seeded once on mount; Bots invited to the group afterwards take a free seat instead of being left out.
+  const memberIds = members.map((m) => m.id).join('\n'),
+    knownMembers = useRef(new Set(members.map((m) => m.id)));
+  useEffect(() => {
+    const ids = memberIds ? memberIds.split('\n') : [],
+      joined = ids.filter((id) => !knownMembers.current.has(id));
+    knownMembers.current = new Set(ids);
+    setSelected((current) => syncSeats(current, ids, joined, mode === 'play' ? 11 : 12));
+  }, [memberIds, mode]);
+  // The last match stays readable after it ends; its chat card only shows until that report has been viewed once.
+  const [seenReport, setSeenReport] = useState(() => {
+    try {
+      return localStorage.getItem(storageKey + ':seen-report') || '';
+    } catch {
+      return '';
+    }
+  });
   const resolvedMbti = (id: string) => {
     const type = sessionMbti[id];
     return type === 'random' ? undefined : type || mbtiPresets[id];
@@ -185,6 +203,13 @@ export function GroupGames({
       setMbtiPresets(personalities);
     } catch {}
   }, [storageKey]);
+  useEffect(() => {
+    if (!open || screen !== 'table' || match?.status !== 'finished' || seenReport === match.id) return;
+    setSeenReport(match.id);
+    try {
+      localStorage.setItem(storageKey + ':seen-report', match.id);
+    } catch {}
+  }, [open, screen, match?.id, match?.status, seenReport, storageKey]);
   useEffect(() => {
     if (open && !dialog.current?.open) dialog.current?.showModal();
     if (!open && dialog.current?.open) dialog.current?.close();
@@ -317,6 +342,7 @@ export function GroupGames({
       </div>
       {match &&
         cardContainer &&
+        (match.status !== 'finished' || seenReport !== match.id) &&
         createPortal(
           <button className={`gg-chat-card ${myTurn ? 'is-turn' : ''}`} onClick={enter}>
             <span className="gg-chat-card-top">
@@ -425,6 +451,27 @@ export function GroupGames({
                     </span>
                     <button className="primary-button" onClick={() => setScreen('table')}>
                       {t('继续对局')}
+                    </button>
+                  </div>
+                )}
+                {match && !unfinished && (
+                  <div className="gg-resume">
+                    <span className="gg-moon is-day" aria-hidden="true">
+                      ☀
+                    </span>
+                    <span className="gg-resume-text">
+                      <b>{t('上一局')}</b>
+                      <small>
+                        {match.board ? t(BOARDS[match.board].name) + ' · ' : ''}
+                        {match.winner === 'wolves'
+                          ? t('狼人获胜')
+                          : match.winner === 'village'
+                            ? t('好人获胜')
+                            : t('中途结束，不计胜负')}
+                      </small>
+                    </span>
+                    <button className="secondary-button" onClick={() => setScreen('table')}>
+                      {t('查看战报')}
                     </button>
                   </div>
                 )}

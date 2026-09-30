@@ -118,6 +118,16 @@ export function reportTimeline(game: GameView): GameLog[] {
   );
 }
 
+/**
+ * Keeps the setup selection in step with the group: members who left lose their seat, and newly joined members take
+ * free seats up to the limit. Returns the same array when nothing changed so React can skip the update.
+ */
+export function syncSeats(current: string[], members: string[], joined: string[], limit: number) {
+  const kept = current.filter((id) => members.includes(id)),
+    next = [...kept, ...joined.filter((id) => members.includes(id) && !kept.includes(id))].slice(0, limit);
+  return next.length === current.length && next.every((id, i) => id === current[i]) ? current : next;
+}
+
 /** Minutes between the first and last logged event, when the log carries times. */
 export function matchMinutes(game: GameView) {
   const times = game.logs.map((log) => log.time).filter((time): time is number => typeof time === 'number');
