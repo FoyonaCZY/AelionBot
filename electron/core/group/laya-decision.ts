@@ -21,7 +21,7 @@ export interface GroupDecisions {
  * Laya answers one relevance question for messages nobody addressed to this Bot. Whether and how to
  * speak is left to the main model once the Bot is woken; addressed messages never reach Laya.
  */
-export const GROUP_DECISION_CRITERIA = {
+const GROUP_DECISION_CRITERIA = {
   observe: '不回应：这条消息和当前 Bot 的职责、手上的事都无关',
   participate: '回应：这条消息和当前 Bot 的职责或手上的事有关',
 };

@@ -39,7 +39,7 @@ export function sinceUser(room: GroupRoom, before = room.messages.length) {
   return room.messages.slice(start, before);
 }
 /** Other Bots a Bot message is aimed at: by @, by replying to them, or by answering a message they sent. */
-export function botTargets(room: GroupRoom, message: GroupMessage) {
+function botTargets(room: GroupRoom, message: GroupMessage) {
   const targets = new Set<string>();
   if (message.sender.kind !== 'bot') return targets;
   for (const mention of message.mentions || []) targets.add(mention.id);
