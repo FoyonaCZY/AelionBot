@@ -85,6 +85,13 @@
 :root .fp-layer {
   color-scheme: dark;
 }
+/* The preview shell (toolbar, stage, dialogs) follows the app theme; document surfaces below stay independent. */
+:root .fp-layer.is-immersive {
+  color-scheme: light;
+}
+:root[data-theme='dark'] .fp-layer.is-immersive {
+  color-scheme: dark;
+}
 :root :is(.fp-paper, .fp-csv) {
   color-scheme: light;
 }

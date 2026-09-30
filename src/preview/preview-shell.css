@@ -22,7 +22,6 @@
   --fp-muted: var(--pv-muted);
   --fp-header-height: 48px;
   --fp-tools-height: 0px;
-  color-scheme: inherit;
 }
 .fp-layer.is-immersive[data-tools='on'] {
   --fp-tools-height: 50px;
@@ -390,4 +389,98 @@
 }
 .fp-layer.is-immersive .fp-device-select:hover {
   background-color: var(--pv-hover);
+}
+
+/* ---------- header tidy-up ---------- */
+.fp-layer.is-immersive .fp-title {
+  flex: 0 1 auto;
+  max-width: 240px;
+}
+/* A local file's address repeats the title; keep back/forward/reload only. URLs keep the address field. */
+.fp-layer.is-immersive .web-preview-nav .web-preview-document {
+  display: none;
+}
+.fp-layer.is-immersive:has(.web-preview-nav input) .fp-web-navigation-slot {
+  flex: 1 1 160px;
+  min-width: 140px;
+}
+.fp-layer.is-immersive:not(:has(.web-preview-nav input)) .fp-web-navigation-slot {
+  flex: none;
+}
+.fp-layer.is-immersive .web-preview-nav button,
+.fp-layer.is-immersive .fp-file-controls-slot .fp-tools button {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  border-radius: 8px;
+  color: var(--pv-muted);
+  background: transparent;
+}
+.fp-layer.is-immersive .fp-file-controls-slot .fp-tools {
+  gap: 0;
+}
+.fp-layer.is-immersive .fp-zoom-picker {
+  height: 28px;
+  min-height: 28px;
+  padding: 0 22px 0 8px;
+  font-size: 12px;
+}
+/* Source editing: a status dot and one save button instead of three labels. */
+.fp-layer.is-immersive .fp-edit-toolbar {
+  gap: 4px;
+}
+.fp-layer.is-immersive .fp-edit-indicator {
+  font-size: 12px;
+  color: var(--pv-muted);
+  white-space: nowrap;
+}
+.fp-layer.is-immersive .fp-edit-toolbar button {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--pv-ink);
+  background: transparent;
+  white-space: nowrap;
+}
+.fp-layer.is-immersive .fp-edit-toolbar button:hover:not(:disabled) {
+  background: var(--pv-hover);
+}
+.fp-layer.is-immersive .fp-edit-toolbar .fp-edit-save {
+  background: light-dark(#181818, #e0dbe6);
+  color: light-dark(#fff, #231f29);
+}
+.fp-layer.is-immersive .fp-edit-toolbar .fp-edit-save:disabled {
+  background: var(--pv-soft);
+  color: var(--pv-muted);
+  opacity: 1;
+}
+/* Export / open controls sit with the other actions instead of a white pill. */
+.fp-layer.is-immersive .fp-header .fp-actions :is(.fp-export-trigger, .fp-open-control) {
+  height: 30px;
+  min-height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--pv-ink);
+  box-shadow: none;
+  color-scheme: inherit;
+}
+.fp-layer.is-immersive .fp-header .fp-actions .fp-export-trigger {
+  padding: 0 9px;
+}
+.fp-layer.is-immersive .fp-header .fp-actions .fp-open-control button {
+  color: var(--pv-ink);
+  background: transparent;
+}
+.fp-layer.is-immersive .fp-header .fp-actions :is(.fp-export-trigger, .fp-open-control button):hover {
+  background: var(--pv-hover);
+}
+.fp-layer.is-immersive :is(.fp-export-menu, .fp-open-menu) {
+  background: var(--pv-bg);
+  color: var(--pv-ink);
+  border-color: var(--pv-line);
+  color-scheme: inherit;
 }

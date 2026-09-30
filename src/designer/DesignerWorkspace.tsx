@@ -18,7 +18,7 @@ import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
 import { Message } from '../ui/Message';
 import { ipcErrorText } from '../ui/ipc-error';
-import { PreviewPicker } from '../preview/PreviewPicker';
+import { PreviewPicker, previewMenuVisibility } from '../preview/PreviewPicker';
 import { BotComposer, type ComposerDraft } from '../chat/BotComposer';
 import { workspaceKey } from '../../shared/types/work-types';
 import { usePreviewWorkbench } from '../preview/PreviewWorkbench';
@@ -414,12 +414,15 @@ export function DesignerWorkspace({
   ].find(
     (file) => /\.html?$/i.test(file.path) && workspacePreviewItem(bot.id, file).id === preview?.info?.itemId,
   )?.path;
+  // The web preview is a native view above the page: freeze it to a screenshot before the dialog opens,
+  // otherwise the dialog first shows behind it and then the canvas flashes blank.
   const openFonts = () => {
-    const show = () => {
-      setFontTarget(fontPath);
-      setPicker(false);
-      setFontPicker(true);
-    };
+    const show = () =>
+      void previewMenuVisibility(true).then(() => {
+        setFontTarget(fontPath);
+        setPicker(false);
+        setFontPicker(true);
+      });
     if (preview) preview.navigate(show);
     else show();
   };
@@ -801,7 +804,10 @@ export function DesignerWorkspace({
           en={en}
           busy={systemLocked}
           api={window.aelion}
-          onClose={() => setFontPicker(false)}
+          onClose={() => {
+            setFontPicker(false);
+            void previewMenuVisibility(false);
+          }}
           onChanged={refreshFonts}
         />
       )}
