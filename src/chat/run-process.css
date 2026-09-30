@@ -118,6 +118,16 @@
   font-family: var(--font-code);
   font-size: calc(11.5px * var(--appearance-text-scale, 1));
 }
+.run-step-meta {
+  flex-shrink: 0;
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  font-variant-numeric: tabular-nums;
+  color: light-dark(#aaa5b1, #a6a2ac);
+}
+.run-step-meta.is-bad {
+  font-family: var(--font-code);
+  color: light-dark(#b36c58, #d9a595);
+}
 .run-step-state {
   display: inline-flex;
   margin-left: auto;

@@ -17,6 +17,191 @@
   flex-shrink: 0;
 }
 
+/* Chat images sit above the bubble at their own aspect ratio; several form a two-column mosaic. */
+.chat-images {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 6px;
+  max-width: min(86%, 400px);
+}
+.chat-images.is-mosaic {
+  grid-template-columns: repeat(2, minmax(0, 170px));
+}
+.chat-image {
+  position: relative;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid light-dark(#e6e0ec, #3a3540);
+  background: light-dark(#f3f0f6, #26232a);
+}
+.chat-images.is-mosaic .chat-image {
+  aspect-ratio: 4 / 3;
+  border-radius: 4px;
+}
+.chat-images.is-mosaic .chat-image:first-child {
+  border-top-left-radius: 12px;
+}
+.chat-images.is-mosaic .chat-image:nth-child(2) {
+  border-top-right-radius: 12px;
+}
+.chat-images.is-mosaic .chat-image:nth-last-child(2):nth-child(odd),
+.chat-images.is-mosaic .chat-image:last-child:nth-child(odd) {
+  border-bottom-left-radius: 12px;
+}
+.chat-images.is-mosaic .chat-image:last-child {
+  border-bottom-right-radius: 12px;
+}
+.chat-image.is-single {
+  max-width: 100%;
+  max-height: 280px;
+}
+.chat-image-open {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  cursor: zoom-in;
+}
+.chat-image-open > img,
+.chat-image-placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.chat-image.is-single .chat-image-open > img {
+  object-fit: contain;
+  background: light-dark(#fff, #1c1a20);
+}
+.chat-image-placeholder {
+  background: linear-gradient(110deg, transparent 30%, light-dark(#faf8fc, #2c2931) 50%, transparent 70%) 0 0 / 200%
+    100%;
+  animation: chat-image-shimmer 1.4s linear infinite;
+}
+@keyframes chat-image-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+.chat-image-more {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #231e2a73;
+  color: #fff;
+  font-size: calc(20px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-heading);
+}
+.chat-image-caption,
+.chat-image-save {
+  position: absolute;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+.chat-image-caption {
+  left: 8px;
+  bottom: 8px;
+  max-width: calc(100% - 52px);
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: #1e1a24a6;
+  color: #fff;
+  font-size: calc(11px * var(--appearance-text-scale, 1));
+  line-height: 1.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-image-save {
+  right: 8px;
+  top: 8px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: light-dark(#ffffffeb, #201e24eb);
+  color: light-dark(#5d5864, #d6d2da);
+  box-shadow: 0 1px 3px #0000001a;
+}
+.chat-image:hover :is(.chat-image-caption, .chat-image-save),
+.chat-image:focus-within :is(.chat-image-caption, .chat-image-save) {
+  opacity: 1;
+  pointer-events: auto;
+}
+.chat-image-open:focus-visible {
+  outline: 2px solid light-dark(#aa90e8, #8f7fb3);
+  outline-offset: -2px;
+}
+.message-row.user .chat-images {
+  justify-items: end;
+}
+.message-row.user .chat-images.is-mosaic {
+  justify-content: end;
+}
+/* A message that is only images shows them in a see-through bubble so hover actions still have a target. */
+.bubble.is-media {
+  min-height: 0;
+  padding: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+.bubble.is-media .chat-images {
+  margin-bottom: 0;
+  max-width: 400px;
+}
+/* Pending images in the composer: square thumbnails with a corner remove button. */
+.composer-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 10px 2px;
+}
+.composer-thumb {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  flex-shrink: 0;
+}
+.composer-thumb-open {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid light-dark(#e6e0ec, #3a3540);
+  background: light-dark(#f3f0f6, #26232a);
+}
+.composer-thumb-open > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.composer-thumb-remove {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  background: light-dark(#3a3541, #d9d4df);
+  color: light-dark(#fff, #1f1c23);
+  border: 2px solid light-dark(#fff, #201e24);
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-image-placeholder {
+    animation: none;
+  }
+}
+
 .composer-attachments {
   margin: 4px 8px 9px;
   gap: 7px;

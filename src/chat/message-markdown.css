@@ -234,32 +234,34 @@
   overflow-wrap: normal;
   word-break: normal;
 }
-.message-code-block .hljs-comment,
-.message-code-block .hljs-quote {
+:is(.message-code-block, .detail-code) .hljs-comment,
+:is(.message-code-block, .detail-code) .hljs-quote {
   color: var(--code-comment, light-dark(#747980, #c6c3c9));
 }
-.message-code-block :is(.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-doctag) {
+:is(.message-code-block, .detail-code) :is(.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-doctag) {
   color: var(--code-keyword, light-dark(#88548f, #cab0cd));
 }
-.message-code-block :is(.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute) {
+:is(.message-code-block, .detail-code) :is(.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute) {
   color: var(--code-string, light-dark(#38715d, #b2cfc5));
 }
-.message-code-block :is(.hljs-title, .hljs-section, .hljs-selector-id, .hljs-selector-class, .hljs-built_in) {
+:is(.message-code-block, .detail-code)
+  :is(.hljs-title, .hljs-section, .hljs-selector-id, .hljs-selector-class, .hljs-built_in) {
   color: var(--code-function, light-dark(#426c9c, #acc1d9));
 }
-.message-code-block :is(.hljs-number, .hljs-symbol, .hljs-variable, .hljs-template-variable, .hljs-type) {
+:is(.message-code-block, .detail-code)
+  :is(.hljs-number, .hljs-symbol, .hljs-variable, .hljs-template-variable, .hljs-type) {
   color: var(--code-number, light-dark(#966039, #dbc0ac));
 }
-.message-code-block :is(.hljs-meta, .hljs-tag, .hljs-name, .hljs-attr) {
+:is(.message-code-block, .detail-code) :is(.hljs-meta, .hljs-tag, .hljs-name, .hljs-attr) {
   color: var(--code-function, light-dark(#426c9c, #acc1d9));
 }
-.message-code-block .hljs-deletion {
+:is(.message-code-block, .detail-code) .hljs-deletion {
   color: light-dark(#aa514e, #e0b4b2);
 }
-.message-code-block .hljs-emphasis {
+:is(.message-code-block, .detail-code) .hljs-emphasis {
   font-style: italic;
 }
-.message-code-block .hljs-strong {
+:is(.message-code-block, .detail-code) .hljs-strong {
   font-weight: var(--weight-label);
 }
 

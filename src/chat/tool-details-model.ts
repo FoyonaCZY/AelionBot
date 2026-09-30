@@ -6,6 +6,79 @@ export const objectValue = (value: unknown): Record<string, unknown> =>
 export const textValue = (value: unknown) => (typeof value === 'string' ? value : '');
 export const arrayValue = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 export const fileName = (path: string) => path.replace(/\\/g, '/').split('/').filter(Boolean).at(-1) || path;
+/**
+ * Pretty-printed JSON when the whole text is JSON, or when every non-empty line is (gh/jq often print one value
+ * per line). Undefined for anything else so ordinary output keeps its own layout.
+ */
+export function prettyJson(text: string): string | undefined {
+  const trimmed = text.trim();
+  if (!trimmed || !'{['.includes(trimmed[0]) || trimmed.length > 200_000) return;
+  const format = (value: string) => JSON.stringify(JSON.parse(value), null, 2);
+  try {
+    return format(trimmed);
+  } catch {}
+  const lines = trimmed.split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length < 2 || !lines.every((line) => '{['.includes(line.trim()[0]))) return;
+  try {
+    return lines.map(format).join('\n\n');
+  } catch {
+    return;
+  }
+}
+const languages: Record<string, string> = {
+  ts: 'typescript',
+  tsx: 'tsx',
+  mts: 'typescript',
+  js: 'javascript',
+  jsx: 'jsx',
+  mjs: 'javascript',
+  cjs: 'javascript',
+  json: 'json',
+  css: 'css',
+  html: 'xml',
+  xml: 'xml',
+  svg: 'xml',
+  py: 'python',
+  rs: 'rust',
+  go: 'go',
+  java: 'java',
+  cs: 'csharp',
+  c: 'c',
+  h: 'c',
+  cpp: 'cpp',
+  rb: 'ruby',
+  php: 'php',
+  sh: 'bash',
+  ps1: 'powershell',
+  sql: 'sql',
+  yml: 'yaml',
+  yaml: 'yaml',
+  toml: 'ini',
+  ini: 'ini',
+  diff: 'diff',
+};
+/** Highlighter language for a file name; empty when the extension is unknown. */
+export const codeLanguage = (name: string) =>
+  /^dockerfile$/i.test(fileName(name))
+    ? 'dockerfile'
+    : /^makefile$/i.test(fileName(name))
+      ? 'makefile'
+      : languages[/\.([a-z0-9]+)$/i.exec(name)?.[1]?.toLowerCase() || ''] || '';
+/** Short facts shown on a folded step row: duration, a failing exit code, match or edit counts. */
+export function stepMeta(result: unknown): { text: string; tone?: 'bad' } | undefined {
+  const value = objectValue(result);
+  if (typeof value.exitCode === 'number' && value.exitCode !== 0)
+    return { text: `exit ${value.exitCode}`, tone: 'bad' };
+  if (typeof value.durationMs === 'number') {
+    const seconds = value.durationMs / 1000;
+    return { text: seconds < 10 ? `${seconds.toFixed(1)}s` : `${Math.round(seconds)}s` };
+  }
+  if (Array.isArray(value.matches) && value.matches.length)
+    return { text: translate('{count} 处', { count: value.matches.length }) };
+  if (typeof value.replacements === 'number' && value.replacements > 1)
+    return { text: translate('{count} 处', { count: value.replacements }) };
+  return;
+}
 export function parsedText(text: string): unknown {
   const trimmed = text.trim();
   if (!trimmed || !['{', '['].includes(trimmed[0])) return text;

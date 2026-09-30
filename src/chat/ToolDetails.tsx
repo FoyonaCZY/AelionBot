@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Markdown from './MessageMarkdown';
 import type { ChatMessage } from '../../shared/types/core';
 import { toolResult, toolDisplay, toolOperation } from '../../shared/chat/activity';
@@ -7,6 +7,7 @@ import { bytes } from '../ui/format';
 import {
   arrayValue,
   cleanConsole,
+  codeLanguage,
   errorExplanation,
   fieldLabel,
   fileGroups,
@@ -15,6 +16,7 @@ import {
   objectValue,
   parameterRows,
   parsedText,
+  prettyJson,
   readableResult,
   scalarText,
   searchFiles,
@@ -22,6 +24,7 @@ import {
   textValue,
 } from './tool-details-model';
 import { currentLanguage, useI18n } from '../i18n';
+import { highlightMessageCode } from './code-highlight';
 import './tool-details.css';
 
 function CopyText({ value, label }: { value: string; label: string }) {
@@ -56,27 +59,62 @@ function DetailHeader({
   title,
   subtitle,
   meta,
+  chips = [],
   action,
 }: {
   icon: string;
   title: string;
   subtitle?: string;
   meta?: string;
+  chips?: Array<{ text: string; tone?: 'ok' | 'bad' }>;
   action?: React.ReactNode;
 }) {
   const { t } = useI18n();
   return (
     <header className="tool-detail-header">
       <span className="tool-detail-icon">
-        <Icon name={icon} size={19} />
+        <Icon name={icon} size={13} />
       </span>
-      <div className="tool-detail-heading">
-        <strong>{t(title)}</strong>
-        {subtitle && <span>{t(subtitle)}</span>}
-      </div>
+      <strong className="tool-detail-title">{t(title)}</strong>
+      {chips.map((chip) => (
+        <span key={chip.text} className={`tool-detail-chip ${chip.tone ? 'is-' + chip.tone : ''}`}>
+          {chip.text}
+        </span>
+      ))}
+      {subtitle && (
+        <span className="tool-detail-chip is-path" title={subtitle}>
+          {t(subtitle)}
+        </span>
+      )}
+      <span className="tool-detail-spacer" />
       {meta && <span className="tool-detail-meta">{t(meta)}</span>}
       {action}
     </header>
+  );
+}
+/** Monospace output: JSON is pretty-printed, known languages highlighted, long output folds behind a fade. */
+function CodeView({ text, language = '', numbered = false }: { text: string; language?: string; numbered?: boolean }) {
+  const { t } = useI18n();
+  const [all, setAll] = useState(false);
+  const view = useMemo(() => {
+    const json = prettyJson(text),
+      source = (json ?? text).slice(0, 60000),
+      lang = json !== undefined ? 'json' : language;
+    return { source, lines: source.split('\n'), html: lang ? highlightMessageCode(source, lang).html : undefined };
+  }, [text, language]);
+  const fold = view.lines.length > 12 && !all;
+  return (
+    <div className={`detail-code ${fold ? 'is-folded' : ''}`}>
+      <pre className={numbered ? 'is-numbered' : undefined} tabIndex={0}>
+        {view.html ? <code dangerouslySetInnerHTML={{ __html: view.html }} /> : <code>{view.source}</code>}
+      </pre>
+      {view.lines.length > 12 && (
+        <button type="button" className="detail-code-more" onClick={() => setAll(!all)}>
+          {all ? t('收起') : t('展开全部 · 共 {count} 行', { count: view.lines.length })}
+        </button>
+      )}
+      {text.length > 60000 && all && <p className="detail-muted">{t('预览显示前 60,000 字符。')}</p>}
+    </div>
   );
 }
 function Section({ title, children }: { title?: string; children: React.ReactNode }) {
@@ -478,11 +516,17 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
         {t('正在等待操作结果…')}
       </div>
     );
+  // A command that ran and exited non-zero still has output worth reading; the command view marks the failure.
+  const ranCommand =
+    ['python_execute', 'computer_execute', 'host_execute'].includes(tool || '') &&
+    typeof result.exitCode === 'number' &&
+    !result.error;
   if (
-    message.status === 'failed' ||
-    result.isError ||
-    result.error ||
-    (typeof result.exitCode === 'number' && result.exitCode !== 0)
+    !ranCommand &&
+    (message.status === 'failed' ||
+      result.isError ||
+      result.error ||
+      (typeof result.exitCode === 'number' && result.exitCode !== 0))
   ) {
     const error =
       textValue(result.stderr) ||
@@ -555,15 +599,19 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
         <DetailHeader
           icon="file"
           title={name}
-          subtitle={path.includes('/') ? path : undefined}
+          subtitle={path.includes('/') || path.includes('\\') ? path : undefined}
           meta={t('{count} 行', {
             count: content.split('\n').filter((line, index, list) => index < list.length - 1 || line).length,
           })}
           action={content ? <CopyText value={content} label={t('复制内容')} /> : undefined}
         />
-        <Section>
-          <TextPreview text={content} name={name} />
-        </Section>
+        {!content || /\.(md|markdown)$/i.test(name) ? (
+          <Section>
+            <TextPreview text={content} name={name} />
+          </Section>
+        ) : (
+          <CodeView text={content} language={codeLanguage(name)} />
+        )}
       </>
     );
   }
@@ -815,26 +863,37 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
         {message.screenshotId ? t('操作后的电脑画面，可点击放大查看。') : t('电脑操作已结束。')}
       </p>
     );
+  const stderr = cleanConsole(textValue(result.stderr)),
+    failedExit = typeof result.exitCode === 'number' && result.exitCode !== 0;
   if (tool === 'python_execute' || tool === 'computer_execute' || tool === 'host_execute')
     return (
       <>
         <DetailHeader
           icon="terminal"
-          title={tool === 'host_execute' ? t('本机命令完成') : t('运行成功')}
-          subtitle={tool === 'host_execute' ? textValue(result.cwd) : undefined}
-          meta={
-            typeof result.durationMs === 'number' ? `${(result.durationMs / 1000).toFixed(1)} ${t('秒')}` : undefined
-          }
+          title={failedExit ? t('命令失败') : tool === 'host_execute' ? t('本机命令完成') : t('运行成功')}
+          chips={[
+            ...(typeof result.exitCode === 'number'
+              ? [{ text: `exit ${result.exitCode}`, tone: failedExit ? ('bad' as const) : ('ok' as const) }]
+              : []),
+            ...(typeof result.durationMs === 'number'
+              ? [{ text: `${(result.durationMs / 1000).toFixed(1)} ${t('秒')}` }]
+              : []),
+          ]}
+          subtitle={tool === 'host_execute' ? textValue(result.cwd) || undefined : undefined}
+          action={output ? <CopyText value={output} label={t('复制输出')} /> : undefined}
         />
-        <Section>
-          {output ? <TextPreview text={output} /> : <p className="detail-empty">{t('本次运行没有文本输出')}</p>}
-          {textValue(result.stderr) && (
-            <details className="detail-additional-output">
-              <summary>{t('附加输出')}</summary>
-              <TextPreview text={cleanConsole(textValue(result.stderr))} />
-            </details>
-          )}
-        </Section>
+        {failedExit && stderr && <CodeView text={stderr} />}
+        {output ? (
+          <CodeView text={output} />
+        ) : (
+          !stderr && <p className="detail-empty detail-empty-inline">{t('本次运行没有文本输出')}</p>
+        )}
+        {!failedExit && stderr && (
+          <details className="detail-additional-output">
+            <summary>{t('附加输出')}</summary>
+            <CodeView text={stderr} />
+          </details>
+        )}
       </>
     );
   if (tool === 'apply_patch') {
