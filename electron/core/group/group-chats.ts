@@ -1113,6 +1113,18 @@ export class GroupChats implements GroupGateway {
     if (this.closing) return;
     let dirty = false;
     const holds: number[] = [];
+    // Triage everything queued first, so a batch that starts now includes every message that wakes it.
+    for (const delivery of this.store.data.groupDeliveries)
+      if (delivery.status === 'queued' && !delivery.triage) {
+        const room = this.store.data.groups.find((room) => room.id === delivery.groupId);
+        if (
+          room &&
+          this.members(room).some((member) => member.id === delivery.recipientId) &&
+          this.round(delivery.rootId).status === 'active' &&
+          this.sort(room, delivery, holds)
+        )
+          dirty = true;
+      }
     // A worker owns one Bot, never an entire group. All idle recipients start together.
     for (const delivery of this.store.data.groupDeliveries.filter((d) => d.status === 'queued')) {
       if (delivery.status !== 'queued') continue;
@@ -1129,7 +1141,6 @@ export class GroupChats implements GroupGateway {
         dirty = true;
         continue;
       }
-      if (!delivery.triage && this.sort(room, delivery, holds)) dirty = true;
       if (delivery.status !== 'queued' || delivery.triage !== 'wake') continue;
       if (this.workers.has(delivery.recipientId) || this.runner.isRunning(delivery.recipientId)) continue;
       const batch = this.store.data.groupDeliveries
@@ -1224,8 +1235,10 @@ export class GroupChats implements GroupGateway {
     const requests = deliveries.flatMap((delivery) => {
       const message = room.messages.find((item) => item.id === delivery.messageId);
       if (!message) return [];
-      if (message.scheduled || message.kind === 'continue')
-        return [this.store.data.groupRounds.find((item) => item.id === message.rootId)?.request || message.content];
+      const origin = this.store.data.groupRounds.find((item) => item.id === message.rootId);
+      if (message.scheduled || message.kind === 'continue') return [origin?.request || message.content];
+      // A group a Bot created for its user's task carries that task.
+      if (message.sender.kind === 'bot' && origin?.originKey?.startsWith('task:')) return [origin.request];
       if (message.sender.kind !== 'user' || message.kind !== 'message') return [];
       if (message.mentions?.length && !message.mentions.some((mention) => mention.id === bot.id)) return [];
       return [message.content || round.request];
@@ -1538,7 +1551,10 @@ export class GroupChats implements GroupGateway {
       if (replyTo && !room.messages.some((m) => m.id === replyTo && ['message', 'progress', 'system'].includes(m.kind)))
         throw new AppError('group.reply_target_invalid', '只能回复本群已发送的消息');
       const worker = this.workers.get(botId),
-        answers = worker?.runId === runId ? worker.deliveries.at(-1)?.messageId : undefined;
+        own = worker?.runId === runId ? worker.deliveries : [],
+        answers =
+          own.find((delivery) => delivery.messageId === replyTo)?.messageId ||
+          (own.filter((delivery) => delivery.must).at(-1) || own.at(-1))?.messageId;
       const message = this.publish(room, run, round, formatted.content, formatted.mentions, {
         key,
         kind: args.kind === 'progress' ? 'progress' : 'message',

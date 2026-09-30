@@ -72,6 +72,8 @@ test('events wake members: a user reaction wakes its target, membership changes 
   const liked = reaction(user, mine.id);
   assert.deepEqual(f.judge(liked, 'a'), { kind: 'wake', must: false });
   assert.equal(f.judge(liked, 'b').kind, 'skip');
+  const withdrawn = f.post(user, { kind: 'reaction', reaction: { messageId: mine.id, emoji: '👍', removed: true } });
+  assert.equal(f.judge(withdrawn, 'a').kind, 'skip');
   const created = f.post(system, { event: { type: 'created', actor: user, joined: [], left: [], members: [] } });
   assert.deepEqual(f.judge(created, 'a'), { kind: 'wake', must: false });
   assert.deepEqual(f.judge(created, 'b'), { kind: 'wake', must: false });
@@ -168,4 +170,13 @@ test('an unaddressed user message is unanswered only when every Bot looked and n
   const addressed = f.post(user, { mentions: [mention('a')] });
   for (const id of ['a', 'b', 'c']) f.delivery(addressed, id).status = 'ignored';
   assert.equal(unanswered(f.room, f.deliveries, addressed), false);
+});
+
+test('user feedback on a design goes to its owner; the designer’s own messages follow the normal rules', () => {
+  const f = room();
+  const feedback = f.post(user, { designSessionId: 'd' });
+  assert.deepEqual(f.judge(feedback, 'a', { designOwner: 'a' }), { kind: 'wake', must: true });
+  assert.equal(f.judge(feedback, 'b', { designOwner: 'a' }).kind, 'skip');
+  const draft = f.post(bot('a'), { designSessionId: 'd' });
+  assert.equal(f.judge(draft, 'b', { designOwner: 'a' }).kind, 'ask');
 });

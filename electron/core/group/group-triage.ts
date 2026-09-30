@@ -86,7 +86,8 @@ export function triage(delivery: GroupDelivery, context: TriageContext): Triage 
   // nobody, so reactions cannot loop. Either one still counts as an answer to its message.
   if (message.kind === 'reaction') {
     const target = room.messages.find((item) => item.id === message.reaction?.messageId);
-    if (message.sender.kind === 'user' && target?.sender.id === me) return { kind: 'wake', must: false };
+    if (message.sender.kind === 'user' && !message.reaction?.removed && target?.sender.id === me)
+      return { kind: 'wake', must: false };
     return { kind: 'skip', reason: '表情回应，不叫醒' };
   }
   // Group created or membership changed: every member hears it and decides whether to say something.
@@ -106,7 +107,7 @@ export function triage(delivery: GroupDelivery, context: TriageContext): Triage 
     replied = target ? room.messages.find((item) => item.id === target) : undefined,
     repliedToMe = replied?.sender.id === me;
   if (mentioned) return { kind: 'wake', must: true };
-  if (context.designOwner) {
+  if (context.designOwner && message.sender.kind === 'user') {
     if (context.designOwner === me) return { kind: 'wake', must: message.sender.kind === 'user' };
     return { kind: 'skip', reason: '其他成员的设计任务' };
   }

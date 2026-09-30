@@ -694,6 +694,30 @@ test('an unaddressed reply is published directly, and ending without text publis
   );
   assert.ok(!messages.some((m) => m.notice === 'unanswered'));
 });
+test('an explicit send answers the addressed message even when other messages arrived in the same run', async (t) => {
+  const fx = fixture(t, (run, messages) => {
+    if (run.botId !== fx.a.id || publishedMessages(messages).at(-1)?.event) return silent();
+    if (run.toolCalls) return silent();
+    return call('group_send_message', { groupId: run.groupOrigin!.groupId, message: '看过了，没问题。' });
+  });
+  const room = fx.groups.create({ name: '显式答复', botIds: [fx.a.id, fx.b.id] });
+  await until(fx.settled);
+  fx.busy.add(fx.a.id);
+  fx.ask(room.id, fx.a, '帮我看一下');
+  fx.groups.send({ id: room.id, message: '顺便说一句，今天下午开会' });
+  fx.busy.clear();
+  fx.groups.wake();
+  await until(fx.settled);
+  const messages = fx.store.data.groups[0].messages,
+    question = messages.find((m) => m.content.endsWith('帮我看一下'))!,
+    reply = messages.find((m) => m.content === '看过了，没问题。')!;
+  assert.equal(reply.answers, question.id);
+  // Answered, so no reminder turned the silent end into another run.
+  assert.equal(
+    fx.store.data.groupDeliveries.find((d) => d.messageId === question.id && d.recipientId === fx.a.id)?.status,
+    'replied',
+  );
+});
 test('exact retries are idempotent per sender while each member may express the same conclusion', async (t) => {
   const fx = fixture(t, (_run, messages) =>
     publishedMessages(messages).at(-1)?.event ? silent() : answer('我们已确认采用消息队列进行订单通知。'),
@@ -855,7 +879,12 @@ test('membership changes, user stop and resume, unread state and restart remain 
   service.dispose();
 });
 test('bot-created groups inherit the real user task and cannot turn broadcast into a private side channel', async (t) => {
-  const fx = fixture(t);
+  const prompts: string[] = [];
+  const fx = fixture(t, (run, messages) => {
+    if (run.botId === fx.b.id)
+      prompts.push(messages.map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n'));
+    return silent();
+  });
   const root: RunRecord = {
     id: randomUUID(),
     botId: fx.a.id,
@@ -877,6 +906,8 @@ test('bot-created groups inherit the real user task and cannot turn broadcast in
   root.status = 'completed';
   await until(fx.settled);
   assert.equal(fx.store.data.groupRounds[0].request, '组织协作');
+  // The invited member is handed the creator's user task, not told it has nothing to do.
+  assert.ok(prompts.some((prompt) => prompt.includes('User requests handed to you in this event: ["组织协作"]')));
   assert.ok(fx.store.data.messages.some((m) => m.groupLink?.groupId === created.groupId));
   assert.ok(groupMainContext(fx.store, fx.a.id).includes('组织协作'));
 });
