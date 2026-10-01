@@ -2,6 +2,7 @@ import type { Bot } from '../../shared/types/core';
 import type { BotActivity } from '../bots/bot-activity';
 import { Avatar } from '../ui/Avatar';
 import { ChatSearch } from '../chat/ChatSearch';
+import { ComputerCardToggle } from '../computer/ComputerCardToggle';
 import { useI18n } from '../i18n';
 import type { BotConversationData } from './bot-conversation';
 
@@ -44,6 +45,7 @@ export function ConversationHeader({
                 : t('尚未连接模型')}
           </span>
         )}
+        <ComputerCardToggle />
       </div>
     </header>
   );

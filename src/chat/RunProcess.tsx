@@ -36,7 +36,9 @@ function ToolStep({ message }: { message: ChatMessage }) {
     running = status === 'running',
     meta = running ? undefined : stepMeta(toolResult(message));
   return (
-    <li className={`run-step run-step-tool is-${status} ${meta?.tone === 'bad' ? 'is-failed' : ''}`}>
+    <li
+      className={`run-step run-step-tool is-${status} ${meta?.tone === 'bad' ? 'is-failed' : ''} ${toolIcon(message.tool) === 'terminal' ? 'is-command' : ''}`}
+    >
       <button
         type="button"
         className="run-step-row"

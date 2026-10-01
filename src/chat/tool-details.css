@@ -38,7 +38,8 @@
   max-width: 100%;
   padding: 0 6px;
   border-radius: 5px;
-  font: calc(11px * var(--appearance-text-scale, 1)) / 19px var(--font-code);
+  font: calc(11.5px * var(--appearance-text-scale, 1)) / 19px var(--font-ui);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
   color: light-dark(#6d6875, #c4c0c9);
   background: light-dark(#f2eff6, #2c2931);
@@ -52,6 +53,8 @@
   background: light-dark(#f8ebe6, #3a2b27);
 }
 .tool-detail-chip.is-path {
+  font-family: var(--font-code);
+  font-size: calc(11px * var(--appearance-text-scale, 1));
   flex-shrink: 1;
   min-width: 0;
   overflow: hidden;
@@ -89,6 +92,8 @@
   overflow: auto;
   max-height: 520px;
   font: calc(12px * var(--appearance-text-scale, 1)) / 1.65 var(--font-code);
+  /* Output is shown as typed: no `->` arrows or merged `://`. */
+  font-variant-ligatures: none;
   color: light-dark(#3f3b46, #d6d2da);
   white-space: pre;
   tab-size: 2;

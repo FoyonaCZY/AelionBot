@@ -1,12 +1,54 @@
+import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 import type { Bot, Snapshot } from '../../shared/types/core';
 import type { GroupSummary } from '../../shared/types/group-types';
 import { ComputerPanel } from '../computer/ComputerPanel';
+import { setComputerCardOnline, setComputerCardOpen, useComputerCard } from '../computer/computer-card';
 import { ScheduledTasks } from '../settings/ScheduledTasks';
+import { Icon } from '../ui/Icon';
 import { Vnc } from '../ui/Vnc';
 import { useI18n } from '../i18n';
 import type { useComputerControl } from './use-computer-control';
+import '../computer/computer-card.css';
 
-/** The right-hand column: the work computer's live desktop and the conversation's scheduled tasks. */
+/**
+ * The work computer's live desktop and the conversation's scheduled tasks, in a card that floats over the top
+ * right of the message list. It never covers the header or the composer: its top and height follow the message
+ * list, which the composer, work items and permission prompts resize.
+ */
+function useMessageBounds(card: RefObject<HTMLElement | null>, active: boolean) {
+  useLayoutEffect(() => {
+    const node = card.current,
+      shell = node?.parentElement,
+      conversation = shell?.querySelector<HTMLElement>(':scope > .conversation');
+    if (!node || !shell || !conversation || !active) return;
+    let watched: Element | null = null;
+    const sizes = new ResizeObserver(() => measure());
+    const measure = () => {
+      const list = conversation.querySelector<HTMLElement>(':scope > .messages');
+      if (list !== watched) {
+        if (watched) sizes.unobserve(watched);
+        if (list) sizes.observe(list);
+        watched = list;
+      }
+      if (!list) return;
+      const box = list.getBoundingClientRect(),
+        frame = shell.getBoundingClientRect();
+      node.style.setProperty('--computer-card-top', `${Math.round(box.top - frame.top)}px`);
+      node.style.setProperty('--computer-card-space', `${Math.round(box.height)}px`);
+    };
+    // Switching conversations replaces the message list (a direct child); re-attach to the new one. Streaming
+    // text changes deeper nodes and is ignored here; size changes arrive through the ResizeObserver.
+    const swaps = new MutationObserver(measure);
+    swaps.observe(conversation, { childList: true });
+    sizes.observe(shell);
+    measure();
+    return () => {
+      sizes.disconnect();
+      swaps.disconnect();
+    };
+  }, [active]);
+}
+
 export function ComputerDetails({
   state,
   bot,
@@ -34,8 +76,22 @@ export function ComputerDetails({
 }) {
   const { t } = useI18n();
   const { desktopAvailable, desktopBot, desktop } = computer;
+  const { open } = useComputerCard();
+  const card = useRef<HTMLElement>(null);
+  useMessageBounds(card, open);
+  useEffect(() => setComputerCardOnline(desktopAvailable), [desktopAvailable]);
+  useEffect(() => () => setComputerCardOnline(false), []);
   return (
-    <aside className="details computer-details">
+    <aside ref={card} className={`details computer-details ${open ? '' : 'is-closed'}`} aria-hidden={!open}>
+      <button
+        type="button"
+        className={`computer-card-close ${desktopAvailable ? 'is-online' : ''}`}
+        aria-label={t('隐藏工作电脑和定时任务')}
+        title={t('隐藏工作电脑和定时任务')}
+        onClick={() => setComputerCardOpen(false)}
+      >
+        <Icon name="close" size={15} />
+      </button>
       <ComputerPanel
         vm={state.vm}
         ready={desktopAvailable}
@@ -44,7 +100,8 @@ export function ComputerDetails({
         onSetup={onSetup}
         onSettings={onSettings}
       >
-        {desktopAvailable && !expanded && <Vnc key={desktopBot?.id} url={desktop?.vncUrl} />}
+        {/* A closed card keeps no live connection; reopening reconnects, as returning from full screen does. */}
+        {desktopAvailable && !expanded && open && <Vnc key={desktopBot?.id} url={desktop?.vncUrl} />}
       </ComputerPanel>
       {desktop?.status === 'error' && (
         <div className="desktop-status" role="status">

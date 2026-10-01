@@ -108,6 +108,7 @@
   flex-shrink: 0;
   color: var(--text-ink);
 }
+/* Details are mostly prose ("main.ts · 第 1052 行起"); only commands read better in the code font. */
 .run-step-detail {
   min-width: 0;
   flex: 1;
@@ -115,7 +116,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-muted);
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-variant-numeric: tabular-nums;
+}
+.run-step-tool.is-command .run-step-detail {
   font-family: var(--font-code);
+  font-variant-ligatures: none;
   font-size: calc(11.5px * var(--appearance-text-scale, 1));
 }
 .run-step-meta {
@@ -125,7 +131,6 @@
   color: light-dark(#aaa5b1, #a6a2ac);
 }
 .run-step-meta.is-bad {
-  font-family: var(--font-code);
   color: light-dark(#b36c58, #d9a595);
 }
 .run-step-state {

@@ -114,7 +114,8 @@ export function ScheduledTasks({
           <Icon name="plus" size={17} />
         </button>
       </header>
-      {scoped.length > 0 && (
+      {/* Filters only earn their space once the list is long. */}
+      {(scoped.length > 5 || filter !== 'all') && (
         <div className="scheduled-filters" aria-label={t('筛选定时任务')}>
           {(['all', 'enabled', 'paused', 'completed'] as const).map((value) => (
             <button
@@ -163,15 +164,18 @@ export function ScheduledTasks({
                 {task.status !== 'completed' && (
                   <button
                     type="button"
+                    role="switch"
+                    aria-checked={task.status === 'enabled'}
                     className="scheduled-toggle"
                     disabled={pending === task.id}
                     aria-label={t('{action}定时任务 {title}', {
                       action: t(task.status === 'enabled' ? '暂停' : '恢复'),
                       title: task.title,
                     })}
+                    title={task.status === 'enabled' ? t('暂停') : t('恢复')}
                     onClick={() => void toggle(task)}
                   >
-                    {task.status === 'enabled' ? t('暂停') : t('恢复')}
+                    <span className="scheduled-toggle-track" aria-hidden="true" />
                   </button>
                 )}
               </div>

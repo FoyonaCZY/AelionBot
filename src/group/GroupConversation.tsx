@@ -27,6 +27,7 @@ import { botMentions } from '../../shared/chat/mentions';
 import { BotComposer, type ComposerDraft } from '../chat/BotComposer';
 import { ConversationInteractions } from '../chat/InteractionPrompts';
 import { GroupAvatar } from './GroupAvatar';
+import { ComputerCardToggle } from '../computer/ComputerCardToggle';
 import { ipcErrorText } from '../ui/ipc-error';
 import './group-chats.css';
 import { AttachmentList } from '../files/Attachments';
@@ -249,6 +250,7 @@ export function GroupConversation({
           <button className="icon-button" aria-label={t('群聊设置')} onClick={onManage}>
             <Icon name="settings" />
           </button>
+          <ComputerCardToggle />
         </div>
       </header>
       <div className="group-design-tasks">

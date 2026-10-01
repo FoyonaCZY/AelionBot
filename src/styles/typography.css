@@ -20,6 +20,15 @@
 :root select {
   font-weight: var(--weight-body);
 }
+/* The browser's own `monospace` resolves to SimSun for Chinese text on Windows. Any code element without a more
+   specific rule uses the bundled code font instead; zero specificity so component rules still win. */
+:where(code, pre, kbd, samp) {
+  font-family: var(--font-code);
+  font-variant-ligatures: none;
+}
+:where(pre) :where(code, kbd, samp) {
+  font: inherit;
+}
 :root strong,
 :root b {
   font-weight: var(--weight-label);

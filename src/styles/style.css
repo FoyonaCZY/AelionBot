@@ -50,10 +50,12 @@ textarea {
   -webkit-app-region: no-drag;
 }
 .app-shell {
+  position: relative;
   height: 100vh;
   display: grid;
   --sidebar-width: 290px;
-  grid-template-columns: var(--sidebar-width) minmax(380px, 1fr) 318px;
+  /* The work computer floats over the conversation (computer-card.css) instead of taking a third column. */
+  grid-template-columns: var(--sidebar-width) minmax(380px, 1fr);
   overflow: hidden;
 }
 .sidebar {
@@ -870,7 +872,7 @@ dd {
 @media (max-width: 1150px) {
   .app-shell {
     --sidebar-width: 240px;
-    grid-template-columns: var(--sidebar-width) minmax(380px, 1fr) 280px;
+    grid-template-columns: var(--sidebar-width) minmax(380px, 1fr);
   }
   .sidebar-top {
     padding-left: 17px;

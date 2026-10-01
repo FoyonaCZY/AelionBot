@@ -472,6 +472,8 @@ export const en: Record<string, string> = {
   独立桌面暂未就绪: 'Standalone desktop is not ready',
   全屏查看工作电脑: 'View work computer full screen',
   电脑设置: 'Computer settings',
+  隐藏工作电脑和定时任务: 'Hide work computer and scheduled tasks',
+  显示工作电脑和定时任务: 'Show work computer and scheduled tasks',
   工作电脑可以使用: 'Available on the work computer',
   系统镜像下载进度: 'System image download progress',
   工作电脑准备进度: 'Work computer setup progress',

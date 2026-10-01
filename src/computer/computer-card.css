@@ -1,0 +1,326 @@
+/* The right column as a floating card over the top right of the message list.
+   Tones follow the sidebar and the conversation: line #e7e7e7 / hover #ededed, dark fill #29262f / line #3e3945. */
+.app-shell {
+  --computer-card-width: 340px;
+  --computer-card-gap: 16px;
+}
+@media (max-width: 1150px) {
+  .app-shell {
+    --computer-card-width: 300px;
+    --computer-card-gap: 12px;
+  }
+}
+
+:root .app-shell > .details.computer-details {
+  position: absolute;
+  top: calc(var(--computer-card-top, 70px) + var(--computer-card-gap));
+  right: var(--computer-card-gap);
+  width: var(--computer-card-width);
+  max-height: calc(var(--computer-card-space, 520px) - var(--computer-card-gap) * 2);
+  /* Not a grid column any more: no padding, border or scrolling of its own beyond the card. */
+  padding: 0;
+  border: 1px solid light-dark(#e7e7e7, #3e3945);
+  border-radius: 14px;
+  background: light-dark(#fff, #29262f);
+  box-shadow:
+    0 1px 2px light-dark(#0000000a, #0000002e),
+    0 12px 32px -14px light-dark(#00000029, #00000080);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  /* Opacity only: a transform here would capture the task editor's fixed overlay. */
+  animation: computer-card-in 0.16s ease-out;
+}
+:root .app-shell > .details.computer-details.is-closed,
+:root .app-shell[data-page='plugins'] > .details.computer-details,
+:root .app-shell[data-bot-type='designer'][data-page='chat'] > .details.computer-details {
+  display: none;
+}
+@media (max-width: 900px) {
+  :root .app-shell > .details.computer-details {
+    display: none;
+  }
+}
+@keyframes computer-card-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root .app-shell > .details.computer-details {
+    animation: none;
+  }
+}
+
+/* While the card is shown, replies never run underneath it. The header and the composer keep the full width. */
+@media (min-width: 901px) {
+  body:not(:has(.fp-panel[data-layout='docked']))
+    .app-shell[data-page='chat']:not([data-bot-type='designer']):has(> .computer-details:not(.is-closed))
+    > .conversation
+    .messages {
+    padding-right: calc(var(--computer-card-width) + var(--computer-card-gap) * 2);
+  }
+}
+
+/* ---------- Screen: the top edge of the card, edge to edge ---------- */
+.computer-details .computer-panel {
+  width: 100%;
+  margin: 0;
+  background: transparent;
+}
+:root[data-theme='dark'] .computer-details .computer-panel {
+  background: transparent;
+}
+.computer-details .computer-panel.is-online {
+  border-bottom: 1px solid light-dark(#e7e7e7, #3e3945);
+  background: #1d1d20;
+}
+.computer-details .computer-panel-screen,
+.computer-details .computer-panel-display .vnc-shell {
+  background: #1d1d20;
+}
+/* Controls stay out of the picture until the card is hovered or focused. */
+.computer-details .computer-panel.is-online .computer-panel-settings,
+.computer-details .computer-panel-expand,
+.computer-details .computer-card-close.is-online {
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.computer-details:is(:hover, :focus-within)
+  :is(.computer-panel.is-online .computer-panel-settings, .computer-panel-expand, .computer-card-close.is-online) {
+  opacity: 1;
+}
+.computer-details .computer-panel-settings,
+.computer-details .computer-panel-expand,
+.computer-card-close {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+}
+.computer-details .computer-panel-settings {
+  top: 8px;
+  right: 40px;
+}
+.computer-details .computer-panel-expand {
+  right: 8px;
+  bottom: 8px;
+}
+.computer-card-close {
+  position: absolute;
+  z-index: 3;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  color: light-dark(#7a7780, #b9b5bf);
+  background: transparent;
+}
+.computer-card-close:hover {
+  color: var(--text-ink);
+  background: light-dark(#ededed, #35303c);
+}
+.computer-details .computer-panel.is-online .computer-panel-settings,
+.computer-details .computer-panel-expand,
+.computer-card-close.is-online {
+  color: #fff;
+  background: #1d1d20a6;
+  backdrop-filter: blur(6px);
+}
+.computer-details .computer-panel.is-online .computer-panel-settings:hover,
+.computer-card-close.is-online:hover {
+  color: #fff;
+  background: #1d1d20e0;
+}
+
+/* Offline: the screen area keeps its shape; the mascot and one button, the title only when it explains something. */
+.computer-details .computer-rest-card {
+  justify-content: center;
+  aspect-ratio: 16 / 10;
+  min-height: 0;
+  padding: 18px 16px 16px;
+  border-bottom: 1px solid light-dark(#efefef, #3a3540);
+  background: light-dark(#fafafa, #25232a);
+}
+.computer-details .computer-rest-visual {
+  transform: scale(0.64);
+  transform-origin: 50% 0;
+  margin-bottom: -46px;
+}
+.computer-details
+  .computer-rest-card:is([data-state='stopped'], [data-state='invite'], [data-state='ready'])
+  .computer-rest-title {
+  display: none;
+}
+.computer-details .computer-rest-title {
+  margin: 4px 0 8px;
+}
+.computer-details .computer-rest-start {
+  margin-top: 6px;
+  border-radius: 16px;
+  background: light-dark(#29282c, #e3e0e6);
+  color: light-dark(#fff, #202024);
+  font-weight: var(--weight-label);
+}
+.computer-details .computer-rest-start:hover {
+  background: light-dark(#3a393e, #f2eff5);
+  color: light-dark(#fff, #202024);
+}
+.computer-details .desktop-status {
+  margin: 0;
+  padding: 8px 14px;
+  border-bottom: 1px solid light-dark(#efefef, #3a3540);
+}
+
+/* ---------- Scheduled tasks: one line each ---------- */
+.computer-details .scheduled-panel {
+  margin: 0;
+  padding: 6px 8px 8px;
+  border-top: 0;
+}
+.computer-details .scheduled-panel > header {
+  margin: 0;
+  min-height: 34px;
+  padding: 0 0 0 8px;
+}
+.computer-details .scheduled-panel h2 {
+  gap: 6px;
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
+  color: light-dark(#6a6770, #c2bfc5);
+}
+.computer-details .scheduled-panel h2 > span {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  display: inline-grid;
+  place-items: center;
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  background: light-dark(#ededed, #35303c);
+  color: light-dark(#6a6770, #c2bfc5);
+}
+.computer-details .scheduled-add {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+}
+.computer-details .scheduled-filters {
+  gap: 12px;
+  margin: 0 8px 4px;
+}
+.computer-details .scheduled-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 9px;
+}
+.computer-details .scheduled-row:hover {
+  background: light-dark(#f4f4f4, #302c36);
+}
+.computer-details .scheduled-open {
+  flex: 1;
+  min-width: 0;
+}
+.computer-details .scheduled-open strong {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  line-height: 1.5;
+}
+/* The frequency is on hover (title) and in the editor; the row shows the next run. */
+.computer-details .scheduled-frequency {
+  display: none;
+}
+.computer-details .scheduled-row-footer {
+  flex: none;
+  gap: 8px;
+  min-height: 0;
+  margin: 0;
+}
+.computer-details .scheduled-next {
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-variant-numeric: tabular-nums;
+}
+.computer-details .scheduled-empty {
+  padding: 4px 8px 10px;
+}
+
+/* Pause / resume as a switch, everywhere the list appears */
+.scheduled-toggle {
+  display: inline-grid;
+  place-items: center;
+  min-height: 0;
+  padding: 4px 0 4px 4px;
+}
+.scheduled-toggle:not(:disabled):hover {
+  text-decoration: none;
+}
+.scheduled-toggle-track {
+  position: relative;
+  width: 26px;
+  height: 15px;
+  border-radius: 8px;
+  background: light-dark(#d9d9db, #49434f);
+  transition: background 0.15s;
+}
+.scheduled-toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+.scheduled-toggle[aria-checked='true'] .scheduled-toggle-track {
+  background: light-dark(#7a5bb8, #a58abe);
+}
+.scheduled-toggle[aria-checked='true'] .scheduled-toggle-track::after {
+  transform: translateX(11px);
+}
+.scheduled-toggle:disabled .scheduled-toggle-track {
+  opacity: 0.55;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scheduled-toggle-track,
+  .scheduled-toggle-track::after {
+    transition: none;
+  }
+}
+
+/* ---------- Header button that brings the card back ---------- */
+.computer-card-toggle {
+  position: relative;
+}
+.computer-card-toggle-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3a9a68;
+  box-shadow: 0 0 0 2px light-dark(#fff, #202024);
+}
+.app-shell[data-bot-type='designer'] .computer-card-toggle,
+body:has(.fp-panel[data-layout='docked']) .computer-card-toggle {
+  display: none;
+}
+@media (max-width: 900px) {
+  .computer-card-toggle {
+    display: none;
+  }
+}
