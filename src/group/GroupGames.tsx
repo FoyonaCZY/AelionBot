@@ -95,14 +95,6 @@ export function GroupGames({
     knownMembers.current = new Set(ids);
     setSelected((current) => syncSeats(current, ids, joined, mode === 'play' ? 11 : 12));
   }, [memberIds, mode]);
-  // The last match stays readable after it ends; its chat card only shows until that report has been viewed once.
-  const [seenReport, setSeenReport] = useState(() => {
-    try {
-      return localStorage.getItem(storageKey + ':seen-report') || '';
-    } catch {
-      return '';
-    }
-  });
   const resolvedMbti = (id: string) => {
     const type = sessionMbti[id];
     return type === 'random' ? undefined : type || mbtiPresets[id];
@@ -203,13 +195,6 @@ export function GroupGames({
       setMbtiPresets(personalities);
     } catch {}
   }, [storageKey]);
-  useEffect(() => {
-    if (!open || screen !== 'table' || match?.status !== 'finished' || seenReport === match.id) return;
-    setSeenReport(match.id);
-    try {
-      localStorage.setItem(storageKey + ':seen-report', match.id);
-    } catch {}
-  }, [open, screen, match?.id, match?.status, seenReport, storageKey]);
   useEffect(() => {
     if (open && !dialog.current?.open) dialog.current?.showModal();
     if (!open && dialog.current?.open) dialog.current?.close();
@@ -342,7 +327,6 @@ export function GroupGames({
       </div>
       {match &&
         cardContainer &&
-        (match.status !== 'finished' || seenReport !== match.id) &&
         createPortal(
           <button className={`gg-chat-card ${myTurn ? 'is-turn' : ''}`} onClick={enter}>
             <span className="gg-chat-card-top">
