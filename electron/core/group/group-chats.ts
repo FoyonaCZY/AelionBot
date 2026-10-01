@@ -74,6 +74,26 @@ function required(value: unknown, label: string, max: number) {
 }
 const workLane = (message: GroupMessage | undefined) =>
   message?.workItemId || (message?.sender.kind === 'user' && workCommand(message.content) ? message.id : undefined);
+const INTERRUPTED_REASONS = ['应用重启，等待用户继续', '应用退出，等待用户继续'];
+/**
+ * Quitting or restarting is not the user stopping the discussion. Only rounds that still had work in flight are
+ * marked stopped and offered for resuming; a round whose work already finished stays as it was.
+ */
+function interruptPending(store: Store, reason: string) {
+  const cut = new Set<string>();
+  for (const delivery of store.data.groupDeliveries)
+    if (groupPending(delivery.status)) {
+      delivery.status = 'interrupted';
+      delivery.reason = reason;
+      if (delivery.recipientId !== 'user') delivery.resumable = true;
+      cut.add(delivery.rootId);
+    }
+  for (const round of store.data.groupRounds)
+    if (round.status === 'active' && cut.has(round.id)) {
+      round.status = 'stopped';
+      round.reason = reason;
+    }
+}
 export class GroupChats implements GroupGateway {
   private revision = 0;
   private enabled = false;
@@ -113,17 +133,17 @@ export class GroupChats implements GroupGateway {
             delivery.replyMessageId = entry.messageId;
           }
       }
-    for (const delivery of store.data.groupDeliveries)
-      if (groupPending(delivery.status)) {
-        delivery.status = 'interrupted';
-        delivery.reason = '应用重启，等待用户继续';
-        if (delivery.recipientId !== 'user') delivery.resumable = true;
-      }
+    // Earlier versions stopped every active round on quit, finished ones included; those have nothing to resume.
     for (const round of store.data.groupRounds)
-      if (round.status === 'active') {
-        round.status = 'stopped';
-        round.reason = '应用重启，等待用户继续';
+      if (
+        round.status === 'stopped' &&
+        INTERRUPTED_REASONS.includes(round.reason || '') &&
+        !store.data.groupDeliveries.some((d) => d.rootId === round.id && d.resumable)
+      ) {
+        round.status = 'active';
+        delete round.reason;
       }
+    interruptPending(store, '应用重启，等待用户继续');
     store.save();
   }
   get busy() {
@@ -1600,18 +1620,7 @@ export class GroupChats implements GroupGateway {
     clearTimeout(this.holdTimer);
     for (const controller of this.deciding.values()) controller.abort();
     // Quitting is not the user stopping the discussion: unfinished work stays resumable on the next start.
-    const reason = '应用退出，等待用户继续';
-    for (const delivery of this.store.data.groupDeliveries)
-      if (groupPending(delivery.status)) {
-        delivery.status = 'interrupted';
-        delivery.reason = reason;
-        if (delivery.recipientId !== 'user') delivery.resumable = true;
-      }
-    for (const round of this.store.data.groupRounds)
-      if (round.status === 'active') {
-        round.status = 'stopped';
-        round.reason = reason;
-      }
+    interruptPending(this.store, '应用退出，等待用户继续');
     for (const worker of this.workers.values()) {
       worker.controller.abort();
       if (worker.runId) this.runner.cancel(worker.botId);

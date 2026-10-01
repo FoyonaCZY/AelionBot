@@ -919,7 +919,9 @@ test('membership changes, user stop and resume, unread state and restart remain 
       },
       () => {},
     );
-  assert.equal(service.snapshot().rooms[0].round?.status, 'stopped');
+  // The continued round finished before the restart, so there is nothing to resume and no stop banner.
+  assert.equal(service.snapshot().rooms[0].round?.status, 'active');
+  assert.equal(service.snapshot().rooms[0].round?.reason, undefined);
   service.dispose();
 });
 test('bot-created groups inherit the real user task and cannot turn broadcast into a private side channel', async (t) => {

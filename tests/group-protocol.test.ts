@@ -243,6 +243,39 @@ test('continuing after a restart resumes the interrupted work with its run, not 
   assert.throws(() => groups.continue(id), /仍可继续/);
 });
 
+test('quitting after a round finished does not offer to continue it', (t) => {
+  const f = fixture(t);
+  for (const delivery of f.store.data.groupDeliveries) delivery.status = 'replied';
+  f.groups.dispose();
+  const restored = new Store(f.dir);
+  const groups = new GroupChats(restored, { isRunning: () => false, run: async () => {}, cancel: () => {} }, () => {});
+  try {
+    assert.equal(restored.data.groupRounds[0].status, 'active');
+    assert.equal(restored.data.groupRounds[0].reason, undefined);
+    assert.equal(groups.snapshot().rooms.find((g) => g.id === f.room.id)?.round?.status, 'active');
+  } finally {
+    groups.dispose();
+    restored.close();
+  }
+});
+
+test('startup clears a quit banner left on a round that had nothing to resume', (t) => {
+  const f = fixture(t);
+  for (const delivery of f.store.data.groupDeliveries) delivery.status = 'replied';
+  f.store.data.groupRounds[0].status = 'stopped';
+  f.store.data.groupRounds[0].reason = '应用退出，等待用户继续';
+  f.groups.dispose();
+  const restored = new Store(f.dir);
+  const groups = new GroupChats(restored, { isRunning: () => false, run: async () => {}, cancel: () => {} }, () => {});
+  try {
+    assert.equal(restored.data.groupRounds[0].status, 'active');
+    assert.equal(restored.data.groupRounds[0].reason, undefined);
+  } finally {
+    groups.dispose();
+    restored.close();
+  }
+});
+
 test('sending a new message after quitting leaves the interrupted work alone', (t) => {
   const f = fixture(t);
   f.deliver(f.ra);
