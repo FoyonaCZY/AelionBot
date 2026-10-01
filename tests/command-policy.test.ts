@@ -105,8 +105,8 @@ test('a relative PATH entry disables the native-command shortcut', () => {
 test('Windows single native commands stay literal and avoid PowerShell argument pitfalls', () => {
   const windows: HostRiskContext = {
     workspaceDir: 'C:\\projects\\demo',
-    dataDir: 'C:\\Users\\u\\AppData\\Roaming\\aelion-bot',
-    homeDir: 'C:\\Users\\u',
+    dataDir: 'C:\\Users\\example\\AppData\\Roaming\\aelion-bot',
+    homeDir: 'C:\\Users\\example',
     platform: 'win32',
     env: { Path: 'C:\\Windows\\System32;C:\\Program Files\\nodejs;' },
   };
