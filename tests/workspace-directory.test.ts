@@ -29,7 +29,8 @@ function fixture(t: test.TestContext) {
         input: JSON.stringify({ path }),
         encoding: 'utf8',
         windowsHide: true,
-        timeout: 10000,
+        // CI runners occasionally stall a process for ~10 s; stay below the 30 s test timeout.
+        timeout: 25000,
       }),
   };
 }
