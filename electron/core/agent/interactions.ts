@@ -354,8 +354,15 @@ export class Interactions {
           this.refreshHostPolicy();
           return;
         }
-        item.request.approval = { mode: 'auto', phase: 'waiting', ...result };
-        if (result.decision === 'allow') this.finish(id, undefined, 'auto-model');
+        const { source, ...view } = result;
+        item.request.approval = { mode: 'auto', phase: 'waiting', ...view };
+        // auto-parsed / auto-cached never reached the model; the label keeps that visible in the decision log.
+        if (result.decision === 'allow')
+          this.finish(
+            id,
+            undefined,
+            source === 'parsed' ? 'auto-parsed' : source === 'cached' ? 'auto-cached' : 'auto-model',
+          );
         else if (result.decision === 'deny')
           this.finish(
             id,

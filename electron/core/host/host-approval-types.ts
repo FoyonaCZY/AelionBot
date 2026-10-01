@@ -13,6 +13,8 @@ export interface ModelApproval {
   decision: 'allow' | 'deny' | 'ask';
   reason: string;
   reviewer?: string;
+  /** How the review concluded: the model, a local parse of the command, or an identical approval in this task. */
+  source?: 'model' | 'parsed' | 'cached';
 }
 export interface HostApprovalPolicy {
   modeFor(request: HostPermissionRequest): HostPermissionMode;

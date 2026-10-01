@@ -230,14 +230,125 @@ test('protected file writes wait for the default reviewer and execute the exact 
   assert.equal(f.rules.list().length, 0);
 });
 
-test('model approvals are single-use and are not converted into command rules', async (t) => {
+test('a model approval covers the identical operation for the rest of the run, never more', async (t) => {
   const f = fixture(t);
   f.mode('auto');
   await f.permission(command(f.project));
   await f.permission(command(f.project));
-  assert.equal(f.reviews(), 2);
-  assert.equal(f.rules.list().length, 0);
+  assert.equal(f.reviews(), 1, 'identical operation in the same run');
+  assert.equal(f.records.at(-1)?.decision, 'auto-cached');
+  assert.equal(f.rules.list().length, 0, 'never converted into a saved rule');
+  await f.permission({ ...command(f.project), command: 'npm run test' });
+  assert.equal(f.reviews(), 2, 'a different command is reviewed');
+  f.store.message(f.bot.id, 'user', '不要再构建了', { runId: f.run.id });
+  await f.permission(command(f.project));
+  assert.equal(f.reviews(), 3, 'a new user instruction is reviewed again');
+  const other: RunRecord = { ...f.run, id: randomUUID(), executions: [] };
+  f.store.data.runs.push(other);
+  await f.interactions.permission(f.bot.id, other.id, command(f.project), f.controller.signal);
+  assert.equal(f.reviews(), 4, 'another run is reviewed');
+  f.run.status = 'completed';
+  await f.permission(command(f.project)).catch(() => {});
+  assert.equal(f.reviews(), 5, 'a finished run keeps nothing');
 });
+
+test('asks and denials are never reused', async (t) => {
+  let decision: ModelApproval['decision'] = 'deny';
+  const f = fixture(t, async () => ({ decision, reason: '超出用户要求' }));
+  f.mode('auto');
+  await assert.rejects(f.permission(command(f.project)));
+  await assert.rejects(f.permission(command(f.project)));
+  assert.equal(f.reviews(), 2);
+  decision = 'allow';
+  await f.permission(command(f.project));
+  assert.equal(f.reviews(), 3);
+});
+
+test('the reviewer sees the files this run wrote and its latest steps', async (t) => {
+  const seen: Array<Parameters<PermissionReviewer>[1]> = [];
+  const f = fixture(t, async (_request, context) => {
+    seen.push(context);
+    return { decision: 'allow', reason: '承接本任务刚写出的文件' };
+  });
+  f.mode('auto');
+  const outside = join(f.root, 'render', 'page-1.png');
+  f.run.executions = [
+    {
+      id: randomUUID(),
+      callId: 'c1',
+      botId: f.bot.id,
+      runId: f.run.id,
+      tool: 'host_file_write',
+      target: outside,
+      targetKey: 'k',
+      status: 'succeeded',
+      startedAt: new Date().toISOString(),
+      paths: ['host:' + outside],
+    },
+  ];
+  await f.permission({ operation: 'command', command: 'npm run build', cwd: f.project, reason: 'test' });
+  assert.deepEqual(seen[0].filesWrittenThisRun, [outside]);
+  assert.equal(seen[0].recentSteps?.[0].tool, 'host_file_write');
+  // Reading that same file back needs no review at all.
+  const before = f.reviews();
+  await f.permission({ operation: 'read_file', path: outside, reason: '检查刚渲染的图片' });
+  assert.equal(f.reviews(), before);
+  assert.equal(f.records.at(-1)?.decision, 'auto-low-risk');
+});
+
+test(
+  'a parsed read-only PowerShell query is allowed without calling the model',
+  { skip: process.platform !== 'win32' },
+  async (t) => {
+    const f = fixture(t);
+    f.mode('auto');
+    const parsed: string[] = [];
+    (
+      f.service as unknown as { options: { parsePowerShell: (command: string) => Promise<unknown> } }
+    ).options.parsePowerShell = async (command) => {
+      parsed.push(command);
+      const name = (value: string) => ({ t: 'String', value, kind: 'BareWord', text: value });
+      return {
+        ok: true,
+        ast: {
+          t: 'ScriptBlock',
+          end: {
+            t: 'NamedBlock',
+            traps: 0,
+            statements: [
+              {
+                t: 'Pipeline',
+                elements: [
+                  {
+                    t: 'Command',
+                    invocation: 'Unknown',
+                    elements: [name('Get-ChildItem'), name('src')],
+                    redirections: [],
+                  },
+                  {
+                    t: 'Command',
+                    invocation: 'Unknown',
+                    elements: [name('Select-Object'), name('Name')],
+                    redirections: [],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      };
+    };
+    await f.permission({
+      operation: 'command',
+      command: 'Get-ChildItem src | Select-Object Name',
+      cwd: f.project,
+      reason: 'test',
+    });
+    assert.equal(parsed.length, 1);
+    assert.equal(f.reviews(), 0);
+    assert.equal(f.records.at(-1)?.decision, 'auto-parsed');
+  },
+);
 
 for (const decision of ['ask'] as const)
   test(`a reviewer ${decision} waits for a human instead of executing`, async (t) => {

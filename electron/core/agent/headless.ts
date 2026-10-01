@@ -18,6 +18,7 @@ import { CommandPermissions } from '../host/command-permissions';
 import { Interactions } from './interactions';
 import { HostComputer, redactHost } from '../host/host';
 import { HostApprovals, defaultPermissionReviewer } from '../host/host-approvals';
+import { PowerShellParser } from '../host/powershell-parser';
 import { Integrations } from '../extensions/integrations';
 import { Cognition } from '../memory/cognition';
 import { Harness } from './harness';
@@ -290,6 +291,8 @@ export async function runHeadless(options: HeadlessOptions): Promise<HeadlessRes
         usage,
       );
     cleanup.push(() => model.dispose?.());
+    const powershell = new PowerShellParser();
+    cleanup.push(() => powershell.dispose());
     const approvals = new HeadlessApprovals(
       store,
       commands,
@@ -298,7 +301,11 @@ export async function runHeadless(options: HeadlessOptions): Promise<HeadlessRes
         () => store.modelFor(bot.id),
         (text) => host.redact(text),
       ),
-      { homeDir, defaultModel: () => ({ ...store.modelFor(bot.id), hasKey: Boolean(key) }) },
+      {
+        homeDir,
+        defaultModel: () => ({ ...store.modelFor(bot.id), hasKey: Boolean(key) }),
+        parsePowerShell: (command) => powershell.parse(command),
+      },
       permission,
     );
     interactions.setHostPolicy(approvals);

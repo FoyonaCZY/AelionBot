@@ -7,6 +7,10 @@ export interface HostRiskContext {
   dataDir: string;
   homeDir: string;
   platform: NodeJS.Platform;
+  /** hostPathKey of files this run wrote with host file tools; reading them back is part of the same task. */
+  ownWrites?: ReadonlySet<string>;
+  /** The environment host commands run with (PATH lookup); defaults to process.env. */
+  env?: NodeJS.ProcessEnv;
 }
 const sensitiveSegment =
   /^(?:\.ssh|\.aws|\.azure|\.kube|\.gnupg|\.codex|\.aelion|\.git|credentials?|secrets?|keychains?|gcloud)$/i;
@@ -47,8 +51,8 @@ const posixSystemWriteRoots = [
   '/Library/Keychains',
   '/Applications',
 ];
-const pathApi = (context: HostRiskContext) => (context.platform === 'win32' ? win32 : posix);
-function canonical(value: string, context: HostRiskContext) {
+export const pathApi = (context: HostRiskContext) => (context.platform === 'win32' ? win32 : posix);
+export function canonical(value: string, context: HostRiskContext) {
   let path = pathApi(context).normalize(value);
   if (context.platform === process.platform)
     try {
@@ -103,7 +107,7 @@ export function ordinaryProjectPath(value: string, context: HostRiskContext, cwd
     )
   );
 }
-function sensitiveParts(parts: string[]) {
+export function sensitiveParts(parts: string[]) {
   const name = parts.at(-1) || '';
   // Auth libraries commonly contain tokens.ts or secrets/password.py. These are
   // ordinary source files; credential stores and explicit .env/key files remain protected.

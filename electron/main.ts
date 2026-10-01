@@ -51,6 +51,7 @@ import { BotGreetings } from './core/agent/bot-greetings';
 import { AppUpdates } from './core/app/app-updates';
 import { Diagnostics } from './core/app/diagnostics';
 import { slowOperations, watchEventLoop } from './core/app/slow-operations';
+import { PowerShellParser } from './core/host/powershell-parser';
 import { availableParallelism, release as osRelease, totalmem } from 'node:os';
 import { createWindowsUpdater, UPDATE_REPOSITORY } from './core/app/windows-updater';
 import {
@@ -83,6 +84,8 @@ let interactions: Interactions;
 let host: HostComputer;
 let commandPermissions: CommandPermissions;
 let hostApprovals: HostApprovals;
+// Parses host commands for the permission policy only; never executes them.
+const powershellParser = new PowerShellParser();
 let cognition: Cognition;
 let peerChats: PeerChats | undefined;
 let groupChats: GroupChats | undefined;
@@ -433,7 +436,11 @@ async function initialize() {
       () => providers.approvalConfig(),
       (text) => host.redact(text),
     ),
-    { homeDir, defaultModel: () => providers.approvalConfig() },
+    {
+      homeDir,
+      defaultModel: () => providers.approvalConfig(),
+      parsePowerShell: (command) => powershellParser.parse(command),
+    },
   );
   interactions.setHostPolicy(hostApprovals);
   laya = new LayaRuntime(
@@ -1049,6 +1056,7 @@ async function initialize() {
     closeWork: () => [harness.closeProcesses(), cognition.close(), integrations.close()],
     closeVm: () => vm.shutdownForExit(),
     closeState: () => {
+      powershellParser.dispose();
       vm.dispose();
       store.close();
     },
