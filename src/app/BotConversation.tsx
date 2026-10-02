@@ -12,6 +12,7 @@ import { ConversationInteractions } from '../chat/InteractionPrompts';
 import { WorkItemsPanel } from '../chat/WorkItems';
 import { LiveWorkStrip } from '../chat/LiveWorkStrip';
 import { BotComposer, type ComposerDraft } from '../chat/BotComposer';
+import { useFloatingComposer } from '../chat/use-floating-composer';
 import { ArtifactList } from '../files/ArtifactList';
 import { PreviewHistoryChips } from '../preview/PreviewHistoryChips';
 import { PeerNotice, PeerTaskMessage, type PeerPanel } from '../group/PeerChats';
@@ -71,6 +72,7 @@ export function BotConversation({
   onOpenPreviewEntry: (entry: PreviewHistoryEntry) => void;
 }) {
   const { t } = useI18n();
+  const composerWrap = useFloatingComposer();
   const {
     currentModel,
     messages,
@@ -217,7 +219,7 @@ export function BotConversation({
           <div />
         </section>
       </ConversationTimeProvider>
-      <div className={`composer-wrap ${waiting ? 'with-request' : ''}`}>
+      <div ref={composerWrap} className={`composer-wrap floating-composer ${waiting ? 'with-request' : ''}`}>
         <ConversationInteractions
           requests={requests.filter((request) => !state.runs.find((run) => run.id === request.runId)?.groupOrigin)}
           botId={bot.id}

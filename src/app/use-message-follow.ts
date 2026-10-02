@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
+import { readScrollAnchor, restoreScrollAnchor, type ScrollAnchor } from './scroll-anchor';
 import type { GroupSummary } from '../../shared/types/group-types';
 import type { ChatMessage } from '../../shared/types/core';
 
@@ -17,7 +18,8 @@ export function useMessageFollow(input: {
   const messagesPane = useRef<HTMLElement>(null),
     follow = useRef(true),
     stickLock = useRef(0),
-    paneHeight = useRef(0);
+    paneHeight = useRef(0),
+    anchor = useRef<ScrollAnchor | undefined>(undefined);
   const stickToBottom = () => {
     const pane = messagesPane.current;
     if (!pane) return;
@@ -37,6 +39,8 @@ export function useMessageFollow(input: {
   };
   const onMessagesScroll = (pane: HTMLElement) => {
     if (stickLock.current) return;
+    // A width change clamps scrollTop before the resize observer runs; the observer restores the reader's place.
+    if (anchor.current && pane.clientWidth !== anchor.current.width) return;
     const gap = pane.scrollHeight - pane.scrollTop - pane.clientHeight,
       grew = pane.scrollHeight > paneHeight.current + 1;
     paneHeight.current = pane.scrollHeight;
@@ -45,6 +49,7 @@ export function useMessageFollow(input: {
       return;
     }
     follow.current = gap < 100;
+    anchor.current = readScrollAnchor(pane);
   };
   useLayoutEffect(() => {
     if (group) return;
@@ -59,7 +64,15 @@ export function useMessageFollow(input: {
     if (!pane || group) return;
     const onResize = () => {
       if (follow.current) stickToBottom();
+      else if (anchor.current && pane.clientWidth !== anchor.current.width) {
+        stickLock.current++;
+        restoreScrollAnchor(pane, anchor.current);
+        requestAnimationFrame(() => (stickLock.current = Math.max(0, stickLock.current - 1)));
+      }
+      anchor.current = follow.current ? undefined : readScrollAnchor(pane);
+      paneHeight.current = pane.scrollHeight;
     };
+    anchor.current = undefined;
     const observer = new ResizeObserver(onResize);
     observer.observe(pane);
     window.addEventListener('resize', onResize);

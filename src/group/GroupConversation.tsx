@@ -28,6 +28,8 @@ import { BotComposer, type ComposerDraft } from '../chat/BotComposer';
 import { ConversationInteractions } from '../chat/InteractionPrompts';
 import { GroupAvatar } from './GroupAvatar';
 import { ComputerCardToggle } from '../computer/ComputerCardToggle';
+import { readScrollAnchor, restoreScrollAnchor, type ScrollAnchor } from '../app/scroll-anchor';
+import { useFloatingComposer } from '../chat/use-floating-composer';
 import { ipcErrorText } from '../ui/ipc-error';
 import './group-chats.css';
 import { AttachmentList } from '../files/Attachments';
@@ -73,12 +75,14 @@ export function GroupConversation({
     follow = useRef(true),
     stickLock = useRef(0),
     paneHeight = useRef(0),
+    anchor = useRef<ScrollAnchor | undefined>(undefined),
     scroll = useRef<{ height: number; top: number } | undefined>(undefined),
     active = useRef(true),
     sendLock = useRef(false),
     draftRef = useRef(draft);
   draftRef.current = draft;
   const previewWorkbench = usePreviewWorkbench();
+  const composerWrap = useFloatingComposer();
   const stickToBottom = () => {
     const element = body.current;
     if (!element) return;
@@ -98,6 +102,7 @@ export function GroupConversation({
   };
   const onMessagesScroll = (element: HTMLElement) => {
     if (stickLock.current) return;
+    if (anchor.current && element.clientWidth !== anchor.current.width) return;
     const gap = element.scrollHeight - element.scrollTop - element.clientHeight,
       grew = element.scrollHeight > paneHeight.current + 1;
     paneHeight.current = element.scrollHeight;
@@ -106,6 +111,7 @@ export function GroupConversation({
       return;
     }
     follow.current = gap < 90;
+    anchor.current = readScrollAnchor(element);
   };
   useEffect(() => {
     active.current = true;
@@ -154,7 +160,15 @@ export function GroupConversation({
     if (!element) return;
     const onResize = () => {
       if (follow.current) stickToBottom();
+      else if (anchor.current && element.clientWidth !== anchor.current.width) {
+        stickLock.current++;
+        restoreScrollAnchor(element, anchor.current);
+        requestAnimationFrame(() => (stickLock.current = Math.max(0, stickLock.current - 1)));
+      }
+      anchor.current = follow.current ? undefined : readScrollAnchor(element);
+      paneHeight.current = element.scrollHeight;
     };
+    anchor.current = undefined;
     const observer = new ResizeObserver(onResize);
     observer.observe(element);
     window.addEventListener('resize', onResize);
@@ -395,7 +409,7 @@ export function GroupConversation({
             !group.activities?.length && <div className="group-empty">{t('暂无消息')}</div>}
         </section>
       </ConversationTimeProvider>
-      <div className={`composer-wrap ${requests.length ? 'with-request' : ''}`}>
+      <div ref={composerWrap} className={`composer-wrap floating-composer ${requests.length ? 'with-request' : ''}`}>
         {error && (
           <div className="group-error" role="alert">
             {error}

@@ -473,6 +473,8 @@ export const en: Record<string, string> = {
   全屏查看工作电脑: 'View work computer full screen',
   电脑设置: 'Computer settings',
   隐藏工作电脑和定时任务: 'Hide work computer and scheduled tasks',
+  上一张: 'Previous',
+  下一张: 'Next',
   新文件: 'New file',
   已删除: 'Deleted',
   '改动较多，这里只显示一部分。': 'Large change: only part of it is shown here.',

@@ -496,6 +496,12 @@ export function FilePreview({
     if (!exportInFlight.current) setExportState(undefined);
     setRetry(0);
   };
+  // Previous / next among the opened files, shown over images. Goes through `request` so unsaved edits are kept.
+  const browsing = items.length > 1 && previewKind(item.name) === '图片' && !draft?.editing,
+    step = (delta: number) => {
+      const next = index + delta;
+      if (next >= 0 && next < items.length) request(() => select(next));
+    };
   return createPortal(
     <PreviewRuntimeContext.Provider
       value={{
@@ -541,6 +547,31 @@ export function FilePreview({
             aria-label={t('预览 {name}', { name: item.name })}
             tabIndex={-1}
             onKeyDown={(event) => {
+              const target = event.target as HTMLElement;
+              if (
+                browsing &&
+                (event.key === 'ArrowLeft' || event.key === 'ArrowRight') &&
+                !event.defaultPrevented &&
+                !event.altKey &&
+                !event.ctrlKey &&
+                !event.metaKey &&
+                !target.closest(
+                  'input,textarea,select,[contenteditable],.cm-editor,[role="listbox"],[role="radiogroup"]',
+                )
+              ) {
+                // A zoomed image that still scrolls sideways keeps the arrows for panning.
+                const stage = target.closest<HTMLElement>('.fp-image-stage');
+                const pans =
+                  stage &&
+                  (event.key === 'ArrowLeft'
+                    ? stage.scrollLeft > 0
+                    : stage.scrollLeft + stage.clientWidth < stage.scrollWidth - 1);
+                if (!pans) {
+                  event.preventDefault();
+                  step(event.key === 'ArrowLeft' ? -1 : 1);
+                  return;
+                }
+              }
               if (
                 event.key !== 'Tab' ||
                 !modal ||
@@ -880,6 +911,33 @@ export function FilePreview({
                     retry={retry}
                     override={draft ? editedPreview(item.name, draft) : undefined}
                   />
+                )}
+                {browsing && (
+                  <div className="fp-gallery" inert={Boolean(edits.pending) || feedbackSending}>
+                    <button
+                      type="button"
+                      className="fp-gallery-step is-previous"
+                      aria-label={t('上一张')}
+                      title={t('上一张') + ' (←)'}
+                      disabled={index === 0}
+                      onClick={() => step(-1)}
+                    >
+                      <PreviewIcon name="left" />
+                    </button>
+                    <button
+                      type="button"
+                      className="fp-gallery-step is-next"
+                      aria-label={t('下一张')}
+                      title={t('下一张') + ' (→)'}
+                      disabled={index === items.length - 1}
+                      onClick={() => step(1)}
+                    >
+                      <PreviewIcon name="right" />
+                    </button>
+                    <span className="fp-gallery-count" aria-live="polite">
+                      {index + 1} / {items.length}
+                    </span>
+                  </div>
                 )}
                 <FileAnnotationLayer
                   initialCache={annotationCache.current}

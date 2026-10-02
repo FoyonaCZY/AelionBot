@@ -386,7 +386,8 @@ textarea {
   height: 33px;
   border-radius: 50%;
   background: light-dark(#171717, #e0dbe6);
-  color: white;
+  /* The icon follows the button: white on black, dark on the light dark-theme circle. */
+  color: light-dark(#fff, #202024);
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -399,7 +400,7 @@ textarea {
 .stop-square {
   width: 11px;
   height: 11px;
-  background: white;
+  background: currentColor;
   border-radius: 2px;
 }
 .composer-footnote {
