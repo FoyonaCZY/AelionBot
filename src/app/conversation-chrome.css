@@ -7,10 +7,9 @@
 .app-shell:is([data-platform='win32'], [data-platform='linux']) {
   --native-caption-width: max(138px, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)));
 }
+/* The conversation header reaches the window's right edge (the work computer floats), so on Windows and Linux it
+   always leaves room for the native minimize / maximize / close buttons. */
 .app-shell > .conversation {
-  --conversation-caption-space: 0px;
-}
-.app-shell[data-bot-type='designer'] > .conversation {
   --conversation-caption-space: var(--native-caption-width);
 }
 .app-shell > .conversation :is(.chat-header, .designer-header) {
@@ -47,11 +46,6 @@
 @media (max-width: 1250px) {
   .app-shell {
     --conversation-header-inline: 16px;
-  }
-}
-@media (max-width: 900px) {
-  .app-shell > .conversation {
-    --conversation-caption-space: var(--native-caption-width);
   }
 }
 @media (max-width: 620px) {

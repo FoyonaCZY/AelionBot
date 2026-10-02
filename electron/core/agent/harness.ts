@@ -43,6 +43,7 @@ import { VmController } from '../vm/vm';
 import { ComputerController, type ComputerResult } from '../vm/computer';
 import type { Integrations } from '../extensions/integrations';
 import { describeTool, readableContent } from '../../../shared/chat/activity';
+import { toolDiff } from '../../../shared/chat/tool-diff';
 import { projectConventions } from './project-conventions';
 import type { LiveWorkItem } from '../../../shared/chat/live-work';
 import { summarizeCommand } from '../../../shared/chat/live-work';
@@ -1665,6 +1666,10 @@ export class Harness {
           )
             memoryConfirmed = true;
           display.activity = describeTool(call.function.name, displayInput, output);
+          if (display.status === 'done') {
+            const diff = toolDiff(call.function.name, displayInput, (text) => this.host?.redact(text) ?? text);
+            if (diff) display.diff = diff;
+          }
           const unknown =
             dispatched &&
             !denied &&

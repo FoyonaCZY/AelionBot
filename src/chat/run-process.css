@@ -124,6 +124,13 @@
   font-variant-ligatures: none;
   font-size: calc(11.5px * var(--appearance-text-scale, 1));
 }
+.run-step-diff {
+  display: inline-flex;
+  gap: 5px;
+  flex-shrink: 0;
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  font-variant-numeric: tabular-nums;
+}
 .run-step-meta {
   flex-shrink: 0;
   font-size: calc(11.5px * var(--appearance-text-scale, 1));

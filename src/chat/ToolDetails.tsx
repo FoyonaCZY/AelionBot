@@ -117,6 +117,62 @@ function CodeView({ text, language = '', numbered = false }: { text: string; lan
     </div>
   );
 }
+/** What a file edit changed: removed lines in red, added in green, a few lines of context; long diffs fold. */
+function DiffView({ diff }: { diff: NonNullable<ChatMessage['diff']> }) {
+  const { t } = useI18n();
+  const [all, setAll] = useState(false);
+  const total = diff.files.reduce((sum, file) => sum + file.lines.length, 0),
+    fold = total > 24 && !all;
+  let shown = 0;
+  return (
+    <div className={`detail-diff ${fold ? 'is-folded' : ''}`}>
+      {diff.files.map((file, index) => {
+        const lines = fold ? file.lines.slice(0, Math.max(0, 24 - shown)) : file.lines;
+        shown += lines.length;
+        if (fold && !lines.length && index > 0) return null;
+        return (
+          <section className="detail-diff-file" key={file.path + index}>
+            {diff.files.length > 1 && (
+              <header>
+                <span title={file.path}>{fileName(file.path)}</span>
+                {file.kind === 'add' && <em>{t('新文件')}</em>}
+                {file.kind === 'delete' && <em>{t('已删除')}</em>}
+                {file.moveTo && <em title={file.moveTo}>→ {fileName(file.moveTo)}</em>}
+                <span className="detail-diff-count">
+                  <b className="is-added">+{file.added}</b>
+                  <b className="is-removed">−{file.removed}</b>
+                </span>
+              </header>
+            )}
+            {lines.length > 0 && (
+              <pre tabIndex={0}>
+                {lines.map((line, i) =>
+                  line.op === '…' ? (
+                    <span key={i} className="detail-diff-line is-gap" aria-hidden="true" />
+                  ) : (
+                    <span
+                      key={i}
+                      className={`detail-diff-line ${line.op === '+' ? 'is-added' : line.op === '-' ? 'is-removed' : ''}`}
+                    >
+                      <i aria-hidden="true">{line.op === ' ' ? '' : line.op === '-' ? '−' : '+'}</i>
+                      {line.text || ' '}
+                    </span>
+                  ),
+                )}
+              </pre>
+            )}
+          </section>
+        );
+      })}
+      {total > 24 && (
+        <button type="button" className="detail-code-more" onClick={() => setAll(!all)}>
+          {all ? t('收起') : t('展开全部 · 共 {count} 行', { count: total })}
+        </button>
+      )}
+      {diff.truncated && (!fold || total <= 24) && <p className="detail-muted">{t('改动较多，这里只显示一部分。')}</p>}
+    </div>
+  );
+}
 function Section({ title, children }: { title?: string; children: React.ReactNode }) {
   const { t } = useI18n();
   return (
@@ -824,17 +880,20 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
       path = textValue(file.path) || display.detail || '',
       count = Number(file.replacements) || 0;
     return (
-      <DetailHeader
-        icon="file"
-        title={fileName(path) || t('文件已修改')}
-        subtitle={path.includes('/') || path.includes('\\') ? path : undefined}
-        meta={[
-          count > 1 ? t('已修改 {count} 处', { count }) : '',
-          typeof file.bytes === 'number' ? bytes(file.bytes) : '',
-        ]
-          .filter(Boolean)
-          .join(' · ')}
-      />
+      <>
+        <DetailHeader
+          icon="file"
+          title={fileName(path) || t('文件已修改')}
+          subtitle={path.includes('/') || path.includes('\\') ? path : undefined}
+          meta={[
+            count > 1 ? t('已修改 {count} 处', { count }) : '',
+            typeof file.bytes === 'number' ? bytes(file.bytes) : '',
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        />
+        {message.diff && <DiffView diff={message.diff} />}
+      </>
     );
   }
   if (tool === 'host_file_write')
@@ -901,15 +960,19 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
     return (
       <>
         <DetailHeader icon="file" title={t('已应用补丁')} meta={t('{count} 个文件', { count: files.length })} />
-        <Section>
-          {files.map((file, index) => (
-            <div className="detail-file-row" key={index}>
-              <Icon name="file" size={15} />
-              <span title={textValue(file.path)}>{fileName(textValue(file.path))}</span>
-              <small>{textValue(file.operation)}</small>
-            </div>
-          ))}
-        </Section>
+        {message.diff ? (
+          <DiffView diff={message.diff} />
+        ) : (
+          <Section>
+            {files.map((file, index) => (
+              <div className="detail-file-row" key={index}>
+                <Icon name="file" size={15} />
+                <span title={textValue(file.path)}>{fileName(textValue(file.path))}</span>
+                <small>{textValue(file.operation)}</small>
+              </div>
+            ))}
+          </Section>
+        )}
       </>
     );
   }

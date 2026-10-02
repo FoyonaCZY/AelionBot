@@ -166,6 +166,8 @@ export interface ChatMessage {
   runId?: string;
   screenshotId?: string;
   activity?: { label: string; detail?: string };
+  /** What a successful file edit changed; display only, never sent to the model. */
+  diff?: import('../chat/tool-diff').ToolDiff;
   presentation?: 'progress' | 'answer' | 'error';
   mentions?: BotMention[];
   reasoning?: MessageReasoning;

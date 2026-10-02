@@ -16,6 +16,11 @@ const LIVE_TAIL = 3;
 /** Fired by chat search so a folded run opens before the view scrolls to one of its messages. */
 export const REVEAL_MESSAGE_EVENT = 'aelion-reveal-message';
 
+const diffCounts = (diff: NonNullable<ChatMessage['diff']>) => ({
+  added: diff.files.reduce((sum, file) => sum + file.added, 0),
+  removed: diff.files.reduce((sum, file) => sum + file.removed, 0),
+});
+
 function toolIcon(tool = '') {
   if (/search|find_files/.test(tool)) return 'search';
   if (/execute|terminal|process|python|code_exec/.test(tool)) return 'terminal';
@@ -54,6 +59,15 @@ function ToolStep({ message }: { message: ChatMessage }) {
         {display.detail && (
           <span className="run-step-detail" title={display.detail}>
             {display.detail}
+          </span>
+        )}
+        {message.diff && (
+          <span
+            className="run-step-diff"
+            aria-label={t('新增 {added} 行，删除 {removed} 行', diffCounts(message.diff))}
+          >
+            <span className="is-added">+{diffCounts(message.diff).added}</span>
+            <span className="is-removed">−{diffCounts(message.diff).removed}</span>
           </span>
         )}
         {meta && <span className={`run-step-meta ${meta.tone ? 'is-' + meta.tone : ''}`}>{meta.text}</span>}
