@@ -53,7 +53,7 @@
 .fp-layer.is-immersive .fp-title {
   min-height: 32px;
   padding: 0 2px;
-  max-width: 34%;
+  max-width: 50%;
 }
 .fp-layer.is-immersive .fp-title h2 {
   color: var(--pv-title);
