@@ -209,6 +209,6 @@ test('avatar SVG keeps the original silhouette, supports all paints, and rejects
     before = JSON.stringify(BOT_PALETTES);
   for (let i = 0; i < 40; i++) assert.notEqual(botPaletteKey(randomBotPalette(previous)), botPaletteKey(previous));
   const copy = normalizeBotPalette(BOT_PALETTES.find((item) => item.avatarStyle)!);
-  copy.avatarStyle!.secondary = '#000000';
+  (copy.avatarStyle as Extract<BotAvatarStyle, { secondary: string }>).secondary = '#000000';
   assert.equal(JSON.stringify(BOT_PALETTES), before);
 });

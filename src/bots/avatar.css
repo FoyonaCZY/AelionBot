@@ -116,11 +116,155 @@
     transform: rotate(360deg);
   }
 }
+/* Dark theme: black hair, cloaks and helmets would melt into the page; a faint rim keeps the silhouette. */
+:root[data-theme='dark'] .avatar .avatar-character {
+  filter: drop-shadow(0 0 0.9px #a59fb0a6);
+}
+/* Character props: still while idle; they move while the Bot thinks (slow), works (quick) or waits for you. */
+.avatar .avatar-prop {
+  transform-box: view-box;
+  animation-delay: var(--avatar-motion-delay);
+}
+.avatar .avatar-prop-busy {
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.avatar:is([data-activity='thinking'], [data-activity='working']) .avatar-prop-busy {
+  opacity: 1;
+}
+.avatar[data-activity='thinking'] .avatar-prop {
+  animation-duration: 2.8s;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+.avatar[data-activity='working'] .avatar-prop {
+  animation-duration: 1.4s;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+.avatar[data-activity='waiting'] .avatar-prop {
+  animation-duration: 2.2s;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+.avatar:not([data-activity='idle']) .avatar-prop[data-motion='sway'] {
+  animation-name: avatar-prop-sway;
+}
+.avatar:not([data-activity='idle']) .avatar-prop[data-motion='twitch'] {
+  animation-name: avatar-prop-twitch;
+}
+.avatar:not([data-activity='idle']) .avatar-prop[data-motion='flutter'] {
+  animation-name: avatar-prop-flutter;
+  animation-duration: 0.7s;
+}
+.avatar[data-activity='working'] .avatar-prop[data-motion='flutter'] {
+  animation-duration: 0.42s;
+}
+.avatar:is([data-activity='thinking'], [data-activity='working']) .avatar-prop[data-motion='rise'] {
+  animation-name: avatar-prop-rise;
+  animation-timing-function: ease-out;
+}
+.avatar:is([data-activity='thinking'], [data-activity='working']) .avatar-prop[data-motion='fall'] {
+  animation-name: avatar-prop-fall;
+  animation-timing-function: ease-in;
+}
+.avatar:not([data-activity='idle']) .avatar-prop[data-motion='glow'] {
+  animation-name: avatar-prop-glow;
+}
+.avatar[data-activity='waiting'] .avatar-prop-busy {
+  animation: none;
+}
+/* Waiting for you: a small hop every couple of seconds, on top of the amber ring. */
+.avatar[data-activity='waiting'] .avatar-character {
+  animation: avatar-hop 2.2s ease-in-out infinite;
+  animation-delay: var(--avatar-motion-delay);
+}
+@keyframes avatar-prop-sway {
+  0%,
+  100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}
+@keyframes avatar-prop-twitch {
+  0%,
+  38%,
+  52%,
+  100% {
+    transform: rotate(0);
+  }
+  42% {
+    transform: rotate(-12deg);
+  }
+  47% {
+    transform: rotate(6deg);
+  }
+}
+@keyframes avatar-prop-flutter {
+  0%,
+  100% {
+    transform: scaleX(1);
+  }
+  50% {
+    transform: scaleX(0.35);
+  }
+}
+@keyframes avatar-prop-rise {
+  0% {
+    transform: translateY(2px);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-9px);
+    opacity: 0;
+  }
+}
+@keyframes avatar-prop-fall {
+  0% {
+    transform: translate(0, -4px) rotate(0);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-7px, 22px) rotate(160deg);
+    opacity: 0;
+  }
+}
+@keyframes avatar-prop-glow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes avatar-hop {
+  0%,
+  30%,
+  100% {
+    transform: translateY(0);
+  }
+  12% {
+    transform: translateY(-2.4px);
+  }
+  20% {
+    transform: translateY(0.4px);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .avatar .avatar-body,
   .avatar .avatar-gaze,
   .avatar .avatar-eye,
-  .avatar .avatar-halo {
+  .avatar .avatar-halo,
+  .avatar .avatar-prop {
     animation: none !important;
     transform: none !important;
   }

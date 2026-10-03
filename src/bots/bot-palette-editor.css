@@ -7,7 +7,7 @@
   align-items: center;
   gap: 13px;
   min-width: 0;
-  padding: 0 0 4px;
+  padding: 0 0 22px;
 }
 .bot-palette-summary > div {
   display: flex;
@@ -49,6 +49,32 @@
   padding-top: 12px;
   margin-top: 13px;
 }
+.bot-palette-custom-section {
+  margin: 24px 0 0;
+  border-top: 1px solid light-dark(#eeebf2, #3e3945);
+  padding-top: 16px;
+}
+.bot-palette-custom-section > summary {
+  margin: 0 0 12px;
+  padding: 0;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
+  color: light-dark(#6a6770, #c2bfc5);
+  cursor: pointer;
+  list-style: none;
+}
+.bot-palette-custom-section > summary::-webkit-details-marker {
+  display: none;
+}
+.bot-palette-custom-section > summary::before {
+  content: '▸ ';
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform 0.15s;
+}
+.bot-palette-custom-section[open] > summary::before {
+  transform: rotate(90deg);
+}
 .bot-palette-tabs {
   display: flex;
   gap: 24px;
@@ -88,14 +114,14 @@
   align-items: center;
   flex-direction: column;
   min-width: 0;
-  gap: 4px;
-  padding: 7px 3px 6px;
+  gap: 8px;
+  padding: 14px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 10px;
   background: transparent;
 }
 .bot-palette-presets button > span {
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: calc(13px * var(--appearance-text-scale, 1));
   color: light-dark(#92889e, #bebbc1);
   white-space: nowrap;
 }
@@ -103,11 +129,76 @@
   background: light-dark(#f8f5fc, #211f25);
 }
 .bot-palette-presets button[aria-pressed='true'] {
-  border-color: light-dark(#d8cbe9, #3e3945);
-  background: light-dark(#faf7fe, #211f25);
+  border: 2px solid var(--bot-color, light-dark(#af98ca, #b8aec5));
+  background: light-dark(
+    color-mix(in srgb, var(--bot-color, #af98ca) 8%, transparent),
+    color-mix(in srgb, var(--bot-color, #b8aec5) 12%, transparent)
+  );
+  padding: 13px;
 }
 .bot-palette-presets button[aria-pressed='true'] > span {
-  color: light-dark(#806096, #c4b4cf);
+  color: light-dark(#5b486e, #d6d3d9);
+  font-weight: var(--weight-label);
+}
+/* Characters: category filters and state preview in two rows, then a scrollable grid. */
+.bot-character-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.bot-character-filters,
+.bot-character-states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.bot-character-filters button,
+.bot-character-states button {
+  padding: 3px 9px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  color: light-dark(#8b8497, #c0bdc3);
+  background: transparent;
+}
+.bot-character-filters button:hover,
+.bot-character-states button:hover {
+  background: light-dark(#f5f2f9, #222026);
+}
+.bot-character-filters button[aria-pressed='true'] {
+  border-color: light-dark(#d8cbe9, #3e3945);
+  background: light-dark(#faf7fe, #211f25);
+  color: light-dark(#5b486e, #c2b9cc);
+}
+.bot-character-states {
+  padding: 2px;
+  border-radius: 14px;
+  background: light-dark(#f4f2f7, #25232a);
+}
+.bot-character-states button[aria-pressed='true'] {
+  background: light-dark(#fff, #35303c);
+  color: light-dark(#5b486e, #e3dde8);
+  box-shadow: 0 1px 2px light-dark(#0000001a, #00000040);
+}
+.bot-palette-presets.bot-character-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  max-height: 318px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 2px;
+}
+.bot-character-grid button > span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 540px) {
+  .bot-palette-presets.bot-character-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 .bot-palette-custom {
   display: grid;
@@ -203,7 +294,7 @@
 }
 .bot-palette-tools button {
   padding: 4px 0;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: calc(13px * var(--appearance-text-scale, 1));
   color: light-dark(#9586a1, #bdbac0);
   background: none;
 }

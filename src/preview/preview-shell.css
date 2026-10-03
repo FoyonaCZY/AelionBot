@@ -404,8 +404,25 @@
   flex: 1 1 160px;
   min-width: 140px;
 }
+/* Without an address field the back/forward/zoom group stays left and the slot takes the spare width,
+   so the mode segment and actions sit at the right edge instead of leaving a blank strip there. */
 .fp-layer.is-immersive:not(:has(.web-preview-nav input)) .fp-web-navigation-slot {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* The zoom value never shrinks to a stub like "1(": the control keeps its label's width. */
+.fp-layer.is-immersive .fp-file-controls-slot :is(.fp-toolbar, .fp-tools) {
+  flex-wrap: nowrap;
+}
+.fp-layer.is-immersive .fp-file-controls-slot .fp-tools button.fp-zoom-picker {
   flex: none;
+  width: max-content;
+  min-width: 96px;
+  max-width: none;
+  padding: 0 8px;
+}
+.fp-layer.is-immersive .fp-file-controls-slot .fp-zoom-picker .preview-picker-label {
+  overflow: visible;
 }
 .fp-layer.is-immersive .web-preview-nav button,
 .fp-layer.is-immersive .fp-file-controls-slot .fp-tools button {

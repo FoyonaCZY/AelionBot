@@ -1,7 +1,11 @@
+import { isBotCharacterId, BOT_CHARACTERS } from './bot-characters';
+
 export type BotSplitPattern = 'arc' | 'diagonal' | 'vertical' | 'wave' | 'horizontal' | 'blocks';
 export type BotAvatarStyle =
   | { kind: 'gradient'; secondary: string; direction: 'diagonal' | 'vertical' }
-  | { kind: 'split'; secondary: string; pattern: BotSplitPattern };
+  | { kind: 'split'; secondary: string; pattern: BotSplitPattern }
+  /** A costumed face from BOT_CHARACTERS; `color` stays the Bot's accent and is what older versions show. */
+  | { kind: 'character'; character: string };
 export interface BotPalette {
   color: string;
   avatarStyle?: BotAvatarStyle;
@@ -103,6 +107,12 @@ export const BOT_PALETTES: readonly BotPalettePreset[] = [
     color: '#c1809f',
     avatarStyle: { kind: 'split', secondary: '#829a84', pattern: 'blocks' },
   },
+  ...BOT_CHARACTERS.map((character) => ({
+    id: character.id,
+    name: character.name,
+    color: character.color,
+    avatarStyle: { kind: 'character' as const, character: character.id },
+  })),
 ];
 export const BOT_COLORS = BOT_PALETTES.filter((palette) => !palette.avatarStyle).map((palette) => palette.color);
 export const isBotHexColor = (value: unknown): value is string =>
@@ -112,6 +122,10 @@ export function normalizeBotAvatarStyle(value: unknown): BotAvatarStyle | undefi
   if (value === undefined || value === null) return undefined;
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('无效的 Bot 头像配色');
   const style = value as Record<string, unknown>;
+  if (style.kind === 'character') {
+    if (!isBotCharacterId(style.character)) throw new Error('无效的 Bot 形象');
+    return { kind: 'character', character: style.character };
+  }
   if (!isBotHexColor(style.secondary)) throw new Error('请使用有效的六位颜色值');
   if (style.kind === 'gradient' && (style.direction === 'diagonal' || style.direction === 'vertical'))
     return { kind: 'gradient', secondary: style.secondary.toLowerCase(), direction: style.direction };
