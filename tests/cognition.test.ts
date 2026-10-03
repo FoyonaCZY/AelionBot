@@ -255,6 +255,66 @@ test('replacing a fact with text another fact already holds merges them, and sna
     .run('legacy-copy', f.bot.id, 'memory', duplicated.content, '[]', duplicated.createdAt, duplicated.updatedAt);
   assert.equal(f.memory.prompt(f.bot.id).split('测试用 node --test').length - 1, 1);
 });
+test('a Bot created after startup keeps one copy of its memories across a restart', (t) => {
+  const f = fixture(t),
+    created = f.store.createBot('新伙伴', '测试');
+  f.store.message(created.id, 'user', '记住构建方式', { runId: 'memory' });
+  f.memory.apply(created.id, 'memory', { action: 'add', content: '构建使用 pnpm。' });
+  // The mirror in state.json now holds the fact; before the fix the next start imported it as legacy data.
+  assert.deepEqual(f.store.bot(created.id).memories, ['构建使用 pnpm。']);
+  for (let start = 0; start < 2; start++) {
+    const restarted = new CognitiveStore(new Store(f.dir));
+    assert.deepEqual(
+      restarted.memories(created.id).map((fact) => fact.content),
+      ['构建使用 pnpm。'],
+    );
+    restarted.close();
+  }
+});
+test('startup removes duplicated memories, keeping the sourced copy, and is idempotent', (t) => {
+  const f = fixture(t);
+  f.store.message(f.bot.id, 'user', '记住报表颜色', { runId: 'memory' });
+  f.memory.apply(f.bot.id, 'memory', { action: 'add', content: '报表使用深蓝色。' });
+  const original = f.storage.memories(f.bot.id)[0];
+  assert.notEqual(original.sourceRefs.length, 0);
+  const insert = f.storage.db.prepare('INSERT INTO memory_facts VALUES(?,?,?,?,?,?,?)');
+  // An older unsourced copy and a whitespace variant of the sourced fact.
+  insert.run('legacy-old', f.bot.id, 'memory', original.content, '[]', '2000-01-01T00:00:00.000Z', original.updatedAt);
+  insert.run('legacy-space', f.bot.id, 'memory', ' 报表使用深蓝色。 ', '[]', original.createdAt, original.updatedAt);
+  // The old migration imported the state.json mirror, which flattens user facts, as 'memory'.
+  const other = f.store.createBot('另一个', '测试');
+  f.store.message(other.id, 'user', '记住称呼', { runId: 'memory' });
+  f.memory.apply(other.id, 'memory', { action: 'add', target: 'user', content: '称呼对方为 Wendy。' });
+  const preference = f.storage.memories(other.id)[0];
+  insert.run('legacy-user', other.id, 'memory', preference.content, '[]', preference.createdAt, preference.updatedAt);
+  const revision = f.storage.revision(f.bot.id),
+    otherRevision = f.storage.revision(other.id);
+  f.storage.close();
+
+  // Closed inside the test: the fixture deletes the directory afterwards, and Windows cannot remove an open database.
+  const restarted = new CognitiveStore(new Store(f.dir));
+  try {
+    const facts = restarted.memories(f.bot.id);
+    assert.deepEqual(
+      facts.map((fact) => [fact.id, fact.target]),
+      [[original.id, 'memory']],
+    );
+    assert.deepEqual(facts[0].sourceRefs, original.sourceRefs);
+    assert.deepEqual(
+      restarted.memories(other.id).map((fact) => [fact.id, fact.target]),
+      [[preference.id, 'user']],
+    );
+    assert.equal(restarted.revision(f.bot.id), revision + 1);
+    assert.equal(restarted.revision(other.id), otherRevision + 1);
+    assert.equal(restarted.dedupeMemories(), 0);
+    assert.equal(restarted.revision(f.bot.id), revision + 1);
+    // Startup mirroring (Cognition does this right after opening the store) then shows each fact once.
+    new MemoryService(restarted).mirror(f.bot.id);
+    assert.equal(readFileSync(join(f.dir, 'bots', f.bot.id, 'memories', 'MEMORY.md'), 'utf8'), '- 报表使用深蓝色。\n');
+  } finally {
+    restarted.close();
+  }
+});
 test('memory replacement is bounded, sourced and cannot be overwritten by a stale background review', (t) => {
   const f = fixture(t),
     source = f.store.message(f.bot.id, 'user', '以后使用深蓝色报表。', { runId: 'memory' }),

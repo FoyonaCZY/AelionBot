@@ -61,17 +61,68 @@ export class CognitiveStore {
       this.synced.set(row.id, row.stamp);
     for (const bot of store.data.bots)
       if (!this.get(`memory-migrated:${bot.id}`)) {
-        for (const text of bot.memories) {
-          const now = new Date().toISOString();
-          this.db
-            .prepare('INSERT OR IGNORE INTO memory_facts VALUES(?,?,?,?,?,?,?)')
-            .run(randomUUID(), bot.id, 'memory', text, '[]', now, now);
+        // Only a Bot from before memory_facts holds its memories solely in state.json. A Bot created since then
+        // already has its facts here and `bot.memories` is merely their mirror; importing it again duplicated them.
+        if (!this.db.prepare('SELECT 1 FROM memory_facts WHERE bot_id=? LIMIT 1').get(bot.id)) {
+          const seen = new Set<string>();
+          for (const text of bot.memories) {
+            const key = normalizedFact(text);
+            if (!key || seen.has(key)) continue;
+            seen.add(key);
+            const now = new Date().toISOString();
+            this.db
+              .prepare('INSERT OR IGNORE INTO memory_facts VALUES(?,?,?,?,?,?,?)')
+              .run(randomUUID(), bot.id, 'memory', text, '[]', now, now);
+          }
         }
         this.set(`memory-migrated:${bot.id}`, '1');
       }
+    this.dedupeMemories();
     for (const bot of store.data.bots)
       if (bot.contextResetAt && this.get('context-reset:' + bot.id) !== bot.contextResetAt) this.clearBot(bot.id);
     this.syncHistory();
+  }
+  /**
+   * Removes repeated copies of a fact (same Bot and normalized text) that the old restart migration created.
+   * Target is not part of the key: that migration imported user facts as 'memory' too, since the state.json
+   * mirror flattens both. Keeps the copy with source references (and so its target), else the oldest;
+   * idempotent, so it simply runs on every start.
+   * Returns how many rows were removed; affected Bots get a new knowledge revision so stale reviews cannot apply.
+   */
+  dedupeMemories() {
+    const rows = this.db
+      .prepare('SELECT id,bot_id,target,content,source_refs FROM memory_facts ORDER BY created_at,id')
+      .all() as Array<{ id: string; bot_id: string; target: string; content: string; source_refs: string }>;
+    const keep = new Map<string, (typeof rows)[number]>(),
+      remove: string[] = [],
+      bots = new Set<string>();
+    for (const row of rows) {
+      const key = `${row.bot_id}\n${normalizedFact(row.content)}`,
+        kept = keep.get(key);
+      if (!kept) {
+        keep.set(key, row);
+        continue;
+      }
+      const sourced = (value: string) => value !== '[]' && value !== '';
+      // Rows arrive oldest first, so a later copy only wins when it alone carries its sources.
+      if (!sourced(kept.source_refs) && sourced(row.source_refs)) {
+        remove.push(kept.id);
+        keep.set(key, row);
+      } else remove.push(row.id);
+      bots.add(row.bot_id);
+    }
+    if (!remove.length) return 0;
+    this.db.exec('BEGIN');
+    try {
+      const drop = this.db.prepare('DELETE FROM memory_facts WHERE id=?');
+      for (const id of remove) drop.run(id);
+      for (const botId of bots) this.bump(botId);
+      this.db.exec('COMMIT');
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      throw error;
+    }
+    return remove.length;
   }
   get(key: string) {
     return (this.db.prepare('SELECT value FROM meta WHERE key=?').get(key) as any)?.value as string | undefined;
