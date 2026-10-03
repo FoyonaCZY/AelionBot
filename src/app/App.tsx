@@ -93,7 +93,8 @@ function AppContent() {
   }, [page, bot?.id, group?.id, previewWorkbench?.activate]);
   const menuBot = state?.bots.find((item) => item.id === botMenu?.id),
     deletingBot = state?.bots.find((item) => item.id === deletingId);
-  const conversation = botConversation(state, bot);
+  // Derived from the snapshot alone: typing only changes drafts, so it must not recompute the conversation.
+  const conversation = useMemo(() => botConversation(state, bot), [state, bot]);
   const { messages, requests } = conversation;
   const anyRunning = state?.runs.some((run) => run.status === 'running') || false;
   useAgentPreview(

@@ -5,12 +5,11 @@ import { isPrivatePeerOrigin } from '../../shared/types/peer-types';
 /** What the selected bot's direct conversation shows, derived from the snapshot on every render. */
 export function botConversation(state: Snapshot | undefined, bot: Bot | undefined) {
   const currentModel = bot ? state?.botModels?.[bot.id] || state?.model : state?.model;
+  const privateRuns = new Set(state?.runs.filter((run) => isPrivatePeerOrigin(run.peerOrigin)).map((run) => run.id));
   const messages =
     state?.messages.filter(
       (message) =>
-        message.botId === bot?.id &&
-        (message.audience === 'user' ||
-          !state.runs.some((run) => run.id === message.runId && isPrivatePeerOrigin(run.peerOrigin))),
+        message.botId === bot?.id && (message.audience === 'user' || !message.runId || !privateRuns.has(message.runId)),
     ) || [];
   const runMessages = new Map<string, ChatMessage[]>();
   for (const message of messages)

@@ -112,44 +112,48 @@ export function placeQuestionAnswers<
   if (!answers.length) return messages;
   const waiting = new Set(answers.map((message) => message.id)),
     placed = new Set<string>(),
+    pushed = new Set<T>(),
     result: T[] = [];
   const release = (answer: T) => {
     if (waiting.delete(answer.id) && !placed.has(answer.id)) {
       placed.add(answer.id);
       result.push(answer);
+      pushed.add(answer);
     }
   };
-  const ready = (answer: T) => {
+  // Everything an answer waits for depends only on the input order, so it is worked out once per answer here;
+  // the loop below then only checks what has been placed. This runs on every render of a conversation.
+  const asking = (item: T) =>
+    item.role === 'assistant' && item.status !== 'running' && item.status !== 'cancelled' && asksUser(item.content);
+  const index = new Map<T, number>();
+  messages.forEach((message, position) => {
+    if (!index.has(message)) index.set(message, position);
+  });
+  const firstAsk = messages.findIndex(asking);
+  const gates = new Map<T, { tool: T; follow?: T } | undefined>();
+  for (const answer of answers) {
     const requestId = (answer.questionAnswer || legacyQuestionAnswerData(answer.content))?.requestId;
-    if (!requestId) return true;
-    const tool = questionToolMessage(messages, answer.botId, requestId);
-    if (!tool) return true;
-    if (!result.includes(tool)) return false;
-    const asked = messages
-      .slice(0, messages.indexOf(tool))
-      .some(
-        (item) =>
-          item.role === 'assistant' &&
-          item.status !== 'running' &&
-          item.status !== 'cancelled' &&
-          asksUser(item.content),
-      );
-    if (asked) return true;
-    const follow = messages
-      .slice(messages.indexOf(tool) + 1)
-      .find(
-        (item) =>
-          item.id !== answer.id &&
-          item.role === 'assistant' &&
-          item.status !== 'running' &&
-          item.status !== 'cancelled' &&
-          asksUser(item.content),
-      );
-    return !follow || result.includes(follow);
+    const tool = requestId ? questionToolMessage(messages, answer.botId, requestId) : undefined;
+    if (!tool) {
+      gates.set(answer, undefined);
+      continue;
+    }
+    const at = index.get(tool)!;
+    // An earlier question means the tool call itself is the ask; otherwise wait for a restated question after it.
+    const asked = firstAsk !== -1 && firstAsk < at;
+    gates.set(answer, {
+      tool,
+      follow: asked ? undefined : messages.slice(at + 1).find((item) => item.id !== answer.id && asking(item)),
+    });
+  }
+  const ready = (answer: T) => {
+    const gate = gates.get(answer);
+    return !gate || (pushed.has(gate.tool) && (!gate.follow || pushed.has(gate.follow)));
   };
   for (const message of messages) {
     if (waiting.has(message.id) || placed.has(message.id)) continue;
     result.push(message);
+    pushed.add(message);
     placed.add(message.id);
     for (const answer of answers) if (waiting.has(answer.id) && ready(answer)) release(answer);
   }
