@@ -31,7 +31,7 @@ try {
   });
   const page = await app.firstWindow();
   await page.locator('.app-shell').waitFor({ timeout: 30000 });
-  const snapshot = await page.evaluate(() => window.aelion.snapshot());
+  const { snapshot } = await page.evaluate(() => window.aelion.readState());
   if (
     snapshot.platform !== 'darwin' ||
     (snapshot.updates?.manualInstall !== true && !process.env.CSC_LINK && !process.env.CSC_NAME)
