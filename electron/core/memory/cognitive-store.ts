@@ -33,10 +33,12 @@ export interface ReviewJob {
   result?: string;
 }
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
+/** What the history index holds of a message; its position is kept apart, so moving it does not re-index it. */
+const historyStamp = (status: string | null | undefined, content: string) => hash(`${status || ''}:${content}`);
 export const normalizedFact = (text: string) => text.trim().replace(/\s+/g, ' ');
 export class CognitiveStore {
   readonly db: DatabaseSync;
-  private synced = new Map<string, string>();
+  private synced = new Map<string, { stamp: string; seq: number }>();
   constructor(readonly store: Store) {
     mkdirSync(store.dir, { recursive: true });
     this.db = new DatabaseSync(join(store.dir, 'cognition.sqlite'));
@@ -57,8 +59,31 @@ export class CognitiveStore {
       CREATE TABLE IF NOT EXISTS model_usage(id TEXT PRIMARY KEY,run_id TEXT,bot_id TEXT,task TEXT NOT NULL,model TEXT NOT NULL,input_tokens INTEGER,output_tokens INTEGER,estimated_tokens INTEGER,created_at TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS history_bot_seq ON history(bot_id,seq); CREATE INDEX IF NOT EXISTS review_pending ON review_jobs(status,created_at);`);
     this.db.prepare("UPDATE review_jobs SET status='queued' WHERE status='running'").run();
-    for (const row of this.db.prepare('SELECT id,stamp FROM history').all() as Array<{ id: string; stamp: string }>)
-      this.synced.set(row.id, row.stamp);
+    // Stamps once included the message's position: one message moved or removed early in the list re-indexed every
+    // later one, over a minute on a long profile, on the main process. Older stamps are converted once.
+    if (this.get('history-stamp') !== '2') {
+      const restamp = this.db.prepare('UPDATE history SET stamp=? WHERE id=?');
+      this.db.exec('BEGIN');
+      try {
+        for (const row of this.db.prepare('SELECT id,status,content FROM history').all() as Array<{
+          id: string;
+          status: string | null;
+          content: string;
+        }>)
+          restamp.run(historyStamp(row.status, row.content), row.id);
+        this.set('history-stamp', '2');
+        this.db.exec('COMMIT');
+      } catch (error) {
+        this.db.exec('ROLLBACK');
+        throw error;
+      }
+    }
+    for (const row of this.db.prepare('SELECT id,seq,stamp FROM history').all() as Array<{
+      id: string;
+      seq: number;
+      stamp: string;
+    }>)
+      this.synced.set(row.id, { stamp: row.stamp, seq: row.seq });
     for (const bot of store.data.bots)
       if (!this.get(`memory-migrated:${bot.id}`)) {
         // Only a Bot from before memory_facts holds its memories solely in state.json. A Bot created since then
@@ -188,7 +213,8 @@ export class CognitiveStore {
     const upsert = this.db.prepare(
       'INSERT INTO history VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET seq=excluded.seq,status=excluded.status,content=excluded.content,stamp=excluded.stamp',
     );
-    const remove = this.db.prepare('DELETE FROM history_fts WHERE id=?'),
+    const move = this.db.prepare('UPDATE history SET seq=? WHERE id=?'),
+      remove = this.db.prepare('DELETE FROM history_fts WHERE id=?'),
       insert = this.db.prepare('INSERT INTO history_fts VALUES(?,?,?)'),
       deleteHistory = this.db.prepare('DELETE FROM history WHERE id=?');
     // The JSON store is authoritative: migration can move group runs out of private history.
@@ -212,8 +238,15 @@ export class CognitiveStore {
       for (const id of current) if (!indexedIds.has(id)) this.synced.delete(id);
       for (const [seq, message] of this.store.data.messages.entries()) {
         if (botId && message.botId !== botId) continue;
-        const stamp = hash(`${seq}:${message.status}:${message.content}`);
-        if (this.synced.get(message.id) === stamp) continue;
+        const stamp = historyStamp(message.status, message.content),
+          known = this.synced.get(message.id);
+        if (known?.stamp === stamp) {
+          if (known.seq !== seq) {
+            move.run(seq, message.id);
+            known.seq = seq;
+          }
+          continue;
+        }
         upsert.run(
           message.id,
           message.botId,
@@ -231,7 +264,7 @@ export class CognitiveStore {
           message.botId,
           `${message.tool || ''}\n${message.role === 'tool' ? resultDigest(message.content, 4000) : message.content}`,
         );
-        this.synced.set(message.id, stamp);
+        this.synced.set(message.id, { stamp, seq });
       }
       this.db.exec('COMMIT');
     } catch (error) {
