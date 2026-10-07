@@ -33,6 +33,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Bot, WireMessage, RunRecord, MessageReasoning } from '../../../shared/types/core';
 import { Store } from '../storage/store';
+import { laneMatches, runLane } from './run-lanes';
 import type { TaskScheduler } from '../scheduler/task-scheduler';
 import { ModelClient, ContextOverflowError, type Completion, type ToolDefinition } from '../model/model';
 import type { Cognition } from '../memory/cognition';
@@ -278,7 +279,10 @@ export class Harness {
     this.headless = value;
   }
   private groupActive = new Map<string, ActiveRuntime>();
+  /** Keyed by lane (see runLane): a Bot runs its main chat and each work session at the same time. */
   private runtimes = new Map<string, ActiveRuntime>();
+  /** The run using each Bot's desktop: one of its lanes at a time may drive the mouse and keyboard. */
+  private desktopHolders = new Map<string, string>();
   constructor(
     private store: Store,
     private vm: VmController,
@@ -345,8 +349,25 @@ export class Harness {
   get busy() {
     return this.active.size > 0;
   }
-  isRunning(botId: string) {
-    return this.active.has(botId);
+  /** Whether the Bot is working: in any lane, its main lane (`sessionId` null) or one work session's. */
+  isRunning(botId: string, sessionId?: string | null) {
+    for (const lane of this.active.keys()) if (laneMatches(lane, botId, sessionId)) return true;
+    return false;
+  }
+  /** The lane whose run drives the Bot's desktop: null for its main lane, undefined when none does. */
+  desktopSession(botId: string): string | null | undefined {
+    const runId = this.desktopHolders.get(botId);
+    const run = runId ? this.store.data.runs.find((item) => item.id === runId && item.status === 'running') : undefined;
+    return run ? (run.sessionId ?? null) : undefined;
+  }
+  private claimDesktop(botId: string, runId: string) {
+    const holder = this.desktopHolders.get(botId);
+    if (holder && holder !== runId && this.store.data.runs.some((run) => run.id === holder && run.status === 'running'))
+      throw new AppError(
+        'computer.in_use_elsewhere',
+        '这个 Bot 的桌面正在另一个会话里使用。先做不需要桌面的部分，或稍后再操作桌面。',
+      );
+    this.desktopHolders.set(botId, runId);
   }
   liveWork(): LiveWorkItem[] {
     const items: LiveWorkItem[] = [];
@@ -400,25 +421,29 @@ export class Harness {
     });
   }
   // Manual compaction of the main chat. While the Bot works it is queued for the next model request.
-  async compactContext(botId: string, focus = ''): Promise<CompactionResult> {
+  /** Compacts a Bot's main chat, or one of its work sessions. */
+  async compactContext(botId: string, focus = '', sessionId?: string): Promise<CompactionResult> {
     if (!this.cognition) throw Error('当前不支持压缩上下文');
     this.store.bot(botId);
-    if (this.active.has(botId)) {
-      this.cognition.context.requestCompaction(botId, focus);
+    const scopeKey = sessionId ? Store.sessionHistoryKey(sessionId) : undefined,
+      lane = runLane(botId, sessionId);
+    if (this.active.has(lane)) {
+      this.cognition.context.requestCompaction(botId, focus, scopeKey);
       return { compacted: false, freedTokens: 0, queued: true };
     }
     const controller = new AbortController();
-    this.active.set(botId, controller);
+    this.active.set(lane, controller);
     const run = [...this.store.data.runs]
       .reverse()
-      .find((run) => run.botId === botId && !run.groupOrigin && !run.peerOrigin);
+      .find((run) => run.botId === botId && !run.groupOrigin && !run.peerOrigin && run.sessionId === sessionId);
     try {
       const result = await this.cognition.context.compactNow(
         botId,
-        this.store.data.conversations[botId] || [],
+        this.store.data.conversations[scopeKey || botId] || [],
         focus,
         controller.signal,
         this.fileRestorer(botId, run?.id || 'manual', run?.workspaceDir),
+        scopeKey,
       );
       // Idle compaction sends no model request, so update the overview the composer shows right away.
       const shown = result.compacted
@@ -426,14 +451,18 @@ export class Harness {
             .reverse()
             .find(
               (run) =>
-                run.botId === botId && !run.groupOrigin && !isPrivatePeerOrigin(run.peerOrigin) && run.contextOverview,
+                run.botId === botId &&
+                run.sessionId === sessionId &&
+                !run.groupOrigin &&
+                !isPrivatePeerOrigin(run.peerOrigin) &&
+                run.contextOverview,
             )
         : undefined;
       if (shown?.contextOverview)
         shown.contextOverview = compactedContextOverview(shown.contextOverview, result.freedTokens);
       return result;
     } finally {
-      this.active.delete(botId);
+      this.active.delete(lane);
       this.store.save();
       this.changed();
     }
@@ -484,11 +513,18 @@ export class Harness {
       return restored;
     };
   }
-  cancel(botId: string) {
-    const runtime = this.runtimes.get(botId);
-    if (runtime) runtime.updated = false;
-    this.active.get(botId)?.abort();
-    this.streams.dropBot(botId);
+  /** Stops the Bot's work: in every lane, its main lane (`sessionId` null) or one work session's. */
+  cancel(botId: string, sessionId?: string | null) {
+    for (const [lane, controller] of this.active) {
+      if (!laneMatches(lane, botId, sessionId)) continue;
+      const runtime = this.runtimes.get(lane);
+      if (runtime) {
+        runtime.updated = false;
+        this.streams.dropRun(runtime.runId);
+      }
+      controller.abort();
+    }
+    if (sessionId === undefined) this.streams.dropBot(botId);
   }
   refreshGroup(botId: string) {
     const group = this.groupActive.get(botId);
@@ -505,15 +541,17 @@ export class Harness {
     )
       this.active.get(botId)?.abort(new GroupUpdated());
   }
-  refreshInput(botId: string) {
-    const runtime = this.runtimes.get(botId);
+  /** New input in one of the Bot's chats: its run in that lane yields; returns the run it superseded. */
+  refreshInput(botId: string, sessionId?: string | null) {
+    const lane = runLane(botId, sessionId),
+      runtime = this.runtimes.get(lane);
     if (!runtime || !this.store.data.runs.some((run) => run.id === runtime.runId && run.status === 'running')) return;
     runtime.updated = true;
     runtime.updateKind = 'input';
     runtime.inference?.abort(new InputUpdated());
     this.streams.dropRun(runtime.runId);
     if (this.interactions?.snapshot().some((request) => request.runId === runtime.runId))
-      this.active.get(botId)?.abort(new InputUpdated());
+      this.active.get(lane)?.abort(new InputUpdated());
     return runtime.runId;
   }
   private previews?: AgentPreviews;
@@ -552,6 +590,7 @@ export class Harness {
       main: !run?.groupOrigin && (purpose === 'progress' || !peer || peer.kind === 'peer_task' || Boolean(summary)),
       groupId: run?.groupOrigin?.groupId,
       peerThreadId: purpose === 'reply' ? exchange?.threadId : undefined,
+      ...(run?.sessionId ? { sessionId: run.sessionId } : {}),
     };
   }
   private streamMembers(groupId?: string) {
@@ -588,12 +627,15 @@ export class Harness {
     });
   }
   async run(botId: string, input: string, options: HarnessRunOptions = {}) {
-    if (this.active.has(botId)) throw new Error('这个 Bot 仍在工作，请等待或停止当前任务');
     if (!input.trim() || input.length > 32000) throw new Error('消息为空或过长');
     const superseded = options.supersedesRunId
       ? this.store.data.runs.find((r) => r.id === options.supersedesRunId && r.botId === botId)
       : undefined;
-    if (superseded?.groupOrigin?.groupId !== options.groupOrigin?.groupId)
+    // Only a run of the same conversation is superseded; its plan and context carry over.
+    if (
+      superseded?.groupOrigin?.groupId !== options.groupOrigin?.groupId ||
+      superseded?.sessionId !== options.sessionId
+    )
       options = { ...options, supersedesRunId: undefined };
     const resumed = options.resumeRunId ? resumableRun(this.store, botId, options.resumeRunId) : undefined;
     if (
@@ -602,12 +644,25 @@ export class Harness {
         resumed.peerOrigin?.exchangeId !== options.peerOrigin?.exchangeId)
     )
       throw Error('恢复任务的会话来源不匹配');
+    // A work session: another chat with this Bot, with its own history, context, folder and plans.
+    const sessionId = options.sessionId ?? resumed?.sessionId;
+    if (sessionId) {
+      if (options.groupOrigin || options.peerOrigin) throw Error('工作会话不接收群聊或协作任务');
+      if (!this.store.data.workSessions?.some((session) => session.id === sessionId && session.botId === botId))
+        throw new AppError('session.not_found', '工作会话不存在');
+      // Tools and follow-up runs read it from the options, also when it came from the resumed run.
+      options = { ...options, sessionId };
+    }
+    // Nothing below awaits before the lane is taken, so two starts in one lane cannot both pass this check.
+    const lane = runLane(botId, sessionId);
+    if (this.active.has(lane)) throw new Error('这个 Bot 仍在工作，请等待或停止当前任务');
     const inputs =
       options.inputMessageIds?.map((id) =>
         this.store.data.messages.find(
           (message) =>
             message.id === id &&
             message.botId === botId &&
+            message.sessionId === sessionId &&
             message.role === 'user' &&
             !message.runId &&
             (message.inputState === 'queued' || (message.reaction && !message.inputState)),
@@ -626,6 +681,7 @@ export class Harness {
           (message) =>
             message.id === options.reactionMessageId &&
             message.botId === botId &&
+            message.sessionId === sessionId &&
             message.role === 'user' &&
             message.reaction &&
             !message.runId,
@@ -679,7 +735,7 @@ export class Harness {
     const bot = this.store.bot(botId),
       mentions = this.mentions(botId, input, options.mentions);
     const controller = new AbortController();
-    this.active.set(botId, controller);
+    this.active.set(lane, controller);
     this.cognition?.beforeRun();
     let privateSessionId = options.peerOrigin
       ? isPrivatePeerOrigin(options.peerOrigin)
@@ -690,7 +746,9 @@ export class Harness {
       ? `group:${options.groupOrigin.groupId}:${botId}:v2${bot.contextResetAt ? `:reset:${bot.contextResetAt}` : ''}`
       : undefined;
     let cognition = privateSessionId || groupKey ? undefined : this.cognition,
-      contextKey = groupKey || (privateSessionId ? `peer:${privateSessionId}` : botId);
+      contextKey =
+        groupKey ||
+        (privateSessionId ? `peer:${privateSessionId}` : sessionId ? Store.sessionHistoryKey(sessionId) : botId);
     const carry =
       resumed ||
       this.store.data.runs.find(
@@ -698,7 +756,7 @@ export class Harness {
       );
     const workspaceScope = options.groupOrigin
       ? { kind: 'group' as const, id: options.groupOrigin.groupId }
-      : { kind: 'bot' as const, id: botId };
+      : { kind: 'bot' as const, id: botId, ...(sessionId ? { sessionId } : {}) };
     const selectedWorkspace =
       options.workspaceDir ?? inputs.at(-1)?.workspaceDir ?? effectiveWorkspace(this.store, this.host, workspaceScope);
     const run: RunRecord = {
@@ -715,6 +773,7 @@ export class Harness {
       ...(options.peerOrigin ? { peerOrigin: options.peerOrigin } : {}),
       ...(options.groupOrigin ? { groupOrigin: options.groupOrigin } : {}),
       ...(options.supersedesRunId ? { supersedesRunId: options.supersedesRunId } : {}),
+      ...(sessionId ? { sessionId } : {}),
     };
     const maxMinutes = new RunPolicy(this.store).settings().maxMinutes;
     const budgetTimer =
@@ -726,7 +785,7 @@ export class Harness {
         : undefined;
     budgetTimer?.unref();
     const groupRuntime: ActiveRuntime = { runId: run.id, updated: false };
-    this.runtimes.set(botId, groupRuntime);
+    this.runtimes.set(lane, groupRuntime);
     if (options.groupOrigin) this.groupActive.set(botId, groupRuntime);
     const checkpoint = () => {
       if (groupRuntime.updated) throw groupRuntime.updateKind === 'input' ? new InputUpdated() : new GroupUpdated();
@@ -761,7 +820,7 @@ export class Harness {
       ? initialGroupHistory!
       : privateSessionId
         ? (this.store.data.peerContexts[privateSessionId] ||= [])
-        : (this.store.data.conversations[botId] ||= []);
+        : (this.store.data.conversations[contextKey] ||= []);
     if (inputs.length) {
       for (const message of inputs) if (message) history.push({ role: 'user', ...inputWires.get(message.id)! });
     } else if (!groupKey && !resumed) history.push({ role: 'user', ...initialWire! });
@@ -817,6 +876,7 @@ export class Harness {
         .filter(
           (message) =>
             message.botId === botId &&
+            message.sessionId === sessionId &&
             !message.reaction &&
             ['user', 'assistant'].includes(message.role) &&
             (message.content || message.attachments?.length) &&
@@ -1065,7 +1125,7 @@ export class Harness {
           pendingFailures,
           taskFrame,
           restoreFiles: this.fileRestorer(botId, run.id, run.workspaceDir),
-          ...(privateSessionId ? { scopeKey: contextKey } : {}),
+          ...(privateSessionId || sessionId ? { scopeKey: contextKey } : {}),
           legacyHead: { through: contextStart, summary: this.store.data.summaries[contextKey] || '' },
         };
         let prepared = !groupKey
@@ -1847,7 +1907,7 @@ export class Harness {
     } catch (error) {
       if (!controller.signal.aborted && !groupRuntime.updated && isContextCapacityFailure((error as Error).message)) {
         const model = this.store.modelFor(botId),
-          stats = this.cognition?.context.stats(botId);
+          stats = this.cognition?.context.stats(botId, sessionId ? Store.sessionHistoryKey(sessionId) : undefined);
         run.contextIssue =
           error instanceof ContextCapacityError
             ? error.issue
@@ -2026,7 +2086,11 @@ export class Harness {
     this.preparedContexts.delete(run.id);
     work.finish(run);
     this.streams.dropRun(run.id);
-    this.computer?.release(botId);
+    // The desktop is released by the run that used it, not by another lane finishing.
+    if (!this.desktopHolders.has(botId) || this.desktopHolders.get(botId) === run.id) {
+      this.desktopHolders.delete(botId);
+      this.computer?.release(botId);
+    }
     try {
       const producedGroupWork =
         options.groupOrigin &&
@@ -2041,9 +2105,10 @@ export class Harness {
     } catch (error) {
       this.store.message(botId, 'event', `工作文件列表暂未更新：${(error as Error).message}`, { runId: run.id });
     }
-    this.groupActive.delete(botId);
-    this.runtimes.delete(botId);
-    this.active.delete(botId);
+    const lane = runLane(botId, run.sessionId);
+    if (this.groupActive.get(botId) === groupRuntime) this.groupActive.delete(botId);
+    this.runtimes.delete(lane);
+    this.active.delete(lane);
     if (cognition) cognition.afterRun(botId, run.id, state.lastRuntimeMessages, state.lastTools);
     else this.cognition?.learning.schedule();
     this.changed();
@@ -2195,7 +2260,8 @@ export class Harness {
       changed: () => this.changed(),
       callableTools: (runId) => this.callableTools.get(runId),
       preparedContext: (runId) => this.preparedContexts.get(runId),
-      runUpdated: (botId) => Boolean(this.runtimes.get(botId)?.updated),
+      runUpdated: (runId) => [...this.runtimes.values()].some((runtime) => runtime.runId === runId && runtime.updated),
+      claimDesktop: (botId, runId) => this.claimDesktop(botId, runId),
       executeTool: (...args) => this.executeTool(...args),
       invokeNested: (...args) => this.invokeNested(...args),
     };

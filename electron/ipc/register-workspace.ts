@@ -64,6 +64,14 @@ export function registerWorkspace(ctx: IpcContext) {
     ctx.changed();
     return path;
   });
+  handle('chooseFolder', async () => {
+    const selected = await dialog.showOpenDialog(ctx.window!, {
+      title: '选择工作目录',
+      defaultPath: ctx.host.workspaceSettings().workspaceDir,
+      properties: ['openDirectory'],
+    });
+    return selected.canceled || !selected.filePaths[0] ? null : selected.filePaths[0];
+  });
   handle('resetConversationWorkspace', (scope) => {
     setConversationWorkspace(ctx.store, ctx.host, scope, null);
     ctx.changed();

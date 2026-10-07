@@ -16,12 +16,14 @@ import { registerPreview } from './register-preview';
 import { registerTasks } from './register-tasks';
 import { registerWebPreview } from './register-web-preview';
 import { registerWorkspace } from './register-workspace';
+import { registerSessions } from './register-sessions';
 
 export function registerIpc(ctx: IpcContext) {
   registerPreview(ctx);
   registerWebPreview(ctx);
   registerApp(ctx);
   registerChat(ctx);
+  registerSessions(ctx);
   registerModels(ctx);
   registerDecisions(ctx);
   registerTasks(ctx);

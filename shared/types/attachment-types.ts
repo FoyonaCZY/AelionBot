@@ -6,7 +6,12 @@ export interface Attachment {
   mime: string;
   image?: ScreenReference;
 }
-export type AttachmentScope = { kind: 'bot' | 'group'; id: string };
+/**
+ * A conversation: a Bot's chat (`kind: 'bot'`, with `sessionId` for one of its work sessions) or a group. A work
+ * session is still the Bot's scope for attachments and previews; its own folder, permission mode and plans are kept
+ * under workspaceKey, which tells sessions apart.
+ */
+export type AttachmentScope = { kind: 'bot' | 'group'; id: string; sessionId?: string };
 export interface StoredAttachment extends Attachment {
   createdAt: string;
   sha256: string;

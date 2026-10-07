@@ -10,6 +10,7 @@ import type { ScheduledTrigger } from '../../../shared/types/scheduled-types';
 import { chatInputText, validateChatInput } from './chat-input';
 import { pinDescription, updatePins, validPin, type PinActor, type PinInput } from '../../../shared/chat/reactions';
 import { AppError } from '../../../shared/errors';
+import { laneMatches, runLane } from './run-lanes';
 
 export function pinChat(store: Store, botId: string, actor: PinActor, input: PinInput, runId?: string) {
   validPin(input);
@@ -49,6 +50,8 @@ export function pinChat(store: Store, botId: string, actor: PinActor, input: Pin
     {
       reaction: { messageId: target.id, emoji: input.emoji, removed: Boolean(input.remove) },
       ...(runId ? { runId } : {}),
+      // A reaction belongs to the conversation of the message it reacts to.
+      ...(target.sessionId ? { sessionId: target.sessionId } : {}),
     },
   );
   return { pinned: !input.remove, messageId: target.id, eventId: event.id };
@@ -57,14 +60,17 @@ export function pinChat(store: Store, botId: string, actor: PinActor, input: Pin
 export class ChatPinQueue {
   private timer?: ReturnType<typeof setTimeout>;
   private closed = false;
+  /** Keyed by lane (see runLane): each of a Bot's chats has its own worker and superseded run. */
   private workers = new Set<string>();
   private superseded = new Map<string, string>();
   constructor(
     private store: Store,
     private runner: {
-      isRunning: (id: string) => boolean;
+      /** Whether the Bot works in this lane: its main chat (`sessionId` null) or one work session. */
+      isRunning: (id: string, sessionId: string | null) => boolean;
       run: (id: string, input: string, options: HarnessRunOptions) => Promise<void>;
-      refresh?: (id: string) => string | undefined;
+      /** Lets the Bot's running work yield to new input in this conversation; returns the run it superseded. */
+      refresh?: (id: string, sessionId?: string) => string | undefined;
     },
     private changed: () => void,
     private attachments = new Attachments(store),
@@ -80,17 +86,28 @@ export class ChatPinQueue {
   /** Whether any of these Bots has queued input or a worker, in one pass over the messages. */
   anyPending(botIds: string[]) {
     const ids = new Set(botIds);
-    for (const id of ids) if (this.workers.has(id)) return true;
+    for (const id of ids) if (this.hasWorker(id)) return true;
     return this.store.data.messages.some((message) => ids.has(message.botId) && this.queued(message));
   }
-  hasPending(id: string) {
+  /** Whether the Bot has input waiting or starting: anywhere, in its main chat (`sessionId` null) or one session. */
+  hasPending(id: string, sessionId?: string | null) {
     return (
-      this.workers.has(id) || this.store.data.messages.some((message) => message.botId === id && this.queued(message))
+      this.hasWorker(id, sessionId) ||
+      this.store.data.messages.some(
+        (message) =>
+          message.botId === id &&
+          this.queued(message) &&
+          (sessionId === undefined || (message.sessionId ?? null) === sessionId),
+      )
     );
   }
-  private received(botId: string) {
-    const previous = this.runner.refresh?.(botId);
-    if (previous) this.superseded.set(botId, previous);
+  private hasWorker(id: string, sessionId?: string | null) {
+    for (const lane of this.workers) if (laneMatches(lane, id, sessionId)) return true;
+    return false;
+  }
+  private received(botId: string, sessionId?: string) {
+    const previous = this.runner.refresh?.(botId, sessionId);
+    if (previous) this.superseded.set(runLane(botId, sessionId), previous);
     clearTimeout(this.timer);
     this.timer = undefined;
     this.changed();
@@ -99,6 +116,7 @@ export class ChatPinQueue {
   send(input: {
     designSessionId?: string;
     botId: string;
+    sessionId?: string;
     message: string;
     previewPrompt?: string;
     replyToMessageId?: string;
@@ -120,6 +138,12 @@ export class ChatPinQueue {
         Boolean(attachments.length),
       );
     if (!this.store.modelFor(input.botId).model) throw new Error('请先为这个 Bot 选择模型');
+    const sessionId = input.sessionId || undefined;
+    if (
+      sessionId !== undefined &&
+      !this.store.data.workSessions?.some((session) => session.id === sessionId && session.botId === input.botId)
+    )
+      throw new AppError('session.not_found', '工作会话不存在');
     const command = workCommand(input.message);
     if (command && !command.objective)
       throw new AppError('task.objective_missing', `请在 /${command.kind} 后填写任务内容`);
@@ -130,16 +154,32 @@ export class ChatPinQueue {
       designSessionId: input.designSessionId,
       ...(input.previewPrompt !== undefined ? { previewPrompt: input.previewPrompt } : {}),
       ...(reply ? { reply } : {}),
-      workspaceDir: effectiveWorkspace(this.store, this.host, { kind: 'bot', id: input.botId }),
+      ...(sessionId ? { sessionId } : {}),
+      workspaceDir: effectiveWorkspace(this.store, this.host, {
+        kind: 'bot',
+        id: input.botId,
+        ...(sessionId ? { sessionId } : {}),
+      }),
       inputState: 'queued',
     });
-    this.received(input.botId);
+    this.touchSession(sessionId);
+    this.received(input.botId, sessionId);
   }
-  schedule(botId: string, message: string, scheduled: ScheduledTrigger) {
+  /** Queues a scheduled task's prompt in the Bot's main chat, or in its work session `sessionId`. */
+  schedule(botId: string, message: string, scheduled: ScheduledTrigger, sessionId?: string) {
     if (this.closed) throw new Error('客户端正在退出');
     validateChatInput(this.store, botId, message);
+    if (
+      sessionId &&
+      !this.store.data.workSessions?.some((session) => session.id === sessionId && session.botId === botId)
+    )
+      throw new AppError('session.not_found', '工作会话不存在');
     if (this.store.data.messages.some((message) => message.scheduled?.occurrenceId === scheduled.occurrenceId)) return;
-    this.store.message(botId, 'user', message, { scheduled, inputState: 'queued' });
+    this.store.message(botId, 'user', message, {
+      scheduled,
+      inputState: 'queued',
+      ...(sessionId ? { sessionId } : {}),
+    });
     this.changed();
     this.wake();
   }
@@ -150,7 +190,7 @@ export class ChatPinQueue {
       const event = this.store.data.messages.find((message) => message.id === result.eventId)!;
       event.inputState = 'queued';
       this.store.save();
-      this.received(input.botId);
+      this.received(input.botId, event.sessionId);
     } else this.changed();
   }
   wake() {
@@ -162,22 +202,34 @@ export class ChatPinQueue {
       return;
     this.timer = setTimeout(() => {
       this.timer = undefined;
-      for (const botId of new Set(
-        this.store.data.messages.filter((message) => this.queued(message)).map((message) => message.botId),
-      )) {
-        if (!this.store.modelFor(botId).model || this.runner.isRunning(botId) || this.workers.has(botId)) continue;
-        const queued = this.store.data.messages.filter((message) => message.botId === botId && this.queued(message)),
-          human = queued.filter((message) => !message.scheduled),
+      // Each of a Bot's chats is its own lane: its main chat and every work session start as soon as they are free.
+      const lanes = new Map<string, ChatMessage[]>();
+      for (const message of this.store.data.messages)
+        if (this.queued(message)) {
+          const lane = runLane(message.botId, message.sessionId);
+          lanes.set(lane, [...(lanes.get(lane) || []), message]);
+        }
+      for (const [lane, queued] of lanes) {
+        const botId = queued[0].botId,
+          sessionId = queued[0].sessionId;
+        if (
+          !this.store.modelFor(botId).model ||
+          this.runner.isRunning(botId, sessionId ?? null) ||
+          this.workers.has(lane)
+        )
+          continue;
+        const human = queued.filter((message) => !message.scheduled),
           candidate = human.length ? human : queued.slice(0, 1),
           first = candidate[0],
           batch = candidate.filter((message) => message.designSessionId === first.designSessionId),
           latest = batch.at(-1)!;
-        this.workers.add(botId);
-        const supersedesRunId = this.superseded.get(botId);
-        this.superseded.delete(botId);
+        this.workers.add(lane);
+        const supersedesRunId = this.superseded.get(lane);
+        this.superseded.delete(lane);
         void this.runner
           .run(botId, chatInputText(latest, false), {
             designSessionId: latest.designSessionId,
+            ...(latest.sessionId ? { sessionId: latest.sessionId } : {}),
             inputMessageIds: batch.map((message) => message.id),
             reactionMessageId: latest.reaction ? latest.id : undefined,
             mentions: latest.reaction ? undefined : latest.mentions,
@@ -186,10 +238,15 @@ export class ChatPinQueue {
           .catch((error) => {
             for (const message of batch) if (!message.runId) message.inputState = 'cancelled';
             if (this.store.data.bots.some((bot) => bot.id === botId))
-              this.store.message(botId, 'event', `这次输入未能处理：${String((error as Error).message).slice(0, 300)}`);
+              this.store.message(
+                botId,
+                'event',
+                `这次输入未能处理：${String((error as Error).message).slice(0, 300)}`,
+                sessionId ? { sessionId } : {},
+              );
           })
           .finally(() => {
-            this.workers.delete(botId);
+            this.workers.delete(lane);
             this.store.save();
             this.changed();
             this.wake();
@@ -197,12 +254,25 @@ export class ChatPinQueue {
       }
     }, 80);
   }
-  cancel(botId: string) {
+  /** Cancels queued input: all of the Bot's, or only one conversation's (`null` for its main chat). */
+  cancel(botId: string, sessionId?: string | null) {
     for (const message of this.store.data.messages)
-      if (message.botId === botId && this.queued(message)) message.inputState = 'cancelled';
-    this.superseded.delete(botId);
+      if (
+        message.botId === botId &&
+        this.queued(message) &&
+        (sessionId === undefined || (message.sessionId ?? null) === sessionId)
+      )
+        message.inputState = 'cancelled';
+    for (const lane of this.superseded.keys()) if (laneMatches(lane, botId, sessionId)) this.superseded.delete(lane);
     this.store.save();
     this.changed();
+  }
+  /** A work session moves up the conversation list when the user writes in it. */
+  private touchSession(sessionId?: string) {
+    const session = sessionId ? this.store.data.workSessions?.find((item) => item.id === sessionId) : undefined;
+    if (!session) return;
+    session.updatedAt = new Date().toISOString();
+    delete session.archivedAt;
   }
   dispose() {
     this.closed = true;

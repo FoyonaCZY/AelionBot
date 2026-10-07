@@ -76,13 +76,22 @@ export class HostApprovals implements HostApprovalPolicy {
       parsePowerShell?: (command: string) => Promise<PsParse>;
     },
   ) {}
+  /**
+   * Whose mode decides a request: the Bot's, set in its main chat, or a work session's once that session has been
+   * given one (projects can differ in trust). Group work always follows the Bot's.
+   */
   scopeFor(request: HostPermissionRequest): AttachmentScope {
-    return { kind: 'bot', id: request.botId };
+    const sessionId = this.store.data.runs.find(
+      (run) => run.id === request.runId && run.botId === request.botId,
+    )?.sessionId;
+    const own = sessionId ? { kind: 'bot' as const, id: request.botId, sessionId } : undefined;
+    return own && this.store.data.hostPermissionModes?.[workspaceKey(own)] ? own : { kind: 'bot', id: request.botId };
   }
   modes() {
     return Object.fromEntries(
       Object.entries(this.store.data.hostPermissionModes || {}).filter(
-        ([key, mode]) => key.startsWith('bot:') && ['ask', 'auto', 'full'].includes(mode),
+        ([key, mode]) =>
+          (key.startsWith('bot:') || key.startsWith('session:')) && ['ask', 'auto', 'full'].includes(mode),
       ),
     );
   }
@@ -92,7 +101,7 @@ export class HostApprovals implements HostApprovalPolicy {
     return mode === 'auto' || mode === 'full' ? mode : 'ask';
   }
   set(scope: AttachmentScope, mode: HostPermissionMode) {
-    if (scope?.kind !== 'bot') throw new AppError('permission.scope_invalid', '请在 Bot 主会话设置本机权限');
+    if (scope?.kind !== 'bot') throw new AppError('permission.scope_invalid', '请在 Bot 主会话或工作会话设置本机权限');
     assertWorkspaceScope(this.store, scope);
     if (!['ask', 'auto', 'full'].includes(mode)) throw new AppError('permission.mode_invalid', '无效权限模式');
     const key = workspaceKey(scope),

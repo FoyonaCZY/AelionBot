@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import type { Bot, Snapshot } from '../../shared/types/core';
+import { useMemo, useState } from 'react';
+import type { Bot, Snapshot, WorkSession } from '../../shared/types/core';
 import type { GroupSummary } from '../../shared/types/group-types';
 import type { BotPalette } from '../../shared/chat/bot-colors';
 import { previewFeedbackDisplay } from '../../shared/preview/preview-feedback';
@@ -12,15 +12,27 @@ import type { SettingsTab } from '../settings/SettingsWindow';
 import { Avatar } from '../ui/Avatar';
 import { time } from '../ui/format';
 import { Icon } from '../ui/Icon';
-import { conversationRows } from './conversation-list';
+import { conversationRows, type SessionRow } from './conversation-list';
 import { SidebarUpdate } from './SidebarUpdate';
 import { useI18n } from '../i18n';
+import './work-sessions.css';
+
+const COLLAPSED_KEY = 'aelion-folded-sessions';
+const readCollapsed = () => {
+  try {
+    const value = JSON.parse(localStorage.getItem(COLLAPSED_KEY) || '[]');
+    return new Set<string>(Array.isArray(value) ? value.filter((id) => typeof id === 'string') : []);
+  } catch {
+    return new Set<string>();
+  }
+};
 
 export function Sidebar({
   state,
   page,
   group,
   bot,
+  session,
   query,
   onQuery,
   avatarActivities,
@@ -30,8 +42,11 @@ export function Sidebar({
   onToggleNewMenu,
   onNewBot,
   onNewGroup,
+  onNewSession,
   onOpenGroup,
   onSelectBot,
+  onSelectSession,
+  onSessionSettings,
   onBotMenu,
   onPlugins,
   onSettings,
@@ -40,6 +55,8 @@ export function Sidebar({
   page: 'chat' | 'plugins';
   group?: GroupSummary;
   bot?: Bot;
+  /** The open work session of `bot`; absent while its main chat is open. */
+  session?: WorkSession;
   query: string;
   onQuery: (value: string) => void;
   avatarActivities: BotActivities;
@@ -49,19 +66,65 @@ export function Sidebar({
   onToggleNewMenu: () => void;
   onNewBot: () => void;
   onNewGroup: () => void;
+  /** Absent while no Bot can have work sessions. */
+  onNewSession?: () => void;
   onOpenGroup: (id: string) => void;
   onSelectBot: (id: string) => void;
+  onSelectSession: (session: WorkSession) => void;
+  onSessionSettings: (session: WorkSession) => void;
   onBotMenu: (target: Bot, trigger: HTMLButtonElement, x?: number, y?: number) => void;
   onPlugins: () => void;
   onSettings: (tab?: SettingsTab) => void;
 }) {
   const { t } = useI18n();
   const requests = state.interactions || [];
-  // Scans every message: recomputed only when the bots, messages, runs or groups changed.
+  // Scans every message: recomputed only when the bots, messages, runs, groups or sessions changed.
   const rows = useMemo(
-    () => conversationRows(state.bots, state.messages, state.groups?.rooms || [], state.runs),
-    [state.bots, state.messages, state.groups?.rooms, state.runs],
+    () => conversationRows(state.bots, state.messages, state.groups?.rooms || [], state.runs, state.workSessions || []),
+    [state.bots, state.messages, state.groups?.rooms, state.runs, state.workSessions],
   );
+  const runSession = (runId: string) => state.runs.find((run) => run.id === runId)?.sessionId;
+  // Bots whose sessions are folded away; remembered on this computer only.
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const toggleSessions = (botId: string) =>
+    setCollapsed((value) => {
+      const next = new Set(value);
+      if (!next.delete(botId)) next.add(botId);
+      try {
+        localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]));
+      } catch {}
+      return next;
+    });
+  const search = query.trim().toLowerCase();
+  // What a chat's row says under its name: what waits on the user, what it is doing, or its last message.
+  const preview = (botId: string, sessionId: string | undefined, last: SessionRow['last']) => {
+    const pending = requests.find((request) => request.botId === botId && runSession(request.runId) === sessionId);
+    const active = state.runs.some(
+      (run) => run.botId === botId && run.status === 'running' && run.sessionId === sessionId,
+    );
+    const introducing = (!sessionId && state.greetingBotIds?.includes(botId)) || false;
+    const lastRun = last?.runId ? state.runs.find((run) => run.id === last.runId) : undefined;
+    const text = pending
+      ? pending.kind === 'host_permission'
+        ? pending.approval?.phase === 'reviewing'
+          ? t('审核模型正在审核操作')
+          : t('等待你的本机操作许可')
+        : t('等待人工接管')
+      : active
+        ? t('正在工作…')
+        : introducing
+          ? t('正在打招呼…')
+          : lastRun?.status === 'failed' || lastRun?.status === 'interrupted'
+            ? friendlyError(lastRun.error || '').title
+            : lastRun?.groupUpdated
+              ? t('已接收新的群消息')
+              : lastRun?.status === 'cancelled'
+                ? t('已停止，工作记录已保留')
+                : readableContent(
+                    (last ? previewFeedbackDisplay(last).content : '') || attachmentSummary(last?.attachments),
+                  ).replace(/[#*`]/g, '');
+    return { text, pending: Boolean(pending), active: active || introducing };
+  };
   return (
     <aside className="sidebar">
       <div className="sidebar-top drag">
@@ -90,6 +153,12 @@ export function Sidebar({
                 <Icon name="message" size={20} />
                 {t('创建群聊')}
               </button>
+              {onNewSession && (
+                <button role="menuitem" onClick={onNewSession}>
+                  <Icon name="folder" size={20} />
+                  {t('新建工作会话')}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -100,8 +169,10 @@ export function Sidebar({
       </label>
       <div className="bot-list conversation-list" role="region" aria-label={t('会话列表')}>
         {rows
-          .filter((row) =>
-            (row.kind === 'bot' ? row.bot.name : row.group.name).toLowerCase().includes(query.toLowerCase()),
+          .filter(
+            (row) =>
+              (row.kind === 'bot' ? row.bot.name : row.group.name).toLowerCase().includes(search) ||
+              (row.kind === 'bot' && row.sessions.some((item) => item.session.name.toLowerCase().includes(search))),
           )
           .map((row) => {
             if (row.kind === 'group') {
@@ -130,58 +201,111 @@ export function Sidebar({
               );
             }
             const { bot: item, last } = row;
-            const active = state.runs.some((run) => run.botId === item.id && run.status === 'running'),
-              introducing = state.greetingBotIds?.includes(item.id) || false;
-            const pending = requests.find((request) => request.botId === item.id);
-            const lastRun = last?.runId ? state.runs.find((run) => run.id === last.runId) : undefined;
-            const preview = pending
-              ? pending.kind === 'host_permission'
-                ? pending.approval?.phase === 'reviewing'
-                  ? t('审核模型正在审核操作')
-                  : t('等待你的本机操作许可')
-                : t('等待人工接管')
-              : active
-                ? t('正在工作…')
-                : introducing
-                  ? t('正在打招呼…')
-                  : lastRun?.status === 'failed' || lastRun?.status === 'interrupted'
-                    ? friendlyError(lastRun.error || '').title
-                    : lastRun?.groupUpdated
-                      ? t('已接收新的群消息')
-                      : lastRun?.status === 'cancelled'
-                        ? t('已停止，工作记录已保留')
-                        : readableContent(
-                            (last ? previewFeedbackDisplay(last).content : '') || attachmentSummary(last?.attachments),
-                          ).replace(/[#*`]/g, '');
+            const main = preview(item.id, undefined, last);
+            // The avatar shows the Bot busy wherever it works; the row's text is about its main chat.
+            const busy = main.active || state.runs.some((run) => run.botId === item.id && run.status === 'running'),
+              needsUser = requests.some((request) => request.botId === item.id);
+            // Archived sessions stay out of the list until searched for.
+            const sessions = row.sessions.filter((entry) =>
+              search ? entry.session.name.toLowerCase().includes(search) : !entry.session.archivedAt,
+            );
+            // A folded Bot still shows the session that is open, so the selection never hides.
+            const folded = !search && collapsed.has(item.id),
+              shown = folded ? sessions.filter((entry) => session?.id === entry.session.id) : sessions,
+              states = new Map(
+                sessions.map((entry) => [entry.session.id, preview(item.id, entry.session.id, entry.last)]),
+              ),
+              hiddenStates = sessions
+                .filter((entry) => !shown.includes(entry))
+                .map((entry) => states.get(entry.session.id)!),
+              hiddenBusy = hiddenStates.some((value) => value.active),
+              hiddenNeedsUser = hiddenStates.some((value) => value.pending);
             return (
-              <button
-                className={`bot-item ${page === 'chat' && !group && bot?.id === item.id ? 'selected' : ''}`}
-                key={`bot:${item.id}`}
-                data-bot-id={item.id}
-                aria-haspopup="menu"
-                aria-expanded={botMenu?.id === item.id}
-                onClick={() => onSelectBot(item.id)}
-                onContextMenu={(event) => {
-                  event.preventDefault();
-                  onBotMenu(item, event.currentTarget, event.clientX || undefined, event.clientY || undefined);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
-                    event.preventDefault();
-                    onBotMenu(item, event.currentTarget);
-                  }
-                }}
-              >
-                <Avatar bot={item} activity={avatarActivities[item.id]} />
-                <span className="bot-copy">
-                  <span className="bot-line">
-                    <strong>{item.name}</strong>
-                    <small>{last ? time(last.time) : ''}</small>
-                  </span>
-                  <span className="bot-preview">{preview}</span>
-                </span>
-                {(active || introducing) && <span className={`bot-working ${pending ? 'needs-user' : ''}`} />}
-              </button>
+              <div className={`bot-entry ${sessions.length ? 'has-sessions' : ''}`} key={`bot:${item.id}`}>
+                <div className="bot-head">
+                  <button
+                    className={`bot-item ${page === 'chat' && !group && !session && bot?.id === item.id ? 'selected' : ''}`}
+                    data-bot-id={item.id}
+                    aria-haspopup="menu"
+                    aria-expanded={botMenu?.id === item.id}
+                    onClick={() => onSelectBot(item.id)}
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      onBotMenu(item, event.currentTarget, event.clientX || undefined, event.clientY || undefined);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+                        event.preventDefault();
+                        onBotMenu(item, event.currentTarget);
+                      }
+                    }}
+                  >
+                    <Avatar bot={item} activity={avatarActivities[item.id]} />
+                    <span className="bot-copy">
+                      <span className="bot-line">
+                        <strong>{item.name}</strong>
+                        <small>{last ? time(last.time) : ''}</small>
+                      </span>
+                      <span className="bot-preview">{main.text}</span>
+                    </span>
+                    {busy && <span className={`bot-working ${needsUser ? 'needs-user' : ''}`} />}
+                  </button>
+                  {sessions.length > 0 && (
+                    <button
+                      className={`session-toggle ${folded ? '' : 'is-open'}`}
+                      aria-expanded={!folded}
+                      aria-label={t('{name} 的工作会话', { name: item.name })}
+                      title={t('{name} 的工作会话', { name: item.name })}
+                      disabled={Boolean(search)}
+                      onClick={() => {
+                        // Folding away the open session goes to the Bot's main chat.
+                        if (!folded && page === 'chat' && !group && session?.botId === item.id) onSelectBot(item.id);
+                        toggleSessions(item.id);
+                      }}
+                    >
+                      <Icon name="folder" size={13} />
+                      <span>{sessions.length}</span>
+                      {(hiddenBusy || hiddenNeedsUser) && (
+                        <span className={`session-working ${hiddenNeedsUser ? 'needs-user' : ''}`} />
+                      )}
+                      <Icon name="chevron" size={12} />
+                    </button>
+                  )}
+                </div>
+                {shown.length > 0 && (
+                  <div className="session-list" role="group" aria-label={t('{name} 的工作会话', { name: item.name })}>
+                    {shown.map(({ session: entry, time: entryTime }) => {
+                      const status = states.get(entry.id)!;
+                      return (
+                        <button
+                          key={entry.id}
+                          className={`session-item ${page === 'chat' && !group && session?.id === entry.id ? 'selected' : ''} ${entry.archivedAt ? 'is-archived' : ''}`}
+                          data-session-id={entry.id}
+                          title={entry.name}
+                          onClick={() => onSelectSession(entry)}
+                          onContextMenu={(event) => {
+                            event.preventDefault();
+                            onSessionSettings(entry);
+                          }}
+                        >
+                          <Icon name="folder" size={14} />
+                          <span className="session-name">{entry.name}</span>
+                          {status.active || status.pending ? (
+                            <span
+                              className={`session-working ${status.pending ? 'needs-user' : ''}`}
+                              role="img"
+                              aria-label={status.text}
+                              title={status.text}
+                            />
+                          ) : (
+                            <small>{time(entryTime)}</small>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
       </div>

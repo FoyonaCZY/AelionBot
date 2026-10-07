@@ -145,6 +145,7 @@ function snapshot(): Snapshot {
     conversationWorkspaces: store.data.conversationWorkspaces,
     updates: appUpdates?.snapshot(),
     scheduledTasks: store.data.scheduledTasks,
+    workSessions: store.data.workSessions,
     bots: store.data.bots,
     messages: store.data.messages,
     runs: store.data.runs,
@@ -633,16 +634,17 @@ async function initialize() {
   );
   greetings = new BotGreetings(store, model, changed, (id) => updatePreparing || harness.isRunning(id));
   greetings.streams.onEmit = streamsChanged;
+  // Group and delegated work run in a Bot's main lane, beside its work sessions.
   peerChats = new PeerChats(
     store,
     {
-      isRunning: (id) => updatePreparing || harness.isRunning(id) || Boolean(chatPins?.hasPending(id)),
+      isRunning: (id) => updatePreparing || harness.isRunning(id, null) || Boolean(chatPins?.hasPending(id, null)),
       run: (id, input, options) => {
         groupChats?.preempt(id);
         greetings?.cancel(id);
         return harness.run(id, input, options);
       },
-      cancel: (id) => harness.cancel(id),
+      cancel: (id) => harness.cancel(id, null),
     },
     changed,
     attachments,
@@ -652,12 +654,12 @@ async function initialize() {
   groupChats = new GroupChats(
     store,
     {
-      isRunning: (id) => updatePreparing || harness.isRunning(id) || Boolean(chatPins?.hasPending(id)),
+      isRunning: (id) => updatePreparing || harness.isRunning(id, null) || Boolean(chatPins?.hasPending(id, null)),
       run: (id, input, options) => {
         greetings?.cancel(id);
         return harness.run(id, input, options);
       },
-      cancel: (id) => harness.cancel(id),
+      cancel: (id) => harness.cancel(id, null),
       refresh: (id) => harness.refreshGroup(id),
     },
     changed,
@@ -668,17 +670,19 @@ async function initialize() {
   chatPins = new ChatPinQueue(
     store,
     {
-      isRunning: (id) => updatePreparing || harness.isRunning(id),
+      isRunning: (id, sessionId) => updatePreparing || harness.isRunning(id, sessionId),
       run: (id, input, options) => {
         greetings?.cancel(id);
         return harness.run(id, input, options);
       },
-      refresh: (id) => {
+      // New input interrupts the Bot's work in that chat only; its other chats keep working.
+      refresh: (id, sessionId) => {
         greetings?.cancel(id);
-        const active = store.data.runs.find((run) => run.botId === id && run.status === 'running');
+        if (sessionId) return harness.refreshInput(id, sessionId);
+        const active = store.data.runs.find((run) => run.botId === id && run.status === 'running' && !run.sessionId);
         groupChats?.yieldToUser(id);
         if (active) peerChats?.cancelRun(active);
-        return harness.refreshInput(id);
+        return harness.refreshInput(id, null);
       },
     },
     changed,
@@ -693,6 +697,8 @@ async function initialize() {
     {
       ready: (target) => {
         if (updatePreparing) return false;
+        // A work session's task waits for that session only; others wait for the Bots' main lanes.
+        const lane = target.kind === 'bot' ? (target.sessionId ?? null) : null;
         const ids =
           target.kind === 'bot'
             ? [target.id]
@@ -707,8 +713,8 @@ async function initialize() {
               store.data.bots.some((bot) => bot.id === id) &&
               store.modelFor(id).model &&
               !store.modelFor(id).issue &&
-              !harness.isRunning(id) &&
-              !chatPins?.hasPending(id),
+              !harness.isRunning(id, lane) &&
+              !chatPins?.hasPending(id, lane),
           ) &&
           !(
             target.kind === 'group' &&
@@ -719,7 +725,7 @@ async function initialize() {
         );
       },
       send: (target, prompt, trigger) => {
-        if (target.kind === 'bot') chatPins!.schedule(target.id, prompt, trigger);
+        if (target.kind === 'bot') chatPins!.schedule(target.id, prompt, trigger, target.sessionId);
         else groupChats!.schedule(target.id, prompt, trigger);
       },
     },

@@ -51,8 +51,10 @@ export interface ToolDeps {
   callableTools(runId: string): ToolDefinition[] | undefined;
   /** The last context sent to the model in this run. */
   preparedContext(runId: string): WireMessage[] | undefined;
-  /** Whether new input or a group event has superseded the Bot's current run. */
-  runUpdated(botId: string): boolean;
+  /** Whether new input or a group event has superseded this run. */
+  runUpdated(runId: string): boolean;
+  /** Takes the Bot's desktop for this run; throws while another of its chats is using it. */
+  claimDesktop(botId: string, runId: string): void;
   /** Runs a tool with the shared preamble, without recording an execution. */
   executeTool(
     bot: Bot,

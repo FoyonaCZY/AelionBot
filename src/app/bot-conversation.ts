@@ -4,16 +4,18 @@ import { firstDeliveries } from '../../shared/types/attachment-types';
 import { isPrivatePeerOrigin } from '../../shared/types/peer-types';
 
 /**
- * What the selected bot's direct conversation shows, derived from the state. Live replies are not part of it: they
- * change many times a second and are read where they are shown (useStreamingReplies).
+ * What one of the selected bot's chats shows, derived from the state: its main chat, or the work session
+ * `sessionId`. Live replies are not part of it: they change many times a second and are read where they are shown
+ * (useStreamingReplies).
  */
-export function botConversation(state: Snapshot | undefined, bot: Bot | undefined) {
+export function botConversation(state: Snapshot | undefined, bot: Bot | undefined, sessionId?: string) {
   const currentModel = bot ? state?.botModels?.[bot.id] || state?.model : state?.model;
   const runsById = new Map<string, RunRecord>((state?.runs || []).map((run) => [run.id, run]));
   const messages =
     state?.messages.filter(
       (message) =>
         message.botId === bot?.id &&
+        message.sessionId === sessionId &&
         (message.audience === 'user' ||
           !message.runId ||
           !isPrivatePeerOrigin(runsById.get(message.runId)?.peerOrigin)),
@@ -27,18 +29,29 @@ export function botConversation(state: Snapshot | undefined, bot: Bot | undefine
     }
   const timeline = conversationTimeline(messages);
   const botRuns = (state?.runs || []).filter(
-    (run) => run.botId === bot?.id && !isPrivatePeerOrigin(run.peerOrigin) && !run.groupOrigin,
+    (run) =>
+      run.botId === bot?.id && run.sessionId === sessionId && !isPrivatePeerOrigin(run.peerOrigin) && !run.groupOrigin,
   );
   const lastContext = botRuns.filter((run) => run.contextOverview).at(-1)?.contextOverview;
   const latestRun = botRuns.at(-1);
+  // Busy in this chat: running here, or input waiting here (also while the Bot finishes work in another chat).
   const running = Boolean(
-    state?.runs.some((run) => run.botId === bot?.id && run.status === 'running' && !run.groupOrigin) ||
+    state?.runs.some(
+      (run) => run.botId === bot?.id && run.status === 'running' && !run.groupOrigin && run.sessionId === sessionId,
+    ) ||
     (currentModel?.model &&
-      state!.messages.some((message) => message.botId === bot?.id && message.inputState === 'queued')),
+      state!.messages.some(
+        (message) => message.botId === bot?.id && message.sessionId === sessionId && message.inputState === 'queued',
+      )),
   );
-  const greeting = state?.greetingBotIds?.includes(bot?.id || '') || false;
+  const greeting = (!sessionId && state?.greetingBotIds?.includes(bot?.id || '')) || false;
   const requests = state?.interactions || [];
-  const waiting = requests.find((request) => request.botId === bot?.id && !runsById.get(request.runId)?.groupOrigin);
+  // A request waiting on the user in this chat (not in the Bot's other chats or groups).
+  const ownRequests = requests.filter((request) => {
+    const run = runsById.get(request.runId);
+    return request.botId === bot?.id && !run?.groupOrigin && run?.sessionId === sessionId;
+  });
+  const waiting = ownRequests[0];
   return {
     currentModel,
     messages,
@@ -52,6 +65,7 @@ export function botConversation(state: Snapshot | undefined, bot: Bot | undefine
     running,
     greeting,
     requests,
+    ownRequests,
     waiting,
   };
 }

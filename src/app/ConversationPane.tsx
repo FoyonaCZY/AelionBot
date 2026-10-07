@@ -1,6 +1,6 @@
 import { DesignerWorkspace } from '../designer/DesignerWorkspace';
 import type { RefObject } from 'react';
-import type { Bot, InteractionRequest, Snapshot } from '../../shared/types/core';
+import type { Bot, InteractionRequest, Snapshot, WorkSession } from '../../shared/types/core';
 import type { GroupSummary } from '../../shared/types/group-types';
 import type { BotActivities } from '../bots/bot-activity';
 import { GroupConversation } from '../group/GroupConversation';
@@ -23,6 +23,7 @@ export function ConversationPane({
   state,
   group,
   bot,
+  session,
   visible,
   busy,
   vmReady,
@@ -47,10 +48,14 @@ export function ConversationPane({
   onTakeover,
   onOpenGroup,
   onOpenPrivateChat,
+  onSessionSettings,
+  onNewSession,
 }: {
   state: Snapshot;
   group?: GroupSummary;
   bot?: Bot;
+  /** The open work session of `bot`; absent while its main chat is open. */
+  session?: WorkSession;
   visible: boolean;
   busy: boolean;
   vmReady: boolean;
@@ -75,6 +80,8 @@ export function ConversationPane({
   onTakeover: (request: TakeoverRequest) => Promise<void>;
   onOpenGroup: (id: string) => void;
   onOpenPrivateChat: (panel: PeerPanel) => void;
+  onSessionSettings: (session: WorkSession) => void;
+  onNewSession: (bot: Bot) => void;
 }) {
   const { t } = useI18n(),
     previewWorkbench = usePreviewWorkbench();
@@ -122,12 +129,16 @@ export function ConversationPane({
         <>
           <ConversationHeader
             bot={bot}
+            session={session}
             activity={avatarActivities[bot.id]}
             conversation={conversation}
             onProfile={() => onProfile(bot)}
+            onSessionSettings={session ? () => onSessionSettings(session) : undefined}
+            onNewSession={() => onNewSession(bot)}
           />
           <BotConversation
             bot={bot}
+            session={session}
             state={state}
             conversation={conversation}
             drafts={drafts}

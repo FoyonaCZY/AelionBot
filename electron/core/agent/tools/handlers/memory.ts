@@ -14,9 +14,19 @@ const withIntegrations =
   };
 
 export const MEMORY_HANDLERS: Record<string, ToolHandler> = {
-  history_search: ({ bot, args, deps }) => {
+  history_search: ({ bot, args, options, deps }) => {
     if (!deps.cognition) throw new Error('历史检索尚未启用');
-    return deps.cognition.storage.search(bot.id, requiredText(args, 'query', 300), Number(args.limit) || 8);
+    // The asking conversation's own records come first: a work session finds its own work before other chats'.
+    return deps.cognition.storage.search(
+      bot.id,
+      requiredText(args, 'query', 300),
+      Number(args.limit) || 8,
+      options.groupOrigin
+        ? 'group:' + options.groupOrigin.groupId
+        : options.sessionId
+          ? 'session:' + options.sessionId
+          : null,
+    );
   },
   history_read: ({ bot, args, deps }) => {
     if (!deps.cognition) throw new Error('历史检索尚未启用');

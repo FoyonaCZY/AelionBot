@@ -71,7 +71,9 @@ export class WorkItems {
     const item: WorkItem = {
       id: randomUUID(),
       botId: run.botId,
-      scope: run.groupOrigin ? { kind: 'group', id: run.groupOrigin.groupId } : { kind: 'bot', id: run.botId },
+      scope: run.groupOrigin
+        ? { kind: 'group', id: run.groupOrigin.groupId }
+        : { kind: 'bot', id: run.botId, ...(run.sessionId ? { sessionId: run.sessionId } : {}) },
       kind,
       objective: clean(objective, '目标', 8000),
       createdBy,
@@ -110,6 +112,7 @@ export class WorkItems {
                 item.botId === run.botId &&
                 item.scope.kind === (run.groupOrigin ? 'group' : 'bot') &&
                 item.scope.id === (run.groupOrigin?.groupId || run.botId) &&
+                item.scope.sessionId === run.sessionId &&
                 item.workspaceDir === run.workspaceDir,
             )
         : undefined;

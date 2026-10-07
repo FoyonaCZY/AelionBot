@@ -94,6 +94,20 @@ export function updateBotProfile(
     );
     next.conversations = { ...next.conversations };
     delete next.conversations[id];
+    // Its work sessions go with its messages; a designer has none.
+    next.conversationWorkspaces = { ...next.conversationWorkspaces };
+    next.hostPermissionModes = { ...next.hostPermissionModes };
+    for (const session of store.data.workSessions?.filter((s) => s.botId === id) || []) {
+      const key = 'session:' + session.id;
+      delete next.conversations[key];
+      delete next.conversationWorkspaces[key];
+      delete next.hostPermissionModes[key];
+      keys.add(key);
+    }
+    next.workSessions = next.workSessions?.filter((s) => s.botId !== id);
+    next.scheduledTasks = next.scheduledTasks.filter(
+      (task) => !(task.target.kind === 'bot' && task.target.id === id && task.target.sessionId),
+    );
     next.peerContexts = { ...next.peerContexts };
     for (const key of peerIds) {
       delete next.peerContexts[key];

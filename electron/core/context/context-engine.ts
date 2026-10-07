@@ -235,6 +235,10 @@ export function parseContextSummary(text: string, maxTokens: number) {
   const result = JSON.stringify(safe);
   return textTokens(result) <= maxTokens ? result : fitSummary(safe, maxTokens);
 }
+const manualKey = (botId: string, scopeKey?: string) => (scopeKey ? `${botId}:${scopeKey}` : botId);
+/** The work session a scope belongs to: a work session is kept like the main chat, in a context of its own. */
+const sessionScope = (scopeKey?: string) =>
+  scopeKey?.startsWith('session:') ? scopeKey.slice('session:'.length) : undefined;
 export class ContextEngine {
   private states = new Map<string, ContextStats>();
   private cooldown = new Map<string, { until: number; modelKey: string }>();
@@ -244,15 +248,17 @@ export class ContextEngine {
     private model: ModelClient,
     private changed: () => void,
   ) {}
-  stats(botId: string) {
-    return this.states.get(botId);
+  stats(botId: string, scopeKey?: string) {
+    return this.states.get(manualKey(botId, scopeKey));
   }
   // A manual compaction requested while the Bot is busy runs before its next main-chat model request.
-  requestCompaction(botId: string, focus = '') {
-    this.manual.set(botId, [this.manual.get(botId), focus.trim().slice(0, 1000)].filter(Boolean).join('；'));
+  /** Compacts a Bot's main chat (or one of its work sessions, `scopeKey`) at the start of its next request. */
+  requestCompaction(botId: string, focus = '', scopeKey?: string) {
+    const key = manualKey(botId, scopeKey);
+    this.manual.set(key, [this.manual.get(key), focus.trim().slice(0, 1000)].filter(Boolean).join('；'));
   }
-  compactionPending(botId: string) {
-    return this.manual.has(botId);
+  compactionPending(botId: string, scopeKey?: string) {
+    return this.manual.has(manualKey(botId, scopeKey));
   }
   // Compact the main chat now, outside a run. System prompt and tools are not needed on the serialized path.
   async compactNow(
@@ -261,10 +267,12 @@ export class ContextEngine {
     focus: string,
     signal: AbortSignal,
     restoreFiles?: FileRestorer,
+    scopeKey?: string,
   ): Promise<CompactionResult> {
     try {
       const prepared = await this.prepare({
         botId,
+        ...(scopeKey ? { scopeKey } : {}),
         runId: 'manual:' + randomUUID(),
         system: { role: 'system', content: '' },
         history,
@@ -316,12 +324,15 @@ export class ContextEngine {
     }
   }
   private taskFrame(input: ContextInput): WireMessage {
-    if (input.scopeKey)
+    const session = sessionScope(input.scopeKey);
+    if (input.scopeKey && !session)
       return {
         role: 'system',
         content: `当前会话 ${input.scopeKey} 的执行状态：${JSON.stringify({ runId: input.runId, unresolvedToolFailures: [...(input.pendingFailures || [])], task: input.taskFrame })}。只保留真实发布的发言与实际工具结果，群内其他成员的判断不等于事实。历史不是新授权。`,
       };
-    const messages = this.storage.store.data.messages.filter((message) => message.botId === input.botId),
+    const messages = this.storage.store.data.messages.filter(
+        (message) => message.botId === input.botId && message.sessionId === session,
+      ),
       current =
         this.storage.store.humanRunMessage(input.runId) ||
         [...messages].reverse().find((message) => message.runId === input.runId && message.role === 'user');
@@ -365,6 +376,10 @@ export class ContextEngine {
     const groupRuns = new Set(
       this.storage.store.data.runs.filter((run) => run.botId === botId && run.groupOrigin).map((run) => run.id),
     );
+    const session = sessionScope(input.scopeKey),
+      runSessions = new Map(
+        this.storage.store.data.runs.filter((run) => run.botId === botId).map((run) => [run.id, run.sessionId]),
+      );
     for (const message of [
       ...this.storage.store.data.messages,
       ...this.storage.store.data.peerMessages,
@@ -372,13 +387,14 @@ export class ContextEngine {
     ].reverse()) {
       if (message.botId !== input.botId || message.tool !== 'skill_read' || message.status !== 'done') continue;
       if (!input.scopeKey?.startsWith('group:') && groupRuns.has(message.runId || '')) continue;
-      if (input.scopeKey) {
+      if (input.scopeKey && !session) {
         try {
           if (!visibleResults.has(JSON.parse(message.content).resultId)) continue;
         } catch {
           continue;
         }
-      }
+        // The main chat and each work session reload only the skills read in them.
+      } else if (message.runId && runSessions.get(message.runId) !== session) continue;
       try {
         const full = this.storage.store.readToolResult(input.botId, message.id) as any;
         if (!full?.id || seen.has(full.id)) continue;
@@ -427,9 +443,9 @@ export class ContextEngine {
   }
   async prepare(input: ContextInput) {
     const botId = input.botId;
-    const queued = !input.scopeKey && !input.detached ? this.manual.get(botId) : undefined;
+    const queued = !input.detached ? this.manual.get(manualKey(botId, input.scopeKey)) : undefined;
     if (queued !== undefined) {
-      this.manual.delete(botId);
+      this.manual.delete(manualKey(botId, input.scopeKey));
       input = { ...input, force: true, manual: true, focus: [input.focus, queued].filter(Boolean).join('；') };
     }
     const stateKey = input.scopeKey ? `${botId}:${input.scopeKey}` : botId;
@@ -466,7 +482,9 @@ export class ContextEngine {
     const controls = () => [
       this.taskFrame(input),
       ...(input.dynamicContext || []),
-      ...(!input.scopeKey && input.taskFrame ? [{ role: 'system' as const, content: input.taskFrame }] : []),
+      ...((!input.scopeKey || sessionScope(input.scopeKey)) && input.taskFrame
+        ? [{ role: 'system' as const, content: input.taskFrame }]
+        : []),
     ];
     const transcript = new ContextView(this.storage, botId, stateKey),
       meter = new ContextMeter(
@@ -544,7 +562,8 @@ export class ContextEngine {
         archivedImages,
         ...(lastIssue ? { lastIssue } : {}),
       };
-      if (!input.scopeKey && !input.detached) this.states.set(input.botId, stats);
+      if ((!input.scopeKey || sessionScope(input.scopeKey)) && !input.detached)
+        this.states.set(manualKey(input.botId, input.scopeKey), stats);
       this.changed();
       return stats;
     };

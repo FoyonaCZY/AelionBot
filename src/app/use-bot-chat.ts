@@ -8,29 +8,34 @@ import type { BotConversationData } from './bot-conversation';
 import type { Drafts } from './use-drafts';
 
 /**
- * Sending, replying and resuming in the selected bot's direct conversation. A send clears the draft at once
- * and restores it on failure unless the user has started a new one in the meantime.
+ * Sending, replying and resuming in the selected bot's direct conversation: its main chat, or the work session
+ * `sessionId`. A send clears the draft at once and restores it on failure unless the user has started a new one in
+ * the meantime.
  */
 export function useBotChat(input: {
   state?: Snapshot;
   bot?: Bot;
+  sessionId?: string;
   conversation: BotConversationData;
   drafts: Drafts;
   follow: RefObject<boolean>;
   onNeedModel: () => void;
   onError: (message: string) => void;
 }) {
-  const { state, bot, conversation, drafts, follow, onNeedModel, onError } = input;
+  const { state, bot, sessionId, conversation, drafts, follow, onNeedModel, onError } = input;
+  // Drafts are kept per chat: the main chat under the Bot's ID, a work session under its own key.
+  const chatKey = (botId: string) => (sessionId ? 'session:' + sessionId : botId);
   const { t } = useI18n(),
     previewWorkbench = usePreviewWorkbench();
   const sending = useRef(new Set<string>());
   const replyTo = (message: ChatMessage) => {
     const owner = state?.bots.find((bot) => bot.id === message.botId);
     if (!owner) return;
+    const key = chatKey(owner.id);
     drafts.update((value) => ({
       ...value,
-      [owner.id]: {
-        ...(value[owner.id] || { text: '', mentions: [] }),
+      [key]: {
+        ...(value[key] || { text: '', mentions: [] }),
         reply: messageReply(
           message,
           message.role === 'user' ? t('你') : owner.name,
@@ -41,8 +46,9 @@ export function useBotChat(input: {
   };
   const send = async () => {
     // Read when sending: the draft changes on every keystroke and is not part of this hook's render.
-    const draft = drafts.get(bot?.id || '');
-    if (!bot || sending.current.has(bot.id) || (!draft.text.trim() && !draft.attachments?.length)) return;
+    const key = chatKey(bot?.id || '');
+    const draft = drafts.get(key);
+    if (!bot || sending.current.has(key) || (!draft.text.trim() && !draft.attachments?.length)) return;
     if (draft.text.length > 32000) {
       onError(t('消息过长，请分段发送'));
       return;
@@ -55,13 +61,13 @@ export function useBotChat(input: {
     }
     const saved = draft,
       botId = bot.id;
-    sending.current.add(botId);
-    drafts.update((value) => ({ ...value, [botId]: { text: '', mentions: [] } }));
+    sending.current.add(key);
+    drafts.update((value) => ({ ...value, [key]: { text: '', mentions: [] } }));
     follow.current = true;
     try {
       if (
         !(await previewWorkbench?.send(
-          { kind: 'bot', id: botId },
+          { kind: 'bot', id: botId, ...(sessionId ? { sessionId } : {}) },
           {
             text: saved.text,
             mentions: saved.mentions,
@@ -72,6 +78,7 @@ export function useBotChat(input: {
       )
         await window.aelion.send({
           botId,
+          ...(sessionId ? { sessionId } : {}),
           message: saved.text,
           mentions: saved.mentions,
           replyToMessageId: saved.reply?.messageId,
@@ -79,13 +86,11 @@ export function useBotChat(input: {
         });
     } catch (error) {
       drafts.update((value) =>
-        value[botId]?.text || value[botId]?.attachments?.length || value[botId]?.reply
-          ? value
-          : { ...value, [botId]: saved },
+        value[key]?.text || value[key]?.attachments?.length || value[key]?.reply ? value : { ...value, [key]: saved },
       );
       onError(ipcErrorText(error));
     } finally {
-      sending.current.delete(botId);
+      sending.current.delete(key);
     }
   };
   const continueWork = () => {

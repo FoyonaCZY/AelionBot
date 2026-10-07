@@ -54,7 +54,11 @@ export function registerComputer(ctx: IpcContext) {
     const bot = ctx.store.bot(String(input?.botId));
     if (typeof input?.enabled !== 'boolean') throw new Error('无效控制状态');
     await ctx.computer.ensure(bot.id);
-    return changeManualControl(ctx.interactions, ctx.computer, bot.id, input.enabled, (id) => ctx.harness.cancel(id));
+    // Taking over stops the chat driving the desktop, not the Bot's other chats.
+    return changeManualControl(ctx.interactions, ctx.computer, bot.id, input.enabled, (id) => {
+      const lane = ctx.generalHarness.desktopSession(id);
+      ctx.harness.cancel(id, lane === undefined ? undefined : lane);
+    });
   });
   handle('openComputerApp', async (input) => {
     const bot = ctx.store.bot(String(input?.botId));

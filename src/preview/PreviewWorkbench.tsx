@@ -8,6 +8,8 @@ export interface PreviewChatInput {
   replyToMessageId?: string;
   attachmentIds?: string[];
   edits?: import('../../shared/types/preview-editor-types').DomEdit[];
+  /** The chat it is sent from, when that is not the preview's own: a work session shares its Bot's previews. */
+  scope?: AttachmentScope;
 }
 export interface PreviewWorkbenchInfo {
   scope?: AttachmentScope;

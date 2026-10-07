@@ -8,6 +8,7 @@ import type {
   RunRecord,
   Snapshot,
   StreamingReply,
+  WorkSession,
 } from '../../shared/types/core';
 import type { GroupsView } from '../../shared/types/group-types';
 import type { PeerView } from '../../shared/types/peer-types';
@@ -47,11 +48,13 @@ const itemKey = (botId: string, item: TimelineItem) =>
   `${botId}:${item.kind}:${item.kind === 'run' ? item.segmentId : item.id}`;
 
 /**
- * The selected bot's message timeline and composer. Each timeline row is memoized on props that keep their identity
- * while unchanged, so a new message, a streaming tick or a keystroke re-renders only what it changed.
+ * The selected bot's message timeline and composer: its main chat, or one of its work sessions (`session`), which
+ * look and work the same. Each timeline row is memoized on props that keep their identity while unchanged, so a new
+ * message, a streaming tick or a keystroke re-renders only what it changed.
  */
 export function BotConversation({
   bot,
+  session,
   state,
   conversation,
   drafts,
@@ -75,6 +78,7 @@ export function BotConversation({
   onOpenPreviewEntry,
 }: {
   bot: Bot;
+  session?: WorkSession;
   state: Snapshot;
   conversation: BotConversationData;
   drafts: Drafts;
@@ -98,6 +102,8 @@ export function BotConversation({
   onOpenPreviewEntry: (entry: PreviewHistoryEntry) => void;
 }) {
   const { t } = useI18n();
+  const sessionId = session?.id,
+    chatKey = sessionId ? 'session:' + sessionId : bot.id;
   const composerWrap = useFloatingComposer();
   const actions = useStableHandlers<Actions>({
     reply: onReply,
@@ -110,7 +116,7 @@ export function BotConversation({
     saveFile: onSaveFile,
     openPreviewEntry: onOpenPreviewEntry,
     send: onSend,
-    stop: () => window.aelion.cancel(bot.id),
+    stop: () => (sessionId ? window.aelion.cancel(bot.id, sessionId) : window.aelion.cancel(bot.id)),
   });
   const {
     currentModel,
@@ -124,24 +130,33 @@ export function BotConversation({
     running,
     greeting,
     requests,
+    ownRequests,
     waiting,
   } = conversation;
-  const liveReplies = useStreamingReplies('bot:' + bot.id, (reply) => Boolean(reply.main) && reply.botId === bot.id);
+  const liveReplies = useStreamingReplies(
+    'bot:' + chatKey,
+    (reply) => Boolean(reply.main) && reply.botId === bot.id && reply.sessionId === sessionId,
+  );
   const liveSignature = liveReplies.map((reply) => reply.id + ':' + reply.content).join('|');
   useLayoutEffect(followLive, [liveSignature]);
-  const keys = useMemo(() => timeline.map((item) => itemKey(bot.id, item)), [timeline, bot.id]);
-  const timelineWindow = useTimelineWindow({ botId: bot.id, timeline, keys, pane: messagesPane, follow });
+  const keys = useMemo(() => timeline.map((item) => itemKey(chatKey, item)), [timeline, chatKey]);
+  const timelineWindow = useTimelineWindow({ botId: chatKey, timeline, keys, pane: messagesPane, follow });
   const previewEntries = useMemo(
     () => (state.previewHistory || []).filter((entry) => entry.scope.kind === 'bot' && entry.scope.id === bot.id),
     [state.previewHistory, bot.id],
   );
-  const scope = workspaceKey({ kind: 'bot', id: bot.id });
+  const attachmentScope = useMemo(
+      () => ({ kind: 'bot' as const, id: bot.id, ...(sessionId ? { sessionId } : {}) }),
+      [bot.id, sessionId],
+    ),
+    scope = workspaceKey(attachmentScope),
+    botScope = workspaceKey({ kind: 'bot', id: bot.id });
   return (
     <>
       <ConversationTimeProvider messages={messages}>
         <section
           ref={messagesPane}
-          key={bot.id}
+          key={chatKey}
           className="messages"
           onScroll={(event) => {
             onMessagesScroll(event.currentTarget);
@@ -242,17 +257,18 @@ export function BotConversation({
         </section>
       </ConversationTimeProvider>
       <div ref={composerWrap} className={`composer-wrap floating-composer ${waiting ? 'with-request' : ''}`}>
-        <ConversationInteractions
-          requests={requests.filter((request) => !runsById.get(request.runId)?.groupOrigin)}
-          botId={bot.id}
-          onTakeover={onTakeover}
+        <ConversationInteractions requests={ownRequests} botId={bot.id} onTakeover={onTakeover} />
+        <WorkItemsPanel items={state.workItems} scope={attachmentScope} bots={state.bots} />
+        <LiveWorkStrip
+          items={(state.liveWork || []).filter(
+            (item) => item.botId === bot.id && runsById.get(item.runId)?.sessionId === sessionId,
+          )}
         />
-        <WorkItemsPanel items={state.workItems} scope={{ kind: 'bot', id: bot.id }} bots={state.bots} />
-        <LiveWorkStrip items={(state.liveWork || []).filter((item) => item.botId === bot.id)} />
         <DraftComposer
-          key={bot.id}
+          key={chatKey}
           drafts={drafts}
-          draftKey={bot.id}
+          draftKey={chatKey}
+          attachmentScope={attachmentScope}
           contextOverview={
             lastContext?.model === currentModel?.model &&
             lastContext?.providerId === currentModel?.providerId &&
@@ -261,7 +277,7 @@ export function BotConversation({
               : undefined
           }
           contextCapacity={currentModel?.contextTokens}
-          permissionMode={state.hostPermissionModes?.[scope]}
+          permissionMode={state.hostPermissionModes?.[scope] ?? state.hostPermissionModes?.[botScope]}
           workspaceDir={state.conversationWorkspaces?.[scope] || state.hostWorkspace?.workspaceDir}
           workspaceInherited={!state.conversationWorkspaces?.[scope]}
           bot={bot}

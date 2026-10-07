@@ -92,6 +92,13 @@ export class TaskScheduler {
   private target(value: TaskTarget) {
     if (!value || !['bot', 'group'].includes(value.kind) || typeof value.id !== 'string')
       throw new Error('任务会话无效');
+    const sessionId = value.sessionId || undefined;
+    if (
+      sessionId !== undefined &&
+      (value.kind !== 'bot' ||
+        !this.store.data.workSessions?.some((session) => session.id === sessionId && session.botId === value.id))
+    )
+      throw new AppError('session.not_found', '工作会话不存在');
     if (value.kind === 'bot') this.store.bot(value.id);
     else if (
       !this.store.data.groups.some(
@@ -101,7 +108,7 @@ export class TaskScheduler {
       )
     )
       throw new Error('群聊不存在或没有 Bot 成员');
-    return { kind: value.kind, id: value.id };
+    return { kind: value.kind, id: value.id, ...(sessionId ? { sessionId } : {}) };
   }
   private get(id: string) {
     const task = this.store.data.scheduledTasks.find((task) => task.id === id);
@@ -167,9 +174,15 @@ export class TaskScheduler {
     this.store.data.scheduledTasks = this.store.data.scheduledTasks.filter((task) => task.id !== id);
     this.save();
   }
+  /** Removes a group's or work session's tasks; a Bot's (no `sessionId`) include those of its work sessions. */
   removeTarget(target: TaskTarget) {
     this.store.data.scheduledTasks = this.store.data.scheduledTasks.filter(
-      (task) => !sameTaskTarget(task.target, target),
+      (task) =>
+        !(
+          task.target.kind === target.kind &&
+          task.target.id === target.id &&
+          (!target.sessionId || task.target.sessionId === target.sessionId)
+        ),
     );
     this.save();
   }
@@ -309,9 +322,10 @@ export class TaskScheduler {
     const run = this.store.data.runs.find((run) => run.id === runId && run.botId === botId && run.status === 'running');
     if (signal.aborted || !run) throw new AppError('schedule.run_ended', '当前任务已结束');
     const bot = this.store.bot(botId),
+      // A task made in a work session runs in that session, with its history and folder.
       target: TaskTarget = run.groupOrigin
         ? { kind: 'group', id: run.groupOrigin.groupId }
-        : { kind: 'bot', id: botId };
+        : { kind: 'bot', id: botId, ...(run.sessionId ? { sessionId: run.sessionId } : {}) };
     if (
       target.kind === 'group' &&
       !this.store.data.groups.some(

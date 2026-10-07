@@ -348,6 +348,7 @@ export function WorkItemsPanel({
       (item) =>
         item.scope.kind === scope.kind &&
         item.scope.id === scope.id &&
+        item.scope.sessionId === scope.sessionId &&
         bots.some((bot) => bot.id === item.botId) &&
         !['completed', 'cancelled'].includes(item.status),
     )

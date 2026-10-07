@@ -22,6 +22,7 @@ export const COMPUTER_HANDLERS: Record<string, ToolHandler> = {
   request_user_control: async ({ bot, args, signal, runId, deps }) => {
     if (!deps.computer || !deps.interactions) throw new Error('人工接管尚不可用');
     const reason = requiredText(args, 'reason', 1000);
+    deps.claimDesktop(bot.id, runId);
     deps.computer.reserveForHuman(bot.id);
     try {
       await deps.interactions.requestTakeover(
@@ -38,8 +39,10 @@ export const COMPUTER_HANDLERS: Record<string, ToolHandler> = {
       deps.computer.clearHumanHold(bot.id);
     }
   },
-  computer: ({ bot, args, signal, deps }) => {
+  computer: ({ bot, args, signal, runId, deps }) => {
     if (!deps.computer) throw new Error('Computer Use 未配置');
+    // The Bot has one desktop: while one of its chats drives it, the others wait.
+    deps.claimDesktop(bot.id, runId);
     return deps.computer.execute(bot.id, args as unknown as ComputerInput, signal);
   },
   computer_execute: ({ bot, args, signal, deps }) =>

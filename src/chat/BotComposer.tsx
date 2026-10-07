@@ -220,7 +220,7 @@ export function BotComposer({
     return () => {
       importRevision.current++;
     };
-  }, [scope.kind, scope.id]);
+  }, [scope.kind, scope.id, scope.sessionId]);
   sendRef.current = () => {
     setUploadError('');
     onSend();
@@ -806,7 +806,12 @@ export function BotComposer({
               onCompact={
                 designSessionId || fixedDesignWorkspace
                   ? undefined
-                  : (focus) => window.aelion.compactContext({ botId: bot.id, focus })
+                  : (focus) =>
+                      window.aelion.compactContext({
+                        botId: bot.id,
+                        focus,
+                        ...(scope.sessionId ? { sessionId: scope.sessionId } : {}),
+                      })
               }
             />
             <PermissionModePicker scope={scope} mode={permissionMode} />

@@ -90,7 +90,13 @@ export function registerPreview(ctx: IpcContext) {
           replyToMessageId: input?.replyToMessageId,
           previewPrompt,
         };
-      if (scope.kind === 'bot') ctx.chatPins!.send({ botId: scope.id, message, ...extras });
+      if (scope.kind === 'bot')
+        ctx.chatPins!.send({
+          botId: scope.id,
+          ...(scope.sessionId ? { sessionId: scope.sessionId } : {}),
+          message,
+          ...extras,
+        });
       else ctx.groupChats!.send({ id: scope.id, message, ...extras });
     },
     delivered: (scope, id) =>

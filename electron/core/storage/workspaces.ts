@@ -9,6 +9,12 @@ export function assertWorkspaceScope(store: Store, scope: AttachmentScope) {
   if (scope.kind === 'bot') store.bot(scope.id);
   else if (!store.data.groups.some((group) => group.id === scope.id))
     throw new AppError('group.not_found', '群聊不存在');
+  if (
+    scope.sessionId !== undefined &&
+    (scope.kind !== 'bot' ||
+      !store.data.workSessions?.some((session) => session.id === scope.sessionId && session.botId === scope.id))
+  )
+    throw new AppError('session.not_found', '工作会话不存在');
   return scope;
 }
 export function conversationWorkspace(store: Store, scope: AttachmentScope) {

@@ -23,7 +23,7 @@ export async function forwardAttachments({ bot, args, name, signal, runId, deps 
             .then((file) => file.bytes)
       : undefined,
   );
-  if (deps.runUpdated(bot.id)) throw new InputUpdated();
+  if (deps.runUpdated(runId)) throw new InputUpdated();
   return { ...args, attachmentIds: files.map((file) => file.id) };
 }
 
@@ -34,7 +34,7 @@ export const ATTACHMENT_HANDLERS: Record<string, ToolHandler> = {
     deps.attachments.materialize(bot.id, requiredText(args, 'attachmentId', 100), signal),
   message_attach: async ({ bot, args, signal, runId, deps }) => {
     const run = deps.store.data.runs.find((run) => run.id === runId && run.status === 'running');
-    if (!run || deps.runUpdated(bot.id)) throw new InputUpdated();
+    if (!run || deps.runUpdated(runId)) throw new InputUpdated();
     const files = await deps.attachments.prepare(
       bot.id,
       args.attachments,

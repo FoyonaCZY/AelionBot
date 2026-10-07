@@ -184,7 +184,7 @@ export function PreviewFeedback({
         ...(unsaved ? { unsaved: true } : {}),
       };
       const partial = {
-        scope,
+        scope: extras?.scope || scope,
         text: message,
         file,
         language,

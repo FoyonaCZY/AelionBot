@@ -70,7 +70,7 @@ export function ScheduledTasks({
   useEffect(() => {
     setEditing(undefined);
     setFilter('all');
-  }, [target?.kind, target?.id]);
+  }, [target?.kind, target?.id, target?.sessionId]);
   useEffect(() => {
     onModalChange(Boolean(editing));
     return () => onModalChange(false);

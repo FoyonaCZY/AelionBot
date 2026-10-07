@@ -1,6 +1,7 @@
 import { currentLanguage, translate } from '../i18n';
 
-export type TaskTarget = { kind: 'bot' | 'group'; id: string };
+/** Where a task runs: a group, a Bot's main chat, or one of its work sessions (`sessionId`). */
+export type TaskTarget = { kind: 'bot' | 'group'; id: string; sessionId?: string };
 export type TaskSchedule = (
   | { kind: 'once'; at: string }
   | { kind: 'daily'; time: string }
@@ -49,7 +50,8 @@ export interface ScheduledTaskUpdate {
   schedule?: TaskSchedule;
   status?: ScheduledTaskStatus;
 }
-export const sameTaskTarget = (a: TaskTarget, b: TaskTarget) => a.kind === b.kind && a.id === b.id;
+export const sameTaskTarget = (a: TaskTarget, b: TaskTarget) =>
+  a.kind === b.kind && a.id === b.id && (a.sessionId || undefined) === (b.sessionId || undefined);
 export const taskExecuting = (task: ScheduledTask) =>
   Boolean(task.lastRun && ['queued', 'running'].includes(task.lastRun.status));
 

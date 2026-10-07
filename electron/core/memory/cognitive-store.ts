@@ -226,7 +226,8 @@ export class CognitiveStore {
     for (const run of this.store.data.runs) if (run.groupOrigin) groupOf.set(run.id, run.groupOrigin.groupId);
     const entries: Array<{ message: ChatMessage; seq: number; scope: string | null }> = [];
     this.store.data.messages.forEach((message, seq) => {
-      if (!botId || message.botId === botId) entries.push({ message, seq, scope: null });
+      if (!botId || message.botId === botId)
+        entries.push({ message, seq, scope: message.sessionId ? 'session:' + message.sessionId : null });
     });
     this.store.data.groupRunMessages.forEach((message, seq) => {
       const group = message.runId ? groupOf.get(message.runId) : undefined;
@@ -297,7 +298,8 @@ export class CognitiveStore {
       throw error;
     }
   }
-  search(botId: string, query: string, limit = 8) {
+  /** `here` is the conversation searching (null for the main chat): its records rank first among equals. */
+  search(botId: string, query: string, limit = 8, here: string | null = null) {
     this.store.bot(botId);
     this.syncHistory(botId);
     query = query.trim().slice(0, 300);
@@ -330,7 +332,12 @@ export class CognitiveStore {
     };
     const rows = [...found.values()]
       .map((row, order) => ({ row, order, score: score(row) }))
-      .sort((a, b) => b.score - a.score || a.order - b.order)
+      .sort(
+        (a, b) =>
+          b.score - a.score ||
+          Number((b.row.scope ?? null) === here) - Number((a.row.scope ?? null) === here) ||
+          a.order - b.order,
+      )
       .slice(0, limit)
       .map((item) => item.row);
     return rows.map((row) => ({
@@ -350,7 +357,15 @@ export class CognitiveStore {
     )?.time;
   }
   /** Where a record comes from, for the model: the private conversation or its own work in a named group. */
+  /** Where a record comes from, for the model: the main chat, one of the Bot's work sessions, or its work in a group. */
   private historySource(scope: string | null) {
+    if (scope?.startsWith('session:')) {
+      const id = scope.slice('session:'.length);
+      return {
+        source: 'session' as const,
+        session: { id, name: this.store.data.workSessions?.find((s) => s.id === id)?.name },
+      };
+    }
     if (!scope?.startsWith('group:')) return { source: 'private' as const };
     const id = scope.slice('group:'.length);
     return { source: 'group' as const, group: { id, name: this.store.data.groups.find((g) => g.id === id)?.name } };

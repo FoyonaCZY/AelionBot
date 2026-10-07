@@ -61,6 +61,9 @@ export const INVOKE_CHANNELS = {
   // Bots
   createBot: 'bot:create',
   deleteBot: 'bot:delete',
+  createWorkSession: 'sessions:create',
+  updateWorkSession: 'sessions:update',
+  deleteWorkSession: 'sessions:delete',
   updateBot: 'bot:update',
   // Models and providers
   saveModel: 'model:save',
@@ -151,6 +154,7 @@ export const INVOKE_CHANNELS = {
   respondInteraction: 'interaction:respond',
   searchMentionFiles: 'workspace:mention-files',
   pickConversationWorkspace: 'workspace:pick',
+  chooseFolder: 'workspace:choose',
   resetConversationWorkspace: 'workspace:reset',
   saveHostWorkspace: 'host:workspace-save',
   pickHostWorkspace: 'host:workspace-pick',

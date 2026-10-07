@@ -2,6 +2,8 @@ import type { BotMention, PeerRunOrigin } from '../../../shared/types/peer-types
 import type { GroupRunOrigin } from '../../../shared/types/group-types';
 export interface HarnessRunOptions {
   designSessionId?: string;
+  /** A work session of the Bot (see WorkSession); absent for its main chat. */
+  sessionId?: string;
   resumeRunId?: string;
   workItemId?: string;
   workspaceDir?: string | null;

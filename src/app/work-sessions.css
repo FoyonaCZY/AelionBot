@@ -1,0 +1,260 @@
+/* Work sessions under their Bot in the conversation list (Sidebar.tsx): one line each, foldable from the Bot row. */
+.bot-head {
+  position: relative;
+}
+.has-sessions .bot-head .bot-preview {
+  padding-right: 54px;
+}
+/* The fold toggle sits at the end of the Bot row's second line. */
+.session-toggle {
+  position: absolute;
+  right: 10px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+  padding: 0 5px 0 6px;
+  border-radius: 10px;
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  font-variant-numeric: tabular-nums;
+  color: light-dark(#8b8c8e, #b8b5bb);
+}
+.session-toggle:hover:not(:disabled) {
+  background: light-dark(#dcdcdf, #2f2c34);
+  color: light-dark(#4b4b50, #e0dde3);
+}
+.session-toggle:disabled {
+  cursor: default;
+}
+.session-toggle > svg:last-child {
+  transition: transform 0.15s;
+}
+.session-toggle.is-open > svg:last-child {
+  transform: rotate(90deg);
+}
+.session-list {
+  margin: -2px 0 4px 54px;
+}
+.session-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 34px;
+  margin: 1px 0;
+  padding: 0 10px;
+  border-radius: 9px;
+  text-align: left;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  color: light-dark(#55585c, #cfccd3);
+}
+.session-item > svg {
+  flex-shrink: 0;
+  color: light-dark(#9a9ba0, #8f8b95);
+}
+.session-item:hover {
+  background: light-dark(#ededed, #232127);
+}
+.session-item.selected {
+  background: light-dark(#e3e3e3, #252329);
+  color: light-dark(#25282c, #f0edf3);
+}
+.session-item.selected .session-name {
+  font-weight: var(--weight-label);
+}
+.session-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.session-item > small {
+  flex-shrink: 0;
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  color: light-dark(#9a9ba0, #a19da7);
+}
+.session-item.is-archived {
+  opacity: 0.6;
+}
+/* Working in a session, or waiting for the user there. */
+.session-working {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  margin: 0 3px;
+  border-radius: 50%;
+  background: light-dark(#26b082, #97d5c0);
+}
+.session-working.needs-user {
+  background: light-dark(#d99b3a, #dabe93);
+}
+.session-toggle .session-working {
+  width: 6px;
+  height: 6px;
+  margin: 0 1px;
+}
+
+/* The narrow list shows icons only: the toggle goes under the avatar, sessions become a column of folders. */
+@media (max-width: 620px) {
+  .session-toggle {
+    position: static;
+    margin: -8px auto 2px;
+  }
+  .session-toggle > span:not(.session-working) {
+    display: none;
+  }
+  .session-list {
+    margin: 0 0 4px;
+  }
+  .session-item {
+    justify-content: center;
+    padding: 0;
+  }
+  .session-name,
+  .session-item > small {
+    display: none;
+  }
+}
+
+/* The work session dialog (WorkSessionEditor.tsx). */
+.modal.work-session-dialog {
+  width: min(460px, calc(100vw - 32px));
+}
+.work-session-form {
+  display: grid;
+  gap: 18px;
+}
+/* Both fields read the same; the general modal form styles would make the name a small grey caption. */
+:root .modal .work-session-form > label,
+:root .modal .work-session-field {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
+  color: light-dark(#3d4044, #e0dde3);
+}
+:root .modal .work-session-form input {
+  width: 100%;
+  min-width: 0;
+  margin-top: 0;
+}
+.work-session-folder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-weight: normal;
+}
+.work-session-folder-path {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: light-dark(#f2f2f4, #2a2730);
+  color: light-dark(#4b4b50, #d6d3da);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.work-session-folder-path.is-empty {
+  color: light-dark(#8b8c8e, #a9a6ad);
+}
+.work-session-folder > button {
+  flex-shrink: 0;
+}
+.work-session-actions {
+  align-items: center;
+  margin-top: 6px;
+}
+.work-session-actions .spacer {
+  flex: 1;
+}
+.work-session-actions .danger-text {
+  color: light-dark(#bd4545, #e5a3a3);
+}
+
+/* A work session's chat header: the Bot, then the session (ConversationHeader.tsx). */
+.chat-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.chat-heading-separator {
+  color: light-dark(#b9b9bd, #6d6873);
+}
+.session-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 5px 9px;
+  border-radius: 9px;
+  color: light-dark(#4b4b50, #dcd8e0);
+}
+.session-heading:hover {
+  background: light-dark(#f0f0f2, #2a2730);
+}
+.session-heading strong {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: calc(15px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
+}
+
+/* Choosing the Bot of a new session, when it is created from the new menu (WorkSessionEditor.tsx). */
+.work-session-bots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  max-height: 232px;
+  overflow: auto;
+  padding: 2px;
+}
+.work-session-bot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid light-dark(#e6e7e9, #3e3945);
+  border-radius: 11px;
+  background: light-dark(#fff, #242128);
+  text-align: left;
+  font-weight: normal;
+  transition:
+    border-color 0.12s,
+    background 0.12s;
+}
+.work-session-bot:hover:not(:disabled) {
+  border-color: light-dark(#c9c9ce, #57525e);
+}
+.work-session-bot.is-chosen {
+  border-color: light-dark(#25282c, #e4e1e7);
+  background: light-dark(#f6f6f7, #2c2931);
+  box-shadow: inset 0 0 0 1px light-dark(#25282c, #e4e1e7);
+}
+.work-session-bot > strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
+}
+.work-session-bot-check {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: light-dark(#25282c, #e4e1e7);
+  color: light-dark(#fff, #201e24);
+}

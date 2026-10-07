@@ -16,6 +16,7 @@ export function BotContextMenu({
   onDelete,
   onClose,
   onPrivateChats,
+  onNewSession,
 }: {
   anchor: BotMenuAnchor;
   name: string;
@@ -24,6 +25,7 @@ export function BotContextMenu({
   onDelete: () => void;
   onClose: () => void;
   onPrivateChats?: () => void;
+  onNewSession?: () => void;
 }) {
   const { t } = useI18n();
   const menu = useRef<HTMLDivElement>(null),
@@ -100,6 +102,12 @@ export function BotContextMenu({
         <Icon name="edit" size={16} />
         {t('编辑')}
       </button>
+      {onNewSession && (
+        <button role="menuitem" onClick={onNewSession}>
+          <Icon name="folder" size={16} />
+          {t('新建工作会话')}
+        </button>
+      )}
       {onPrivateChats && (
         <button role="menuitem" onClick={onPrivateChats}>
           <Icon name="message" size={16} />

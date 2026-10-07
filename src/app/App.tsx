@@ -6,7 +6,7 @@ import { useAgentPreview } from '../preview/use-agent-preview';
 import { useAppearance } from './use-appearance';
 import { useEffect, useMemo, useState } from 'react';
 import { FilePreviewProvider, PreviewScopeProvider } from '../preview/FilePreviewContext';
-import type { Bot, InteractionRequest } from '../../shared/types/core';
+import type { Bot, InteractionRequest, WorkSession } from '../../shared/types/core';
 import { ipcErrorText } from '../ui/ipc-error';
 import { PluginsPage, type PluginFilter } from '../settings/PluginsPage';
 import type { SettingsTab } from '../settings/SettingsWindow';
@@ -41,6 +41,7 @@ import { useModalEffects } from './use-modal-effects';
 import { useToast } from './use-toast';
 import { StreamsProvider, useStreamOwners } from './streams';
 import { useShared } from '../ui/use-shared';
+import { WorkSessionEditor } from './WorkSessionEditor';
 
 export default function App() {
   return (
@@ -75,6 +76,9 @@ function AppContent() {
   const [selectedGroup, setSelectedGroup] = useState(''),
     [groupEditor, setGroupEditor] = useState<string>(),
     [newMenu, setNewMenu] = useState(false);
+  // The open work session of the selected Bot ('' for its main chat), and the session dialog when open.
+  const [selectedSession, setSelectedSession] = useState(''),
+    [sessionEditor, setSessionEditor] = useState<{ botId: string; sessionId?: string; choose?: boolean }>();
   const group = state?.groups?.rooms.find((room) => room.id === selectedGroup);
   const [modal, setModal] = useState<Modal>(null),
     [settingsTab, setSettingsTab] = useState<SettingsTab>('model'),
@@ -88,6 +92,7 @@ function AppContent() {
     [output, setOutput] = useState('');
   const [screen, setScreen] = useState('');
   const bot = state?.bots.find((item) => item.id === selected) || state?.bots[0];
+  const session = state?.workSessions?.find((item) => item.id === selectedSession && item.botId === bot?.id);
   useEffect(() => {
     previewWorkbench?.activate(
       page === 'chat'
@@ -99,12 +104,23 @@ function AppContent() {
         : undefined,
     );
   }, [page, bot?.id, group?.id, previewWorkbench?.activate]);
+  // Bots that can have work sessions: a designer's work happens in design tasks.
+  const sessionBots = useMemo(() => (state?.bots || []).filter((item) => item.type !== 'designer'), [state?.bots]);
   const menuBot = state?.bots.find((item) => item.id === botMenu?.id),
     deletingBot = state?.bots.find((item) => item.id === deletingId);
   // Derived from the parts of the state it reads, so a change elsewhere (the work computer, a setting) keeps it.
   const conversation = useMemo(
-    () => botConversation(state, bot),
-    [state?.messages, state?.runs, state?.interactions, state?.greetingBotIds, state?.botModels, state?.model, bot],
+    () => botConversation(state, bot, session?.id),
+    [
+      state?.messages,
+      state?.runs,
+      state?.interactions,
+      state?.greetingBotIds,
+      state?.botModels,
+      state?.model,
+      bot,
+      session?.id,
+    ],
   );
   const { messages, requests } = conversation;
   const anyRunning = state?.runs.some((run) => run.status === 'running') || false;
@@ -148,6 +164,7 @@ function AppContent() {
       await window.aelion.respondInteraction({ id: request.id, action: 'takeover' });
       setPeerPanel(undefined);
       setSelected(request.botId);
+      setSelectedSession(state?.runs.find((run) => run.id === request.runId)?.sessionId || '');
       computer.setComputerBotId(request.botId);
       setModal('computer');
     });
@@ -159,6 +176,7 @@ function AppContent() {
       setQuery('');
       setSelected(request.botId);
       setSelectedGroup(state?.runs.find((run) => run.id === request.runId)?.groupOrigin?.groupId || '');
+      setSelectedSession(state?.runs.find((run) => run.id === request.runId)?.sessionId || '');
       setBotMenu(undefined);
       setViewingRequest(request.id);
     });
@@ -203,7 +221,7 @@ function AppContent() {
     }
   }, [viewingRequest, bot?.id, modal]);
   const { messagesPane, follow, onMessagesScroll, followLive } = useMessageFollow({
-    botId: bot?.id,
+    botId: session ? 'session:' + session.id : bot?.id,
     group,
     messages,
     artifactCount: state?.artifacts.length,
@@ -240,6 +258,7 @@ function AppContent() {
   const chat = useBotChat({
     state,
     bot,
+    sessionId: session?.id,
     conversation,
     drafts,
     follow,
@@ -262,6 +281,12 @@ function AppContent() {
     if (!newMenu) profile.shuffleNewPalette();
     profile.startNew(state?.defaultModel?.reasoningEffort || '');
     setModal('new');
+  };
+  const openSession = (target: WorkSession) => {
+    setPage('chat');
+    setSelectedGroup('');
+    setSelected(target.botId);
+    setSelectedSession(target.id);
   };
   const editBot = (target: Bot) => {
     setBotMenu(undefined);
@@ -291,6 +316,7 @@ function AppContent() {
       const id = deletingBot.id;
       await window.aelion.deleteBot(id);
       drafts.remove(id);
+      for (const item of state?.workSessions || []) if (item.botId === id) drafts.remove('session:' + item.id);
       setScope((value) => (value === id ? '' : value));
       setDeletingId('');
       setModal(null);
@@ -320,6 +346,7 @@ function AppContent() {
             page={page}
             group={group}
             bot={bot}
+            session={session}
             query={query}
             onQuery={setQuery}
             avatarActivities={avatarActivities}
@@ -338,12 +365,27 @@ function AppContent() {
               setNewMenu(false);
               setGroupEditor('new');
             }}
+            onNewSession={
+              sessionBots.length
+                ? () => {
+                    setNewMenu(false);
+                    // The open Bot is chosen first; the dialog lets the user pick another.
+                    setSessionEditor({
+                      botId: sessionBots.some((item) => item.id === bot?.id) ? bot!.id : sessionBots[0].id,
+                      choose: true,
+                    });
+                  }
+                : undefined
+            }
             onOpenGroup={openGroup}
             onSelectBot={(id) => {
               setPage('chat');
               setSelectedGroup('');
+              setSelectedSession('');
               setSelected(id);
             }}
+            onSelectSession={openSession}
+            onSessionSettings={(item) => setSessionEditor({ botId: item.botId, sessionId: item.id })}
             onBotMenu={showBotMenu}
             onPlugins={() => openPlugins()}
             onSettings={openSettings}
@@ -362,7 +404,8 @@ function AppContent() {
             state={state}
             group={group}
             bot={bot}
-            visible={page === 'chat' && !modal && !peerPanel && !groupEditor && !taskModalOpen}
+            session={session}
+            visible={page === 'chat' && !modal && !peerPanel && !groupEditor && !taskModalOpen && !sessionEditor}
             busy={busy}
             vmReady={vmReady}
             avatarActivities={avatarActivities}
@@ -378,6 +421,7 @@ function AppContent() {
             onSwitch={(kind, id) => {
               setPage('chat');
               setSelectedGroup(kind === 'group' ? id : '');
+              setSelectedSession('');
               if (kind === 'bot') setSelected(id);
             }}
             onManageGroup={setGroupEditor}
@@ -393,11 +437,14 @@ function AppContent() {
             onTakeover={startTakeover}
             onOpenGroup={openGroup}
             onOpenPrivateChat={openPrivateChat}
+            onSessionSettings={(item) => setSessionEditor({ botId: item.botId, sessionId: item.id })}
+            onNewSession={(target) => setSessionEditor({ botId: target.id })}
           />
           {bot?.type !== 'designer' && (
             <ComputerDetails
               state={state}
               bot={bot}
+              session={session}
               group={group}
               computer={computer}
               expanded={modal === 'computer'}
@@ -447,6 +494,29 @@ function AppContent() {
               }}
             />
           )}
+          {sessionEditor && state.bots.some((item) => item.id === sessionEditor.botId) && (
+            <WorkSessionEditor
+              key={sessionEditor.sessionId || 'new:' + sessionEditor.botId}
+              bot={state.bots.find((item) => item.id === sessionEditor.botId)!}
+              bots={sessionEditor.choose ? sessionBots : undefined}
+              session={state.workSessions?.find((item) => item.id === sessionEditor.sessionId)}
+              workspaceDir={
+                sessionEditor.sessionId
+                  ? state.conversationWorkspaces?.['session:' + sessionEditor.sessionId]
+                  : undefined
+              }
+              onClose={() => setSessionEditor(undefined)}
+              onCreated={(item) => {
+                setSessionEditor(undefined);
+                openSession(item);
+              }}
+              onDeleted={(item) => {
+                setSessionEditor(undefined);
+                drafts.remove('session:' + item.id);
+                if (selectedSession === item.id) setSelectedSession('');
+              }}
+            />
+          )}
           <PeerNotifications view={state.peers} bots={state.bots} onView={openPrivateChat} />
           {peerPanel && (
             <PrivateChatWindow
@@ -473,6 +543,14 @@ function AppContent() {
                 setModal('delete-bot');
               }}
               onPrivateChats={() => openPrivateChat({ ownerId: menuBot.id })}
+              onNewSession={
+                menuBot.type !== 'designer'
+                  ? () => {
+                      setBotMenu(undefined);
+                      setSessionEditor({ botId: menuBot.id });
+                    }
+                  : undefined
+              }
               onClose={() => setBotMenu(undefined)}
             />
           )}

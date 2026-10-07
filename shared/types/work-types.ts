@@ -27,7 +27,9 @@ export interface WorkAction {
   id: string;
   action: 'start' | 'pause' | 'cancel';
 }
-export const workspaceKey = (scope: AttachmentScope) => `${scope.kind}:${scope.id}`;
+/** Where a conversation keeps its own settings: one key per chat, work session or group. */
+export const workspaceKey = (scope: AttachmentScope) =>
+  scope.sessionId ? `session:${scope.sessionId}` : `${scope.kind}:${scope.id}`;
 export const WORK_COMMANDS = [
   { name: 'plan' as const, label: '制定计划', description: '先规划，确认后执行' },
   { name: 'goal' as const, label: '执行目标', description: '持续工作，直到完成或遇到阻碍' },

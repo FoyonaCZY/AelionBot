@@ -9,6 +9,7 @@ import type { TaskScheduler } from '../scheduler/task-scheduler';
 import type { AgentPreviews } from '../preview/agent-previews';
 import type { VideoFrames } from '../preview/video-frames';
 import { AppError } from '../../../shared/errors';
+import { laneMatches, runLane } from './run-lanes';
 /** One dispatch boundary for private chat, groups, delegated work and schedules. */
 export class BotRuntime {
   private dispatching = new Set<string>();
@@ -25,11 +26,21 @@ export class BotRuntime {
   get busy() {
     return this.dispatching.size > 0 || this.general.busy || this.designer.busy;
   }
-  isRunning(id: string) {
-    return this.dispatching.has(id) || this.general.isRunning(id) || this.designer.isRunning(id);
+  /**
+   * Whether the Bot is working: in any of its chats (`sessionId` undefined), its main chat with its group and
+   * delegated work (null), or one work session.
+   */
+  isRunning(id: string, sessionId?: string | null) {
+    for (const lane of this.dispatching) if (laneMatches(lane, id, sessionId)) return true;
+    return this.general.isRunning(id, sessionId) || (sessionId ? false : this.designer.isRunning(id));
   }
   async run(id: string, input: string, options: HarnessRunOptions = {}) {
-    if (this.isRunning(id)) throw Error('这个 Bot 仍在工作，请等待或停止当前任务');
+    const resumedSession = options.resumeRunId
+      ? this.store.data.runs.find((r) => r.id === options.resumeRunId && r.botId === id)?.sessionId
+      : undefined;
+    const lane = runLane(id, options.sessionId ?? resumedSession);
+    if (this.isRunning(id, options.sessionId ?? resumedSession ?? null))
+      throw Error('这个 Bot 仍在工作，请等待或停止当前任务');
     const previousId = options.resumeRunId || options.groupTaskFrom;
     const previous = previousId
       ? this.store.data.runs.find((r) => r.id === previousId && r.botId === id)
@@ -40,11 +51,11 @@ export class BotRuntime {
     if (previous && (previous.engine || 'general') !== kind) throw Error('Bot 类型已改变，不能恢复旧类型的任务');
     if (options.designSessionId && kind !== 'designer') throw Error('通用 Bot 不能运行设计会话');
     if (kind === 'designer') this.beforeDesignerRun();
-    this.dispatching.add(id);
+    this.dispatching.add(lane);
     try {
       await (kind === 'designer' ? this.designer : this.general).run(id, input, options);
     } finally {
-      this.dispatching.delete(id);
+      this.dispatching.delete(lane);
     }
   }
   async resume(botId: string, runId: string) {
@@ -70,9 +81,10 @@ export class BotRuntime {
     });
   }
 
-  cancel(id: string) {
-    this.general.cancel(id);
-    this.designer.cancel(id);
+  /** Stops the Bot's work: everywhere, in its main chat (`sessionId` null) or in one work session. */
+  cancel(id: string, sessionId?: string | null) {
+    this.general.cancel(id, sessionId);
+    if (!sessionId) this.designer.cancel(id);
   }
   liveWork() {
     return this.general.liveWork();
@@ -80,8 +92,10 @@ export class BotRuntime {
   stopLiveWork(botId: string, kind: 'terminal' | 'process', id: string) {
     return this.general.stopLiveWork(botId, kind, id);
   }
-  refreshInput(id: string) {
-    return this.designer.isRunning(id) ? this.designer.refreshInput(id) : this.general.refreshInput(id);
+  refreshInput(id: string, sessionId?: string | null) {
+    return !sessionId && this.designer.isRunning(id)
+      ? this.designer.refreshInput(id)
+      : this.general.refreshInput(id, sessionId);
   }
   refreshGroup(id: string) {
     if (this.designer.isRunning(id)) this.designer.refreshGroup(id);

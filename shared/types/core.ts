@@ -54,6 +54,19 @@ export interface ProviderInput extends ModelParameters {
   baseUrl: string;
   apiKey?: string | null;
 }
+/**
+ * A work session: another chat with the same Bot for one piece of work or one project, with its own history,
+ * context, working folder, plans and permission mode. Long-term memory stays the Bot's, shared by all its chats.
+ */
+export interface WorkSession {
+  id: string;
+  botId: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  /** Hidden in the conversation list; its records are kept and it can be restored. */
+  archivedAt?: string;
+}
 export interface Bot {
   type?: import('./designer-types').BotType;
   contextResetAt?: string;
@@ -108,6 +121,8 @@ export interface StreamingReply {
   id: string;
   botId: string;
   runId?: string;
+  /** The work session it belongs to; absent in the Bot's main chat. */
+  sessionId?: string;
   content: string;
   time: string;
   main: boolean;
@@ -144,6 +159,8 @@ export interface ArtifactPreview {
 }
 export interface ChatMessage {
   designSessionId?: string;
+  /** The work session it belongs to; absent in the Bot's main chat. */
+  sessionId?: string;
   previewPrompt?: string;
   operationDenial?: import('../chat/operation-denial').OperationDenial;
   questionAnswer?: import('../chat/question-answers').QuestionAnswerData;
@@ -184,6 +201,8 @@ export interface RunRecord {
   engine?: import('./designer-types').BotType;
   engineVersion?: string;
   designSessionId?: string;
+  /** The work session it ran in; absent in the Bot's main chat. */
+  sessionId?: string;
   contextOverview?: import('../chat/context-overview').ContextOverview;
   modelRequest?: import('./model-request-status').ModelRequestStatus;
   resumedFromRunId?: string;
@@ -389,6 +408,7 @@ export interface Snapshot {
   modelUsage?: UsageRecord[];
   updates?: UpdateState;
   scheduledTasks?: ScheduledTask[];
+  workSessions?: WorkSession[];
   bots: Bot[];
   messages: ChatMessage[];
   runs: RunRecord[];
@@ -522,6 +542,8 @@ export interface AelionAPI {
   openDiagnosticIssue(id: string): Promise<void>;
   setHostPermissionMode(input: { scope: AttachmentScope; mode: HostPermissionMode }): Promise<void>;
   pickConversationWorkspace(scope: AttachmentScope): Promise<string | null>;
+  /** Asks for a folder without binding it to a conversation (for one being created). */
+  chooseFolder(): Promise<string | null>;
   resetConversationWorkspace(scope: AttachmentScope): Promise<void>;
   workAction(input: WorkAction): Promise<void>;
   updateState(): Promise<UpdateState>;
@@ -551,6 +573,7 @@ export interface AelionAPI {
   cancelLayaInstall(): Promise<void>;
   compactContext(input: {
     botId: string;
+    sessionId?: string;
     focus?: string;
   }): Promise<{ compacted: boolean; freedTokens: number; queued?: boolean; issue?: string }>;
   createScheduledTask(input: ScheduledTaskInput): Promise<ScheduledTask>;
@@ -568,10 +591,15 @@ export interface AelionAPI {
     reasoningEffort?: string | null;
   }): Promise<Bot>;
   deleteBot(id: string): Promise<void>;
+  createWorkSession(input: { botId: string; name: string; workspaceDir?: string }): Promise<WorkSession>;
+  updateWorkSession(input: { id: string; name?: string; archived?: boolean }): Promise<void>;
+  deleteWorkSession(id: string): Promise<void>;
   updateBot(input: BotUpdateInput): Promise<void>;
   send(input: {
     designSessionId?: string;
     botId: string;
+    /** A work session of this Bot; absent for its main chat. */
+    sessionId?: string;
     message: string;
     replyToMessageId?: string;
     mentions?: BotMention[];
@@ -597,7 +625,8 @@ export interface AelionAPI {
   markGroupRead(input: { id: string; seq: number }): Promise<void>;
   stopGroup(id: string): Promise<void>;
   continueGroup(id: string): Promise<void>;
-  cancel(botId: string): Promise<void>;
+  /** Stops a Bot's main chat (with its group and delegated work), or with `sessionId` one work session. */
+  cancel(botId: string, sessionId?: string): Promise<void>;
   stopLiveWork(input: { botId: string; kind: 'terminal' | 'process'; id: string }): Promise<void>;
   saveModel(input: { baseUrl: string; model: string; apiKey?: string; contextTokens: number }): Promise<void>;
   testModel(): Promise<string>;

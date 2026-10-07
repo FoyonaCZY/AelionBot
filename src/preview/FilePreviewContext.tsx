@@ -126,7 +126,7 @@ export function FilePreviewProvider({ children }: { children: ReactNode }) {
       !sender.current
     )
       return false;
-    await sender.current(input);
+    await sender.current({ ...input, scope });
     return true;
   }, []);
   const update = useCallback(

@@ -59,6 +59,7 @@ interface Persisted {
   fileCheckpoints?: FileCheckpoint[];
   processes?: BackgroundProcess[];
   workItems?: import('../../../shared/types/work-types').WorkItem[];
+  workSessions?: import('../../../shared/types/core').WorkSession[];
   conversationWorkspaces?: Record<string, string>;
   runtime?: RuntimeSettings;
   unlimitedTokenBudgetMigrated?: boolean;
@@ -193,6 +194,7 @@ export class Store {
     }
     this.data.imageGenerationRoutes ||= {};
     this.data.workItems ||= [];
+    this.data.workSessions ||= [];
     this.data.conversationWorkspaces ||= {};
     for (const item of this.data.workItems) {
       if (item.activeRunId || ['running', 'planning'].includes(item.status)) {
@@ -588,6 +590,40 @@ export class Store {
     if (statSync(file).size > 16 * 1024 * 1024) throw new Error('执行记录过大，无法预览');
     return JSON.parse(readFileSync(file, 'utf8'));
   }
+  /** Where a work session's model history is kept, beside each Bot's main history in `conversations`. */
+  static sessionHistoryKey(sessionId: string) {
+    return 'session:' + sessionId;
+  }
+  /** Removes what a work session keeps outside its messages and runs: history, summary, folder, permission mode. */
+  private forgetSession(data: Persisted, sessionId: string) {
+    const key = Store.sessionHistoryKey(sessionId);
+    delete data.conversations[key];
+    delete data.summaries[key];
+    delete data.contextOffsets[key];
+    delete data.conversationWorkspaces?.[key];
+    delete data.hostPermissionModes?.[key];
+  }
+  /** Deletes a work session with its messages, runs and plans. */
+  deleteWorkSession(id: string) {
+    const session = this.data.workSessions?.find((item) => item.id === id);
+    if (!session) throw new AppError('session.not_found', '工作会话不存在');
+    if (this.data.runs.some((run) => run.sessionId === id && run.status === 'running'))
+      throw new AppError('session.busy', '请先停止这个工作会话里的任务，再删除');
+    const next: Persisted = {
+      ...this.data,
+      workSessions: this.data.workSessions!.filter((item) => item.id !== id),
+      messages: this.data.messages.filter((message) => message.sessionId !== id),
+      runs: this.data.runs.filter((run) => run.sessionId !== id),
+      workItems: this.data.workItems?.filter((item) => item.scope.sessionId !== id),
+      conversations: { ...this.data.conversations },
+      summaries: { ...this.data.summaries },
+      contextOffsets: { ...this.data.contextOffsets },
+      conversationWorkspaces: { ...this.data.conversationWorkspaces },
+      hostPermissionModes: { ...this.data.hostPermissionModes },
+    };
+    this.forgetSession(next, id);
+    this.replaceData(next);
+  }
   deleteBot(id: string) {
     this.bot(id);
     if (this.data.runs.some((run) => run.botId === id && run.status === 'running'))
@@ -600,6 +636,7 @@ export class Store {
       pythonSessions: this.data.pythonSessions?.filter((item) => item.botId !== id),
       fileCheckpoints: this.data.fileCheckpoints?.filter((item) => item.botId !== id),
       workItems: this.data.workItems?.filter((item) => item.botId !== id),
+      workSessions: this.data.workSessions?.filter((session) => session.botId !== id),
       conversationWorkspaces: { ...this.data.conversationWorkspaces },
       bots: this.data.bots.filter((bot) => bot.id !== id),
       messages: this.data.messages.filter((message) => message.botId !== id),
@@ -625,6 +662,8 @@ export class Store {
     delete next.conversations[id];
     delete next.summaries[id];
     delete next.contextOffsets[id];
+    for (const session of this.data.workSessions?.filter((session) => session.botId === id) || [])
+      this.forgetSession(next, session.id);
     for (const group of this.data.groups) {
       const key = `group:${group.id}:${id}`;
       delete next.groupContexts[key];
@@ -679,7 +718,17 @@ export class Store {
     extra: Partial<ChatMessage> & { afterId?: string } = {},
   ) {
     const { afterId, ...fields } = extra;
-    const item: ChatMessage = { id: randomUUID(), botId, role, content, time: new Date().toISOString(), ...fields };
+    // Everything a run says belongs to the conversation it runs in.
+    const sessionId = fields.runId ? this.data.runs.find((run) => run.id === fields.runId)?.sessionId : undefined;
+    const item: ChatMessage = {
+      id: randomUUID(),
+      botId,
+      role,
+      content,
+      time: new Date().toISOString(),
+      ...(sessionId ? { sessionId } : {}),
+      ...fields,
+    };
     const privateRun =
       fields.runId && this.data.runs.some((run) => run.id === fields.runId && isPrivatePeerOrigin(run.peerOrigin));
     const groupRun = fields.runId && this.data.runs.some((run) => run.id === fields.runId && run.groupOrigin);

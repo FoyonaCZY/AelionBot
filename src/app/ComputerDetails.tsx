@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
-import type { Bot, Snapshot } from '../../shared/types/core';
+import type { Bot, Snapshot, WorkSession } from '../../shared/types/core';
 import type { GroupSummary } from '../../shared/types/group-types';
 import { ComputerPanel } from '../computer/ComputerPanel';
 import { setComputerCardOnline, setComputerCardOpen, useComputerCard } from '../computer/computer-card';
@@ -52,6 +52,7 @@ function useMessageBounds(card: RefObject<HTMLElement | null>, active: boolean) 
 export function ComputerDetails({
   state,
   bot,
+  session,
   group,
   computer,
   expanded,
@@ -64,6 +65,8 @@ export function ComputerDetails({
 }: {
   state: Snapshot;
   bot?: Bot;
+  /** The open work session of `bot`: the tasks shown are that session's. */
+  session?: WorkSession;
   group?: GroupSummary;
   computer: ReturnType<typeof useComputerControl>;
   expanded: boolean;
@@ -113,8 +116,14 @@ export function ComputerDetails({
         </div>
       )}
       <ScheduledTasks
-        target={group ? { kind: 'group', id: group.id } : bot ? { kind: 'bot', id: bot.id } : undefined}
-        targetName={group?.name || bot?.name || ''}
+        target={
+          group
+            ? { kind: 'group', id: group.id }
+            : bot
+              ? { kind: 'bot', id: bot.id, ...(session ? { sessionId: session.id } : {}) }
+              : undefined
+        }
+        targetName={group?.name || (bot && session ? `${bot.name} / ${session.name}` : bot?.name || '')}
         tasks={state.scheduledTasks || []}
         onError={onError}
         onModalChange={onTaskModalChange}
