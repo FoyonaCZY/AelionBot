@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { MessageReply } from '../../shared/chat/message-replies';
 import './message-replies.css';
+import { revealMessage } from './reveal-message';
 import { useI18n } from '../i18n';
 
 export function MessageQuote({ reply, onCancel }: { reply: MessageReply; onCancel?: () => void }) {
@@ -12,9 +13,11 @@ export function MessageQuote({ reply, onCancel }: { reply: MessageReply; onCance
     clearTimeout(timer.current);
     return () => clearTimeout(timer.current);
   }, [reply.messageId]);
-  const jump = () => {
-    const target = [...document.querySelectorAll<HTMLElement>('[data-message-id],[data-group-message-id]')].find(
-      (el) => el.dataset.messageId === reply.messageId || el.dataset.groupMessageId === reply.messageId,
+  const jump = async () => {
+    const target = await revealMessage(reply.messageId, () =>
+      [...document.querySelectorAll<HTMLElement>('[data-message-id],[data-group-message-id]')].find(
+        (el) => el.dataset.messageId === reply.messageId || el.dataset.groupMessageId === reply.messageId,
+      ),
     );
     if (!target) {
       setMissing(true);
@@ -33,7 +36,7 @@ export function MessageQuote({ reply, onCancel }: { reply: MessageReply; onCance
       <button
         type="button"
         className="message-quote-content"
-        onClick={jump}
+        onClick={() => void jump()}
         title={t('查看原消息')}
         aria-label={t('引用 {author} 的消息：{excerpt}', { author: reply.author, excerpt: reply.excerpt })}
       >

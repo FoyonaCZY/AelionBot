@@ -6,7 +6,7 @@ import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { Attachments, isHostAttachmentPath } from '../electron/core/attachments/attachments';
-import { firstDeliveryAttachments } from '../shared/types/attachment-types';
+import { firstDeliveries } from '../shared/types/attachment-types';
 import { ContentPolicyError } from '../electron/core/model/model-content-policy';
 import { ArtifactService } from '../electron/core/attachments/artifacts';
 import { Store } from '../electron/core/storage/store';
@@ -379,8 +379,10 @@ test('chat display keeps the first delivery of a repeated attachment', () => {
     { id: 'a', role: 'assistant', attachments: [file] },
     { id: 'b', role: 'assistant', attachments: [file] },
   ];
-  assert.equal(firstDeliveryAttachments(history[0], history)?.length, 1);
-  assert.deepEqual(firstDeliveryAttachments(history[1], history), []);
+  const shown = firstDeliveries(history);
+  assert.equal(shown.has(history[0]), false, 'the first delivery is shown as it is');
+  assert.deepEqual(shown.get(history[1])?.attachments, []);
+  assert.equal(firstDeliveries(history).get(history[1]), shown.get(history[1]), 'the same copy while nothing changed');
 });
 test('a group Bot can attach an actual output file to its final message', async (t) => {
   const fx = fixture(t, (run, messages) => {

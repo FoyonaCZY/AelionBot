@@ -8,6 +8,7 @@
     "electron/windows/preview-feedback-preload.ts",
     "electron/core/file-search-worker.ts",
     "electron/core/code-worker.ts",
+    "electron/core/context/token-worker.ts",
     "scripts/*.{mjs,ts}",
     "tests/*.test.ts"
   ],

@@ -4,16 +4,16 @@ import { useI18n } from '../i18n';
 import { Avatar } from '../ui/Avatar';
 export function GroupDecisionTrail({
   deliveries,
-  page,
+  laya,
   bots,
 }: {
   deliveries: GroupDelivery[];
-  page: GroupPage;
+  laya: GroupPage['laya'];
   bots: Bot[];
 }) {
   const { t } = useI18n();
-  if (!page.laya?.enabled) return null;
-  const decisions = new Map(page.laya.decisions.map((decision) => [decision.sourceId, decision]));
+  if (!laya?.enabled) return null;
+  const decisions = new Map(laya.decisions.map((decision) => [decision.sourceId, decision]));
   const entries = deliveries.flatMap((delivery) => {
     const bot = bots.find((item) => item.id === delivery.recipientId),
       decision = decisions.get(delivery.layaDecisionId || delivery.id);

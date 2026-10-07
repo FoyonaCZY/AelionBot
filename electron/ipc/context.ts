@@ -1,7 +1,7 @@
 import type { LayaFeature } from '../core/model/laya-feature';
 import type { BrowserWindow } from 'electron';
 import type { IpcHandler, IpcMethod } from '../../shared/ipc';
-import type { Snapshot } from '../../shared/types/core';
+import type { StateBase } from '../../shared/state-sync';
 import type { BotGreetings } from '../core/agent/bot-greetings';
 import type { BotRuntime } from '../core/agent/bot-runtime';
 import type { ChatPinQueue } from '../core/agent/chat-pins';
@@ -74,7 +74,7 @@ export interface IpcContext {
   previewDirty: boolean;
   previewWrites: number;
   appearanceDimmed: boolean;
-  snapshot(): Snapshot;
+  readState(): StateBase;
   changed(): void;
   beforeModelChange(botIds: string[]): void;
   afterModelChange(): void;

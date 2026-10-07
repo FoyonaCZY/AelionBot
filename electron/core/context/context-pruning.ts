@@ -3,10 +3,18 @@ import type { WireMessage } from '../../../shared/types/core';
 import type { CognitiveStore } from '../memory/cognitive-store';
 import { pruneToolOutputs, textTokens } from './context-budget';
 
-const source = (message: WireMessage) =>
-  createHash('sha256')
+// Every tool output of a conversation is looked up on each request; the hash is kept on the message, which is
+// replaced, not edited, when it changes.
+const sources = new WeakMap<WireMessage, { id: unknown; content: unknown; hash: string }>();
+const source = (message: WireMessage) => {
+  const known = sources.get(message);
+  if (known && known.id === message.tool_call_id && known.content === message.content) return known.hash;
+  const hash = createHash('sha256')
     .update(JSON.stringify([message.tool_call_id, message.content]))
     .digest('hex');
+  sources.set(message, { id: message.tool_call_id, content: message.content, hash });
+  return hash;
+};
 const MAX_ENTRIES = 4096,
   MAX_BYTES = 4 * 1024 * 1024;
 export class ContextPruning {

@@ -1,6 +1,6 @@
 import type { WireMessage } from '../../../shared/types/core';
 import type { CognitiveStore } from '../memory/cognitive-store';
-import { sourceHash } from './context-budget';
+import { historySourceHash, messageSourceHash, sourceHash } from './context-budget';
 
 interface Event {
   at: number;
@@ -57,8 +57,7 @@ export class ContextView {
     const { epoch, through, system, reference, history, controls } = input,
       systemHash = sourceHash([system]);
     const old = this.state;
-    const changedSource =
-      old && (history.length < old.length || sourceHash(history.slice(0, old.length)) !== old.source);
+    const changedSource = old && (history.length < old.length || historySourceHash(history, old.length) !== old.source);
     if (!old || old.epoch !== epoch || old.through !== through || old.system !== systemHash || changedSource) {
       if (old)
         this.changes.add(old.system !== systemHash ? 'system-change' : changedSource ? 'history-change' : 'compaction');
@@ -68,7 +67,7 @@ export class ContextView {
         system: systemHash,
         through,
         length: history.length,
-        source: sourceHash(history),
+        source: historySourceHash(history),
         reference: structuredClone(reference),
         latestReference: sourceHash(reference),
         controls: [],
@@ -95,7 +94,7 @@ export class ContextView {
     if (add.length) state.events.push({ at: history.length, messages: add });
     state.controls = next;
     state.length = history.length;
-    state.source = sourceHash(history);
+    state.source = historySourceHash(history);
     const events = new Map<number, WireMessage[]>();
     for (const event of state.events) {
       if (event.at >= through) events.set(event.at, [...(events.get(event.at) || []), ...event.messages]);
@@ -111,7 +110,7 @@ export class ContextView {
             new Map(
               message.images.map((image) => [
                 image.id,
-                `${through + index}:${sourceHash([history[through + index]])}:${image.id}`,
+                `${through + index}:${messageSourceHash(history[through + index])}:${image.id}`,
               ]),
             ),
           );

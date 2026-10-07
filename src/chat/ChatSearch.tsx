@@ -3,27 +3,24 @@ import type { ChatMessage } from '../../shared/types/core';
 import { searchMessages } from '../../shared/chat/activity';
 import { Icon } from '../ui/Icon';
 import { useI18n } from '../i18n';
-import { REVEAL_MESSAGE_EVENT } from './RunProcess';
+import { revealMessage } from './reveal-message';
 import './chat-search.css';
 
 const HIT_CLASS = 'is-search-hit';
 
-/** Scrolls a message into view, first asking a folded run process to open if the message is inside it. */
+/** Scrolls a message into view, first asking a folded run process or the timeline to render it. */
 function reveal(id: string) {
-  window.dispatchEvent(new CustomEvent(REVEAL_MESSAGE_EVENT, { detail: id }));
-  // The run process renders its steps on the next commit; wait a frame before looking the message up.
-  requestAnimationFrame(() =>
-    requestAnimationFrame(() => {
-      document.querySelectorAll('.' + HIT_CLASS).forEach((node) => node.classList.remove(HIT_CLASS));
-      const target = document.querySelector<HTMLElement>(`.messages [data-message-id="${CSS.escape(id)}"]`);
-      if (!target) return;
-      target.classList.add(HIT_CLASS);
-      target.scrollIntoView({
-        block: 'center',
-        behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-      });
-    }),
-  );
+  document.querySelectorAll('.' + HIT_CLASS).forEach((node) => node.classList.remove(HIT_CLASS));
+  void revealMessage(id, () =>
+    document.querySelector<HTMLElement>(`.messages [data-message-id="${CSS.escape(id)}"]`),
+  ).then((target) => {
+    if (!target) return;
+    target.classList.add(HIT_CLASS);
+    target.scrollIntoView({
+      block: 'center',
+      behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    });
+  });
 }
 
 /** Search in the selected conversation: Ctrl/Cmd+F opens it, Enter and Shift+Enter step through matches. */

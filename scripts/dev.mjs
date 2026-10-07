@@ -48,6 +48,15 @@ await build({
   format: 'cjs',
   target: 'node24',
 });
+await build({
+  entryPoints: ['electron/core/context/token-worker.ts'],
+  outfile: 'dist-electron/token-worker.cjs',
+  bundle: true,
+  platform: 'node',
+  format: 'cjs',
+  target: 'node24',
+  external: ['js-tiktoken'],
+});
 const server = await createServer({ server: { host: '127.0.0.1', port: 5173, strictPort: true } });
 await server.listen();
 const env = { ...process.env, AELION_DEV_URL: 'http://127.0.0.1:5173' };

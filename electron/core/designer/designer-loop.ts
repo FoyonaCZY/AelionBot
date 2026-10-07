@@ -307,6 +307,7 @@ export class DesignerLoop {
       for (const message of inputs) {
         message!.runId = run.id;
         message!.inputState = 'handled';
+        this.store.touch(message!);
         history.push({ role: 'user', ...this.attachments.wire(botId, chatInputText(message!), message!.attachments) });
       }
     } else if (!resumed) {
@@ -1278,6 +1279,7 @@ export class DesignerLoop {
           }
           if (delegated.size && this.peers?.waitResult) {
             visible.presentation = 'progress';
+            this.store.touch(visible);
             for (const exchangeId of delegated) {
               const reply = await this.peers.waitResult(botId, run.id, exchangeId, controller.signal);
               history.push({
@@ -1304,6 +1306,7 @@ export class DesignerLoop {
           if (receivedTask && !receivedTask.receipt) {
             if (corrections++ < 2) {
               visible.presentation = 'progress';
+              this.store.touch(visible);
               history.push({
                 role: 'system',
                 content:
@@ -1316,6 +1319,7 @@ export class DesignerLoop {
           if (session && mutated && !published) {
             if (corrections++ < 2) {
               visible.presentation = 'progress';
+              this.store.touch(visible);
               history.push({
                 role: 'system',
                 content:
@@ -1337,6 +1341,7 @@ export class DesignerLoop {
             if (open.length && corrections++ < 2) {
               polished = true;
               visible.presentation = 'progress';
+              this.store.touch(visible);
               history.push({
                 role: 'system',
                 content:
@@ -1351,6 +1356,7 @@ export class DesignerLoop {
           if (toolkit.pending?.().length) {
             if (corrections++ < 2) {
               visible.presentation = 'progress';
+              this.store.touch(visible);
               history.push({
                 role: 'system',
                 content:
@@ -1365,6 +1371,7 @@ export class DesignerLoop {
           if (localFailures.size) {
             if (corrections++ < 2) {
               visible.presentation = 'progress';
+              this.store.touch(visible);
               history.push({
                 role: 'system',
                 content:
@@ -1379,6 +1386,7 @@ export class DesignerLoop {
           if (ledger.failureMap(botId, run.id).size) {
             if (corrections++ < 2) {
               visible.presentation = 'progress';
+              this.store.touch(visible);
               history.push({
                 role: 'system',
                 content:
@@ -1393,6 +1401,7 @@ export class DesignerLoop {
           const groupNote = options.groupOrigin && this.groups?.beforeFinal?.(botId, run.id, result.content.trim());
           if (groupNote) {
             visible.presentation = 'progress';
+            this.store.touch(visible);
             history.push({ role: 'system', content: groupNote });
             continue;
           }
@@ -1404,6 +1413,7 @@ export class DesignerLoop {
             visible.mentions = formatted.mentions;
           }
           visible.attachments = run.attachments;
+          this.store.touch(visible);
           run.status = 'completed';
           if (session) session.status = published ? 'review' : session.artifacts.length ? 'review' : 'awaiting-input';
           break;
@@ -1522,6 +1532,7 @@ export class DesignerLoop {
     } finally {
       if (timer) clearTimeout(timer);
       run.endedAt = new Date().toISOString();
+      this.store.touch(run);
       if (session?.activeRunId === run.id) {
         delete session.activeRunId;
         this.designs.touch(session);

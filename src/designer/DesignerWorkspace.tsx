@@ -19,7 +19,9 @@ import { Icon } from '../ui/Icon';
 import { Message } from '../ui/Message';
 import { ipcErrorText } from '../ui/ipc-error';
 import { PreviewPicker, previewMenuVisibility } from '../preview/PreviewPicker';
-import { BotComposer, type ComposerDraft } from '../chat/BotComposer';
+import { DraftComposer } from '../chat/DraftComposer';
+import { createDrafts } from '../app/use-drafts';
+import { useStreamingReplies } from '../app/streams';
 import { workspaceKey } from '../../shared/types/work-types';
 import { usePreviewWorkbench } from '../preview/PreviewWorkbench';
 import { useFilePreview } from '../preview/FilePreviewContext';
@@ -37,7 +39,8 @@ import './designer-preview.css';
 import './designer-studio.css';
 import './designer-layout.css';
 import './designer-delivery.css';
-const designerDrafts = new Map<string, Record<string, ComposerDraft>>();
+// Kept across remounts, like a conversation's drafts in the app; keyed by bot, context reset, workspace and task.
+const designerDrafts = createDrafts();
 type StudioLayout = 'chat' | 'split' | 'canvas';
 const LAYOUT_KEY = 'aelion-designer-layout',
   WIDTH_KEY = 'aelion-designer-chat-width';
@@ -133,7 +136,6 @@ export function DesignerWorkspace({
     [fontTarget, setFontTarget] = useState<string>(),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
-    [drafts, setDrafts] = useState<Record<string, ComposerDraft>>(() => designerDrafts.get(draftCacheKey) || {}),
     [workspaceFiles, setWorkspaceFiles] = useState<DesignWorkspaceFile[]>([]),
     [layout, setLayout] = useState<StudioLayout>(() =>
       stored(LAYOUT_KEY, (v) => (v === 'chat' || v === 'canvas' ? v : 'split')),
@@ -166,7 +168,7 @@ export function DesignerWorkspace({
   }, [layout, activeId]);
   const task = sessions.find((s) => s.id === activeId),
     key = task?.id || 'new',
-    draft = drafts[key] || { text: '', mentions: [] },
+    draftKey = draftCacheKey + ':' + key,
     systems = state.designer?.systems || [],
     system = systems.find((s) => s.id === (task ? task.systemId : systemId));
   const conversationScroll = useConversationBottom(bot.id + ':' + key);
@@ -198,9 +200,6 @@ export function DesignerWorkspace({
   useEffect(() => {
     setActiveId(initialSessionId || lastDesign(bot.id));
   }, [bot.id, initialSessionId]);
-  useEffect(() => {
-    designerDrafts.set(draftCacheKey, drafts);
-  }, [draftCacheKey, drafts]);
   useEffect(() => {
     if (!initialSessionId)
       try {
@@ -350,6 +349,7 @@ export function DesignerWorkspace({
       );
   };
   const send = async () => {
+    const draft = designerDrafts.get(draftKey);
     if (!draft.text.trim() && !draft.attachments?.length) return;
     conversationScroll.followLatest();
     if (task) {
@@ -380,7 +380,7 @@ export function DesignerWorkspace({
         attachmentIds: draft.attachments?.map((a) => a.id),
       });
     }
-    setDrafts((old) => ({ ...old, [key]: { text: '', mentions: [] } }));
+    designerDrafts.set(draftKey, { text: '', mentions: [] });
   };
   const systemLocked = running || Boolean(task?.activeRunId) || busy;
   useEffect(() => {
@@ -455,11 +455,15 @@ export function DesignerWorkspace({
     await window.aelion.resumeChat({ botId: bot.id, runId: lastRun.id });
   };
   const activeRun = taskRuns.find((r) => r.status === 'running'),
-    live = activeRun
-      ? (state.streamingReplies || []).filter(
-          (r) => r.botId === bot.id && r.runId === activeRun.id && r.main && !r.groupId && !r.peerThreadId,
-        )
-      : [];
+    live = useStreamingReplies(
+      'run:' + (activeRun?.id || ''),
+      (r) =>
+        Boolean(activeRun && r.main) &&
+        r.botId === bot.id &&
+        r.runId === activeRun?.id &&
+        !r.groupId &&
+        !r.peerThreadId,
+    );
   const currentRequest = activeRun ? requests.find((r) => r.runId === activeRun.id) : undefined;
   const visible = task ? designConversationMessages(state.messages, state.runs, bot.id, task.id, task.runIds) : [];
   const latestReply = [...designMessageTimeline(visible, live)]
@@ -587,7 +591,9 @@ export function DesignerWorkspace({
             ))}
           </div>
           <div className="designer-home-composer">
-            <BotComposer
+            <DraftComposer
+              drafts={designerDrafts}
+              draftKey={draftKey}
               placeholder={t('输入设计需求…')}
               permissionMode={permissionMode}
               fixedDesignWorkspace
@@ -596,8 +602,6 @@ export function DesignerWorkspace({
               contextControl={<>{systemControl}</>}
               bot={bot}
               bots={state.bots}
-              draft={draft}
-              onChange={(v) => setDrafts((old) => ({ ...old, [key]: v }))}
               running={running}
               onSend={() => {
                 if (!busy) void act(send);
@@ -743,7 +747,9 @@ export function DesignerWorkspace({
                 ) : (
                   <>
                     <ConversationInteractions requests={requests} botId={bot.id} onTakeover={onTakeover} />
-                    <BotComposer
+                    <DraftComposer
+                      drafts={designerDrafts}
+                      draftKey={draftKey}
                       placeholder={t('输入修改意见…')}
                       permissionMode={permissionMode}
                       fixedDesignWorkspace
@@ -755,9 +761,7 @@ export function DesignerWorkspace({
                         kind: task.origin.kind === 'group' ? 'group' : 'bot',
                         id: task.origin.kind === 'group' ? task.origin.id : bot.id,
                       }}
-                      draft={draft}
                       running={running}
-                      onChange={(v) => setDrafts((old) => ({ ...old, [key]: v }))}
                       onSend={() => {
                         if (!busy) void act(send);
                       }}

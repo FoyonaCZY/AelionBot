@@ -4,7 +4,6 @@ import type { BotMention } from '../../shared/types/core';
 import { mentionMarkdown, validMentions } from '../../shared/chat/mentions';
 import Markdown from '../chat/MessageMarkdown';
 import { MessageLink } from '../chat/MessageLink';
-import { sameMentions } from '../chat/render-equality';
 import { Avatar } from './Avatar';
 
 function MentionTag({ mention }: { mention: BotMention }) {
@@ -15,11 +14,14 @@ function MentionTag({ mention }: { mention: BotMention }) {
   );
 }
 type MentionContentProps = { content: string; mentions?: BotMention[]; markdown?: boolean };
-// Every snapshot delivers fresh message objects; compare by value so unchanged text is not parsed again.
+// Live replies and display copies carry equal mentions in new arrays. Mentions are a few small objects, so compare
+// their text; the content they annotate is compared as a string, and unchanged text is not parsed again.
 export const MentionContent = memo(
   MentionContentView,
   (a: MentionContentProps, b: MentionContentProps) =>
-    a.content === b.content && a.markdown === b.markdown && sameMentions(a.mentions, b.mentions),
+    a.content === b.content &&
+    a.markdown === b.markdown &&
+    (a.mentions === b.mentions || JSON.stringify(a.mentions || []) === JSON.stringify(b.mentions || [])),
 );
 function MentionContentView({ content, mentions = [], markdown = false }: MentionContentProps) {
   const prepared = useMemo(

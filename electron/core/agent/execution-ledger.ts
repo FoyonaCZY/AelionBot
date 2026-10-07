@@ -181,6 +181,7 @@ export class ExecutionLedger {
     entry.resultId = resultId;
     entry.endedAt = new Date().toISOString();
     if (status === 'failed' || status === 'unknown') entry.error = redactHost(JSON.stringify(output)).slice(0, 1400);
+    this.touchRun(entry);
     if (status === 'succeeded') {
       const task = this.forTask(entry.botId, entry.runId);
       // A failed edit is settled once every file it targeted was later written successfully,
@@ -328,11 +329,20 @@ export class ExecutionLedger {
   }
   private resolveEntry(entry: ToolExecution, kind: 'resolved' | 'unnecessary', reason: string, evidenceIds: string[]) {
     entry.resolution = { kind, reason, evidenceIds, at: new Date().toISOString() };
+    this.touchRun(entry);
     for (const message of [
       ...this.store.data.messages,
       ...this.store.data.peerMessages,
       ...this.store.data.groupRunMessages,
     ])
-      if (message.botId === entry.botId && message.executionId === entry.id) message.executionResolved = true;
+      if (message.botId === entry.botId && message.executionId === entry.id) {
+        message.executionResolved = true;
+        this.store.touch(message);
+      }
+  }
+  /** Executions live in their run, which may have finished (a task can span runs): it changed in place. */
+  private touchRun(entry: ToolExecution) {
+    const run = this.store.data.runs.find((item) => item.executions?.includes(entry));
+    if (run) this.store.touch(run);
   }
 }

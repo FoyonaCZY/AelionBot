@@ -8,13 +8,13 @@ import { MentionContent } from '../ui/MentionContent';
 import { MessageReasoning, useReasoningDisplay } from './MessageReasoning';
 import { ToolDetails } from './ToolDetails';
 import { useI18n } from '../i18n';
-import { sameSteps } from './render-equality';
+import { shallowEqual } from '../ui/equality';
+import { REVEAL_MESSAGE_EVENT } from './reveal-message';
 import './run-process.css';
 
 /** Steps kept visible while a run is working and the list is not expanded. */
 const LIVE_TAIL = 3;
 /** Fired by chat search so a folded run opens before the view scrolls to one of its messages. */
-export const REVEAL_MESSAGE_EVENT = 'aelion-reveal-message';
 
 const diffCounts = (diff: NonNullable<ChatMessage['diff']>) => ({
   added: diff.files.reduce((sum, file) => sum + file.added, 0),
@@ -122,7 +122,10 @@ type RunProcessProps = { steps: RunStep[]; running: boolean; durationMs?: number
 export const RunProcess = memo(
   RunProcessView,
   (a: RunProcessProps, b: RunProcessProps) =>
-    a.running === b.running && a.durationMs === b.durationMs && sameSteps(a.steps, b.steps),
+    a.running === b.running &&
+    a.durationMs === b.durationMs &&
+    a.steps.length === b.steps.length &&
+    a.steps.every((step, index) => shallowEqual(step, b.steps[index])),
 );
 function RunProcessView({ steps: allSteps, running, durationMs }: RunProcessProps) {
   const { t } = useI18n();

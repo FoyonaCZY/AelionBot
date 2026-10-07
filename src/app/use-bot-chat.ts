@@ -24,7 +24,6 @@ export function useBotChat(input: {
   const { t } = useI18n(),
     previewWorkbench = usePreviewWorkbench();
   const sending = useRef(new Set<string>());
-  const draft = drafts.get(bot?.id || '');
   const replyTo = (message: ChatMessage) => {
     const owner = state?.bots.find((bot) => bot.id === message.botId);
     if (!owner) return;
@@ -41,6 +40,8 @@ export function useBotChat(input: {
     }));
   };
   const send = async () => {
+    // Read when sending: the draft changes on every keystroke and is not part of this hook's render.
+    const draft = drafts.get(bot?.id || '');
     if (!bot || sending.current.has(bot.id) || (!draft.text.trim() && !draft.attachments?.length)) return;
     if (draft.text.length > 32000) {
       onError(t('消息过长，请分段发送'));
@@ -95,5 +96,5 @@ export function useBotChat(input: {
       .resumeChat({ botId: bot.id, runId: latestRun.id })
       .catch((error) => onError(ipcErrorText(error)));
   };
-  return { draft, send, replyTo, continueWork };
+  return { send, replyTo, continueWork };
 }

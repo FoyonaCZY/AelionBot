@@ -84,6 +84,15 @@ await build({
   target: 'node24',
 });
 await build({
+  entryPoints: ['./electron/core/context/token-worker.ts'],
+  outfile: 'dist-electron/token-worker.cjs',
+  bundle: true,
+  platform: 'node',
+  format: 'cjs',
+  target: 'node24',
+  external: ['js-tiktoken'],
+});
+await build({
   entryPoints: ['./electron/core/code-worker.ts'],
   outfile: 'dist-electron/code-worker.cjs',
   bundle: true,

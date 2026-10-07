@@ -37,47 +37,108 @@ function shape(item: ArtShape) {
   return d ? `<path d="${d}" ${paint}/>` : '';
 }
 const shapes = (items: ArtShape[] = []) => items.map(shape).join('');
-const props = (items: ArtProp[] = [], layer: 'back' | 'front') =>
-  items
-    .filter((item) => (item.layer || 'front') === layer)
-    .map(
-      (item) =>
-        `<g class="avatar-prop${item.busyOnly ? ' avatar-prop-busy' : ''}" data-motion="${item.motion}" style="transform-origin:${num(item.origin[0])}px ${num(item.origin[1])}px">${shapes(item.shapes)}</g>`,
-    )
-    .join('');
+const props = (items: ArtProp[] = []): AvatarProp[] =>
+  items.map((item) => ({
+    layer: item.layer || 'front',
+    motion: item.motion,
+    origin: item.origin,
+    busyOnly: Boolean(item.busyOnly),
+    markup: shapes(item.shapes),
+  }));
+const halo = (color: string) =>
+  `cx="30" cy="30" r="28.2" fill="none" stroke="${color}" stroke-width="1.4" stroke-dasharray="22 155" stroke-linecap="round"`;
 
-function characterContent(art: CharacterArt, color: string, id: string) {
+/** A prop drawn with the character, moved by its own animation around `origin` (avatar units, 0–60). */
+export interface AvatarProp {
+  layer: 'back' | 'front';
+  motion: ArtProp['motion'];
+  origin: [number, number];
+  busyOnly: boolean;
+  markup: string;
+}
+/**
+ * An avatar as the parts that move on their own, each SVG markup in the 60×60 avatar box. Drawn back to front: halo,
+ * then the body (back, back props, face, eyes, front, front props). `defs` holds what the face refers to by id.
+ */
+export interface AvatarLayers {
+  defs: string;
+  /** Attributes of the halo circle. */
+  halo: string;
+  character: boolean;
+  back: string;
+  props: AvatarProp[];
+  face: string;
+  /** Each eye with its centre, the origin of its blink. */
+  eyes: { x: number; y: number; markup: string }[];
+  front: string;
+}
+
+function characterLayers(art: CharacterArt, color: string, id: string): AvatarLayers {
   const clip = `${id}-face`,
     scale = art.eyeScale ?? 1,
     eye = hex(art.eye, '#2b2730'),
     eyeStroke = art.eyeStroke ? ` stroke="${hex(art.eyeStroke[0])}" stroke-width="${num(art.eyeStroke[1])}"` : '',
     blush = art.blush === null ? '' : hex(art.blush, '#f2a3a3');
-  const eyes = EYES.map(
-    ([x, y]) =>
-      `<g class="avatar-eye"><ellipse cx="${x}" cy="${y}" rx="${num(2.5 * scale)}" ry="${num(5 * scale)}" fill="${eye}"${eyeStroke} transform="rotate(-14 ${x} ${y})"/></g>`,
-  ).join('');
   const cheeks = blush
     ? `<g class="avatar-blush"><ellipse cx="17.5" cy="35.5" rx="3.3" ry="1.8" fill="${blush}" opacity="0.75" transform="rotate(-8 17.5 35.5)"/><ellipse cx="42.5" cy="32.5" rx="3.3" ry="1.8" fill="${blush}" opacity="0.75" transform="rotate(-8 42.5 32.5)"/></g>`
     : '';
   const detail = art.detail?.length ? `<g clip-path="url(#${clip})">${shapes(art.detail)}</g>` : '';
-  return `<defs><clipPath id="${clip}"><path d="${BOT_AVATAR_PATH}"/></clipPath></defs><circle class="avatar-halo" cx="30" cy="30" r="28.2" fill="none" stroke="${color}" stroke-width="1.4" stroke-dasharray="22 155" stroke-linecap="round"/><g class="avatar-body avatar-character">${shapes(art.back)}${props(art.props, 'back')}<path d="${BOT_AVATAR_PATH}" fill="${hex(art.face, '#fbece1')}"/>${detail}${cheeks}<g class="avatar-gaze">${eyes}</g>${shapes(art.front)}${props(art.props, 'front')}</g>`;
+  return {
+    defs: `<defs><clipPath id="${clip}"><path d="${BOT_AVATAR_PATH}"/></clipPath></defs>`,
+    halo: halo(color),
+    character: true,
+    back: shapes(art.back),
+    props: props(art.props),
+    face: `<path d="${BOT_AVATAR_PATH}" fill="${hex(art.face, '#fbece1')}"/>${detail}${cheeks}`,
+    eyes: EYES.map(([x, y]) => ({
+      x,
+      y,
+      markup: `<ellipse cx="${x}" cy="${y}" rx="${num(2.5 * scale)}" ry="${num(5 * scale)}" fill="${eye}"${eyeStroke} transform="rotate(-14 ${x} ${y})"/>`,
+    })),
+    front: shapes(art.front),
+  };
 }
 
 // Only validated hex colors, fixed geometry and sanitized IDs enter SVG markup.
-export function botAvatarContent(value: BotPalette, prefix: string) {
+export function botAvatarLayers(value: BotPalette, prefix: string): AvatarLayers {
   const { color, avatarStyle: style } = displayBotPalette(value),
     id = prefix.replace(/[^a-z\d_-]/gi, '') || 'avatar';
   if (style?.kind === 'character') {
     const art = CHARACTER_ART[style.character];
-    if (art) return characterContent(art, color, id);
+    if (art) return characterLayers(art, color, id);
   }
   const paint = style?.kind === 'character' ? undefined : style,
     gradient = `${id}-paint`,
     clip = `${id}-clip`;
-  const defs = paint
-    ? `<defs>${paint.kind === 'gradient' ? `<linearGradient id="${gradient}" x1="10%" y1="0%" x2="${paint.direction === 'vertical' ? '45%' : '100%'}" y2="100%"><stop offset="0%" stop-color="${color}"/><stop offset="100%" stop-color="${paint.secondary}"/></linearGradient>` : `<clipPath id="${clip}"><path d="${BOT_AVATAR_PATH}"/></clipPath>`}</defs>`
-    : '';
-  return `${defs}<circle class="avatar-halo" cx="30" cy="30" r="28.2" fill="none" stroke="${color}" stroke-width="1.4" stroke-dasharray="22 155" stroke-linecap="round"/><g class="avatar-body"><path d="${BOT_AVATAR_PATH}" fill="${paint?.kind === 'gradient' ? `url(#${gradient})` : color}"/>${paint?.kind === 'split' ? `<path d="${splitPaths[paint.pattern]}" fill="${paint.secondary}" clip-path="url(#${clip})"/>` : ''}<g class="avatar-gaze"><g class="avatar-eye"><ellipse cx="24" cy="26" rx="2.5" ry="5" fill="white" transform="rotate(-14 24 26)"/></g><g class="avatar-eye"><ellipse cx="36" cy="24" rx="2.5" ry="5" fill="white" transform="rotate(-14 36 24)"/></g></g></g>`;
+  return {
+    defs: paint
+      ? `<defs>${paint.kind === 'gradient' ? `<linearGradient id="${gradient}" x1="10%" y1="0%" x2="${paint.direction === 'vertical' ? '45%' : '100%'}" y2="100%"><stop offset="0%" stop-color="${color}"/><stop offset="100%" stop-color="${paint.secondary}"/></linearGradient>` : `<clipPath id="${clip}"><path d="${BOT_AVATAR_PATH}"/></clipPath>`}</defs>`
+      : '',
+    halo: halo(color),
+    character: false,
+    back: '',
+    props: [],
+    face: `<path d="${BOT_AVATAR_PATH}" fill="${paint?.kind === 'gradient' ? `url(#${gradient})` : color}"/>${paint?.kind === 'split' ? `<path d="${splitPaths[paint.pattern]}" fill="${paint.secondary}" clip-path="url(#${clip})"/>` : ''}`,
+    eyes: EYES.map(([x, y]) => ({
+      x,
+      y,
+      markup: `<ellipse cx="${x}" cy="${y}" rx="2.5" ry="5" fill="white" transform="rotate(-14 ${x} ${y})"/>`,
+    })),
+    front: '',
+  };
+}
+/** The avatar as the content of one <svg viewBox="0 0 60 60">, with the same parts as groups. */
+export function botAvatarContent(value: BotPalette, prefix: string) {
+  const layers = botAvatarLayers(value, prefix);
+  const prop = (item: AvatarProp) =>
+    `<g class="avatar-prop${item.busyOnly ? ' avatar-prop-busy' : ''}" data-motion="${item.motion}" style="transform-origin:${num(item.origin[0])}px ${num(item.origin[1])}px">${item.markup}</g>`;
+  const propsOn = (layer: AvatarProp['layer']) =>
+    layers.props
+      .filter((item) => item.layer === layer)
+      .map(prop)
+      .join('');
+  const eyes = layers.eyes.map((eye) => `<g class="avatar-eye">${eye.markup}</g>`).join('');
+  return `${layers.defs}<circle class="avatar-halo" ${layers.halo}/><g class="avatar-body${layers.character ? ' avatar-character' : ''}">${layers.back}${propsOn('back')}${layers.face}<g class="avatar-gaze">${eyes}</g>${layers.front}${propsOn('front')}</g>`;
 }
 export function botAvatarDataUrl(value: BotPalette) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><style>.avatar-halo{opacity:0}.avatar-prop-busy{opacity:0}</style>${botAvatarContent(value, 'bot')}</svg>`;

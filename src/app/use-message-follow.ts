@@ -12,9 +12,8 @@ export function useMessageFollow(input: {
   group?: GroupSummary;
   messages: ChatMessage[];
   artifactCount?: number;
-  liveSignature: string;
 }) {
-  const { botId, group, messages, artifactCount, liveSignature } = input;
+  const { botId, group, messages, artifactCount } = input;
   const messagesPane = useRef<HTMLElement>(null),
     follow = useRef(true),
     stickLock = useRef(0),
@@ -58,7 +57,7 @@ export function useMessageFollow(input: {
   }, [botId, group?.id]);
   useLayoutEffect(() => {
     if (!group && follow.current) stickToBottom();
-  }, [group, messages.length, messages.at(-1)?.content, artifactCount, liveSignature]);
+  }, [group, messages.length, messages.at(-1)?.content, artifactCount]);
   useLayoutEffect(() => {
     const pane = messagesPane.current;
     if (!pane || group) return;
@@ -81,5 +80,9 @@ export function useMessageFollow(input: {
       window.removeEventListener('resize', onResize);
     };
   }, [botId, group?.id]);
-  return { messagesPane, follow, onMessagesScroll };
+  /** Keeps a pinned view at the end as live replies grow; called by the component that shows them. */
+  const followLive = () => {
+    if (!group && follow.current) stickToBottom();
+  };
+  return { messagesPane, follow, onMessagesScroll, followLive };
 }

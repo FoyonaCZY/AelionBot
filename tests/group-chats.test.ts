@@ -1577,6 +1577,7 @@ test('a private input that supersedes group work does not inherit the group plan
   await until(fx.settled);
   const previous = fx.store.data.runs.find((r) => r.botId === fx.a.id)!;
   previous.workItemId = 'group-plan';
+  fx.store.touch(previous);
   fx.store.data.workItems!.push({
     id: 'group-plan',
     botId: fx.a.id,

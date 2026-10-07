@@ -1,3 +1,4 @@
+import type { AppEvent, StateBase } from '../state-sync';
 import type { MessageReply } from '../chat/message-replies';
 import type { ModelParameters, NativeAssistant } from './model-types';
 import type { HostPermissionMode, HostApprovalView } from './permission-types';
@@ -396,7 +397,6 @@ export interface Snapshot {
   defaultModel?: ModelSelection;
   approvalModel?: ModelSelection;
   botModels?: Record<string, ModelConfig>;
-  streamingReplies?: StreamingReply[];
   vm: VmState;
   skills: Skill[];
   artifacts: Artifact[];
@@ -413,7 +413,6 @@ export interface Snapshot {
   hostWorkspace?: HostWorkspaceSettings;
   liveWork?: import('../chat/live-work').LiveWorkItem[];
 }
-type AppEvent = { type: 'state'; snapshot: Snapshot } | { type: 'streams'; streamingReplies: StreamingReply[] };
 export interface CommandResult {
   stdout: string;
   stderr: string;
@@ -544,7 +543,7 @@ export interface AelionAPI {
   importAttachments(input: { scope: AttachmentScope; files: AttachmentUpload[] }): Promise<Attachment[]>;
   previewAttachment(id: string): Promise<ArtifactPreview>;
   saveAttachment(id: string): Promise<string | null>;
-  snapshot(): Promise<Snapshot>;
+  readState(): Promise<StateBase>;
   saveRuntimeSettings(settings: RuntimeSettings): Promise<void>;
   installLaya(): Promise<void>;
   selectLaya(variant: import('./laya-types').LayaVariant): Promise<void>;

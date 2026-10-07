@@ -33,7 +33,9 @@ export function ConversationPane({
   groupDrafts,
   files,
   messagesPane,
+  follow,
   onMessagesScroll,
+  followLive,
   onSwitch,
   onManageGroup,
   onProfile,
@@ -59,7 +61,9 @@ export function ConversationPane({
   groupDrafts: Drafts;
   files: ReturnType<typeof useFileActions>;
   messagesPane: RefObject<HTMLElement | null>;
+  follow: RefObject<boolean>;
   onMessagesScroll: (pane: HTMLElement) => void;
+  followLive: () => void;
   onSwitch: (kind: string, id: string) => void;
   onManageGroup: (id: string) => void;
   onProfile: (bot: Bot) => void;
@@ -98,8 +102,7 @@ export function ConversationPane({
           group={group}
           state={state}
           avatarActivities={avatarActivities}
-          draft={groupDrafts.get(group.id)}
-          onDraft={(draft) => groupDrafts.set(group.id, draft)}
+          drafts={groupDrafts}
           onManage={() => onManageGroup(group.id)}
           onTakeover={onTakeover}
           onOpenFile={(file) => void files.openPreview(file)}
@@ -127,12 +130,13 @@ export function ConversationPane({
             bot={bot}
             state={state}
             conversation={conversation}
-            draft={chat.draft}
+            drafts={drafts}
             busy={busy}
             vmReady={vmReady}
             messagesPane={messagesPane}
+            follow={follow}
             onMessagesScroll={onMessagesScroll}
-            onDraft={(draft) => drafts.set(bot.id, draft)}
+            followLive={followLive}
             onSend={() => void chat.send()}
             onReply={chat.replyTo}
             onContinue={chat.continueWork}

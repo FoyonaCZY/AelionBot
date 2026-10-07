@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { lineDiff, toolDiff } from '../shared/chat/tool-diff';
-import { sameMessage } from '../src/chat/render-equality';
 
 const ops = (lines: Array<{ op: string; text: string }>) => lines.map((line) => line.op + line.text);
 
@@ -76,12 +75,4 @@ test('large diffs keep exact counts but a bounded number of lines, and pass text
   )!;
   assert.equal(redacted.files[0].path, '~\\a.env');
   assert.ok(redacted.files[0].lines.every((line) => !line.text.includes('sk-')));
-});
-
-test('render equality notices a diff appearing without serializing it', () => {
-  const base = { id: 'm', botId: 'b', role: 'tool' as const, content: '{}', time: 't', status: 'done' as const };
-  const diff = toolDiff('host_file_patch', { path: 'a', oldText: 'a', newText: 'b' })!;
-  assert.equal(sameMessage(base, { ...base }), true);
-  assert.equal(sameMessage(base, { ...base, diff }), false);
-  assert.equal(sameMessage({ ...base, diff }, { ...base, diff: structuredClone(diff) }), true);
 });

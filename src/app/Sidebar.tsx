@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { Bot, Snapshot } from '../../shared/types/core';
 import type { GroupSummary } from '../../shared/types/group-types';
 import type { BotPalette } from '../../shared/chat/bot-colors';
@@ -56,7 +57,11 @@ export function Sidebar({
 }) {
   const { t } = useI18n();
   const requests = state.interactions || [];
-  const rows = conversationRows(state.bots, state.messages, state.groups?.rooms || [], state.runs);
+  // Scans every message: recomputed only when the bots, messages, runs or groups changed.
+  const rows = useMemo(
+    () => conversationRows(state.bots, state.messages, state.groups?.rooms || [], state.runs),
+    [state.bots, state.messages, state.groups?.rooms, state.runs],
+  );
   return (
     <aside className="sidebar">
       <div className="sidebar-top drag">

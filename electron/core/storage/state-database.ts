@@ -1,5 +1,6 @@
 import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import { join } from 'node:path';
+import { isLiveEntry as live } from '../../../shared/state-sync';
 const collections = new Set([
   'messages',
   'runs',
@@ -54,16 +55,6 @@ interface Part {
   /** Collections only: positions that were running when written; they are serialized once more after they finish. */
   live?: Set<number>;
 }
-const live = (entry: unknown) => {
-  if (!entry || typeof entry !== 'object') return false;
-  const value = entry as { status?: unknown; activeRunId?: unknown; inputState?: unknown };
-  return (
-    value.status === 'running' ||
-    value.status === 'planning' ||
-    Boolean(value.activeRunId) ||
-    value.inputState === 'queued'
-  );
-};
 // Same text as JSON.stringify([field, 'id', id]) / JSON.stringify([field, i]) / JSON.stringify([field, scope, i]);
 // field names are plain identifiers.
 const idKey = (field: string, entry: unknown) =>
@@ -80,11 +71,13 @@ export class StateDatabase {
   private parts?: Map<string, Part>;
   /** Positions a sweep found edited in place since they were written, by part id. */
   private stale = new Map<string, Set<number>>();
+  /** Entries the owner reported edited in place since the last write (Store.touch). */
+  private touched = new WeakSet<object>();
   private sweepTimer?: ReturnType<typeof setTimeout>;
   private sweepAgain = false;
   private lastSweep = 0;
-  /** Called when a sweep finds rows edited in place, so the owner writes again. */
-  onStale?: () => void;
+  /** Called with the entries a sweep found edited in place, so the owner writes (and shows) them again. */
+  onStale?: (entries: object[]) => void;
   constructor(dir: string) {
     this.db = new DatabaseSync(join(dir, 'state.sqlite'));
     this.db.exec(
@@ -99,33 +92,56 @@ export class StateDatabase {
     this.putRow = this.db.prepare('INSERT INTO parts VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
     this.removeRow = this.db.prepare('DELETE FROM parts WHERE key=?');
   }
+  /**
+   * Reads the stored state. What it returns is also what the next write compares with, so the first write after
+   * starting only visits what changed, like every later one.
+   */
   read(): Record<string, any> | undefined {
     const raw = this.cached.get('layout');
     if (!raw) return;
     const layout = JSON.parse(raw) as Layout,
-      data = layout.root;
-    const item = (key: string) => {
+      data = layout.root,
+      parts = new Map<string, Part>();
+    const text = (key: string) => {
       const raw = this.cached.get(key);
       if (raw === undefined) throw Error('状态数据库缺少记录，已保留原数据库');
-      return JSON.parse(raw);
+      return raw;
     };
-    for (const [field, keys] of Object.entries(layout.arrays))
-      data[field] =
-        typeof keys === 'number'
-          ? Array.from({ length: keys }, (_, i) => item(JSON.stringify([field, i])))
-          : keys.map(item);
+    for (const [field, stored] of Object.entries(layout.arrays)) {
+      const keys = typeof stored === 'number' ? Array.from({ length: stored }, (_, i) => indexKey(field, i)) : stored,
+        json = keys.map(text),
+        entries = json.map((row) => JSON.parse(row));
+      data[field] = entries;
+      parts.set('a:' + field, {
+        keys,
+        entries: [...entries],
+        json,
+        index: new Map(keys.map((key, i) => [key, i])),
+        keysJson: JSON.stringify(keys),
+        live: new Set(entries.flatMap((entry, i) => (live(entry) ? [i] : []))),
+      });
+    }
     for (const [field, scopes] of Object.entries(layout.histories))
       data[field] = Object.fromEntries(
-        Object.entries(scopes).map(([scope, length]) => [
-          scope,
-          Array.from({ length }, (_, i) => item(JSON.stringify([field, scope, i]))),
-        ]),
+        Object.entries(scopes).map(([scope, length]) => {
+          const keys = Array.from({ length }, (_, i) => JSON.stringify([field, scope, i])),
+            json = keys.map(text),
+            entries = json.map((row) => JSON.parse(row));
+          parts.set('h:' + field + ':' + scope, { keys, entries: [...entries], json });
+          return [scope, entries];
+        }),
       );
+    this.parts = parts;
     return data;
+  }
+  /** Entries edited in place: the next quick write serializes them again without waiting for a sweep. */
+  touch(entries: object[]) {
+    for (const entry of entries) this.touched.add(entry);
   }
   write(data: Record<string, any>, mode: WriteMode = 'full') {
     const changes = mode === 'quick' && this.parts ? this.writeChanged(data) : this.writeAll(data);
     this.stale.clear();
+    this.touched = new WeakSet();
     if (mode === 'quick') this.scheduleSweep();
     return changes;
   }
@@ -256,7 +272,7 @@ export class StateDatabase {
     for (let i = 0; i < same; i++) {
       const running = live(value[i]);
       if (running) liveNow.add(i);
-      if (i < hot && (running || stale?.has(i) || wasLive?.has(i))) refresh(i);
+      if (i < hot && (running || stale?.has(i) || wasLive?.has(i) || this.touched.has(value[i] as object))) refresh(i);
     }
     if (same === value.length && same === oldKeys.length && old) {
       return { keys: oldKeys, entries: oldEntries, json, index: old.index, keysJson: old.keysJson, live: liveNow };
@@ -286,6 +302,7 @@ export class StateDatabase {
         from !== undefined &&
         oldEntries[from] === entry &&
         !stale?.has(from) &&
+        !this.touched.has(entry as object) &&
         !wasLive?.has(from) &&
         i < hot &&
         !running
@@ -347,7 +364,8 @@ export class StateDatabase {
   private sweep() {
     this.lastSweep = Date.now();
     this.sweepAgain = false;
-    const parts = [...(this.parts || [])];
+    const parts = [...(this.parts || [])],
+      edited: object[] = [];
     let p = 0,
       i = 0;
     const step = () => {
@@ -367,6 +385,7 @@ export class StateDatabase {
             let marks = this.stale.get(id);
             if (!marks) this.stale.set(id, (marks = new Set()));
             marks.add(i);
+            edited.push(entry);
           }
         }
         if (i >= part.entries.length) {
@@ -377,7 +396,7 @@ export class StateDatabase {
       if (p < parts.length) {
         this.sweepTimer = setTimeout(step, SWEEP_PAUSE_MS);
         this.sweepTimer.unref?.();
-      } else if (this.stale.size) this.onStale?.();
+      } else if (this.stale.size) this.onStale?.(edited);
       else if (this.sweepAgain) this.scheduleSweep();
     };
     step();

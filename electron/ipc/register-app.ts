@@ -22,7 +22,7 @@ export function registerApp(ctx: IpcContext) {
     ctx.store.save();
     ctx.changed();
   });
-  handle('snapshot', ctx.snapshot);
+  handle('readState', ctx.readState);
   handle('openExternalUrl', (value) => {
     const url = externalWebUrl(value);
     if (!url) throw new Error('只能在浏览器中打开有效的 HTTP 或 HTTPS 链接');

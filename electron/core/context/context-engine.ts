@@ -15,11 +15,12 @@ import {
   estimateRequest,
   exchanges,
   excerpt,
-  serializeForSummary,
   sourceHash,
   tailBoundary,
+  toolTexts,
   textTokens,
 } from './context-budget';
+import { historyHash, primeTokenCounts, summaryInput } from './token-counter';
 import { AppError } from '../../../shared/errors';
 
 export interface ContextStats {
@@ -454,6 +455,8 @@ export class ContextEngine {
     } catch {}
     if (!head.revision && input.legacyHead?.through) head = { ...head, ...input.legacyHead };
     if (head.through > input.history.length) throw new Error('上下文记录与原始历史不一致，请先恢复历史数据');
+    // Everything below estimates the history it sends; count what was never counted on the token worker first.
+    await primeTokenCounts(input.history.slice(head.through), toolTexts(input.tools));
     let latestInput = -1;
     for (let index = input.history.length - 1; index >= 0; index--)
       if (input.history[index].role === 'user') {
@@ -474,6 +477,12 @@ export class ContextEngine {
         input.tools,
       );
     const estimateFor = (messages: WireMessage[]) => meter.estimate(messages, input.tools, calibration);
+    // A composed request holds new text (pruned outputs, summaries, restored files): count it on the token worker
+    // before estimating, so this thread only looks counts up.
+    const measure = async (messages: WireMessage[]) => {
+      await primeTokenCounts(messages);
+      return estimateFor(messages);
+    };
     const build = (state: ContextHead, history: WireMessage[]) =>
       transcript.compose(
         {
@@ -509,12 +518,12 @@ export class ContextEngine {
     const pruning = new ContextPruning(this.storage, botId, stateKey);
     let original = input.history.slice(head.through),
       view = pruning.apply(original),
-      request = build(head, view),
-      estimate = estimateFor(request);
+      request = build(head, view);
+    let estimate = await measure(request);
     let archivedImages = transcript.archiveImages(request, false, input.compactScreens);
     if (archivedImages) {
       request = build(head, view);
-      estimate = estimateFor(request);
+      estimate = await measure(request);
     }
     const initialTokens = estimate.tokens;
     const saveStats = () => {
@@ -552,7 +561,7 @@ export class ContextEngine {
       view = pruned.messages;
       prunedCount = pruned.pruned;
       request = build(head, view);
-      estimate = estimateFor(request);
+      estimate = await measure(request);
     }
     // The newest completed exchange can itself exceed the window. Its original
     // result is already archived, so keep its reference and a digest as well.
@@ -561,8 +570,9 @@ export class ContextEngine {
       view = reduced.messages;
       prunedCount += reduced.pruned;
       request = build(head, view);
-      estimate = estimateFor(request);
+      estimate = await measure(request);
     }
+    await primeTokenCounts([input.system, ...(input.prefixContext || []), ...controls()]);
     const mandatory = estimateRequest(
       [input.system, ...(input.prefixContext || []), ...controls()],
       input.tools,
@@ -579,7 +589,7 @@ export class ContextEngine {
       });
     }
     // Commit one epoch. Shared by the model summary and the rule-based fallback.
-    const commit = (
+    const commit = async (
       through: number,
       hash: string,
       summary: string,
@@ -587,7 +597,7 @@ export class ContextEngine {
       files: RestoredFile[] = [],
       local = false,
     ) => {
-      if (sourceHash(input.history.slice(head.through, through)) !== hash)
+      if ((await historyHash(input.history.slice(head.through, through))) !== hash)
         throw new AppError('context.history_changed', '压缩期间原始历史发生变化');
       const anchors = this.anchors(input, through),
         next = { revision: head.revision + 1, through, summary, anchors },
@@ -598,13 +608,13 @@ export class ContextEngine {
         composed = transcript.checkpoint();
       restored = files.length ? { revision: next.revision, files } : undefined;
       let nextRequest = build(next, newView),
-        nextEstimate = estimateFor(nextRequest);
+        nextEstimate = await measure(nextRequest);
       // Restored files are a convenience; they never cause another compaction round.
       if (restored && nextEstimate.tokens > budget.trigger) {
         transcript.restore(composed);
         restored = undefined;
         nextRequest = build(next, newView);
-        nextEstimate = estimateFor(nextRequest);
+        nextEstimate = await measure(nextRequest);
       }
       if (nextEstimate.tokens >= estimate.tokens - 100) {
         transcript.restore(composed);
@@ -649,12 +659,19 @@ export class ContextEngine {
       );
     };
     // Without a usable summary, an over-budget request would fail outright. Keep going with a mechanical summary instead.
-    const fallback = (cut: number) => {
+    const fallback = async (cut: number) => {
       if (estimate.tokens <= budget.input || cut <= 0) return false;
       const through = head.through + cut,
         covered = input.history.slice(head.through, through);
       try {
-        commit(through, sourceHash(covered), localSummary(head.summary, covered, budget.summary), true, [], true);
+        await commit(
+          through,
+          await historyHash(covered),
+          localSummary(head.summary, covered, budget.summary),
+          true,
+          [],
+          true,
+        );
         lastIssue = (lastIssue ? lastIssue + '；' : '') + '已改用规则摘要';
         return true;
       } catch (error) {
@@ -685,7 +702,7 @@ export class ContextEngine {
         cooling.modelKey === contextModelKey(this.storage.store.modelFor(botId))
       ) {
         lastIssue = '最近一次压缩未成功，暂时保留已有上下文';
-        if (fallback(cut)) continue;
+        if (await fallback(cut)) continue;
         break;
       }
       let through = head.through + cut,
@@ -699,21 +716,21 @@ export class ContextEngine {
         500,
         Math.min(budget.input, capacity - budget.compaction - budget.safety) - baseTokens,
       );
-      let serialized = serializeForSummary(covered, maxHistory);
+      let serialized = await summaryInput(covered, maxHistory);
       while (!serialized.fits && covered.length > 2) {
         const units = exchanges(covered),
           half = units[Math.max(1, Math.floor(units.length / 2))]?.start || 0;
         if (!half) break;
         through = head.through + half;
         covered = input.history.slice(head.through, through);
-        serialized = serializeForSummary(covered, maxHistory);
+        serialized = await summaryInput(covered, maxHistory);
       }
       if (!serialized.fits) {
         lastIssue = '这段历史过大，当前窗口无法安全整理';
-        if (fallback(cut)) continue;
+        if (await fallback(cut)) continue;
         break;
       }
-      const hash = sourceHash(covered);
+      const hash = await historyHash(covered);
       const focus = input.focus?.trim()
         ? `用户指定的压缩重点（优先完整保留相关细节）：${input.focus.trim().slice(0, 1000)}。`
         : '';
@@ -743,10 +760,12 @@ export class ContextEngine {
         estimate.tokens + messageTokensFor(instruction) <= budget.input;
       let summaryRequest = reuse ? [...request, instruction] : serializedRequest,
         summaryTools = reuse ? input.tools : [];
+      // The serialized request is new text, up to the whole input budget: count it on the token worker.
+      await primeTokenCounts(summaryRequest);
       let summaryEstimate = estimateRequest(summaryRequest, summaryTools, calibration).tokens;
       if (summaryEstimate > budget.input) {
         lastIssue = '摘要输入超过安全预算';
-        if (fallback(cut)) continue;
+        if (await fallback(cut)) continue;
         break;
       }
       const viewCheckpoint = transcript.checkpoint();
@@ -772,6 +791,7 @@ export class ContextEngine {
         if (result.calls.length && summaryTools.length) {
           summaryRequest = serializedRequest;
           summaryTools = [];
+          await primeTokenCounts(summaryRequest);
           summaryEstimate = estimateRequest(summaryRequest, [], calibration).tokens;
           result = await summarize();
           if (run) run.modelCalls++;
@@ -846,7 +866,7 @@ export class ContextEngine {
             return used <= total;
           });
         }
-        commit(through, hash, summary, serialized.abbreviated, files);
+        await commit(through, hash, summary, serialized.abbreviated, files);
       } catch (error) {
         transcript.restore(viewCheckpoint);
         if (input.signal.aborted || /原始历史发生变化|上下文版本发生变化/.test((error as Error).message)) throw error;
@@ -855,7 +875,7 @@ export class ContextEngine {
           until: Date.now() + 60000,
           modelKey: contextModelKey(this.storage.store.modelFor(botId)),
         });
-        if (fallback(cut)) continue;
+        if (await fallback(cut)) continue;
         break;
       }
     }

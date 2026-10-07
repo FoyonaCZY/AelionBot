@@ -92,9 +92,9 @@ test('greetings and group decisions animate without inventing work for inactive 
 test('late streams and mismatched tool records cannot animate a completed or different Bot', () => {
   const state = fixture();
   state.runs.push({ ...run('old', 'a'), status: 'completed' }, run('current', 'b'));
-  state.streamingReplies = [{ id: 'stale', botId: 'a', runId: 'old', content: 'late', time: '', main: true }];
+  const streams = [{ botId: 'a', runId: 'old' }];
   state.messages = [
     { id: 'mismatch', botId: 'a', runId: 'current', role: 'tool', status: 'running', content: '', time: '' },
   ];
-  assert.deepEqual(botActivities(state), { b: 'thinking' });
+  assert.deepEqual(botActivities(state, streams), { b: 'thinking' });
 });

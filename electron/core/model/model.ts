@@ -19,7 +19,8 @@ import {
 import type { ModelProtocol, NativeAssistant } from '../../../shared/types/model-types';
 import { nativeKey, protocolRequest, StreamAccumulator } from './model-protocol';
 import { redactHost } from '../host/host';
-import { contextBudget, estimateRequest } from '../context/context-budget';
+import { contextBudget, estimateRequest, toolTexts } from '../context/context-budget';
+import { primeTokenCounts } from '../context/token-counter';
 import { PromptCacheDiagnostics, promptCacheKey, rejectsPromptCacheKey } from '../context/prompt-cache';
 import type { RequestCacheDiagnostics } from '../../../shared/types/runtime-types';
 import { stableToolDefinitions, transportErrorCodes } from '../agent/request-snapshot';
@@ -345,6 +346,8 @@ export class ModelClient {
             measuredMessages = messages;
             measuredModelKey = nativeKey(cfg);
             measuredOutput = output;
+            // Messages added after the context was prepared are counted on the token worker, not on this thread.
+            await primeTokenCounts(messages, toolTexts(tools));
             publishOverview(
               contextOverview(
                 messages,

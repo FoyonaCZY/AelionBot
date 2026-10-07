@@ -22,7 +22,7 @@ export function registerComputer(ctx: IpcContext) {
       ctx.harness.busy ||
       ctx.groupChats?.busy ||
       ctx.greetings?.botIds.length ||
-      ctx.store.data.bots.some((bot) => ctx.chatPins?.hasPending(bot.id)) ||
+      ctx.chatPins?.anyPending(ctx.store.data.bots.map((bot) => bot.id)) ||
       ctx.interactions.snapshot().length ||
       ctx.previewDirty ||
       ctx.previewWrites ||

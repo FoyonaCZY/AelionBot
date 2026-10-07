@@ -127,6 +127,7 @@ export class GroupChats implements GroupGateway {
         )
           continue;
         run.groupReplyMessageId = entry.messageId;
+        store.touch(run);
         for (const delivery of store.data.groupDeliveries)
           if (delivery.runId === run.id && delivery.groupId === entry.groupId && groupPending(delivery.status)) {
             delivery.status = 'replied';
@@ -1376,6 +1377,7 @@ export class GroupChats implements GroupGateway {
         .find((message) => message.sender.id === bot.id && message.runIds?.includes(run.id));
     if (emitted && finalReply.kind === 'silent') {
       run.groupReplyMessageId = emitted.id;
+      this.store.touch(run);
       for (const delivery of deliveries) {
         delivery.status = 'replied';
         delivery.replyMessageId = emitted.id;
@@ -1407,6 +1409,7 @@ export class GroupChats implements GroupGateway {
       attachments: finalMessage?.attachments,
     });
     run.groupReplyMessageId = message.id;
+    this.store.touch(run);
     for (const delivery of deliveries) {
       delivery.status = 'replied';
       delivery.replyMessageId = message.id;

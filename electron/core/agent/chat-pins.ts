@@ -41,6 +41,7 @@ export function pinChat(store: Store, botId: string, actor: PinActor, input: Pin
   if (actor.kind === 'bot' && target.role !== 'user' && !reactingUser)
     throw new AppError('chat.reaction_target_ambiguous', '请选择用户的消息，或当前用户表态所指向的原消息');
   if (!updatePins(target, actor, input)) return { pinned: !input.remove, alreadyApplied: true, messageId: target.id };
+  store.touch(target);
   const event = store.message(
     botId,
     actor.kind === 'user' ? 'user' : 'event',
@@ -75,6 +76,12 @@ export class ChatPinQueue {
       !message.runId &&
       (message.inputState === 'queued' || Boolean(message.reaction && !message.inputState))
     );
+  }
+  /** Whether any of these Bots has queued input or a worker, in one pass over the messages. */
+  anyPending(botIds: string[]) {
+    const ids = new Set(botIds);
+    for (const id of ids) if (this.workers.has(id)) return true;
+    return this.store.data.messages.some((message) => ids.has(message.botId) && this.queued(message));
   }
   hasPending(id: string) {
     return (

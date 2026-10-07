@@ -147,10 +147,10 @@
 @keyframes companion-waiting {
   0%,
   100% {
-    transform: translateY(0.5px) rotate(-2deg);
+    transform: translateY(0.8333%) rotate(-2deg);
   }
   50% {
-    transform: translateY(-1px) rotate(1.5deg);
+    transform: translateY(-1.6667%) rotate(1.5deg);
   }
 }
 @media (prefers-reduced-motion: reduce) {

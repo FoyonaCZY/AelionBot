@@ -62,44 +62,45 @@
 .bot-working-status[data-phase='waiting'] .avatar-body {
   animation: working-bot-wait 3s ease-in-out infinite;
 }
+/* Avatar parts move in avatar units: 1% is 0.6 of its 60-unit box (see avatar.css). */
 @keyframes working-bot-bounce {
   0%,
   100% {
-    transform: translateY(3px) rotate(-7deg) scale(1.04, 0.95);
+    transform: translateY(5%) rotate(-7deg) scale(1.04, 0.95);
   }
   35% {
-    transform: translateY(-7px) rotate(7deg) scale(0.96, 1.04);
+    transform: translateY(-11.6667%) rotate(7deg) scale(0.96, 1.04);
   }
   65% {
-    transform: translateY(2px) rotate(-3deg) scale(1.03, 0.97);
+    transform: translateY(3.3333%) rotate(-3deg) scale(1.03, 0.97);
   }
 }
 @keyframes working-bot-look {
   0%,
   100% {
-    transform: translate(-1px, 0);
+    transform: translate(-1.6667%, 0);
   }
   40%,
   60% {
-    transform: translate(2px, -2px);
+    transform: translate(3.3333%, -3.3333%);
   }
 }
 @keyframes working-bot-think {
   0%,
   100% {
-    transform: translateY(2px) rotate(-7deg);
+    transform: translateY(3.3333%) rotate(-7deg);
   }
   45% {
-    transform: translateY(-4px) rotate(9deg);
+    transform: translateY(-6.6667%) rotate(9deg);
   }
 }
 @keyframes working-bot-wait {
   0%,
   100% {
-    transform: translateY(1px) rotate(-3deg);
+    transform: translateY(1.6667%) rotate(-3deg);
   }
   50% {
-    transform: translateY(-2px) rotate(3deg);
+    transform: translateY(-3.3333%) rotate(3deg);
   }
 }
 @keyframes working-label-in {

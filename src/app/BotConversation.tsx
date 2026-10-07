@@ -1,17 +1,28 @@
-import { Fragment, type RefObject } from 'react';
-import type { Bot, ChatMessage, InteractionRequest, Snapshot } from '../../shared/types/core';
-import { firstDeliveryAttachments } from '../../shared/types/attachment-types';
+import { memo, useLayoutEffect, useMemo, type RefObject } from 'react';
+import type {
+  Artifact,
+  Bot,
+  ChatMessage,
+  InteractionRequest,
+  ModelConfig,
+  RunRecord,
+  Snapshot,
+  StreamingReply,
+} from '../../shared/types/core';
+import type { GroupsView } from '../../shared/types/group-types';
+import type { PeerView } from '../../shared/types/peer-types';
+import type { TimelineItem } from '../../shared/chat/activity';
 import { isRunArtifact } from '../../shared/preview/workspace-files';
 import type { PreviewHistoryEntry } from '../../shared/preview/agent-preview-types';
 import { workspaceKey } from '../../shared/types/work-types';
 import { ConversationTimeProvider } from '../chat/ConversationTime';
 import { RunMessage } from '../chat/RunMessage';
 import { BotWorkingStatus } from '../chat/BotWorkingStatus';
-import { StreamingReply } from '../chat/StreamingReply';
+import { StreamingReply as LiveReply } from '../chat/StreamingReply';
 import { ConversationInteractions } from '../chat/InteractionPrompts';
 import { WorkItemsPanel } from '../chat/WorkItems';
 import { LiveWorkStrip } from '../chat/LiveWorkStrip';
-import { BotComposer, type ComposerDraft } from '../chat/BotComposer';
+import { DraftComposer } from '../chat/DraftComposer';
 import { useFloatingComposer } from '../chat/use-floating-composer';
 import { ArtifactList } from '../files/ArtifactList';
 import { PreviewHistoryChips } from '../preview/PreviewHistoryChips';
@@ -19,23 +30,37 @@ import { PeerNotice, PeerTaskMessage, type PeerPanel } from '../group/PeerChats'
 import { GroupTaskMessage } from '../group/GroupTaskMessage';
 import { Icon } from '../ui/Icon';
 import { Message } from '../ui/Message';
+import { sameProps } from '../ui/equality';
+import { useStableHandlers } from '../ui/use-stable-handlers';
 import { useI18n } from '../i18n';
 import type { BotConversationData } from './bot-conversation';
 import { liveBotProgress as liveBotStep } from './live-bot-progress';
+import { useStreamingReplies } from './streams';
+import type { Drafts } from './use-drafts';
+import { useTimelineWindow } from './use-timeline-window';
 import type { TakeoverRequest } from './use-computer-control';
 import type { PreviewFile } from './use-file-actions';
 
-/** The selected bot's message timeline and composer. */
+const NO_MESSAGES: ChatMessage[] = [],
+  NO_FILES: Artifact[] = [];
+const itemKey = (botId: string, item: TimelineItem) =>
+  `${botId}:${item.kind}:${item.kind === 'run' ? item.segmentId : item.id}`;
+
+/**
+ * The selected bot's message timeline and composer. Each timeline row is memoized on props that keep their identity
+ * while unchanged, so a new message, a streaming tick or a keystroke re-renders only what it changed.
+ */
 export function BotConversation({
   bot,
   state,
   conversation,
-  draft,
+  drafts,
   busy,
   vmReady,
   messagesPane,
+  follow,
   onMessagesScroll,
-  onDraft,
+  followLive,
   onSend,
   onReply,
   onContinue,
@@ -52,12 +77,13 @@ export function BotConversation({
   bot: Bot;
   state: Snapshot;
   conversation: BotConversationData;
-  draft: ComposerDraft;
+  drafts: Drafts;
   busy: boolean;
   vmReady: boolean;
   messagesPane: RefObject<HTMLElement | null>;
+  follow: RefObject<boolean>;
   onMessagesScroll: (pane: HTMLElement) => void;
-  onDraft: (draft: ComposerDraft) => void;
+  followLive: () => void;
   onSend: () => void;
   onReply: (message: ChatMessage) => void;
   onContinue: () => void;
@@ -73,12 +99,26 @@ export function BotConversation({
 }) {
   const { t } = useI18n();
   const composerWrap = useFloatingComposer();
+  const actions = useStableHandlers<Actions>({
+    reply: onReply,
+    continueWork: onContinue,
+    settings: onSettings,
+    screen: onScreen,
+    openGroup: onOpenGroup,
+    openPrivateChat: onOpenPrivateChat,
+    openFile: onOpenFile,
+    saveFile: onSaveFile,
+    openPreviewEntry: onOpenPreviewEntry,
+    send: onSend,
+    stop: () => window.aelion.cancel(bot.id),
+  });
   const {
     currentModel,
     messages,
     runMessages,
+    runsById,
+    shown,
     timeline,
-    liveReplies,
     lastContext,
     latestRun,
     running,
@@ -86,6 +126,16 @@ export function BotConversation({
     requests,
     waiting,
   } = conversation;
+  const liveReplies = useStreamingReplies('bot:' + bot.id, (reply) => Boolean(reply.main) && reply.botId === bot.id);
+  const liveSignature = liveReplies.map((reply) => reply.id + ':' + reply.content).join('|');
+  useLayoutEffect(followLive, [liveSignature]);
+  const keys = useMemo(() => timeline.map((item) => itemKey(bot.id, item)), [timeline, bot.id]);
+  const timelineWindow = useTimelineWindow({ botId: bot.id, timeline, keys, pane: messagesPane, follow });
+  const previewEntries = useMemo(
+    () => (state.previewHistory || []).filter((entry) => entry.scope.kind === 'bot' && entry.scope.id === bot.id),
+    [state.previewHistory, bot.id],
+  );
+  const scope = workspaceKey({ kind: 'bot', id: bot.id });
   return (
     <>
       <ConversationTimeProvider messages={messages}>
@@ -93,102 +143,74 @@ export function BotConversation({
           ref={messagesPane}
           key={bot.id}
           className="messages"
-          onScroll={(event) => onMessagesScroll(event.currentTarget)}
+          onScroll={(event) => {
+            onMessagesScroll(event.currentTarget);
+            timelineWindow.onScroll(event.currentTarget);
+          }}
         >
-          {timeline.map((item) => {
-            const key = `${bot.id}:${item.kind}:${item.kind === 'run' ? item.segmentId : item.id}`;
-            if (item.kind === 'message')
-              return item.message.groupTaskSource ? (
-                <GroupTaskMessage key={key} message={item.message} view={state.groups} onOpen={onOpenGroup} />
-              ) : item.message.groupLink ? (
-                <div key={key} className="peer-notice">
-                  <button
-                    className="peer-notice-open"
-                    disabled={!state.groups?.rooms.some((room) => room.id === item.message.groupLink?.groupId)}
-                    onClick={() => onOpenGroup(item.message.groupLink!.groupId)}
-                  >
-                    <Icon name="message" size={16} />
-                    {item.message.content}
-                  </button>
-                </div>
-              ) : item.message.taskSource ? (
-                <PeerTaskMessage key={key} message={item.message} view={state.peers} onOpen={onOpenPrivateChat} />
-              ) : item.message.peer ? (
-                <PeerNotice key={key} message={item.message} view={state.peers} onOpen={onOpenPrivateChat} />
-              ) : (
-                <Message
+          {timeline.slice(timelineWindow.start).map((item, index) => {
+            const key = keys[timelineWindow.start + index];
+            if (item.kind === 'message') {
+              const message = item.message;
+              return (
+                <TimelineMessage
                   key={key}
-                  message={{ ...item.message, attachments: firstDeliveryAttachments(item.message, messages) }}
-                  onReply={onReply}
-                  allowPins={!state.runs.find((run) => run.id === item.message.runId)?.groupOrigin}
+                  message={message}
+                  shown={shown.get(message)}
+                  groups={message.groupTaskSource || message.groupLink ? state.groups : undefined}
+                  peers={message.taskSource || message.peer ? state.peers : undefined}
+                  allowPins={!runsById.get(message.runId || '')?.groupOrigin}
+                  actions={actions}
                 />
               );
-            const run = state.runs.find((run) => run.id === item.id),
-              allRunMessages = runMessages.get(item.id) || [],
-              outputs =
-                item.isLast && latestRun?.id === item.id
-                  ? state.artifacts.filter(
-                      (file) =>
-                        file.botId === bot.id &&
-                        file.runId === item.id &&
-                        isRunArtifact(file.path) &&
-                        !allRunMessages.some((message) =>
-                          message.attachments?.some(
-                            (attachment) => attachment.name === file.name && attachment.size === file.size,
-                          ),
-                        ),
-                    )
-                  : [];
+            }
+            const latest = item.isLast && latestRun?.id === item.id,
+              allRunMessages = runMessages.get(item.id) || NO_MESSAGES;
             return (
-              <Fragment key={key}>
-                <RunMessage
-                  onReply={onReply}
-                  model={currentModel}
-                  messages={item.messages.map((message) => ({
-                    ...message,
-                    attachments: firstDeliveryAttachments(message, messages),
-                  }))}
-                  allMessages={allRunMessages}
-                  isLast={item.isLast}
-                  run={run}
-                  stream={
-                    item.isLast
-                      ? liveReplies.find((reply) => reply.runId === item.id && reply.purpose !== 'progress')
-                      : undefined
-                  }
-                  waiting={item.isLast ? requests.find((request) => request.runId === item.id)?.kind : undefined}
-                  latest={item.isLast && latestRun?.id === item.id}
-                  canContinue={!running && !busy}
-                  reviewing={
-                    item.isLast &&
-                    requests.some(
-                      (request) =>
-                        request.runId === item.id &&
-                        request.kind === 'host_permission' &&
-                        request.approval?.phase === 'reviewing',
-                    )
-                  }
-                  onContinue={onContinue}
-                  onSettings={onSettings}
-                  onScreen={onScreen}
-                />
-                <PreviewHistoryChips
-                  entries={(state.previewHistory || []).filter(
-                    (entry) => entry.scope.kind === 'bot' && entry.scope.id === bot.id,
-                  )}
-                  runIds={[item.id]}
-                  artifactNames={new Set(outputs.map((file) => file.path))}
-                  attachmentIds={
-                    new Set(
-                      allRunMessages.flatMap(
-                        (message) => message.attachments?.map((attachment) => attachment.id) || [],
-                      ),
-                    )
-                  }
-                  onOpen={onOpenPreviewEntry}
-                />
-                <ArtifactList files={outputs} onOpen={onOpenFile} onSave={onSaveFile} disabled={busy || !vmReady} />
-              </Fragment>
+              <TimelineRun
+                key={key}
+                runId={item.id}
+                run={runsById.get(item.id)}
+                messages={item.messages.map((message) => shown.get(message) || message)}
+                allRunMessages={allRunMessages}
+                isLast={item.isLast}
+                latest={latest}
+                model={currentModel}
+                stream={
+                  item.isLast
+                    ? liveReplies.find((reply) => reply.runId === item.id && reply.purpose !== 'progress')
+                    : undefined
+                }
+                waiting={item.isLast ? requests.find((request) => request.runId === item.id)?.kind : undefined}
+                reviewing={
+                  item.isLast &&
+                  requests.some(
+                    (request) =>
+                      request.runId === item.id &&
+                      request.kind === 'host_permission' &&
+                      request.approval?.phase === 'reviewing',
+                  )
+                }
+                canContinue={!running && !busy}
+                outputs={
+                  latest
+                    ? state.artifacts.filter(
+                        (file) =>
+                          file.botId === bot.id &&
+                          file.runId === item.id &&
+                          isRunArtifact(file.path) &&
+                          !allRunMessages.some((message) =>
+                            message.attachments?.some(
+                              (attachment) => attachment.name === file.name && attachment.size === file.size,
+                            ),
+                          ),
+                      )
+                    : NO_FILES
+                }
+                previewEntries={previewEntries}
+                filesDisabled={busy || !vmReady}
+                actions={actions}
+              />
             );
           })}
           {liveReplies
@@ -199,12 +221,12 @@ export function BotConversation({
                 !timeline.some((item) => item.kind === 'run' && item.id === reply.runId),
             )
             .map((reply) => (
-              <StreamingReply key={reply.id} reply={reply} />
+              <LiveReply key={reply.id} reply={reply} />
             ))}
           {(running || greeting) && (
             <BotWorkingStatus
               bot={bot}
-              onStop={() => window.aelion.cancel(bot.id)}
+              onStop={actions.stop}
               onReview={waiting ? () => onReview(waiting) : undefined}
               step={
                 liveBotStep(
@@ -221,13 +243,16 @@ export function BotConversation({
       </ConversationTimeProvider>
       <div ref={composerWrap} className={`composer-wrap floating-composer ${waiting ? 'with-request' : ''}`}>
         <ConversationInteractions
-          requests={requests.filter((request) => !state.runs.find((run) => run.id === request.runId)?.groupOrigin)}
+          requests={requests.filter((request) => !runsById.get(request.runId)?.groupOrigin)}
           botId={bot.id}
           onTakeover={onTakeover}
         />
         <WorkItemsPanel items={state.workItems} scope={{ kind: 'bot', id: bot.id }} bots={state.bots} />
         <LiveWorkStrip items={(state.liveWork || []).filter((item) => item.botId === bot.id)} />
-        <BotComposer
+        <DraftComposer
+          key={bot.id}
+          drafts={drafts}
+          draftKey={bot.id}
           contextOverview={
             lastContext?.model === currentModel?.model &&
             lastContext?.providerId === currentModel?.providerId &&
@@ -236,22 +261,132 @@ export function BotConversation({
               : undefined
           }
           contextCapacity={currentModel?.contextTokens}
-          permissionMode={state.hostPermissionModes?.[workspaceKey({ kind: 'bot', id: bot.id })]}
-          workspaceDir={
-            state.conversationWorkspaces?.[workspaceKey({ kind: 'bot', id: bot.id })] ||
-            state.hostWorkspace?.workspaceDir
-          }
-          workspaceInherited={!state.conversationWorkspaces?.[workspaceKey({ kind: 'bot', id: bot.id })]}
-          key={bot.id}
+          permissionMode={state.hostPermissionModes?.[scope]}
+          workspaceDir={state.conversationWorkspaces?.[scope] || state.hostWorkspace?.workspaceDir}
+          workspaceInherited={!state.conversationWorkspaces?.[scope]}
           bot={bot}
           bots={state.bots}
-          draft={draft}
           running={running}
-          onChange={onDraft}
-          onSend={onSend}
-          onStop={() => void window.aelion.cancel(bot.id)}
+          onSend={actions.send}
+          onStop={actions.stop}
         />
       </div>
     </>
   );
 }
+
+/** What timeline rows can do; stable across renders, so rows skip renders their callbacks would otherwise cause. */
+type Actions = {
+  reply: (message: ChatMessage) => void;
+  continueWork: () => void;
+  settings: (tab: 'model' | 'computer' | 'mcp') => void;
+  screen: (url: string) => void;
+  openGroup: (id: string) => void;
+  openPrivateChat: (panel: PeerPanel) => void;
+  openFile: (file: PreviewFile) => void;
+  saveFile: (file: PreviewFile) => void;
+  openPreviewEntry: (entry: PreviewHistoryEntry) => void;
+  send: () => void;
+  stop: () => Promise<unknown>;
+};
+
+/** A message row; `shown` is the copy without files an earlier message already delivered. */
+const TimelineMessage = memo(function TimelineMessage({
+  message,
+  shown,
+  groups,
+  peers,
+  allowPins,
+  actions,
+}: {
+  message: ChatMessage;
+  shown?: ChatMessage;
+  groups?: GroupsView;
+  peers?: PeerView;
+  allowPins: boolean;
+  actions: Actions;
+}) {
+  if (message.groupTaskSource) return <GroupTaskMessage message={message} view={groups} onOpen={actions.openGroup} />;
+  if (message.groupLink)
+    return (
+      <div className="peer-notice">
+        <button
+          className="peer-notice-open"
+          disabled={!groups?.rooms.some((room) => room.id === message.groupLink?.groupId)}
+          onClick={() => actions.openGroup(message.groupLink!.groupId)}
+        >
+          <Icon name="message" size={16} />
+          {message.content}
+        </button>
+      </div>
+    );
+  if (message.taskSource) return <PeerTaskMessage message={message} view={peers} onOpen={actions.openPrivateChat} />;
+  if (message.peer) return <PeerNotice message={message} view={peers} onOpen={actions.openPrivateChat} />;
+  return <Message message={shown || message} onReply={actions.reply} allowPins={allowPins} />;
+}, sameProps);
+
+/** A run's work and answer, with the previews and files it produced. */
+const TimelineRun = memo(function TimelineRun({
+  runId,
+  run,
+  messages,
+  allRunMessages,
+  isLast,
+  latest,
+  model,
+  stream,
+  waiting,
+  reviewing,
+  canContinue,
+  outputs,
+  previewEntries,
+  filesDisabled,
+  actions,
+}: {
+  runId: string;
+  run?: RunRecord;
+  messages: ChatMessage[];
+  allRunMessages: ChatMessage[];
+  isLast: boolean;
+  latest: boolean;
+  model?: ModelConfig;
+  stream?: StreamingReply;
+  waiting?: InteractionRequest['kind'];
+  reviewing: boolean;
+  canContinue: boolean;
+  outputs: Artifact[];
+  previewEntries: PreviewHistoryEntry[];
+  filesDisabled: boolean;
+  actions: Actions;
+}) {
+  return (
+    <>
+      <RunMessage
+        onReply={actions.reply}
+        model={model}
+        messages={messages}
+        allMessages={allRunMessages}
+        isLast={isLast}
+        run={run}
+        stream={stream}
+        waiting={waiting}
+        latest={latest}
+        canContinue={canContinue}
+        reviewing={reviewing}
+        onContinue={actions.continueWork}
+        onSettings={actions.settings}
+        onScreen={actions.screen}
+      />
+      <PreviewHistoryChips
+        entries={previewEntries}
+        runIds={[runId]}
+        artifactNames={new Set(outputs.map((file) => file.path))}
+        attachmentIds={
+          new Set(allRunMessages.flatMap((message) => message.attachments?.map((attachment) => attachment.id) || []))
+        }
+        onOpen={actions.openPreviewEntry}
+      />
+      <ArtifactList files={outputs} onOpen={actions.openFile} onSave={actions.saveFile} disabled={filesDisabled} />
+    </>
+  );
+}, sameProps);

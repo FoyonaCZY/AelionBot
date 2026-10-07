@@ -8,7 +8,8 @@ import { AttachmentList } from '../files/Attachments';
 import { BotWorkingStatus } from '../chat/BotWorkingStatus';
 import { liveBotProgress as liveBotStep } from '../app/live-bot-progress';
 import Markdown from '../chat/MessageMarkdown';
-import type { Bot, ChatMessage, RunRecord, StreamingReply as Reply } from '../../shared/types/core';
+import type { Bot, ChatMessage, RunRecord } from '../../shared/types/core';
+import { useStreamingReplies } from '../app/streams';
 import type { BotIdentity, PeerChatPage, PeerExchangeView, PeerMessage, PeerView } from '../../shared/types/peer-types';
 import { peerPending, peerStatusLabel } from '../../shared/types/peer-types';
 import { Avatar } from '../ui/Avatar';
@@ -133,7 +134,6 @@ export function PrivateChatWindow({
   panel,
   view,
   bots,
-  streamingReplies = [],
   avatarActivities = {},
   runs = [],
   messages = [],
@@ -144,7 +144,6 @@ export function PrivateChatWindow({
   panel: PeerPanel;
   view?: PeerView;
   bots: Bot[];
-  streamingReplies?: Reply[];
   avatarActivities?: BotActivities;
   runs?: RunRecord[];
   messages?: ChatMessage[];
@@ -152,7 +151,10 @@ export function PrivateChatWindow({
   onClose: () => void;
 }) {
   const { t } = useI18n();
-  const streams = streamingReplies.filter((reply) => Boolean(panel.threadId) && reply.peerThreadId === panel.threadId),
+  const streams = useStreamingReplies(
+      'thread:' + (panel.threadId || ''),
+      (reply) => Boolean(panel.threadId) && reply.peerThreadId === panel.threadId,
+    ),
     streamSignature = streams.map((reply) => reply.id + ':' + reply.content).join('|');
   const root = useRef<HTMLElement>(null),
     body = useRef<HTMLDivElement>(null),

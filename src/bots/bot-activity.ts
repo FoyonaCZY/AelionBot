@@ -1,9 +1,11 @@
-import type { Snapshot } from '../../shared/types/core';
+import type { Snapshot, StreamingReply } from '../../shared/types/core';
 
 export type BotActivity = 'idle' | 'thinking' | 'working' | 'waiting';
 export type BotActivities = Record<string, BotActivity>;
+/** `streams` are the live replies, by who sends them (see useStreamOwners). */
 export function botActivities(
-  state: Pick<Snapshot, 'runs' | 'messages' | 'greetingBotIds' | 'streamingReplies' | 'groups' | 'interactions'>,
+  state: Pick<Snapshot, 'runs' | 'messages' | 'greetingBotIds' | 'groups' | 'interactions'>,
+  streams: Pick<StreamingReply, 'botId' | 'runId'>[] = [],
 ): BotActivities {
   const activity: BotActivities = {},
     activeRuns = new Map<string, string>();
@@ -13,7 +15,7 @@ export function botActivities(
       activity[run.botId] = 'thinking';
     }
   for (const id of state.greetingBotIds || []) activity[id] = 'thinking';
-  for (const reply of state.streamingReplies || [])
+  for (const reply of streams)
     if (!reply.runId || activeRuns.get(reply.runId) === reply.botId) activity[reply.botId] = 'thinking';
   for (const group of state.groups?.rooms || [])
     for (const member of group.activities || []) activity[member.botId] = 'thinking';

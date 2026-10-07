@@ -95,7 +95,7 @@
   overflow: visible;
 }
 .computer-rest-visual.is-sleeping .avatar-gaze {
-  transform: translateY(2px);
+  transform: translateY(3.3333%);
 }
 .computer-rest-visual.is-sleeping .avatar-eye {
   transform: scaleY(0.18);

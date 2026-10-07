@@ -1,7 +1,7 @@
 import type { WireMessage, ModelConfig } from '../../../shared/types/core';
 import type { Completion, ToolDefinition } from '../model/model';
 import type { CognitiveStore } from '../memory/cognitive-store';
-import { estimateRequest, sourceHash } from './context-budget';
+import { estimateRequest, messageSourceHash, sourceHash } from './context-budget';
 import { displayCalibration, recordDisplayCalibration } from './token-calibration';
 import { nativeKey } from '../model/model-protocol';
 interface Anchor {
@@ -73,7 +73,7 @@ export class ContextMeter {
     if (
       anchor &&
       messages.length >= anchor.messages.length &&
-      anchor.messages.every((hash, index) => hash === sourceHash([messages[index]]))
+      anchor.messages.every((hash, index) => hash === messageSourceHash(messages[index]))
     ) {
       const delta = Math.max(0, raw - anchor.estimate);
       // Safety budgeting remains conservative; only the displayed incremental estimate uses the learned ratio.
@@ -107,7 +107,7 @@ export class ContextMeter {
     const anchor: Anchor = {
       version: 1,
       identity: this.identity,
-      messages: messages.map((message) => sourceHash([message])),
+      messages: messages.map(messageSourceHash),
       tokens: tokens!,
       estimate: raw.tokens,
       imageTokens: raw.imageTokens,

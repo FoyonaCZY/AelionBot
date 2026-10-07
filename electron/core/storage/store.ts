@@ -8,6 +8,7 @@ import type { PythonSession } from '../tools/python-sessions';
 import type { FileCheckpoint } from '../tools/file-checkpoints';
 import type { BackgroundProcess } from '../../../shared/types/process-types';
 import { StateDatabase, type WriteMode } from './state-database';
+import { isLiveEntry } from '../../../shared/state-sync';
 import type { RuntimeSettings, UsageRecord } from '../../../shared/types/runtime-types';
 import {
   appendFileSync,
@@ -111,18 +112,34 @@ export class Store {
   private dirtySince?: number;
   /** Reports how long each write took, for slow-operation diagnostics. */
   onWrite?: (mode: WriteMode, ms: number) => void;
+  /** Reports entries passed to touch(), for the renderer's copy of the state. */
+  onTouched?: (entries: object[]) => void;
+  /** Reports entries edited in place without touch(), once the database's sweep finds them. */
+  onEdited?: (entries: object[]) => void;
+  /**
+   * Under node:test (or with the checkEdits option), every save checks that settled messages and runs edited since
+   * the previous save were touched, so a missing touch() fails the test that exercises it instead of leaving the
+   * renderer a stale entry.
+   */
+  private settled?: WeakMap<object, string>;
+  private touchedSinceSave = new WeakSet<object>();
   readonly file: string;
   data: Persisted;
   constructor(
     readonly dir: string,
-    options: { incremental?: boolean; deferWrites?: boolean } = {},
+    options: { incremental?: boolean; deferWrites?: boolean; checkEdits?: boolean } = {},
   ) {
     this.deferWrites = Boolean(options.deferWrites);
+    if (options.checkEdits ?? Boolean(process.env.NODE_TEST_CONTEXT)) this.settled = new WeakMap();
     mkdirSync(dir, { recursive: true });
     this.file = join(dir, 'state.json');
     if (options.incremental) this.database = new StateDatabase(dir);
     // Rows edited in place are found by the database's background sweep; write them like any other change.
-    if (this.database && this.deferWrites) this.database.onStale = () => this.save();
+    if (this.database && this.deferWrites)
+      this.database.onStale = (entries) => {
+        this.save();
+        this.onEdited?.(entries);
+      };
     const restored = this.database?.read(),
       isNew = !restored && !existsSync(this.file);
     this.data =
@@ -250,6 +267,7 @@ export class Store {
    * as a quick write that only serializes what changed. Closing and replacing the data still write everything.
    */
   save() {
+    if (this.settled) this.checkSettledEdits();
     if (!this.deferWrites) return this.flush();
     this.dirtySince ??= Date.now();
     clearTimeout(this.writeTimer);
@@ -263,6 +281,42 @@ export class Store {
         console.error('state write failed', error);
       }
     }, wait);
+  }
+  /**
+   * Records that entries were changed in place. A message or run that is no longer live (see isLiveEntry) is only
+   * sent to the renderer and written again when it is replaced or touched; call this after editing one, before
+   * save() or changed().
+   */
+  touch(...entries: object[]) {
+    for (const entry of entries) this.touchedSinceSave.add(entry);
+    this.database?.touch(entries);
+    this.onTouched?.(entries);
+  }
+  private checkSettledEdits() {
+    const settled = this.settled!;
+    for (const [kind, list] of [
+      ['message', this.data.messages],
+      ['run', this.data.runs],
+    ] as const)
+      for (const entry of list as object[]) {
+        if (isLiveEntry(entry)) {
+          settled.delete(entry);
+          continue;
+        }
+        const text = JSON.stringify(entry),
+          before = settled.get(entry);
+        settled.set(entry, text);
+        if (before === undefined || before === text || this.touchedSinceSave.has(entry)) continue;
+        const was = JSON.parse(before) as Record<string, unknown>,
+          now = entry as Record<string, unknown>,
+          fields = [...new Set([...Object.keys(was), ...Object.keys(now)])].filter(
+            (key) => JSON.stringify(was[key]) !== JSON.stringify(now[key]),
+          );
+        throw new Error(
+          `Settled ${kind} ${(entry as { id?: string }).id} was edited in place without store.touch(): ${fields.join(', ')}`,
+        );
+      }
+    this.touchedSinceSave = new WeakSet();
   }
   /** Writes pending state now. */
   flush(mode: WriteMode = 'full') {
@@ -278,7 +332,8 @@ export class Store {
     const previous = this.data;
     this.data = next;
     try {
-      this.flush();
+      // Callers copy the data shallowly, so unchanged entries are the same objects and need not be serialized again.
+      this.flush('quick');
     } catch (error) {
       this.data = previous;
       throw error;

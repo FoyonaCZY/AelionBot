@@ -1,15 +1,24 @@
+/* An avatar is a box of stacked layers, each an <svg> with the 60×60 avatar viewBox (see Avatar.tsx). Motion is
+   measured in avatar units: 1% of a layer is 0.6 of the 60-unit box, so it scales with the avatar like the SVG did. */
 .avatar {
   --avatar-motion-delay: 0ms;
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  width: var(--avatar-size, 44px);
+  height: var(--avatar-size, 44px);
+  overflow: hidden;
 }
 .avatar .avatar-body,
 .avatar .avatar-gaze,
-.avatar .avatar-halo {
-  transform-box: view-box;
-  transform-origin: 30px 30px;
+.avatar .avatar-layer {
+  position: absolute;
+  inset: 0;
 }
-.avatar .avatar-eye {
-  transform-box: fill-box;
-  transform-origin: center;
+.avatar .avatar-layer {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 .avatar .avatar-halo {
   opacity: 0;
@@ -47,31 +56,33 @@
 }
 .avatar[data-activity='waiting'] .avatar-halo {
   opacity: 0.4;
+}
+.avatar[data-activity='waiting'] .avatar-halo circle {
   stroke: #bd883b;
   stroke-dasharray: none;
 }
 @keyframes avatar-think {
   0%,
   100% {
-    transform: translateY(0.5px) rotate(-2deg);
+    transform: translateY(0.8333%) rotate(-2deg);
   }
   40% {
-    transform: translateY(-1.2px) rotate(2.5deg);
+    transform: translateY(-2%) rotate(2.5deg);
   }
   72% {
-    transform: translateY(-0.3px) rotate(0.5deg);
+    transform: translateY(-0.5%) rotate(0.5deg);
   }
 }
 @keyframes avatar-work {
   0%,
   100% {
-    transform: translateY(0.4px) rotate(-1deg);
+    transform: translateY(0.6667%) rotate(-1deg);
   }
   45% {
-    transform: translateY(-1.8px) rotate(1.4deg);
+    transform: translateY(-3%) rotate(1.4deg);
   }
   72% {
-    transform: translateY(-0.4px) rotate(-0.5deg);
+    transform: translateY(-0.6667%) rotate(-0.5deg);
   }
 }
 @keyframes avatar-look {
@@ -82,21 +93,21 @@
   }
   32%,
   48% {
-    transform: translate(1.6px, -1px);
+    transform: translate(2.6667%, -1.6667%);
   }
   65%,
   82% {
-    transform: translate(-1.1px, -0.3px);
+    transform: translate(-1.8333%, -0.5%);
   }
 }
 @keyframes avatar-focus {
   0%,
   100% {
-    transform: translate(-0.6px, 0.3px);
+    transform: translate(-1%, 0.5%);
   }
   42%,
   60% {
-    transform: translate(1.4px, 1px);
+    transform: translate(2.3333%, 1.6667%);
   }
 }
 @keyframes avatar-blink {
@@ -118,11 +129,10 @@
 }
 /* Dark theme: black hair, cloaks and helmets would melt into the page; a faint rim keeps the silhouette. */
 :root[data-theme='dark'] .avatar .avatar-character {
-  filter: drop-shadow(0 0 0.9px #a59fb0a6);
+  filter: drop-shadow(0 0 calc(var(--avatar-size, 44px) * 0.015) #a59fb0a6);
 }
 /* Character props: still while idle; they move while the Bot thinks (slow), works (quick) or waits for you. */
 .avatar .avatar-prop {
-  transform-box: view-box;
   animation-delay: var(--avatar-motion-delay);
 }
 .avatar .avatar-prop-busy {
@@ -213,27 +223,27 @@
 }
 @keyframes avatar-prop-rise {
   0% {
-    transform: translateY(2px);
+    transform: translateY(3.3333%);
     opacity: 0;
   }
   30% {
     opacity: 1;
   }
   100% {
-    transform: translateY(-9px);
+    transform: translateY(-15%);
     opacity: 0;
   }
 }
 @keyframes avatar-prop-fall {
   0% {
-    transform: translate(0, -4px) rotate(0);
+    transform: translate(0, -6.6667%) rotate(0);
     opacity: 0;
   }
   20% {
     opacity: 1;
   }
   100% {
-    transform: translate(-7px, 22px) rotate(160deg);
+    transform: translate(-11.6667%, 36.6667%) rotate(160deg);
     opacity: 0;
   }
 }
@@ -253,10 +263,10 @@
     transform: translateY(0);
   }
   12% {
-    transform: translateY(-2.4px);
+    transform: translateY(-4%);
   }
   20% {
-    transform: translateY(0.4px);
+    transform: translateY(0.6667%);
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -106,7 +106,7 @@ export const INVOKE_CHANNELS = {
   setComputerFullscreen: 'computer:fullscreen',
   openComputerApp: 'computer:open-app',
   // App, settings and updates
-  snapshot: 'app:snapshot',
+  readState: 'app:state',
   openData: 'app:open-data',
   openExternalUrl: 'app:open-external-url',
   saveAppearanceSettings: 'appearance:save',

@@ -60,7 +60,9 @@ import {
   saveUpdateLaunchContext,
   type UpdateLaunchContext,
 } from './core/app/update-launch-context';
-import type { Snapshot } from '../shared/types/core';
+import type { Snapshot, StreamingReply } from '../shared/types/core';
+import { StateSync } from './core/app/state-sync';
+import { enableTokenWorker } from './core/context/token-counter';
 import { Shutdown } from './core/app/shutdown';
 import { IPC_CHANNELS, type IpcHandler, type IpcMethod } from '../shared/ipc';
 import { registerIpc } from './ipc';
@@ -156,7 +158,6 @@ function snapshot(): Snapshot {
     groups: groupChats?.snapshot(),
     layaFeature: layaFeature?.snapshot(),
     greetingBotIds: greetings?.botIds || [],
-    streamingReplies: [...(harness?.streams.snapshot() || []), ...(greetings?.streams.snapshot() || [])],
     runtime: store ? new RunPolicy(store).settings() : undefined,
     modelUsage: store?.data.modelUsage?.slice(-100),
     commandPermissions: commandPermissions?.list() || [],
@@ -165,9 +166,13 @@ function snapshot(): Snapshot {
     liveWork: harness?.liveWork() || [],
   };
 }
-// Changes arrive in bursts (a message, its run, a journal entry…). Coalesce each burst into one snapshot, and send
-// at most one every STATE_INTERVAL_MS: a snapshot of a long history is ~20 MB that the renderer must deserialize on
-// the thread that also handles scrolling and typing.
+function liveStreams(): StreamingReply[] {
+  return [...(harness?.streams.snapshot() || []), ...(greetings?.streams.snapshot() || [])];
+}
+// The renderer reads the whole state once; every push after that carries only what changed since the last one.
+const stateSync = new StateSync(snapshot, liveStreams);
+// Changes arrive in bursts (a message, its run, a journal entry…). Coalesce each burst into one push, and send at
+// most one every STATE_INTERVAL_MS.
 const STATE_INTERVAL_MS = 150;
 let stateTimer: ReturnType<typeof setTimeout> | undefined,
   lastStateAt = 0,
@@ -177,7 +182,10 @@ function sendState() {
   if (exiting) return;
   lastStateAt = Date.now();
   const started = performance.now();
-  if (window && !window.isDestroyed()) window.webContents.send('app:event', { type: 'state', snapshot: snapshot() });
+  if (window && !window.isDestroyed()) {
+    const delta = stateSync.delta();
+    if (delta) window.webContents.send('app:event', { type: 'state', delta });
+  }
   slow?.('state-push', performance.now() - started);
 }
 function changed() {
@@ -187,14 +195,15 @@ function changed() {
   peerChats?.wake();
   groupChats?.wake();
 }
-// Streaming text changes only the live replies; a pending full snapshot already carries them.
+// Streaming text changes only the live replies. A pending push already carries them, together with the messages a
+// finished reply became, so the renderer swaps one for the other in a single render.
 function streamsChanged() {
   if (exiting || stateTimer) return;
-  if (window && !window.isDestroyed())
-    window.webContents.send('app:event', {
-      type: 'streams',
-      streamingReplies: [...(harness?.streams.snapshot() || []), ...(greetings?.streams.snapshot() || [])],
-    });
+  if (window && !window.isDestroyed()) {
+    const streamingReplies = liveStreams();
+    stateSync.sentStreams(streamingReplies);
+    window.webContents.send('app:event', { type: 'streams', streamingReplies });
+  }
 }
 // Renderer arguments are untrusted at runtime; the contract types only describe what the preload sends.
 function handle<M extends IpcMethod>(method: M, callback: IpcHandler<M>) {
@@ -202,10 +211,7 @@ function handle<M extends IpcMethod>(method: M, callback: IpcHandler<M>) {
   ipcMain.handle(channel, async (event, ...args: Parameters<IpcHandler<M>>) => {
     if (!window || event.sender.id !== window.webContents.id || event.senderFrame !== window.webContents.mainFrame)
       throw new Error('不受信任的调用来源');
-    if (
-      updatePreparing &&
-      !['app:snapshot', 'updates:state', 'updates:open-release', 'window:dimmed'].includes(channel)
-    )
+    if (updatePreparing && !['app:state', 'updates:state', 'updates:open-release', 'window:dimmed'].includes(channel))
       throw new Error('正在准备安装更新，请稍候');
     try {
       return await callback(...args);
@@ -229,6 +235,7 @@ function afterModelChange() {
 }
 async function initialize() {
   app.setAppUserModelId('com.aelion.bot');
+  enableTokenWorker(__dirname);
   Menu.setApplicationMenu(
     process.platform === 'darwin'
       ? Menu.buildFromTemplate([
@@ -367,6 +374,18 @@ async function initialize() {
   diagnostics.record('app.started', `AelionBot ${app.getVersion()} (${process.platform} ${process.arch})`);
   slow = slowOperations((source, message) => diagnostics?.record(source, message));
   store.onWrite = (mode, ms) => slow?.('state-write', ms, mode);
+  store.onTouched = (entries) => stateSync.markEdited(entries);
+  // A settled message or run edited in place must be touched (tests enforce it). One edited without it reaches the
+  // renderer once the store's sweep finds it; note it so the edit can be found and fixed.
+  let editedReportedAt = 0;
+  store.onEdited = (entries) => {
+    const missed = stateSync.markEdited(entries);
+    changed();
+    if (missed && Date.now() - editedReportedAt > 600_000) {
+      editedReportedAt = Date.now();
+      diagnostics?.record('state.edited-in-place', `${missed} settled messages or runs were edited in place`);
+    }
+  };
   watchEventLoop((source, ms) => slow?.(source, ms));
   host = new HostComputer(
     {
@@ -707,7 +726,7 @@ async function initialize() {
       groupChats?.busy ||
       store.data.peerExchanges.some((exchange) => peerPending(exchange.status)) ||
       greetings?.botIds.length ||
-      store.data.bots.some((bot) => chatPins?.hasPending(bot.id)) ||
+      chatPins?.anyPending(store.data.bots.map((bot) => bot.id)) ||
       store.data.groupDeliveries.some((delivery) => groupPending(delivery.status))
     )
       return '请先结束当前 Bot 任务，再重启更新。';
@@ -1016,7 +1035,7 @@ async function initialize() {
     set appearanceDimmed(value) {
       appearanceDimmed = value;
     },
-    snapshot,
+    readState: () => stateSync.base(),
     changed,
     beforeModelChange,
     afterModelChange,

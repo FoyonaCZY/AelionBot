@@ -12,7 +12,7 @@ import { MessageActions } from '../chat/MessagePins';
 import { Icon } from './Icon';
 import { MentionContent } from './MentionContent';
 import { MessageReasoning } from '../chat/MessageReasoning';
-import { sameMessage } from '../chat/render-equality';
+import { shallowEqual } from './equality';
 import { useI18n } from '../i18n';
 import '../chat/message-surfaces.css';
 
@@ -23,7 +23,7 @@ type MessageProps = {
   /** False when the reasoning is already shown elsewhere, e.g. inside the folded run process. */
   showReasoning?: boolean;
 };
-// Snapshots arrive as fresh structured clones; a message re-renders only when something it shows changed.
+// A message re-renders only when it changed: an unchanged one is the same object (see shared/state-sync.ts).
 // onReply is compared by presence and read through a ref, so a skipped render still calls the latest callback.
 const MemoMessage = memo(
   MessageView,
@@ -31,7 +31,7 @@ const MemoMessage = memo(
     a.allowPins === b.allowPins &&
     a.showReasoning === b.showReasoning &&
     Boolean(a.onReply) === Boolean(b.onReply) &&
-    sameMessage(a.message, b.message),
+    shallowEqual(a.message, b.message),
 );
 type ReplyRef = { current?: (message: ChatMessage) => void };
 export function Message(props: MessageProps) {

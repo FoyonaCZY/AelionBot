@@ -749,8 +749,12 @@ export class Harness {
       if (message) {
         message.runId = run.id;
         message.inputState = 'handled';
+        this.store.touch(message);
       }
-    if (reactionMessage) reactionMessage.runId = run.id;
+    if (reactionMessage) {
+      reactionMessage.runId = run.id;
+      this.store.touch(reactionMessage);
+    }
     const userSource = options.peerOrigin || options.groupOrigin ? undefined : humanRunSource(this.store, run.id),
       userMemoryRoute = userSource ? memoryRoute(this.store, userSource) : undefined;
     let history = groupKey
@@ -909,6 +913,7 @@ export class Harness {
       record.status = 'completed';
       record.endedAt = new Date().toISOString();
       delete record.error;
+      this.store.touch(visible);
       this.store.save();
       this.changed();
     };
@@ -916,6 +921,7 @@ export class Harness {
       visible.status = 'done';
       visible.presentation = 'progress';
       if (!readableContent(visible.content)) visible.content = '';
+      this.store.touch(visible);
       if (++prematureAnswers >= 3) {
         const reason = '连续 3 次生成答复但未推进未完成任务，已停止自动重试。工作记录已保留，请检查任务步骤后继续。';
         if (options.groupOrigin) {
@@ -1211,6 +1217,7 @@ export class Harness {
             });
           visible.content = '';
           visible.presentation = 'progress';
+          this.store.touch(visible);
           enterMainTask();
           continue;
         }
@@ -1291,6 +1298,7 @@ export class Harness {
             this.interactions?.hasAnswers(botId, run.id)
           ) {
             visible.presentation = 'progress';
+            this.store.touch(visible);
             this.store.save();
             this.changed();
             await this.interactions.waitQuestions(botId, run.id, controller.signal);
@@ -1302,6 +1310,7 @@ export class Harness {
             .filter((session) => session.purpose === 'task' && session.exitCode === undefined);
           if (terminals.length) {
             visible.presentation = 'progress';
+            this.store.touch(visible);
             history.push({
               role: 'system',
               content: runningTerminals(terminals),
@@ -1319,6 +1328,7 @@ export class Harness {
           if (delegation && delegation.receipt?.runId !== run.id) {
             visible.status = 'done';
             visible.presentation = 'progress';
+            this.store.touch(visible);
             if (!readableContent(visible.content)) visible.content = '';
             history.push({
               role: 'system',
@@ -1331,6 +1341,7 @@ export class Harness {
           if (pendingPython.length) {
             visible.status = 'done';
             visible.presentation = 'progress';
+            this.store.touch(visible);
             if (!readableContent(visible.content)) visible.content = '';
             history.push({
               role: 'system',
@@ -1345,6 +1356,7 @@ export class Harness {
           if (pendingProcesses.length) {
             visible.status = 'done';
             visible.presentation = 'progress';
+            this.store.touch(visible);
             if (!readableContent(visible.content)) visible.content = '';
             history.push({
               role: 'system',
@@ -1363,6 +1375,7 @@ export class Harness {
           if (pendingProcesses.length) {
             visible.status = 'done';
             visible.presentation = 'progress';
+            this.store.touch(visible);
             if (!readableContent(visible.content)) visible.content = '';
             history.push({
               role: 'system',
@@ -1393,6 +1406,7 @@ export class Harness {
             );
           if (memoryDelegation && !memoryConfirmed && !waitingForPeer) {
             visible.presentation = 'progress';
+            this.store.touch(visible);
             visible.content = '';
             if (memoryChecks++ >= 2) throw new Error('尚未实际保存受托的长期记忆，不能只用口头答复代替');
             history.push({
@@ -1406,6 +1420,7 @@ export class Harness {
           if (pendingFailures.size && currentWork?.status !== 'blocked') {
             visible.status = 'done';
             visible.presentation = 'progress';
+            this.store.touch(visible);
             if (!readableContent(visible.content)) visible.content = '';
             this.store.journal('run.verification', { runId: run.id, pendingExecutionIds: [...pendingFailures.keys()] });
             this.store.save();
@@ -1423,6 +1438,7 @@ export class Harness {
           if (groupNote) {
             visible.status = 'done';
             visible.presentation = 'progress';
+            this.store.touch(visible);
             if (!readableContent(visible.content)) visible.content = '';
             history.push({ role: 'system', content: groupNote });
             visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
@@ -1439,6 +1455,7 @@ export class Harness {
             } catch (error) {
               if (mentionCorrections++ >= 2) throw error;
               visible.presentation = 'progress';
+              this.store.touch(visible);
               visible.content = '';
               history.push({
                 role: 'system',
@@ -1454,6 +1471,7 @@ export class Harness {
             if (reactionCorrections++ >= 1) throw new Error('模型没有回应这次表态，请重试');
             visible.status = 'running';
             visible.presentation = 'progress';
+            this.store.touch(visible);
             history.push({
               role: 'system',
               content: REACTION_NEEDS_REPLY,
@@ -1471,6 +1489,7 @@ export class Harness {
           if (!visible.content.trim() && visible.attachments?.length) visible.content = '已附上文件。';
           record.status = 'completed';
           record.endedAt = new Date().toISOString();
+          this.store.touch(visible);
           this.store.save();
           this.changed();
           return;
@@ -1665,11 +1684,13 @@ export class Harness {
             ((output as any)?.saved === true || (output as any)?.duplicate === true)
           )
             memoryConfirmed = true;
+          // Parallel calls settle their messages as they finish; each is completed here, after the others saved.
           display.activity = describeTool(call.function.name, displayInput, output);
           if (display.status === 'done') {
             const diff = toolDiff(call.function.name, displayInput, (text) => this.host?.redact(text) ?? text);
             if (diff) display.diff = diff;
           }
+          this.store.touch(display);
           const unknown =
             dispatched &&
             !denied &&
@@ -1734,6 +1755,7 @@ export class Harness {
             });
           }
           this.store.journal('tool.result', { runId: run.id, invocationId: call.id, resultId, status: display.status });
+          this.store.touch(display);
           this.store.save();
           this.changed();
           if (denied) {
@@ -1863,6 +1885,7 @@ export class Harness {
       visible.status = updated || controller.signal.aborted ? 'cancelled' : 'failed';
       visible.presentation = updated ? 'progress' : 'error';
       visible.content = updated ? '' : visible.content + (visible.content ? '\n\n' : '') + record.error;
+      this.store.touch(visible);
       this.store.save();
       this.changed();
     } finally {

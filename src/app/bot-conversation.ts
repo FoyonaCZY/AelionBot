@@ -1,15 +1,22 @@
-import type { Bot, ChatMessage, Snapshot } from '../../shared/types/core';
+import type { Bot, ChatMessage, RunRecord, Snapshot } from '../../shared/types/core';
 import { conversationTimeline } from '../../shared/chat/activity';
+import { firstDeliveries } from '../../shared/types/attachment-types';
 import { isPrivatePeerOrigin } from '../../shared/types/peer-types';
 
-/** What the selected bot's direct conversation shows, derived from the snapshot on every render. */
+/**
+ * What the selected bot's direct conversation shows, derived from the state. Live replies are not part of it: they
+ * change many times a second and are read where they are shown (useStreamingReplies).
+ */
 export function botConversation(state: Snapshot | undefined, bot: Bot | undefined) {
   const currentModel = bot ? state?.botModels?.[bot.id] || state?.model : state?.model;
-  const privateRuns = new Set(state?.runs.filter((run) => isPrivatePeerOrigin(run.peerOrigin)).map((run) => run.id));
+  const runsById = new Map<string, RunRecord>((state?.runs || []).map((run) => [run.id, run]));
   const messages =
     state?.messages.filter(
       (message) =>
-        message.botId === bot?.id && (message.audience === 'user' || !message.runId || !privateRuns.has(message.runId)),
+        message.botId === bot?.id &&
+        (message.audience === 'user' ||
+          !message.runId ||
+          !isPrivatePeerOrigin(runsById.get(message.runId)?.peerOrigin)),
     ) || [];
   const runMessages = new Map<string, ChatMessage[]>();
   for (const message of messages)
@@ -19,16 +26,11 @@ export function botConversation(state: Snapshot | undefined, bot: Bot | undefine
       runMessages.set(message.runId, list);
     }
   const timeline = conversationTimeline(messages);
-  const liveReplies = (state?.streamingReplies || []).filter((reply) => reply.main && reply.botId === bot?.id),
-    liveSignature = liveReplies.map((reply) => reply.id + ':' + reply.content).join('|');
-  const lastContext = state?.runs
-    .filter(
-      (run) => run.botId === bot?.id && !isPrivatePeerOrigin(run.peerOrigin) && !run.groupOrigin && run.contextOverview,
-    )
-    .at(-1)?.contextOverview;
-  const latestRun = state?.runs
-    .filter((run) => run.botId === bot?.id && !isPrivatePeerOrigin(run.peerOrigin) && !run.groupOrigin)
-    .at(-1);
+  const botRuns = (state?.runs || []).filter(
+    (run) => run.botId === bot?.id && !isPrivatePeerOrigin(run.peerOrigin) && !run.groupOrigin,
+  );
+  const lastContext = botRuns.filter((run) => run.contextOverview).at(-1)?.contextOverview;
+  const latestRun = botRuns.at(-1);
   const running = Boolean(
     state?.runs.some((run) => run.botId === bot?.id && run.status === 'running' && !run.groupOrigin) ||
     (currentModel?.model &&
@@ -36,16 +38,15 @@ export function botConversation(state: Snapshot | undefined, bot: Bot | undefine
   );
   const greeting = state?.greetingBotIds?.includes(bot?.id || '') || false;
   const requests = state?.interactions || [];
-  const waiting = requests.find(
-    (request) => request.botId === bot?.id && !state?.runs.find((run) => run.id === request.runId)?.groupOrigin,
-  );
+  const waiting = requests.find((request) => request.botId === bot?.id && !runsById.get(request.runId)?.groupOrigin);
   return {
     currentModel,
     messages,
     runMessages,
+    runsById,
+    /** Messages shown with fewer attachments than they hold (see firstDeliveries). */
+    shown: firstDeliveries(messages),
     timeline,
-    liveReplies,
-    liveSignature,
     lastContext,
     latestRun,
     running,

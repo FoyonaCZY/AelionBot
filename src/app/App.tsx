@@ -38,12 +38,16 @@ import { useFileActions } from './use-file-actions';
 import { useMessageFollow } from './use-message-follow';
 import { useModalEffects } from './use-modal-effects';
 import { useToast } from './use-toast';
+import { StreamsProvider, useStreamOwners } from './streams';
+import { useShared } from '../ui/use-shared';
 
 export default function App() {
   return (
     <I18nProvider>
       <FilePreviewProvider>
-        <AppContent />
+        <StreamsProvider>
+          <AppContent />
+        </StreamsProvider>
       </FilePreviewProvider>
     </I18nProvider>
   );
@@ -62,7 +66,10 @@ function AppContent() {
   const drafts = useDrafts(),
     groupDrafts = useDrafts();
   const appearance = useAppearance(state?.appearance);
-  const avatarActivities = useMemo(() => (state ? botActivities(state) : {}), [state]);
+  const streamOwners = useStreamOwners();
+  const avatarActivities = useShared(
+    useMemo(() => (state ? botActivities(state, streamOwners) : {}), [state, streamOwners]),
+  );
   const [peerPanel, setPeerPanel] = useState<PeerPanel>();
   const [selectedGroup, setSelectedGroup] = useState(''),
     [groupEditor, setGroupEditor] = useState<string>(),
@@ -93,8 +100,11 @@ function AppContent() {
   }, [page, bot?.id, group?.id, previewWorkbench?.activate]);
   const menuBot = state?.bots.find((item) => item.id === botMenu?.id),
     deletingBot = state?.bots.find((item) => item.id === deletingId);
-  // Derived from the snapshot alone: typing only changes drafts, so it must not recompute the conversation.
-  const conversation = useMemo(() => botConversation(state, bot), [state, bot]);
+  // Derived from the parts of the state it reads, so a change elsewhere (the work computer, a setting) keeps it.
+  const conversation = useMemo(
+    () => botConversation(state, bot),
+    [state?.messages, state?.runs, state?.interactions, state?.greetingBotIds, state?.botModels, state?.model, bot],
+  );
   const { messages, requests } = conversation;
   const anyRunning = state?.runs.some((run) => run.status === 'running') || false;
   useAgentPreview(
@@ -185,12 +195,11 @@ function AppContent() {
       setViewingRequest('');
     }
   }, [viewingRequest, bot?.id, modal]);
-  const { messagesPane, follow, onMessagesScroll } = useMessageFollow({
+  const { messagesPane, follow, onMessagesScroll, followLive } = useMessageFollow({
     botId: bot?.id,
     group,
     messages,
     artifactCount: state?.artifacts.length,
-    liveSignature: conversation.liveSignature,
   });
   useEffect(() => {
     // Listing a workspace lets the main process adopt files the bot wrote outside a tracked run.
@@ -356,7 +365,9 @@ function AppContent() {
             groupDrafts={groupDrafts}
             files={files}
             messagesPane={messagesPane}
+            follow={follow}
             onMessagesScroll={onMessagesScroll}
+            followLive={followLive}
             onSwitch={(kind, id) => {
               setPage('chat');
               setSelectedGroup(kind === 'group' ? id : '');
@@ -436,7 +447,6 @@ function AppContent() {
               panel={peerPanel}
               view={state.peers}
               bots={state.bots}
-              streamingReplies={state.streamingReplies}
               avatarActivities={avatarActivities}
               runs={state.runs}
               messages={state.messages}

@@ -114,7 +114,8 @@ async function sweepFindsEdit(db: StateDatabase, data: any, stale: () => number,
 
 test('a deferred store writes an old message edited in place after the sweep finds it', async (t) => {
   const dir = tempDir(t, 'aelion-quick-store-'),
-    store = new Store(dir, { incremental: true, deferWrites: true });
+    // The edit below deliberately skips store.touch(): the sweep is the safety net for one that does.
+    store = new Store(dir, { incremental: true, deferWrites: true, checkEdits: false });
   let old: any;
   try {
     const bot = store.data.bots[0];
