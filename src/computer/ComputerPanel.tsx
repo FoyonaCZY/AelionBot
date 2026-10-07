@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Bot, VmState } from '../../shared/types/core';
 import { ComputerStatus } from './ComputerSetup';
 import { Icon } from '../ui/Icon';
+import { Avatar } from '../ui/Avatar';
 import { useI18n } from '../i18n';
 import './computer-panel.css';
 
@@ -9,6 +10,7 @@ export function ComputerPanel({
   vm,
   ready,
   bot,
+  showOwner = false,
   onOpen,
   onSetup,
   onSettings,
@@ -17,6 +19,8 @@ export function ComputerPanel({
   vm: VmState;
   ready: boolean;
   bot?: Pick<Bot, 'id' | 'name' | 'color' | 'avatarStyle'>;
+  /** Label the desktop with its Bot, for views where it is not the conversation's own Bot (a group). */
+  showOwner?: boolean;
   onOpen: () => void;
   onSetup: () => void;
   onSettings: () => void;
@@ -41,6 +45,7 @@ export function ComputerPanel({
     observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['width', 'height'] });
     return () => observer.disconnect();
   }, [ready]);
+  const screenLabel = showOwner && bot ? t('全屏查看{name}的桌面', { name: bot.name }) : t('全屏查看工作电脑');
   return (
     <section className={`computer-panel ${ready ? 'is-online' : 'is-offline'}`} aria-label={t('工作电脑')}>
       {ready ? (
@@ -48,8 +53,8 @@ export function ComputerPanel({
           className="computer-panel-screen"
           role="button"
           tabIndex={0}
-          aria-label={t('全屏查看工作电脑')}
-          title={t('全屏查看工作电脑')}
+          aria-label={screenLabel}
+          title={screenLabel}
           style={{ aspectRatio: aspect }}
           onClick={onOpen}
           onKeyDown={(event) => {
@@ -62,6 +67,12 @@ export function ComputerPanel({
           <div ref={surface} className="computer-panel-display" inert>
             {children}
           </div>
+          {showOwner && bot && (
+            <span className="computer-panel-owner" aria-hidden="true">
+              <Avatar bot={bot} size={18} />
+              <span>{bot.name}</span>
+            </span>
+          )}
           <span className="computer-panel-expand" aria-hidden="true">
             <Icon name="expand" size={15} />
           </span>

@@ -8,11 +8,15 @@ export type TakeoverRequest = Extract<InteractionRequest, { kind: 'vm_takeover' 
 /**
  * The work computer as the selected bot sees it: which bot's desktop is shown, whether the user holds
  * manual control, and a single-flight runner for control actions so repeated clicks cannot interleave.
+ * `follow` (a group's working member) takes over from the selected bot whenever it changes, except while `hold`
+ * (the desktop is open full screen and may be under the user's control).
  */
 export function useComputerControl(
   state: Snapshot | undefined,
   bot: Bot | undefined,
   onError: (message: string) => void,
+  follow?: string,
+  hold = false,
 ) {
   const [controlPending, setControlPending] = useState(false),
     controlBusy = useRef(false);
@@ -51,6 +55,18 @@ export function useComputerControl(
   useEffect(() => {
     if (bot) setComputerBotId(bot.id);
   }, [bot?.id]);
+  // Runs after the effect above, so in a group the followed member wins over the selected bot; leaving the
+  // group returns to the selected bot.
+  const followed = useRef(false);
+  useEffect(() => {
+    if (follow) {
+      followed.current = true;
+      if (!hold) setComputerBotId(follow);
+    } else if (followed.current) {
+      followed.current = false;
+      if (bot) setComputerBotId(bot.id);
+    }
+  }, [follow, hold, bot?.id]);
   useEffect(() => {
     if (!desktopBot || desktopBot.type === 'designer' || !desktopAvailable) return;
     let active = true;

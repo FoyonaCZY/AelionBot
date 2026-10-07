@@ -471,6 +471,7 @@ export const en: Record<string, string> = {
   办公应用: 'Office apps',
   独立桌面暂未就绪: 'Standalone desktop is not ready',
   全屏查看工作电脑: 'View work computer full screen',
+  '全屏查看{name}的桌面': "View {name}'s desktop full screen",
   电脑设置: 'Computer settings',
   隐藏工作电脑和定时任务: 'Hide work computer and scheduled tasks',
   上一张: 'Previous',

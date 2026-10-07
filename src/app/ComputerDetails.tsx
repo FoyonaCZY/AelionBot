@@ -96,6 +96,7 @@ export function ComputerDetails({
         vm={state.vm}
         ready={desktopAvailable}
         bot={desktopBot}
+        showOwner={Boolean(group)}
         onOpen={onOpen}
         onSetup={onSetup}
         onSettings={onSettings}

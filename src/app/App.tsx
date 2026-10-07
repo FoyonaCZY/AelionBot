@@ -12,6 +12,7 @@ import { PluginsPage, type PluginFilter } from '../settings/PluginsPage';
 import type { SettingsTab } from '../settings/SettingsWindow';
 import { AppModals, type Modal } from './AppModals';
 import { ComputerDetails } from './ComputerDetails';
+import { groupDesktopBotId } from '../computer/group-desktop';
 import { BotProfileForm } from './BotProfileForm';
 import { ConversationPane } from './ConversationPane';
 import { Sidebar } from './Sidebar';
@@ -113,7 +114,13 @@ function AppContent() {
     Boolean(page !== 'chat' || modal || peerPanel || groupEditor || taskModalOpen),
     (error) => setToast(ipcErrorText(error)),
   );
-  const computer = useComputerControl(state, bot, setToast);
+  // In a group the card follows the member working on its desktop; full screen keeps the desktop it opened with,
+  // so a takeover is not switched away under the user.
+  const groupDesktop = useMemo(
+    () => (group && state ? groupDesktopBotId(group, state.runs, state.messages, state.bots) : undefined),
+    [group?.id, group?.members, state?.runs, state?.messages, state?.bots],
+  );
+  const computer = useComputerControl(state, bot, setToast, groupDesktop, modal === 'computer');
   const { vmReady, desktopBot, controlled, computerAction } = computer;
   const act = async (operation: () => Promise<unknown>) => {
     setBusy(true);

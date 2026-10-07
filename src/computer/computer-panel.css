@@ -63,6 +63,35 @@
   bottom: 11px;
   pointer-events: none;
 }
+/* Whose desktop this is, when the conversation is a group and the card follows the working member. */
+.computer-panel-owner {
+  position: absolute;
+  left: 11px;
+  bottom: 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 62px);
+  height: 28px;
+  padding: 0 10px 0 5px;
+  border-radius: 14px;
+  background: light-dark(#18202cb3, #e0dbe6b3);
+  color: light-dark(#fff, #231f29);
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
+  pointer-events: none;
+}
+.computer-panel-owner .avatar {
+  flex: none;
+}
+.computer-panel-owner > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.computer-panel-screen:hover .computer-panel-owner {
+  background: light-dark(#151c2bdd, #e0dbe6dd);
+}
 .computer-panel-screen:hover .computer-panel-expand {
   background: light-dark(#151c2bdd, #e0dbe6dd);
 }
