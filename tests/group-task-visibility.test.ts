@@ -136,7 +136,7 @@ test('legacy group records leave the private chat without losing any execution r
   assert.equal(readFileSync(backup, 'utf8'), backupText);
 });
 
-test('migrating group records removes them from private history search and reading', (t) => {
+test('migrating group records moves them out of private history; search finds them as group work', (t) => {
   const f = fixture(t),
     groupRun = f.add('computer_execute'),
     privateMessage = f.store.message(f.bot.id, 'user', '保留这条私聊历史');
@@ -152,9 +152,14 @@ test('migrating group records removes them from private history search and readi
   try {
     assert.ok(!restored.data.messages.some((message) => message.id === groupMessage.id));
     assert.ok(restored.data.groupRunMessages.some((message) => message.id === groupMessage.id));
-    assert.deepEqual(after.search(f.bot.id, '必须完整保留的原始工具输出'), []);
-    assert.throws(() => after.readHistory(f.bot.id, groupMessage.id, 0, 0), { code: 'memory.history_not_found' });
-    assert.equal(after.search(f.bot.id, '保留这条私聊历史')[0]?.messageId, privateMessage.id);
+    // Still findable by its Bot, but labelled as group work, and read without private neighbours.
+    const [found] = after.search(f.bot.id, '必须完整保留的原始工具输出');
+    assert.equal(found?.messageId, groupMessage.id);
+    assert.equal(found?.source, 'group');
+    assert.ok(!after.readHistory(f.bot.id, groupMessage.id, 3, 3).some((row) => row.messageId === privateMessage.id));
+    const [mine] = after.search(f.bot.id, '保留这条私聊历史');
+    assert.equal(mine?.messageId, privateMessage.id);
+    assert.equal(mine?.source, 'private');
   } finally {
     after.close();
     restored.close();
