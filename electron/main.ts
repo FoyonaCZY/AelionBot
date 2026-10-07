@@ -51,6 +51,7 @@ import { BotGreetings } from './core/agent/bot-greetings';
 import { AppUpdates } from './core/app/app-updates';
 import { Diagnostics } from './core/app/diagnostics';
 import { slowOperations, watchEventLoop } from './core/app/slow-operations';
+import { StartupTimer } from './core/app/startup-timer';
 import { PowerShellParser } from './core/host/powershell-parser';
 import { availableParallelism, release as osRelease, totalmem } from 'node:os';
 import { createWindowsUpdater, UPDATE_REPOSITORY } from './core/app/windows-updater';
@@ -108,13 +109,19 @@ process.on('uncaughtExceptionMonitor', (error, origin) => diagnostics?.record('p
 let updatePreparing = false;
 let timer: NodeJS.Timeout | undefined;
 let polling = false;
+/** The longest a launch waits for the page's first frame before showing the window anyway. */
+const REVEAL_MS = 3000;
+const startup = new StartupTimer();
 let exiting = false;
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
+  // Another launch while this one runs: bring its window forward, even while the page is still loading.
   app.on('second-instance', () => {
-    window?.show();
-    window?.focus();
+    if (!window || window.isDestroyed()) return;
+    if (window.isMinimized()) window.restore();
+    window.show();
+    window.focus();
   });
   app
     .whenReady()
@@ -261,6 +268,7 @@ async function initialize() {
   const projectDir = resolve(process.env.AELION_PROJECT_DIR || savedLaunch?.projectDir || process.cwd());
   mkdirSync(dataDir, { recursive: true });
   store = new Store(dataDir, { incremental: true, deferWrites: true });
+  startup.mark('state');
   providers = new ModelProviders(
     store,
     {
@@ -538,6 +546,7 @@ async function initialize() {
     },
     { aiTimeoutMs: 90000 },
   );
+  startup.mark('services');
   cognition = new Cognition(
     store,
     model,
@@ -798,6 +807,7 @@ async function initialize() {
     changed,
   );
   cognition.start();
+  startup.mark('memory');
   nativeTheme.themeSource = normalizeAppearance(store.data.appearance).theme;
   window = new BrowserWindow({
     width: 1420,
@@ -1094,11 +1104,31 @@ async function initialize() {
   app.on('window-all-closed', () => app.quit());
   vm.on('state', changed);
   const dev = process.env.AELION_DEV_URL;
-  if (dev) {
-    if (new URL(dev).hostname !== '127.0.0.1') throw new Error('开发服务器必须在本机');
-    await window.loadURL(dev);
-  } else await window.loadFile(join(__dirname, '../dist/index.html'));
-  window.show();
+  if (dev && new URL(dev).hostname !== '127.0.0.1') throw new Error('开发服务器必须在本机');
+  // The window shows with its first frame, or after REVEAL_MS whatever the page is doing: waiting for the page to
+  // finish loading left a busy launch with no window for minutes. A failed load is retried, not fatal.
+  const page = window;
+  let revealed = false;
+  const reveal = () => {
+    if (revealed || page.isDestroyed()) return;
+    revealed = true;
+    page.show();
+    startup.mark('shown');
+  };
+  page.once('ready-to-show', reveal);
+  const revealTimer = setTimeout(reveal, REVEAL_MS);
+  const load = () => (dev ? page.loadURL(dev) : page.loadFile(join(__dirname, '../dist/index.html')));
+  for (let attempt = 1; attempt <= 2 && !page.isDestroyed(); attempt++)
+    try {
+      await load();
+      startup.mark('loaded');
+      break;
+    } catch (error) {
+      diagnostics?.record('app.load-error', error);
+    }
+  clearTimeout(revealTimer);
+  reveal();
+  diagnostics?.record('app.startup', startup.report());
   appUpdates.startAutomaticChecks();
   void greetings.greetEmpty();
   for (const provider of providers.list()) void providers.prewarm(provider.id);

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { StartupTimer } from '../electron/core/app/startup-timer';
 import {
   mkdtempSync,
   mkdirSync,
@@ -333,4 +334,17 @@ test('diagnostic event recording rotates bounded files and never exposes keys', 
   f.service.record('after.dispose', 'should not be written');
   assert.equal(readFileSync(path, 'utf8'), before);
   await assert.rejects(() => f.service.prepare(), { code: 'app.disposing' });
+});
+
+test('startup milestones report each phase once, in order, from process start', () => {
+  let now = 0;
+  const timer = new StartupTimer(() => now);
+  now = 940;
+  timer.mark('state');
+  now = 2310;
+  timer.mark('shown');
+  now = 9000;
+  timer.mark('shown');
+  timer.mark('loaded');
+  assert.equal(timer.report(), 'state 0.9s, shown 2.3s, loaded 9.0s');
 });
