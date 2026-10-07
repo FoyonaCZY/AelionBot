@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { mkdirSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import type { Store } from '../storage/store';
+import type { ChatMessage } from '../../../shared/types/core';
 import { excerpt, resultDigest } from '../context/context-budget';
 import { AppError } from '../../../shared/errors';
 
@@ -34,7 +35,8 @@ export interface ReviewJob {
 }
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 /** What the history index holds of a message; its position is kept apart, so moving it does not re-index it. */
-const historyStamp = (status: string | null | undefined, content: string) => hash(`${status || ''}:${content}`);
+const historyStamp = (status: string | null | undefined, content: string, scope?: string | null) =>
+  hash(`${scope ? scope + ':' : ''}${status || ''}:${content}`);
 export const normalizedFact = (text: string) => text.trim().replace(/\s+/g, ' ');
 export class CognitiveStore {
   readonly db: DatabaseSync;
@@ -58,6 +60,11 @@ export class CognitiveStore {
       CREATE TABLE IF NOT EXISTS review_messages(id INTEGER PRIMARY KEY AUTOINCREMENT,job_id TEXT NOT NULL,bot_id TEXT NOT NULL,role TEXT NOT NULL,tool TEXT,content TEXT NOT NULL,created_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS model_usage(id TEXT PRIMARY KEY,run_id TEXT,bot_id TEXT,task TEXT NOT NULL,model TEXT NOT NULL,input_tokens INTEGER,output_tokens INTEGER,estimated_tokens INTEGER,created_at TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS history_bot_seq ON history(bot_id,seq); CREATE INDEX IF NOT EXISTS review_pending ON review_jobs(status,created_at);`);
+    // scope: empty for the private conversation, group:<id> for the Bot's own work records in that group.
+    if (
+      !(this.db.prepare('PRAGMA table_info(history)').all() as Array<{ name: string }>).some((c) => c.name === 'scope')
+    )
+      this.db.exec('ALTER TABLE history ADD COLUMN scope TEXT');
     this.db.prepare("UPDATE review_jobs SET status='queued' WHERE status='running'").run();
     // Stamps once included the message's position: one message moved or removed early in the list re-indexed every
     // later one, over a minute on a long profile, on the main process. Older stamps are converted once.
@@ -65,12 +72,13 @@ export class CognitiveStore {
       const restamp = this.db.prepare('UPDATE history SET stamp=? WHERE id=?');
       this.db.exec('BEGIN');
       try {
-        for (const row of this.db.prepare('SELECT id,status,content FROM history').all() as Array<{
+        for (const row of this.db.prepare('SELECT id,status,content,scope FROM history').all() as Array<{
           id: string;
           status: string | null;
           content: string;
+          scope: string | null;
         }>)
-          restamp.run(historyStamp(row.status, row.content), row.id);
+          restamp.run(historyStamp(row.status, row.content, row.scope), row.id);
         this.set('history-stamp', '2');
         this.db.exec('COMMIT');
       } catch (error) {
@@ -209,18 +217,34 @@ export class CognitiveStore {
     this.set(`knowledge-revision:${botId}`, String(revision));
     return revision;
   }
+  /**
+   * What a Bot's history search covers: its private conversation, and its own work records in each group (scope
+   * `group:<id>`). Positions (seq) count within each source.
+   */
+  private historyEntries(botId?: string) {
+    const groupOf = new Map<string, string>();
+    for (const run of this.store.data.runs) if (run.groupOrigin) groupOf.set(run.id, run.groupOrigin.groupId);
+    const entries: Array<{ message: ChatMessage; seq: number; scope: string | null }> = [];
+    this.store.data.messages.forEach((message, seq) => {
+      if (!botId || message.botId === botId) entries.push({ message, seq, scope: null });
+    });
+    this.store.data.groupRunMessages.forEach((message, seq) => {
+      const group = message.runId ? groupOf.get(message.runId) : undefined;
+      if (group && (!botId || message.botId === botId)) entries.push({ message, seq, scope: 'group:' + group });
+    });
+    return entries;
+  }
   syncHistory(botId?: string) {
     const upsert = this.db.prepare(
-      'INSERT INTO history VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET seq=excluded.seq,status=excluded.status,content=excluded.content,stamp=excluded.stamp',
+      'INSERT INTO history(id,bot_id,run_id,seq,role,tool,status,content,stamp,scope) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET seq=excluded.seq,status=excluded.status,content=excluded.content,stamp=excluded.stamp,scope=excluded.scope',
     );
     const move = this.db.prepare('UPDATE history SET seq=? WHERE id=?'),
       remove = this.db.prepare('DELETE FROM history_fts WHERE id=?'),
       insert = this.db.prepare('INSERT INTO history_fts VALUES(?,?,?)'),
       deleteHistory = this.db.prepare('DELETE FROM history WHERE id=?');
     // The JSON store is authoritative: migration can move group runs out of private history.
-    const current = new Set(
-      this.store.data.messages.filter((message) => !botId || message.botId === botId).map((message) => message.id),
-    );
+    const entries = this.historyEntries(botId),
+      current = new Set(entries.map((entry) => entry.message.id));
     const indexed = (
       botId
         ? this.db.prepare('SELECT id FROM history WHERE bot_id=?').all(botId)
@@ -236,9 +260,8 @@ export class CognitiveStore {
           this.synced.delete(id);
         }
       for (const id of current) if (!indexedIds.has(id)) this.synced.delete(id);
-      for (const [seq, message] of this.store.data.messages.entries()) {
-        if (botId && message.botId !== botId) continue;
-        const stamp = historyStamp(message.status, message.content),
+      for (const { message, seq, scope } of entries) {
+        const stamp = historyStamp(message.status, message.content, scope),
           known = this.synced.get(message.id);
         if (known?.stamp === stamp) {
           if (known.seq !== seq) {
@@ -257,6 +280,7 @@ export class CognitiveStore {
           message.status || null,
           message.content,
           stamp,
+          scope,
         );
         remove.run(message.id);
         insert.run(
@@ -314,9 +338,22 @@ export class CognitiveStore {
       runId: row.run_id,
       role: row.role,
       tool: row.tool,
-      time: this.store.data.messages.find((message) => message.id === row.id)?.time,
+      time: this.historyTime(row.id),
+      ...this.historySource(row.scope),
       excerpt: this.searchExcerpt(row.content, query),
     }));
+  }
+  private historyTime(id: string) {
+    return (
+      this.store.data.messages.find((message) => message.id === id) ||
+      this.store.data.groupRunMessages.find((message) => message.id === id)
+    )?.time;
+  }
+  /** Where a record comes from, for the model: the private conversation or its own work in a named group. */
+  private historySource(scope: string | null) {
+    if (!scope?.startsWith('group:')) return { source: 'private' as const };
+    const id = scope.slice('group:'.length);
+    return { source: 'group' as const, group: { id, name: this.store.data.groups.find((g) => g.id === id)?.name } };
   }
   private searchExcerpt(content: string, query: string) {
     const at = content.toLowerCase().indexOf(query.toLowerCase());
@@ -340,9 +377,12 @@ export class CognitiveStore {
   readHistory(botId: string, id: string, before = 1, after = 1) {
     this.store.bot(botId);
     this.syncHistory(botId);
-    const hit = this.db.prepare('SELECT seq FROM history WHERE id=? AND bot_id=?').get(id, botId) as any;
+    const hit = this.db.prepare('SELECT seq,scope FROM history WHERE id=? AND bot_id=?').get(id, botId) as any;
     if (!hit) throw new AppError('memory.history_not_found', '历史记录不存在或无权访问');
-    const rows = this.db.prepare('SELECT * FROM history WHERE bot_id=? ORDER BY seq').all(botId) as any[],
+    // Neighbours come from the same conversation: the private one, or the same group's work records.
+    const rows = this.db
+        .prepare('SELECT * FROM history WHERE bot_id=? AND scope IS ? ORDER BY seq')
+        .all(botId, hit.scope ?? null) as any[],
       index = rows.findIndex((row) => row.id === id);
     return rows
       .slice(Math.max(0, index - Math.min(3, Math.max(0, before))), index + 1 + Math.min(3, Math.max(0, after)))
@@ -351,7 +391,8 @@ export class CognitiveStore {
         runId: row.run_id,
         role: row.role,
         tool: row.tool,
-        time: this.store.data.messages.find((message) => message.id === row.id)?.time,
+        time: this.historyTime(row.id),
+        ...this.historySource(row.scope),
         content: excerpt(row.content, 2200),
       }));
   }

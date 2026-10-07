@@ -15,7 +15,7 @@ export const MEMORY_TOOLS: ToolDefinition[] = [
   ),
   tool(
     'history_search',
-    '搜索当前 Bot 的历史对话与工具结果，返回来源消息 ID。适合压缩后找回细节，不会搜索其他 Bot 的私有记录。',
+    '搜索当前 Bot 的私聊历史、工具结果，以及它自己在各群聊里的工作记录，返回来源消息 ID；source 标明来自私聊（private）还是哪个群（group）。适合压缩后找回细节，或回想在别处做过的事；不会搜索其他 Bot 的私有记录。',
     { query: string, limit: { type: 'integer', minimum: 1, maximum: 20 } },
     ['query'],
   ),

@@ -233,6 +233,33 @@ test('history search supports Chinese and enforces Bot scope while preserving so
   assert.throws(() => f.storage.readHistory(other.id, message.id), { code: 'memory.history_not_found' });
   assert.equal(f.storage.readHistory(f.bot.id, message.id, 0, 0)[0].content, '报表颜色约定是深蓝色。');
 });
+test('a private conversation finds the Bot own group work, labelled, with neighbours from that group only', (t) => {
+  const f = fixture(t);
+  f.store.data.groups.push({ id: 'g1', name: '发布小组' } as any);
+  f.store.data.runs.push({
+    id: 'group-run',
+    botId: f.bot.id,
+    status: 'completed',
+    startedAt: new Date().toISOString(),
+    modelCalls: 1,
+    toolCalls: 0,
+    groupOrigin: { groupId: 'g1', rootId: 'root', deliveryId: 'delivery' },
+  });
+  const before = f.store.message(f.bot.id, 'user', '私聊里的上一条');
+  const work = f.store.message(f.bot.id, 'assistant', '已把 v2 发布清单整理到 release.md。', { runId: 'group-run' });
+  f.store.message(f.bot.id, 'assistant', '群里的下一步：等测试通过。', { runId: 'group-run' });
+  assert.ok(f.store.data.groupRunMessages.includes(work));
+  const [hit] = f.storage.search(f.bot.id, '发布清单');
+  assert.equal(hit.messageId, work.id);
+  assert.deepEqual([hit.source, (hit as any).group], ['group', { id: 'g1', name: '发布小组' }]);
+  assert.equal(f.storage.search(f.bot.id, '私聊里的上一条')[0].source, 'private');
+  const around = f.storage.readHistory(f.bot.id, work.id, 3, 3);
+  assert.deepEqual(
+    around.map((row) => row.content),
+    ['已把 v2 发布清单整理到 release.md。', '群里的下一步：等测试通过。'],
+  );
+  assert.ok(!around.some((row) => row.messageId === before.id));
+});
 test('replacing a fact with text another fact already holds merges them, and snapshots list each fact once', (t) => {
   const f = fixture(t);
   f.store.message(f.bot.id, 'user', '记住这两条', { runId: 'memory' });
