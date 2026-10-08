@@ -1,8 +1,8 @@
 import { buildGroupDecisionInput, type GroupDecisions } from './laya-decision';
 import { previewFeedbackDisplay } from '../../../shared/preview/preview-feedback';
 import { groupEventPrompt, groupMustAnswerNote, groupReviewNote, GROUP_STATE_EVENT_PROMPT } from './group-prompt';
-import { answerFrom, noticed, sinceUser, triage } from './group-triage';
-import { replyTarget } from '../../../shared/chat/group-answers';
+import { answerFrom, botMessageCount, noticed, sinceUser, triage } from './group-triage';
+import { isGroupAnswer, replyTarget } from '../../../shared/chat/group-answers';
 import { userDisplayName } from '../../../shared/chat/user-profile';
 import { resolveGroupReply } from '../agent/message-replies';
 import { workCommand, type WorkItem } from '../../../shared/types/work-types';
@@ -25,6 +25,7 @@ import {
   type GroupsView,
 } from '../../../shared/types/group-types';
 import { hasSilenceMarker, normalized } from './group-response';
+import { isEmptyGroupReply } from '../../../shared/chat/group-empty-reply';
 import { rememberPublished } from './group-history';
 import { pinDescription, updatePins, validPin, type PinInput } from '../../../shared/chat/reactions';
 import { readableContent } from '../../../shared/chat/activity';
@@ -74,6 +75,9 @@ function required(value: unknown, label: string, max: number) {
 }
 const workLane = (message: GroupMessage | undefined) =>
   message?.workItemId || (message?.sender.kind === 'user' && workCommand(message.content) ? message.id : undefined);
+const pendingOrResumable = (delivery: GroupDelivery) =>
+  groupPending(delivery.status) || (delivery.status === 'interrupted' && delivery.resumable === true);
+const publicationFailure = (error: unknown) => `群消息补发失败：${String((error as Error).message).slice(0, 300)}`;
 const INTERRUPTED_REASONS = ['应用重启，等待用户继续', '应用退出，等待用户继续'];
 /**
  * Quitting or restarting is not the user stopping the discussion. Only rounds that still had work in flight are
@@ -87,7 +91,7 @@ function interruptPending(store: Store, reason: string) {
       delivery.reason = reason;
       if (delivery.recipientId !== 'user') delivery.resumable = true;
       cut.add(delivery.rootId);
-    }
+    } else if (pendingOrResumable(delivery)) cut.add(delivery.rootId);
   for (const round of store.data.groupRounds)
     if (round.status === 'active' && cut.has(round.id)) {
       round.status = 'stopped';
@@ -110,10 +114,15 @@ export class GroupChats implements GroupGateway {
     private attachments = new Attachments(store),
     private host?: HostComputer,
     private laya?: GroupDecisions,
+    /** Persona lines (affinity, shared memories) appended to a Bot's group context; empty string when none. */
+    private persona?: (botId: string, people: { id: string; name: string }[]) => string,
   ) {
     // Publication may commit just before the process exits, before the inbox receipt is saved.
+    const recovering = store.data.groupDeliveries.filter(pendingOrResumable);
+    const recoveringRuns = new Set(recovering.map((delivery) => delivery.runId));
+    const committedReplies = new Map<RunRecord, { room: GroupRoom; message: GroupMessage }>();
     for (const entry of store.data.groupOutbox || [])
-      if (entry.status === 'sent' && entry.messageId) {
+      if (entry.status === 'sent' && entry.messageId && recoveringRuns.has(entry.runId)) {
         const run = store.data.runs.find(
           (r) =>
             r.id === entry.runId &&
@@ -121,20 +130,41 @@ export class GroupChats implements GroupGateway {
             r.groupOrigin?.groupId === entry.groupId &&
             r.status === 'completed',
         );
-        if (
-          !run ||
-          !store.data.groups.some((g) => g.id === entry.groupId && g.messages.some((m) => m.id === entry.messageId))
-        )
-          continue;
-        run.groupReplyMessageId = entry.messageId;
-        store.touch(run);
-        for (const delivery of store.data.groupDeliveries)
-          if (delivery.runId === run.id && delivery.groupId === entry.groupId && groupPending(delivery.status)) {
-            delivery.status = 'replied';
-            delivery.replyMessageId = entry.messageId;
-          }
+        const room = store.data.groups.find((g) => g.id === entry.groupId),
+          message = room?.messages.find((m) => m.id === entry.messageId);
+        if (run && room && message?.kind === 'message' && message.seq > (committedReplies.get(run)?.message.seq || 0))
+          committedReplies.set(run, { room, message });
       }
-    // Earlier versions stopped every active round on quit, finished ones included; those have nothing to resume.
+    for (const run of store.data.runs) {
+      if (run.status !== 'completed' || !run.groupOrigin || !recoveringRuns.has(run.id)) continue;
+      const room = store.data.groups.find((g) => g.id === run.groupOrigin!.groupId);
+      if (!room) continue;
+      const deliveries = recovering.filter((d) => d.runId === run.id && d.groupId === room.id && pendingOrResumable(d));
+      if (!deliveries.length) continue;
+      const published = this.publishedReplies(room, run).at(-1),
+        legacy = committedReplies.get(run)?.message,
+        reply = legacy && (!published || legacy.seq > published.seq) ? legacy : published;
+      const round = this.round(run.groupOrigin.rootId);
+      // A persisted model answer can precede its publication. Recover through the same
+      // outbox path as a live run, including deduplication and attachment handling.
+      if (
+        round.status === 'stopped' &&
+        (INTERRUPTED_REASONS.includes(round.reason || '') ||
+          deliveries.some((delivery) => delivery.resumable && delivery.retryRunId === run.id))
+      ) {
+        round.status = 'active';
+        delete round.reason;
+      }
+      try {
+        this.finishReply(room, run, round, deliveries, reply);
+      } catch (error) {
+        // A failed publication must not prevent startup or rerun completed model work.
+        // Limit enforcement may already have settled these deliveries as limited.
+        // Startup pauses pending rounds below, after every completed run gets its recovery attempt.
+        this.deferReply(run, deliveries, publicationFailure(error), false);
+      }
+    }
+    // Earlier versions stopped finished rounds on quit; those have nothing to resume.
     for (const round of store.data.groupRounds)
       if (
         round.status === 'stopped' &&
@@ -149,6 +179,65 @@ export class GroupChats implements GroupGateway {
   }
   get busy() {
     return this.workers.size > 0;
+  }
+  /** Public progress is not an answer; a non-withdrawn reaction is. */
+  private publishedReplies(room: GroupRoom, run: RunRecord) {
+    return room.messages.filter(
+      (message) => message.sender.id === run.botId && message.runIds?.includes(run.id) && isGroupAnswer(message),
+    );
+  }
+  /** Keep each explicit answer's receipt; a final summary can acknowledge the remaining batch. */
+  private acknowledgeReplies(room: GroupRoom, run: RunRecord, deliveries: GroupDelivery[], fallback: GroupMessage) {
+    const replies = this.publishedReplies(room, run).reverse();
+    run.groupReplyMessageId = fallback.id;
+    this.store.touch(run);
+    for (const delivery of deliveries) {
+      const reply =
+        replies.find(
+          (message) =>
+            message.answers === delivery.messageId ||
+            replyTarget(message) === delivery.messageId ||
+            message.reaction?.messageId === delivery.messageId,
+        ) || fallback;
+      delivery.status = 'replied';
+      delivery.replyMessageId = reply.id;
+      delete delivery.reason;
+      delete delivery.resumable;
+    }
+  }
+  /** A publication pause retains completed work; a user stop clears these resumable receipts. */
+  private publicationPaused(round: GroupRound) {
+    return (
+      round.status === 'stopped' &&
+      this.store.data.groupDeliveries.some(
+        (delivery) =>
+          delivery.rootId === round.id &&
+          delivery.resumable &&
+          delivery.retryRunId === delivery.runId &&
+          this.store.data.runs.some((run) => run.id === delivery.retryRunId && run.status === 'completed'),
+      )
+    );
+  }
+  /** A completed model run still owns its unpublished answer after every failed publication attempt. */
+  private deferReply(run: RunRecord, deliveries: GroupDelivery[], reason: string, pause = true) {
+    for (const delivery of deliveries) {
+      if (!pendingOrResumable(delivery)) continue;
+      const round = this.round(delivery.rootId);
+      if (round.status !== 'active' && !this.publicationPaused(round)) continue;
+      delivery.status = 'interrupted';
+      delivery.resumable = true;
+      delivery.retryRunId = run.id;
+      delivery.reason = reason;
+    }
+    if (!pause) return;
+    for (const delivery of deliveries)
+      if (delivery.resumable && delivery.retryRunId === run.id) {
+        const round = this.round(delivery.rootId);
+        if (round.status === 'active') {
+          round.status = 'stopped';
+          round.reason = reason;
+        }
+      }
   }
   layaChanged() {
     this.revision++;
@@ -198,8 +287,10 @@ export class GroupChats implements GroupGateway {
     return this.members(room).map((member) => identity(this.store.bot(member.id)));
   }
   /** Intercept the model's final group reply before it reaches the shared publisher. */
-  private beforeFinalReplyPublish(content: string): FinalReplyDecision {
-    return !content || hasSilenceMarker(content) ? { kind: 'silent' } : { kind: 'publish', content };
+  private beforeFinalReplyPublish(content: string, attachments?: GroupMessage['attachments']): FinalReplyDecision {
+    // Silence applies only to the text channel; completed file work still needs publication.
+    if (hasSilenceMarker(content)) content = attachmentSummary(attachments);
+    return content ? { kind: 'publish', content } : { kind: 'silent' };
   }
   receive(botId: string, runId: string) {
     const worker = this.workers.get(botId);
@@ -318,12 +409,20 @@ export class GroupChats implements GroupGateway {
     if (hasSilenceMarker(content)) throw Error('静默标记是内部控制文本，不能作为群消息发布');
     const outbox = (this.store.data.groupOutbox ||= []),
       kind = fields.kind || 'message';
-    const fingerprint = (value: {
-      content: string;
-      mentions?: BotMention[];
-      attachments?: GroupMessage['attachments'];
-    }) =>
+    const fingerprint = (
+      value: {
+        content: string;
+        mentions?: BotMention[];
+        attachments?: GroupMessage['attachments'];
+        kind?: 'message' | 'progress';
+        replyTo?: string;
+        answers?: string;
+      },
+      includeTarget = true,
+    ) =>
       JSON.stringify([
+        value.kind || 'message',
+        includeTarget ? value.replyTo || value.answers || null : null,
         value.content,
         value.mentions?.map((m) => m.id) || [],
         value.attachments?.map((a) => a.id) || [],
@@ -332,22 +431,34 @@ export class GroupChats implements GroupGateway {
       (item) =>
         item.botId === run.botId && item.groupId === room.id && item.rootId === round.id && item.key === fields.key,
     );
-    if (entry && fingerprint(entry) !== fingerprint({ content, mentions, attachments: fields.attachments }))
+    const publication = {
+      content,
+      mentions,
+      attachments: fields.attachments,
+      kind,
+      replyTo: fields.replyTo,
+      answers: fields.answers,
+    };
+    // A final key deduplicates this sender's exact answer within one round, even
+    // after peers' replies change its inferred target. Explicit keys commit their target too.
+    const includeTarget = !fields.key.startsWith('final:');
+    if (entry && fingerprint(entry, includeTarget) !== fingerprint(publication, includeTarget))
       throw new AppError('group.outbox_conflict', '同一发件标识不能用于不同内容');
-    // A final reply may repeat an explicitly published message from this run.
+    // Reuse the same publication even if an older version generated a different automatic key.
     entry ||= outbox.find(
       (item) =>
         item.botId === run.botId &&
         item.groupId === room.id &&
         item.runId === run.id &&
-        item.status === 'sent' &&
-        fingerprint(item) === fingerprint({ content, mentions, attachments: fields.attachments }),
+        fingerprint(item) === fingerprint(publication),
     );
     if (entry?.messageId) {
       const sent = room.messages.find((m) => m.id === entry!.messageId);
       if (sent) return sent;
       throw Error('发件回执对应的消息缺失');
     }
+    if (this.enforceBotLimit(room))
+      throw new AppError('group.bot_limit', `Bot 发言已达 ${GROUP_LIMITS.botStreak} 条，等待用户继续`);
     if (!entry) {
       entry = {
         id: randomUUID(),
@@ -368,7 +479,8 @@ export class GroupChats implements GroupGateway {
       };
       outbox.push(entry);
       try {
-        this.store.save();
+        // Desktop save() is deferred; a publication acknowledgement requires a disk commit.
+        this.store.flush();
       } catch (error) {
         outbox.pop();
         throw error;
@@ -400,7 +512,7 @@ export class GroupChats implements GroupGateway {
       );
       entry.status = 'sent';
       entry.messageId = message.id;
-      this.store.save();
+      this.store.flush();
     } catch (error) {
       const added = new Set(room.messages.slice(previous.messages).map((m) => m.id));
       room.messages.splice(previous.messages);
@@ -416,6 +528,7 @@ export class GroupChats implements GroupGateway {
       throw error;
     }
     this.revision++;
+    this.enforceBotLimit(room, message);
     this.changed();
     this.wake();
     return message;
@@ -434,6 +547,7 @@ export class GroupChats implements GroupGateway {
       worker = this.workers.get(botId);
     this.member(room, botId);
     if (!worker || worker.runId !== runId || worker.controller.signal.aborted) throw new Error('群消息已更新');
+    if (isEmptyGroupReply(content)) return;
     const previous = [...room.messages]
       .reverse()
       .find((message) => message.sender.id === botId && message.kind === 'progress');
@@ -462,7 +576,17 @@ export class GroupChats implements GroupGateway {
         : undefined,
       workers = [...this.workers.values()].filter((worker) => worker.groupId === room.id),
       // Notices about the discussion itself (limits, nobody answered) are not what the group is saying.
-      last = [...room.messages].reverse().find((message) => !message.notice);
+      last = [...room.messages]
+        .reverse()
+        .find(
+          (message) =>
+            !message.notice &&
+            !(
+              message.sender.kind === 'bot' &&
+              !message.attachments?.length &&
+              isEmptyGroupReply(groupReplyContent(message.content, message.sender.id))
+            ),
+        );
     return {
       id: room.id,
       name: room.name,
@@ -479,7 +603,16 @@ export class GroupChats implements GroupGateway {
           last ? previewFeedbackDisplay(last).content : '',
           last?.sender.kind === 'bot' ? last.sender.id : undefined,
         ).slice(0, 100) || attachmentSummary(last?.attachments),
-      unread: room.messages.filter((message) => message.seq > room.lastReadSeq && message.sender.kind === 'bot').length,
+      unread: room.messages.filter(
+        (message) =>
+          message.seq > room.lastReadSeq &&
+          message.sender.kind === 'bot' &&
+          !(
+            ['message', 'progress'].includes(message.kind) &&
+            !message.attachments?.length &&
+            isEmptyGroupReply(groupReplyContent(message.content, message.sender.id))
+          ),
+      ).length,
       lastSeq: room.messages.at(-1)?.seq || 0,
       pending: this.store.data.groupDeliveries.filter((d) => d.groupId === room.id && groupPending(d.status)).length,
       ...(round
@@ -603,6 +736,7 @@ export class GroupChats implements GroupGateway {
     extra: Partial<
       Pick<
         import('../../../shared/types/group-types').GroupMessage,
+        | 'id'
         | 'reaction'
         | 'runIds'
         | 'event'
@@ -654,7 +788,7 @@ export class GroupChats implements GroupGateway {
           status: recipientId === 'user' ? 'delivered' : 'queued',
           createdAt: message.time,
         });
-      if (sender.kind === 'bot') {
+      if (sender.kind === 'bot' && (kind === 'message' || kind === 'progress')) {
         round.botMessages++;
       }
     }
@@ -759,15 +893,40 @@ export class GroupChats implements GroupGateway {
     );
     if (!target) throw new AppError('group.reaction_target_invalid', '只能回应群里已发送的文字消息');
     if (sender.kind === 'bot' && target.sender.id === sender.id) throw new Error('请选择其他成员的消息进行回应');
+    const previous = {
+      pins: target.pins,
+      messages: room.messages.length,
+      deliveries: this.store.data.groupDeliveries.length,
+      rounds: this.store.data.groupRounds.length,
+      activeRootId: room.activeRootId,
+      updatedAt: room.updatedAt,
+      botMessages: round?.botMessages,
+    };
     if (!updatePins(target, sender, input))
       return { pinned: !input.remove, alreadyApplied: true, messageId: target.id };
     const content = pinDescription(sender, input, target.content);
-    round ||= this.newRound(room, '用户的表情态度（不是新任务或授权）：' + content);
-    const event = this.append(room, sender, content, round, undefined, 'reaction', target.id, {
-      reaction: { messageId: target.id, emoji: input.emoji, removed: Boolean(input.remove) },
-      ...(runId ? { runIds: [runId] } : {}),
-    });
-    this.touch();
+    let event: GroupMessage;
+    try {
+      round ||= this.newRound(room, '用户的表情态度（不是新任务或授权）：' + content);
+      event = this.append(room, sender, content, round, undefined, 'reaction', target.id, {
+        reaction: { messageId: target.id, emoji: input.emoji, removed: Boolean(input.remove) },
+        ...(runId ? { runIds: [runId] } : {}),
+      });
+      // Persist the badge and its event together before acknowledging the reaction.
+      this.store.flush();
+    } catch (error) {
+      target.pins = previous.pins;
+      room.messages.splice(previous.messages);
+      this.store.data.groupDeliveries.splice(previous.deliveries);
+      this.store.data.groupRounds.splice(previous.rounds);
+      room.activeRootId = previous.activeRootId;
+      room.updatedAt = previous.updatedAt;
+      if (round && previous.botMessages !== undefined) round.botMessages = previous.botMessages;
+      throw error;
+    }
+    this.revision++;
+    this.changed();
+    this.wake();
     return { pinned: !input.remove, messageId: target.id, eventId: event.id };
   }
   private mentions(room: GroupRoom, content: string, value?: BotMention[]) {
@@ -823,6 +982,49 @@ export class GroupChats implements GroupGateway {
       ...(reply ? { reply } : {}),
     });
     this.touch();
+  }
+  /**
+   * Post a finished game's report to its group. It is a plain system notice outside any round, so it wakes no Bot;
+   * the key events it describes reach each Bot later through its persona context.
+   */
+  postGameResult(groupId: string, report: string, matchId?: string, options?: { adoptLegacy?: boolean }) {
+    if (this.closing) throw new Error('客户端正在退出，战报尚未发布');
+    const room = this.store.data.groups.find((g) => g.id === groupId);
+    if (!room || !report.trim()) return;
+    const id = matchId ? `game-result:${matchId}` : undefined;
+    // Only a migrated pre-receipt checkpoint may adopt an old unkeyed report.
+    // New matches always use their identity, even if their recap text is identical.
+    const legacy =
+      options?.adoptLegacy &&
+      room.messages.some(
+        (message) =>
+          message.kind === 'system' &&
+          message.sender.kind === 'system' &&
+          !message.id.startsWith('game-result:') &&
+          message.content === report.slice(0, 4000),
+      );
+    if (!legacy && (!id || !room.messages.some((message) => message.id === id)))
+      this.append(room, system, report.slice(0, 4000), undefined, undefined, 'system', undefined, id ? { id } : {});
+    // A failed write leaves the same event available for retry. Even a deduplicated
+    // event must reach disk before the game's settlement may be acknowledged.
+    this.store.flush();
+    this.revision++;
+    this.changed();
+  }
+  private personaContext(room: GroupRoom, botId: string, message?: GroupMessage) {
+    if (!this.persona || !message) return '';
+    const people: { id: string; name: string }[] = [];
+    const add = (id: string, name: string) => {
+      if (id !== botId && !people.some((p) => p.id === id)) people.push({ id, name });
+    };
+    if (message.sender.kind === 'user') add('user', userDisplayName(this.store.data.userProfile));
+    else if (message.sender.kind === 'bot') add(message.sender.id, message.sender.name);
+    for (const m of message.mentions || []) add(m.id, m.name);
+    try {
+      return people.length ? this.persona(botId, people) : '';
+    } catch {
+      return ''; // persona data is optional context; its failure must not block a reply
+    }
   }
   schedule(id: string, prompt: string, scheduled: ScheduledTrigger) {
     if (this.closing) throw new Error('客户端正在退出');
@@ -970,15 +1172,30 @@ export class GroupChats implements GroupGateway {
     const delivery = this.store.data.groupDeliveries.find(
       (item) => item.id === origin.deliveryId && item.recipientId === run.botId && item.runId === run.id,
     );
-    if (!delivery || groupPending(delivery.status) || this.workers.has(run.botId) || this.runner.isRunning(run.botId))
+    if (
+      !delivery ||
+      !['failed', 'cancelled', 'interrupted'].includes(delivery.status) ||
+      this.workers.has(run.botId) ||
+      this.runner.isRunning(run.botId)
+    )
       throw Error('群任务仍在处理或已有更新，请稍后重试');
-    const round = this.round(origin.rootId);
-    round.status = 'active';
-    delete round.reason;
-    delivery.status = 'queued';
-    delivery.triage = 'wake';
-    delivery.retryRunId = run.id;
-    delete delivery.reason;
+    const batch = this.store.data.groupDeliveries.filter(
+      (item) =>
+        item.groupId === room.id &&
+        item.recipientId === run.botId &&
+        item.runId === run.id &&
+        ['failed', 'cancelled', 'interrupted'].includes(item.status),
+    );
+    for (const item of batch) {
+      const round = this.round(item.rootId);
+      round.status = 'active';
+      delete round.reason;
+      item.status = 'queued';
+      item.triage = 'wake';
+      item.retryRunId = run.id;
+      delete item.reason;
+      delete item.resumable;
+    }
     this.touch();
   }
   private requeue(worker: Worker) {
@@ -1122,22 +1339,53 @@ export class GroupChats implements GroupGateway {
     );
     this.holdTimer.unref?.();
   }
-  /** Tell the pair that stopped waking each other who sums up, once per pair until the user speaks. */
+  /** Pause the room at its text budget, keeping receipts for the last published answer. */
+  private enforceBotLimit(room: GroupRoom, published?: GroupMessage) {
+    if (botMessageCount(room) < GROUP_LIMITS.botStreak) return false;
+    const reason = `Bot 发言已达 ${GROUP_LIMITS.botStreak} 条，本轮讨论已暂停，等待你发言或继续。`;
+    const roots = new Set<string>();
+    if (room.activeRootId) roots.add(room.activeRootId);
+    if (published?.kind === 'message') {
+      const run = this.store.data.runs.find((item) => published.runIds?.includes(item.id));
+      if (run) {
+        const answered = this.store.data.groupDeliveries.filter(
+          (delivery) => delivery.groupId === room.id && delivery.runId === run.id && pendingOrResumable(delivery),
+        );
+        for (const delivery of answered) roots.add(delivery.rootId);
+        this.acknowledgeReplies(room, run, answered, published);
+      }
+    }
+    for (const delivery of this.store.data.groupDeliveries) {
+      if (delivery.groupId !== room.id || delivery.recipientId === 'user' || !pendingOrResumable(delivery)) continue;
+      roots.add(delivery.rootId);
+      delivery.status = 'limited';
+      delivery.triage = 'skip';
+      delivery.reason = reason;
+      delete delivery.resumable;
+      this.deciding.get(delivery.id)?.abort();
+    }
+    for (const rootId of roots) {
+      const round = this.round(rootId);
+      round.status = 'limited';
+      round.reason = reason;
+    }
+    if (!noticed(room, 'bot_limit'))
+      this.append(room, system, reason, undefined, undefined, 'system', undefined, { notice: 'bot_limit' });
+    // Commit the last allowed message before cancellation; late replies cannot publish.
+    for (const worker of this.workers.values()) {
+      if (worker.groupId !== room.id) continue;
+      worker.controller.abort();
+      if (worker.runId) this.runner.cancel(worker.botId);
+    }
+    this.store.save();
+    return true;
+  }
+
   private noticeLimit(room: GroupRoom, message: GroupMessage, recipientId: string, peerId?: string) {
     const round = message.rootId ? this.store.data.groupRounds.find((item) => item.id === message.rootId) : undefined;
     if (!round || round.status !== 'active') return;
     if (!peerId) {
-      if (noticed(room, 'bot_limit')) return;
-      this.append(
-        room,
-        system,
-        `Bot 之间的发言已达 ${GROUP_LIMITS.botStreak} 条，在你发言前不再互相叫醒。`,
-        round,
-        undefined,
-        'system',
-        undefined,
-        { notice: 'bot_limit' },
-      );
+      this.enforceBotLimit(room);
       return;
     }
     const pair = [peerId, recipientId].map((id) => this.store.bot(id)),
@@ -1165,6 +1413,16 @@ export class GroupChats implements GroupGateway {
     if (this.closing) return;
     let dirty = false;
     const holds: number[] = [];
+    for (const room of this.store.data.groups)
+      if (
+        botMessageCount(room) >= GROUP_LIMITS.botStreak &&
+        this.store.data.groupDeliveries.some(
+          (d) => d.groupId === room.id && groupPending(d.status) && d.recipientId !== 'user',
+        )
+      ) {
+        this.enforceBotLimit(room);
+        dirty = true;
+      }
     // Triage everything queued first, so a batch that starts now includes every message that wakes it.
     const byGroup = new Map<string, GroupDelivery[]>();
     for (const delivery of this.store.data.groupDeliveries) {
@@ -1208,9 +1466,10 @@ export class GroupChats implements GroupGateway {
             d.recipientId === delivery.recipientId &&
             d.status === 'queued' &&
             d.triage === 'wake' &&
+            d.retryRunId === delivery.retryRunId &&
             this.round(d.rootId).status === 'active',
         )
-        .slice(0, 8);
+        .slice(0, delivery.retryRunId ? undefined : 8);
       const firstMessage = room.messages.find((m) => m.id === delivery.messageId),
         designId = firstMessage?.designSessionId,
         lane = workLane(firstMessage);
@@ -1232,12 +1491,16 @@ export class GroupChats implements GroupGateway {
       void this.process(room, worker)
         .catch((error) => {
           if (worker.preempted && this.round(worker.rootId).status === 'active') this.requeue(worker);
-          else
+          else {
+            const completed = this.store.data.runs.find((run) => run.id === worker.runId && run.status === 'completed');
+            if (completed && !worker.controller.signal.aborted)
+              this.deferReply(completed, worker.deliveries, publicationFailure(error));
             for (const item of worker.deliveries)
               if (groupPending(item.status)) {
                 item.status = worker.controller.signal.aborted ? 'cancelled' : 'failed';
                 item.reason = String((error as Error).message).slice(0, 300);
               }
+          }
         })
         .finally(() => {
           if (worker.preempted) this.requeue(worker);
@@ -1261,6 +1524,11 @@ export class GroupChats implements GroupGateway {
       .map((delivery) => this.store.data.runs.find((run) => run.id === delivery.retryRunId && run.botId === bot.id))
       .find(Boolean);
     for (const delivery of deliveries) delete delivery.retryRunId;
+    if (retry?.status === 'completed' && deliveries.every((delivery) => delivery.runId === retry.id)) {
+      worker.runId = retry.id;
+      this.finishReply(room, retry, round, deliveries);
+      return;
+    }
     // Deliveries requeued after a private chat took over keep the run they were part of; the next
     // run carries its plan and workspace forward.
     const previousRun =
@@ -1348,7 +1616,7 @@ export class GroupChats implements GroupGateway {
           lastMessage?.workspaceDir ||
           effectiveWorkspace(this.store, this.host, { kind: 'group', id: room.id }),
         groupOrigin: { groupId: room.id, rootId: round.id, deliveryId: deliveries.at(-1)!.id },
-        groupContext: context + GROUP_STATE_EVENT_PROMPT,
+        groupContext: context + GROUP_STATE_EVENT_PROMPT + this.personaContext(room, bot.id, lastMessage),
         groupTaskFrom: previousRun?.id,
         onStarted: (id) => {
           worker.runId = id;
@@ -1357,49 +1625,60 @@ export class GroupChats implements GroupGateway {
         },
       },
     );
-    if (
-      controller.signal.aborted ||
-      this.round(worker.rootId).status !== 'active' ||
-      !this.store.data.groups.includes(room)
-    )
-      return;
+    if (controller.signal.aborted || !this.store.data.groups.includes(room)) return;
     this.member(room, bot.id);
     const run = this.store.data.runs.find((run) => run.id === worker.runId);
     if (run?.status !== 'completed') throw new Error(run?.error || '群聊任务未完成');
+    if (round.status !== 'active') {
+      if (this.publicationPaused(round)) this.deferReply(run, deliveries, round.reason || '同轮消息等待补发');
+      else
+        for (const delivery of deliveries)
+          if (groupPending(delivery.status)) {
+            delivery.status = round.status === 'limited' ? 'limited' : 'cancelled';
+            delivery.reason = round.reason;
+          }
+      return;
+    }
+    this.finishReply(room, run, round, deliveries);
+  }
+
+  private finishReply(
+    room: GroupRoom,
+    run: RunRecord,
+    round: GroupRound,
+    deliveries: GroupDelivery[],
+    recoveredReply?: GroupMessage,
+  ) {
     const finalMessage = this.store
         .runMessages(run.id)
         .filter((message) => message.presentation === 'answer')
         .at(-1),
-      answer = readableContent(finalMessage?.content || attachmentSummary(finalMessage?.attachments)).trim();
-    const finalReply = this.beforeFinalReplyPublish(answer),
-      emitted = [...room.messages]
-        .reverse()
-        .find((message) => message.sender.id === bot.id && message.runIds?.includes(run.id));
+      answer = readableContent(finalMessage?.content || '').trim();
+    const finalReply = this.beforeFinalReplyPublish(answer, finalMessage?.attachments),
+      emitted = recoveredReply || this.publishedReplies(room, run).at(-1);
     if (emitted && finalReply.kind === 'silent') {
-      run.groupReplyMessageId = emitted.id;
-      this.store.touch(run);
-      for (const delivery of deliveries) {
-        delivery.status = 'replied';
-        delivery.replyMessageId = emitted.id;
-      }
+      this.acknowledgeReplies(room, run, deliveries, emitted);
       return;
     }
-    const triggerMessage = room.messages.find((message) => message.id === this.answered(room, bot.id, deliveries));
+    const triggerMessage = room.messages.find((message) => message.id === this.answered(room, run.botId, deliveries));
     if (finalReply.kind === 'silent') {
       for (const delivery of deliveries) {
         delivery.status = 'ignored';
         delivery.reason = '已看过，没有发言';
+        delete delivery.resumable;
       }
       return;
     }
-    const message = this.publish(room, run, round, finalReply.content, finalMessage?.mentions || [], {
+    // Text replaced by an attachment summary no longer contains its original mentions.
+    const mentions = finalReply.content === answer ? finalMessage?.mentions || [] : [];
+    const message = this.publish(room, run, round, finalReply.content, mentions, {
       key:
         'final:' +
         createHash('sha256')
           .update(
             JSON.stringify([
               finalReply.content,
-              finalMessage?.mentions?.map((m) => m.id) || [],
+              mentions.map((m) => m.id),
               finalMessage?.attachments?.map((a) => a.id) || [],
             ]),
           )
@@ -1408,12 +1687,7 @@ export class GroupChats implements GroupGateway {
       answers: triggerMessage?.id,
       attachments: finalMessage?.attachments,
     });
-    run.groupReplyMessageId = message.id;
-    this.store.touch(run);
-    for (const delivery of deliveries) {
-      delivery.status = 'replied';
-      delivery.replyMessageId = message.id;
-    }
+    this.acknowledgeReplies(room, run, deliveries, message);
   }
 
   private rootFor(botId: string, runId: string) {
@@ -1572,15 +1846,31 @@ export class GroupChats implements GroupGateway {
       const run = this.store.data.runs.find((run) => run.id === runId && run.botId === botId)!;
       if (run.groupOrigin && run.groupOrigin.groupId !== room.id)
         throw Error('群聊执行只能发布到当前群；跨群分享请由原会话明确发起');
-      const body = required(args.message, '消息', 8000);
+      let body = required(args.message, '消息', 8000);
+      if (isEmptyGroupReply(body)) {
+        if (!attachments.length) return { sent: false, silent: true, message: '没有可发布的内容，不叫醒其他成员。' };
+        body = attachmentSummary(attachments);
+      }
       if (hasSilenceMarker(body))
         throw new AppError('group.silence_marker', '静默标记是内部控制文本，不能作为群消息发布');
       const formatted = botMentions(body, this.identities(room), botId);
+      const kind = args.kind === 'progress' ? 'progress' : 'message';
+      const replyTo = args.replyToMessageId ? required(args.replyToMessageId, '回复的消息 ID', 80) : undefined;
+      if (replyTo && !room.messages.some((m) => m.id === replyTo && ['message', 'progress', 'system'].includes(m.kind)))
+        throw new AppError('group.reply_target_invalid', '只能回复本群已发送的消息');
+      const worker = this.workers.get(botId),
+        own = worker?.runId === runId ? worker.deliveries : [],
+        answers =
+          kind === 'progress'
+            ? undefined
+            : own.find((delivery) => delivery.messageId === replyTo)?.messageId || this.answered(room, botId, own);
       if (!run.groupOrigin && !args.clientMessageId) {
         const duplicate = room.messages.find(
           (m) =>
             m.rootId === round.id &&
             m.sender.id === botId &&
+            m.kind === kind &&
+            (m.replyTo || m.answers) === (replyTo || answers) &&
             normalized(m.content) === normalized(formatted.content) &&
             JSON.stringify(m.mentions?.map((m) => m.id) || []) ===
               JSON.stringify(formatted.mentions.map((m) => m.id)) &&
@@ -1593,18 +1883,18 @@ export class GroupChats implements GroupGateway {
         : 'content:' +
           createHash('sha256')
             .update(
-              JSON.stringify([formatted.content, formatted.mentions.map((m) => m.id), attachments.map((a) => a.id)]),
+              JSON.stringify([
+                kind,
+                replyTo || answers || null,
+                formatted.content,
+                formatted.mentions.map((m) => m.id),
+                attachments.map((a) => a.id),
+              ]),
             )
             .digest('hex');
-      const replyTo = args.replyToMessageId ? required(args.replyToMessageId, '回复的消息 ID', 80) : undefined;
-      if (replyTo && !room.messages.some((m) => m.id === replyTo && ['message', 'progress', 'system'].includes(m.kind)))
-        throw new AppError('group.reply_target_invalid', '只能回复本群已发送的消息');
-      const worker = this.workers.get(botId),
-        own = worker?.runId === runId ? worker.deliveries : [],
-        answers = own.find((delivery) => delivery.messageId === replyTo)?.messageId || this.answered(room, botId, own);
       const message = this.publish(room, run, round, formatted.content, formatted.mentions, {
         key,
-        kind: args.kind === 'progress' ? 'progress' : 'message',
+        kind,
         replyTo,
         ...(args.kind === 'progress' ? {} : { answers }),
         attachments,

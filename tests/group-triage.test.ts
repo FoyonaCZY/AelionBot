@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { triage, sinceUser, type TriageContext } from '../electron/core/group/group-triage';
+import { triage, sinceUser, answerFrom, type TriageContext } from '../electron/core/group/group-triage';
 import { unanswered } from '../shared/chat/group-answers';
 import { GROUP_LIMITS, type GroupDelivery, type GroupMessage, type GroupRoom } from '../shared/types/group-types';
 
@@ -193,4 +193,13 @@ test('a user message to the whole group must be answered by idle Bots; busy Bots
   f.post(bot('a'), { replyTo: toA.id, answers: toA.id });
   assert.equal(f.judge(toA, 'b', { idle: true }).kind, 'ask');
   assert.equal(f.judge(f.post(bot('c')), 'a', { idle: true }).kind, 'ask');
+});
+
+test('progress addressed to a question is not a final answer or a reason to hide unanswered status', () => {
+  const f = room();
+  const question = f.post(user);
+  f.post(bot('a'), { kind: 'progress', replyTo: question.id });
+  for (const id of ['a', 'b', 'c']) f.delivery(question, id).status = 'ignored';
+  assert.equal(answerFrom(f.room, question, 'a'), undefined);
+  assert.equal(unanswered(f.room.messages, f.deliveries, question), true);
 });

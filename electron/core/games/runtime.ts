@@ -1,4 +1,4 @@
-import type { ResponseMetrics } from '../../../shared/types/game-types';
+import type { ResponseMetrics, GameModelConfig } from '../../../shared/types/game-types';
 import { settleLimited } from './request-pool';
 import { gameSkills } from './skills';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
@@ -14,10 +14,13 @@ import type {
 } from '../../../shared/types/game-types';
 import { acceptAction, createWerewolf, view, validateAction, log, type WerewolfState } from './werewolf';
 import { gamePrompt, gameInstructions, GameModelError } from './model-player';
+import { assignPersonas, personaPick, type PersonaSeed } from './persona-play';
 import { AppError } from '../../../shared/errors';
 export interface DecisionOptions {
   retryFeedback?: string;
   onResponse: (metrics: ResponseMetrics) => void;
+  /** Exact provider request, without transport configuration or credentials. */
+  onRequest?: (request: { input: string; instruction: string; config: GameModelConfig }) => void;
 }
 export type Decide = (
   player: GamePlayer,
@@ -26,16 +29,28 @@ export type Decide = (
   signal: AbortSignal,
   options?: DecisionOptions,
 ) => Promise<GameAction>;
+/** Post-match effects cannot affect the result, but failures remain pending for retry. */
+export interface GameHooks {
+  /** At-least-once delivery of a saved finished match. Effects must be idempotent; throw to retry. */
+  finished?: (s: WerewolfState) => void | Promise<void>;
+  /** One best-effort diagnostic per failed attempt, including a failed completion receipt write. */
+  settlementFailed?: (matchId: string, error: unknown) => void;
+  /** Personality of member Bots for a new match (§9.2), keyed by botId; seats without one keep the MBTI preset. */
+  personas?: (bots: { botId: string; mbti?: string }[], members: string[]) => Record<string, PersonaSeed>;
+}
 export class GameRuntime {
   private timer: ReturnType<typeof setInterval>;
   private closed = false;
   private states = new Map<string, WerewolfState>();
   private jobs = new Map<string, AbortController>();
+  private settling = new Set<string>();
+  private settlementRetryAt = new Map<string, number>();
   constructor(
     private dir: string,
     private decide: Decide,
     private check: (players: GamePlayer[]) => void = () => {},
-    private timing = { aiTimeoutMs: 90000 },
+    private timing = { aiTimeoutMs: 180000 },
+    private hooks: GameHooks = {},
   ) {
     mkdirSync(dir, { recursive: true });
     const file = join(dir, 'matches.json');
@@ -55,20 +70,68 @@ export class GameRuntime {
           this.record(s, 'recovered');
           s.revision++;
         }
-        for (const old of this.states.values()) if (old.groupId === s.groupId) this.states.delete(old.id);
+        for (const old of this.states.values())
+          if (old.groupId === s.groupId && (!this.needsSettlement(old) || old.settlementComplete === undefined))
+            this.states.delete(old.id);
         this.states.set(s.id, s);
       }
+      // Old files promised only the latest match per group. Migrate that checkpoint,
+      // while retaining explicitly pending effects from this version across later matches.
+      for (const s of this.states.values())
+        if (this.needsSettlement(s)) {
+          if (s.settlementComplete === undefined) s.settlementLegacy = true;
+          s.settlementComplete = false;
+        }
       this.persist();
     }
     this.timer = setInterval(() => this.tick(), 250);
     this.timer.unref();
+    for (const s of this.states.values()) this.queueSettlement(s);
+  }
+  private needsSettlement(s: WerewolfState) {
+    return !!this.hooks.finished && s.status === 'finished' && !s.settlementComplete;
+  }
+  private queueSettlement(s: WerewolfState) {
+    if (
+      this.closed ||
+      !this.hooks.finished ||
+      !this.needsSettlement(s) ||
+      this.settling.has(s.id) ||
+      (this.settlementRetryAt.get(s.id) || 0) > Date.now()
+    )
+      return;
+    this.settling.add(s.id);
+    queueMicrotask(() => void this.finishSettlement(s.id));
+  }
+  private async finishSettlement(id: string) {
+    try {
+      const s = this.states.get(id);
+      if (this.closed || !s || !this.needsSettlement(s)) return;
+      await this.hooks.finished!(structuredClone(s));
+      // A closing runtime never acknowledges work that may still be shutting down in other services.
+      if (this.closed) return;
+      this.commit({ ...s, settlementComplete: true }, false);
+      this.settlementRetryAt.delete(id);
+    } catch (error) {
+      // Keep the finished checkpoint and retry from the real timer or the next startup.
+      this.settlementRetryAt.set(id, Date.now() + 30_000);
+      try {
+        this.hooks.settlementFailed?.(id, error);
+      } catch {
+        // A diagnostics failure must not strand the pending settlement.
+      }
+    } finally {
+      this.settling.delete(id);
+    }
   }
   private record(s: WerewolfState, type: GameTrace['type'], detail: Partial<GameTrace> = {}) {
     (s.trace ||= []).push({ seq: s.trace.length + 1, time: Date.now(), type, day: s.day, phase: s.phase, ...detail });
   }
   private annotate(id: string, type: GameTrace['type'], detail: Partial<GameTrace> = {}) {
-    if (this.closed) return;
-    const s = structuredClone(this.state(id));
+    const current = this.states.get(id);
+    // A stopped/finished archive is immutable, including late provider callbacks.
+    if (this.closed || !current || current.status === 'finished') return;
+    const s = structuredClone(current);
     this.record(s, type, detail);
     this.commit(s, false);
   }
@@ -86,6 +149,7 @@ export class GameRuntime {
   private tick() {
     if (this.closed) return;
     for (const current of this.states.values()) {
+      this.queueSettlement(current);
       if (current.status !== 'running') continue;
       const expired = current.requests.filter((r) => r.deadlineAt !== undefined && r.deadlineAt <= Date.now());
       if (!expired.length) continue;
@@ -138,6 +202,7 @@ export class GameRuntime {
   }
   private commit(s: WerewolfState, visible = true) {
     const previous = this.states.get(s.id);
+    if (this.needsSettlement(s)) s.settlementComplete = false;
     for (const r of s.requests)
       if (!s.seats.find((p) => p.id === r.seatId)?.human && !previous?.requests.some((old) => old.id === r.id)) {
         delete r.deadlineAt;
@@ -152,6 +217,7 @@ export class GameRuntime {
       else this.states.delete(s.id);
       throw e;
     }
+    this.queueSettlement(s);
   }
   private commitTransition(previous: WerewolfState, next: WerewolfState) {
     if (previous.phase !== next.phase || previous.day !== next.day || previous.status !== next.status)
@@ -218,16 +284,42 @@ export class GameRuntime {
     this.check(input.players);
     const s = createWerewolf(
       input.groupId,
-      input.players.map((p) => ({ ...p, id: randomUUID() })),
+      // Seat ids are random per match; the Bot a seat belongs to is kept as botId for post-match settlement.
+      input.players.map(({ botId, ...p }) => ({ ...p, id: randomUUID(), ...(botId ? { botId } : {}) })),
       undefined,
       input.board,
     );
+    s.personaPolicy = 'model_semantic_v1';
+    try {
+      const bots = s.seats.filter((p) => p.botId && !p.human);
+      if (bots.length && this.hooks.personas) {
+        const members = s.seats.map((p) => (p.human ? 'user' : p.botId)).filter((x): x is string => !!x);
+        assignPersonas(
+          s,
+          this.hooks.personas(
+            bots.map((p) => ({ botId: p.botId!, mbti: p.mbti })),
+            members,
+          ),
+        );
+      }
+    } catch {
+      // Without personas the match plays exactly as before.
+      delete s.persona;
+    }
     this.record(s, 'created', {
-      detail: `规则 ${s.twelve ? s.twelve.board + '-sheriff-v1' : 'seven-player-v1'}；真人发言120秒、行动45秒；AI响应90秒，超时暂停且保留行动`,
+      detail: `规则 ${s.twelve ? s.twelve.board + '-sheriff-v1' : 'seven-player-v1'}；真人发言120秒、行动45秒；AI响应${this.timing.aiTimeoutMs / 1000}秒，超时暂停且保留行动`,
     });
+    for (const [seatId, p] of Object.entries(s.persona || {}))
+      if (p.plan)
+        this.record(s, 'persona_plan', {
+          seatId,
+          detail: `${p.mbti}；本局打法「${p.plan.name}」（抽中概率 ${p.plan.prob.toFixed(2)}）`,
+        });
     for (const r of s.requests) this.record(s, 'request_created', { requestId: r.id, seatId: r.seatId, kind: r.kind });
-    // Only the latest match per group is readable; dropping older ones keeps every persist from rewriting their traces.
-    const replaced = [...this.states.values()].filter((old) => old.groupId === input.groupId);
+    // Keep pending effects even when the user starts the next match; only the latest match is visible.
+    const replaced = [...this.states.values()].filter(
+      (old) => old.groupId === input.groupId && !this.needsSettlement(old),
+    );
     for (const old of replaced) this.states.delete(old.id);
     try {
       this.commit(s);
@@ -286,6 +378,26 @@ export class GameRuntime {
       s.status = 'paused';
       log(s, '你暂停了对局。');
     } else if (action === 'stop') {
+      // Close outstanding calls before publishing the finished checkpoint. Waiting for
+      // an AbortSignal rejection would allow two exports of the same match to differ.
+      const trace = [...(s.trace || [])];
+      for (const started of trace.filter((e) => e.type === 'model_started')) {
+        const ended = trace.some(
+          (e) =>
+            e.seq > started.seq &&
+            e.requestId === started.requestId &&
+            ['model_started', 'model_returned', 'model_failed', 'model_cancelled'].includes(e.type),
+        );
+        if (!ended)
+          this.record(s, 'model_cancelled', {
+            requestId: started.requestId,
+            seatId: started.seatId,
+            kind: started.kind,
+            attempt: started.attempt,
+            elapsedMs: Math.max(0, Date.now() - started.time),
+            detail: '用户结束对局，请求取消',
+          });
+      }
       s.status = 'finished';
       s.phase = 'finished';
       s.requests = [];
@@ -300,10 +412,18 @@ export class GameRuntime {
   }
   private pump(id: string) {
     if (this.closed || this.jobs.has(id)) return;
+    const saved = this.state(id);
+    if (saved.status !== 'running') return;
+    if (saved.personaPolicy !== 'model_semantic_v1') {
+      const s = structuredClone(saved);
+      s.personaPolicy = 'model_semantic_v1';
+      this.commit(s, false);
+    }
     const controller = new AbortController();
     this.jobs.set(id, controller);
     void this.run(id, controller.signal)
       .catch(() => {
+        if (this.closed || controller.signal.aborted) return;
         const s = structuredClone(this.state(id));
         if (!this.closed && !controller.signal.aborted && s.status === 'running') {
           this.freeze(s);
@@ -322,10 +442,10 @@ export class GameRuntime {
       })
       .finally(() => {
         if (this.jobs.get(id) === controller) this.jobs.delete(id);
-        const s = this.state(id);
+        const s = this.states.get(id);
         if (
           !this.closed &&
-          s.status === 'running' &&
+          s?.status === 'running' &&
           s.requests.some((r) => !s.seats.find((p) => p.id === r.seatId)?.human)
         )
           this.pump(id);
@@ -372,12 +492,28 @@ export class GameRuntime {
             skills: gameSkills(context, r).map(({ id, title, version }) => ({ id, title, version })),
           });
           let result: GameAction;
+          let capturedInput: string | undefined;
           let validating = false;
           try {
             result = await this.decide(seat, context, r, signal, {
               retryFeedback,
+              onRequest: ({ input, instruction, config }) => {
+                if (this.closed || signal.aborted) return;
+                capturedInput = input;
+                const captured = structuredClone(this.state(id));
+                const event = [...(captured.trace || [])]
+                  .reverse()
+                  .find((e) => e.type === 'model_started' && e.requestId === r.id && e.attempt === attempt);
+                if (!event) return;
+                event.input = input;
+                event.instruction = instruction;
+                event.model = config.model;
+                event.modelConfig = config;
+                event.requestCaptured = true;
+                this.commit(captured, false);
+              },
               onResponse: (metrics) => {
-                if (!this.closed)
+                if (!this.closed && !signal.aborted)
                   this.annotate(id, 'model_response', {
                     requestId: r.id,
                     seatId: r.seatId,
@@ -428,6 +564,14 @@ export class GameRuntime {
                         : '模型请求或行动校验失败',
               ...(e instanceof GameModelError && e.output !== undefined ? { output: e.output } : {}),
             });
+            if (validating && !signal.aborted)
+              this.annotate(id, 'action_rejected', {
+                requestId: r.id,
+                seatId: r.seatId,
+                kind: r.kind,
+                attempt,
+                detail: '模型行动未通过规则校验',
+              });
             if (validating || (e instanceof GameModelError && e.code === 'format'))
               retryFeedback = (e as Error).message;
             if (signal.aborted || attempt === 2) throw e;
@@ -458,8 +602,38 @@ export class GameRuntime {
             return;
           }
           const next = structuredClone(current);
-          acceptAction(next, r.id, result);
-          this.record(next, 'action_accepted', { requestId: r.id, seatId: r.seatId, kind: r.kind, action: result });
+          const open = next.requests.find((p) => p.id === r.id)!;
+          // Personality may swap the model's pick for another reasonable candidate in a weak situation (§8.3).
+          const picked = personaPick(
+            next,
+            open,
+            result,
+            (a) => {
+              try {
+                validateAction(next, open, a);
+                return true;
+              } catch {
+                return false;
+              }
+            },
+            capturedInput,
+          );
+          if (picked.decision) (next.decisions ||= []).push(picked.decision);
+          if (picked.decision?.overridden)
+            this.record(next, 'persona_override', {
+              requestId: r.id,
+              seatId: r.seatId,
+              kind: r.kind,
+              action: picked.action,
+              detail: `模型首选 ${JSON.stringify({ target: result.target, potion: result.potion, choice: result.choice, skip: result.skip })}，人格在 ${picked.decision.options} 个合理候选中选择了另一个（概率 ${picked.decision.prob.toFixed(2)}）`,
+            });
+          acceptAction(next, r.id, picked.action);
+          this.record(next, 'action_accepted', {
+            requestId: r.id,
+            seatId: r.seatId,
+            kind: r.kind,
+            action: picked.action,
+          });
           this.commitTransition(current, next);
           return;
         }

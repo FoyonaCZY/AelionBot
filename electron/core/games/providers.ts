@@ -100,13 +100,44 @@ export function gameProviders(
             max_output_tokens: output,
             store: false,
           };
-      const start = Date.now();
-      const response = await fetch(p.baseUrl.replace(/\/$/, '') + (chat ? '/chat/completions' : '/responses'), {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + p.apiKey, 'Content-Type': 'application/json' },
-        signal: AbortSignal.any([signal, AbortSignal.timeout(40000)]),
-        body: JSON.stringify(body),
+      options?.onRequest?.({
+        input,
+        instruction: chat ? identity + instructions : instructions,
+        config: {
+          model: p.model,
+          protocol: chat ? 'chat-completions' : 'responses',
+          ...(chat ? {} : { reasoningEffort: p.reasoningEffort || 'low' }),
+          contextTokens: p.contextTokens || 32768,
+          maxOutputTokens: output,
+        },
       });
+      const start = Date.now();
+      let response: Response;
+      try {
+        response = await fetch(p.baseUrl.replace(/\/$/, '') + (chat ? '/chat/completions' : '/responses'), {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + p.apiKey, 'Content-Type': 'application/json' },
+          signal: AbortSignal.any([signal, AbortSignal.timeout(120000)]),
+          body: JSON.stringify(body),
+        });
+      } catch (error) {
+        // Keep cancellation/timeout semantics; never expose raw transport errors or URLs with credentials.
+        if (signal.aborted || (error as Error)?.name === 'TimeoutError') throw error;
+        const code = (error as { cause?: { code?: string } })?.cause?.code;
+        const failure =
+          code === 'ENOTFOUND' || code === 'EAI_AGAIN'
+            ? ['dns_failed', '模型服务域名解析失败，请检查网络、DNS 或模型服务地址']
+            : code === 'ECONNREFUSED'
+              ? ['connection_refused', '模型服务拒绝连接，请检查服务是否可用']
+              : code === 'UND_ERR_CONNECT_TIMEOUT' || code === 'ETIMEDOUT'
+                ? ['connection_timeout', '连接模型服务超时，请检查网络或稍后重试']
+                : code === 'CERT_HAS_EXPIRED' ||
+                    code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' ||
+                    code === 'DEPTH_ZERO_SELF_SIGNED_CERT'
+                  ? ['tls_failed', '模型服务证书校验失败，请检查服务证书']
+                  : ['network_failed', '无法连接模型服务，请检查网络或稍后重试'];
+        throw new GameModelError('network', failure[1], 'game.' + failure[0]);
+      }
       if (!response.ok) throw new GameModelError('http', p.name + ' 请求失败：HTTP ' + response.status);
       const headersMs = Date.now() - start;
       const result = (await response.json()) as any;

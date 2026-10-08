@@ -17,6 +17,7 @@ import type { DesignSystems } from '../core/designer/design-systems';
 import type { DesignerFiles } from '../core/designer/designer-files';
 import type { Integrations } from '../core/extensions/integrations';
 import type { GameRuntime } from '../core/games/runtime';
+import type { PersonaService } from '../core/persona/persona-service';
 import type { GroupChats } from '../core/group/group-chats';
 import type { CommandPermissions } from '../core/host/command-permissions';
 import type { HostComputer } from '../core/host/host';
@@ -62,6 +63,7 @@ export interface IpcContext {
   readonly peerChats: PeerChats | undefined;
   readonly groupChats: GroupChats | undefined;
   readonly games: GameRuntime | undefined;
+  readonly persona: PersonaService | undefined;
   readonly layaFeature: LayaFeature | undefined;
   readonly chatPins: ChatPinQueue | undefined;
   readonly scheduler: TaskScheduler | undefined;

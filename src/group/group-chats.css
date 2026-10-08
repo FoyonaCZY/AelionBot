@@ -227,6 +227,8 @@
 }
 .group-system {
   padding: 12px 0;
+  /* Multi-line notices such as the game recap keep their line breaks. */
+  white-space: pre-line;
 }
 .group-message {
   display: flex;

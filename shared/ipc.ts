@@ -65,6 +65,8 @@ export const INVOKE_CHANNELS = {
   updateWorkSession: 'sessions:update',
   deleteWorkSession: 'sessions:delete',
   updateBot: 'bot:update',
+  personaProfile: 'persona:profile',
+  updatePersona: 'persona:update',
   // Models and providers
   saveModel: 'model:save',
   testModel: 'model:test',

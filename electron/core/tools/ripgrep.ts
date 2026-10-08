@@ -33,9 +33,12 @@ function globArgs(glob: string, platform: NodeJS.Platform) {
   // A file type rather than --glob: an rg glob whitelist would override .gitignore.
   const name = glob.replace(/^(?:\*\*\/)+/, '');
   if (!name || name === '*' || name === '**' || name.includes('/') || /[[\]{}!\\,:]/.test(name)) return [];
-  // The walker compares lowercase paths on Windows; type globs are case-sensitive.
+  // Node's matchesGlob is case-insensitive on macOS, and the walker lowercases Windows paths.
+  // rg type globs must remain a superset; the worker applies the final platform-specific match.
   const pattern =
-    platform === 'win32' ? name.replace(/[a-z]/gi, (char) => `[${char.toLowerCase()}${char.toUpperCase()}]`) : name;
+    platform === 'win32' || platform === 'darwin'
+      ? name.replace(/[a-z]/gi, (char) => `[${char.toLowerCase()}${char.toUpperCase()}]`)
+      : name;
   return ['--type-add', `aelion:${pattern}`, '--type', 'aelion'];
 }
 function ripgrepArgs(request: FileSearchRequest, platform = process.platform) {

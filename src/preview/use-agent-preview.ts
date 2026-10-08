@@ -1,3 +1,4 @@
+import { observePreviewModal, previewBlockedByModal } from './preview-modal';
 import { useEffect, useRef, useState } from 'react';
 import { useFilePreview, type PreviewItem } from './FilePreviewContext';
 import { workspacePreviewItem } from './workspace-preview';
@@ -18,13 +19,16 @@ export function useAgentPreview(
     const update = () => setFocus((value) => value + 1);
     window.addEventListener('focus', update);
     document.addEventListener('visibilitychange', update);
+    const stopObserving = observePreviewModal(update);
     return () => {
+      stopObserving();
       window.removeEventListener('focus', update);
       document.removeEventListener('visibilitychange', update);
     };
   }, []);
   useEffect(() => {
-    if (blocked || !show || !document.hasFocus() || document.visibilityState === 'hidden') return;
+    if (blocked || previewBlockedByModal() || !show || !document.hasFocus() || document.visibilityState === 'hidden')
+      return;
     const request = previewForConversation(requests || [], scope);
     if (!request || seen.current.has(request.id)) return;
     seen.current.add(request.id);

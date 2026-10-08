@@ -37,6 +37,7 @@ export function registerBots(ctx: IpcContext) {
     ctx.peerChats?.deletingBot(id);
     ctx.groupChats?.deletingBot(id);
     ctx.store.deleteBot(id);
+    ctx.persona?.forget(id);
     ctx.integrations.skills.forgetBot(id);
     ctx.scheduler?.removeTarget({ kind: 'bot', id });
     ctx.cognition.deleteBot(id);
