@@ -44,6 +44,8 @@ test('mixed players use their own endpoint, key and response parser', async () =
   const original = globalThis.fetch;
   try {
     for (const mimo of [true, false]) {
+      let captured:
+        Parameters<NonNullable<import('../electron/core/games/runtime').DecisionOptions['onRequest']>>[0] | undefined;
       globalThis.fetch = async (input, init) => {
         assert.equal(
           String(input),
@@ -57,6 +59,12 @@ test('mixed players use their own endpoint, key and response parser', async () =
             : body.instructions + body.input,
           capacity = r.publicConfig.providers.find((provider) => provider.id === (mimo ? 'mimo-game' : 'grok-game'))!
             .models[0].contextTokens;
+        assert.equal(captured?.instruction, mimo ? body.messages[0].content : body.instructions);
+        assert.equal(captured?.input, mimo ? body.messages[1].content : body.input);
+        assert.equal(captured?.config.maxOutputTokens, output);
+        assert.equal(captured?.config.model, body.model);
+        assert(!JSON.stringify(captured).includes('secret-'), 'game request contains no credentials');
+        assert(!JSON.stringify(captured).includes('.invalid'), 'game request contains no provider address');
         assert.equal(capacity, 32768);
         assert.ok(output > 4096);
         assert.ok(
@@ -84,7 +92,17 @@ test('mixed players use their own endpoint, key and response parser', async () =
           contextTokens: 32768,
         },
       };
-      assert.equal((await r.decide(p, context, request, new AbortController().signal)).skip, true);
+      assert.equal(
+        (
+          await r.decide(p, context, request, new AbortController().signal, {
+            onResponse() {},
+            onRequest: (value) => {
+              captured = value;
+            },
+          })
+        ).skip,
+        true,
+      );
     }
     const limited = registry(1234);
     globalThis.fetch = async (_input, init) => {
@@ -106,6 +124,57 @@ test('mixed players use their own endpoint, key and response parser', async () =
       code: 'format',
       reason: 'game.output_truncated',
     });
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('transport errors explain DNS/connection failures without leaking raw errors or keys', async () => {
+  const original = globalThis.fetch;
+  const s = createWerewolf('network-test', players, undefined, 'guard12');
+  const request = s.requests[0];
+  try {
+    for (const [code, reason, message] of [
+      ['ENOTFOUND', 'game.dns_failed', '域名解析失败'],
+      ['EAI_AGAIN', 'game.dns_failed', '域名解析失败'],
+      ['ECONNREFUSED', 'game.connection_refused', '拒绝连接'],
+      ['UND_ERR_CONNECT_TIMEOUT', 'game.connection_timeout', '超时'],
+      ['CERT_HAS_EXPIRED', 'game.tls_failed', '证书校验失败'],
+      ['UNKNOWN', 'game.network_failed', '无法连接'],
+    ]) {
+      globalThis.fetch = async () => {
+        throw new TypeError('secret-key https://private.invalid', { cause: { code } });
+      };
+      await assert.rejects(
+        registry().decide(players[0], view(s, request.seatId), request, new AbortController().signal),
+        (error: any) => {
+          assert.equal(error.reason, reason);
+          assert.equal(error.code, 'network');
+          assert.ok(error.message.includes(message));
+          assert.ok(!error.message.includes('secret'));
+          assert.ok(!error.message.includes('private.invalid'));
+          return true;
+        },
+      );
+    }
+    const timeout = new DOMException('timed out', 'TimeoutError');
+    globalThis.fetch = async () => {
+      throw timeout;
+    };
+    await assert.rejects(
+      registry().decide(players[0], view(s, request.seatId), request, new AbortController().signal),
+      (error) => error === timeout,
+    );
+    const controller = new AbortController();
+    controller.abort();
+    const aborted = new DOMException('cancelled', 'AbortError');
+    globalThis.fetch = async () => {
+      throw aborted;
+    };
+    await assert.rejects(
+      registry().decide(players[0], view(s, request.seatId), request, controller.signal),
+      (error) => error === aborted,
+    );
   } finally {
     globalThis.fetch = original;
   }

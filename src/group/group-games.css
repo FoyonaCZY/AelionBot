@@ -475,14 +475,6 @@
   border-radius: 50%;
   box-shadow: 0 0 0 2px #2b2640;
 }
-.gg-soon {
-  margin: 0;
-  border: 1px dashed var(--gg-line);
-  border-radius: 13px;
-  padding: 11px 14px;
-  color: var(--gg-muted);
-  font-size: 12.5px;
-}
 .gg-lobby-side {
   border-left: 1px solid var(--gg-line);
   background: var(--gg-panel);
@@ -492,24 +484,35 @@
   gap: 12px;
   overflow: auto;
 }
-.gg-preset-card:hover {
-  border-color: var(--gg-acc);
+.gg-lobby-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 14px 6px;
+  border-bottom: 1px solid var(--gg-line);
+  border-radius: 0;
+  color: var(--gg-ink);
 }
-.gg-stack {
-  display: flex;
-  align-items: center;
-  margin-bottom: 8px;
+.gg-lobby-link:hover {
+  background: var(--gg-soft);
 }
-.gg-stack > .avatar,
-.gg-stack > span:not(small) {
-  margin-right: -6px;
-  box-shadow: 0 0 0 2px var(--gg-bg);
-  border-radius: 50%;
+.gg-lobby-link .gg-card-head {
+  margin: 0 0 5px;
 }
-.gg-stack small {
-  margin-left: 14px;
-  font-size: 12px;
+.gg-lobby-link > small {
   color: var(--gg-muted);
+  font-size: var(--text-caption);
+}
+.gg-lobby-rules {
+  padding: 14px 6px;
+  color: var(--gg-muted);
+  font-size: var(--text-caption);
+}
+.gg-lobby-rules summary {
+  cursor: pointer;
+}
+.gg-lobby-rules[open] summary {
+  margin-bottom: 12px;
 }
 .gg-rules-short {
   margin: 0;

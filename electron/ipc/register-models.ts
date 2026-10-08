@@ -49,6 +49,7 @@ export function registerModels(ctx: IpcContext) {
     return provider;
   });
   handle('updateProviderModel', (input) => {
+    ctx.beforeModelChange(ctx.providers.using(String(input?.providerId)));
     const provider = ctx.providers.updateModel(String(input?.providerId), input?.model);
     ctx.afterModelChange();
     return provider;

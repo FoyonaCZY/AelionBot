@@ -1,3 +1,4 @@
+import { observePreviewModal, previewBlockedByModal } from './preview-modal';
 import { WebElementInspector } from './WebElementInspector';
 import { usePreviewRuntime } from './preview-runtime';
 import type { EditorCommand, PreviewEditorState } from '../../shared/types/preview-editor-types';
@@ -126,7 +127,7 @@ export function WebPreview({
         const rect = node.getBoundingClientRect(),
           layer = node.closest<HTMLElement>('.fp-layer');
         const capture = layer?.dataset.feedbackCapture === 'true';
-        const externalModal = Boolean(document.querySelector('.modal-backdrop,.group-editor-layer,.scheduled-layer'));
+        const externalModal = previewBlockedByModal();
         const blocked =
           externalModal ||
           Boolean(layer?.querySelector('.fp-unsaved-backdrop')) ||
@@ -184,20 +185,7 @@ export function WebPreview({
           attributeFilter: ['class', 'style', 'inert', 'data-feedback-capture', 'data-pair'],
         });
     }
-    const overlays = new MutationObserver((records) => {
-      if (
-        records.some((record) =>
-          [...record.addedNodes, ...record.removedNodes].some(
-            (node) =>
-              node instanceof Element &&
-              (node.matches('.modal-backdrop,.group-editor-layer,.scheduled-layer') ||
-                node.querySelector('.modal-backdrop,.group-editor-layer,.scheduled-layer')),
-          ),
-        )
-      )
-        layout();
-    });
-    overlays.observe(document.body, { childList: true, subtree: true });
+    const stopObservingModal = observePreviewModal(layout);
     window.addEventListener('resize', layout);
     document.addEventListener('visibilitychange', layout);
     void window.aelion
@@ -220,7 +208,7 @@ export function WebPreview({
       cancelAnimationFrame(frame);
       resize.disconnect();
       mutations.disconnect();
-      overlays.disconnect();
+      stopObservingModal();
       off();
       escape();
       window.removeEventListener('resize', layout);

@@ -1,6 +1,8 @@
 import { BOARDS } from '../../../shared/games/game-boards';
 import { startTwelve, acceptTwelve, validateTwelve, isSpeech, type TwelveState } from './twelve';
+import { event } from './events';
 import { randomUUID, randomInt } from 'node:crypto';
+import { seededRandom, shuffle } from '../../../shared/games/seeded-random';
 import type {
   GamePlayer,
   GameAction,
@@ -10,6 +12,7 @@ import type {
   GameRole,
   GamePhase,
   GameStatus,
+  GameEvent,
 } from '../../../shared/types/game-types';
 import {
   GAME_MBTI_TYPES,
@@ -18,6 +21,12 @@ import {
   isGameMbti,
 } from '../../../shared/games/game-personality';
 export interface WerewolfState {
+  /** Durable acknowledgement of all post-match effects; missing receipts are replayed after restart. */
+  settlementComplete?: boolean;
+  /** Latest pre-receipt checkpoint only: may already have an unkeyed legacy report. */
+  settlementLegacy?: boolean;
+  /** New decisions record model interpretations separately from long-term trait growth. */
+  personaPolicy?: 'model_semantic_v1';
   twelve?: TwelveState;
   trace?: import('../../../shared/types/game-types').GameTrace[];
   revision?: number;
@@ -39,7 +48,19 @@ export interface WerewolfState {
   voteRound: number;
   winner?: 'wolves' | 'village';
   error?: string;
+  /** Structured exiles and saves for post-match settlement. */
+  events?: GameEvent[];
+  /** Each seat's last few decision notes, kept across phases so the next decision can read its own plan. */
+  notes?: Record<string, string[]>;
+  /** Seed behind the deal, MBTI draw and accents; keeps draws reproducible. Never sent to clients. */
+  seed?: number;
+  /** Bot seats' persona for this match (personality doc §9.2). Private to each seat until the reveal. */
+  persona?: Record<string, import('./persona-play').SeatPersona>;
+  personaDraws?: number;
+  /** Key decisions made under personality, used for growth at settlement. */
+  decisions?: import('./persona-play').PersonaDecision[];
 }
+const NOTE_KEEP = 3;
 export function log(s: WerewolfState, text: string, seatId?: string, audience?: string[]) {
   s.logs.push({ id: s.logs.length + 1, day: s.day, phase: s.phase, text, seatId, audience, time: Date.now() });
 }
@@ -59,6 +80,7 @@ export function createWerewolf(
   players: GamePlayer[],
   roles?: GameRole[],
   board?: 'standard12' | 'guard12',
+  seed = randomInt(2 ** 32),
 ): WerewolfState {
   if (
     ![6, 7, 12].includes(players.length) ||
@@ -88,22 +110,15 @@ export function createWerewolf(
     deck.some((r) => !['wolf', 'seer', 'witch', 'villager', 'hunter', 'guard', 'idiot'].includes(r))
   )
     throw Error('身份配置与人数不符');
-  if (!roles)
-    for (let i = deck.length - 1; i > 0; i--) {
-      const j = randomInt(i + 1);
-      [deck[i], deck[j]] = [deck[j], deck[i]];
-    }
-  const randomTypes = [...GAME_MBTI_TYPES];
-  for (let i = randomTypes.length - 1; i > 0; i--) {
-    const j = randomInt(i + 1);
-    [randomTypes[i], randomTypes[j]] = [randomTypes[j], randomTypes[i]];
-  }
+  const random = seededRandom(seed);
+  if (!roles) shuffle(deck, random);
+  const randomTypes = shuffle([...GAME_MBTI_TYPES], random);
   let randomTypeIndex = 0;
   const seats = players.map((p, i) => {
     if (p.human)
       return { ...p, mbti: undefined, behaviorPolicy: undefined, personality: undefined, alive: true, role: deck[i] };
     const mbti = p.mbti || randomTypes[randomTypeIndex++],
-      accent = randomInt(4);
+      accent = random.int(4);
     return {
       ...p,
       mbti,
@@ -121,6 +136,7 @@ export function createWerewolf(
     phase: 'night',
     status: 'running',
     seats,
+    seed,
     logs: [],
     requests: [],
     answers: {},
@@ -234,7 +250,18 @@ export function validateAction(s: WerewolfState, r: GameRequest, a: GameAction) 
   } else if (typeof a.target !== 'string' || !r.targets.includes(a.target)) throw Error('目标不在本轮合法选择中');
 }
 export function acceptAction(s: WerewolfState, id: string, a: GameAction, timeout = false) {
-  if (s.twelve) return acceptTwelve(s, id, a, timeout);
+  const seatId = s.requests.find((r) => r.id === id)?.seatId,
+    fresh = !s.accepted.includes(id);
+  if (s.twelve) acceptTwelve(s, id, a, timeout);
+  else acceptSeven(s, id, a, timeout);
+  const note = a.note?.trim();
+  if (fresh && seatId && note && s.accepted.includes(id)) {
+    const notes = ((s.notes ||= {})[seatId] ||= []);
+    notes.push(note.slice(0, 300));
+    if (notes.length > NOTE_KEEP) notes.splice(0, notes.length - NOTE_KEEP);
+  }
+}
+function acceptSeven(s: WerewolfState, id: string, a: GameAction, timeout = false) {
   if (s.accepted.includes(id)) return;
   if (s.status !== 'running') throw Error('对局未运行');
   const r = s.requests.find((r) => r.id === id);
@@ -295,6 +322,7 @@ export function acceptAction(s: WerewolfState, id: string, a: GameAction, timeou
     if (seer && s.answers[seer.id]?.target) {
       const target = s.seats.find((p) => p.id === s.answers[seer.id].target)!;
       log(s, `查验结果：${target.name} 是${target.role === 'wolf' ? '狼人' : '好人'}。`, undefined, [seer.id]);
+      event(s, { type: 'inspect', day: s.day, seerId: seer.id, seatId: target.id, wolf: target.role === 'wolf' });
     }
     const wolves = living(s).filter((p) => p.role === 'wolf');
     const counts = new Map<string, number>();
@@ -350,6 +378,14 @@ export function acceptAction(s: WerewolfState, id: string, a: GameAction, timeou
   }
   if (top.length === 1) {
     s.seats.find((p) => p.id === top[0])!.alive = false;
+    event(s, {
+      type: 'exile',
+      day: s.day,
+      seatId: top[0],
+      voters: living(s)
+        .filter((p) => s.answers[p.id]?.target === top[0])
+        .map((p) => p.id),
+    });
     log(s, `${s.seats.find((p) => p.id === top[0])!.name} 被放逐。`);
   } else log(s, top.length === 0 ? '全部弃权，本轮无人被放逐。' : '再次平票，本轮无人被放逐。');
   if (finishIfWon(s)) return;
@@ -369,6 +405,7 @@ function resolveNight(s: WerewolfState, action?: GameAction) {
   if (witch && action?.potion === 'save') {
     s.potions!.save = false;
     deaths.delete(s.nightVictim!);
+    if (s.nightVictim) event(s, { type: 'save', day: s.day, witchId: witch.id, seatId: s.nightVictim });
     log(s, `你使用解药救下了 ${s.seats.find((p) => p.id === s.nightVictim)?.name}。`, undefined, [witch.id]);
   }
   if (witch && action?.potion === 'poison' && action.target) {
@@ -465,5 +502,21 @@ export function view(s: WerewolfState, viewerId?: string, omniscient = false): G
     winner: s.winner,
     error: s.error,
     humanId: s.seats.find((p) => p.human)?.id,
+    ...(viewerId && s.notes?.[viewerId]?.length ? { notes: [...s.notes[viewerId]] } : {}),
+    ...personaView(s, viewerId, reveal),
   };
+}
+function personaView(s: WerewolfState, viewerId: string | undefined, reveal: boolean) {
+  if (!s.persona) return {};
+  const persona: NonNullable<GameView['persona']> = {};
+  for (const [seatId, p] of Object.entries(s.persona))
+    if (reveal || seatId === viewerId)
+      persona[seatId] = {
+        botId: p.botId,
+        traits: p.traits,
+        mbti: p.mbti,
+        ...(p.plan ? { plan: { id: p.plan.id, name: p.plan.name, detail: p.plan.detail } } : {}),
+        ...(reveal ? { overrides: (s.decisions || []).filter((d) => d.seatId === seatId && d.overridden).length } : {}),
+      };
+  return Object.keys(persona).length ? { persona } : {};
 }

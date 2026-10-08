@@ -21,6 +21,8 @@ const labels: Record<GameTrace['type'], string> = {
   stop: '结束对局',
   recovered: '重启恢复',
   failure_pause: '异常暂停',
+  persona_plan: '本局打法',
+  persona_override: '性格改选',
 };
 const phases: Record<string, string> = PHASE_NAMES;
 const kinds: Record<string, string> = ACTION_NAMES;

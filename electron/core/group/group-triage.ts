@@ -1,5 +1,6 @@
 import { GROUP_LIMITS, type GroupDelivery, type GroupMessage, type GroupRoom } from '../../../shared/types/group-types';
-import { replyTarget } from '../../../shared/chat/group-answers';
+import { isGroupAnswer, replyTarget } from '../../../shared/chat/group-answers';
+import { isEmptyGroupReply } from '../../../shared/chat/group-empty-reply';
 
 // Who a published message wakes. Every member still receives it; triage only decides whether the
 // recipient starts working on it (design section 4.1). Rules are tried in order and the first hit wins.
@@ -38,6 +39,15 @@ export function sinceUser(room: GroupRoom, before = room.messages.length) {
   }
   return room.messages.slice(start, before);
 }
+/** Every published Bot text consumes the same budget, including progress and unaddressed replies. */
+export function botMessageCount(room: GroupRoom) {
+  return sinceUser(room).filter(
+    (item) =>
+      item.sender.kind === 'bot' &&
+      (item.kind === 'message' || item.kind === 'progress') &&
+      (!isEmptyGroupReply(item.content) || Boolean(item.attachments?.length)),
+  ).length;
+}
 /** Other Bots a Bot message is aimed at: by @, by replying to them, or by answering a message they sent. */
 function botTargets(room: GroupRoom, message: GroupMessage) {
   const targets = new Set<string>();
@@ -58,6 +68,7 @@ export function answerFrom(room: GroupRoom, message: GroupMessage, memberId: str
     .find(
       (item) =>
         item.sender.id === memberId &&
+        isGroupAnswer(item) &&
         (replyTarget(item) === message.id ||
           item.answers === message.id ||
           (item.reaction?.messageId === message.id && !item.reaction.removed)),
@@ -68,7 +79,6 @@ function limit(room: GroupRoom, message: GroupMessage, recipientId: string): Tri
   const earlier = sinceUser(room, room.messages.indexOf(message)).filter(
     (item) => item.kind === 'message' && botTargets(room, item).size,
   );
-  if (earlier.length >= GROUP_LIMITS.botStreak) return { kind: 'limited', reason: 'bot' };
   if (!botTargets(room, message).has(recipientId)) return;
   const sender = message.sender.id,
     pair = earlier.filter(
@@ -84,6 +94,9 @@ export function triage(delivery: GroupDelivery, context: TriageContext): Triage 
     message = room.messages.find((item) => item.id === delivery.messageId),
     me = delivery.recipientId;
   if (!message) return { kind: 'skip', reason: '消息已不存在' };
+  if (message.sender.kind === 'bot' && !message.attachments?.length && isEmptyGroupReply(message.content))
+    return { kind: 'skip', reason: '空回复或模型结束标记，不叫醒' };
+  if (botMessageCount(room) >= GROUP_LIMITS.botStreak) return { kind: 'limited', reason: 'bot' };
   // 1. Events. A user reaction wakes the author of the message it reacts to; a Bot reaction wakes
   // nobody, so reactions cannot loop. Either one still counts as an answer to its message.
   if (message.kind === 'reaction') {

@@ -1,5 +1,6 @@
 import { BOARDS, PHASE_NAMES, TWELVE_RULES } from '../../shared/games/game-boards';
 import { WerewolfTable } from './WerewolfTable';
+import { PersonaPage } from './PersonaPage';
 import { syncSeats } from './game-view-model';
 import type { GameView } from '../../shared/types/game-types';
 import { GAME_MBTI_TYPES, isGameMbti, type GameMbti } from '../../shared/games/game-personality';
@@ -75,7 +76,7 @@ export function GroupGames({
   const storageKey = `aelion:game-prototype:v1:${groupId}`;
   const [match, setMatch] = useState<GameView | null>(null);
   const [open, setOpen] = useState(initialOpen),
-    [screen, setScreen] = useState<'select' | 'presets' | 'room' | 'table'>(match ? 'table' : 'select');
+    [screen, setScreen] = useState<'select' | 'presets' | 'persona' | 'room' | 'table'>(match ? 'table' : 'select');
   const [mode, setMode] = useState<'play' | 'watch'>('play'),
     [selected, setSelected] = useState<string[]>(members.slice(0, 11).map((m) => m.id));
   const [omniscient, setOmniscient] = useState(false),
@@ -86,6 +87,19 @@ export function GroupGames({
     [mbtiPresets, setMbtiPresets] = useState<Record<string, GameMbti>>({}),
     [configNotice, setConfigNotice] = useState('');
   const [sessionMbti, setSessionMbti] = useState<Record<string, GameMbti | 'random'>>({});
+  const [personaBotId, setPersonaBotId] = useState('');
+  const [personaReturn, setPersonaReturn] = useState<'select' | 'room'>('select');
+  const [hasUnsaved, setHasUnsaved] = useState(false);
+  function mayLeave() {
+    if (hasUnsaved && !window.confirm(t('有未保存的修改，确定放弃并离开吗？'))) return false;
+    setHasUnsaved(false);
+    return true;
+  }
+  function openPersona(botId = '', from: 'select' | 'room' = 'select') {
+    setPersonaBotId(botId);
+    setPersonaReturn(from);
+    setScreen('persona');
+  }
   // Selection is seeded once on mount; Bots invited to the group afterwards take a free seat instead of being left out.
   const memberIds = members.map((m) => m.id).join('\n'),
     knownMembers = useRef(new Set(members.map((m) => m.id)));
@@ -207,29 +221,36 @@ export function GroupGames({
     ...chosen.map((m) => ({ ...m, role: '' })),
     ...guests.slice(0, filled ? limit - chosen.length : 0).map((m) => ({ ...m, temporary: true, role: '' })),
   ];
-  const personalityPicker = (s: Member) => (
-    <select
-      aria-label={t('{name} 的本局性格', { name: s.name })}
-      value={sessionMbti[s.id] || ''}
-      onChange={(e) => {
-        const type = e.target.value;
-        setSessionMbti((current) => {
-          const next = { ...current };
-          if (type === 'random' || isGameMbti(type)) next[s.id] = type;
-          else delete next[s.id];
-          return next;
-        });
-      }}
-    >
-      <option value="">{mbtiPresets[s.id] ? t('预设 {value}', { value: mbtiPresets[s.id] }) : t('预设 · 随机')}</option>
-      <option value="random">{t('开局随机')}</option>
-      {GAME_MBTI_TYPES.map((type) => (
-        <option key={type} value={type}>
-          {type}
+  const personalityPicker = (s: Member) =>
+    members.some((member) => member.id === s.id) ? (
+      <button className="gg-link" onClick={() => openPersona(s.id, 'room')}>
+        {t('查看人格档案')}
+      </button>
+    ) : (
+      <select
+        aria-label={t('{name} 的本局性格', { name: s.name })}
+        value={sessionMbti[s.id] || ''}
+        onChange={(e) => {
+          const type = e.target.value;
+          setSessionMbti((current) => {
+            const next = { ...current };
+            if (type === 'random' || isGameMbti(type)) next[s.id] = type;
+            else delete next[s.id];
+            return next;
+          });
+        }}
+      >
+        <option value="">
+          {mbtiPresets[s.id] ? t('预设 {value}', { value: mbtiPresets[s.id] }) : t('预设 · 随机')}
         </option>
-      ))}
-    </select>
-  );
+        <option value="random">{t('开局随机')}</option>
+        {GAME_MBTI_TYPES.map((type) => (
+          <option key={type} value={type}>
+            {type}
+          </option>
+        ))}
+      </select>
+    );
   function savePresets(next = mbtiPresets) {
     setMbtiPresets(next);
     try {
@@ -242,7 +263,7 @@ export function GroupGames({
   }
   function randomizePresets() {
     const types = [...GAME_MBTI_TYPES].sort(() => Math.random() - 0.5),
-      bots = [...members, ...guests],
+      bots = guests,
       next = { ...mbtiPresets };
     bots.forEach((bot, i) => (next[bot.id] = types[i % types.length]));
     savePresets(next);
@@ -299,7 +320,7 @@ export function GroupGames({
           ? t('{count} 位 AI 还没有可用模型', { count: unconfigured.length })
           : '';
   const available = members.filter((m) => !selected.includes(m.id));
-  const presetCount = Object.keys(mbtiPresets).length;
+  const presetCount = guests.filter((guest) => mbtiPresets[guest.id]).length;
   const matchPhase = match
     ? match.status === 'paused'
       ? t('已暂停')
@@ -377,7 +398,10 @@ export function GroupGames({
         ref={dialog}
         className="gg-dialog"
         data-screen={screen}
-        onCancel={() => setOpen(false)}
+        onCancel={(event) => {
+          if (mayLeave()) setOpen(false);
+          else event.preventDefault();
+        }}
         onClose={() => setOpen(false)}
       >
         <div className="gg-workspace">
@@ -385,7 +409,13 @@ export function GroupGames({
             <header className="gg-header">
               <div>
                 {screen !== 'select' && (
-                  <button className="icon-button" aria-label={t('返回 AI 游戏')} onClick={() => setScreen('select')}>
+                  <button
+                    className="icon-button"
+                    aria-label={t(screen === 'persona' && personaReturn === 'room' ? '返回开局设置' : '返回 AI 游戏')}
+                    onClick={() => {
+                      if (mayLeave()) setScreen(screen === 'persona' ? personaReturn : 'select');
+                    }}
+                  >
                     <Icon name="back" size={18} />
                   </button>
                 )}
@@ -393,8 +423,10 @@ export function GroupGames({
                   {screen === 'select'
                     ? t('AI 游戏')
                     : screen === 'presets'
-                      ? t('AI 玩家预设')
-                      : t('狼人杀 · 开局设置')}
+                      ? t('补位 AI 预设')
+                      : screen === 'persona'
+                        ? t('人格')
+                        : t('狼人杀 · 开局设置')}
                 </strong>
                 {screen === 'presets' && <span>{t('长期保存，开局时可以按局修改')}</span>}
               </div>
@@ -411,7 +443,13 @@ export function GroupGames({
                     </button>
                   </>
                 )}
-                <button className="icon-button" aria-label={t('关闭 AI 游戏')} onClick={() => setOpen(false)}>
+                <button
+                  className="icon-button"
+                  aria-label={t('关闭 AI 游戏')}
+                  onClick={() => {
+                    if (mayLeave()) setOpen(false);
+                  }}
+                >
                   <Icon name="close" size={18} />
                 </button>
               </div>
@@ -500,42 +538,36 @@ export function GroupGames({
                     })}
                   </div>
                 </section>
-                <p className="gg-soon">{t('＋ 更多游戏会出现在这里')}</p>
               </div>
               <aside className="gg-lobby-side">
-                <button className="gg-card gg-preset-card" onClick={() => setScreen('presets')}>
+                {members.length > 0 && (
+                  <button className="gg-lobby-link" onClick={() => openPersona()}>
+                    <span className="gg-card-head">
+                      <span>{t('人格')}</span>
+                      <span aria-hidden="true">›</span>
+                    </span>
+                    <small>{t('性格、经历与关系')}</small>
+                  </button>
+                )}
+                <button className="gg-lobby-link" onClick={() => setScreen('presets')}>
                   <span className="gg-card-head">
-                    <span>{t('AI 玩家预设')}</span>
-                    <span className="gg-link">{t('编辑')} ›</span>
+                    <span>{t('补位 AI 预设')}</span>
+                    <span aria-hidden="true">›</span>
                   </span>
-                  <span className="gg-stack">
-                    {members.slice(0, 6).map((m) => (
-                      <Avatar key={m.id} bot={{ ...m, color: m.color || '#8e7ca2' }} size={22} />
-                    ))}
-                    <small>
-                      {presetCount
-                        ? t('{count} 位已设性格，其余每局随机', { count: presetCount })
-                        : t('还没设置，每局随机性格')}
-                    </small>
-                  </span>
-                  <span className="gg-chip-row">
-                    {[...new Set(Object.values(mbtiPresets))].slice(0, 8).map((type) => (
-                      <span key={type} className={`gg-mbti is-${temperament(type)}`}>
-                        {type}
-                      </span>
-                    ))}
-                  </span>
+                  <small>
+                    {presetCount
+                      ? t('{count} 位已设性格，其余每局随机', { count: presetCount })
+                      : t('临时玩家，每局随机性格')}
+                  </small>
                 </button>
-                <section className="gg-card">
-                  <span className="gg-card-head">
-                    <span>{t('规则要点')}</span>
-                  </span>
+                <details className="gg-lobby-rules">
+                  <summary>{t('规则要点')}</summary>
                   <p className="gg-rules-short">
                     {t(
-                      '屠边局：狼人全灭好人胜，四民或四神全灭狼人胜。首夜后先竞选警长，警长 1.5 票并决定发言方向。真人发言 120 秒，AI 60 秒，其他行动 45 秒。',
+                      '屠边局：狼人全灭好人胜，四民或四神全灭狼人胜。首夜后先竞选警长，警长 1.5 票并决定发言方向。真人发言 120 秒，其他真人行动 45 秒；AI 请求失败或超时会暂停，保留已完成的选择。',
                     )}
                   </p>
-                </section>
+                </details>
                 <p className="gg-muted gg-lobby-note">{t('对局在本机运行，AI 调用会消耗各自模型的额度。')}</p>
               </aside>
             </main>
@@ -543,7 +575,7 @@ export function GroupGames({
           {screen === 'presets' && (
             <main className="gg-presets">
               <div className="gg-preset-grid">
-                {[...members, ...guests].map((bot) => (
+                {guests.map((bot) => (
                   <label className={`gg-preset ${mbtiPresets[bot.id] ? '' : 'is-random'}`} key={bot.id}>
                     <span className="gg-preset-head">
                       <Portrait seat={bot} />
@@ -582,6 +614,15 @@ export function GroupGames({
                 </p>
               )}
             </main>
+          )}
+          {screen === 'persona' && (
+            <PersonaPage
+              key={personaBotId}
+              initialBotId={personaBotId}
+              members={members}
+              presets={mbtiPresets}
+              onUnsavedChange={setHasUnsaved}
+            />
           )}
           {screen === 'room' && (
             <main className="gg-room">
@@ -689,16 +730,16 @@ export function GroupGames({
                       setSessionMbti((current) => ({
                         ...current,
                         ...Object.fromEntries(
-                          [...members, ...guests].map((p) => [
+                          guests.map((p) => [
                             p.id,
                             GAME_MBTI_TYPES[Math.floor(Math.random() * GAME_MBTI_TYPES.length)],
                           ]),
                         ),
                       }));
-                      setConfigNotice(t('已随机本局性格，包括补位玩家'));
+                      setConfigNotice(t('已随机补位玩家的本局性格'));
                     }}
                   >
-                    {t('随机性格')}
+                    {t('随机补位性格')}
                   </button>
                   <button className="gg-back" onClick={restore}>
                     {t('沿用上次')}
@@ -730,13 +771,17 @@ export function GroupGames({
                         <span className="gg-chip-row">
                           {s.id === 'human' ? (
                             <span className="gg-tag is-accent">{t('参与')}</span>
+                          ) : !s.temporary ? (
+                            <span className="gg-tag">{t('沿用人格档案')}</span>
                           ) : type ? (
                             <span className={`gg-mbti is-${temperament(type)}`}>{type}</span>
                           ) : (
                             <span className="gg-tag">{t('随机性格')}</span>
                           )}
                           {s.temporary && <span className="gg-tag">{t('临时')}</span>}
-                          {(overrides[s.id] || sessionMbti[s.id]) && <span className="gg-tag">{t('本局修改')}</span>}
+                          {(overrides[s.id] || (s.temporary && sessionMbti[s.id])) && (
+                            <span className="gg-tag">{t('本局修改')}</span>
+                          )}
                         </span>
                       </button>
                     );
@@ -788,11 +833,13 @@ export function GroupGames({
                         </select>
                       </label>
                       <label>
-                        {t('本局性格')}
+                        {t(editSeat.temporary ? '本局性格' : '人格档案')}
                         {personalityPicker(editSeat)}
                       </label>
                       <div className="gg-pop-actions">
-                        <span className="gg-muted">{t('只影响这一局')}</span>
+                        <span className="gg-muted">
+                          {t(editSeat.temporary ? '只影响这一局' : '模型只影响这一局；人格沿用 Bot 档案。')}
+                        </span>
                         <span className="gg-spacer" />
                         <button
                           className="gg-back"

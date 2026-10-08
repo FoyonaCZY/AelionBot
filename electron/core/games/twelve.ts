@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { GameAction, GameRequest, GameCreate } from '../../../shared/types/game-types';
 import { ACTION_NAMES, BOARDS } from '../../../shared/games/game-boards';
 import type { WerewolfState } from './werewolf';
+import { event } from './events';
 
 type Death = { id: string; cause: 'knife' | 'poison' | 'exile' | 'shot' };
 type Task = { seatId: string; kind: GameRequest['kind'] };
@@ -200,13 +201,11 @@ function nightActions(s: WerewolfState) {
 function resolveNightActions(s: WerewolfState) {
   const seer = alive(s).find((p) => p.role === 'seer'),
     target = seer && s.answers[seer.id]?.target;
-  if (seer && target)
-    say(
-      s,
-      `查验结果：${name(s, target)} 是${s.seats.find((p) => p.id === target)!.role === 'wolf' ? '狼人' : '好人'}。`,
-      undefined,
-      [seer.id],
-    );
+  if (seer && target) {
+    const wolf = s.seats.find((p) => p.id === target)!.role === 'wolf';
+    say(s, `查验结果：${name(s, target)} 是${wolf ? '狼人' : '好人'}。`, undefined, [seer.id]);
+    event(s, { type: 'inspect', day: s.day, seerId: seer.id, seatId: target, wolf });
+  }
   const counts = new Map<string, number>();
   for (const p of alive(s).filter((p) => p.role === 'wolf')) {
     const t = s.answers[p.id]?.target;
@@ -252,7 +251,8 @@ function resolveNight(s: WerewolfState, a: GameAction) {
   if (victim && saved === guarded) d.deaths.push({ id: victim, cause: 'knife' });
   if (witch && saved) {
     s.potions!.save = false;
-    say(s, `你使用解药救下了 ${name(s, victim!)}。`, undefined, [witch.id]);
+    if (victim && !guarded) event(s, { type: 'save', day: s.day, witchId: witch.id, seatId: victim });
+    say(s, `你对 ${name(s, victim!)} 使用了解药。`, undefined, [witch.id]);
   }
   if (witch && a.potion === 'poison' && a.target) {
     s.potions!.poison = false;
@@ -340,6 +340,13 @@ function finishElectionVote(s: WerewolfState) {
   } else elect(s, top.length === 1 ? top[0] : undefined);
 }
 function elect(s: WerewolfState, id?: string) {
+  event(s, {
+    type: 'elect',
+    day: s.day,
+    ...(id ? { seatId: id } : {}),
+    applicants: [...data(s).applicants],
+    withdrawn: [...(data(s).withdrawn || [])],
+  });
   data(s).sheriffId = id;
   data(s).candidates = [];
   say(s, id ? `${name(s, id)} 当选警长，获得警徽。` : '警徽流失，本局无警长。');
@@ -416,7 +423,9 @@ function voting(s: WerewolfState, targets?: string[]) {
 }
 function finishVote(s: WerewolfState) {
   const d = data(s),
-    top = topVotes(s, true);
+    top = topVotes(s, true),
+    ballots = Object.entries(s.answers); // read before stage() clears the answers
+  const votersFor = (id: string) => ballots.filter(([, a]) => a.target === id).map(([voter]) => voter);
   if (top.length > 1 && !s.voteRound) {
     s.voteRound = 1;
     d.voteTargets = top;
@@ -445,6 +454,12 @@ function finishVote(s: WerewolfState) {
     return;
   }
   p.alive = false;
+  event(s, {
+    type: 'exile',
+    day: s.day,
+    seatId: p.id,
+    voters: votersFor(p.id),
+  });
   say(s, `${p.name} 被放逐。`);
   queue(s, deathTasks(s, [{ id: p.id, cause: 'exile' }]), 'night');
 }
