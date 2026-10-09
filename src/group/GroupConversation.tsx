@@ -1,4 +1,5 @@
 import { GroupDecisionTrail } from './GroupDecisionTrail';
+import { isEmptyGroupReply } from '../../shared/chat/group-empty-reply';
 import { unanswered } from '../../shared/chat/group-answers';
 import { GroupGames } from './GroupGames';
 import { DesignerTaskCard } from '../designer/DesignerTaskCard';
@@ -332,24 +333,34 @@ export function GroupConversation({
               {t('加载更早消息')}
             </button>
           )}
-          {page?.messages.map((message) => (
-            <GroupMessageRow
-              key={message.id}
-              message={message}
-              bots={state.bots}
-              members={members}
-              displayName={displayName}
-              runId={rows.replyRuns.get(message.id)}
-              artifacts={state.artifacts}
-              previewEntries={previewEntries}
-              unanswered={rows.quiet.has(message.id)}
-              deliveries={rows.byMessage.get(message.id) || NO_DELIVERIES}
-              laya={page.laya}
-              sessions={state.designer?.sessions}
-              vmReady={state.vm.status === 'ready'}
-              actions={actions}
-            />
-          ))}
+          {page?.messages
+            .filter(
+              (message) =>
+                !(
+                  message.sender.kind === 'bot' &&
+                  ['message', 'progress'].includes(message.kind) &&
+                  !message.attachments?.length &&
+                  isEmptyGroupReply(groupReplyContent(message.content, message.sender.id))
+                ),
+            )
+            .map((message) => (
+              <GroupMessageRow
+                key={message.id}
+                message={message}
+                bots={state.bots}
+                members={members}
+                displayName={displayName}
+                runId={rows.replyRuns.get(message.id)}
+                artifacts={state.artifacts}
+                previewEntries={previewEntries}
+                unanswered={rows.quiet.has(message.id)}
+                deliveries={rows.byMessage.get(message.id) || NO_DELIVERIES}
+                laya={page.laya}
+                sessions={state.designer?.sessions}
+                vmReady={state.vm.status === 'ready'}
+                actions={actions}
+              />
+            ))}
           {page &&
             !page.messages.some((message) => message.kind === 'message' || message.kind === 'progress') &&
             !group.activities?.length && <div className="group-empty">{t('暂无消息')}</div>}
@@ -373,7 +384,7 @@ export function GroupConversation({
         )}
         <WorkItemsPanel items={state.workItems} scope={{ kind: 'group', id: group.id }} bots={state.bots} />
         <LiveWorkStrip items={(state.liveWork || []).filter((item) => members.some((bot) => bot.id === item.botId))} />
-        {group.round?.status === 'stopped' && !group.pending && (
+        {(group.round?.status === 'stopped' || group.round?.status === 'limited') && !group.pending && (
           <div className="group-round-stopped">
             <span>{group.round.reason || t('本轮讨论已停止')}</span>
             <button

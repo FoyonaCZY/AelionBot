@@ -600,6 +600,9 @@ export interface AelionAPI {
   updateWorkSession(input: { id: string; name?: string; archived?: boolean }): Promise<void>;
   deleteWorkSession(id: string): Promise<void>;
   updateBot(input: BotUpdateInput): Promise<void>;
+  /** The Bot's personality profile (personality doc §14). */
+  personaProfile(input: { botId: string; mbti?: string }): Promise<import('./persona-types').PersonaView>;
+  updatePersona(input: import('./persona-types').PersonaUpdate): Promise<import('./persona-types').PersonaView>;
   send(input: {
     designSessionId?: string;
     botId: string;

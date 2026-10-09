@@ -7,8 +7,8 @@ import type { ScheduledTrigger } from './scheduled-types';
 export const GROUP_LIMITS = {
   bots: 8,
   groupsPerTask: 2,
-  /** Bot-to-bot messages since the user's last message before Bots stop waking each other. */
-  botStreak: 10,
+  /** Hard cap on published Bot messages and progress since the user's latest text or explicit continuation. */
+  botStreak: 20,
   /** Messages exchanged by one pair of Bots since the user's last message before they stop waking each other. */
   pairStreak: 4,
   /** Seconds others wait for an addressed Bot, or for replies still being written, before continuing. */

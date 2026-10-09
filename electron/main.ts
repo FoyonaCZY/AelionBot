@@ -2,6 +2,9 @@ import { LayaDecisionLog } from './core/model/laya-decision-log';
 import { LayaGroupDecisions } from './core/group/laya-decision';
 import { gameProviders } from './core/games/providers';
 import { GameRuntime } from './core/games/runtime';
+import { PersonaService } from './core/persona/persona-service';
+import { settleFinishedGame } from './core/games/settlement';
+import { contextBudget } from './core/context/context-budget';
 import { gameInstructions, gamePrompt, parseGameAction } from './core/games/model-player';
 import { BotRuntime } from './core/agent/bot-runtime';
 import { DesignWork } from './core/designer/design-work';
@@ -93,6 +96,7 @@ let cognition: Cognition;
 let peerChats: PeerChats | undefined;
 let groupChats: GroupChats | undefined;
 let games: GameRuntime | undefined;
+let persona: PersonaService | undefined;
 let laya: LayaRuntime | undefined;
 let layaFeature: LayaFeature | undefined;
 let chatPins: ChatPinQueue | undefined;
@@ -233,7 +237,10 @@ function beforeModelChange(botIds: string[]) {
   const busy = botIds.find((id) => updatePreparing || harness.isRunning(id));
   if (busy) throw new Error(`请等待 ${store.bot(busy).name} 的当前任务结束后修改模型`);
   cognition.learning.preempt();
-  for (const id of botIds) greetings?.cancel(id);
+  for (const id of botIds) {
+    greetings?.cancel(id);
+    persona?.cancelGrowthReview(id);
+  }
 }
 function afterModelChange() {
   changed();
@@ -483,6 +490,45 @@ async function initialize() {
   );
   const layaLog = new LayaDecisionLog(store.dir, () => groupChats?.layaChanged());
   layaFeature = new LayaFeature(store.dir, laya, changed);
+  persona = new PersonaService(store.dir);
+  persona.configureGrowthReviewer({
+    available: (botId) => store.data.bots.some((b) => b.id === botId),
+    inputTokenBudget: (botId) => {
+      const capacity = providers.config(botId).contextTokens;
+      return capacity - Math.min(4000, Math.floor(capacity / 4)) - contextBudget(capacity).safety;
+    },
+    ask: async (botId, system, user, signal) => {
+      const config = providers.config(botId),
+        key = providers.key(botId);
+      if (config.issue || !config.model) throw Error('Bot 尚未配置有效模型');
+      const result = await model.complete(
+        [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        [],
+        signal,
+        undefined,
+        {
+          botId,
+          purpose: 'persona_growth',
+          config: { ...config, hostedWebSearch: false, hostedImageGeneration: false },
+          key,
+          maxOutputTokens: 4000,
+          timeoutMs: 30000,
+          retries: 0,
+          cacheScope: 'persona-growth:' + botId,
+        },
+      );
+      // Catalog refresh can change resolved settings even without a user model-switch operation.
+      if (JSON.stringify(providers.config(botId)) !== JSON.stringify(config) || providers.key(botId) !== key)
+        throw Error('模型配置已改变，成长评估未应用');
+      return {
+        text: result.content || '',
+        model: { model: config.model, protocol: config.protocol, reasoningEffort: config.reasoningEffort },
+      };
+    },
+  });
   games = new GameRuntime(
     join(store.dir, 'games'),
     async (player, context, request, signal, options) => {
@@ -510,15 +556,27 @@ async function initialize() {
           options,
         );
       }
+      const instruction =
+        gameInstructions(context, request) + (options?.retryFeedback ? '\n上次校验失败：' + options.retryFeedback : '');
+      const input = gamePrompt(context, request);
+      options?.onRequest?.({
+        instruction,
+        input,
+        config: {
+          model: config.model,
+          protocol: config.protocol,
+          reasoningEffort: config.reasoningEffort,
+          contextTokens: config.contextTokens,
+          maxOutputTokens,
+        },
+      });
       const result = await model.complete(
         [
           {
             role: 'system',
-            content:
-              gameInstructions(context, request) +
-              (options?.retryFeedback ? '\n上次校验失败：' + options.retryFeedback : ''),
+            content: instruction,
           },
-          { role: 'user', content: gamePrompt(context, request) },
+          { role: 'user', content: input },
         ],
         [],
         signal,
@@ -545,7 +603,16 @@ async function initialize() {
           throw Error('模型缺少 API Key');
       }
     },
-    { aiTimeoutMs: 90000 },
+    { aiTimeoutMs: 180000 },
+    {
+      finished: (match) => settleFinishedGame(match, persona, groupChats),
+      settlementFailed: (matchId, error) =>
+        diagnostics?.record(
+          'persona.settlement',
+          `对局 ${matchId}：${error instanceof Error ? error.stack || error.message : String(error)}`,
+        ),
+      personas: (bots, members) => persona?.seeds(bots, members) || {},
+    },
   );
   startup.mark('services');
   cognition = new Cognition(
@@ -655,6 +722,7 @@ async function initialize() {
     attachments,
     host,
     new LayaGroupDecisions(laya, layaLog),
+    (botId, people) => persona?.groupFragment(botId, people) || '',
   );
   chatPins = new ChatPinQueue(
     store,
@@ -998,6 +1066,9 @@ async function initialize() {
     get games() {
       return games;
     },
+    get persona() {
+      return persona;
+    },
     get chatPins() {
       return chatPins;
     },
@@ -1059,6 +1130,7 @@ async function initialize() {
         },
         () => providers.dispose(),
         () => games?.dispose(),
+        () => persona?.close(),
         () => layaFeature?.dispose(),
         () => laya?.dispose(),
         () => model?.dispose(),

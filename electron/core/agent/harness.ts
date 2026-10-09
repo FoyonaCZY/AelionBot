@@ -906,7 +906,8 @@ export class Harness {
       turnContext.content += requiresReactionReply ? REACTION_REPLY_CONTEXT : REACTION_REMOVED_CONTEXT;
     if (inputs.length || options.supersedesRunId) turnContext.content += BATCHED_INPUT_CONTEXT;
     if (resumed) turnContext.content += RESUME_CONTEXT;
-    if (options.groupContext) {
+    // Group context can include game relationships and shared experiences. Never inject it into private chats.
+    if (options.groupOrigin && options.groupContext) {
       turnContext.content = turnContext.content!.replace(requestAnchor, GROUP_EVENT_CONTEXT);
       turnContext.content += '\n' + options.groupContext;
     }
