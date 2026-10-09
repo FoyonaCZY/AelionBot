@@ -1,27 +1,24 @@
 import { useId, useRef, useState } from 'react';
 import type { Snapshot } from '../../shared/types/core';
 import { SOUL_MAX_CHARS, normalizeSoul } from '../../shared/chat/bot-soul';
-import { defaultSoul, isStarterText, soulPresets } from '../../shared/chat/soul-presets';
+import { isStarterText, soulPresets } from '../../shared/chat/soul-presets';
 import { BotPaletteEditor } from '../bots/BotPaletteEditor';
 import { ModelSelectionFields, validModelSelection } from '../settings/ModelSelectionFields';
 import { useI18n } from '../i18n';
-import { BotTypeArt } from './BotTypeArt';
 import type { BotProfile } from './use-bot-profile';
 
-/** Create a Bot or edit its profile. Changing an existing Bot's type asks for confirmation first. */
+/** Create a Bot or edit its profile. Every Bot can take on design work; the designer is one of the presets. */
 export function BotProfileForm({
   modal,
   state,
   profile,
   busy,
-  onSwitchType,
   onSave,
 }: {
   modal: 'new' | 'profile';
   state: Snapshot;
   profile: BotProfile;
   busy: boolean;
-  onSwitchType: () => void;
   onSave: () => void;
 }) {
   const { t, language } = useI18n();
@@ -30,9 +27,6 @@ export function BotProfileForm({
     fileInput = useRef<HTMLInputElement>(null),
     [soulIssue, setSoulIssue] = useState('');
   const {
-    type: profileType,
-    setType: setProfileType,
-    originalType: profileOriginalType,
     model: profileModel,
     setModel: setProfileModel,
     imageModel: profileImageModel,
@@ -51,32 +45,9 @@ export function BotProfileForm({
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        if (modal === 'profile' && profileType !== profileOriginalType) {
-          onSwitchType();
-          return;
-        }
         onSave();
       }}
     >
-      <div className="bot-profile-types" aria-label={t('Bot 类型')}>
-        {(['general', 'designer'] as const).map((type) => (
-          <button
-            type="button"
-            className={`bot-type-card is-${type}`}
-            key={type}
-            aria-pressed={profileType === type}
-            onClick={() => {
-              setProfileType(type);
-              if (modal === 'new' && isStarterText(soul)) setSoul(defaultSoul(type, language));
-            }}
-          >
-            <BotTypeArt type={type} />
-            <span className="bot-type-copy">
-              <strong>{type === 'general' ? t('通用 Bot') : t('设计师')}</strong>
-            </span>
-          </button>
-        ))}
-      </div>
       <BotPaletteEditor
         value={modal === 'new' ? newBotPalette : profilePalette}
         onChange={modal === 'new' ? setNewBotPalette : setProfilePalette}
@@ -139,7 +110,7 @@ export function BotProfileForm({
         {modal === 'new' && (
           <div className="presets" role="group" aria-label={t('从示例开始')}>
             <span className="presets-label">{t('从示例开始')}</span>
-            {soulPresets(profileType, language).map((preset) => (
+            {soulPresets(language).map((preset) => (
               <button
                 type="button"
                 key={preset.id}

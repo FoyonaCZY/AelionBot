@@ -1,5 +1,4 @@
 import { dialog } from 'electron';
-import { join } from 'node:path';
 import { respondToInteraction } from '../core/agent/interactions';
 import { assertWorkspaceScope, conversationWorkspace, setConversationWorkspace } from '../core/storage/workspaces';
 import type { IpcContext } from './context';
@@ -41,12 +40,7 @@ export function registerWorkspace(ctx: IpcContext) {
         const task = ctx.designStore.get(input.designSessionId);
         if (task.origin.kind !== scope.kind || task.origin.id !== scope.id) throw Error('设计任务不属于当前会话');
         directory = ctx.designerFiles.absolute(task, '.', true);
-      } else if (scope.kind === 'bot' && ctx.store.bot(scope.id).type === 'designer')
-        return {
-          workspaceDir: join(ctx.host.workspaceSettings().workspaceDir, 'designers'),
-          files: [],
-          truncated: false,
-        };
+      }
       return await ctx.host.mentionFiles(input?.query, directory, controller.signal);
     } finally {
       if (mentionSearches.get(key) === controller) mentionSearches.delete(key);

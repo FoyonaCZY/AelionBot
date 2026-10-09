@@ -36,7 +36,7 @@ export class ArtifactService {
     return Boolean(this.designerFiles?.owns(botId, path));
   }
   private local(botId: string, path = '') {
-    if (this.isLocal(botId, path) || this.store.bot(botId).type === 'designer' || path.startsWith('designers/')) {
+    if (this.isLocal(botId, path) || path.startsWith('designers/')) {
       if (!this.designerFiles) throw Error('本机设计文件服务未就绪');
       return this.designerFiles;
     }
@@ -159,12 +159,13 @@ print(json.dumps(files,ensure_ascii=False))`;
     return JSON.parse(result.stdout);
   }
   async collect(botId: string, runId: string) {
-    if (!this.local(botId) && this.vm.state.status !== 'ready') return;
     const run = this.store.data.runs.find((item) => item.id === runId && item.botId === botId);
     if (!run) return;
-    const files = this.local(botId)
-      ? await this.designerFiles!.list(botId, run.designSessionId)
-      : await this.list(botId);
+    // A run bound to a design task wrote its files on this computer; the work computer may also hold some.
+    const files = [
+      ...(run.designSessionId && this.designerFiles ? await this.designerFiles.list(botId, run.designSessionId) : []),
+      ...(this.vm.state.status === 'ready' ? await this.list(botId) : []),
+    ];
     for (const file of files) {
       if (!isRunArtifact(file.path)) continue;
       if (
@@ -199,14 +200,16 @@ print(json.dumps(files,ensure_ascii=False))`;
     if (result.exitCode !== 0) throw new Error(result.stderr || '无法读取文件');
     return Buffer.from(result.stdout.trim(), 'base64');
   }
-  async previewLocalOffice(botId: string, name: string, size?: number) {
-    if (!this.local(botId)) return;
+  /** `exact` only accepts a design file with this name and size, so a work-computer file never shows a design. */
+  async previewLocalOffice(botId: string, name: string, size?: number, exact = false) {
+    if (!this.designerFiles) return;
     const files = await this.designerFiles!.list(botId),
       stem = basename(name).replace(/\.[^.]+$/, '');
     const pptx =
       files.find((file) => file.name === name && (size === undefined || file.size === size)) ||
-      files.find((file) => file.name === name);
+      (exact ? undefined : files.find((file) => file.name === name));
     if (pptx) return this.preview(botId, pptx.path);
+    if (exact) return;
     const html = files.find((file) => file.name === stem + '.html' || file.name === stem + '.htm');
     if (html) return this.preview(botId, html.path);
   }

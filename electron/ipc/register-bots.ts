@@ -1,4 +1,3 @@
-import { botType } from '../../shared/types/designer-types';
 import { updateBotProfile } from '../core/agent/bot-profile';
 import { reasoningEffort as cleanReasoning } from '../../shared/chat/reasoning';
 import type { IpcContext } from './context';
@@ -22,10 +21,9 @@ export function registerBots(ctx: IpcContext) {
       model,
       imageModel,
       reasoningEffort,
-      type: botType(input.type),
     });
     ctx.changed();
-    if (bot.type !== 'designer') void ctx.greetings?.greet(bot.id);
+    void ctx.greetings?.greet(bot.id);
     return bot;
   });
   handle('deleteBot', async (id) => {
@@ -44,19 +42,7 @@ export function registerBots(ctx: IpcContext) {
     ctx.changed();
   });
   handle('updateBot', (input) => {
-    if (input.defaultDesignSystemId) ctx.designSystems.get(input.defaultDesignSystemId);
-    const typeChanged = input.type !== undefined && botType(input.type) !== botType(ctx.store.bot(input.id).type);
-    if (typeChanged && (ctx.updatePreparing || ctx.harness.isRunning(input.id)))
-      throw Error('请先结束当前任务，再切换 Bot 类型');
     const modelChanged = updateBotProfile(ctx.store, ctx.providers, input, (id) => ctx.beforeModelChange([id]));
-    if (typeChanged) {
-      ctx.greetings?.cancel(input.id);
-      ctx.chatPins?.cancel(input.id);
-      ctx.cognition.deleteBot(input.id);
-      ctx.designStore.clearBot(input.id);
-      ctx.changed();
-      return;
-    }
     if (modelChanged) ctx.afterModelChange();
     else {
       ctx.greetings?.cancel(input.id);

@@ -84,7 +84,6 @@ export function FilePreview({
     [retry, setRetry] = useState(0);
   const [exportState, setExportState] = useState<CanvasExportState>(),
     exportInFlight = useRef(false);
-  const [studioHost, setStudioHost] = useState<HTMLElement | null>(null);
   const [chatWidth, setChatWidth] = useState(() => {
     try {
       return Math.max(260, Math.min(420, Number(localStorage.getItem('aelion-preview-chat-width')) || 340));
@@ -109,6 +108,7 @@ export function FilePreview({
   const [mode, setMode] = useState<PreviewMode>('browse'),
     [tool, setTool] = useState<AnnotationTool>('rect'),
     [web, setWeb] = useState<WebPreviewControls>(),
+    webItems = useRef(new Set<string>()),
     [fileAnnotations, setFileAnnotations] = useState<PreviewAnnotation[]>([]),
     [domPending, setDomPending] = useState<(() => void) | undefined>(undefined),
     [domGuardError, setDomGuardError] = useState(''),
@@ -200,59 +200,25 @@ export function FilePreview({
     afterFeedback = useRef<(() => void) | undefined>(undefined);
   const panel = useRef<HTMLElement>(null),
     previous = useRef<HTMLElement | null>(null),
-    detachedStudio = useRef<HTMLElement | null>(null),
     item = items[index],
-    wantsStudio = Boolean(item.designSessionId) && !expanded,
-    modal = expanded || (!wide && !wantsStudio);
-  if (!detachedStudio.current) {
-    detachedStudio.current = document.createElement('div');
-    detachedStudio.current.setAttribute('data-designer-studio-hold', 'true');
-  }
-  useLayoutEffect(() => {
-    if (!item.designSessionId) {
-      setStudioHost(null);
-      return;
-    }
-    const selector = `[data-designer-canvas="${CSS.escape(item.designSessionId)}"]`;
-    const read = () => {
-      const node = document.querySelector(selector);
-      setStudioHost(node instanceof HTMLElement ? node : null);
-    };
-    read();
-    const observer = new MutationObserver(read);
-    observer.observe(document.body, { subtree: true, childList: true });
-    return () => observer.disconnect();
-  }, [item.designSessionId]);
-  const studio = wantsStudio && Boolean(studioHost);
-  const portalTarget = item.designSessionId ? studioHost || detachedStudio.current : document.body;
+    // A design canvas is an ordinary docked preview: half the window beside the chat, or expanded over it.
+    modal = expanded || !wide;
   useEffect(() => {
-    if (wantsStudio) return;
     document.body.style.setProperty('--preview-chat-width', chatWidth + 'px');
     try {
       localStorage.setItem('aelion-preview-chat-width', String(chatWidth));
     } catch {}
-  }, [chatWidth, wantsStudio]);
+  }, [chatWidth]);
   useEffect(() => {
     onSessionChange?.({ items, index, expanded: modal });
     workbench?.update({
       scope: feedbackScope,
       itemId: item.id,
       name: item.name,
-      docked: !modal && !studio,
-      studio,
+      docked: !modal,
       annotations,
     });
-  }, [
-    items,
-    index,
-    modal,
-    studio,
-    feedbackScope?.kind,
-    feedbackScope?.id,
-    onSessionChange,
-    workbench?.update,
-    annotations,
-  ]);
+  }, [items, index, modal, feedbackScope?.kind, feedbackScope?.id, onSessionChange, workbench?.update, annotations]);
   const draft = edits.drafts[item.id],
     dirty = Boolean(draft && draftChanged(draft));
   if (previousSource.current !== draft?.content) {
@@ -269,10 +235,14 @@ export function FilePreview({
     [onSessionChange],
   );
   // One segmented control replaces the old preview/edit/source buttons spread over two rows.
+  // The page view unmounts while its source is open, which clears `web`. The item is still a page, so remember it:
+  // otherwise the segments fall back to the plain-file set, which drops 源码 and relabels it 编辑.
+  if (web) webItems.current.add(item.id);
+  const page = Boolean(web) || webItems.current.has(item.id);
   const segments = [
     { key: 'preview', label: t('预览') },
-    ...(web && item.editor ? [{ key: 'source', label: t('源码') }] : []),
-    ...(web ? [{ key: 'edit', label: t('编辑') }] : item.editor ? [{ key: 'source', label: t('编辑') }] : []),
+    ...(page && item.editor ? [{ key: 'source', label: t('源码') }] : []),
+    ...(page ? [{ key: 'edit', label: t('编辑') }] : item.editor ? [{ key: 'source', label: t('编辑') }] : []),
     { key: 'annotate', label: t('标注') },
   ];
   const segment = draft?.editing ? 'source' : mode === 'edit' ? 'edit' : mode === 'annotate' ? 'annotate' : 'preview';
@@ -286,7 +256,7 @@ export function FilePreview({
     }
     if (draft?.editing) void edits.edit(item);
     setMode(key === 'edit' ? 'edit' : key === 'annotate' ? 'annotate' : 'browse');
-    if (key === 'annotate' && !web && tool === 'element') setTool('rect');
+    if (key === 'annotate' && !page && tool === 'element') setTool('rect');
   };
   const previewKindLabel = t(previewKind(item.name)),
     directoryBotId = item.workspace?.botId || item.directoryBotId;
@@ -341,7 +311,7 @@ export function FilePreview({
     return () => {
       for (const [node, inert] of changed) node.inert = inert;
     };
-  }, [modal, Boolean(edits.pending), Boolean(domPending), studioHost]);
+  }, [modal, Boolean(edits.pending), Boolean(domPending)]);
   useEffect(() => {
     let live = true;
     const key = (event: KeyboardEvent) => {
@@ -415,7 +385,7 @@ export function FilePreview({
         if (edits.pending) {
           if (!edits.saving) edits.cancel();
         } else if (mode === 'annotate') setMode('browse');
-        else if (expanded && (wide || item.designSessionId)) setExpanded(false);
+        else if (expanded && wide) setExpanded(false);
         else request(onClose);
       }
     };
@@ -530,7 +500,7 @@ export function FilePreview({
     >
       <PreviewLayoutContext.Provider value={true}>
         <div
-          className={`fp-layer is-immersive ${wantsStudio ? 'is-studio' : modal ? 'is-expanded' : 'is-docked'} ${feedbackScope ? 'has-feedback' : ''} ${exportState ? 'has-export-status' : ''}`}
+          className={`fp-layer is-immersive ${modal ? 'is-expanded' : 'is-docked'} ${feedbackScope ? 'has-feedback' : ''} ${exportState ? 'has-export-status' : ''}`}
           data-device={item.deviceFrame || undefined}
           data-tools={toolsOpen ? 'on' : undefined}
           data-pair={item.deviceFrame === 'phone' && devicePreset.mirror ? 'on' : undefined}
@@ -541,7 +511,7 @@ export function FilePreview({
           <section
             ref={panel}
             className="fp-panel"
-            data-layout={wantsStudio ? 'studio' : modal ? 'expanded' : 'docked'}
+            data-layout={modal ? 'expanded' : 'docked'}
             role={modal ? 'dialog' : 'region'}
             aria-modal={modal || undefined}
             aria-label={t('预览 {name}', { name: item.name })}
@@ -594,7 +564,7 @@ export function FilePreview({
               }
             }}
           >
-            {!modal && !wantsStudio && (
+            {!modal && (
               <button
                 className="fp-resize-handle"
                 aria-label={t('调整对话宽度')}
@@ -703,7 +673,7 @@ export function FilePreview({
                   )
                 )}
                 <span className="fp-action-divider" />
-                {(wide || item.designSessionId) && (
+                {wide && (
                   <button
                     aria-label={expanded ? t('收回侧栏') : t('展开画布')}
                     title={expanded ? t('收回侧栏') : t('展开画布')}
@@ -712,11 +682,9 @@ export function FilePreview({
                     <PreviewIcon name={expanded ? 'dock' : 'expand'} />
                   </button>
                 )}
-                {!studio && (
-                  <button aria-label={t('关闭预览')} title={t('关闭预览')} onClick={() => request(onClose)}>
-                    <PreviewIcon name="close" />
-                  </button>
-                )}
+                <button aria-label={t('关闭预览')} title={t('关闭预览')} onClick={() => request(onClose)}>
+                  <PreviewIcon name="close" />
+                </button>
               </div>
             </header>
 
@@ -951,7 +919,9 @@ export function FilePreview({
                   selectedAnnotationId={selectedAnnotationId}
                   onSelectAnnotation={selectAnnotation}
                 />
-                {draft && !draft.loading && draft.revision && (
+                {/* Source-editing controls. A page saved from 编辑 also leaves a clean draft behind; it needs no
+                    second save button in the header, so the group shows only with the source open or unsaved. */}
+                {draft && !draft.loading && draft.revision && (draft.editing || dirty) && (
                   <PreviewToolbar editing>
                     <span className="fp-edit-indicator">
                       {draft.saving ? t('保存中…') : dirty ? t('未保存修改') : t('已保存')}
@@ -1056,6 +1026,6 @@ export function FilePreview({
         </div>
       </PreviewLayoutContext.Provider>
     </PreviewRuntimeContext.Provider>,
-    portalTarget || document.body,
+    document.body,
   );
 }

@@ -9,13 +9,13 @@ import { zhTW } from './zh-TW';
 
 const tables = { 'zh-CN': zhCN, 'zh-TW': zhTW, en };
 
-/** Presets offered in the New Bot form for a Bot type. */
-export function soulPresets(type: BotType, language: Language) {
-  const ids: SoulPresetId[] = type === 'designer' ? ['designer'] : ['backend', 'data', 'writing', 'research'];
+/** Presets offered in the New Bot form. The designer is a preset now: every Bot can take on design work. */
+export function soulPresets(language: Language) {
+  const ids: SoulPresetId[] = ['backend', 'data', 'writing', 'research', 'designer'];
   return ids.map((id) => ({ id, ...tables[language][id] }));
 }
 
-/** The soul a Bot gets when it is created without one. */
+/** The soul a Bot gets when it is created without one; `designer` is the soul older designer Bots started with. */
 export const defaultSoul = (type: BotType, language: Language = 'zh-CN') =>
   tables[language][type === 'designer' ? 'designer' : 'default'].soul;
 

@@ -1,4 +1,3 @@
-import { botType } from '../../../shared/types/designer-types';
 import { hostedSearchProtocol } from '../../../shared/types/model-types';
 import { normalizeSoul } from '../../../shared/chat/bot-soul';
 import { defaultBotName, defaultSoul, upgradedLegacySoul } from '../../../shared/chat/soul-presets';
@@ -185,7 +184,6 @@ export class Store {
       this.data.unlimitedTokenBudgetMigrated = true;
     }
     for (const bot of this.data.bots) {
-      bot.type = botType(bot.type);
       // The one-line `role` became SOUL.md. Text is kept verbatim; only app-generated defaults get the starter soul.
       const legacy = bot as Bot & { role?: string };
       if (legacy.soul === undefined) legacy.soul = legacy.role || '';
@@ -688,7 +686,7 @@ export class Store {
     soul: string,
     color?: string,
     avatarStyle?: BotAvatarStyle | null,
-    modelOptions?: Pick<Bot, 'model' | 'imageModel' | 'reasoningEffort' | 'type' | 'defaultDesignSystemId'>,
+    modelOptions?: Pick<Bot, 'model' | 'imageModel' | 'reasoningEffort'>,
   ): Bot {
     const cleanSoul = normalizeSoul(soul);
     if (!name.trim() || name.length > 80 || cleanSoul === undefined) throw new Error('请填写有效的名称与 SOUL.md');
@@ -704,7 +702,6 @@ export class Store {
       createdAt: new Date().toISOString(),
       memories: [],
       ...modelOptions,
-      type: botType(modelOptions?.type),
     };
     this.data.bots.push(bot);
     this.data.conversations[bot.id] = [];

@@ -196,7 +196,6 @@ export async function runHeadless(options: HeadlessOptions): Promise<HeadlessRes
       ? store.data.bots.find((item) => item.id === options.botId || item.name === options.botId)
       : store.data.bots[0];
     if (!bot) throw Error(`找不到 Bot：${options.botId}`);
-    if (bot.type === 'designer') throw Error('headless 模式只支持通用 Bot');
     if (options.model) configureModel(store, options.model, bot.id);
     const key = options.apiKey || '',
       emit = options.onEvent || (() => {});

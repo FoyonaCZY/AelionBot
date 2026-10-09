@@ -29,8 +29,9 @@ const EXCLUSIVE_TOOLS = new Set([
   'skill_materialize',
 ]);
 const PATH_LOCKED_TOOLS = new Set(['file_write', 'file_patch']);
+// Design tools bind, write and publish one task; a batch runs them in order so design_start precedes its edits.
 export const isExclusiveTool = (name: string) =>
-  EXCLUSIVE_TOOLS.has(name) || /^groups?_(send|create|invite|pin)/.test(name);
+  EXCLUSIVE_TOOLS.has(name) || /^groups?_(send|create|invite|pin)/.test(name) || name.startsWith('design_');
 export const isSerialTool = (name: string) => isExclusiveTool(name) || PATH_LOCKED_TOOLS.has(name);
 const normalizeLockPath = (path: string) =>
   path

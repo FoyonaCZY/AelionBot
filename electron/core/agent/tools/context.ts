@@ -20,6 +20,7 @@ import type { GroupGateway } from '../../group/group-runtime-types';
 import type { ExecutionLedger } from '../execution-ledger';
 import type { Interactions } from '../interactions';
 import type { HarnessRunOptions, PeerGateway } from '../peer-runtime-types';
+import type { DesignWork } from '../../designer/design-work';
 import { AppError } from '../../../../shared/errors';
 
 /** The Harness collaborators tool handlers may use; optional ones depend on how the app was wired. */
@@ -45,10 +46,14 @@ export interface ToolDeps {
   scheduler?: TaskScheduler;
   video?: VideoFrames;
   previews?: AgentPreviews;
+  /** Local design tasks; absent when the app was wired without them. */
+  design?: DesignWork;
   imageModel?: (botId: string) => { config: ModelConfig; key: string } | undefined;
   changed(): void;
   /** Tools callable in this run, as offered to the model. */
   callableTools(runId: string): ToolDefinition[] | undefined;
+  /** Finite background tasks of this run (terminals and processes) that have not finished. */
+  pendingTasks(botId: string, runId: string): unknown[];
   /** The last context sent to the model in this run. */
   preparedContext(runId: string): WireMessage[] | undefined;
   /** Whether new input or a group event has superseded this run. */

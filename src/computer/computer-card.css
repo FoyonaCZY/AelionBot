@@ -1,4 +1,4 @@
-/* The right column as a floating card over the top right of the message list.
+/* The right column as floating cards over the top right of the message list: the computer card, then the canvas.
    Tones follow the sidebar and the conversation: line #e7e7e7 / hover #ededed, dark fill #29262f / line #3e3945. */
 .app-shell {
   --computer-card-width: 340px;
@@ -17,8 +17,21 @@
   right: var(--computer-card-gap);
   width: var(--computer-card-width);
   max-height: calc(var(--computer-card-space, 520px) - var(--computer-card-gap) * 2);
-  /* Not a grid column any more: no padding, border or scrolling of its own beyond the card. */
+  /* Not a grid column any more, and no card itself: the cards inside stack and share its height. */
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+  /* Opacity only: a transform here would capture the task editor's fixed overlay. */
+  animation: computer-card-in 0.16s ease-out;
+}
+:root .app-shell > .details.computer-details > :is(.computer-card, .design-canvas-card) {
+  position: relative;
+  flex: 0 1 auto;
+  min-height: 0;
   border: 1px solid light-dark(#e7e7e7, #3e3945);
   border-radius: 14px;
   background: light-dark(#fff, #29262f);
@@ -28,12 +41,20 @@
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: thin;
-  /* Opacity only: a transform here would capture the task editor's fixed overlay. */
-  animation: computer-card-in 0.16s ease-out;
+}
+/* The canvas keeps its picture in view; the computer card gives way and scrolls first. */
+:root .app-shell > .details.computer-details > .design-canvas-card {
+  flex-shrink: 0;
+  max-height: calc(var(--computer-card-space, 520px) - var(--computer-card-gap) * 2);
+}
+:root .app-shell > .details.computer-details > .computer-card {
+  min-height: 120px;
+}
+:root .app-shell > .details.computer-details > .computer-card[hidden] {
+  display: none;
 }
 :root .app-shell > .details.computer-details.is-closed,
-:root .app-shell[data-page='plugins'] > .details.computer-details,
-:root .app-shell[data-bot-type='designer'][data-page='chat'] > .details.computer-details {
+:root .app-shell[data-page='plugins'] > .details.computer-details {
   display: none;
 }
 @media (max-width: 900px) {
@@ -55,7 +76,7 @@
 /* While the card is shown, replies never run underneath it. The header and the composer keep the full width. */
 @media (min-width: 901px) {
   body:not(:has(.fp-panel[data-layout='docked']))
-    .app-shell[data-page='chat']:not([data-bot-type='designer']):has(> .computer-details:not(.is-closed))
+    .app-shell[data-page='chat']:has(> .computer-details:not(.is-closed))
     > .conversation
     .messages {
     padding-right: calc(var(--computer-card-width) + var(--computer-card-gap) * 2);
@@ -86,7 +107,7 @@
   opacity: 0;
   transition: opacity 0.12s;
 }
-.computer-details:is(:hover, :focus-within)
+.computer-card:is(:hover, :focus-within)
   :is(.computer-panel.is-online .computer-panel-settings, .computer-panel-expand, .computer-card-close.is-online) {
   opacity: 1;
 }
@@ -315,7 +336,6 @@
   background: #3a9a68;
   box-shadow: 0 0 0 2px light-dark(#fff, #202024);
 }
-.app-shell[data-bot-type='designer'] .computer-card-toggle,
 body:has(.fp-panel[data-layout='docked']) .computer-card-toggle {
   display: none;
 }

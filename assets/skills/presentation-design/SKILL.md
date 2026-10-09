@@ -1,12 +1,17 @@
 ---
 name: presentation-design
-description: "Create or revise editable presentations with Impress and python-pptx; export and visually verify slides before delivery."
+description: "Create or revise editable presentations: new decks as local design tasks with design_deck, existing PPTX/ODP files in Impress or python-pptx."
 metadata:
   aelion-id: aelion-presentation-design
   aelion-display-name: 演示文稿设计
 ---
 
 # Presentation design
+
+## Choose the route first
+
+- **A new deck** when design tools are available: `design_start` with kind `ppt`, then `design_deck` builds an editable PPTX and its HTML companion on the canvas, using the task's design system and fonts. No Python, Office or work computer is needed. Deliver with `design_publish`, which confirms the PPTX has editable text.
+- **An existing PPTX/ODP**, an ODP deliverable, or features `design_deck` cannot express (charts from data, embedded media, masters): use the work computer below.
 
 ## Story before slides
 

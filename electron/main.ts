@@ -4,7 +4,7 @@ import { gameProviders } from './core/games/providers';
 import { GameRuntime } from './core/games/runtime';
 import { gameInstructions, gamePrompt, parseGameAction } from './core/games/model-player';
 import { BotRuntime } from './core/agent/bot-runtime';
-import { DesignerLoop } from './core/designer/designer-loop';
+import { DesignWork } from './core/designer/design-work';
 import { DesignerFiles } from './core/designer/designer-files';
 import { DesignStore } from './core/designer/design-store';
 import { DesignSystems } from './core/designer/design-systems';
@@ -588,28 +588,17 @@ async function initialize() {
     fetch: (url, options) => net.fetch(url instanceof URL ? url.href : url, options),
   });
   const renderDesignPdf = async (html: string) => (await renderCanvasExport(html, 'pdf')).bytes;
-  const designerLoop = new DesignerLoop(
-    store,
-    designStore,
-    designSystems,
-    designerFiles,
-    model,
-    cognition.context,
-    generalHarness,
-    artifacts,
-    attachments,
-    interactions,
-    changed,
-    {
+  generalHarness.setDesignWork(
+    new DesignWork(store, designStore, designSystems, designerFiles, artifacts, attachments, interactions, model, {
       pdf: { render: renderDesignPdf },
       fonts: designFonts,
       craft: designCraft,
       imageModel: imageModelAccess,
-    },
+      resolvePath: (path, workspace) => host.resolveFilePath(path, workspace),
+    }),
   );
-  harness = new BotRuntime(store, generalHarness, designerLoop, changed, () => cognition.beforeRun());
+  harness = new BotRuntime(store, generalHarness, changed);
   generalHarness.streams.onEmit = streamsChanged;
-  designerLoop.streams.onEmit = streamsChanged;
   harness.setPreviewGateway(agentPreviews);
   videoInspector = new VideoInspector(join(app.getAppPath(), 'assets', 'video-inspector.html'));
   harness.setVideoFrames(

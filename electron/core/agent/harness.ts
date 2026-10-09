@@ -1,5 +1,6 @@
 import type { VideoFrames } from '../preview/video-frames';
 import type { AgentPreviews } from '../preview/agent-previews';
+import type { DesignWork } from '../designer/design-work';
 import { operationDenial, DENIAL_GUIDANCE } from './operation-denial';
 import { conversationIdentityPrompt } from '../../../shared/chat/user-profile';
 import { soulPromptBudget } from '../../../shared/chat/bot-soul';
@@ -557,6 +558,13 @@ export class Harness {
   private previews?: AgentPreviews;
   setPreviewGateway(previews: AgentPreviews) {
     this.previews = previews;
+    if (this.design) this.design.previews = previews;
+  }
+  /** Local design tasks: the design_* tools, their prompt prefix, and lint/canvas updates after writes. */
+  private design?: DesignWork;
+  setDesignWork(design: DesignWork) {
+    this.design = design;
+    design.previews = this.previews;
   }
   setPeerGateway(peers: PeerGateway) {
     this.peers = peers;
@@ -850,6 +858,7 @@ export class Harness {
           userInput: Boolean(this.interactions) && !this.headless,
           video: Boolean(this.video),
           preview: Boolean(this.previews),
+          design: Boolean(this.design && this.host && this.interactions) && !this.headless,
           peers: Boolean(this.peers),
           groups: Boolean(this.groups),
           chatPin: !options.peerOrigin && !options.groupOrigin,
@@ -1010,6 +1019,7 @@ export class Harness {
     try {
       if (!this.cognition) ownedContext = new CognitiveStore(this.store);
       const contextEngine = this.cognition?.context || new ContextEngine(ownedContext!, this.model, () => {});
+      this.design?.begin(run, options, carry);
       const delivery = options.groupOrigin
         ? this.store.data.groupDeliveries.find((d) => d.id === options.groupOrigin!.deliveryId)
         : undefined;
@@ -1087,6 +1097,7 @@ export class Harness {
           new RunPolicy(this.store).frame(botId, run.id),
           work.frame(run),
           reactionRestrictionContext(Boolean(work.forRun(run)), duplicateReaction),
+          this.design?.frame(run),
         ]
           .filter(Boolean)
           .join('\n');
@@ -1112,7 +1123,10 @@ export class Harness {
               options.groupOrigin ? 'read-only' : 'foreground',
             ).prompt,
           },
+          // A run bound to a design task: design rules, craft, the kind's workflow and the pinned reference.
+          ...(this.design?.prefix(run) || []),
         ];
+        const designBound = Boolean(this.design?.session(run));
         const contextInput = {
           botId,
           runId: run.id,
@@ -1125,6 +1139,7 @@ export class Harness {
           pendingFailures,
           taskFrame,
           restoreFiles: this.fileRestorer(botId, run.id, run.workspaceDir),
+          ...(designBound ? { compactScreens: true } : {}),
           ...(privateSessionId || sessionId ? { scopeKey: contextKey } : {}),
           legacyHead: { through: contextStart, summary: this.store.data.summaries[contextKey] || '' },
         };
@@ -1185,6 +1200,8 @@ export class Harness {
                   requiredImageIds: [...requiredImageIds],
                   maxOutputTokens,
                   allowEmpty: Boolean(options.groupOrigin),
+                  // A timed-out design write is retried with a request for smaller complete files.
+                  ...(designBound ? { splitOnTimeout: true } : {}),
                   // Reasoning is shown only in a Bot's own conversation, not in group or Bot-to-Bot chats.
                   ...(showReasoning
                     ? {
@@ -1885,7 +1902,8 @@ export class Harness {
             return;
           }
         } else if (!hasUnfinishedGroupWork()) stagnantGroupToolBatches = 0;
-        history.push(...observations);
+        // Design-check findings from this batch's writes reach the next turn while the page is still being built.
+        history.push(...observations, ...(this.design?.drainNotes(run.id) || []));
         this.store.save();
         if (pinned && standaloneReaction && !pendingFailures.size) {
           visible.content = '';
@@ -2007,6 +2025,10 @@ export class Harness {
         (!['request_user_input', 'user_input_wait'].includes(t.function.name) || Boolean(this.interactions)) &&
         (work.forRun(run)?.status !== 'planning' || PLANNING_TOOLS.has(t.function.name)) &&
         (t.function.name !== 'chat_pin' || (!options.groupOrigin && !options.peerOrigin)) &&
+        (!t.function.name.startsWith('design_') ||
+          (Boolean(this.host && this.interactions) &&
+            !this.headless &&
+            Boolean(this.design?.offers(run, t.function.name)))) &&
         (!/^groups?_/.test(t.function.name) || this.groups) &&
         (options.groupOrigin || !groupProtocolTool(t.function.name)) &&
         (!options.groupOrigin ||
@@ -2105,6 +2127,11 @@ export class Harness {
     } catch (error) {
       this.store.message(botId, 'event', `工作文件列表暂未更新：${(error as Error).message}`, { runId: run.id });
     }
+    try {
+      await this.design?.finish(run);
+    } catch (error) {
+      this.store.journal('design.finish', { runId: run.id, error: (error as Error).message });
+    }
     const lane = runLane(botId, run.sessionId);
     if (this.groupActive.get(botId) === groupRuntime) this.groupActive.delete(botId);
     this.runtimes.delete(lane);
@@ -2112,54 +2139,6 @@ export class Harness {
     if (cognition) cognition.afterRun(botId, run.id, state.lastRuntimeMessages, state.lastTools);
     else this.cognition?.learning.schedule();
     this.changed();
-  }
-  /** Shared, permission-checked tool services; execution loops own their own context and lifecycle. */
-  openToolSession(botId: string, runId: string, options: HarnessRunOptions, allow: (name: string) => boolean) {
-    const hidden = hiddenClientTools(this.store.modelFor(botId));
-    const definitions = TOOLS.filter((tool) => allow(tool.function.name) && !hidden.has(tool.function.name)).filter(
-      (tool) =>
-        (!tool.function.name.startsWith('history_') || Boolean(this.cognition)) &&
-        (!tool.function.name.startsWith('host_') || Boolean(this.host && this.interactions)) &&
-        (!tool.function.name.startsWith('mcp_') || Boolean(this.integrations)) &&
-        (!tool.function.name.startsWith('bot_') || Boolean(this.peers)) &&
-        (!/^groups?_/.test(tool.function.name) || Boolean(this.groups)) &&
-        (!tool.function.name.startsWith('scheduled_') || Boolean(this.scheduler)) &&
-        (tool.function.name !== 'computer' || Boolean(this.computer)) &&
-        (tool.function.name !== 'open_preview' || Boolean(this.previews)),
-    );
-    this.callableTools.set(runId, definitions);
-    return {
-      definitions,
-      invoke: (name: string, args: Record<string, unknown>, signal: AbortSignal) =>
-        this.invokeNested(this.store.bot(botId), name, args, signal, runId, options),
-      pending: () => [
-        ...this.terminals.list(botId, runId).filter((s) => s.purpose === 'task' && s.exitCode === undefined),
-        ...this.processes
-          .list(botId, runId)
-          .filter((p) => p.purpose === 'task' && ['starting', 'running', 'unknown'].includes(p.status)),
-      ],
-      close: async () => {
-        this.callableTools.delete(runId);
-        this.interactions?.cancelQuestions(botId, runId);
-        const run = this.store.data.runs.find((r) => r.id === runId);
-        if (run && ['cancelled', 'failed', 'interrupted'].includes(run.status)) {
-          this.terminals.cancelRun(botId, runId);
-          for (const process of this.processes
-            .list(botId, runId)
-            .filter((p) => p.purpose === 'task' && ['starting', 'running', 'unknown'].includes(p.status)))
-            try {
-              await this.processes.stop(botId, process.id, AbortSignal.timeout(6000));
-            } catch (error) {
-              this.store.message(
-                botId,
-                'event',
-                '后台任务停止状态未确认：' + String((error as Error).message).slice(0, 200),
-                { runId },
-              );
-            }
-        }
-      },
-    };
   }
   private async invokeNested(
     bot: Bot,
@@ -2231,7 +2210,27 @@ export class Harness {
     // A default page must fit the inline tool-result budget, or its middle would be elided.
     if (['file_read', 'host_file_read', 'read_result'].includes(name) && args.maxChars === undefined)
       args = { ...args, maxChars: readPageLimit(this.store.modelFor(bot.id).contextTokens) };
-    return dispatchTool({ bot, args, name, signal, runId, options, run: activeRun, workspace, deps: this.toolDeps() });
+    // A write inside a bound design task keeps saved preview edits, then lints and shows the page.
+    this.design?.beforeTool(activeRun, name, args);
+    let output: unknown;
+    try {
+      output = await dispatchTool({
+        bot,
+        args,
+        name,
+        signal,
+        runId,
+        options,
+        run: activeRun,
+        workspace,
+        deps: this.toolDeps(),
+      });
+    } catch (error) {
+      await this.design?.afterTool(activeRun, name, args, true);
+      throw error;
+    }
+    await this.design?.afterTool(activeRun, name, args, commandResultFailed(output));
+    return output;
   }
   private toolDeps(): ToolDeps {
     return {
@@ -2256,9 +2255,16 @@ export class Harness {
       scheduler: this.scheduler,
       video: this.video,
       previews: this.previews,
+      design: this.design,
       imageModel: this.imageModel,
       changed: () => this.changed(),
       callableTools: (runId) => this.callableTools.get(runId),
+      pendingTasks: (botId, runId) => [
+        ...this.terminals.list(botId, runId).filter((s) => s.purpose === 'task' && s.exitCode === undefined),
+        ...this.processes
+          .list(botId, runId)
+          .filter((p) => p.purpose === 'task' && ['starting', 'running', 'unknown'].includes(p.status)),
+      ],
       preparedContext: (runId) => this.preparedContexts.get(runId),
       runUpdated: (runId) => [...this.runtimes.values()].some((runtime) => runtime.runId === runId && runtime.updated),
       claimDesktop: (botId, runId) => this.claimDesktop(botId, runId),

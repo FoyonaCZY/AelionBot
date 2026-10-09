@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { Bot, ModelSelection } from '../../shared/types/core';
-import type { BotType } from '../../shared/types/designer-types';
 import {
   randomBotPalette,
   displayBotPalette,
@@ -13,8 +12,6 @@ import { defaultSoul } from '../../shared/chat/soul-presets';
 /** The create/edit Bot form. `newBotPalette` also colours the avatar preview in the sidebar's New menu. */
 export function useBotProfile() {
   const { t, language } = useI18n();
-  const [type, setType] = useState<BotType>('general'),
-    [originalType, setOriginalType] = useState<BotType>('general');
   const [newBotPalette, setNewBotPalette] = useState(randomBotPalette);
   const [palette, setPalette] = useState<BotPalette>({ ...DEFAULT_BOT_PALETTE });
   const [editingId, setEditingId] = useState(''),
@@ -25,7 +22,6 @@ export function useBotProfile() {
   const [reasoning, setReasoning] = useState('');
   const shuffleNewPalette = () => setNewBotPalette(randomBotPalette(newBotPalette));
   const startNew = (defaultReasoning: string) => {
-    setType('general');
     setName('');
     setSoul(defaultSoul('general', language));
     setModel(null);
@@ -33,8 +29,6 @@ export function useBotProfile() {
     setReasoning(defaultReasoning);
   };
   const startEdit = (target: Bot) => {
-    setType(target.type || 'general');
-    setOriginalType(target.type || 'general');
     setEditingId(target.id);
     setName(target.name);
     setSoul(target.soul);
@@ -43,15 +37,9 @@ export function useBotProfile() {
     setReasoning(target.reasoningEffort || '');
     setPalette(displayBotPalette(target));
   };
-  const save = async (input: {
-    creating: boolean;
-    confirmContextReset: boolean;
-    onCreated: (id: string) => void;
-    onContextReset: (id: string) => void;
-  }) => {
+  const save = async (input: { creating: boolean; onCreated: (id: string) => void }) => {
     if (input.creating) {
       const created = await window.aelion.createBot({
-        type,
         name: name || t('新 Bot'),
         soul,
         model,
@@ -60,27 +48,19 @@ export function useBotProfile() {
         ...newBotPalette,
       });
       input.onCreated(created.id);
-    } else {
+    } else
       await window.aelion.updateBot({
         id: editingId,
         name,
         soul,
-        type,
-        expectedType: originalType,
-        confirmContextReset: input.confirmContextReset,
         model,
         imageModel,
         reasoningEffort: reasoning || null,
         color: palette.color,
         avatarStyle: palette.avatarStyle ?? null,
       });
-      if (input.confirmContextReset) input.onContextReset(editingId);
-    }
   };
   return {
-    type,
-    setType,
-    originalType,
     editingId,
     name,
     setName,

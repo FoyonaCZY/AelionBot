@@ -1,0 +1,157 @@
+/* The canvas card under the computer card: a picture of the page, then one line of title and status. Its frame
+   (line, radius, shadow, clipping) is shared with the computer card in computer-card.css; tones follow it:
+   line #e7e7e7 / #3e3945, fill #fff / #29262f. */
+.design-canvas-card {
+  display: grid;
+}
+/* The picture runs edge to edge at the top of the card; the card's rounded frame clips its corners. */
+.design-canvas-stage {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid light-dark(#efefef, #3a3540);
+  background: light-dark(#f7f7f7, #25232a);
+  color: inherit;
+  font: inherit;
+  overflow: hidden;
+  cursor: pointer;
+}
+.design-canvas-stage:focus-visible {
+  outline: 2px solid light-dark(#7a5bb8, #a58abe);
+  outline-offset: -2px;
+}
+.design-canvas-stage[data-running]::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, light-dark(#7a5bb8, #a58abe), transparent);
+  background-size: 200% 100%;
+  animation: design-canvas-progress 1.4s linear infinite;
+}
+@keyframes design-canvas-progress {
+  to {
+    background-position: -200% 0;
+  }
+}
+/* Pages fill the frame from the top; slides and phones are shown whole. */
+.design-canvas-thumb {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  background: #fff;
+}
+.design-canvas-stage:is([data-kind='ppt'], [data-kind='mobile']) .design-canvas-thumb {
+  object-fit: contain;
+  object-position: center;
+  background: light-dark(#f1f1f1, #1f1d23);
+}
+.design-canvas-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: light-dark(#b7b4bc, #6b6672);
+}
+/* The only control on the picture, and only on hover or focus. */
+.design-canvas-expand {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  color: light-dark(#4a4750, #e2dfe6);
+  background: light-dark(#ffffffe6, #29262fe6);
+  box-shadow: 0 0 0 1px light-dark(#e7e7e7, #3e3945);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.design-canvas-stage:is(:hover, :focus-visible) .design-canvas-expand {
+  opacity: 1;
+}
+.design-canvas-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 9px 8px 9px 12px;
+}
+.design-canvas-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.design-canvas-text strong {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
+}
+.design-canvas-text small {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  color: light-dark(#7a7780, #b9b5bf);
+}
+.design-canvas-accept {
+  flex: none;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid light-dark(#e2e2e2, #45404c);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-ink);
+  font: inherit;
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  cursor: pointer;
+}
+.design-canvas-accept:hover:not(:disabled) {
+  background: light-dark(#f4f4f4, #302c36);
+}
+.design-canvas-close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: light-dark(#8a8790, #a9a5af);
+  cursor: pointer;
+}
+.design-canvas-close:hover {
+  color: var(--text-ink);
+  background: light-dark(#ededed, #35303c);
+}
+:is(.design-canvas-accept, .design-canvas-close):focus-visible {
+  outline: 2px solid light-dark(#7a5bb8, #a58abe);
+  outline-offset: 1px;
+}
+.design-canvas-error {
+  margin: 0;
+  padding: 0 12px 10px;
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  color: light-dark(#a8432f, #e59b88);
+}
+@media (prefers-reduced-motion: reduce) {
+  .design-canvas-stage[data-running]::after {
+    animation: none;
+  }
+  .design-canvas-expand {
+    transition: none;
+  }
+}

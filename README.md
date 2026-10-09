@@ -26,7 +26,7 @@ For example, a product research and comparison report: a research partner gather
 | --- | --- |
 | **Linux work computer (VM)** | Give General Bots a browser, terminal and desktop apps for file and application work |
 | **Group chats and Bot-to-Bot messages** | Assign roles, exchange files and results, and ask a partner to take the next step |
-| **Designer** | Build web prototypes, presentations and site clones with 152 bundled design systems |
+| **Design work** | Any Bot can build web prototypes, presentations and site clones with 152 bundled design systems |
 | **AI games** | Play twelve-player Werewolf in group chat with human and AI seats, or watch an all-AI table |
 
 <img src="docs/assets/screenshots/workspace-en.png" alt="Multi-agent workspace illustration: partners, a task conversation, files and a VM" width="100%">
@@ -51,7 +51,7 @@ Give research, coding, writing and data analysis their own agents. Bring them in
 
 General Bots can use a managed Linux VM with a browser, a terminal and office apps:
 
-> "Find three industry examples. Save their sources and key data in a brief that a Designer can use."
+> "Find three industry examples. Save their sources and key data in a brief, then design a one-page summary from it."
 
 The browser gathers sources, the terminal processes data, and office apps handle documents. Follow the in-app guide to prepare and start the work computer, then chain these steps into one task. A web service running inside the VM can open in the app's preview through port forwarding.
 
@@ -59,24 +59,17 @@ Each Bot has its own workspace and desktop. You can watch the work, pause it, or
 
 <img src="docs/assets/screenshots/computer-en.png" alt="Work computer settings in the actual interface; the example environment is stopped" width="100%">
 
-## General Bots and Designers
+## Design work
 
-| | General Bot | Designer |
-| --- | --- | --- |
-| Best suited to | Research, writing, office work, code and desktop operations | Web prototypes, presentations, site clones and design revisions |
-| Execution location | Linux VM, plus permission-controlled host tools | The local `designers` workspace |
-| Organization | Conversations, plans, goals and collaboration | Separate design tasks, design directions and deliverables |
-| Collaboration | Group chat and Bot-to-Bot messages | Group chat and Bot-to-Bot messages |
+Ask any Bot for a prototype, a presentation, a website clone, a mobile screen or a multi-page document. It starts a design task in the same conversation, without switching Bots or losing context. The design appears in a canvas card with a thumbnail of the page, under the computer card at the top right; click it to see the page at half the window. Close the task and the chat carries on as usual.
 
-Choose the type when creating a Bot, or change it later in the profile. Changing type clears that Bot's context and asks for confirmation; existing files remain.
+Each task can use a design system:
 
-Designer tasks come in three kinds: prototype, presentation and website clone. Each task can use a design system:
-
-- All 152 design references are bundled with the app: color, typography, layout guidance and component references, with no separate download. You can also leave the system unspecified.
-- Different tasks can use different systems. The selection can be changed while the task is stopped.
+- All 152 design references are bundled with the app: color, typography, layout guidance and component references, with no separate download.
+- The Bot picks the design system (or none) and the fonts that fit the brief, and asks you when it is unclear. Settings → Design shows the design-system library and a font library where you can download Fontsource fonts or import your own; the Bot can use those fonts offline.
 - Prototypes and site clones keep their HTML/CSS/JS. Presentations deliver editable PPTX files and can include an HTML preview. Clone tasks also write NOTES.md with the source URL and what was not copied.
 - In the preview you can mark a region, add an annotation, or select webpage elements and edit their properties or source before saving.
-- Designers work in `designers/<bot>/<task>` under the default workspace. They do not need the VM.
+- Design tasks live in `designers/<bot>/<task>` under the default workspace and do not need the VM. A first draft is delivered without exhaustive checks; design findings come back as suggestions.
 
 The design references come from OpenDesign, with source and license notices retained. Brand-inspired references do not imply official endorsement. See [third-party notices](docs/THIRD-PARTY-NOTICES.md).
 
@@ -110,14 +103,14 @@ Wolf self-detonation is not available in this version.
 
 1. [Download AelionBot](https://github.com/FoyonaCZY/AelionBot/releases/latest) for Windows or macOS.
 2. Connect a model service and follow the guide. The app itself is free; usage charges come from the service you choose. Local models work too.
-3. Pick a partner type: give a General Bot a task, or create a Designer for a prototype, presentation or website clone.
+3. Give a Bot a task: research, writing, code, or a prototype, presentation or website clone.
 4. For group work, create a group chat, add partners, share materials and assign the work.
 
 System requirements: Windows 10 or later (64-bit), or macOS on Intel and Apple silicon. The work computer (Linux VM) needs about 4 GB of memory and tens of GB of free disk. 16 GB of RAM or more is recommended.
 
 ## FAQ
 
-- Can I preview external Office files? Designer-made presentations can be viewed through their HTML companion. External Office files without an HTML preview do not have a faithful local converter yet; download them to view in a suitable app.
+- Can I preview external Office files? Presentations made in design tasks can be viewed through their HTML companion. Other Office files open in the preview once the work computer is running, or can be downloaded.
 - Does it work offline? Bundled design references can be read offline. Model services and external assets may still need an internet connection.
 - The download seems different from this page? This README describes the current source. See the release notes for what each build includes.
 
@@ -139,6 +132,6 @@ Commit dependency changes together with `pnpm-lock.yaml`; do not generate an npm
 
 [Website](https://aelion.chat/?lang=en) · [Releases](https://github.com/FoyonaCZY/AelionBot/releases) · [Blog](https://aelion.chat/blog/?lang=en) · [Feedback](https://github.com/FoyonaCZY/AelionBot/issues)
 
-Implementation: [Designer architecture](docs/designer-bots.md) · [VM storage](docs/vm-storage.md) · [Website development](website/README.md)
+Implementation: [Design work](docs/design-work.md) · [VM storage](docs/vm-storage.md) · [Website development](website/README.md)
 
 <sub>Screenshots are taken from the current app frontend; example conversations and files are fictional. The Bot artwork at the top is a brand illustration.</sub>

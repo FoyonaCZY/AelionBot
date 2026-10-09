@@ -61,18 +61,7 @@ export function recordDelegationReceipt(store: Store, botId: string, runId: stri
     exchange =
       origin &&
       store.data.peerExchanges.find((e) => e.id === (origin.sessionId || origin.exchangeId) && e.toBotId === botId);
-  const root = exchange && store.data.runs.find((r) => r.id === exchange.rootRunId && !r.peerOrigin),
-    human = root && store.humanRunMessage(root.id);
-  const designerAccepted =
-    run?.engine === 'designer' &&
-    Boolean(
-      exchange &&
-      human &&
-      human.content.slice(0, 8000) === exchange.rootRequest &&
-      root &&
-      ['running', 'completed'].includes(root.status),
-    );
-  if (!run || (origin?.kind !== 'peer_task' && !designerAccepted) || !exchange?.task)
+  if (!run || origin?.kind !== 'peer_task' || !exchange?.task)
     throw new AppError('delegation.receiver_only', '只有已接下结构化委托的接收方可以提交回执');
   const status = args.status,
     summary = args.summary,

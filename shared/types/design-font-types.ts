@@ -37,6 +37,23 @@ export interface DesignFontCatalogEntry {
   styles: DesignFontStyle[];
   subsets: string[];
   cached?: boolean;
+  /** Already in the user's font library. */
+  inLibrary?: boolean;
+}
+/** A family in the user's font library (Settings → Design → Fonts), stored outside any task. */
+export interface DesignLibraryFont extends DesignFont {
+  /** Fontsource id of a downloaded family. */
+  fontsourceId?: string;
+  category?: string;
+  /** The specimen should show Chinese text. */
+  cjk?: boolean;
+  /** Total bytes of the font files. */
+  bytes: number;
+}
+/** Font slices for a Settings specimen; the renderer turns each into a FontFace. */
+export interface DesignFontPreview {
+  family: string;
+  faces: Array<{ data: Uint8Array; weight: string; style: DesignFontStyle; unicodeRange?: string }>;
 }
 export interface DesignFontAcquire {
   fontId: string;

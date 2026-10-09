@@ -13,7 +13,7 @@ const chinese = readFileSync('node_modules/@fontsource-variable/noto-sans-sc/fil
 function setup(t: any, fetcher?: typeof fetch) {
   const root = tempDir(t, 'aelion-design-fonts-');
   const store = new Store(join(root, 'data')),
-    bot = store.createBot('Designer', '', undefined, undefined, { type: 'designer' });
+    bot = store.createBot('Designer', '');
   const designs = new DesignStore(
     store,
     {} as any,
@@ -264,4 +264,67 @@ test('invalid manifest data fails explicitly while missing font files remain vis
   const manifest = f.files.absolute(f.session, 'assets/fonts/fonts.json');
   writeFileSync(manifest, 'not json');
   assert.throws(() => f.fonts.list(f.session), { code: 'font.manifest_invalid' });
+});
+test('the font library downloads once, previews the slice that covers the text, and feeds tasks offline', async (t) => {
+  const remote = server({ chinese: true }),
+    f = setup(t, remote.fetcher);
+  const font = await f.fonts.libraryDownload({ fontId: 'noto-sans-sc', weights: [400] });
+  assert.equal(font.fontsourceId, 'noto-sans-sc');
+  assert.equal(font.cjk, true);
+  assert.equal(font.available, true);
+  assert.ok(font.bytes > 0);
+  assert.equal(f.fonts.libraryList().length, 1);
+  assert.equal((await f.fonts.catalog('Noto'))[0].inLibrary, true);
+  const preview = f.fonts.libraryPreview(font.id, '中');
+  assert.equal(preview.family, 'Noto Sans SC');
+  assert.deepEqual(
+    preview.faces.map((face) => face.unicodeRange),
+    ['U+4e00-9fff'],
+  );
+  assert.ok(preview.faces[0].data.length > 1000);
+  // A fresh download cache and a network that fails: the task still gets the family, from the library.
+  const offline = new DesignFonts({
+    cacheDir: join(f.root, 'other-cache'),
+    libraryDir: join(f.root, 'font-library'),
+    files: f.files,
+    fetch: (async () => {
+      throw Error('offline');
+    }) as typeof fetch,
+  });
+  const [copied] = await offline.acquire(f.session, { fontId: 'noto-sans-sc', weights: [400] });
+  assert.equal(copied.id, font.id);
+  assert.equal(copied.family, 'Noto Sans SC');
+  assert.deepEqual(f.fonts.check(f.session, { text: 'Hello 中' }).fonts[0].missingCharacters, []);
+  // A weight the library lacks is downloaded instead, or refused when asked for by library id.
+  await assert.rejects(offline.acquire(f.session, { fontId: font.id, weights: [900] }), {
+    code: 'font.variant_unsupported',
+  });
+});
+test('imported library fonts copy into tasks, survive removal there, and changed library files are refused', async (t) => {
+  const f = setup(t),
+    path = join(f.root, 'brand.woff2');
+  writeFileSync(path, inter);
+  const font = f.fonts.libraryImport(path);
+  assert.equal(font.family, 'Inter');
+  assert.equal(font.source, 'import');
+  assert.equal(font.cjk, false);
+  assert.equal(f.fonts.libraryImport(path).id, font.id);
+  assert.equal(f.fonts.libraryList().length, 1);
+  assert.equal(f.fonts.librarySummary()[0].family, 'Inter');
+  const [copied] = await f.fonts.acquire(f.session, { fontId: font.id });
+  assert.equal(copied.source, 'import');
+  assert.ok(existsSync(f.files.absolute(f.session, copied.files[0].path)));
+  const libraryFile = join(f.root, 'font-library', copied.files[0].path.replace('assets/fonts/', ''));
+  writeFileSync(libraryFile, Buffer.from('tampered font'));
+  assert.equal(f.fonts.libraryList()[0].available, false);
+  const other = f.designs.create({ botId: f.bot.id, kind: 'prototype', brief: 'Other' });
+  await assert.rejects(f.fonts.acquire(other, { fontId: font.id }), { code: 'font.library_changed' });
+  f.fonts.libraryRemove(font.id);
+  assert.equal(f.fonts.libraryList().length, 0);
+  assert.equal(existsSync(libraryFile), false);
+  assert.ok(existsSync(f.files.absolute(f.session, copied.files[0].path)));
+  assert.throws(() => f.fonts.libraryRemove(font.id), { code: 'font.library_missing' });
+  writeFileSync(join(f.root, 'font-library', 'library.json'), 'not json');
+  assert.throws(() => f.fonts.libraryList(), { code: 'font.library_invalid' });
+  assert.deepEqual(f.fonts.librarySummary(), []);
 });

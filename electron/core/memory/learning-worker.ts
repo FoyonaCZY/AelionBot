@@ -70,7 +70,7 @@ export class LearningWorker {
     return { enabled: this.enabled(), runningBotId: this.current?.job.botId, queued: this.storage.jobs().length };
   }
   enqueue(botId: string, runId: string, payload: ReviewPayload) {
-    if (!this.enabled() || this.storage.store.bot(botId).type === 'designer') return;
+    if (!this.enabled()) return;
     this.storage.enqueue(botId, runId, payload);
     this.schedule();
     this.changed();
@@ -106,7 +106,7 @@ export class LearningWorker {
     }
     const job = this.storage.jobs()[0];
     if (!job) return;
-    if (!this.storage.store.data.bots.some((bot) => bot.id === job.botId && bot.type !== 'designer')) {
+    if (!this.storage.store.data.bots.some((bot) => bot.id === job.botId)) {
       this.storage.jobStatus(job.id, 'cancelled', 'Bot 已删除');
       this.schedule();
       return;

@@ -7,6 +7,7 @@ import {
   readdirSync,
   realpathSync,
   renameSync,
+  rmSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -20,13 +21,16 @@ import type {
   DesignFontCheck,
   DesignFontFile,
   DesignFontFormat,
+  DesignFontPreview,
   DesignFontStyle,
+  DesignLibraryFont,
 } from '../../../shared/types/design-font-types';
 import type { DesignerFiles } from './designer-files';
 import { AppError } from '../../../shared/errors';
 
 const CSS_PATH = 'assets/fonts/fonts.css';
 const MANIFEST_PATH = 'assets/fonts/fonts.json';
+const LIBRARY_MANIFEST = 'library.json';
 const MAX_FONT_BYTES = 24 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 64 * 1024 * 1024;
 const MAX_FILES = 400;
@@ -40,6 +44,8 @@ const within = (root: string, target: string) => {
   return !isAbsolute(rel) && rel !== '..' && !rel.startsWith('../') && !rel.startsWith('..\\');
 };
 type Manifest = { version: 1; fonts: DesignFont[]; cssSha256: string };
+type LibraryRecord = Omit<DesignLibraryFont, 'bytes' | 'available' | 'issues'>;
+type LibraryManifest = { version: 1; fonts: LibraryRecord[] };
 type Metadata = DesignFontCatalogEntry & { defSubset?: string; license?: string | { type?: string; url?: string } };
 type Parsed = {
   font: Font;
@@ -112,6 +118,15 @@ function shortText(value: unknown, max = 200): string {
   if (typeof value !== 'string' || !value.trim() || value.length > max || /[\x00-\x1f\x7f]/.test(value))
     throw Error('字体信息无效');
   return value.trim();
+}
+function inUnicodeRange(range: string, point: number) {
+  return range.split(',').some((part) => {
+    const match = /^\s*U\+([0-9a-f?]+)(?:-([0-9a-f]+))?\s*$/i.exec(part);
+    if (!match) return false;
+    const start = parseInt(match[1].replaceAll('?', '0'), 16),
+      end = parseInt(match[2] || match[1].replaceAll('?', 'f'), 16);
+    return point >= start && point <= end;
+  });
 }
 function catalogEntry(value: unknown): DesignFontCatalogEntry {
   if (!value || typeof value !== 'object') throw Error('字体目录格式无效');
@@ -202,12 +217,17 @@ function styleSheet(fonts: DesignFont[]) {
 /** The only remote font sources are Fontsource's API and its versioned npm files on jsDelivr. */
 export class DesignFonts {
   private cacheDir: string;
+  /** The user's font library: families downloaded or imported in Settings, kept beside the download cache. */
+  private libraryDir: string;
   private files: DesignerFiles;
   private fetcher: typeof fetch;
   private catalogPromise?: Promise<DesignFontCatalogEntry[]>;
-  constructor(options: { cacheDir: string; files: DesignerFiles; fetch?: typeof fetch }) {
+  constructor(options: { cacheDir: string; files: DesignerFiles; fetch?: typeof fetch; libraryDir?: string }) {
     mkdirSync(options.cacheDir, { recursive: true });
     this.cacheDir = realpathSync.native(options.cacheDir);
+    const libraryDir = options.libraryDir || resolve(dirname(this.cacheDir), 'font-library');
+    mkdirSync(libraryDir, { recursive: true });
+    this.libraryDir = realpathSync.native(libraryDir);
     this.files = options.files;
     this.fetcher = options.fetch || fetch;
   }
@@ -358,6 +378,7 @@ export class DesignFonts {
         'manrope',
         'dm-sans',
       ];
+    const library = this.libraryFontsourceIds();
     return entries
       .filter(
         (entry) =>
@@ -375,7 +396,11 @@ export class DesignFonts {
         return rank(a.id) - rank(b.id) || a.family.localeCompare(b.family);
       })
       .slice(0, 80)
-      .map((entry) => ({ ...entry, cached: existsSync(this.cachePath('pins/' + entry.id + '.json')) }));
+      .map((entry) => ({
+        ...entry,
+        cached: existsSync(this.cachePath('pins/' + entry.id + '.json')),
+        inLibrary: library.has(entry.id),
+      }));
   }
   private projectRead(session: DesignSession, path: string, max = MAX_FONT_BYTES) {
     const absolute = this.files.absolute(session, path),
@@ -500,6 +525,20 @@ export class DesignFonts {
     beforeWrite?: () => void,
   ): Promise<DesignFont[]> {
     this.files.absolute(session, MANIFEST_PATH);
+    // The user's library is offline and already chosen by the user: copy from it when it covers the request.
+    const local = this.fromLibrary(input);
+    if (local) {
+      beforeWrite?.();
+      return this.materialize(session, local.record, local.assets);
+    }
+    const fetched = await this.fetchFontsource(input, signal);
+    beforeWrite?.();
+    const result = this.materialize(session, fetched.record, fetched.assets);
+    fetched.savePin();
+    return result;
+  }
+  /** Resolves and downloads a pinned Fontsource release into the download cache; writes nowhere else. */
+  private async fetchFontsource(input: DesignFontAcquire, signal?: AbortSignal) {
     if (!input || typeof input.fontId !== 'string' || input.fontId.length > 100 || !ID.test(input.fontId))
       throw new AppError('font.fontsource_id_invalid', '无效的 Fontsource 字体 ID');
     const id = input.fontId,
@@ -634,10 +673,12 @@ export class DesignFonts {
       },
       addedAt: new Date().toISOString(),
     };
-    beforeWrite?.();
-    const result = this.materialize(session, record, assets);
-    this.cacheWrite(pin, Buffer.from(JSON.stringify({ version, family: entry.family })));
-    return result;
+    return {
+      record,
+      assets,
+      entry,
+      savePin: () => this.cacheWrite(pin, Buffer.from(JSON.stringify({ version, family: entry.family }))),
+    };
   }
   /** External paths must come from the user's file dialog; model paths are constrained by the caller. */
   async importFile(
@@ -646,6 +687,19 @@ export class DesignFonts {
     options: { licenseNote?: string; beforeWrite?: () => void } = {},
   ): Promise<DesignFont[]> {
     this.files.absolute(session, MANIFEST_PATH);
+    const { font, bytes, licenseText } = this.readImport(path, options.licenseNote);
+    const filePath = font.files[0].path;
+    // Repeat imports reuse the original attribution and metadata without changing the license record.
+    const existing = this.manifest(session).data.fonts.find((item) => item.id === font.id);
+    options.beforeWrite?.();
+    if (existing) return this.materialize(session, existing, [{ path: filePath, bytes }]);
+    return this.materialize(session, font, [
+      { path: filePath, bytes },
+      { path: font.license.path!, bytes: Buffer.from(licenseText) },
+    ]);
+  }
+  /** Reads and parses a user-chosen font file into a record; writes nothing. */
+  private readImport(path: string, note?: string) {
     if (
       typeof path !== 'string' ||
       !isAbsolute(path) ||
@@ -669,7 +723,6 @@ export class DesignFonts {
       id = 'import-' + sha256.slice(0, 16),
       folder = 'assets/fonts/' + id,
       filePath = folder + '/' + sha256.slice(0, 24) + '.' + parsed.format;
-    const note = options.licenseNote;
     if (note !== undefined && (typeof note !== 'string' || note.length > 4000 || note.includes('\0')))
       throw Error('字体授权说明过长或无效');
     const licensePath = folder + '/LICENSE.txt';
@@ -703,14 +756,279 @@ export class DesignFonts {
       license: { name: '用户提供', path: licensePath, note },
       addedAt: new Date().toISOString(),
     };
-    // Repeat imports reuse the original attribution and metadata without changing the license record.
-    const existing = this.manifest(session).data.fonts.find((item) => item.id === id);
-    options.beforeWrite?.();
-    if (existing) return this.materialize(session, existing, [{ path: filePath, bytes }]);
-    return this.materialize(session, font, [
-      { path: filePath, bytes },
-      { path: licensePath, bytes: Buffer.from(licenseText) },
+    return { font, bytes, licenseText, parsed };
+  }
+
+  // ---------- The user's font library ----------
+  /** Where the library lives; agent downloads ask for write permission on this folder. */
+  get libraryRoot() {
+    return this.libraryDir;
+  }
+  private libraryPath(name: string) {
+    const target = resolve(this.libraryDir, name);
+    if (!within(this.libraryDir, target) || realpathSync.native(this.libraryDir) !== this.libraryDir)
+      throw Error('字体库目录已改变');
+    let current = target;
+    while (current !== this.libraryDir) {
+      if (existsSync(current) && lstatSync(current).isSymbolicLink()) throw Error('字体库不允许符号链接');
+      current = dirname(current);
+    }
+    return target;
+  }
+  /** Library files keep the project layout below assets/fonts/, so a record copies into a task unchanged. */
+  private libraryName(projectPath: string) {
+    const match = /^assets\/fonts\/([a-z0-9-]{1,120})\/([A-Za-z0-9.-]{1,160})$/.exec(projectPath);
+    if (!match || match[2].startsWith('.')) throw Error('字体库文件路径无效');
+    return match[1] + '/' + match[2];
+  }
+  private libraryWrite(name: string, bytes: Buffer) {
+    const path = this.libraryPath(name);
+    mkdirSync(dirname(path), { recursive: true });
+    const temp = this.libraryPath(name + '.' + randomUUID() + '.tmp');
+    try {
+      writeFileSync(temp, bytes, { flag: 'wx' });
+      this.libraryPath(name);
+      renameSync(temp, path);
+    } finally {
+      if (existsSync(temp)) unlinkSync(temp);
+    }
+  }
+  private libraryRead(projectPath: string, max = MAX_FONT_BYTES) {
+    const path = this.libraryPath(this.libraryName(projectPath)),
+      stat = existsSync(path) ? lstatSync(path) : undefined;
+    if (!stat?.isFile() || stat.size > max)
+      throw new AppError('font.library_changed', '字体库文件缺失或已变化，请在设置里重新下载或导入');
+    return readFileSync(path);
+  }
+  private libraryManifest(): LibraryManifest {
+    const path = this.libraryPath(LIBRARY_MANIFEST);
+    if (!existsSync(path)) return { version: 1, fonts: [] };
+    try {
+      if (lstatSync(path).size > 4 * 1024 * 1024) throw Error();
+      const data = JSON.parse(readFileSync(path, 'utf8')) as LibraryManifest;
+      if (data?.version !== 1 || !Array.isArray(data.fonts) || data.fonts.length > 200) throw Error();
+      for (const font of data.fonts) {
+        shortText(font.id, 150);
+        shortText(font.family);
+        if (
+          !ID.test(font.id) ||
+          !['fontsource', 'import'].includes(font.source) ||
+          !Array.isArray(font.files) ||
+          !font.files.length ||
+          font.files.length > MAX_FILES ||
+          typeof font.license?.name !== 'string'
+        )
+          throw Error();
+        for (const file of font.files) {
+          this.libraryName(file.path);
+          if (!/^\w{64}$/.test(file.sha256) || !Number.isSafeInteger(file.bytes)) throw Error();
+        }
+        if (font.license.path) this.libraryName(font.license.path);
+      }
+      return data;
+    } catch {
+      throw new AppError('font.library_invalid', '字体库记录无效，请检查 font-library/library.json');
+    }
+  }
+  private libraryFontsourceIds() {
+    try {
+      return new Set(this.libraryManifest().fonts.flatMap((font) => (font.fontsourceId ? [font.fontsourceId] : [])));
+    } catch {
+      return new Set<string>();
+    }
+  }
+  /** Fonts in the user's library, newest first. Availability checks sizes; copies into a task check hashes. */
+  libraryList(): DesignLibraryFont[] {
+    return this.libraryManifest()
+      .fonts.map((font) => {
+        const issues: string[] = [];
+        for (const path of [...font.files.map((file) => file.path), ...(font.license.path ? [font.license.path] : [])])
+          try {
+            const target = this.libraryPath(this.libraryName(path)),
+              stat = existsSync(target) ? lstatSync(target) : undefined,
+              expected = font.files.find((file) => file.path === path)?.bytes;
+            if (!stat?.isFile() || (expected !== undefined && stat.size !== expected)) issues.push(path);
+          } catch {
+            issues.push(path);
+          }
+        return {
+          ...font,
+          bytes: font.files.reduce((total, file) => total + file.bytes, 0),
+          available: issues.length === 0,
+          ...(issues.length ? { issues } : {}),
+        };
+      })
+      .sort((a, b) => b.addedAt.localeCompare(a.addedAt));
+  }
+  /** What design_fonts list shows of the library: enough to pick a family, no file details. */
+  librarySummary() {
+    try {
+      return this.libraryList().map((font) => ({
+        id: font.id,
+        family: font.family,
+        source: font.source,
+        ...(font.fontsourceId ? { fontsourceId: font.fontsourceId } : {}),
+        ...(font.category ? { category: font.category } : {}),
+        weights: font.weights,
+        styles: font.styles,
+        subsets: font.subsets,
+        license: font.license.name,
+        available: font.available,
+      }));
+    } catch {
+      return [];
+    }
+  }
+  private librarySave(incoming: LibraryRecord, assets: Array<{ path: string; bytes: Buffer }>) {
+    const manifest = this.libraryManifest(),
+      old = manifest.fonts.find((font) => font.id === incoming.id);
+    const byPath = new Map((old?.files || []).map((file) => [file.path, file]));
+    for (const file of incoming.files) byPath.set(file.path, file);
+    const files = [...byPath.values()].sort((a, b) => a.path.localeCompare(b.path));
+    const merged: LibraryRecord = {
+      ...incoming,
+      ...(old ? { license: old.license, addedAt: old.addedAt } : {}),
+      cjk: Boolean(incoming.cjk || old?.cjk),
+      files,
+      weights: unique(files.map((file) => file.weight)).sort((a, b) => a - b),
+      styles: unique(files.map((file) => file.style)),
+      subsets: unique(files.flatMap((file) => (file.subset ? [file.subset] : []))),
+    };
+    const fonts = [merged, ...manifest.fonts.filter((font) => font.id !== merged.id)];
+    if (fonts.length > 200) throw Error('字体库最多保存 200 款字体');
+    for (const asset of assets) {
+      if (old && asset.path === old.license.path) continue;
+      this.libraryWrite(this.libraryName(asset.path), asset.bytes);
+    }
+    this.libraryWrite(LIBRARY_MANIFEST, Buffer.from(JSON.stringify({ version: 1, fonts }, null, 2) + '\n'));
+    return merged;
+  }
+  /** Downloads a Fontsource family into the user's library. */
+  async libraryDownload(input: DesignFontAcquire, signal?: AbortSignal): Promise<DesignLibraryFont> {
+    const fetched = await this.fetchFontsource(input, signal);
+    const saved = this.librarySave(
+      {
+        ...fetched.record,
+        fontsourceId: fetched.entry.id,
+        ...(fetched.entry.category ? { category: fetched.entry.category } : {}),
+        cjk: fetched.record.subsets.some((subset) => /^(chinese|japanese|korean)/.test(subset)),
+      },
+      fetched.assets,
+    );
+    fetched.savePin();
+    return this.libraryList().find((font) => font.id === saved.id)!;
+  }
+  /** Copies a font file the user picked into the library. */
+  libraryImport(path: string, licenseNote?: string): DesignLibraryFont {
+    const { font, bytes, licenseText, parsed } = this.readImport(path, licenseNote);
+    const cjk = ['永', '中', '的'].every((char) => parsed.font.hasGlyphForCodePoint(char.codePointAt(0)!));
+    const saved = this.librarySave({ ...font, cjk }, [
+      { path: font.files[0].path, bytes },
+      { path: font.license.path!, bytes: Buffer.from(licenseText) },
     ]);
+    return this.libraryList().find((item) => item.id === saved.id)!;
+  }
+  /** Removes a family from the library. Copies already in tasks are theirs and stay. */
+  libraryRemove(id: string) {
+    if (typeof id !== 'string' || !ID.test(id)) throw Error('字体 ID 无效');
+    const manifest = this.libraryManifest(),
+      font = manifest.fonts.find((item) => item.id === id);
+    if (!font) throw new AppError('font.library_missing', '字体库里没有这款字体');
+    const fonts = manifest.fonts.filter((item) => item.id !== id);
+    this.libraryWrite(LIBRARY_MANIFEST, Buffer.from(JSON.stringify({ version: 1, fonts }, null, 2) + '\n'));
+    const folderOf = (path: string) => this.libraryName(path).split('/')[0];
+    const kept = new Set(fonts.flatMap((item) => item.files.map((file) => folderOf(file.path))));
+    for (const folder of new Set(font.files.map((file) => folderOf(file.path)))) {
+      if (kept.has(folder)) continue;
+      const target = this.libraryPath(folder);
+      if (existsSync(target) && !lstatSync(target).isSymbolicLink()) rmSync(target, { recursive: true, force: true });
+    }
+  }
+  /** Regular upright slices of a library font that cover `text`, for the Settings specimen; at most 8. */
+  libraryPreview(id: string, text: string): DesignFontPreview {
+    if (typeof text !== 'string' || text.length > 200) throw Error('预览文字过长');
+    const font = this.libraryManifest().fonts.find((item) => item.id === id);
+    if (!font) throw new AppError('font.library_missing', '字体库里没有这款字体');
+    const upright = font.files.filter((file) => file.style === 'normal'),
+      pool = upright.length ? upright : font.files;
+    const distance = (file: DesignFontFile) =>
+      file.weightRange && file.weightRange[0] <= 400 && file.weightRange[1] >= 400 ? 0 : Math.abs(file.weight - 400);
+    const best = Math.min(...pool.map(distance)),
+      chosen = pool.filter((file) => distance(file) === best);
+    const points = unique(Array.from(text, (char) => char.codePointAt(0)!));
+    const covering = chosen.filter(
+      (file) => !file.unicodeRange || points.some((point) => inUnicodeRange(file.unicodeRange!, point)),
+    );
+    const faces: DesignFontPreview['faces'] = [];
+    let total = 0;
+    for (const file of (covering.length ? covering : chosen).slice(0, 8)) {
+      const bytes = this.libraryRead(file.path);
+      if (bytes.length !== file.bytes || hash(bytes) !== file.sha256) continue;
+      total += bytes.length;
+      if (total > 16 * 1024 * 1024) break;
+      faces.push({
+        data: new Uint8Array(bytes),
+        weight: file.weightRange ? file.weightRange.join(' ') : String(file.weight),
+        style: file.style,
+        ...(file.unicodeRange ? { unicodeRange: file.unicodeRange } : {}),
+      });
+    }
+    return { family: font.family, faces };
+  }
+  /**
+   * A verified library copy for acquire: by library id, or by Fontsource id when the library family covers the
+   * requested weights, styles and languages. Undefined means download instead.
+   */
+  private fromLibrary(input: DesignFontAcquire) {
+    if (!input || typeof input.fontId !== 'string') return undefined;
+    let fonts: LibraryRecord[];
+    try {
+      fonts = this.libraryManifest().fonts;
+    } catch {
+      return undefined;
+    }
+    const byId = fonts.find((font) => font.id === input.fontId),
+      font = byId || fonts.find((item) => item.fontsourceId === input.fontId);
+    if (!font) return undefined;
+    const weights = input.weights?.length ? unique(input.weights) : undefined,
+      styles = input.styles?.length ? unique(input.styles) : undefined,
+      subsets = input.subsets?.length ? unique(input.subsets) : undefined;
+    const hasWeight = (file: DesignFontFile, weight: number) =>
+      file.weight === weight ||
+      Boolean(file.weightRange && file.weightRange[0] <= weight && file.weightRange[1] >= weight);
+    const files = font.files.filter(
+      (file) =>
+        (!weights || weights.some((weight) => hasWeight(file, weight))) &&
+        (!styles || styles.includes(file.style)) &&
+        (!subsets || !file.subset || subsets.includes(file.subset)),
+    );
+    const covered =
+      files.length > 0 &&
+      (weights || []).every((weight) => files.some((file) => hasWeight(file, weight))) &&
+      (styles || []).every((style) => files.some((file) => file.style === style)) &&
+      (font.source === 'import' || (subsets || []).every((subset) => files.some((file) => file.subset === subset)));
+    if (!covered) {
+      if (byId) throw new AppError('font.variant_unsupported', '字体库里的这款字体没有所选字重、样式或语言');
+      return undefined;
+    }
+    const assets = files.map((file) => {
+      const bytes = this.libraryRead(file.path);
+      if (bytes.length !== file.bytes || hash(bytes) !== file.sha256)
+        throw new AppError('font.library_changed', '字体库文件缺失或已变化，请在设置里重新下载或导入');
+      return { path: file.path, bytes };
+    });
+    if (font.license.path)
+      assets.push({ path: font.license.path, bytes: this.libraryRead(font.license.path, 256 * 1024) });
+    const { fontsourceId: _fontsourceId, category: _category, cjk: _cjk, ...record } = font;
+    const copy: DesignFont = {
+      ...record,
+      files,
+      weights: unique(files.map((file) => file.weight)).sort((a, b) => a - b),
+      styles: unique(files.map((file) => file.style)),
+      subsets: unique(files.flatMap((file) => (file.subset ? [file.subset] : []))),
+      addedAt: new Date().toISOString(),
+    };
+    return { record: copy, assets };
   }
   check(session: DesignSession, input: { text?: string; family?: string } = {}): DesignFontCheck {
     if (input.text !== undefined && (typeof input.text !== 'string' || input.text.length > 50_000))

@@ -119,12 +119,7 @@ export function FilePreviewProvider({ children }: { children: ReactNode }) {
   infoRef.current = info;
   const send = useCallback(async (scope: AttachmentScope, input: PreviewChatInput) => {
     const view = infoRef.current;
-    if (
-      !input.text.trim() ||
-      !(view?.docked || view?.studio) ||
-      scopeKey(view.scope) !== scopeKey(scope) ||
-      !sender.current
-    )
+    if (!input.text.trim() || !view?.docked || scopeKey(view.scope) !== scopeKey(scope) || !sender.current)
       return false;
     await sender.current({ ...input, scope });
     return true;

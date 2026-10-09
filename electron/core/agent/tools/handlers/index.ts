@@ -4,6 +4,7 @@ import { ATTACHMENT_HANDLERS } from './attachments';
 import { CHAT_HANDLERS, GROUP_HANDLER } from './chat';
 import { COMPUTER_HANDLERS } from './computer';
 import { DELEGATION_HANDLERS } from './delegation';
+import { DESIGN_HANDLER } from './design';
 import { FILE_HANDLERS, HOST_HANDLER } from './files';
 import { MCP_HANDLER } from './mcp';
 import { MEDIA_HANDLERS } from './media';
@@ -33,7 +34,13 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
 };
 
 /** Handlers for tool namespaces, tried in order. */
-export const PREFIX_HANDLERS: PrefixHandler[] = [SCHEDULED_HANDLER, GROUP_HANDLER, HOST_HANDLER, MCP_HANDLER];
+export const PREFIX_HANDLERS: PrefixHandler[] = [
+  SCHEDULED_HANDLER,
+  GROUP_HANDLER,
+  HOST_HANDLER,
+  MCP_HANDLER,
+  DESIGN_HANDLER,
+];
 
 export function dispatchTool(context: ToolContext) {
   const { name } = context;

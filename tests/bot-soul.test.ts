@@ -116,20 +116,22 @@ test('a fresh install seeds the starter soul and profile updates reject an overs
 });
 
 test('every language offers the same presets, each a real SOUL.md with a usable summary', () => {
-  for (const type of ['general', 'designer'] as const) {
-    const ids = soulPresets(type, 'zh-CN').map((preset) => preset.id);
-    for (const language of ['zh-CN', 'zh-TW', 'en'] as const) {
-      const presets = soulPresets(type, language);
-      assert.deepEqual(
-        presets.map((preset) => preset.id),
-        ids,
-      );
-      for (const preset of presets) {
-        assert.equal(normalizeSoul(preset.soul), preset.soul, preset.name);
-        assert.match(preset.soul, /^# SOUL\.md/);
-        assert.ok(soulSummary(preset.soul).length > 10, preset.name);
-        assert.ok(isStarterText(preset.soul) && isStarterText(preset.name));
-      }
+  const ids = soulPresets('zh-CN').map((preset) => preset.id);
+  // The designer is one preset among the others now that every Bot can take on design work.
+  assert.ok(ids.includes('designer'));
+  for (const language of ['zh-CN', 'zh-TW', 'en'] as const) {
+    const presets = soulPresets(language);
+    assert.deepEqual(
+      presets.map((preset) => preset.id),
+      ids,
+    );
+    for (const preset of presets) {
+      assert.equal(normalizeSoul(preset.soul), preset.soul, preset.name);
+      assert.match(preset.soul, /^# SOUL\.md/);
+      assert.ok(soulSummary(preset.soul).length > 10, preset.name);
+      assert.ok(isStarterText(preset.soul) && isStarterText(preset.name));
+    }
+    for (const type of ['general', 'designer'] as const) {
       assert.ok(isStarterText(defaultSoul(type, language)));
       assert.ok(soulSummary(defaultSoul(type, language)).length > 10);
     }

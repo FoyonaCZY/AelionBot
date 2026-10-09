@@ -11,7 +11,7 @@ import { groupReplyContent } from '../../../shared/chat/message-envelope';
 import { hasPendingHistoryCalls } from '../tools/tool-history';
 
 export const groupContextKey = (groupId: string, botId: string) => `group:${groupId}:${botId}`;
-export function groupMessageWire(store: Store, message: GroupMessage, botId: string): WireMessage {
+function groupMessageWire(store: Store, message: GroupMessage, botId: string): WireMessage {
   const content = groupReplyContent(message.content, message.sender.kind === 'bot' ? message.sender.id : undefined);
   return {
     role: message.sender.id === botId ? 'assistant' : 'user',

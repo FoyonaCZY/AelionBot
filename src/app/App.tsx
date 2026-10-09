@@ -1,6 +1,5 @@
 import './conversation-chrome.css';
 // Import order below decides the order of the bundled stylesheets (the cascade), so keep it when editing.
-import { DesignerTaskDrawer } from './DesignerTaskDrawer';
 import { usePreviewWorkbench } from '../preview/PreviewWorkbench';
 import { useAgentPreview } from '../preview/use-agent-preview';
 import { useAppearance } from './use-appearance';
@@ -32,7 +31,6 @@ import { useBotChat } from './use-bot-chat';
 import { useBotProfile } from './use-bot-profile';
 import { useComputerControl, type TakeoverRequest } from './use-computer-control';
 import { useComputerSetupOffer } from './use-computer-setup-offer';
-import { useDesignTask } from './use-design-task';
 import { useDismissableMenu } from './use-dismissable-menu';
 import { useDrafts } from './use-drafts';
 import { useFileActions } from './use-file-actions';
@@ -61,7 +59,6 @@ function AppContent() {
   const { t } = useI18n();
   useWindowDimming();
   const profile = useBotProfile();
-  const [designTaskId, setDesignTaskId] = useDesignTask();
   const [toast, setToast] = useToast();
   const { state, selected, setSelected } = useAppSnapshot(setToast);
   const [query, setQuery] = useState('');
@@ -104,8 +101,7 @@ function AppContent() {
         : undefined,
     );
   }, [page, bot?.id, group?.id, previewWorkbench?.activate]);
-  // Bots that can have work sessions: a designer's work happens in design tasks.
-  const sessionBots = useMemo(() => (state?.bots || []).filter((item) => item.type !== 'designer'), [state?.bots]);
+  const sessionBots = state?.bots || [];
   const menuBot = state?.bots.find((item) => item.id === botMenu?.id),
     deletingBot = state?.bots.find((item) => item.id === deletingId);
   // Derived from the parts of the state it reads, so a change elsewhere (the work computer, a setting) keeps it.
@@ -228,9 +224,9 @@ function AppContent() {
   });
   useEffect(() => {
     // Listing a workspace lets the main process adopt files the bot wrote outside a tracked run.
-    if (!bot || (!vmReady && bot.type !== 'designer')) return;
+    if (!bot || !vmReady) return;
     window.aelion.listFiles(bot.id).catch(() => {});
-  }, [bot?.id, bot?.type, vmReady]);
+  }, [bot?.id, vmReady]);
   useModalEffects({
     modal,
     controlled,
@@ -297,17 +293,8 @@ function AppContent() {
     const box = trigger.getBoundingClientRect();
     setBotMenu({ id: target.id, trigger, x: x ?? box.left + 24, y: y ?? box.bottom });
   };
-  const saveProfile = async (confirmContextReset = false) => {
-    await profile.save({
-      creating: modal === 'new',
-      confirmContextReset,
-      onCreated: setSelected,
-      onContextReset: (id) => {
-        drafts.remove(id);
-        setDesignTaskId(undefined);
-        setPeerPanel(undefined);
-      },
-    });
+  const saveProfile = async () => {
+    await profile.save({ creating: modal === 'new', onCreated: setSelected });
     setModal(null);
   };
   const removeBot = () =>
@@ -335,12 +322,7 @@ function AppContent() {
       scope={group ? { kind: 'group', id: group.id } : bot ? { kind: 'bot', id: bot.id } : undefined}
     >
       <BotAvatarProvider bots={state.bots}>
-        <div
-          className="app-shell"
-          data-platform={state.platform}
-          data-page={page}
-          data-bot-type={!group ? bot?.type : undefined}
-        >
+        <div className="app-shell" data-platform={state.platform} data-page={page}>
           <Sidebar
             state={state}
             page={page}
@@ -440,31 +422,20 @@ function AppContent() {
             onSessionSettings={(item) => setSessionEditor({ botId: item.botId, sessionId: item.id })}
             onNewSession={(target) => setSessionEditor({ botId: target.id })}
           />
-          {bot?.type !== 'designer' && (
-            <ComputerDetails
-              state={state}
-              bot={bot}
-              session={session}
-              group={group}
-              computer={computer}
-              expanded={modal === 'computer'}
-              act={act}
-              onOpen={() => setModal('computer')}
-              onSetup={() => setModal('computer-setup')}
-              onSettings={() => openSettings('computer')}
-              onError={setToast}
-              onTaskModalChange={setTaskModalOpen}
-            />
-          )}
-          {designTaskId && (
-            <DesignerTaskDrawer
-              taskId={designTaskId}
-              state={state}
-              onProfile={editBot}
-              onTakeover={startTakeover}
-              onClose={() => setDesignTaskId(undefined)}
-            />
-          )}
+          <ComputerDetails
+            state={state}
+            bot={bot}
+            session={session}
+            group={group}
+            computer={computer}
+            expanded={modal === 'computer'}
+            act={act}
+            onOpen={() => setModal('computer')}
+            onSetup={() => setModal('computer-setup')}
+            onSettings={() => openSettings('computer')}
+            onError={setToast}
+            onTaskModalChange={setTaskModalOpen}
+          />
           {toast && (
             <div className="toast" role="status">
               {toast}
@@ -543,14 +514,10 @@ function AppContent() {
                 setModal('delete-bot');
               }}
               onPrivateChats={() => openPrivateChat({ ownerId: menuBot.id })}
-              onNewSession={
-                menuBot.type !== 'designer'
-                  ? () => {
-                      setBotMenu(undefined);
-                      setSessionEditor({ botId: menuBot.id });
-                    }
-                  : undefined
-              }
+              onNewSession={() => {
+                setBotMenu(undefined);
+                setSessionEditor({ botId: menuBot.id });
+              }}
               onClose={() => setBotMenu(undefined)}
             />
           )}
@@ -571,12 +538,10 @@ function AppContent() {
                     state={state}
                     profile={profile}
                     busy={busy}
-                    onSwitchType={() => setModal('switch-type')}
                     onSave={() => void act(() => saveProfile())}
                   />
                 )
               }
-              saveProfile={saveProfile}
               deletingBot={deletingBot}
               removeBot={removeBot}
               settingsTab={settingsTab}

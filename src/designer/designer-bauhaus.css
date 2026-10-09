@@ -367,19 +367,6 @@
 .designer-checks [data-status='passed'] {
   color: var(--design-muted);
 }
-.designer-system-dialog .designer-system-description {
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  padding-top: 6px;
-  color: light-dark(#70766a, #b0b9a4);
-}
-.designer-system-card {
-  min-height: 190px;
-}
-.designer-system-card:focus-visible {
-  outline: 2px solid #174cc0;
-  outline-offset: 2px;
-}
 .app-shell[data-bot-type='designer'] > .sidebar {
   background: light-dark(#fffefa, #212321);
 }
@@ -495,21 +482,6 @@
 }
 .app-shell[data-bot-type='designer'] .bot-item.selected .bot-preview {
   color: #ffffffd9;
-}
-
-.designer-system-dialog .designer-system-description {
-  display: block;
-  min-height: 65px;
-  max-height: none;
-  overflow: visible;
-  font-size: 11px;
-  line-height: 1.55;
-}
-.designer-system-description > span {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 :root[data-theme='dark'] .app-shell[data-bot-type='designer'] > .sidebar {

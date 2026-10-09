@@ -1,5 +1,7 @@
 import { renderCanvasExport } from '../windows/canvas-export-renderer';
+import { renderDesignThumbnail } from '../windows/design-thumbnail-renderer';
 import { CanvasExports } from '../core/designer/canvas-export-service';
+import { DesignThumbnails } from '../core/designer/design-thumbnails';
 import { applyDesignFont, designFontText, designHtmlPath } from '../core/designer/design-font-application';
 import { exportDesignHtmlBundle } from '../core/designer/design-export';
 import { dialog } from 'electron';
@@ -38,7 +40,6 @@ export function registerDesign(ctx: IpcContext) {
     }
   };
   handle('listDesignFonts', (input) => ctx.designFonts.list(fontSession(input?.id)));
-  handle('searchDesignFonts', (input) => ctx.designFonts.catalog(String(input?.query || '')));
   handle('acquireDesignFont', (input) =>
     mutateFonts(input?.id, (session, guard) =>
       ctx.designFonts.acquire(
@@ -165,6 +166,12 @@ export function registerDesign(ctx: IpcContext) {
     ctx.designStore.touch(session);
   });
   handle('listDesignWorkspace', (id) => ctx.designerFiles.list(ctx.designStore.get(String(id)).botId, String(id)));
+  let thumbnails: DesignThumbnails | undefined;
+  handle('designThumbnail', (input) => {
+    if (typeof input?.id !== 'string' || typeof input.path !== 'string') throw Error('无效缩略图参数');
+    thumbnails ||= new DesignThumbnails(ctx.designerFiles, renderDesignThumbnail);
+    return thumbnails.get(ctx.designStore.get(input.id), input.path);
+  });
   handle('importDesignSystem', async () => {
     if (!ctx.window || ctx.window.isDestroyed()) throw Error('窗口不可用');
     const picked = await dialog.showOpenDialog(ctx.window, {
@@ -187,4 +194,38 @@ export function registerDesign(ctx: IpcContext) {
       origin: 'custom' as const,
     };
   });
+  // Settings → Design → Fonts: the user's font library. Changes run one at a time so library.json stays whole.
+  let libraryQueue: Promise<unknown> = Promise.resolve();
+  const libraryChange = <T>(action: () => Promise<T> | T): Promise<T> => {
+    const next = libraryQueue.then(action, action);
+    libraryQueue = next.catch(() => {});
+    return next;
+  };
+  handle('listLibraryFonts', () => ctx.designFonts.libraryList());
+  handle('searchLibraryFonts', (input) => ctx.designFonts.catalog(String(input?.query || '')));
+  handle('downloadLibraryFont', (input) =>
+    libraryChange(() =>
+      ctx.designFonts.libraryDownload({
+        fontId: String(input?.fontId || ''),
+        weights: input?.weights,
+        styles: input?.styles,
+        subsets: input?.subsets,
+      }),
+    ),
+  );
+  handle('importLibraryFonts', async () => {
+    if (!ctx.window || ctx.window.isDestroyed()) throw Error('窗口不可用');
+    const selected = await dialog.showOpenDialog(ctx.window, {
+      title: '导入字体',
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: '字体', extensions: ['woff2', 'woff', 'ttf', 'otf'] }],
+    });
+    if (selected.canceled || !selected.filePaths.length) return null;
+    if (selected.filePaths.length > 20) throw Error('一次最多导入 20 个字体文件');
+    return libraryChange(() => selected.filePaths.map((path) => ctx.designFonts.libraryImport(path)));
+  });
+  handle('removeLibraryFont', (id) => libraryChange(() => ctx.designFonts.libraryRemove(String(id))));
+  handle('previewLibraryFont', (input) =>
+    ctx.designFonts.libraryPreview(String(input?.id || ''), String(input?.text || '')),
+  );
 }

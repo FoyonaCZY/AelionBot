@@ -9,7 +9,7 @@ import { DesignSystems } from '../electron/core/designer/design-systems';
 import { DesignStore } from '../electron/core/designer/design-store';
 import { DesignerFiles } from '../electron/core/designer/designer-files';
 import { lineChanges, recordDesignChange } from '../shared/designer/design-changes';
-import { clampDesignerChatWidth, deliveryState, designRoundFiles } from '../src/designer/designer-round';
+import { deliveryState, designRoundFiles } from '../src/designer/designer-round';
 
 function catalog(root: string, version = 'a'.repeat(40), color = '#cc3333') {
   const dir = join(root, version);
@@ -72,7 +72,7 @@ test('changes accumulate per run and file, and only recent runs are kept', () =>
 test('designer writes during a run are recorded on the session; writes outside a run are not', (t) => {
   const root = tempDir(t, 'aelion-rounds-');
   const store = new Store(join(root, 'data'));
-  const bot = store.createBot('Designer', 'Design', undefined, undefined, { type: 'designer' });
+  const bot = store.createBot('Designer', 'Design');
   const catalogDir = catalog(root);
   const designs = new DesignStore(store, new DesignSystems(catalogDir));
   const task = designs.create({ botId: bot.id, kind: 'prototype', brief: 'Page' });
@@ -117,11 +117,4 @@ test('delivery shows one of four states and blocking findings prevent confirming
   assert.equal(deliveryState({ ...base, blocking: 1 }), 'blocked');
   assert.equal(deliveryState({ ...base, accepted: true, blocking: 1 }), 'accepted');
   assert.equal(deliveryState({ ...base, canAccept: false }), 'empty');
-});
-
-test('the split conversation column stays between 360 and 640px and leaves the canvas 360px', () => {
-  assert.equal(clampDesignerChatWidth(200), 360);
-  assert.equal(clampDesignerChatWidth(900), 640);
-  assert.equal(clampDesignerChatWidth(500, 1000), 500);
-  assert.equal(clampDesignerChatWidth(600, 900), 540);
 });

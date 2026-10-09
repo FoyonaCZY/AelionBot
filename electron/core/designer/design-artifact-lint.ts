@@ -40,8 +40,8 @@ export function lintDesignHtml(html: string): DesignFinding[] {
     inline = (html.match(/style\s*=\s*"[^"]*"/gi) || []).join('\n'),
     allCss = css + '\n' + inline;
 
-  // P0 blocks publication: template tells, fake content, and external dependencies that break offline use.
-  // Accessibility and state gaps are P1 — real defects, reported every write, but never a reason to block a delivery.
+  // P0: template tells, fake content, and external dependencies that break offline use; the Bot is asked to fix them
+  // in its next edit. P1: accessibility and state gaps. Neither blocks a delivery; publish reports both as warnings.
   if (REMOTE_FONT.test(html))
     add(
       'remote-font',

@@ -12,11 +12,13 @@ const tool = (
   function: { name, description, parameters: { type: 'object', properties, required, additionalProperties: false } },
 });
 const str = { type: 'string' };
+/** Offered to every run; the rest of DESIGN_TOOLS appear once the run is bound to a design task. */
+export const DESIGN_ENTRY_TOOLS = new Set(['design_tasks', 'design_start', 'design_use', 'design_font_library']);
 export const DESIGN_TOOLS = [
   tool('design_tasks', '列出当前会话的设计任务；多个候选时先确认目标，不要修改其他会话。', {}, []),
   tool(
     'design_start',
-    '开始一个独立设计任务。prototype 交付可运行 HTML；ppt 交付可编辑 PPTX；clone 按公开网页做本地视觉复刻并写 NOTES.md；mobile 为设备框里的 HTML；document 为多页 HTML 文档。仅在用户或已核验的委派要求实际设计工作时使用。当前运行已绑定任务时不要再调用；未选设计系统请用 design_system。',
+    '为新的视觉交付物开始一个本机设计任务，并在画布卡片中实时展示。prototype 交付可运行 HTML；ppt 交付可编辑 PPTX；clone 按公开网页做本地视觉复刻；mobile 为设备框里的 HTML；document 为多页 HTML 文档。systemId 由 Bot 根据任务内容决定：可以选一个合适的设计系统，也可以不选（传空字符串或不传），拿不准时向用户询问。只在用户或已核验的委派要求实际设计工作时使用；修改已有代码项目、回答问题不要调用。当前运行已绑定任务时不要再调用；未选设计系统请用 design_system。',
     {
       kind: { enum: ['prototype', 'ppt', 'clone', 'mobile', 'document'], type: 'string' },
       title: str,
@@ -56,7 +58,7 @@ export const DESIGN_TOOLS = [
   ),
   tool(
     'design_publish',
-    '读取并校验当前任务的真实产物后交付。不会把图片包装的 PPT 当成可编辑 PPT。HTML 禁止远程字体和套话占位；其它静态问题作为 warnings 返回。可同时提供 HTML 预览与 PPTX。',
+    '需要把文件交给用户时调用：读取当前任务的真实产物，确认文件存在、PPTX 含可编辑文字，然后附在回复中并生成交付卡片。设计检查结果只作为 warnings 返回，不阻止交付。可同时提供 HTML 预览与 PPTX。不是结束任务的必经步骤。',
     { paths: { type: 'array', items: str, minItems: 1, maxItems: 12 } },
     ['paths'],
   ),
@@ -96,7 +98,7 @@ export const DESIGN_TOOLS = [
   ),
   tool(
     'design_skill',
-    '读取当前任务的专用工作流。无需搜索或安装默认技能。polish 是初稿之后的第二遍：审视已有产物、去掉套模板痕迹、收紧层级与状态，不重做项目。',
+    '读取设计工作流。当前任务类型的工作流已在上下文中，不必重复读取；refinement 用于按批注局部修改，polish 是初稿之后的第二遍：审视已有产物、去掉套模板痕迹、收紧层级与状态，不重做项目。',
     { name: { type: 'string', enum: designerPlaybookNames() } },
     ['name'],
   ),
@@ -122,7 +124,7 @@ export const DESIGN_TOOLS = [
   ),
   tool(
     'design_fonts',
-    '设计师可根据当前设计任务自主搜索、选择并下载开源字体，不需要用户先操作字体面板。尊重用户指定的字体与品牌要求；下载遵守当前任务权限。search 从 Fontsource 查找开源字体；acquire 按需下载并缓存指定字体；import 导入已保存到当前任务目录的字体文件（用户附件先 attachment_save）；list 返回项目中的实际字体；check 检查文件和文字覆盖。获取后用 design_font_apply 应用到 HTML，或按 cssPath 引用本地 fonts.css。不要只写一个不存在的 font-family。',
+    '设计师可根据当前设计任务自主搜索、选择并下载开源字体，不需要用户先操作。尊重用户指定的字体与品牌要求；下载遵守当前任务权限。list 返回项目中的实际字体，以及用户在设置里下载或导入的字体库（library）；acquire 把字体加入项目：fontId 可以是字体库里的 id 或 Fontsource ID，字体库已有时离线复制，否则从 Fontsource 下载并缓存；search 从 Fontsource 查找开源字体，inLibrary 表示字体库已有；import 导入已保存到当前任务目录的字体文件（用户附件先 attachment_save）；check 检查文件和文字覆盖。获取后用 design_font_apply 应用到 HTML，或按 cssPath 引用本地 fonts.css。不要只写一个不存在的 font-family。',
     {
       action: { type: 'string', enum: ['list', 'search', 'acquire', 'import', 'check'] },
       query: str,
@@ -133,6 +135,20 @@ export const DESIGN_TOOLS = [
       path: str,
       text: { type: 'string', maxLength: 20000 },
       family: str,
+      reason: { type: 'string', maxLength: 1000 },
+    },
+    ['action'],
+  ),
+  tool(
+    'design_font_library',
+    '管理用户的字体库（设置 → 设计 → 字体），不需要先开设计任务。list 列出字体库里的字体；search 从 Fontsource 查找开源字体，inLibrary 表示已在字体库；download 按 Fontsource ID 下载到字体库，需要写入权限，之后任何设计任务都能用 design_fonts acquire 离线复制。只下载当前或即将进行的设计确实需要的字体和字重，中文字体文件较大，默认只下 400。',
+    {
+      action: { type: 'string', enum: ['list', 'search', 'download'] },
+      query: str,
+      fontId: str,
+      weights: { type: 'array', items: { type: 'integer', minimum: 100, maximum: 900 }, maxItems: 9 },
+      styles: { type: 'array', items: { type: 'string', enum: ['normal', 'italic'] }, maxItems: 2 },
+      subsets: { type: 'array', items: str, maxItems: 8 },
       reason: { type: 'string', maxLength: 1000 },
     },
     ['action'],
@@ -159,5 +175,11 @@ export const DESIGN_TOOLS = [
     '把当前任务的 HTML 预览打印为本机 PDF，写入任务目录。用于演示或文档导出，不改写 PPTX。',
     { path: str, output: str, reason: { type: 'string', minLength: 1, maxLength: 1000 } },
     ['path', 'reason'],
+  ),
+  tool(
+    'design_asset_save',
+    '把收到的附件复制到当前设计任务的 assets/ 目录，返回可在 HTML 中引用的相对路径；不覆盖已被修改的同名文件。',
+    { attachmentId: str },
+    ['attachmentId'],
   ),
 ];

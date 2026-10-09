@@ -16,7 +16,6 @@ export interface PreviewWorkbenchInfo {
   itemId: string;
   name: string;
   docked: boolean;
-  studio?: boolean;
   annotations: PreviewAnnotation[];
 }
 /** Lets the conversation composer show and remove the preview's marks as chips. */

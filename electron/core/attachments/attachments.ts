@@ -376,8 +376,9 @@ export class Attachments {
       this.store.data.bots.find((bot) => this.canRead(bot.id, id))?.id ||
       this.store.data.bots[0]?.id;
     if (!botId) throw new Error('请先创建一个 Bot，再预览此文档。');
-    if (this.store.bot(botId).type === 'designer')
-      return (await this.artifacts?.previewLocalOffice(botId, file.name, file.size)) || { kind: 'unsupported' };
+    // A deck delivered from a design task has an HTML companion on this computer; no work computer needed.
+    const local = await this.artifacts?.previewLocalOffice(botId, file.name, file.size, true);
+    if (local) return local;
     if (!this.vm) throw new Error('启动工作电脑后，即可预览此文档。');
     return officePreview(this.vm, botId, extension, this.bytes(id));
   }

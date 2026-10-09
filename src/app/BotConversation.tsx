@@ -12,6 +12,7 @@ import type {
 } from '../../shared/types/core';
 import type { GroupsView } from '../../shared/types/group-types';
 import type { PeerView } from '../../shared/types/peer-types';
+import type { DesignSession } from '../../shared/types/designer-types';
 import type { TimelineItem } from '../../shared/chat/activity';
 import { isRunArtifact } from '../../shared/preview/workspace-files';
 import type { PreviewHistoryEntry } from '../../shared/preview/agent-preview-types';
@@ -29,6 +30,7 @@ import { ArtifactList } from '../files/ArtifactList';
 import { PreviewHistoryChips } from '../preview/PreviewHistoryChips';
 import { PeerNotice, PeerTaskMessage, type PeerPanel } from '../group/PeerChats';
 import { GroupTaskMessage } from '../group/GroupTaskMessage';
+import { DesignerTaskCard } from '../designer/DesignerTaskCard';
 import { Icon } from '../ui/Icon';
 import { Message } from '../ui/Message';
 import { sameProps } from '../ui/equality';
@@ -224,6 +226,7 @@ export function BotConversation({
                 }
                 previewEntries={previewEntries}
                 filesDisabled={busy || !vmReady}
+                designSession={designSessionOf(state, runsById.get(item.id))}
                 actions={actions}
               />
             );
@@ -306,6 +309,9 @@ type Actions = {
   stop: () => Promise<unknown>;
 };
 
+const designSessionOf = (state: Snapshot, run?: RunRecord) =>
+  run?.designSessionId ? state.designer?.sessions.find((s) => s.id === run.designSessionId) : undefined;
+
 /** A message row; `shown` is the copy without files an earlier message already delivered. */
 const TimelineMessage = memo(function TimelineMessage({
   message,
@@ -357,6 +363,7 @@ const TimelineRun = memo(function TimelineRun({
   outputs,
   previewEntries,
   filesDisabled,
+  designSession,
   actions,
 }: {
   runId: string;
@@ -373,6 +380,8 @@ const TimelineRun = memo(function TimelineRun({
   outputs: Artifact[];
   previewEntries: PreviewHistoryEntry[];
   filesDisabled: boolean;
+  /** The design task this run worked on; its card brings the task back to the canvas. */
+  designSession?: DesignSession;
   actions: Actions;
 }) {
   return (
@@ -402,7 +411,11 @@ const TimelineRun = memo(function TimelineRun({
         }
         onOpen={actions.openPreviewEntry}
       />
-      <ArtifactList files={outputs} onOpen={actions.openFile} onSave={actions.saveFile} disabled={filesDisabled} />
+      {/* A design task is an experience, not a file list. Its canvas opens the home page; export remains available from the preview. */}
+      {!designSession && (
+        <ArtifactList files={outputs} onOpen={actions.openFile} onSave={actions.saveFile} disabled={filesDisabled} />
+      )}
+      {designSession && <DesignerTaskCard session={designSession} />}
     </>
   );
 }, sameProps);

@@ -77,7 +77,7 @@
 /* The work computer card: the column and the composer centre in the space left of it. */
 @media (min-width: 901px) {
   body:not(:has(.fp-panel[data-layout='docked']))
-    .app-shell[data-page='chat']:not([data-bot-type='designer']):has(> .computer-details:not(.is-closed))
+    .app-shell[data-page='chat']:has(> .computer-details:not(.is-closed))
     > .conversation {
     --column-reserve: calc(var(--computer-card-width) + var(--computer-card-gap) * 2);
   }

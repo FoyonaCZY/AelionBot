@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import { AppError } from '../../shared/errors';
-import { botType } from '../../shared/types/designer-types';
 import type { WorkSession } from '../../shared/types/core';
 import { setConversationWorkspace } from '../core/storage/workspaces';
 import type { IpcContext } from './context';
@@ -21,7 +20,6 @@ export function registerSessions(ctx: IpcContext) {
   };
   handle('createWorkSession', (input) => {
     const bot = ctx.store.bot(String(input?.botId || ''));
-    if (botType(bot.type) !== 'general') throw new AppError('session.bot_type', '设计 Bot 的工作在设计任务里进行');
     const name = sessionName(input?.name);
     // Checked before the session exists, so an unusable folder creates nothing.
     const workspaceDir = input?.workspaceDir ? ctx.host.validateWorkspace(input.workspaceDir) : undefined;

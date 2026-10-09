@@ -1,4 +1,3 @@
-import { DesignerWorkspace } from '../designer/DesignerWorkspace';
 import type { RefObject } from 'react';
 import type { Bot, InteractionRequest, Snapshot, WorkSession } from '../../shared/types/core';
 import type { GroupSummary } from '../../shared/types/group-types';
@@ -18,7 +17,7 @@ import type { TakeoverRequest } from './use-computer-control';
 import type { Drafts } from './use-drafts';
 import type { useFileActions } from './use-file-actions';
 
-/** The centre column: a group chat, a designer workspace or a bot conversation, whichever is selected. */
+/** The centre column: a group chat or a bot conversation, whichever is selected. Design work shows on the canvas. */
 export function ConversationPane({
   state,
   group,
@@ -116,14 +115,6 @@ export function ConversationPane({
           onSaveFile={(file) => void files.saveFile(file)}
           onOpenPreviewEntry={files.openHistoryEntry}
           visible={visible}
-        />
-      ) : bot?.type === 'designer' ? (
-        <DesignerWorkspace
-          key={bot.id}
-          bot={bot}
-          state={state}
-          onProfile={() => onProfile(bot)}
-          onTakeover={onTakeover}
         />
       ) : bot ? (
         <>

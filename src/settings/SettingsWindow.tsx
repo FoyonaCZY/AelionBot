@@ -3,11 +3,12 @@ import { Icon } from '../ui/Icon';
 import { useI18n } from '../i18n';
 
 export type SettingsTab =
-  'appearance' | 'profile' | 'runtime' | 'model' | 'usage' | 'memory' | 'computer' | 'permissions' | 'about';
+  'appearance' | 'profile' | 'runtime' | 'model' | 'design' | 'usage' | 'memory' | 'computer' | 'permissions' | 'about';
 const pages: ReadonlyArray<{ id: SettingsTab; label: string; icon: string }> = [
   { id: 'profile', label: '个人资料', icon: 'user' },
   { id: 'appearance', label: '外观', icon: 'appearance' },
   { id: 'model', label: '模型', icon: 'layers' },
+  { id: 'design', label: '设计', icon: 'palette' },
   { id: 'usage', label: '用量', icon: 'chart' },
   { id: 'memory', label: '记忆', icon: 'memory' },
   { id: 'runtime', label: '运行', icon: 'sliders' },

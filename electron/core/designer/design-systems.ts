@@ -16,6 +16,7 @@ import type {
   DesignSystemDetail,
   DesignSystemManifest,
   DesignSystemOrigin,
+  DesignSystemPreview,
   DesignSystemSummary,
 } from '../../../shared/types/designer-types';
 import { AppError } from '../../../shared/errors';
@@ -37,26 +38,47 @@ function slug(value: string) {
       .slice(0, 32) || 'pack'
   );
 }
+// Values that are safe as inline styles because they load nothing: plain colors, font stacks and lengths.
+const SAFE_COLOR = /^(?:#[0-9a-f]{3,8}|(?:rgba?|hsla?|oklch|oklab|lab|lch)\([-\d.,%\s/a-z]{1,60}\)|[a-z]{3,20})$/i;
+const SAFE_FONT = /^[^;{}()<>\\:@!]{1,240}$/;
+const SAFE_RADIUS = /^(?:0|\d{1,3}(?:\.\d+)?(?:px|rem|em))$/;
 /**
- * Pulls a usable font stack out of a package's tokens.css for the picker specimen.
- * Only families the host can actually resolve are kept — a remote-only face would silently
- * fall back and make every card look identical again, which is the problem this solves.
+ * The light-theme tokens of a package for its Settings specimen: surface, ink, accent, type and corner. Every
+ * value is checked against a plain pattern, so an imported package cannot make the settings page load or run
+ * anything; a value that fails is left out and the specimen uses a neutral default.
  */
-function displayFontStack(css: string) {
-  // Packages often document a literal ":root { … }" in a comment, so take the longest real block.
-  const blocks = [...css.matchAll(/:root[^{]*\{[\s\S]*?\}/g)]
-    .map((match) => match[0])
-    .sort((a, b) => b.length - a.length);
-  const scope = blocks[0] && blocks[0].length > 60 ? blocks[0] : css;
-  const pick = (names: RegExp) => {
-    for (const match of scope.matchAll(/--([\w-]*font[\w-]*)\s*:\s*([^;}]+)/gi)) {
-      const [, name, value] = match;
-      if (!names.test(name) || /mono|code/i.test(name)) continue;
-      const stack = value.trim().replace(/\s+/g, ' ').slice(0, 160);
-      if (stack && !stack.startsWith('var(')) return stack;
+function specimenTokens(css: string): DesignSystemPreview | undefined {
+  // Packages document a literal ":root { … }" in comments, so read only real declarations.
+  const text = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const block = [...text.matchAll(/(:root[^{]*)\{([^}]*)\}/g)].find(([, selector]) => !/dark/i.test(selector));
+  if (!block) return undefined;
+  const vars = new Map<string, string>();
+  for (const [, name, value] of block[2].matchAll(/--([\w-]+)\s*:\s*([^;]+)/g))
+    if (!vars.has(name)) vars.set(name, value.replace(/\s+/g, ' ').trim());
+  const value = (name: string, depth = 0): string | undefined => {
+    const raw = vars.get(name),
+      alias = raw && /^var\(--([\w-]+)\)$/.exec(raw);
+    return alias ? (depth < 4 ? value(alias[1], depth + 1) : undefined) : raw;
+  };
+  const first = (names: string[], safe: RegExp) => {
+    for (const name of names) {
+      const found = value(name);
+      if (found && safe.test(found)) return found;
     }
   };
-  return pick(/display|heading|title|serif/i) || pick(/body|text|sans|base|^font$/i) || pick(/./);
+  const preview: DesignSystemPreview = {
+    bg: first(['bg', 'background', 'color-bg', 'od-color-bg'], SAFE_COLOR),
+    surface: first(['surface', 'surface-warm', 'color-surface'], SAFE_COLOR),
+    fg: first(['fg', 'foreground', 'ink', 'color-fg', 'od-color-fg'], SAFE_COLOR),
+    muted: first(['muted', 'meta', 'color-muted'], SAFE_COLOR),
+    accent: first(['accent', 'primary', 'color-accent', 'od-color-primary'], SAFE_COLOR),
+    border: first(['border', 'border-soft', 'line'], SAFE_COLOR),
+    radius: first(['radius-md', 'radius', 'radius-sm'], SAFE_RADIUS),
+    display: first(['font-display', 'font-heading', 'font-serif', 'font-body', 'font-sans'], SAFE_FONT),
+    body: first(['font-body', 'font-sans', 'font-display'], SAFE_FONT),
+  };
+  const entries = Object.entries(preview).filter(([, item]) => item);
+  return entries.length ? (Object.fromEntries(entries) as DesignSystemPreview) : undefined;
 }
 function walk(root: string, dir: string, files: { path: string; abs: string }[] = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -81,7 +103,7 @@ export class DesignSystems {
   private describe(catalog: DesignSystemCatalog, origin: DesignSystemOrigin): DesignSystemSummary[] {
     return catalog.systems.map(({ files: _files, ...summary }) => {
       let description = summary.description,
-        display: string | undefined;
+        preview: DesignSystemPreview | undefined;
       try {
         const source = this.read(summary.id, 'DESIGN.md').toString('utf8');
         const paragraphs = source
@@ -94,12 +116,11 @@ export class DesignSystems {
           .replace(/\s+/g, ' ');
         if (text) description = text.length > 260 ? text.slice(0, 257).replace(/\s+\S*$/, '') + '…' : text;
       } catch {}
-      // The picker's specimen should show the system's own typeface. Prefer the display face,
-      // fall back to the body face; a card rendering every system in the same serif says nothing.
+      // The Settings specimen is drawn in the system's own colors, type and corners.
       try {
-        display = displayFontStack(this.read(summary.id, 'tokens.css').toString('utf8'));
+        preview = specimenTokens(this.read(summary.id, 'tokens.css').toString('utf8'));
       } catch {}
-      return { ...summary, description, origin, ...(display ? { display } : {}) };
+      return { ...summary, description, origin, ...(preview ? { preview } : {}) };
     });
   }
   constructor(

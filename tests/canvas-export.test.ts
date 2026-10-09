@@ -18,7 +18,7 @@ function fixture(t: test.TestContext) {
     assert.ok(basename(root).startsWith('aelion-canvas-export-'));
     rmSync(root, { recursive: true, force: true });
   });
-  const bot = store.createBot('Design', '', undefined, undefined, { type: 'designer' }),
+  const bot = store.createBot('Design', ''),
     designs = new DesignStore(
       store,
       {} as any,

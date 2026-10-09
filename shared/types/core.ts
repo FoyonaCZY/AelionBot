@@ -68,9 +68,9 @@ export interface WorkSession {
   archivedAt?: string;
 }
 export interface Bot {
+  /** Retired; kept on disk from older versions and not read. Every Bot runs the same engine. */
   type?: import('./designer-types').BotType;
   contextResetAt?: string;
-  defaultDesignSystemId?: string | null;
   id: string;
   name: string;
   /** SOUL.md: free-form Markdown defining the Bot's voice, values and boundaries. */
@@ -84,10 +84,6 @@ export interface Bot {
   reasoningEffort?: string;
 }
 export interface BotUpdateInput {
-  confirmContextReset?: boolean;
-  expectedType?: import('./designer-types').BotType;
-  type?: import('./designer-types').BotType;
-  defaultDesignSystemId?: string | null;
   id: string;
   name: string;
   soul: string;
@@ -451,9 +447,19 @@ export interface AelionAPI {
   sendDesignMessage(input: { id: string; message: string; attachmentIds?: string[] }): Promise<void>;
   acceptDesignSession(input: { id: string; revision: number }): Promise<void>;
   listDesignWorkspace(id: string): Promise<Array<{ name: string; path: string; size: number; modifiedAt?: string }>>;
+  /** The first screen of a task's HTML page as an image, or null when it has none (a PPTX, a page that failed). */
+  designThumbnail(input: { id: string; path: string }): Promise<import('./designer-types').DesignThumbnail | null>;
   importDesignSystem(): Promise<import('./designer-types').DesignSystemSummary | null>;
   listDesignFonts(input: { id: string }): Promise<import('./design-font-types').DesignFont[]>;
-  searchDesignFonts(input: { query: string }): Promise<import('./design-font-types').DesignFontCatalogEntry[]>;
+  /** Settings → Design → Fonts: the user's font library. */
+  listLibraryFonts(): Promise<import('./design-font-types').DesignLibraryFont[]>;
+  searchLibraryFonts(input: { query: string }): Promise<import('./design-font-types').DesignFontCatalogEntry[]>;
+  downloadLibraryFont(
+    input: import('./design-font-types').DesignFontAcquire,
+  ): Promise<import('./design-font-types').DesignLibraryFont>;
+  importLibraryFonts(): Promise<import('./design-font-types').DesignLibraryFont[] | null>;
+  removeLibraryFont(id: string): Promise<void>;
+  previewLibraryFont(input: { id: string; text: string }): Promise<import('./design-font-types').DesignFontPreview>;
   acquireDesignFont(
     input: { id: string } & import('./design-font-types').DesignFontAcquire,
   ): Promise<import('./design-font-types').DesignFont[]>;
@@ -581,7 +587,6 @@ export interface AelionAPI {
   deleteScheduledTask(id: string): Promise<void>;
   runScheduledTask(id: string): Promise<void>;
   createBot(input: {
-    type?: import('./designer-types').BotType;
     name: string;
     soul: string;
     color?: string;
@@ -621,6 +626,8 @@ export interface AelionAPI {
     replyToMessageId?: string;
     mentions?: BotMention[];
     attachmentIds?: string[];
+    /** The design task shown on this group's canvas; the message continues it. */
+    designSessionId?: string;
   }): Promise<void>;
   markGroupRead(input: { id: string; seq: number }): Promise<void>;
   stopGroup(id: string): Promise<void>;

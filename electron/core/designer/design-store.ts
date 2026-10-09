@@ -42,6 +42,8 @@ export class DesignStore {
       : { version: 1, sessions: [], histories: {} };
     // Optional design checks were removed; sessions saved by older versions may still carry their ids.
     for (const session of this.data.sessions) delete (session as { plugins?: unknown }).plugins;
+    // Preferred fonts were removed (the Bot picks fonts for each design); drop what older versions saved.
+    delete (this.data as { preferences?: unknown }).preferences;
     if (this.data.version !== 1 || !Array.isArray(this.data.sessions)) throw Error('设计任务数据版本无效');
     for (const session of this.data.sessions)
       if (session.activeRunId || session.status === 'running') {
@@ -94,7 +96,6 @@ export class DesignStore {
   }
   create(input: DesignSessionInput) {
     const bot = this.store.bot(input.botId);
-    if (bot.type !== 'designer') throw Error('请先将 Bot 类型设为设计师');
     const origin = input.origin || { kind: 'bot' as const, id: bot.id };
     this.validateOrigin(bot.id, origin);
     if (

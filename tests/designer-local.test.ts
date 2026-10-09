@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { tempDir } from './helpers';
-import { mkdirSync, readFileSync, symlinkSync, existsSync, statSync } from 'node:fs';
+import { mkdirSync, symlinkSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { unzipSync } from 'fflate';
@@ -11,15 +11,12 @@ import { DesignerFiles } from '../electron/core/designer/designer-files';
 import { designerDeck } from '../electron/core/designer/designer-deck';
 import { ArtifactService } from '../electron/core/attachments/artifacts';
 import { Attachments } from '../electron/core/attachments/attachments';
-import { HostComputer } from '../electron/core/host/host';
-import { Harness } from '../electron/core/agent/harness';
-import { DesignerLoop } from '../electron/core/designer/designer-loop';
-import { randomUUID } from 'node:crypto';
 import { AgentPreviews } from '../electron/core/preview/agent-previews';
+
 function setup(t: any) {
   const root = tempDir(t, 'aelion-local-design-');
   const store = new Store(join(root, 'data')),
-    bot = store.createBot('Designer', '', undefined, undefined, { type: 'designer' }),
+    bot = store.createBot('Designer', ''),
     base = join(root, 'default');
   const designs = new DesignStore(
       store,
@@ -30,19 +27,20 @@ function setup(t: any) {
     task = designs.create({ botId: bot.id, kind: 'prototype', brief: 'A local page' }),
     files = new DesignerFiles(store, designs);
   let vmCalls = 0;
-  const vm = new Proxy(
-    {},
-    {
-      get() {
-        vmCalls++;
-        throw Error('Designer must not access VM');
-      },
+  // A stopped work computer: its state can be read; anything else counts as using it.
+  const vm = new Proxy({ state: { status: 'stopped' } } as any, {
+    get(target, key) {
+      if (key in target) return target[key];
+      if (key === 'then') return undefined;
+      vmCalls++;
+      throw Error('Designer must not access VM');
     },
-  );
+  });
   const artifacts = new ArtifactService(store, vm as any);
   artifacts.designerFiles = files;
   return { root, store, bot, designs, task, files, artifacts, vm, vmCalls: () => vmCalls };
 }
+
 test('local design files stay below default/designers and reject cross-task paths and directory links', async (t) => {
   const f = setup(t),
     b = f.designs.create({ botId: f.bot.id, kind: 'prototype', brief: 'B' }),
@@ -60,6 +58,7 @@ test('local design files stay below default/designers and reject cross-task path
   assert.equal(existsSync(join(outside, 'escape.txt')), false);
   assert.equal(f.vmCalls(), 0);
 });
+
 test('local previews, nested assets, attachment delivery and source save use the same bytes without VM', async (t) => {
   const f = setup(t),
     startedAt = new Date().toISOString(),
@@ -98,9 +97,12 @@ test('local previews, nested assets, attachment delivery and source save use the
   assert.deepEqual(previews.snapshot()[0].target, { kind: 'workspace', path });
   await f.artifacts.collect(f.bot.id, 'local-run');
   assert.equal(f.store.data.artifacts.length, 2);
-  assert.equal((await f.artifacts.directory(f.bot.id)).entries[0].path, f.task.workspacePath);
+  // The Bot's root is the work computer; its design tasks are listed from this computer, and their folders open here.
+  assert.equal((await f.files.directory(f.bot.id)).entries[0].path, f.task.workspacePath);
+  assert.ok((await f.artifacts.directory(f.bot.id, f.task.workspacePath)).entries.some((e) => e.name === 'index.html'));
   assert.equal(f.vmCalls(), 0);
 });
+
 test('local deck has editable OOXML text, multiple layouts, escaped content and an HTML companion', async (t) => {
   const f = setup(t),
     deck = designerDeck('A < B', [
@@ -132,6 +134,7 @@ test('local deck has editable OOXML text, multiple layouts, escaped content and 
     assert.equal(result.status, 0, result.stderr);
   } else t.diagnostic('PowerPoint reopen check requires AELION_TEST_PYTHON; OOXML and local preview assertions ran.');
 });
+
 test('designer PowerPoint attachments preview the HTML companion without a VM', async (t) => {
   const f = setup(t),
     deck = designerDeck('Local slides', [{ title: '封面', layout: 'title' }]);
@@ -149,689 +152,16 @@ test('designer PowerPoint attachments preview the HTML companion without a VM', 
   const html = preview.web?.kind === 'document' ? preview.web.content || '' : '';
   assert.match(html, /封面/);
   assert.equal(f.vmCalls(), 0);
+  // A deck with no companion page takes the ordinary office preview, which needs the work computer.
   const orphan = attachments.importForBot(f.bot.id, 'alone.pptx', Buffer.from('not-a-deck'));
-  assert.equal((await attachments.previewRich(orphan.id)).kind, 'unsupported');
+  await assert.rejects(attachments.previewRich(orphan.id), { code: 'preview.computer_required' });
   assert.equal(f.vmCalls(), 0);
 });
-test('publish blocks remote fonts', async (t) => {
-  const f = setup(t),
-    session = f.designs.get(f.task.id);
-  f.files.write(
-    session,
-    'index.html',
-    Buffer.from(
-      '<html><body><link href="https://fonts.googleapis.com/css2?family=Inter" rel="stylesheet"><p>Hello</p></body></html>',
-    ),
-  );
-  const attachments = new Attachments(f.store, f.vm as any, f.artifacts);
-  let publishStep = 0;
-  const model = {
-    complete: async () => ({
-      content: 'Trying to publish',
-      calls:
-        publishStep++ === 0
-          ? [
-              {
-                id: randomUUID(),
-                type: 'function',
-                function: { name: 'design_publish', arguments: JSON.stringify({ paths: ['index.html'] }) },
-              },
-            ]
-          : [],
-      finishReason: 'stop',
-    }),
-  };
-  const shared = new Harness(
-    f.store,
-    f.vm as any,
-    model as any,
-    () => {},
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    attachments,
-  );
-  t.after(() => shared.disposeTools());
-  const context = {
-    observe: () => {},
-    prepare: async (input: any) => ({
-      messages: [input.system, ...input.history],
-      maxOutputTokens: 8192,
-      stats: { calibration: 1 },
-      calibrationEstimate: 2000,
-      recordUsage: () => {},
-    }),
-  };
-  const loop = new DesignerLoop(
-    f.store,
-    f.designs,
-    {} as any,
-    f.files,
-    model as any,
-    context as any,
-    shared,
-    f.artifacts,
-    attachments,
-    { pendingQuestions: () => [] } as any,
-    () => {},
-  );
-  await loop.run(f.bot.id, 'Deliver', { designSessionId: session.id });
-  assert.match(f.store.data.runs.at(-1)?.error || '', /远程字体/);
-});
-test('preview-saved HTML cannot be fully overwritten', async (t) => {
-  const f = setup(t),
-    session = f.designs.get(f.task.id);
-  f.files.write(session, 'index.html', Buffer.from('<html><body>Saved by user</body></html>'));
-  session.userEdits = [
-    { id: 'edit-1', path: 'index.html', revision: 'abc', time: new Date().toISOString(), summary: 'user save' },
-  ];
-  f.designs.touch(session);
-  f.designs.save();
-  const attachments = new Attachments(f.store, f.vm as any, f.artifacts);
-  let permissions = 0;
-  const interactions = {
-    permission: async () => {
-      permissions++;
-    },
-    pendingQuestions: () => [],
-    cancelQuestions: () => {},
-  };
-  const host = new HostComputer({ dataDir: f.store.dir, projectDir: f.root, homeDir: f.root }, interactions as any);
-  let step = 0;
-  const overwrite = {
-    complete: async () => ({
-      content: 'Overwrite',
-      calls:
-        step++ === 0
-          ? [
-              {
-                id: randomUUID(),
-                type: 'function',
-                function: {
-                  name: 'host_file_write',
-                  arguments: JSON.stringify({
-                    path: 'index.html',
-                    content: '<html><body>All new</body></html>',
-                    reason: 'replace',
-                  }),
-                },
-              },
-            ]
-          : [],
-      finishReason: 'stop',
-    }),
-  };
-  const shared = new Harness(
-    f.store,
-    f.vm as any,
-    overwrite as any,
-    () => {},
-    undefined,
-    undefined,
-    undefined,
-    host,
-    interactions as any,
-    undefined,
-    attachments,
-  );
-  t.after(() => {
-    shared.disposeTools();
-    host.dispose();
-  });
-  const context = {
-    observe: () => {},
-    prepare: async (input: any) => ({
-      messages: [input.system, ...input.history],
-      maxOutputTokens: 8192,
-      stats: { calibration: 1 },
-      calibrationEstimate: 2000,
-      recordUsage: () => {},
-    }),
-  };
-  const loop = new DesignerLoop(
-    f.store,
-    f.designs,
-    {} as any,
-    f.files,
-    overwrite as any,
-    context as any,
-    shared,
-    f.artifacts,
-    attachments,
-    interactions as any,
-    () => {},
-  );
-  await loop.run(f.bot.id, 'Rewrite page', { designSessionId: session.id });
-  assert.match(readFileSync(join(session.workspaceDir!, 'index.html'), 'utf8'), /Saved by user/);
-  const run = f.store.data.runs.at(-1)!;
-  assert.match(
-    [run.error || '', ...f.store.data.messages.filter((m) => m.runId === run.id).map((m) => m.content)].join('\n'),
-    /局部|整文件/,
-  );
-  assert.equal(permissions, 0);
-});
+
 test('legacy VM design tasks are kept intact and cannot silently execute on the host', (t) => {
   const f = setup(t),
     legacy = { ...f.task, location: undefined, workspaceDir: undefined, workspacePath: 'design-projects/' + f.task.id };
   assert.throws(() => f.files.absolute(legacy, 'index.html'), { code: 'design.legacy_vm_session' });
   assert.equal(f.task.location, 'host');
   assert.equal(f.vmCalls(), 0);
-});
-
-for (const kind of ['prototype', 'ppt', 'clone', 'mobile', 'document'] as const)
-  test('real tool pipeline publishes ' + kind + ' and opens its preview', async (t) => {
-    const f = setup(t),
-      session = f.designs.get(f.task.id);
-    session.kind = kind;
-    const paths = kind === 'ppt' ? ['deck.pptx', 'deck.html'] : ['index.html'];
-    if (kind === 'ppt') {
-      const deck = designerDeck('Local slides', [{ title: 'Editable content' }]);
-      f.files.write(session, 'deck.pptx', deck.pptx);
-      f.files.write(session, 'deck.html', deck.html);
-    } else f.files.write(session, 'index.html', Buffer.from('<html><body>Ready</body></html>'));
-    if (kind === 'clone')
-      f.files.write(
-        session,
-        'NOTES.md',
-        Buffer.from('# Clone notes\n- 原站 URL: https://example.test/site\n- 不克隆登录与支付\n'),
-      );
-    const attachments = new Attachments(f.store, f.vm as any, f.artifacts),
-      previews = new AgentPreviews(f.store, f.artifacts, attachments, () => {});
-    let turn = 0;
-    const model = {
-      complete: async () => ({
-        content: 'Ready for review',
-        calls:
-          turn++ === 0
-            ? [
-                {
-                  id: randomUUID(),
-                  type: 'function',
-                  function: { name: 'design_publish', arguments: JSON.stringify({ paths }) },
-                },
-              ]
-            : [],
-        finishReason: 'stop',
-      }),
-    };
-    const shared = new Harness(
-      f.store,
-      f.vm as any,
-      model as any,
-      () => {},
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      attachments,
-    );
-    shared.setPreviewGateway(previews);
-    t.after(() => shared.disposeTools());
-    const context = {
-      observe: () => {},
-      prepare: async (input: any) => ({
-        messages: [input.system, ...input.history],
-        maxOutputTokens: 8192,
-        stats: { calibration: 1 },
-        calibrationEstimate: 2000,
-        recordUsage: () => {},
-      }),
-    };
-    const loop = new DesignerLoop(
-      f.store,
-      f.designs,
-      {} as any,
-      f.files,
-      model as any,
-      context as any,
-      shared,
-      f.artifacts,
-      attachments,
-      { pendingQuestions: () => [] } as any,
-      () => {},
-    );
-    await loop.run(f.bot.id, 'Deliver the design', { designSessionId: session.id });
-    const run = f.store.data.runs.at(-1)!;
-    assert.equal(run.status, 'completed', run.error || 'Design run failed');
-    assert.equal(f.designs.get(session.id).status, 'review');
-    assert.equal(run.attachments?.length, kind === 'clone' ? 2 : paths.length);
-    assert.equal(previews.snapshot().length, 1);
-    assert.deepEqual(previews.snapshot()[0].target, {
-      kind: 'workspace',
-      path: session.workspacePath + '/' + (kind === 'ppt' ? 'deck.html' : 'index.html'),
-    });
-    assert.ok(run.executions?.some((e) => e.tool === 'open_preview' && e.status === 'succeeded'));
-    assert.equal(f.vmCalls(), 0);
-  });
-
-test('clone publish requires a source URL in NOTES.md', async (t) => {
-  const f = setup(t),
-    session = f.designs.get(f.task.id);
-  session.kind = 'clone';
-  f.files.write(session, 'index.html', Buffer.from('<html><body>Replica</body></html>'));
-  f.files.write(session, 'NOTES.md', Buffer.from('# Clone\nNo source URL yet.\n'));
-  const attachments = new Attachments(f.store, f.vm as any, f.artifacts);
-  let turn = 0;
-  const model = {
-    complete: async () => ({
-      content: 'Trying to publish',
-      calls:
-        turn++ === 0
-          ? [
-              {
-                id: randomUUID(),
-                type: 'function',
-                function: { name: 'design_publish', arguments: JSON.stringify({ paths: ['index.html'] }) },
-              },
-            ]
-          : [],
-      finishReason: 'stop',
-    }),
-  };
-  const shared = new Harness(
-    f.store,
-    f.vm as any,
-    model as any,
-    () => {},
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    attachments,
-  );
-  t.after(() => shared.disposeTools());
-  const context = {
-    observe: () => {},
-    prepare: async (input: any) => ({
-      messages: [input.system, ...input.history],
-      maxOutputTokens: 8192,
-      stats: { calibration: 1 },
-      calibrationEstimate: 2000,
-      recordUsage: () => {},
-    }),
-  };
-  const loop = new DesignerLoop(
-    f.store,
-    f.designs,
-    {} as any,
-    f.files,
-    model as any,
-    context as any,
-    shared,
-    f.artifacts,
-    attachments,
-    { pendingQuestions: () => [] } as any,
-    () => {},
-  );
-  await loop.run(f.bot.id, 'Deliver', { designSessionId: session.id });
-  assert.match(
-    [
-      f.store.data.runs.at(-1)?.error || '',
-      ...f.store.data.messages.filter((m) => m.runId === f.store.data.runs.at(-1)?.id).map((m) => m.content),
-    ].join('\n'),
-    /来源网址/,
-  );
-});
-test('designer creates a substantial new file through the real host service without hash or shell fallback', async (t) => {
-  const f = setup(t),
-    content = '<html><body><main>' + 'Design content. '.repeat(700) + '</main></body></html>',
-    attachments = new Attachments(f.store, f.vm as any, f.artifacts);
-  let permissions = 0;
-  const interactions = {
-    permission: async () => {
-      permissions++;
-    },
-    pendingQuestions: () => [],
-    cancelQuestions: () => {},
-  };
-  const host = new HostComputer({ dataDir: f.store.dir, projectDir: f.root, homeDir: f.root }, interactions as any);
-  let turn = 0;
-  const model = {
-    complete: async () => ({
-      content: 'File delivered',
-      calls:
-        turn++ === 0
-          ? [
-              {
-                id: randomUUID(),
-                type: 'function',
-                function: {
-                  name: 'design_file_create',
-                  arguments: JSON.stringify({ path: 'index.html', content, reason: 'Create requested prototype' }),
-                },
-              },
-            ]
-          : turn === 2
-            ? [
-                {
-                  id: randomUUID(),
-                  type: 'function',
-                  function: { name: 'design_publish', arguments: JSON.stringify({ paths: ['index.html'] }) },
-                },
-              ]
-            : [],
-      finishReason: 'stop',
-    }),
-  };
-  const shared = new Harness(
-    f.store,
-    f.vm as any,
-    model as any,
-    () => {},
-    undefined,
-    undefined,
-    undefined,
-    host,
-    interactions as any,
-    undefined,
-    attachments,
-  );
-  const previews = new AgentPreviews(f.store, f.artifacts, attachments, () => {}, host);
-  shared.setPreviewGateway(previews);
-  t.after(() => {
-    shared.disposeTools();
-    host.dispose();
-  });
-  const context = {
-    observe: () => {},
-    prepare: async (input: any) => ({
-      messages: [input.system, ...input.history],
-      maxOutputTokens: 8192,
-      stats: { calibration: 1 },
-      calibrationEstimate: 2000,
-      recordUsage: () => {},
-    }),
-  };
-  const loop = new DesignerLoop(
-    f.store,
-    f.designs,
-    {} as any,
-    f.files,
-    model as any,
-    context as any,
-    shared,
-    f.artifacts,
-    attachments,
-    interactions as any,
-    () => {},
-  );
-  await loop.run(f.bot.id, 'Create page', { designSessionId: f.task.id });
-  const run = f.store.data.runs.at(-1)!;
-  assert.equal(run.status, 'completed', run.error || 'Run failed');
-  assert.equal(readFileSync(join(f.task.workspaceDir!, 'index.html'), 'utf8'), content);
-  assert.equal(previews.snapshot().length, 1);
-  assert.equal(permissions, 1);
-  assert.ok(!run.executions?.some((e) => e.tool === 'host_execute'));
-  assert.equal(f.vmCalls(), 0);
-  await assert.rejects(
-    host.writeFile(
-      f.bot.id,
-      run.id,
-      { path: 'index.html', content: 'overwrite', reason: 'test' },
-      new AbortController().signal,
-      f.task.workspaceDir,
-    ),
-    { code: 'file.exists' },
-  );
-  assert.equal(readFileSync(join(f.task.workspaceDir!, 'index.html'), 'utf8'), content);
-  await assert.rejects(
-    host.writeFile(
-      f.bot.id,
-      run.id,
-      { path: 'new.html', content: 'new', reason: 'test', expectedSha256: '0'.repeat(64) },
-      new AbortController().signal,
-      f.task.workspaceDir,
-    ),
-    { code: 'INVALID_ARGUMENT', reason: 'file.expected_hash_for_new_file' },
-  );
-  assert.equal(existsSync(join(f.task.workspaceDir!, 'new.html')), false);
-});
-
-test('design_image writes into assets after permission and fails without image bytes', async (t) => {
-  const f = setup(t),
-    session = f.designs.get(f.task.id),
-    attachments = new Attachments(f.store, f.vm as any, f.artifacts);
-  f.files.write(session, 'index.html', Buffer.from('<html><body><h1 data-design-id="hero">Hero</h1></body></html>'));
-  let permissions = 0;
-  const interactions = {
-    permission: async () => {
-      permissions++;
-    },
-    pendingQuestions: () => [],
-    cancelQuestions: () => {},
-  };
-  const host = new HostComputer({ dataDir: f.store.dir, projectDir: f.root, homeDir: f.root }, interactions as any);
-  const png = Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-    'base64',
-  );
-  let turn = 0;
-  const model = {
-    complete: async (_messages: any, tools: any) =>
-      !tools?.length
-        ? {
-            content: '',
-            calls: [],
-            finishReason: 'stop',
-            native: {
-              protocol: 'responses',
-              key: 'k',
-              data: [{ type: 'image_generation_call', result: png.toString('base64') }],
-            },
-          }
-        : {
-            content: turn ? 'Ready' : 'Saving',
-            calls:
-              turn++ === 0
-                ? [
-                    {
-                      id: randomUUID(),
-                      type: 'function',
-                      function: {
-                        name: 'design_image',
-                        arguments: JSON.stringify({ prompt: 'A red mark', reason: 'Hero art', filename: 'hero.png' }),
-                      },
-                    },
-                  ]
-                : turn === 2
-                  ? [
-                      {
-                        id: randomUUID(),
-                        type: 'function',
-                        function: { name: 'design_publish', arguments: JSON.stringify({ paths: ['index.html'] }) },
-                      },
-                    ]
-                  : [],
-            finishReason: 'stop',
-          },
-  };
-  const shared = new Harness(
-    f.store,
-    f.vm as any,
-    model as any,
-    () => {},
-    undefined,
-    undefined,
-    undefined,
-    host,
-    interactions as any,
-    undefined,
-    attachments,
-  );
-  t.after(() => {
-    shared.disposeTools();
-    host.dispose();
-  });
-  const context = {
-    observe: () => {},
-    prepare: async (input: any) => ({
-      messages: [input.system, ...input.history],
-      maxOutputTokens: 8192,
-      stats: { calibration: 1 },
-      calibrationEstimate: 2000,
-      recordUsage: () => {},
-    }),
-  };
-  const loop = new DesignerLoop(
-    f.store,
-    f.designs,
-    {} as any,
-    f.files,
-    model as any,
-    context as any,
-    shared,
-    f.artifacts,
-    attachments,
-    interactions as any,
-    () => {},
-  );
-  await loop.run(f.bot.id, 'Need a hero image', { designSessionId: session.id });
-  const run = f.store.data.runs.at(-1)!;
-  assert.equal(run.status, 'completed', run.error || 'image run failed');
-  assert.equal(permissions, 1);
-  assert.ok(existsSync(join(session.workspaceDir!, 'assets', 'hero.png')));
-  assert.equal(readFileSync(join(session.workspaceDir!, 'assets', 'hero.png')).equals(png), true);
-  let failTurn = 0;
-  const failing = {
-    complete: async (_m: any, tools: any) =>
-      !tools?.length
-        ? { content: 'no image', calls: [], finishReason: 'stop' }
-        : {
-            content: 'Trying',
-            calls:
-              failTurn++ === 0
-                ? [
-                    {
-                      id: randomUUID(),
-                      type: 'function',
-                      function: { name: 'design_image', arguments: JSON.stringify({ prompt: 'x', reason: 'art' }) },
-                    },
-                  ]
-                : [],
-            finishReason: 'stop',
-          },
-  };
-  const failLoop = new DesignerLoop(
-    f.store,
-    f.designs,
-    {} as any,
-    f.files,
-    failing as any,
-    context as any,
-    shared,
-    f.artifacts,
-    attachments,
-    interactions as any,
-    () => {},
-  );
-  await failLoop.run(f.bot.id, 'Need another image', { designSessionId: session.id });
-  assert.match(
-    [
-      f.store.data.runs.at(-1)?.error || '',
-      ...f.store.data.messages.filter((m) => m.runId === f.store.data.runs.at(-1)?.id).map((m) => m.content),
-    ].join('\n'),
-    /生图未返回|假装/,
-  );
-});
-
-test('design_export_pdf writes a real PDF beside the HTML preview', async (t) => {
-  const f = setup(t),
-    session = f.designs.get(f.task.id);
-  f.files.write(session, 'index.html', Buffer.from('<html><body><h1>Print me</h1></body></html>'));
-  const attachments = new Attachments(f.store, f.vm as any, f.artifacts);
-  let permissions = 0;
-  const interactions = {
-    permission: async () => {
-      permissions++;
-    },
-    pendingQuestions: () => [],
-    cancelQuestions: () => {},
-  };
-  const host = new HostComputer({ dataDir: f.store.dir, projectDir: f.root, homeDir: f.root }, interactions as any);
-  let turn = 0;
-  const model = {
-    complete: async () => ({
-      content: turn ? 'Ready' : 'Exporting',
-      calls:
-        turn++ === 0
-          ? [
-              {
-                id: randomUUID(),
-                type: 'function',
-                function: {
-                  name: 'design_export_pdf',
-                  arguments: JSON.stringify({ path: 'index.html', reason: 'Share a PDF' }),
-                },
-              },
-            ]
-          : turn === 2
-            ? [
-                {
-                  id: randomUUID(),
-                  type: 'function',
-                  function: {
-                    name: 'design_publish',
-                    arguments: JSON.stringify({ paths: ['index.html', 'index.pdf'] }),
-                  },
-                },
-              ]
-            : [],
-      finishReason: 'stop',
-    }),
-  };
-  const shared = new Harness(
-    f.store,
-    f.vm as any,
-    model as any,
-    () => {},
-    undefined,
-    undefined,
-    undefined,
-    host,
-    interactions as any,
-    undefined,
-    attachments,
-  );
-  t.after(() => {
-    shared.disposeTools();
-    host.dispose();
-  });
-  const context = {
-    observe: () => {},
-    prepare: async (input: any) => ({
-      messages: [input.system, ...input.history],
-      maxOutputTokens: 8192,
-      stats: { calibration: 1 },
-      calibrationEstimate: 2000,
-      recordUsage: () => {},
-    }),
-  };
-  const pdf = Buffer.from('%PDF-1.4\n%fixture\n');
-  const loop = new DesignerLoop(
-    f.store,
-    f.designs,
-    {} as any,
-    f.files,
-    model as any,
-    context as any,
-    shared,
-    f.artifacts,
-    attachments,
-    interactions as any,
-    () => {},
-    { pdf: { render: async () => pdf } },
-  );
-  await loop.run(f.bot.id, 'Export pdf', { designSessionId: session.id });
-  const run = f.store.data.runs.at(-1)!;
-  assert.equal(run.status, 'completed', run.error || 'pdf run failed');
-  assert.equal(permissions, 1);
-  assert.equal(readFileSync(join(session.workspaceDir!, 'index.pdf')).subarray(0, 5).toString(), '%PDF-');
-  assert.ok(f.designs.get(session.id).artifacts.some((a) => a.kind === 'pdf'));
 });

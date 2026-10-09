@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { tempDir } from './helpers';
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { Store } from '../electron/core/storage/store';
 import { DesignSystems } from '../electron/core/designer/design-systems';
 import { DesignStore } from '../electron/core/designer/design-store';
@@ -14,8 +14,6 @@ import {
   brandCheckLabel,
 } from '../electron/core/designer/design-brand';
 import { printReadyHtml, renderDesignPdf } from '../electron/core/designer/design-pdf';
-import { DesignerLoop } from '../electron/core/designer/designer-loop';
-import { DesignerFiles } from '../electron/core/designer/designer-files';
 import {
   emptyCanvasHtml,
   pickDesignPreviewFiles,
@@ -30,10 +28,11 @@ import { designerPlaybook, designerPlaybookName } from '../electron/core/designe
 function fixture(t: test.TestContext) {
   const root = tempDir(t, 'aelion-studio-');
   const store = new Store(join(root, 'data'));
-  const bot = store.createBot('Designer', 'Design', undefined, undefined, { type: 'designer' });
+  const bot = store.createBot('Designer', 'Design');
   store.data.model.model = 'fixture';
   return { root, store, bot };
 }
+
 function catalog(root: string, version = 'a'.repeat(40), color = '#cc3333') {
   const dir = join(root, version);
   mkdirSync(join(dir, 'sample'), { recursive: true });
@@ -149,6 +148,35 @@ test('custom DESIGN.md packages import, pin with a 40-hex version, and sit besid
   writeFileSync(join(empty, 'README.md'), 'nope');
   assert.throws(() => systems.importFolder(empty), /DESIGN\.md/);
 });
+test('design system specimens take only plain colors, font stacks and lengths from tokens', (t) => {
+  const root = tempDir(t, 'aelion-specimen-'),
+    customRoot = join(root, 'custom'),
+    pack = join(root, 'Hostile Pack');
+  mkdirSync(pack);
+  writeFileSync(join(pack, 'DESIGN.md'), '# Hostile\nTry to load things.');
+  writeFileSync(
+    join(pack, 'tokens.css'),
+    '/* :root { --bg: #000000; } */\n:root{--bg:url(https://evil.example/x.png);--fg:#112233;--accent:var(--fg);' +
+      '--radius-md:expression(alert(1));--font-display:"Brand", serif;--font-body:x</style><script>;}\n' +
+      ':root[data-theme=dark]{--fg:#eeeeee;}',
+  );
+  const systems = new DesignSystems(join('assets', 'design-systems'), join(root, 'archive'), customRoot);
+  const stripe = systems.list().find((item) => item.id === 'stripe')!;
+  assert.equal(stripe.preview?.bg, '#ffffff');
+  assert.equal(stripe.preview?.accent, '#533afd');
+  assert.equal(stripe.preview?.radius, '6px');
+  assert.ok(stripe.preview?.display);
+  const withTokens = systems.list().filter((item) => item.preview?.bg && item.preview.fg && item.preview.accent);
+  assert.ok(withTokens.length > 140, String(withTokens.length));
+  const hostile = systems.importFolder(pack);
+  const preview = systems.list().find((item) => item.id === hostile.id)!.preview!;
+  assert.equal(preview.bg, undefined);
+  assert.equal(preview.fg, '#112233');
+  assert.equal(preview.accent, '#112233');
+  assert.equal(preview.radius, undefined);
+  assert.equal(preview.display, '"Brand", serif');
+  assert.equal(preview.body, '"Brand", serif');
+});
 
 test('brand checks repair nearby token colors and stay visible without blocking format', () => {
   const tokens = parseDesignTokens(
@@ -205,109 +233,4 @@ test('mobile and document playbooks stay first-party and publish HTML as the pri
   assert.equal(designerPlaybookName('document'), 'document');
   assert.match(designerPlaybook('mobile'), /data-design-id/);
   assert.match(designerPlaybook('document'), /design_export_pdf/);
-});
-
-test('publish records a visible brand check and will not overwrite a user-saved HTML file', async (t) => {
-  const { root, store, bot } = fixture(t),
-    systems = new DesignSystems(catalog(root)),
-    designs = new DesignStore(store, systems);
-  const task = designs.create({ botId: bot.id, kind: 'prototype', brief: 'Brand page', systemId: 'sample' });
-  const files = new DesignerFiles(store, designs);
-  const html =
-    '<!doctype html><html><style>:root{--od-color-primary:#cc3333}h1{color:#cc3434}</style><body><h1 data-design-id="hero">Hello</h1></body></html>';
-  mkdirSync(task.workspaceDir!, { recursive: true });
-  writeFileSync(join(task.workspaceDir!, 'index.html'), html);
-  const path = task.workspacePath + '/index.html';
-  let step = 0;
-  const artifacts = { read: (_bot: string, file: string) => files.read(_bot, file), collect: async () => {} };
-  const shared = {
-    openToolSession: () => ({
-      definitions: [],
-      invoke: async (name: string) => {
-        if (name === 'message_attach') return { attached: true };
-        return {};
-      },
-      close: () => {},
-      pending: () => [],
-    }),
-  };
-  const context = {
-    observe: () => {},
-    prepare: async (input: any) => ({
-      messages: [input.system, ...(input.prefixContext || []), ...input.history],
-      maxOutputTokens: 8192,
-      stats: { calibration: 1, estimatedTokens: 2000 },
-      calibrationEstimate: 2000,
-      recordUsage: () => {},
-    }),
-  };
-  const attachments = { wire: (_b: string, content: string) => ({ content }) },
-    interactions = { pendingQuestions: () => [], permission: async () => {} };
-  const loop = new DesignerLoop(
-    store,
-    designs,
-    systems,
-    files,
-    {
-      complete: async () => ({
-        content: step++ ? 'Ready' : 'Checking',
-        calls:
-          step === 1
-            ? [
-                {
-                  id: randomUUID(),
-                  type: 'function',
-                  function: { name: 'design_publish', arguments: JSON.stringify({ paths: [path] }) },
-                },
-              ]
-            : [],
-        finishReason: 'stop',
-      }),
-    } as any,
-    context as any,
-    shared as any,
-    artifacts as any,
-    attachments as any,
-    interactions as any,
-    () => {},
-  );
-  await loop.run(bot.id, 'Deliver', { designSessionId: task.id });
-  const published = designs.get(task.id);
-  assert.equal(published.checks.find((c) => c.id === 'format')?.status, 'passed');
-  assert.ok(published.checks.some((c) => c.id === 'brand'));
-  const locked = designs.get(task.id);
-  locked.userEdits = [{ id: 'u1', path, revision: 'abc', time: new Date().toISOString(), summary: 'user' }];
-  designs.save();
-  const before = readFileSync(join(task.workspaceDir!, 'index.html'), 'utf8');
-  step = 0;
-  const second = new DesignerLoop(
-    store,
-    designs,
-    systems,
-    files,
-    {
-      complete: async () => ({
-        content: step++ ? 'Ready' : 'Checking',
-        calls:
-          step === 1
-            ? [
-                {
-                  id: randomUUID(),
-                  type: 'function',
-                  function: { name: 'design_publish', arguments: JSON.stringify({ paths: [path] }) },
-                },
-              ]
-            : [],
-        finishReason: 'stop',
-      }),
-    } as any,
-    context as any,
-    shared as any,
-    artifacts as any,
-    attachments as any,
-    interactions as any,
-    () => {},
-  );
-  await second.run(bot.id, 'Deliver again', { designSessionId: task.id });
-  assert.equal(readFileSync(join(task.workspaceDir!, 'index.html'), 'utf8'), before);
 });

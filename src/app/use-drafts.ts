@@ -8,7 +8,7 @@ const EMPTY: ComposerDraft = Object.freeze({ text: '', mentions: [] }) as Compos
  * draft many times a second, so drafts live outside React state: only the composer showing a draft subscribes to it
  * (useDraft), and actions such as sending read it when they run.
  */
-export function createDrafts() {
+function createDrafts() {
   let drafts: Record<string, ComposerDraft> = {};
   const listeners = new Set<() => void>();
   const update = (change: (value: Record<string, ComposerDraft>) => Record<string, ComposerDraft>) => {

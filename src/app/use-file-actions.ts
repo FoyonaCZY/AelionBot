@@ -31,8 +31,8 @@ export function useFileActions(input: {
           workspace: { botId: file.botId, path: file.path },
           load: () => window.aelion.previewFile({ botId: file.botId, path: file.path }),
           save: () => window.aelion.exportFile({ botId: file.botId, path: file.path }),
-          ...(state?.bots.find((b) => b.id === file.botId)?.type !== 'designer' &&
-          !state?.computer.desktops?.[file.botId]?.ownerBotId
+          // Design task files live on this computer, not on the work computer.
+          ...(!file.path.startsWith('designers/') && !state?.computer.desktops?.[file.botId]?.ownerBotId
             ? {
                 openInComputer: async () => {
                   await window.aelion.openFile({ botId: file.botId, path: file.path });

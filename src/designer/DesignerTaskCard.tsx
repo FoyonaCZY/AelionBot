@@ -1,8 +1,9 @@
 import type { DesignSession, DesignTaskKind } from '../../shared/types/designer-types';
 import { PreviewIcon } from '../preview/PreviewIcon';
 import { useI18n } from '../i18n';
+import './design-styles';
 
-const statusLabel = (session: DesignSession, en: boolean) =>
+export const statusLabel = (session: DesignSession, en: boolean) =>
   ({
     draft: en ? 'Ready to start' : '待开始',
     running: en ? 'Designing' : '正在设计',
@@ -12,7 +13,7 @@ const statusLabel = (session: DesignSession, en: boolean) =>
     paused: en ? 'Paused' : '已暂停',
     failed: en ? 'Needs attention' : '需要处理',
   })[session.status];
-const kindCardLabel = (kind: DesignTaskKind, en: boolean) =>
+export const kindCardLabel = (kind: DesignTaskKind, en: boolean) =>
   ({
     prototype: en ? 'Prototype' : '原型',
     ppt: 'PPT',
@@ -20,6 +21,7 @@ const kindCardLabel = (kind: DesignTaskKind, en: boolean) =>
     mobile: en ? 'Mobile' : '移动端',
     document: en ? 'Doc' : '文档',
   })[kind];
+/** Opening a card shows that task on the canvas of the conversation it belongs to. */
 export function DesignerTaskCard({ session, onOpen }: { session: DesignSession; onOpen?: (id: string) => void }) {
   const { language } = useI18n(),
     en = language === 'en';
@@ -58,7 +60,3 @@ export function DesignerTaskCard({ session, onOpen }: { session: DesignSession; 
     </button>
   );
 }
-/**
- * Deliverables, checks and the accept action, kept out of the conversation scroll so they stay
- * reachable however long the thread grows. Compact by default; the detail list is opt-in.
- */

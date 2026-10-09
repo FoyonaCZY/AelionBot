@@ -47,7 +47,6 @@ export function registerComputer(ctx: IpcContext) {
   });
   handle('ensureComputerDesktop', (id) => {
     const bot = ctx.store.bot(String(id));
-    if (bot.type === 'designer') throw Error('设计师使用本机设计目录，不创建工作电脑');
     return ctx.computer.ensure(bot.id);
   });
   handle('setComputerControl', async (input) => {

@@ -12,9 +12,9 @@ export function groupDesktopBotId(
   group: Pick<GroupSummary, 'id' | 'members'>,
   runs: readonly Pick<RunRecord, 'id' | 'botId' | 'groupOrigin'>[],
   messages: readonly Pick<ChatMessage, 'role' | 'tool' | 'runId' | 'botId'>[],
-  bots: readonly Pick<Bot, 'id' | 'type'>[],
+  bots: readonly Pick<Bot, 'id'>[],
 ): string | undefined {
-  const usable = new Set(bots.filter((bot) => bot.type !== 'designer').map((bot) => bot.id));
+  const usable = new Set(bots.map((bot) => bot.id));
   const groupRuns = new Set(runs.filter((run) => run.groupOrigin?.groupId === group.id).map((run) => run.id));
   if (groupRuns.size)
     for (let index = messages.length - 1; index >= 0; index--) {

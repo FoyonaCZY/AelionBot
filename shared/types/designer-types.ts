@@ -1,18 +1,29 @@
 import type { WireMessage } from './core';
 import type { PreviewAnnotation } from './preview-editor-types';
+/**
+ * Retired: every Bot now runs the same engine and can take on design work. Older profiles may still carry
+ * `type: 'designer'`; it is kept on disk so an older app version still finds its designers, and nothing reads it.
+ */
 export type BotType = 'general' | 'designer';
-export function botType(value: unknown): BotType {
-  if (value === undefined || value === 'general') return 'general';
-  if (value === 'designer') return value;
-  throw Error('无效 Bot 类型');
-}
-export const DESIGN_TASK_KINDS = ['prototype', 'ppt', 'clone', 'mobile', 'document'] as const;
+const DESIGN_TASK_KINDS = ['prototype', 'ppt', 'clone', 'mobile', 'document'] as const;
 export type DesignTaskKind = (typeof DESIGN_TASK_KINDS)[number];
 export function isDesignTaskKind(value: unknown): value is DesignTaskKind {
   return typeof value === 'string' && (DESIGN_TASK_KINDS as readonly string[]).includes(value);
 }
 export type DesignOrigin = { kind: 'bot'; id: string } | { kind: 'group'; id: string } | { kind: 'peer'; id: string };
 export type DesignSystemOrigin = 'bundled' | 'custom';
+/** A design system's own surface, ink, accent, type and corner, read from its tokens.css for a specimen. */
+export interface DesignSystemPreview {
+  bg?: string;
+  surface?: string;
+  fg?: string;
+  muted?: string;
+  accent?: string;
+  border?: string;
+  radius?: string;
+  display?: string;
+  body?: string;
+}
 export interface DesignSystemSummary {
   id: string;
   name: string;
@@ -24,7 +35,7 @@ export interface DesignSystemSummary {
   source: string;
   license: string;
   origin?: DesignSystemOrigin;
-  display?: string;
+  preview?: DesignSystemPreview;
 }
 interface DesignSystemFile {
   path: string;
@@ -147,4 +158,9 @@ export interface DesignSystemDetail extends DesignSystemSummary {
   design: string;
   tokens: string;
   components: string;
+}
+/** A page's first screen for the canvas card. `path` is the page's workspace path. */
+export interface DesignThumbnail {
+  path: string;
+  dataUrl: string;
 }

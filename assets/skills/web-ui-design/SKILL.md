@@ -1,12 +1,24 @@
 ---
 name: web-ui-design
-description: "Build and refine usable websites and app interfaces, with deliberate visual design and real browser interaction checks."
+description: "Design and build websites, app interfaces, prototypes and visual documents: local design tasks with a live canvas, design systems and project fonts, or edits to an existing app."
 metadata:
   aelion-id: aelion-web-ui-design
   aelion-display-name: 网页与界面设计
 ---
 
 # Web and UI design
+
+## Choose the route first
+
+- **A new visual deliverable** (prototype, landing page, mobile screen, website clone, multi-page visual document, new slide deck): call `design_start` when it is available. The task lives in a local folder and appears on the canvas card next to the chat. Choose its design system yourself: pass `systemId` when a bundled or imported system fits the brief or the brand the user named, leave it out for free-form work, and ask the user first when the choice would change the result and the brief does not settle it. Continue an earlier design of this conversation with `design_tasks`/`design_use` instead of starting a new one.
+- **A change to an existing app or site**: edit the selected host project in place with its own framework and components. Do not start a design task for it. Implementing a delivered design in a real project is this route too.
+- **A question or critique**: answer it; no task, no files.
+
+Inside a bound design task the task-state block, the pinned design system and the kind's workflow are already in context. Fonts are yours to choose: pick families that fit the brief, the brand and the design system unless the user names specific ones, and get them with `design_fonts` (list, search, acquire, check) and `design_font_apply`. `list` also shows the user's font library; prefer a library family when it fits or was imported for this brand, since `acquire` copies it offline. Read extra design-system files with `design_resource` only when needed.
+
+## How much checking
+
+A first draft of a design task needs no click-through: HTML shows on the canvas as soon as it is written, and each write returns static design-check findings. Fix P0 findings; P1/P2 are suggestions. Call `design_publish` when the user should receive the files; its findings are warnings. Run interaction checks and screenshot reviews when the user asks for them, or when the deliverable is a working app rather than a visual draft. For an existing app change, the checks below always apply.
 
 ## Design for the actual product
 
@@ -16,13 +28,13 @@ Typography, alignment, and content hierarchy do most of the work. Keep body line
 
 ## Implement in the right place
 
-For an existing app, edit the selected host project using its current framework and components. For a standalone artifact, create self-contained HTML/CSS/JS in the Bot workspace. Use available local assets and fonts; avoid adding a network dependency solely for a visual flourish. Do not invent backend success or silently wire a button to a placeholder action.
+For an existing app, edit the selected host project using its current framework and components. For a standalone artifact without design tools, create self-contained HTML/CSS/JS in the Bot workspace. Use available local assets and fonts; avoid adding a network dependency solely for a visual flourish. Do not invent backend success or silently wire a button to a placeholder action.
 
 For a preview server, use the available process tools and bind only the necessary interface. The VM browser's localhost is not the host project's localhost. Show the Bot's own VM page with `open_preview`, or open that same page in the work-computer browser. Never claim to have tested a host site by opening an unrelated VM address. There is no separate host-browser tool.
 
 ## Inspect and iterate
 
-Open the actual page in the browser. Observe it before clicking; use current screenshots and observation IDs with `computer`, or an available browser MCP for DOM-based interactions. Check the primary workflow, keyboard navigation, modal focus, disabled states, errors, and a narrow viewport. Inspect layout for overflow, spacing, hierarchy, and unintended font substitution. Correct defects and rerun the affected flow.
+For an app change, open the actual page in the browser. Observe it before clicking; use current screenshots and observation IDs with `computer`, or an available browser MCP for DOM-based interactions. Check the primary workflow, keyboard navigation, modal focus, disabled states, errors, and a narrow viewport. Inspect layout for overflow, spacing, hierarchy, and unintended font substitution. Correct defects and rerun the affected flow.
 
 For a local HTML deliverable, keep assets portable, attach the needed files, and explain how to open it. For an existing app change, report the actual files and observed behavior. Describe untested integration points accurately instead of treating a screenshot as proof of backend correctness.
 

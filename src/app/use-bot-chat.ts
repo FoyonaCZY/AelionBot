@@ -2,6 +2,7 @@ import { useRef, type RefObject } from 'react';
 import type { Bot, ChatMessage, Snapshot } from '../../shared/types/core';
 import { messageReply } from '../../shared/chat/message-replies';
 import { usePreviewWorkbench } from '../preview/PreviewWorkbench';
+import { activeDesignId } from '../designer/design-canvas-state';
 import { ipcErrorText } from '../ui/ipc-error';
 import { useI18n } from '../i18n';
 import type { BotConversationData } from './bot-conversation';
@@ -60,7 +61,9 @@ export function useBotChat(input: {
       return;
     }
     const saved = draft,
-      botId = bot.id;
+      botId = bot.id,
+      // While the canvas shows a design task of this chat, the message continues that task.
+      designSessionId = activeDesignId({ kind: 'bot', id: botId, ...(sessionId ? { sessionId } : {}) });
     sending.current.add(key);
     drafts.update((value) => ({ ...value, [key]: { text: '', mentions: [] } }));
     follow.current = true;
@@ -79,6 +82,7 @@ export function useBotChat(input: {
         await window.aelion.send({
           botId,
           ...(sessionId ? { sessionId } : {}),
+          ...(designSessionId ? { designSessionId } : {}),
           message: saved.text,
           mentions: saved.mentions,
           replyToMessageId: saved.reply?.messageId,

@@ -22,6 +22,11 @@ export function registerGroups(ctx: IpcContext) {
       )
     )
       throw new Error('请先为群内 Bot 选择模型');
+    if (input?.designSessionId) {
+      const task = ctx.designStore.data.sessions.find((s) => s.id === String(input.designSessionId));
+      if (!task || task.origin.kind !== 'group' || task.origin.id !== room?.id)
+        throw new Error('设计任务不属于这个群聊');
+    }
     ctx.groupChats!.send(input);
   });
   handle('markGroupRead', (input) => ctx.groupChats!.markRead(input));

@@ -29,10 +29,6 @@ export function designRoundFiles(attachments: Attachment[] = [], changes: Record
   });
 }
 
-/** Chat column bounds in the split layout; the canvas keeps at least 360px. */
-export const clampDesignerChatWidth = (width: number, available = Infinity) =>
-  Math.round(Math.max(360, Math.min(640, available - 360, width)));
-
 type DeliveryState = 'running' | 'blocked' | 'pending' | 'accepted' | 'empty';
 /** Which of the four states the delivery bar shows. P0 findings block confirming. */
 export function deliveryState(input: {

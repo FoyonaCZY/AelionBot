@@ -235,17 +235,6 @@ export class GroupChats implements GroupGateway {
           (workLane(message) && (!message?.workItemId || message.workItemId !== run?.workItemId))
         )
           return false;
-        // A designer handling only a lifecycle event has no design tools yet. Leave a new
-        // human task queued so its next run can establish that task's authorization.
-        if (
-          run?.engine === 'designer' &&
-          d.rootId !== worker.rootId &&
-          !room.messages.some(
-            (m) => m.rootId === worker.rootId && ((m.sender.kind === 'user' && m.kind === 'message') || m.scheduled),
-          ) &&
-          !this.round(worker.rootId).originKey?.startsWith('task:')
-        )
-          return false;
         return true;
       })
       .slice(0, 8);

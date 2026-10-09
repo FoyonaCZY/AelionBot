@@ -1,4 +1,3 @@
-import { botType } from '../../shared/types/designer-types';
 import { resumableRun } from '../core/agent/resume-run';
 import type { IpcContext } from './context';
 import { AppError } from '../../shared/errors';
@@ -9,7 +8,7 @@ export function registerChat(ctx: IpcContext) {
     const botId = String(input?.botId || ''),
       focus = typeof input?.focus === 'string' ? input.focus.slice(0, 1000) : '',
       sessionId = typeof input?.sessionId === 'string' ? input.sessionId : undefined;
-    if (botType(ctx.store.bot(botId).type) !== 'general') throw Error('设计 Bot 的上下文由设计会话管理');
+    ctx.store.bot(botId);
     if (sessionId && !ctx.store.data.workSessions?.some((s) => s.id === sessionId && s.botId === botId))
       throw new AppError('session.not_found', '工作会话不存在');
     return ctx.generalHarness.compactContext(botId, focus, sessionId);

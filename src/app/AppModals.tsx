@@ -1,8 +1,8 @@
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import type { Bot, Snapshot } from '../../shared/types/core';
 import { WorkspaceFileTree } from '../files/WorkspaceFileTree';
-import { usePreviewWorkbench } from '../preview/PreviewWorkbench';
 import { AppearanceSettings } from '../settings/AppearanceSettings';
+import { DesignSettings } from '../settings/DesignSettings';
 import { RuntimeSettings } from '../settings/RuntimeSettings';
 import { UsageSettings } from '../settings/UsageSettings';
 import { SettingsWindow, type SettingsTab } from '../settings/SettingsWindow';
@@ -24,7 +24,6 @@ import type { PreviewFile } from './use-file-actions';
 export type Modal =
   | 'new'
   | 'profile'
-  | 'switch-type'
   | 'delete-bot'
   | 'settings'
   | 'computer'
@@ -45,7 +44,6 @@ export function AppModals({
   bot,
   computer,
   profileForm,
-  saveProfile,
   deletingBot,
   removeBot,
   settingsTab,
@@ -71,7 +69,6 @@ export function AppModals({
   computer: ReturnType<typeof useComputerControl>;
   /** The create/edit Bot form; the caller renders it while `modal` is 'new' or 'profile'. */
   profileForm: ReactNode;
-  saveProfile: (confirmContextReset?: boolean) => Promise<void>;
   deletingBot?: Bot;
   removeBot: () => Promise<void>;
   settingsTab: SettingsTab;
@@ -87,31 +84,28 @@ export function AppModals({
   openPreview: (file: PreviewFile) => void;
   setToast: (message: string) => void;
 }) {
-  const { t } = useI18n(),
-    previewWorkbench = usePreviewWorkbench();
+  const { t } = useI18n();
   const { vmReady, desktopBot, desktop, controlled, takeover, controlPending, computerAction, toggleComputerControl } =
     computer;
   const anyRunning = state.runs.some((run) => run.status === 'running') || false;
   const title =
-    modal === 'switch-type'
-      ? t('切换 Bot 类型？')
-      : modal === 'computer-setup'
-        ? t('工作电脑设置')
-        : modal === 'settings'
-          ? t('设置')
-          : modal === 'new'
-            ? t('创建新 Bot')
-            : modal === 'profile'
-              ? t('Bot 资料')
-              : modal === 'delete-bot'
-                ? t('删除 Bot')
-                : modal === 'terminal'
-                  ? t('工作终端')
-                  : modal === 'files'
-                    ? `${bot?.name || 'Bot'} ${t('的文件')}`
-                    : modal === 'screen'
-                      ? t('操作截图')
-                      : t('工作电脑');
+    modal === 'computer-setup'
+      ? t('工作电脑设置')
+      : modal === 'settings'
+        ? t('设置')
+        : modal === 'new'
+          ? t('创建新 Bot')
+          : modal === 'profile'
+            ? t('Bot 资料')
+            : modal === 'delete-bot'
+              ? t('删除 Bot')
+              : modal === 'terminal'
+                ? t('工作终端')
+                : modal === 'files'
+                  ? `${bot?.name || 'Bot'} ${t('的文件')}`
+                  : modal === 'screen'
+                    ? t('操作截图')
+                    : t('工作电脑');
   return (
     <div
       className={`modal-backdrop ${modal === 'settings' ? 'settings-backdrop' : modal === 'computer' ? 'computer-backdrop' : modal === 'screen' ? 'wide-backdrop' : ''}`}
@@ -146,24 +140,6 @@ export function AppModals({
           />
         )}
         {profileForm}
-        {modal === 'switch-type' && (
-          <div className="delete-bot-confirmation">
-            <p>{t('切换 Bot 类型将永久清空这个 Bot 的所有上下文，包括对话、记忆、任务历史和设计会话。')}</p>
-            <p>{t('工作文件、已安装插件、群成员关系与共享聊天记录会保留。此操作无法撤销。')}</p>
-            <div className="dialog-actions">
-              <button className="secondary-button" autoFocus disabled={busy} onClick={() => setModal('profile')}>
-                {t('取消')}
-              </button>
-              <button
-                className="danger-button"
-                disabled={busy}
-                onClick={() => previewWorkbench?.navigate(() => void act(() => saveProfile(true)))}
-              >
-                {t('清空上下文并切换')}
-              </button>
-            </div>
-          </div>
-        )}
         {modal === 'delete-bot' && deletingBot && (
           <div className="delete-bot-confirmation">
             <p>{t('删除“{name}”及其对话和记忆？工作文件和私聊记录会保留。', { name: deletingBot.name })}</p>
@@ -183,6 +159,7 @@ export function AppModals({
             {settingsTab === 'profile' && <UserProfileSettings profile={state.userProfile} onNotify={setToast} />}
             {settingsTab === 'runtime' && <RuntimeSettings settings={state.runtime} onNotify={setToast} />}
             {settingsTab === 'model' && <ModelSettings state={state} onNotify={setToast} />}
+            {settingsTab === 'design' && <DesignSettings designer={state.designer} onNotify={setToast} />}
             {settingsTab === 'usage' && <UsageSettings state={state} />}
             {settingsTab === 'memory' && (
               <MemorySettings state={state} bot={bot} scope={scope} onScope={setScope} busy={busy} act={act} />

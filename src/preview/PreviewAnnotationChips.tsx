@@ -13,7 +13,7 @@ export function PreviewAnnotationChips({ scope }: { scope: AttachmentScope }) {
   const { t } = useI18n(),
     workbench = usePreviewWorkbench(),
     info = workbench?.info;
-  if (!info || !(info.docked || info.studio) || !sameScope(info.scope, scope) || !info.annotations.length) return null;
+  if (!info || !info.docked || !sameScope(info.scope, scope) || !info.annotations.length) return null;
   const kind = { rect: '区域', element: '元素', arrow: '箭头', pen: '画笔', text: '文字' } as const;
   return (
     <div className="composer-annotations" role="group" aria-label={t('已标注的位置')}>

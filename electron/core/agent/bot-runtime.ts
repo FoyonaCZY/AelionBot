@@ -1,7 +1,5 @@
 import { resumableRun } from './resume-run';
-import { botType } from '../../../shared/types/designer-types';
 import type { Harness } from './harness';
-import type { DesignerLoop } from '../designer/designer-loop';
 import type { Store } from '../storage/store';
 import type { HarnessRunOptions, PeerGateway } from './peer-runtime-types';
 import type { GroupGateway } from '../group/group-runtime-types';
@@ -10,21 +8,19 @@ import type { AgentPreviews } from '../preview/agent-previews';
 import type { VideoFrames } from '../preview/video-frames';
 import { AppError } from '../../../shared/errors';
 import { laneMatches, runLane } from './run-lanes';
-/** One dispatch boundary for private chat, groups, delegated work and schedules. */
+/** One dispatch boundary for private chat, groups, delegated work and schedules. Every Bot runs the general agent. */
 export class BotRuntime {
   private dispatching = new Set<string>();
   readonly streams: { snapshot: () => ReturnType<Harness['streams']['snapshot']> };
   constructor(
     private store: Store,
     readonly general: Harness,
-    readonly designer: DesignerLoop,
     private changed: () => void,
-    private beforeDesignerRun: () => void = () => {},
   ) {
-    this.streams = { snapshot: () => [...general.streams.snapshot(), ...designer.streams.snapshot()] };
+    this.streams = { snapshot: () => general.streams.snapshot() };
   }
   get busy() {
-    return this.dispatching.size > 0 || this.general.busy || this.designer.busy;
+    return this.dispatching.size > 0 || this.general.busy;
   }
   /**
    * Whether the Bot is working: in any of its chats (`sessionId` undefined), its main chat with its group and
@@ -32,7 +28,7 @@ export class BotRuntime {
    */
   isRunning(id: string, sessionId?: string | null) {
     for (const lane of this.dispatching) if (laneMatches(lane, id, sessionId)) return true;
-    return this.general.isRunning(id, sessionId) || (sessionId ? false : this.designer.isRunning(id));
+    return this.general.isRunning(id, sessionId);
   }
   async run(id: string, input: string, options: HarnessRunOptions = {}) {
     const resumedSession = options.resumeRunId
@@ -41,19 +37,14 @@ export class BotRuntime {
     const lane = runLane(id, options.sessionId ?? resumedSession);
     if (this.isRunning(id, options.sessionId ?? resumedSession ?? null))
       throw Error('这个 Bot 仍在工作，请等待或停止当前任务');
-    const previousId = options.resumeRunId || options.groupTaskFrom;
-    const previous = previousId
-      ? this.store.data.runs.find((r) => r.id === previousId && r.botId === id)
-      : options.workItemId
-        ? this.store.data.runs.filter((r) => r.workItemId === options.workItemId && r.botId === id).at(-1)
-        : undefined;
-    const kind = botType(this.store.bot(id).type);
-    if (previous && (previous.engine || 'general') !== kind) throw Error('Bot 类型已改变，不能恢复旧类型的任务');
-    if (options.designSessionId && kind !== 'designer') throw Error('通用 Bot 不能运行设计会话');
-    if (kind === 'designer') this.beforeDesignerRun();
+    // A group follow-up may carry an old designer run's task forward; only resuming that run itself is refused.
+    const resumed = options.resumeRunId
+      ? this.store.data.runs.find((r) => r.id === options.resumeRunId && r.botId === id)
+      : undefined;
+    if (resumed?.engine === 'designer') throw retiredDesignerRun();
     this.dispatching.add(lane);
     try {
-      await (kind === 'designer' ? this.designer : this.general).run(id, input, options);
+      await this.general.run(id, input, options);
     } finally {
       this.dispatching.delete(lane);
     }
@@ -61,12 +52,7 @@ export class BotRuntime {
   async resume(botId: string, runId: string) {
     const run = this.store.data.runs.find((r) => r.id === runId && r.botId === botId);
     if (!run) throw Error('任务不存在');
-    if ((run.engine || 'general') !== botType(this.store.bot(botId).type))
-      throw new AppError('bot.type_changed', 'Bot 类型已改变，不能恢复旧类型的任务');
-    if (run.engine === 'designer') {
-      this.beforeDesignerRun();
-      return this.designer.resume(botId, runId);
-    }
+    if (run.engine === 'designer') throw retiredDesignerRun();
     const previous = resumableRun(this.store, botId, runId),
       source = this.store.humanRunMessage(previous.id),
       work = this.store.data.workItems?.find((item) => item.id === previous.workItemId);
@@ -84,7 +70,6 @@ export class BotRuntime {
   /** Stops the Bot's work: everywhere, in its main chat (`sessionId` null) or in one work session. */
   cancel(id: string, sessionId?: string | null) {
     this.general.cancel(id, sessionId);
-    if (!sessionId) this.designer.cancel(id);
   }
   liveWork() {
     return this.general.liveWork();
@@ -93,21 +78,16 @@ export class BotRuntime {
     return this.general.stopLiveWork(botId, kind, id);
   }
   refreshInput(id: string, sessionId?: string | null) {
-    return !sessionId && this.designer.isRunning(id)
-      ? this.designer.refreshInput(id)
-      : this.general.refreshInput(id, sessionId);
+    return this.general.refreshInput(id, sessionId);
   }
   refreshGroup(id: string) {
-    if (this.designer.isRunning(id)) this.designer.refreshGroup(id);
-    else this.general.refreshGroup(id);
+    this.general.refreshGroup(id);
   }
   setPeerGateway(gateway: PeerGateway) {
     this.general.setPeerGateway(gateway);
-    this.designer.setPeerGateway(gateway);
   }
   setGroupGateway(gateway: GroupGateway) {
     this.general.setGroupGateway(gateway);
-    this.designer.setGroupGateway(gateway);
   }
   setPreviewGateway(gateway: AgentPreviews) {
     this.general.setPreviewGateway(gateway);
@@ -119,7 +99,6 @@ export class BotRuntime {
     this.general.setVideoFrames(video);
   }
   disposeTools() {
-    this.designer.streams.dispose();
     this.general.disposeTools();
   }
   closeProcesses() {
@@ -129,3 +108,6 @@ export class BotRuntime {
     return this.general.stopBotProcesses(botId);
   }
 }
+/** Runs of the retired designer engine keep their records and files but cannot be continued as they were. */
+const retiredDesignerRun = () =>
+  new AppError('bot.designer_retired', '这是旧版设计师的任务，请在对话里重新发送修改意见，Bot 会接着这个设计任务继续');

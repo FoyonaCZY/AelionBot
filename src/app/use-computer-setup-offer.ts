@@ -16,11 +16,10 @@ export function useComputerSetupOffer(input: {
   taskModalOpen: boolean;
   onOffer: () => void;
 }) {
-  const { state, bot, page, modal, peerPanel, groupEditor, taskModalOpen, onOffer } = input;
+  const { state, page, modal, peerPanel, groupEditor, taskModalOpen, onOffer } = input;
   const setupPrompted = useRef('');
   useEffect(() => {
-    if (!state || bot?.type === 'designer' || page !== 'chat' || modal || peerPanel || groupEditor || taskModalOpen)
-      return;
+    if (!state || page !== 'chat' || modal || peerPanel || groupEditor || taskModalOpen) return;
     const offer = computerSetupDismissalKey(state.dataDir, state.vm);
     if (setupPrompted.current === offer) return;
     let dismissed = false;
@@ -30,15 +29,5 @@ export function useComputerSetupOffer(input: {
     if (!shouldOfferComputerSetup(state.vm, dismissed)) return;
     setupPrompted.current = offer;
     onOffer();
-  }, [
-    state?.dataDir,
-    state?.vm.status,
-    state?.vm.appsReady,
-    modal,
-    peerPanel,
-    groupEditor,
-    taskModalOpen,
-    page,
-    bot?.type,
-  ]);
+  }, [state?.dataDir, state?.vm.status, state?.vm.appsReady, modal, peerPanel, groupEditor, taskModalOpen, page]);
 }

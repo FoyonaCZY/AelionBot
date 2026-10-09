@@ -5,13 +5,12 @@ import { groupDesktopBotId } from '../src/computer/group-desktop';
 const group = {
   id: 'g',
   members: [
-    { id: 'designer', name: 'D', color: '#000', joinedAt: '' },
     { id: 'gone', name: 'G', color: '#000', joinedAt: '', leftAt: '2026-01-02' },
     { id: 'a', name: 'A', color: '#000', joinedAt: '' },
     { id: 'b', name: 'B', color: '#000', joinedAt: '' },
   ],
 } as any;
-const bots = [{ id: 'designer', type: 'designer' as const }, { id: 'gone' }, { id: 'a' }, { id: 'b' }] as any[];
+const bots = [{ id: 'gone' }, { id: 'a' }, { id: 'b' }] as any[];
 const groupRun = (id: string, botId: string, groupId = 'g') => ({ id, botId, groupOrigin: { groupId } }) as any;
 const tool = (botId: string, runId: string, name = 'computer') => ({ role: 'tool', tool: name, runId, botId }) as any;
 

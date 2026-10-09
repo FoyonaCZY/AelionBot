@@ -11,7 +11,7 @@ import { commentsFromAnnotations, commentScope } from '../shared/preview/designe
 function fixture(t: test.TestContext) {
   const root = tempDir(t, 'aelion-canvas-comments-');
   const store = new Store(join(root, 'data')),
-    bot = store.createBot('Designer', '', undefined, undefined, { type: 'designer' });
+    bot = store.createBot('Designer', '');
   const systems = { list: () => [] } as unknown as DesignSystems,
     designs = new DesignStore(store, systems);
   const task = designs.create({ botId: bot.id, kind: 'prototype', brief: 'Canvas feedback' });

@@ -68,7 +68,7 @@ export function useComputerControl(
     }
   }, [follow, hold, bot?.id]);
   useEffect(() => {
-    if (!desktopBot || desktopBot.type === 'designer' || !desktopAvailable) return;
+    if (!desktopBot || !desktopAvailable) return;
     let active = true;
     void window.aelion.ensureComputerDesktop(desktopBot.id).catch((error) => {
       if (active) onError(ipcErrorText(error));

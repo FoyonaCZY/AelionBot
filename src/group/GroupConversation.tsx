@@ -2,6 +2,7 @@ import { GroupDecisionTrail } from './GroupDecisionTrail';
 import { unanswered } from '../../shared/chat/group-answers';
 import { GroupGames } from './GroupGames';
 import { DesignerTaskCard } from '../designer/DesignerTaskCard';
+import { activeDesignId } from '../designer/design-canvas-state';
 import { usePreviewWorkbench } from '../preview/PreviewWorkbench';
 import { LiveWorkStrip } from '../chat/LiveWorkStrip';
 import { previewFeedbackDisplay } from '../../shared/preview/preview-feedback';
@@ -216,6 +217,7 @@ export function GroupConversation({
           mentions: saved.mentions,
           replyToMessageId: saved.reply?.messageId,
           attachmentIds: saved.attachments?.map((file) => file.id),
+          designSessionId: activeDesignId({ kind: 'group', id: group.id }),
         });
       if (active.current) setError('');
     } catch (error) {

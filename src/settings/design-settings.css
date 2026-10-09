@@ -1,0 +1,475 @@
+/* Settings → Design. The page frames the work and gets out of the way: each design system is drawn as a small
+   poster in its own colors, type and corners, and each library font is shown in its own glyphs. */
+.design-settings {
+  --ds-line: light-dark(#ebe7ef, #36323c);
+  --ds-ink: light-dark(#2b2630, #ece9ef);
+  --ds-muted: light-dark(#8a8391, #9d97a4);
+  --ds-field: light-dark(#fff, #1f1d23);
+  --ds-chip: light-dark(#f3f0f6, #2a2730);
+  --ds-paper: light-dark(#f7f5f1, #242228);
+  display: grid;
+  gap: 18px;
+}
+
+/* ---------- Segmented switch ---------- */
+.settings-modal .design-tabs {
+  display: inline-flex;
+  justify-self: start;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 11px;
+  background: var(--ds-chip);
+}
+.settings-modal .design-tabs button {
+  min-height: 32px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ds-muted);
+  font: inherit;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-weight: 550;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.settings-modal .design-tabs button:hover {
+  color: var(--ds-ink);
+}
+.settings-modal .design-tabs button[aria-selected='true'] {
+  background: var(--ds-field);
+  color: var(--ds-ink);
+  box-shadow:
+    0 1px 2px #0000000f,
+    0 0 0 1px light-dark(#0000000a, #ffffff0d);
+}
+
+.design-pane {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* ---------- Toolbar ---------- */
+.design-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.design-search {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  height: 40px;
+  padding: 0 13px;
+  border: 1px solid var(--ds-line);
+  border-radius: 12px;
+  background: var(--ds-field);
+  color: var(--ds-muted);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.design-search:focus-within {
+  border-color: light-dark(#b9a6d6, #6d5f80);
+  box-shadow: 0 0 0 3px light-dark(#8b6bea14, #8b6bea24);
+}
+.settings-modal .design-search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ds-ink);
+  font: inherit;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+}
+/* The field's frame shows focus; the settings-wide input outline would draw a second ring inside it. */
+.settings-modal .design-search input:focus-visible {
+  outline: none;
+}
+.settings-modal .design-search input::placeholder {
+  color: var(--ds-muted);
+}
+.settings-modal .design-action {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 15px;
+  border: 1px solid var(--ds-line);
+  border-radius: 12px;
+  background: var(--ds-field);
+  color: var(--ds-ink);
+  font: inherit;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-weight: 550;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.settings-modal .design-action:hover:not(:disabled) {
+  background: var(--ds-chip);
+}
+.settings-modal .design-action:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.design-pane .provider-error {
+  margin: 0 2px;
+}
+
+/* ---------- Category chips: one row that pans ---------- */
+.design-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  margin: -2px 0 2px;
+  padding: 2px 0;
+  scrollbar-width: none;
+  mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent);
+}
+.design-chips::-webkit-scrollbar {
+  display: none;
+}
+.settings-modal .design-chips button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--ds-chip);
+  color: var(--ds-muted);
+  font: inherit;
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.settings-modal .design-chips button:hover {
+  color: var(--ds-ink);
+}
+.design-chips small {
+  font-size: 0.92em;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+.settings-modal .design-chips button[aria-pressed='true'] {
+  background: var(--ds-ink);
+  color: light-dark(#fff, #1c1a1f);
+}
+
+/* ---------- Design-system gallery ---------- */
+.design-system-grid,
+.design-font-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 22px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.design-system-card,
+.design-font-card {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+/* The poster. Every value comes from the system's own tokens, with neutral fallbacks. */
+.design-specimen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  aspect-ratio: 4 / 3;
+  margin-bottom: 8px;
+  padding: 16px 18px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--sp-bg, #fff);
+  color: var(--sp-fg, #1d1b20);
+  box-shadow:
+    inset 0 0 0 1px light-dark(#00000012, #ffffff14),
+    0 1px 2px #0000000a;
+}
+/* The accent block, cut to the system's own corner: radius 0 stays square, a pill system becomes a disc. */
+.design-specimen-shape {
+  position: absolute;
+  right: -14%;
+  bottom: -22%;
+  width: 64%;
+  aspect-ratio: 1;
+  border-radius: min(50%, calc(var(--sp-radius, 8px) * 5));
+  background: var(--sp-accent, var(--sp-fg, #1d1b20));
+}
+.design-specimen-shape.is-second {
+  right: 30%;
+  bottom: -10%;
+  width: 26%;
+  background: var(--sp-second, var(--sp-fg, #1d1b20));
+  box-shadow: 0 0 0 4px var(--sp-bg, #fff);
+}
+.design-specimen-glyph {
+  position: relative;
+  font-family: var(--sp-display, Georgia, serif);
+  font-size: 56px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.035em;
+}
+.design-specimen-dots {
+  position: relative;
+  display: flex;
+  margin-top: auto;
+}
+.design-specimen-dots i {
+  width: 14px;
+  height: 14px;
+  margin-right: -3px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--sp-bg, #fff);
+}
+
+/* ---------- Captions under posters and fonts ---------- */
+.design-caption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 2px;
+}
+.design-caption strong {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-weight: 600;
+  color: var(--ds-ink);
+}
+.design-caption em {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--ds-chip);
+  color: var(--ds-muted);
+  font-size: calc(11px * var(--appearance-text-scale, 1));
+  font-style: normal;
+}
+.design-caption-meta {
+  overflow: hidden;
+  padding: 0 2px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  color: var(--ds-muted);
+}
+.design-empty-line {
+  margin: 28px 0;
+  list-style: none;
+  text-align: center;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  color: var(--ds-muted);
+}
+
+/* ---------- Fontsource results ---------- */
+.design-font-results {
+  display: grid;
+  margin: 0;
+  padding: 4px 0;
+  border: 1px solid var(--ds-line);
+  border-radius: 14px;
+  background: var(--ds-field);
+  list-style: none;
+}
+.design-font-results[aria-busy='true'] {
+  opacity: 0.7;
+}
+.design-font-results > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 6px 8px 6px 16px;
+}
+.design-font-results > li + li {
+  border-top: 1px solid var(--ds-line);
+}
+.design-font-results > li.design-empty-line {
+  display: block;
+  margin: 10px 0;
+  min-height: 0;
+  border: 0;
+}
+.design-font-result-name {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.design-font-result-name strong {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: calc(14px * var(--appearance-text-scale, 1));
+  font-weight: 600;
+  color: var(--ds-ink);
+}
+.design-font-result-name small {
+  flex: none;
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  color: var(--ds-muted);
+}
+.design-font-result-name em {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--ds-chip);
+  color: var(--ds-muted);
+  font-size: calc(11px * var(--appearance-text-scale, 1));
+  font-style: normal;
+}
+.design-font-results .design-action {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 10px;
+}
+.design-font-result-done {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  color: var(--ds-muted);
+}
+
+/* ---------- My fonts ---------- */
+.settings-modal .design-subhead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 8px 0 0;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-weight: 600;
+  color: var(--ds-ink);
+}
+.design-subhead small {
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--ds-muted);
+}
+.design-font-specimen {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  aspect-ratio: 4 / 3;
+  margin-bottom: 8px;
+  padding: 14px 18px 16px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--ds-paper);
+  color: var(--ds-ink);
+  box-shadow: inset 0 0 0 1px light-dark(#0000000d, #ffffff10);
+  transition: opacity 0.25s;
+}
+.design-font-card:not([data-font-loaded]) .design-font-specimen {
+  opacity: 0.45;
+}
+.design-font-glyph {
+  font-size: 84px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+.design-font-line {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 16px;
+  color: var(--ds-ink);
+  opacity: 0.72;
+}
+.design-font-caption {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding-right: 36px;
+}
+.settings-modal .design-font-remove {
+  position: absolute;
+  top: -2px;
+  right: 0;
+  display: inline-grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ds-muted);
+  font: inherit;
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.15s,
+    background 0.15s,
+    color 0.15s;
+}
+.design-font-card:hover .design-font-remove,
+.design-font-remove:focus-visible,
+.design-font-remove[data-confirming] {
+  opacity: 1;
+}
+.settings-modal .design-font-remove:hover,
+.settings-modal .design-font-remove[data-confirming] {
+  background: light-dark(#fbe9e7, #3d2624);
+  color: light-dark(#b23b2e, #f0a296);
+}
+.design-font-empty {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 30px 0 18px;
+  border: 1px dashed var(--ds-line);
+  border-radius: 14px;
+  color: var(--ds-muted);
+}
+.design-font-empty span {
+  font-family: Georgia, serif;
+  font-size: 56px;
+  line-height: 1;
+  opacity: 0.35;
+}
+.design-font-empty p {
+  margin: 0;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .design-settings * {
+    transition: none !important;
+  }
+}
+@container settings-content (max-width: 560px) {
+  .design-system-grid,
+  .design-font-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+}
