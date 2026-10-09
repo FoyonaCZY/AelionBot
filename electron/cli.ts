@@ -1,11 +1,13 @@
 // Headless entry: runs one Bot task against a host workspace without Electron.
 // node dist-electron/cli.cjs "fix the failing test" --workspace . --permission auto
+import { installAelionUserAgent } from './core/net/user-agent';
 import { parseArgs } from 'node:util';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { runHeadless, type HeadlessEvent, type HeadlessPermission } from './core/agent/headless';
 import type { ModelProtocol } from '../shared/types/model-types';
 
+installAelionUserAgent();
 const usage = `用法: aelion-headless [任务] [选项]
   任务可作为参数，或从标准输入读取。
 

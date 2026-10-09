@@ -1,3 +1,4 @@
+import { installAelionUserAgent } from './core/net/user-agent';
 import { LayaDecisionLog } from './core/model/laya-decision-log';
 import { LayaGroupDecisions } from './core/group/laya-decision';
 import { gameProviders } from './core/games/providers';
@@ -71,6 +72,7 @@ import { Shutdown } from './core/app/shutdown';
 import { IPC_CHANNELS, type IpcHandler, type IpcMethod } from '../shared/ipc';
 import { registerIpc } from './ipc';
 
+installAelionUserAgent();
 let window: BrowserWindow | undefined;
 let previewDirty = false,
   previewWrites = 0;

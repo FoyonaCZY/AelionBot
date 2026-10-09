@@ -1,3 +1,5 @@
+import { withAelionUserAgent } from '../net/user-agent';
+
 type Undici = { Agent: new (options: object) => unknown; fetch: (url: string, init?: object) => Promise<Response> };
 const agents = new Map<string, unknown>();
 let undici: Undici | undefined | null;
@@ -21,7 +23,8 @@ export async function prepareModelHttp(url: string) {
 }
 export async function modelFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const agent = await dispatcher(new URL(url).origin);
-  return fetch(url, agent ? ({ ...init, dispatcher: agent } as RequestInit) : init);
+  const next = withAelionUserAgent(url, init);
+  return fetch(url, agent ? ({ ...next, dispatcher: agent } as RequestInit) : next);
 }
 export async function prewarmModelEndpoint(baseUrl: string, headers: Record<string, string> = {}) {
   try {

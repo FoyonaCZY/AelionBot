@@ -7,16 +7,16 @@ import { createHash } from 'node:crypto';
 import { parseHTML, DOMParser } from 'linkedom';
 import { boundedInteger, textPage, FileToolError } from './file-text';
 import { abortable } from '../app/abortable';
+import { AELION_USER_AGENT } from '../net/user-agent';
 
 const LIMIT = 2 * 1024 * 1024;
-const BOT_UA = 'AelionBot/0.15 (+https://aelion.chat)';
 const SEARCH_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 const SEARCH_CACHE_MS = 5 * 60 * 1000;
 function requestHeaders(url: URL) {
   const search = /(?:^|\.)(?:bing\.com|duckduckgo\.com|brave\.com)$/.test(url.hostname);
   return {
-    'User-Agent': search ? SEARCH_UA : BOT_UA,
+    'User-Agent': search ? SEARCH_UA : AELION_USER_AGENT,
     Accept: 'text/html,application/xhtml+xml,application/rss+xml,application/xml,text/plain,application/json',
     'Accept-Language': 'en-US,en;q=0.8,zh-CN;q=0.6',
     'Accept-Encoding': 'identity',
