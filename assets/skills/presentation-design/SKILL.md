@@ -22,7 +22,7 @@ Identify the audience, decision, speaking time, and requested format. Build a se
 - For an existing PPTX/ODP, open it with `computer` (`action: open_app`, `app: impress`, `path: ...`) and inspect its master, aspect ratio, fonts, and media. Preserve editable objects and speaker notes.
 - For a new deck, use Impress directly or the installed python-pptx package. `scripts/create_deck.py assets/deck.json output/deck.pptx` is an editable 16:9 starting deck. First copy and tailor the JSON in the workspace; never deliver the sample text. It supports title/body slides, two columns, and local images, with explicit text-size bounds to avoid silent clipping.
 - Replace the starter palette and layout when the subject or user's design requires it. Establish a type scale and alignment grid. Use fonts actually present in the VM; Noto Sans/CJK, Carlito, and Caladea are usual choices. Do not turn every slide into a screenshot.
-- Use real assets from the user or verified sources. A remote image URL alone is not an embedded image. Do not claim to generate images if no image-generation tool is available.
+- Use real assets from the user or verified sources. A remote image URL alone is not an embedded image. When a slide needs an illustration and `generate_image` is available, generate it, copy the returned attachment into the workspace with `attachment_save`, and embed that file. Without an image tool, do not claim to have generated one.
 
 ## Verify in Impress
 
@@ -33,7 +33,7 @@ Deliver PPTX or ODP as requested, with a PDF preview when useful. State any mate
 ## Aelion workspace and delivery
 
 - Read incoming files with `attachment_read`; use `attachment_save` for binary files and use its returned path.
-- `computer_execute`, `file_read`, `file_write`, and `file_patch` operate in the Linux work computer, under the current Bot's workspace. `host_*` tools operate on the user's selected local project; these are different filesystems. Never assume a host path exists in the VM.
+- `computer_execute`, `python_execute`, `file_read`, `file_write`, and `file_patch` operate in the Linux work computer, under the current Bot's workspace. `host_*` tools operate on the user's selected local project; these are different filesystems. Never assume a host path exists in the VM. `view_image` reads host paths only: to look at a PNG or PDF rendered in the VM, open it in the work-computer browser with `computer` and inspect the screenshot. `open_preview` shows a file to the user; it is not a check you performed.
 - Read supporting files with `skill_file_read`. Before running a bundled script in the VM, call `skill_materialize` for this skill and use its returned `vmPath`; quote that path in shell commands. Keep generated files in the Bot workspace, outside the materialized skill directory.
 - Open Writer, Calc, Impress, or the work-computer browser with `computer` (`action: open_app`) only when this task needs that application. For an existing document, pass its workspace-relative `path`. Inspect screenshots before coordinate actions and use the latest returned `observationId`. Do not open a desktop app in place of search, `web_read`, file tools, or an edit in the selected host project.
 - Final files belong in `message_attach` using `attachments: [{path: "output/actual-file.ext"}]`. This also works for a final group or private-chat reply. When explicitly sending a separate collaboration message, `bot_send_message` and `group_send_message` accept the same attachment entries. Attach only useful deliverables, not every intermediate preview.
