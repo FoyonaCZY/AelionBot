@@ -174,9 +174,12 @@ test('growth summary recognizes reversal and suppresses it after a reset or iden
 
 test('viewing a Bot never saves a draft; confirming does, and the draft follows the game preset', (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-persona-view-'));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
   const svc = new PersonaService(dir);
-  t.after(() => svc.close());
+  // Close before removing the folder: Windows cannot delete an open SQLite file.
+  t.after(() => {
+    svc.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
   const looked = svc.view('A', 'ESTP');
   assert.equal(looked.profile.traits.E, 0.7);
   assert.equal(statusText(looked), '初稿 · 由游戏预设生成，待你确认');

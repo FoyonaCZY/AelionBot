@@ -39,7 +39,9 @@ for (const kind of ['message', 'reaction'] as const) {
       maxBuffer: 1024 * 1024,
     });
     assert.equal(child.error, undefined);
-    assert.equal(child.signal, 'SIGKILL', child.stderr);
+    // Windows has no POSIX signals: a SIGKILL there terminates the process at once and reports exit code 1.
+    if (process.platform === 'win32') assert.equal(child.status, 1, child.stderr);
+    else assert.equal(child.signal, 'SIGKILL', child.stderr);
     const receipt = JSON.parse(child.stdout);
     const store = new Store(dir, { incremental: true });
     try {

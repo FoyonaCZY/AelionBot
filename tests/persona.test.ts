@@ -16,6 +16,16 @@ function tempDir(t: test.TestContext) {
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   return dir;
 }
+// Close the service before removing its folder: Windows cannot delete an open SQLite file.
+function personaService(t: test.TestContext, now?: () => number) {
+  const dir = mkdtempSync(join(tmpdir(), 'aelion-persona-'));
+  const svc = new PersonaService(dir, now);
+  t.after(() => {
+    svc.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+  return svc;
+}
 // Seats: a (wolf, Bot A), b (wolf, Bot B), c (witch, Bot C), d (villager, human), e (villager, guest).
 const match = (over: Partial<SettleMatch> = {}): SettleMatch => ({
   id: 'm1',
@@ -89,8 +99,7 @@ test('affinity decays linearly, weighs bad more than good, and is clipped', () =
 
 test('persona service settles once, recalls a memory once per cooldown, and forgets on request', (t) => {
   let clock = 1_000 * DAY;
-  const svc = new PersonaService(tempDir(t), () => clock);
-  t.after(() => svc.close());
+  const svc = personaService(t, () => clock);
   const m = match({ events: [{ type: 'exile', day: 1, seatId: 'a', voters: ['b', 'd'] }] });
   assert.match(svc.settle(m)!, /狼人杀战报/);
   assert.equal(svc.settle(m), undefined, 'the same match is settled only once');
@@ -109,8 +118,7 @@ test('persona service settles once, recalls a memory once per cooldown, and forg
 });
 
 test('a match without seated Bots posts no report', (t) => {
-  const svc = new PersonaService(tempDir(t));
-  t.after(() => svc.close());
+  const svc = personaService(t);
   const noBots = match();
   noBots.seats = noBots.seats.map((s) => ({ ...s, botId: undefined }));
   assert.equal(svc.settle(noBots), undefined);

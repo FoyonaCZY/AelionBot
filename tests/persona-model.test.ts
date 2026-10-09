@@ -33,10 +33,15 @@ import { gamePrompt, gameInstructions, parseGameAction } from '../electron/core/
 import type { GameAction, GameRequest } from '../shared/types/game-types';
 
 const T = (over: Partial<Traits> = {}): Traits => ({ ...NEUTRAL, ...over });
-function tempDir(t: test.TestContext) {
+// Close the service before removing its folder: Windows cannot delete an open SQLite file.
+function personaService(t: test.TestContext, now?: () => number) {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-persona2-'));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
-  return dir;
+  const svc = new PersonaService(dir, now);
+  t.after(() => {
+    svc.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+  return svc;
 }
 
 test('derived tendencies are zero at the neutral level and the Jacobian is their exact derivative', () => {
@@ -323,8 +328,7 @@ test('growth experiences: votes judged by the revealed camp, strong decisions sk
 
 test('settlement grows each Bot within the daily cap, records why, remembers plans; lock and reset work', (t) => {
   let now = Date.UTC(2026, 9, 1, 8);
-  const svc = new PersonaService(tempDir(t), () => now);
-  t.after(() => svc.close());
+  const svc = personaService(t, () => now);
   const seeds = svc.seeds([{ botId: 'A', mbti: 'ENTJ' }, { botId: 'B' }], ['A', 'B', 'user']);
   assert.equal(seeds.A.traits.E, 0.7);
   const seats = [
@@ -399,9 +403,8 @@ test('settlement grows each Bot within the daily cap, records why, remembers pla
 test('a whole match through the runtime: personas assigned, candidates honoured, decisions settled', async (t) => {
   const { GameRuntime } = await import('../electron/core/games/runtime');
   const { until } = await import('./helpers');
-  const dir = tempDir(t);
+  const dir = mkdtempSync(join(tmpdir(), 'aelion-persona2-'));
   const svc = new PersonaService(dir);
-  t.after(() => svc.close());
   let done: WerewolfState | undefined;
   const runtime = new GameRuntime(
     join(dir, 'games'),
@@ -436,7 +439,11 @@ test('a whole match through the runtime: personas assigned, candidates honoured,
       },
     },
   );
-  t.after(() => runtime.dispose());
+  t.after(() => {
+    runtime.dispose();
+    svc.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
   runtime.create({ groupId: 'g', players: seat7(4) });
   await until(() => !!done, { timeoutMs: 25_000, intervalMs: 50 });
   assert.equal(Object.keys(done!.persona!).length, 4, 'only member Bots get a persona; guests keep the preset');
@@ -464,8 +471,7 @@ test('birth draft: facet ratings map to traits, bad replies fail, and a grown Bo
   );
   assert.throws(() => traitsFromFacets('{"E1":3}'), /不完整/);
   assert.ok(birthPrompt('阿岩', '话少，爱观察').user.includes('E1.'));
-  const svc = new PersonaService(tempDir(t));
-  t.after(() => svc.close());
+  const svc = personaService(t);
   const drafted = await svc.draft('A', '阿岩', '话少', async () => JSON.stringify({ ...all(3), E1: 1, E2: 1, E3: 1 }));
   assert.equal(drafted.profile.source, 'bfi2');
   assert.equal(drafted.profile.confirmed, false);
