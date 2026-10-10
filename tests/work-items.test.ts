@@ -115,7 +115,7 @@ test('runs without a conversation folder inherit the configured default workspac
     complete: async () => {
       if (!listed) {
         listed = 'once';
-        return response([call('host_file_read', { path: 'README.md', reason: '读取默认工作区' })]);
+        return response([call('file_read', { path: 'README.md', reason: '读取默认工作区' })]);
       }
       return response([], '已读到默认工作区。');
     },
@@ -157,7 +157,7 @@ test('runs without a conversation folder inherit the configured default workspac
   );
   assert.equal(store.data.runs[0]?.workspaceDir, realpathSync.native(project));
   assert.equal(store.data.runs[0]?.status, 'completed', store.data.runs[0]?.error || '');
-  const tool = store.data.messages.find((message) => message.tool === 'host_file_read');
+  const tool = store.data.messages.find((message) => message.tool === 'file_read');
   assert.match(tool?.content || '', /from default workspace/);
 });
 
@@ -231,7 +231,7 @@ test('/plan persists a pending checklist, exposes only read tools, and executes 
         assert.ok(
           !tools.some((t) =>
             [
-              'host_execute',
+              'exec_command',
               'file_write',
               'goal_set',
               'bot_send_message',
@@ -262,7 +262,8 @@ test('/plan persists a pending checklist, exposes only read tools, and executes 
   const executeModel = {
     complete: async () => {
       executeTurn++;
-      if (executeTurn === 1) return response([call('file_write', { path: 'result.txt', content: 'ok' })]);
+      if (executeTurn === 1)
+        return response([call('file_write', { path: 'result.txt', content: 'ok', location: 'vm' })]);
       if (executeTurn === 2) {
         const evidence = store.data.runs.at(-1)!.executions!.find((e) => e.tool === 'file_write')!.id;
         return response([call('plan_update', plan(1, 'done', [evidence]))]);
@@ -310,7 +311,7 @@ test('tool execution resets premature-answer retries and completed work still de
       turns++;
       if (turns === 1) return response([call('plan_update', plan())]);
       if ([2, 3, 5, 6].includes(turns)) return response([], '准备提交结果。');
-      if (turns === 4) return response([call('file_read', { path: 'proof.txt' })]);
+      if (turns === 4) return response([call('file_read', { path: 'proof.txt', location: 'vm' })]);
       if (turns === 7) {
         const evidence = store.data.runs.at(-1)!.executions!.find((e) => e.tool === 'file_read')!.id;
         return response([call('plan_update', plan(1, 'done', [evidence]))]);
@@ -340,7 +341,7 @@ test('goal keeps working after premature final text and needs real verification 
       turn++;
       if (turn === 1) return response([], '我会继续处理。');
       if (turn === 2) return response([call('plan_update', plan())]);
-      if (turn === 3) return response([call('file_read', { path: 'result.txt' })]);
+      if (turn === 3) return response([call('file_read', { path: 'result.txt', location: 'vm' })]);
       const evidence = store.data.runs.at(-1)?.executions?.find((e) => e.tool === 'file_read')?.id;
       if (turn === 4) return response([call('plan_update', plan(1, 'done', [evidence!]))]);
       if (turn === 5)
@@ -497,7 +498,7 @@ test('a follow-up edits the pending plan without silently approving execution', 
   let turn = 0;
   const model = {
     complete: async (_messages: unknown, tools: ToolDefinition[]) => {
-      assert.ok(!tools.some((t) => t.function.name === 'file_write' || t.function.name === 'host_execute'));
+      assert.ok(!tools.some((t) => t.function.name === 'file_write' || t.function.name === 'exec_command'));
       return ++turn === 1
         ? response([call('plan_update', { ...plan(1), steps: [{ ...plan().steps[0], title: '先完成读取和检查' }] })])
         : response([], '已经调整计划。');
@@ -593,7 +594,7 @@ test('a group plan runs through broadcast, confirmation, execution and final gro
       if (!run.plan) return response([call('plan_update', plan())]);
       if (item.status === 'planning') return response([], '计划已准备，请确认。');
       const evidence = run.executions?.find((e) => e.tool === 'file_read');
-      if (!evidence) return response([call('file_read', { path: 'proof.txt' })]);
+      if (!evidence) return response([call('file_read', { path: 'proof.txt', location: 'vm' })]);
       if (run.plan.steps[0].status !== 'done')
         return response([call('plan_update', plan(run.plan.revision, 'done', [evidence.id]))]);
       return response([], '已经核对完成，结果已验证。');

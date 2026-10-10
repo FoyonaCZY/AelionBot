@@ -99,7 +99,7 @@ test('continuing after a network failure retains history without forced compacti
             {
               id: 'verify',
               type: 'function',
-              function: { name: 'computer_execute', arguments: '{"command":"verify"}' },
+              function: { name: 'exec_command', arguments: '{"command":"verify","location":"vm"}' },
             },
           ],
         };

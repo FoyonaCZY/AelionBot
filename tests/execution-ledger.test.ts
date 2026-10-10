@@ -13,7 +13,7 @@ import type { VmController } from '../electron/core/vm/vm';
 const call = (id: string, path: string) => ({
   id,
   type: 'function' as const,
-  function: { name: 'file_write', arguments: JSON.stringify({ path, content: 'proof' }) },
+  function: { name: 'file_write', arguments: JSON.stringify({ path, content: 'proof', location: 'vm' }) },
 });
 function fixture(t: test.TestContext) {
   const dir = tempDir(t, 'aelion-ledger-');
@@ -88,7 +88,7 @@ test('project inspection can finish after a failed read and a successful alterna
                 id: 'read-' + turns,
                 type: 'function',
                 function: {
-                  name: 'host_file_read',
+                  name: 'file_read',
                   arguments: JSON.stringify({
                     path: turns === 1 ? 'README.rst' : 'README.md',
                     reason: '阅读项目说明',
@@ -168,19 +168,19 @@ test('failed inspect commands do not block completion while failed writes still 
   const command = ledger.begin(
     bot.id,
     'r',
-    { id: 'cmd', type: 'function', function: { name: 'host_execute', arguments: '{}' } },
+    { id: 'cmd', type: 'function', function: { name: 'exec_command', arguments: '{}' } },
     { command: 'go vet ./...' },
   );
   ledger.finish(command, 'failed', { exitCode: 1, stderr: 'existing issue' }, 'cmd');
   const write = ledger.begin(
     bot.id,
     'r',
-    { id: 'write', type: 'function', function: { name: 'host_file_write', arguments: '{}' } },
+    { id: 'write', type: 'function', function: { name: 'file_write', arguments: '{}' } },
     { path: 'a.go' },
   );
   ledger.finish(write, 'failed', { error: 'denied' }, 'write');
   assert.equal(ledger.failureMap(bot.id, 'r').size, 1);
-  assert.match([...ledger.failureMap(bot.id, 'r').values()][0], /host_file_write/);
+  assert.match([...ledger.failureMap(bot.id, 'r').values()][0], /file_write/);
 });
 test('read and bookkeeping failures do not mask unresolved command or write outcomes', (t) => {
   const store = fixture(t),
@@ -194,20 +194,20 @@ test('read and bookkeeping failures do not mask unresolved command or write outc
     modelCalls: 0,
     toolCalls: 0,
   });
-  for (const name of ['host_file_read', 'host_find_files', 'execution_resolve', 'host_execute', 'host_file_write']) {
+  for (const name of ['file_read', 'find_files', 'execution_resolve', 'exec_command', 'file_write']) {
     const entry = ledger.begin(bot.id, 'r', { id: name, type: 'function', function: { name, arguments: '{}' } }, {});
     ledger.finish(entry, 'failed', { error: 'failure' }, name);
   }
   const unknown = ledger.begin(
     bot.id,
     'r',
-    { id: 'unknown', type: 'function', function: { name: 'host_execute', arguments: '{}' } },
+    { id: 'unknown', type: 'function', function: { name: 'exec_command', arguments: '{}' } },
     { command: 'unknown' },
   );
   ledger.finish(unknown, 'unknown', { error: 'connection lost' }, 'unknown');
   assert.deepEqual(
     [...ledger.failureMap(bot.id, 'r').values()].map((value) => JSON.parse(value).tool),
-    ['host_file_write', 'host_execute'],
+    ['file_write', 'exec_command'],
   );
   assert.equal(ledger.pending(bot.id, 'r').length, 6);
 });
@@ -260,12 +260,12 @@ test('evidence is scoped to current bot/run and in-flight executions recover as 
   const restored = new Store(store.dir);
   assert.equal(restored.data.runs[0].executions?.[1].status, 'unknown');
   assert.notEqual(
-    executionTarget('host_execute', { command: 'echo "a b"' }, bot.id).targetKey,
-    executionTarget('host_execute', { command: 'echo "ab"' }, bot.id).targetKey,
+    executionTarget('exec_command', { command: 'echo "a b"' }, bot.id).targetKey,
+    executionTarget('exec_command', { command: 'echo "ab"' }, bot.id).targetKey,
   );
   assert.equal(
-    executionTarget('file_write', { path: '/work/' + bot.id + '/a' }, bot.id).targetKey,
-    executionTarget('file_write', { path: 'a' }, bot.id).targetKey,
+    executionTarget('file_write', { path: '/work/' + bot.id + '/a', location: 'vm' }, bot.id).targetKey,
+    executionTarget('file_write', { path: 'a', location: 'vm' }, bot.id).targetKey,
   );
 });
 
@@ -297,7 +297,7 @@ test('a failed multi-file patch is settled once each of its files is written suc
   assert.deepEqual(failed.paths, [`vm:/work/${bot.id}/src/a.ts`, `vm:/work/${bot.id}/src/b.ts`]);
   invoke('w1', 'file_write', { path: 'other.ts', content: 'x' }, 'succeeded');
   assert.equal(failed.resolution, undefined);
-  invoke('w2', 'file_patch', { path: 'src/a.ts' }, 'succeeded');
+  invoke('w2', 'file_patch', { path: 'src/a.ts', location: 'vm' }, 'succeeded');
   assert.equal(failed.resolution, undefined);
   invoke(
     'w3',
@@ -311,7 +311,7 @@ test('a failed multi-file patch is settled once each of its files is written suc
   assert.equal(ledger.list(bot.id, 'run').find((entry) => entry.id === failed.id)?.resolution?.kind, 'resolved');
   assert.equal(ledger.blocking(bot.id, 'run').length, 0);
   // Host and VM paths never settle each other.
-  const host = invoke('h1', 'host_file_patch', { path: 'C:\repoa.ts' }, 'failed');
+  const host = invoke('h1', 'file_patch', { path: 'C:\repoa.ts' }, 'failed');
   invoke('h2', 'file_patch', { path: 'a.ts' }, 'succeeded');
   assert.equal(host.resolution, undefined);
 });

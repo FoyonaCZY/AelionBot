@@ -204,7 +204,7 @@ test('streamed tool arguments never execute before the complete tool call and ar
                       index: 0,
                       id: 'tool-call',
                       type: 'function',
-                      function: { name: 'computer_execute', arguments: '{"command":"run' },
+                      function: { name: 'exec_command', arguments: '{"command":"run' },
                     },
                   ],
                 },
@@ -220,7 +220,7 @@ test('streamed tool arguments never execute before the complete tool call and ar
           JSON.stringify({
             choices: [
               {
-                delta: { tool_calls: [{ index: 0, function: { arguments: '-once"}' } }] },
+                delta: { tool_calls: [{ index: 0, function: { arguments: '-once","location":"vm"}' } }] },
                 finish_reason: 'tool_calls',
               },
             ],
@@ -476,7 +476,7 @@ test('model-authored intermediate messages stream and persist without helper req
         onText?.('三步检查已完成');
         return finish.promise;
       }
-      return requests < 4 ? tool('computer_execute', { command: 'check' }) : answer('任务完成');
+      return requests < 4 ? tool('exec_command', { command: 'check', location: 'vm' }) : answer('任务完成');
     },
     { execute: async () => ({ stdout: 'ok', stderr: '', exitCode: 0, durationMs: 1 }) } as unknown as VmController,
   );
@@ -488,7 +488,7 @@ test('model-authored intermediate messages stream and persist without helper req
     !f.store.data.messages.some((message) => message.status === 'done' && message.content === '三步检查已完成'),
   );
   finish.resolve({
-    ...tool('computer_execute', { command: 'final-check' }),
+    ...tool('exec_command', { command: 'final-check', location: 'vm' }),
     content: '三步检查已完成，继续核对最后一项。',
   });
   await pending;

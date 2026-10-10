@@ -50,7 +50,7 @@ test('a group reaction alongside file work preserves the final reply and its del
           content: '先看文件内容，再把结论发到群里。',
           calls: [
             ...call('group_react', { groupId: room.id, messageId: user.id, emoji: '👀' }).calls,
-            ...call('file_read', { path: 'README.md' }).calls,
+            ...call('file_read', { path: 'README.md', location: 'vm' }).calls,
           ],
           finishReason: 'tool_calls',
         };
@@ -320,7 +320,7 @@ test('a group plan that repeats a successful action with the same result is clos
       }
       if (fx.store.data.workItems?.[0]?.status === 'blocked') return silent();
       if (executions > 8) throw Error('test: repeated action was not stopped');
-      return call('computer_execute', { command: 'inspect report' });
+      return call('exec_command', { command: 'inspect report', location: 'vm' });
     },
     vm,
   );
@@ -395,7 +395,7 @@ test('group work stays out of the private chat while public progress reaches eve
       }
       return actions < 4
         ? {
-            ...call('computer_execute', { command: 'verify-step' }),
+            ...call('exec_command', { command: 'verify-step', location: 'vm' }),
             content: '这是私有执行草稿',
             calls: [
               ...(actions === 3
@@ -406,7 +406,7 @@ test('group work stays out of the private chat while public progress reaches eve
                     clientMessageId: 'step-3',
                   }).calls
                 : []),
-              ...call('computer_execute', { command: 'verify-step' }).calls,
+              ...call('exec_command', { command: 'verify-step', location: 'vm' }).calls,
             ],
           }
         : answer('已完成核对。');
@@ -1054,7 +1054,7 @@ test('a correction to a busy Bot joins its running work at the next safe boundar
     t,
     (run, messages) => {
       if (run.botId !== fx.a.id || publishedMessages(messages).at(-1)?.event) return silent();
-      if (!messages.some((m) => m.role === 'tool')) return call('computer_execute', { command: 'export' });
+      if (!messages.some((m) => m.role === 'tool')) return call('exec_command', { command: 'export', location: 'vm' });
       assert.match(JSON.stringify(messages), /按钮改成蓝色/);
       return answer('导出完成，按钮也改成蓝色了。');
     },
@@ -1263,7 +1263,8 @@ test('a running command finishes once; its result survives interruption and supp
     t,
     (run, messages) => {
       if (run.botId !== fx.a.id) return silent();
-      if (!messages.some((m) => m.role === 'tool')) return call('computer_execute', { command: 'create-report-once' });
+      if (!messages.some((m) => m.role === 'tool'))
+        return call('exec_command', { command: 'create-report-once', location: 'vm' });
       assert.ok(JSON.stringify(messages).includes('/work/completed-report.csv'));
       assert.ok(JSON.stringify(messages).includes('改为向大家交接'));
       resumed = true;
@@ -1284,13 +1285,13 @@ test('a running command finishes once; its result survives interruption and supp
   assert.ok(fx.store.data.groups[0].messages.some((m) => m.content.includes('报告已完成')));
   assert.equal(fx.store.data.messages.filter((m) => m.role === 'user').length, 0);
   assert.ok(!fx.store.data.messages.some((m) => m.groupTaskSource));
-  assert.ok(!fx.store.data.messages.some((m) => m.tool === 'computer_execute'));
-  assert.ok(fx.store.data.groupRunMessages.some((m) => m.tool === 'computer_execute'));
+  assert.ok(!fx.store.data.messages.some((m) => m.tool === 'exec_command'));
+  assert.ok(fx.store.data.groupRunMessages.some((m) => m.tool === 'exec_command'));
 });
 test('explicit group stop withdraws pending permission without executing a file write', async (t) => {
   const fx = fixture(t, (run, messages) =>
     run.botId === fx.a.id && !messages.at(-1)?.content?.includes('不用写了')
-      ? call('host_file_write', { path: join(fx.dir, 'obsolete.txt'), content: '测试', reason: '群任务' })
+      ? call('file_write', { path: join(fx.dir, 'obsolete.txt'), content: '测试', reason: '群任务' })
       : silent(),
   );
   const room = fx.groups.create({ name: '过期许可', botIds: [fx.a.id, fx.b.id] });
@@ -1436,7 +1437,7 @@ test('invalid Bot mention formatting is repaired without repeating successful wo
     t,
     (run, messages) => {
       if (run.botId !== fx.a.id) return silent();
-      if (!run.toolCalls) return call('computer_execute', { command: 'create-once' });
+      if (!run.toolCalls) return call('exec_command', { command: 'create-once', location: 'vm' });
       if (answers++ === 0) return answer('@{not-a-member} 请检查');
       assert.ok(JSON.stringify(messages).includes('身份检查未通过'));
       return answer(`@{${fx.b.id}} 文件已生成，请检查。`);
@@ -1499,7 +1500,7 @@ test('group work and its private execution records stay inside the group context
         ? silent()
         : run.toolCalls
           ? answer('任务完成，已生成报告。')
-          : call('computer_execute', { command: 'generate-report' }),
+          : call('exec_command', { command: 'generate-report', location: 'vm' }),
     vm,
   );
   const room = fx.groups.create({ name: '项目组', botIds: [fx.a.id, fx.b.id] });
@@ -1544,7 +1545,7 @@ test('another Bot event joins the existing work without restarting tools or dupl
       }
       return messages.some((m) => m.role === 'tool')
         ? answer('已完成报告，并保留总计。')
-        : call('computer_execute', { command: 'run-once' });
+        : call('exec_command', { command: 'run-once', location: 'vm' });
     },
     vm,
   );
@@ -1588,7 +1589,7 @@ test('historical group work migrates out of private history once without replayi
   const tool = legacy(
     fx.store.message(fx.a.id, 'tool', '{"result":{"stdout":"old report"}}', {
       runId: work.id,
-      tool: 'computer_execute',
+      tool: 'exec_command',
       status: 'done',
     }),
   );
@@ -2034,7 +2035,7 @@ test('yielding to private chat retains the group inbox and resumes successful to
       if (run.botId !== fx.a.id) return silent();
       return messages.some((m) => m.role === 'tool')
         ? answer('群工作已完成')
-        : call('computer_execute', { command: 'once' });
+        : call('exec_command', { command: 'once', location: 'vm' });
     },
     vm,
   );

@@ -103,7 +103,7 @@ test('a submitted answer is stored after the question, not after later tool work
       runId,
       status: 'done',
     });
-    store.message(bot.id, 'tool', '{}', { tool: 'host_search_files', runId, status: 'done' });
+    store.message(bot.id, 'tool', '{}', { tool: 'search_files', runId, status: 'done' });
     const placed = questionToolMessage(store.data.messages, bot.id, answer.id);
     assert.equal(placed?.id, question.id);
     const reply = store.message(bot.id, 'user', '全部', {
@@ -116,7 +116,7 @@ test('a submitted answer is stored after the question, not after later tool work
       reply.id,
       store.data.messages.at(-1)!.id,
     ]);
-    assert.equal(store.data.messages.at(-1)?.tool, 'host_search_files');
+    assert.equal(store.data.messages.at(-1)?.tool, 'search_files');
     const restated = [
       {
         id: 'tool',

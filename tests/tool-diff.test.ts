@@ -24,8 +24,8 @@ test('distant changes are separated by a gap and unchanged runs are dropped', ()
   assert.equal(diff.added, 2);
 });
 
-test('host_file_patch and apply_patch produce diffs; other tools do not', () => {
-  const patch = toolDiff('host_file_patch', { path: 'src/a.ts', oldText: 'x = 1', newText: 'x = 2\ny = 3' });
+test('file_patch and apply_patch produce diffs; other tools do not', () => {
+  const patch = toolDiff('file_patch', { path: 'src/a.ts', oldText: 'x = 1', newText: 'x = 2\ny = 3' });
   assert.equal(patch?.files[0].path, 'src/a.ts');
   assert.equal(patch?.files[0].added, 2);
   assert.equal(patch?.files[0].removed, 1);
@@ -56,20 +56,20 @@ test('host_file_patch and apply_patch produce diffs; other tools do not', () => 
     ],
   );
   assert.deepEqual(ops(applied!.files[1].lines), [' keep', '-old', '+new', '…', '-gone']);
-  assert.equal(toolDiff('host_file_write', { path: 'a', content: 'b' }), undefined);
-  assert.equal(toolDiff('host_file_patch', { path: 'a' }), undefined);
+  assert.equal(toolDiff('file_write', { path: 'a', content: 'b' }), undefined);
+  assert.equal(toolDiff('file_patch', { path: 'a' }), undefined);
 });
 
 test('large diffs keep exact counts but a bounded number of lines, and pass text through redaction', () => {
   const before = Array.from({ length: 900 }, (_, i) => 'old ' + i).join('\n'),
     after = Array.from({ length: 900 }, (_, i) => 'new ' + i).join('\n');
-  const diff = toolDiff('host_file_patch', { path: 'big.txt', oldText: before, newText: after })!;
+  const diff = toolDiff('file_patch', { path: 'big.txt', oldText: before, newText: after })!;
   assert.equal(diff.files[0].added, 900);
   assert.equal(diff.files[0].removed, 900);
   assert.ok(diff.files[0].lines.length <= 400);
   assert.equal(diff.truncated, true);
   const redacted = toolDiff(
-    'host_file_patch',
+    'file_patch',
     { path: 'C:\\Users\\example\\a.env', oldText: 'KEY=sk-123', newText: 'KEY=sk-456' },
     (text) => text.replace(/sk-\d+/g, '[redacted]').replace('C:\\Users\\example', '~'),
   )!;

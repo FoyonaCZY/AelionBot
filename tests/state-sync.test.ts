@@ -181,7 +181,7 @@ test('live replies are sent when they change, also after being sent on their own
 
 test('shallow equality accepts display copies and notices any changed part', () => {
   const base = message('m', '{}', { role: 'tool' });
-  const diff = toolDiff('host_file_patch', { path: 'a', oldText: 'a', newText: 'b' })!;
+  const diff = toolDiff('file_patch', { path: 'a', oldText: 'a', newText: 'b' })!;
   assert.equal(shallowEqual(base, { ...base }), true);
   assert.equal(shallowEqual(base, { ...base, diff }), false);
   assert.equal(shallowEqual({ ...base, diff }, { ...base, diff }), true);

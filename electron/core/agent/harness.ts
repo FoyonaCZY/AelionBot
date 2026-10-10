@@ -121,12 +121,8 @@ export { safeRelativePath, workspacePath } from './tools/validation';
 
 const HEADLESS_HIDDEN_TOOLS = new Set([
   'computer',
-  'computer_execute',
   'python_execute',
   'python_session',
-  'file_read',
-  'file_write',
-  'file_patch',
   'request_user_control',
   'skill_materialize',
   'attachment_save',
@@ -165,9 +161,8 @@ const COMPACT_TOOLS = new Set([
   'group_send_message',
   'read_result',
   'file_read',
-  'computer_execute',
-  'host_file_read',
-  'host_execute',
+  'exec_command',
+  'write_stdin',
   'request_user_input',
   'generate_image',
 ]);
@@ -1633,7 +1628,6 @@ export class Harness {
                   parsed &&
                   typeof parsed === 'object' &&
                   !Array.isArray(parsed) &&
-                  writeLockPaths(name, parsed).length === 0 &&
                   ['host_file_write', 'host_file_patch', 'file_write', 'file_patch', 'apply_patch'].includes(name),
                 );
               } catch {
@@ -2005,7 +1999,19 @@ export class Harness {
                   (userMemoryRoute.targetBotIds.includes(botId) &&
                     Boolean(userMemoryRoute.actionsByBot[botId]?.length))) &&
                 (!t.function.name.startsWith('history_') || this.cognition) &&
-                (!t.function.name.startsWith('host_') || (this.host && this.interactions)) &&
+                (![
+                  'file_read',
+                  'file_write',
+                  'file_patch',
+                  'list_directory',
+                  'find_files',
+                  'search_files',
+                  'exec_command',
+                  'write_stdin',
+                  'exec_stop',
+                  'exec_list',
+                ].includes(t.function.name) ||
+                  Boolean((this.host && this.interactions) || (this.vm && !this.headless))) &&
                 (t.function.name !== 'request_user_control' || (this.computer && this.interactions)) &&
                 (t.function.name !== 'computer' || this.computer) &&
                 (!t.function.name.startsWith('mcp_') || this.integrations) &&
@@ -2100,7 +2106,7 @@ export class Harness {
       } catch (error) {
         this.store.journal('python.cancel.unknown', { runId: run.id, error: (error as Error).message });
       }
-    if (run.status === 'cancelled' || run.status === 'failed') this.terminals.cancelRun(botId, run.id);
+    if (run.status === 'cancelled' || run.status === 'failed') await this.terminals.cancelRun(botId, run.id);
     this.interactions?.cancelQuestions(botId, run.id);
     this.callableTools.delete(run.id);
     this.store.repairHistory(history, contextKey);

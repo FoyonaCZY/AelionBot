@@ -36,7 +36,7 @@ export const DESIGN_TOOLS = [
   ),
   tool(
     'design_file_create',
-    '创建当前设计任务的新 UTF-8 文件。无需哈希，不覆盖已有文件；已有文件请先读取再用 host_file_patch。',
+    '创建当前设计任务的新 UTF-8 文件。无需哈希，不覆盖已有文件；已有文件请先读取再用 file_patch。',
     {
       path: str,
       content: { type: 'string', maxLength: 256000 },

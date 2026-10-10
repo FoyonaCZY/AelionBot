@@ -7,13 +7,12 @@ import { ATTACHMENT_TOOLS } from './definitions/attachments';
 import { CHAT_TOOLS, GROUP_READ_TOOLS } from './definitions/chat';
 import { COMPUTER_TOOLS, PYTHON_SESSION_TOOLS } from './definitions/computer';
 import { DELEGATION_TOOLS, PEER_TOOLS } from './definitions/delegation';
-import { CHECKPOINT_TOOLS, HOST_FILE_TOOLS, HOST_SEARCH_TOOLS, VM_FILE_TOOLS } from './definitions/files';
+import { CHECKPOINT_TOOLS, FILE_TOOLS, SEARCH_TOOLS } from './definitions/files';
 import { MCP_TOOLS } from './definitions/mcp';
 import { PREVIEW_TOOLS } from './definitions/media';
 import { MEMORY_TOOLS, SKILL_TOOLS } from './definitions/memory';
 import { BATCH_TOOLS, READ_RESULT_TOOLS } from './definitions/misc';
 import { GOAL_TOOLS, PLAN_UPDATE_TOOL, TASK_TOOLS } from './definitions/planning';
-import { PROCESS_TOOLS } from './definitions/processes';
 import { DESIGN_TOOLS } from '../../designer/designer-tools';
 
 // The order is part of the model request (and its prompt cache); append new tools instead of reordering.
@@ -23,10 +22,9 @@ export const TOOLS: ToolDefinition[] = [
   ...PYTHON_SESSION_TOOLS,
   ...DELEGATION_TOOLS,
   ...CHECKPOINT_TOOLS,
-  ...PROCESS_TOOLS,
   ...BATCH_TOOLS,
   ...GOAL_TOOLS,
-  ...HOST_SEARCH_TOOLS,
+  ...SEARCH_TOOLS,
   ...TASK_TOOLS,
   ...ATTACHMENT_TOOLS,
   ...SCHEDULED_TOOLS,
@@ -34,9 +32,8 @@ export const TOOLS: ToolDefinition[] = [
   ...GROUP_PROTOCOL_TOOLS,
   ...GROUP_READ_TOOLS,
   ...PEER_TOOLS,
-  ...HOST_FILE_TOOLS,
+  ...FILE_TOOLS,
   ...COMPUTER_TOOLS,
-  ...VM_FILE_TOOLS,
   ...MEMORY_TOOLS,
   SKILLS_LIST_TOOL,
   ...SKILL_TOOLS,

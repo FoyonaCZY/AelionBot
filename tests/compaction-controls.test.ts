@@ -97,13 +97,13 @@ test('over-long summaries keep the newest entries of every field', () => {
 test('restore candidates are the newest files of the dropped records, deduplicated and not already visible', () => {
   const history: WireMessage[] = [
     ...call('a', 'file_patch', { path: '/work/b/a.py' }),
-    ...call('b', 'host_file_read', { path: 'src/b.ts' }),
+    ...call('b', 'file_read', { path: 'src/b.ts' }),
     ...call('c', 'apply_patch', {
       patch: '*** Begin Patch\n*** Update File: src/c.ts\n@@\n-x\n+y\n*** Add File: src/d.ts\n+z\n*** End Patch',
     }),
-    ...call('d', 'host_file_patch', { path: 'src/b.ts' }),
-    ...call('e', 'host_file_read', { path: 'src/tail.ts' }),
-    ...call('f', 'host_file_read', { path: 'src/tail.ts' }),
+    ...call('d', 'file_patch', { path: 'src/b.ts' }),
+    ...call('e', 'file_read', { path: 'src/tail.ts' }),
+    ...call('f', 'file_read', { path: 'src/tail.ts' }),
   ];
   const through = 8;
   assert.deepEqual(restoreCandidates(history, through), [
@@ -113,16 +113,14 @@ test('restore candidates are the newest files of the dropped records, deduplicat
     { location: 'vm', path: '/work/b/a.py' },
   ]);
   // A file the kept tail already shows is not duplicated.
-  assert.ok(
-    !restoreCandidates([...call('x', 'host_file_read', { path: 'src/tail.ts' }), ...history.slice(8)], 2).length,
-  );
+  assert.ok(!restoreCandidates([...call('x', 'file_read', { path: 'src/tail.ts' }), ...history.slice(8)], 2).length);
   assert.equal(restoreCandidates(history, through, 2).length, 2);
 });
 
 test('the rule-based summary carries user requests, files and failures and stays valid', () => {
   const covered: WireMessage[] = [
     { role: 'user', content: '请修复登录问题' },
-    ...call('a', 'host_file_patch', { path: 'src/login.ts' }),
+    ...call('a', 'file_patch', { path: 'src/login.ts' }),
     {
       role: 'assistant',
       content: null,
@@ -130,7 +128,7 @@ test('the rule-based summary carries user requests, files and failures and stays
         {
           id: 'b',
           type: 'function',
-          function: { name: 'host_execute', arguments: JSON.stringify({ command: 'npm test' }) },
+          function: { name: 'exec_command', arguments: JSON.stringify({ command: 'npm test', location: 'vm' }) },
         },
       ],
     },
@@ -155,7 +153,7 @@ test('the rule-based summary carries user requests, files and failures and stays
   assert.deepEqual(result.userMessages, ['请修复登录问题']);
   assert.deepEqual(result.constraints, ['只改 src']);
   assert.ok(result.files.some((file: string) => file.startsWith('src/login.ts')));
-  assert.ok(result.done.some((item: string) => item.includes('host_file_patch')));
+  assert.ok(result.done.some((item: string) => item.includes('file_patch')));
   assert.ok(result.failures.some((item: string) => item.includes('npm test')));
 });
 
@@ -260,10 +258,7 @@ test('compaction re-reads recently used files into the stable reference', async 
     botId: f.bot.id,
     runId: 'run',
     system: { role: 'system' as const, content: '规则' },
-    history: [
-      ...call('a', 'host_file_patch', { path: 'src/a.ts' }),
-      ...Array.from({ length: 12 }, (_, i) => entry(i, 60)),
-    ],
+    history: [...call('a', 'file_patch', { path: 'src/a.ts' }), ...Array.from({ length: 12 }, (_, i) => entry(i, 60))],
     tools,
     signal: new AbortController().signal,
     restoreFiles,

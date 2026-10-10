@@ -278,7 +278,7 @@ test('the reviewer sees the files this run wrote and its latest steps', async (t
       callId: 'c1',
       botId: f.bot.id,
       runId: f.run.id,
-      tool: 'host_file_write',
+      tool: 'file_write',
       target: outside,
       targetKey: 'k',
       status: 'succeeded',
@@ -288,7 +288,7 @@ test('the reviewer sees the files this run wrote and its latest steps', async (t
   ];
   await f.permission({ operation: 'command', command: 'npm run build', cwd: f.project, reason: 'test' });
   assert.deepEqual(seen[0].filesWrittenThisRun, [outside]);
-  assert.equal(seen[0].recentSteps?.[0].tool, 'host_file_write');
+  assert.equal(seen[0].recentSteps?.[0].tool, 'file_write');
   // Reading that same file back needs no review at all.
   const before = f.reviews();
   await f.permission({ operation: 'read_file', path: outside, reason: '检查刚渲染的图片' });

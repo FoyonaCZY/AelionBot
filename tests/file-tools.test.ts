@@ -288,7 +288,7 @@ test('batch result records are readable by their owner, remain private, and pagi
         callId: 'call',
         botId: bot.id,
         runId: 'run',
-        tool: 'host_file_read',
+        tool: 'file_read',
         target: 'file',
         targetKey: 'key',
         status: 'succeeded',
@@ -339,7 +339,7 @@ test('private runs cannot read a group tool result by copying its result id', (t
     toolCalls: 1,
     groupOrigin: { groupId, rootId: randomUUID(), deliveryId: randomUUID() },
   });
-  store.message(bot.id, 'tool', JSON.stringify({ resultId }), { runId, tool: 'computer_execute', status: 'done' });
+  store.message(bot.id, 'tool', JSON.stringify({ resultId }), { runId, tool: 'exec_command', status: 'done' });
   assert.match(readToolResult(store, bot.id, { id: resultId }, { kind: 'group', id: groupId }).text, /GROUP_RESULT/);
   assert.throws(() => readToolResult(store, bot.id, { id: resultId }, { kind: 'private' }), {
     code: 'RESULT_ACCESS_DENIED',
@@ -349,12 +349,12 @@ test('private runs cannot read a group tool result by copying its result id', (t
 
 test('execution targets match relative and absolute reads within the selected project', () => {
   assert.equal(
-    executionTarget('host_file_read', { path: 'README.md' }, 'bot', 'C:\\Projects\\app').targetKey,
-    executionTarget('host_file_read', { path: 'C:\\Projects\\app\\README.md' }, 'bot').targetKey,
+    executionTarget('file_read', { path: 'README.md' }, 'bot', 'C:\\Projects\\app').targetKey,
+    executionTarget('file_read', { path: 'C:\\Projects\\app\\README.md' }, 'bot').targetKey,
   );
   assert.notEqual(
-    executionTarget('host_file_read', { path: 'README.md' }, 'bot', 'C:\\Projects\\one').targetKey,
-    executionTarget('host_file_read', { path: 'README.md' }, 'bot', 'C:\\Projects\\two').targetKey,
+    executionTarget('file_read', { path: 'README.md' }, 'bot', 'C:\\Projects\\one').targetKey,
+    executionTarget('file_read', { path: 'README.md' }, 'bot', 'C:\\Projects\\two').targetKey,
   );
   assert.equal(redactHost('first\npassword: secret\nlast', [], true).split('\n').length, 3);
 });

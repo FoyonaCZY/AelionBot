@@ -27,7 +27,7 @@ test('interactive prompt keeps VM, computer and question guidance', () => {
   const text = harnessInstructions(interactive);
   for (const part of ['/work/bot-a', 'request_user_input', 'Computer Use', 'request_user_control', 'video_frames'])
     assert.ok(text.includes(part), part);
-  assert.ok(text.includes('file_patch in the VM'));
+  assert.ok(text.includes('location=vm') && text.includes('file_patch'));
 });
 
 test('headless prompt never mentions tools the headless run hides', () => {

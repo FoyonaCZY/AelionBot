@@ -413,7 +413,8 @@ test('background review learns from evidence, preserves skill versions, and deni
         });
       if (step === 3)
         return call('memory', { action: 'add', target: 'user', content: '交付包含测试数量。', sourceRefs: [user.id] });
-      if (step === 4) return call('host_execute', { command: 'should never execute', reason: 'forbidden' });
+      if (step === 4)
+        return call('exec_command', { command: 'should never execute', location: 'vm', reason: 'forbidden' });
       denied = messages.some((message) => message.role === 'tool' && message.content?.includes('后台复盘禁止'));
       return done();
     },

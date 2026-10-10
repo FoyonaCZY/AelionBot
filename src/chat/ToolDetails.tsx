@@ -574,7 +574,7 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
     );
   // A command that ran and exited non-zero still has output worth reading; the command view marks the failure.
   const ranCommand =
-    ['python_execute', 'computer_execute', 'host_execute'].includes(tool || '') &&
+    ['python_execute', 'exec_command', 'host_execute', 'computer_execute'].includes(tool || '') &&
     typeof result.exitCode === 'number' &&
     !result.error;
   if (
@@ -648,8 +648,7 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
   if (tool === 'skill_file_read' || tool === 'file_read' || tool === 'host_file_read') {
     const path = textValue(result.path) || display.detail || '',
       name = fileName(path) || t('文件内容'),
-      content =
-        tool === 'skill_file_read' || tool === 'host_file_read' ? textValue(result.content) : textValue(result.stdout);
+      content = textValue(result.content) || textValue(result.stdout);
     return (
       <>
         <DetailHeader
@@ -815,14 +814,14 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
         </Section>
       </>
     );
-  if (tool === 'host_search_files' || tool === 'host_find_files') {
+  if (tool === 'search_files' || tool === 'find_files' || tool === 'host_search_files' || tool === 'host_find_files') {
     const files = searchFiles(result),
       matches = files.reduce((sum, file) => sum + (file.count || 0), 0);
     return (
       <>
         <DetailHeader
           icon="search"
-          title={tool === 'host_find_files' ? t('找到的文件') : t('搜索结果')}
+          title={tool === 'find_files' || tool === 'host_find_files' ? t('找到的文件') : t('搜索结果')}
           subtitle={textValue(result.path) || undefined}
           meta={
             matches
@@ -842,7 +841,7 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
       </>
     );
   }
-  if (tool === 'host_list_directory') {
+  if (tool === 'list_directory' || tool === 'host_list_directory') {
     const items = arrayValue(result.items).map(objectValue),
       total = typeof result.total === 'number' ? result.total : items.length;
     return (
@@ -875,7 +874,7 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
       </>
     );
   }
-  if (tool === 'host_file_patch' || tool === 'file_patch') {
+  if (tool === 'file_patch' || tool === 'host_file_patch') {
     const file = objectValue(result.path ? result : parsedText(output)),
       path = textValue(file.path) || display.detail || '',
       count = Number(file.replacements) || 0;
@@ -896,7 +895,7 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
       </>
     );
   }
-  if (tool === 'host_file_write')
+  if (tool === 'host_file_write' || (tool === 'file_write' && result.location === 'host'))
     return (
       <DetailHeader
         icon="file"
@@ -923,13 +922,14 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
       </p>
     );
   const stderr = cleanConsole(textValue(result.stderr)),
-    failedExit = typeof result.exitCode === 'number' && result.exitCode !== 0;
-  if (tool === 'python_execute' || tool === 'computer_execute' || tool === 'host_execute')
+    failedExit = typeof result.exitCode === 'number' && result.exitCode !== 0,
+    hostCommand = tool === 'host_execute' || (tool === 'exec_command' && result.location !== 'vm');
+  if (tool === 'python_execute' || tool === 'exec_command' || tool === 'host_execute' || tool === 'computer_execute')
     return (
       <>
         <DetailHeader
           icon="terminal"
-          title={failedExit ? t('命令失败') : tool === 'host_execute' ? t('本机命令完成') : t('运行成功')}
+          title={failedExit ? t('命令失败') : hostCommand ? t('本机命令完成') : t('运行成功')}
           chips={[
             ...(typeof result.exitCode === 'number'
               ? [{ text: `exit ${result.exitCode}`, tone: failedExit ? ('bad' as const) : ('ok' as const) }]
@@ -938,7 +938,7 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
               ? [{ text: `${(result.durationMs / 1000).toFixed(1)} ${t('秒')}` }]
               : []),
           ]}
-          subtitle={tool === 'host_execute' ? textValue(result.cwd) || undefined : undefined}
+          subtitle={hostCommand ? textValue(result.cwd) || undefined : undefined}
           action={output ? <CopyText value={output} label={t('复制输出')} /> : undefined}
         />
         {failedExit && stderr && <CodeView text={stderr} />}

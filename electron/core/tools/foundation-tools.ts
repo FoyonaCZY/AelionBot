@@ -1,7 +1,6 @@
 import type { ToolDefinition } from '../model/model';
 const text = { type: 'string' },
-  id = { type: 'string', minLength: 1, maxLength: 100 },
-  reason = { type: 'string', minLength: 1, maxLength: 1000 };
+  id = { type: 'string', minLength: 1, maxLength: 100 };
 const integer = (min: number, max: number) => ({ type: 'integer', minimum: min, maximum: max });
 const tool = (
   name: string,
@@ -19,62 +18,55 @@ export const FOUNDATION_TOOLS: ToolDefinition[] = [
     {
       path: text,
       attachmentId: text,
-      reason,
       frameWidth: integer(160, 1280),
       count: integer(1, 24),
       startSeconds: { type: 'number', minimum: 0 },
       endSeconds: { type: 'number', minimum: 0 },
       timestamps: { type: 'array', minItems: 1, maxItems: 24, items: { type: 'number', minimum: 0 } },
     },
-    ['reason'],
+    [],
   ),
   tool(
-    'terminal_start',
-    '启动可继续交互的终端，返回会话 id 和初始输出。tty=true 使用真实 PTY；tty=false 使用管道。host 沿用本机工作目录和权限，vm 使用当前 Bot 目录。长命令未结束时使用 terminal_read，不要重复启动。输入用 terminal_input，停止用 terminal_stop。任务完成后应检查 exitCode；purpose=service 的持续服务除外。',
+    'exec_command',
+    '执行一条命令，并在 yieldTimeMs（默认 10000）后交还控制权。location 省略表示用户本机，只有 vm 才在 Linux 工作电脑执行。命令结束会带 exitCode；仍在运行时用返回的 id 调用 write_stdin 继续输入或轮询，用 exec_stop 停止。取消轮询不会杀掉进程。tty 默认关闭。stdin 会在启动后写入。如果命令主体是 *** Begin Patch 补丁，会直接应用补丁而不是交给 shell。Windows 本机优先 PowerShell 7，否则是 Windows PowerShell 5.1，5.1 不支持 && 与 ||。',
     {
-      command: { ...text, maxLength: 6000 },
+      command: { ...text, minLength: 1, maxLength: 6000 },
       location: { type: 'string', enum: ['host', 'vm'] },
       cwd: text,
-      reason,
+      stdin: { ...text, maxLength: 262144 },
       tty: { type: 'boolean' },
       purpose: { type: 'string', enum: ['task', 'service'] },
       cols: integer(20, 300),
       rows: integer(5, 100),
       yieldTimeMs: integer(0, 30000),
     },
-    ['command', 'location'],
+    ['command'],
   ),
   tool(
-    'terminal_input',
-    '向自己启动的终端发送 chars（包括换行或控制字符）。本机非空输入会按当前权限模式重新审批；不能用终端输入绕过命令许可。offset 用上次 nextOffset，只读取新增日志。不要输入或索取密码、私钥。',
+    'write_stdin',
+    '向 exec_command 返回的会话写入 chars；chars 省略或为空时只轮询新输出。yieldTimeMs 到点后返回，不结束进程。offset 用上次 nextOffset。本机非空输入会重新审批。不要输入或索取密码、私钥。',
     {
       id,
       chars: { ...text, maxLength: 16000 },
-      reason,
       offset: integer(0, Number.MAX_SAFE_INTEGER),
       yieldTimeMs: integer(0, 30000),
       cols: integer(20, 300),
       rows: integer(5, 100),
     },
-    ['id', 'chars'],
-  ),
-  tool(
-    'terminal_read',
-    '读取或等待当前 Bot 的终端输出，最长等待 30 秒。offset 为上次 nextOffset；status=exited 时检查 exitCode。truncated 表示较旧日志已丢弃。',
-    { id, offset: integer(0, Number.MAX_SAFE_INTEGER), waitMs: integer(0, 30000) },
     ['id'],
   ),
   tool(
-    'terminal_stop',
-    '停止当前 Bot 自己创建的终端。结果以实际退出状态为准，不会按其他 Bot 的 ID 或过期 PID 停止进程。',
+    'exec_stop',
+    '停止自己启动的命令会话及其子进程。结果以实际退出状态为准，不会按其他 Bot 的 ID 停止进程。',
     { id },
     ['id'],
   ),
+  tool('exec_list', '列出自己启动且尚未遗忘的命令会话，包含仍在运行和已退出的记录。', {}, []),
   tool(
     'apply_patch',
     '用一个补丁新增、删除、重命名或修改多个 UTF-8 文件。格式：*** Begin Patch\n*** Add File: path\n+内容\n*** Update File: path\n@@\n 上下文\n-旧行\n+新行\n*** Delete File: path\n*** End Patch。Update 可接 *** Move to: 新路径，支持多个 @@ 片段及 *** End of File。先读取目标，保留足够上下文以唯一匹配。所有文件先校验再写入；路径冲突或文件变化时停止。本机写入、删除沿用权限审批。',
-    { patch: { ...text, maxLength: 256000 }, location: { type: 'string', enum: ['host', 'vm'] }, reason },
-    ['patch', 'location'],
+    { patch: { ...text, maxLength: 256000 }, location: { type: 'string', enum: ['host', 'vm'] } },
+    ['patch'],
   ),
   tool(
     'code_exec',
@@ -114,8 +106,8 @@ export const FOUNDATION_TOOLS: ToolDefinition[] = [
   tool(
     'view_image',
     '读取用户本机路径的图片并作为图像交给模型。支持 PNG/JPEG/WebP 等常见格式，最大 10 MB。沿用本机会话读取权限；路径可相对工作目录。适合查看生成的图表、截图、设计稿并验证结果。',
-    { path: text, reason },
-    ['path', 'reason'],
+    { path: text },
+    ['path'],
   ),
   tool(
     'generate_image',
@@ -127,9 +119,8 @@ export const FOUNDATION_TOOLS: ToolDefinition[] = [
       quality: { type: 'string', enum: ['auto', 'low', 'medium', 'high'] },
       negativePrompt: { ...text, maxLength: 1000 },
       referenceAttachmentIds: { type: 'array', items: id, maxItems: 4 },
-      reason,
     },
-    ['prompt', 'reason'],
+    ['prompt'],
   ),
   tool(
     'tool_search',

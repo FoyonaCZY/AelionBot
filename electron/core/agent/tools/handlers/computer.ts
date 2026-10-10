@@ -45,8 +45,6 @@ export const COMPUTER_HANDLERS: Record<string, ToolHandler> = {
     deps.claimDesktop(bot.id, runId);
     return deps.computer.execute(bot.id, args as unknown as ComputerInput, signal);
   },
-  computer_execute: ({ bot, args, signal, deps }) =>
-    deps.vm.execute(requiredText(args, 'command', 32000), bot.id, signal),
   python_execute: ({ bot, args, signal, deps }) =>
     vmPython(
       deps.vm,

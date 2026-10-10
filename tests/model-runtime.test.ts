@@ -169,7 +169,7 @@ test('provider content-policy refusals omit historical tool bodies and retry onc
     {
       role: 'assistant',
       content: null,
-      tool_calls: [{ id: 'call-1', type: 'function', function: { name: 'computer_execute', arguments: '{}' } }],
+      tool_calls: [{ id: 'call-1', type: 'function', function: { name: 'exec_command', arguments: '{}' } }],
     },
     {
       role: 'tool',
@@ -305,7 +305,7 @@ test('chat tool deltas concatenate by numeric or string index and by call id', (
     choices: [
       {
         delta: {
-          tool_calls: [{ index: '0', id: 'call-1', function: { name: 'host_search_files', arguments: '{"q' } }],
+          tool_calls: [{ index: '0', id: 'call-1', function: { name: 'search_files', arguments: '{"q' } }],
         },
       },
     ],

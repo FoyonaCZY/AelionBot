@@ -46,7 +46,7 @@ test('reply snapshots persist without altering user text and enter model context
 test('reply targets are scoped and cannot refer to tools, hidden private messages or unfinished drafts', (t) => {
   const { store, a, b, queue } = fixture(t),
     other = store.message(b.id, 'assistant', '另一会话'),
-    tool = store.message(a.id, 'tool', 'secret', { tool: 'host_execute' }),
+    tool = store.message(a.id, 'tool', 'secret', { tool: 'exec_command' }),
     partial = store.message(a.id, 'assistant', '未完成', { status: 'running' });
   for (const target of [other, tool, partial])
     assert.throws(() => queue.send({ botId: a.id, message: '回复', replyToMessageId: target.id }), {

@@ -56,7 +56,8 @@ test('preview tool accepts file or attachment targets, validates schema, and nev
   validateToolArguments(tool, args);
   validateToolArguments(tool, { attachmentId: randomUUID(), reason: 'Show attachment', placement: 'full' });
   assert.throws(() => validateToolArguments(tool, { ...args, location: 'other' }));
-  assert.throws(() => validateToolArguments(tool, { path: 'a.md', location: 'vm' }));
+  assert.throws(() => validateToolArguments(tool, { ...args, placement: 'popup' }));
+  validateToolArguments(tool, { path: 'a.md', location: 'vm' });
   const batch = TOOLS.find((tool) => tool.function.name === 'tools_batch')!;
   assert.ok(!JSON.stringify(batch).includes('open_preview'));
 });

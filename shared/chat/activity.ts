@@ -68,6 +68,13 @@ const operations: Record<string, { label: string; active: string; icon: string }
   computer: { label: '操作电脑', active: '正在操作电脑', icon: 'computer' },
   computer_execute: { label: '执行命令', active: '正在执行命令', icon: 'terminal' },
   python_execute: { label: '运行代码', active: '正在运行代码', icon: 'terminal' },
+  exec_command: { label: '执行命令', active: '正在执行命令', icon: 'terminal' },
+  write_stdin: { label: '输入终端内容', active: '正在操作终端', icon: 'terminal' },
+  exec_stop: { label: '停止终端', active: '正在停止终端', icon: 'terminal' },
+  exec_list: { label: '查看后台任务', active: '正在查看后台任务', icon: 'clock' },
+  list_directory: { label: '查看本机目录', active: '正在查看本机目录', icon: 'folder' },
+  find_files: { label: '查找本机文件', active: '正在查找本机文件', icon: 'search' },
+  search_files: { label: '搜索本机文件', active: '正在搜索本机文件', icon: 'search' },
   file_read: { label: '读取文件', active: '正在读取文件', icon: 'file' },
   file_patch: { label: '修改文件', active: '正在修改文件', icon: 'file' },
   file_write: { label: '保存文件', active: '正在保存文件', icon: 'file' },
@@ -123,7 +130,7 @@ export function describeTool(
     detail =
       text(typeof input.path === 'string' ? input.path.replace(/\\/g, '/').split('/').at(-1) : '') +
       (Number.isInteger(input.startLine) ? ` · 第 ${input.startLine} 行起` : '');
-  if (['host_execute', 'computer_execute', 'process_start', 'terminal_start'].includes(name))
+  if (['exec_command', 'host_execute', 'computer_execute', 'process_start', 'terminal_start'].includes(name))
     detail = text(input.command);
   if (name === 'apply_patch') {
     const files = [...String(input.patch || '').matchAll(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm)]

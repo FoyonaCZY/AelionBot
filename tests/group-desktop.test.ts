@@ -23,7 +23,7 @@ test('a group desktop follows the member that last acted on its desktop in that 
     groupDesktopBotId(
       group,
       runs,
-      [tool('b', 'rb'), tool('a', 'ra', 'computer_execute'), tool('a', 'private'), tool('a', 'other')],
+      [tool('b', 'rb'), tool('a', 'ra', 'exec_command'), tool('a', 'private'), tool('a', 'other')],
       bots,
     ),
     'b',

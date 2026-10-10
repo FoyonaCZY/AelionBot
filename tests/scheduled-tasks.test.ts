@@ -292,7 +292,7 @@ test('a scheduled direct task goes through the real chat queue and tools, replie
           .join('\n'),
         /不要重新创建同一计划/,
       );
-      return executions ? answer('定时核对已完成') : call('computer_execute', { command: 'check-work' });
+      return executions ? answer('定时核对已完成') : call('exec_command', { command: 'check-work', location: 'vm' });
     },
   } as unknown as ModelClient;
   const vm = {
@@ -368,9 +368,9 @@ test('model-created schedules in a group broadcast to its members and publish th
         return answer('群定时任务已创建');
       }
       if (!executed.has(id)) {
-        assert.ok(tools.some((tool) => tool.function.name === 'computer_execute'));
+        assert.ok(tools.some((tool) => tool.function.name === 'exec_command'));
         executed.add(id);
-        return call('computer_execute', { command: 'verify-' + id });
+        return call('exec_command', { command: 'verify-' + id, location: 'vm' });
       }
       return answer(run.toolCalls ? '已核对 ' + id : '[群聊静默]');
     },
@@ -440,7 +440,7 @@ test('scheduled host operations still wait for approval, and a refusal does not 
       calls++;
       if (messages.some((message) => message.role === 'tool' && (message.content || '').includes('"denied":true')))
         return answer('定时保存已被拒绝，未写入文件。');
-      return call('host_file_write', { path, content: 'not authorized', reason: '定时保存' });
+      return call('file_write', { path, content: 'not authorized', reason: '定时保存' });
     },
   } as unknown as ModelClient;
   const harness = new Harness(

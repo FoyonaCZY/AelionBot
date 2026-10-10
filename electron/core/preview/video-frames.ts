@@ -61,8 +61,6 @@ export class VideoFrames {
   ) {
     signal.throwIfAborted();
     if (Boolean(args.path) === Boolean(args.attachmentId)) throw Error('请提供 path 或 attachmentId，不能同时提供');
-    if (typeof args.reason !== 'string' || !args.reason.trim() || args.reason.length > 1000)
-      throw Error('请说明读取视频的原因');
     const request = videoFrameRequest(args as VideoFrameRequest);
     const source = args.attachmentId ? this.attachments.videoReference(botId, String(args.attachmentId)) : undefined;
     const path = source?.path || (await this.host.videoFile(botId, runId, args, signal, workspace)),

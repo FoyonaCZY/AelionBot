@@ -342,7 +342,7 @@ test('a content-policy failure sanitizes stored history so the next model call i
         {
           id: 'c1',
           type: 'function',
-          function: { name: 'computer_execute', arguments: JSON.stringify({ code: 'poison-stdout' }) },
+          function: { name: 'exec_command', arguments: JSON.stringify({ code: 'poison-stdout' }) },
         },
       ],
     },

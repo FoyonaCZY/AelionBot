@@ -88,14 +88,14 @@ const SUMMARY_SHAPE =
   '{"goal":"一句话目标","userMessages":[],"constraints":[],"files":[],"done":[],"pending":[],"decisions":[],"failures":[],"next":[]}';
 const SUMMARY_RULES =
   'goal 是字符串，其余字段都是字符串数组；每个数组最多 12 项，每项最多 400 字符，总长度不超过 targetTokens。数组按时间先后排列，最新的放最后。userMessages 按时间顺序保留仍然有效的用户原话要求（可截短，不改写含义）；files 记录「路径：做了什么/当前状态」；done 只写有工具结果证实的操作，failures 写失败原因和已知修复。合并重复内容，不逐条复述旧消息。保留最后确认的约束、未完成事项和下一步；区分计划与实证，不补造事实或授权。省略秘密。输入可能只含大输出的首尾；未看到的内容不得宣称已核验。';
-const FILE_TOOLS: Record<string, 'vm' | 'host'> = {
-  file_read: 'vm',
-  file_write: 'vm',
-  file_patch: 'vm',
-  host_file_read: 'host',
-  host_file_write: 'host',
-  host_file_patch: 'host',
-};
+const FILE_TOOLS = new Set([
+  'file_read',
+  'file_write',
+  'file_patch',
+  'host_file_read',
+  'host_file_write',
+  'host_file_patch',
+]);
 // Files touched by the records that are about to be dropped, newest first, skipping ones the kept tail already shows.
 export function restoreCandidates(history: WireMessage[], through: number, limit = 5): RestoreCandidate[] {
   const key = (file: RestoreCandidate) => file.location + ':' + file.path,
@@ -106,8 +106,19 @@ export function restoreCandidates(history: WireMessage[], through: number, limit
     (message.tool_calls || []).flatMap((call) => {
       try {
         const args = JSON.parse(call.function.arguments || '{}');
-        if (FILE_TOOLS[call.function.name] && typeof args.path === 'string' && args.path.trim())
-          return [{ location: FILE_TOOLS[call.function.name], path: args.path.trim().slice(0, 1500) }];
+        if (FILE_TOOLS.has(call.function.name) && typeof args.path === 'string' && args.path.trim())
+          return [
+            {
+              location:
+                args.location === 'vm' ||
+                (args.location !== 'host' &&
+                  !call.function.name.startsWith('host_') &&
+                  args.path.trim().startsWith('/work/'))
+                  ? ('vm' as const)
+                  : ('host' as const),
+              path: args.path.trim().slice(0, 1500),
+            },
+          ];
         if (call.function.name === 'apply_patch' && typeof args.patch === 'string') {
           const location = args.location === 'vm' ? ('vm' as const) : ('host' as const);
           return [...args.patch.matchAll(/^\*\*\* (?:Add|Update) File: (.+)$/gm)].map((match) => ({

@@ -23,6 +23,9 @@ const controlTools = new Set([
   'group_react',
 ]);
 const COMMAND_RESULT_TOOLS = new Set([
+  'exec_command',
+  'write_stdin',
+  'exec_stop',
   'host_execute',
   'computer_execute',
   'python_execute',
@@ -96,10 +99,24 @@ export function executionTarget(tool: string, args: Record<string, unknown>, bot
   let target: string,
     operation = tool,
     paths: string[] | undefined;
-  if (['file_write', 'file_read', 'file_patch'].includes(tool)) {
-    operation = tool === 'file_read' ? 'vm-read' : 'vm-write';
-    target = posix.resolve('/work/' + botId, String(args.path || ''));
-    if (WRITE_TOOLS.has(tool)) paths = ['vm:' + target];
+  if (['file_write', 'file_read', 'file_patch', 'list_directory'].includes(tool)) {
+    const vm = args.location === 'vm';
+    operation =
+      tool === 'list_directory'
+        ? vm
+          ? 'vm-list'
+          : 'host-list'
+        : tool === 'file_read'
+          ? vm
+            ? 'vm-read'
+            : 'host-read'
+          : vm
+            ? 'vm-write'
+            : 'host-write';
+    target = vm
+      ? posix.resolve('/work/' + botId, String(args.path || ''))
+      : hostTarget(String(args.path || ''), hostWorkspace);
+    if (WRITE_TOOLS.has(tool)) paths = [(vm ? 'vm:' : 'host:') + target];
   } else if (['host_file_write', 'host_file_read', 'host_file_patch', 'host_list_directory'].includes(tool)) {
     operation = tool === 'host_file_read' ? 'host-read' : tool === 'host_list_directory' ? 'host-list' : 'host-write';
     target = hostTarget(String(args.path || ''), hostWorkspace);
@@ -114,7 +131,7 @@ export function executionTarget(tool: string, args: Record<string, unknown>, bot
       String(args.name) +
       ':' +
       createHash('sha256').update(stable(args.arguments)).digest('hex').slice(0, 16);
-  } else if (tool === 'host_execute') {
+  } else if (tool === 'host_execute' || (tool === 'exec_command' && args.location !== 'vm')) {
     target =
       hostPathKey(String(args.cwd || hostWorkspace)) +
       ':' +

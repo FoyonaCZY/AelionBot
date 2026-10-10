@@ -77,7 +77,7 @@ test('the UI still recognizes truncated envelopes and renders their compact resu
     role: 'tool',
     content,
     time: '2026-09-25T00:00:00Z',
-    tool: 'host_execute',
+    tool: 'exec_command',
   } as ChatMessage;
   const value = toolResult(message) as any;
   assert.equal(value.truncated, true);

@@ -86,7 +86,7 @@ test('a failed group task resumes for its original member and posts one final gr
   const f = fixture(t, (run, messages) => {
     if (run.botId !== f.a.id) return answer('[群聊静默]');
     if (!messages.some((message) => message.role === 'tool'))
-      return call('computer_execute', { command: 'write once' });
+      return call('exec_command', { command: 'write once', location: 'vm' });
     if (!resumed) throw f.error(run.botId);
     if (!messages.some((message) => message.tool_calls?.some((call) => call.function.name === 'execution_list')))
       return call('execution_list');
@@ -122,8 +122,8 @@ test('a failed delegated private task resumes its exchange and returns a real su
         : call('bot_send_message', { botId: f.b.id, message: '执行任务并返回结果' });
     }
     if (run.peerOrigin?.kind === 'peer_request') return call('start_main_task');
-    if (!messages.some((message) => message.tool_calls?.some((call) => call.function.name === 'computer_execute')))
-      return call('computer_execute', { command: 'write once' });
+    if (!messages.some((message) => message.tool_calls?.some((call) => call.function.name === 'exec_command')))
+      return call('exec_command', { command: 'write once', location: 'vm' });
     if (!resumed) throw f.error(run.botId);
     if (!messages.some((message) => message.tool_calls?.some((call) => call.function.name === 'execution_list')))
       return call('execution_list');

@@ -57,10 +57,10 @@ for (const automatic of [false, true])
               calls: nested
                 ? [
                     call('code_exec', {
-                      code: `await tools.host_file_read({path:'safe.txt',reason:'read'});await tools.host_file_write(${JSON.stringify(denied)});await tools.host_file_write(${JSON.stringify(after)});`,
+                      code: `await tools.file_read({path:'safe.txt',reason:'read'});await tools.file_write(${JSON.stringify(denied)});await tools.file_write(${JSON.stringify(after)});`,
                     }),
                   ]
-                : [call('host_file_write', denied), call('host_file_write', after)],
+                : [call('file_write', denied), call('file_write', after)],
             };
           }
           if (turns === 2) {
@@ -78,7 +78,7 @@ for (const automatic of [false, true])
             return {
               content: '拒绝已收到，继续查看允许读取的文件。',
               finishReason: 'tool_calls',
-              calls: [call('host_file_read', { path: 'safe.txt', reason: 'continue allowed work' })],
+              calls: [call('file_read', { path: 'safe.txt', reason: 'continue allowed work' })],
             };
           }
           assert.ok(messages.some((m) => m.role === 'tool' && m.content?.includes('allowed content')));
@@ -111,7 +111,7 @@ for (const automatic of [false, true])
       assert.ok(notice);
       assert.match(notice.operationDenial!.path!, /denied.txt$/);
       assert.equal(
-        store.data.runs[0].executions?.some((e) => e.status === 'succeeded' && e.tool === 'host_file_write'),
+        store.data.runs[0].executions?.some((e) => e.status === 'succeeded' && e.tool === 'file_write'),
         false,
       );
     });

@@ -14,6 +14,7 @@ import {
   constants,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { approvalReason } from './approval-reason';
 import { decodeText, FileToolError, indentOf, reindent, seekLines, similarLines } from './file-text';
 import type { HostComputer } from '../host/host';
 import type { Interactions } from '../agent/interactions';
@@ -92,6 +93,25 @@ export function parsePatch(value: unknown): FilePatch[] {
   }
   if (!files.length) throw Error('补丁没有文件操作');
   return files;
+}
+
+/** A shell command whose payload is only an apply_patch document is applied, not executed. */
+export function interceptedShellPatch(command: string) {
+  if (typeof command !== 'string') return;
+  const begin = command.indexOf('*** Begin Patch');
+  const end = command.lastIndexOf('*** End Patch');
+  if (begin < 0 || end < begin) return;
+  const patch = command.slice(begin, end + '*** End Patch'.length);
+  const outside = (command.slice(0, begin) + command.slice(end + '*** End Patch'.length))
+    .replace(/<<\s*['"]?[A-Za-z0-9_-]+['"]?/g, '')
+    .trim();
+  if (outside !== '' && !/^(?:apply_patch|bash|sh|cat)\b[^|&;\n]*$/i.test(outside)) return;
+  try {
+    parsePatch(patch);
+  } catch {
+    return;
+  }
+  return patch;
 }
 type Row = { text: string; eol: string };
 const hunkOps = (hunk: Hunk) =>
@@ -193,7 +213,7 @@ export async function applyHostPatch(
   workspace?: string,
 ) {
   const files = parsePatch(args.patch);
-  if (typeof args.reason !== 'string' || !args.reason.trim()) throw Error('本机补丁需要操作原因');
+  const reason = approvalReason(args, files.map((file) => `${file.kind} ${file.path}`).join('; ') || '应用补丁');
   const operations = files.map((file) => ({
       ...file,
       path: canonical(host.resolveFilePath(file.path, workspace)),
@@ -213,7 +233,7 @@ export async function applyHostPatch(
       runId,
       {
         operation: file.kind === 'delete' || file.moveTo ? 'delete_file' : 'write_file',
-        reason: args.reason,
+        reason,
         path: file.path,
         overwrite: file.kind !== 'add',
         content: String(args.patch),
@@ -227,7 +247,7 @@ export async function applyHostPatch(
         runId,
         {
           operation: 'write_file',
-          reason: args.reason,
+          reason,
           path: file.moveTo,
           overwrite: false,
           content: String(args.patch),

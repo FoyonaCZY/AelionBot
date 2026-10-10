@@ -136,7 +136,7 @@ test('a reaction mixed with project discovery continues to a final answer and ke
           calls: [
             invoke('chat_pin', { messageId: target.id, emoji: '👀' }),
             invoke('task_read'),
-            invoke('host_list_directory', { reason: '了解项目结构' }),
+            invoke('list_directory', { reason: '了解项目结构' }),
             invoke('skills_list'),
           ],
           finishReason: 'tool_calls',

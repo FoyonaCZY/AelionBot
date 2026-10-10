@@ -132,7 +132,7 @@ test('nonblocking questions permit independent reading and their answers return 
         finishReason: 'tool_calls',
         calls: [
           call('request_user_input', { questions: [{ id: 'scope', title: '选择范围', options: ['修复', '测试'] }] }),
-          call('host_file_read', { path: 'a.txt', reason: 'Read project' }),
+          call('file_read', { path: 'a.txt', reason: 'Read project' }),
         ],
       };
     if (!messages.some((message) => message.role === 'user' && message.content?.includes('用户对会话内问题的回答')))
@@ -146,12 +146,10 @@ test('nonblocking questions permit independent reading and their answers return 
   });
   writeFileSync(join(f.dir, 'a.txt'), 'project');
   const pending = f.harness.run(f.bot.id, '先确认范围', { workspaceDir: f.dir });
-  await until(() =>
-    f.store.data.messages.some((message) => message.tool === 'host_file_read' && message.status === 'done'),
-  );
+  await until(() => f.store.data.messages.some((message) => message.tool === 'file_read' && message.status === 'done'));
   const question = f.interactions.snapshot().find((request) => request.kind === 'user_input');
   assert.ok(question);
-  assert.ok(f.store.data.messages.some((message) => message.tool === 'host_file_read' && message.status === 'done'));
+  assert.ok(f.store.data.messages.some((message) => message.tool === 'file_read' && message.status === 'done'));
   f.interactions.answer(question.id, { scope: '测试' });
   await pending;
   assert.equal(f.store.data.runs[0].status, 'completed', f.store.data.runs[0].error || '');
@@ -183,10 +181,10 @@ test('view_image passes a real image reference into the model and stores its pre
 });
 test('all new tools have strict argument schemas and no subagent creation is introduced', () => {
   for (const name of [
-    'terminal_start',
-    'terminal_input',
-    'terminal_read',
-    'terminal_stop',
+    'exec_command',
+    'write_stdin',
+    'exec_stop',
+    'exec_list',
     'apply_patch',
     'code_exec',
     'request_user_input',

@@ -37,7 +37,7 @@ const run = (status: RunRecord['status']): RunRecord => ({
 });
 
 test('command and patch activity show a short detail without dumping the payload', () => {
-  assert.equal(describeTool('host_execute', { command: 'npm test -- --watch' }).detail, 'npm test -- --watch');
+  assert.equal(describeTool('exec_command', { command: 'npm test -- --watch' }).detail, 'npm test -- --watch');
   assert.equal(
     describeTool('apply_patch', {
       patch: '*** Begin Patch\n*** Update File: src/app.ts\n*** Add File: README.md\n*** End Patch',
@@ -51,7 +51,7 @@ test('run steps interleave reasoning, progress and tools in the order they happe
     message('think-1', 'assistant', '', thought('先看目录')),
     message('read', 'tool', '{}', { tool: 'file_read' }),
     message('think-2', 'assistant', '', thought('再看入口')),
-    message('search', 'tool', '{}', { tool: 'host_search_files' }),
+    message('search', 'tool', '{}', { tool: 'search_files' }),
     message('note', 'assistant', '入口已找到，开始修改。', { presentation: 'progress', ...thought('准备修改') }),
     message('patch', 'tool', '{}', { tool: 'apply_patch', status: 'failed' }),
     message('draft', 'assistant', '未完成', { status: 'running' }),
@@ -131,16 +131,16 @@ test('batch status follows the active child operation and clears when it finishe
       callId: 'child',
       botId: 'bot',
       runId: record.id,
-      tool: 'host_file_read',
+      tool: 'file_read',
       target: 'README.md',
       targetKey: 'read',
       status: 'running',
       startedAt: '2026-09-05T10:00:00Z',
     },
   ];
-  assert.equal(liveBotStep([batch], record)?.label, '正在读取本机文件');
-  const write = message('write', 'tool', '', { tool: 'host_file_patch', status: 'running' });
-  assert.equal(liveBotStep([write], record)?.label, '正在修改本机文件');
+  assert.equal(liveBotStep([batch], record)?.label, '正在读取文件');
+  const write = message('write', 'tool', '', { tool: 'file_patch', status: 'running' });
+  assert.equal(liveBotStep([write], record)?.label, '正在修改文件');
   record.executions[0].status = 'succeeded';
   assert.equal(liveBotStep([{ ...write, status: 'done' }], record)?.label, '正在思考');
 });
@@ -206,7 +206,7 @@ test('a mid-run question answer stays after the question and before later tool w
     message('answer', 'user', '全部', {
       questionAnswer: { requestId: 'q1', items: [{ id: 'choice', title: '先做哪一项？', answer: '全部' }] },
     }),
-    message('search', 'tool', '{}', { tool: 'host_search_files', status: 'running' }),
+    message('search', 'tool', '{}', { tool: 'search_files', status: 'running' }),
   ];
   assert.deepEqual(
     conversationTimeline(messages).map((item) => (item.kind === 'message' ? item.id : item.segmentId)),

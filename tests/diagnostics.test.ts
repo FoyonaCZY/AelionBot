@@ -63,7 +63,7 @@ function fixture(t: test.TestContext) {
             callId: 'call',
             botId: 'bot',
             runId: 'run',
-            tool: 'host_execute',
+            tool: 'exec_command',
             target: args,
             targetKey: output,
             status: 'failed',
@@ -150,7 +150,7 @@ test('diagnostic bundles preserve useful failures while excluding chat, file, co
         id: 'event',
         time: 'now',
         type: 'tool.intent',
-        payload: { runId: 'run', tool: 'host_execute', args: f.args, output: f.output, content: f.chat },
+        payload: { runId: 'run', tool: 'exec_command', args: f.args, output: f.output, content: f.chat },
       },
       {
         id: 'malformed',

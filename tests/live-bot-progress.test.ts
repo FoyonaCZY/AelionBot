@@ -14,7 +14,7 @@ const run = (patch: Partial<RunRecord> = {}): RunRecord => ({
   toolCalls: 0,
   ...patch,
 });
-const execution = (id: string, status: ToolExecution['status'], tool = 'host_file_read', time = at): ToolExecution => ({
+const execution = (id: string, status: ToolExecution['status'], tool = 'file_read', time = at): ToolExecution => ({
   id,
   callId: id,
   botId: 'bot',
@@ -33,14 +33,14 @@ test('progress uses only confirmed current-run operations, excluding wrappers an
       execution('2', 'failed'),
       execution('batch', 'succeeded', 'code_exec'),
       { ...execution('foreign', 'succeeded'), runId: 'other' },
-      execution('3', 'succeeded', 'host_file_write', '2026-09-11T10:01:00Z'),
-      execution('4', 'running', 'host_file_read'),
+      execution('3', 'succeeded', 'file_write', '2026-09-11T10:01:00Z'),
+      execution('4', 'running', 'file_read'),
     ],
   });
   const p = liveBotProgress([], r)!;
-  assert.equal(p.label, '正在读取本机文件');
+  assert.equal(p.label, '正在读取文件');
   assert.equal(p.recent?.length, 2);
-  assert.match(p.receipt!, /写入本机文件/);
+  assert.match(p.receipt!, /保存文件/);
   assert.equal(p.since, at);
   assert.doesNotMatch(JSON.stringify(p), /private|secret|foreign|batch/);
 });

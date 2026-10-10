@@ -48,12 +48,6 @@ export const COMPUTER_TOOLS: ToolDefinition[] = [
     ['action'],
   ),
   tool(
-    'computer_execute',
-    '在 Linux 工作电脑当前 Bot 的专用目录中执行 shell 命令，最长 120 秒。工作目录已是 /work/<当前BotId>，相对路径即可；不要使用 /home/oai、/mnt/data 或其他云环境路径。Python3 可用；必须以实际输出判断成功。不会在用户本机执行。',
-    { command: string },
-    ['command'],
-  ),
-  tool(
     'python_execute',
     '直接在当前 Bot 工作目录执行 Python3 代码。code 是纯 Python 源码，不要拼接 shell 命令或多层引号。适合 CSV、Excel（openpyxl）、JSON、PDF 文本（pypdf/pdftotext）、计算和文件验证；exitCode 非零表示这次运行的结果，查看 stderr 后继续。',
     { code: string },

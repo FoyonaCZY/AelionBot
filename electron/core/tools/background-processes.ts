@@ -11,6 +11,7 @@ import { backoff } from '../model/model';
 import { vmPython } from '../vm/vm-python';
 import { hostEnvironment, hostShell } from '../host/host-platform';
 import { bytePage } from './bounded-output';
+import { approvalReason } from './approval-reason';
 import { AppError } from '../../../shared/errors';
 const LIMIT = 2 * 1024 * 1024;
 // The supervisor owns the child handle; stopping uses a per-job flag, never an unverified persisted PID.
@@ -109,12 +110,10 @@ export class BackgroundProcesses {
       )
         throw Error('本机后台任务需要存在的绝对工作目录');
       cwd = realpathSync.native(requested);
-      if (typeof args.reason !== 'string' || !args.reason.trim() || args.reason.length > 1000)
-        throw Error('本机后台任务需要操作原因');
       await this.interactions.permission(
         botId,
         runId,
-        { operation: 'command', reason: args.reason, command, cwd },
+        { operation: 'command', reason: approvalReason(args, command), command, cwd },
         signal,
       );
       signal.throwIfAborted();

@@ -603,7 +603,7 @@ test('requeued group work resumes without asking Laya while other members are st
     });
     store.message(bot.id, 'tool', '{"stdout":"checked"}', {
       runId: previousRunId,
-      tool: 'computer_execute',
+      tool: 'exec_command',
       status: 'done',
     });
     // A private chat took over: the delivery was requeued already woken and still names its run.

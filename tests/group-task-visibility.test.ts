@@ -95,9 +95,9 @@ test('reading an attachment or expanding its result is conversational; saving or
   for (const name of [
     'attachment_save',
     'message_attach',
-    'computer_execute',
+    'exec_command',
     'python_execute',
-    'host_execute',
+    'exec_command',
     'file_write',
   ])
     assert.equal(isGroupWorkTool(name), true);
@@ -109,7 +109,7 @@ test('legacy group records leave the private chat without losing any execution r
     second = f.add('read_result', true),
     third = f.add(undefined, true),
     fourth = f.add();
-  const legitimate = f.add('computer_execute', false, randomUUID());
+  const legitimate = f.add('exec_command', false, randomUUID());
   f.store.message(f.bot.id, 'user', '保留我的单聊消息');
   f.store.save();
   const before = records(f.store),
@@ -121,7 +121,7 @@ test('legacy group records leave the private chat without losing any execution r
   assert.equal(restored.data.messages.filter((message) => message.groupTaskSource).length, 0);
   assert.ok(
     restored.data.groupRunMessages.some(
-      (message) => message.runId === legitimate.id && message.tool === 'computer_execute',
+      (message) => message.runId === legitimate.id && message.tool === 'exec_command',
     ),
   );
   assert.ok(restored.data.messages.some((message) => message.content === '保留我的单聊消息'));
@@ -138,7 +138,7 @@ test('legacy group records leave the private chat without losing any execution r
 
 test('migrating group records moves them out of private history; search finds them as group work', (t) => {
   const f = fixture(t),
-    groupRun = f.add('computer_execute'),
+    groupRun = f.add('exec_command'),
     privateMessage = f.store.message(f.bot.id, 'user', '保留这条私聊历史');
   f.store.save();
   const before = new CognitiveStore(f.store),

@@ -3,7 +3,17 @@ import type { ToolDefinition } from '../model/model';
 const provider = new AjvJsonSchemaValidator();
 const validators = new Map<string, ReturnType<AjvJsonSchemaValidator['getValidator']>>();
 export function validateToolArguments(tool: ToolDefinition, args: unknown) {
-  validateSchema(tool.function.parameters, args, tool.function.name);
+  const properties = tool.function.parameters.properties as Record<string, unknown> | undefined;
+  const value =
+    args &&
+    typeof args === 'object' &&
+    !Array.isArray(args) &&
+    properties &&
+    !Object.hasOwn(properties, 'reason') &&
+    Object.hasOwn(args, 'reason')
+      ? Object.fromEntries(Object.entries(args).filter(([key]) => key !== 'reason'))
+      : args;
+  validateSchema(tool.function.parameters, value, tool.function.name);
 }
 export function validateSchema(schema: Record<string, unknown>, args: unknown, label: string) {
   const key = JSON.stringify(schema);

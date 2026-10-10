@@ -175,7 +175,7 @@ test('only a structured delegation takes a receipt, and it needs successful exec
     modelCalls: 1,
     toolCalls: 1,
     peerOrigin: { kind: 'peer_request', exchangeId },
-    executions: [{ id: 'real-write', tool: 'host_file_write', status: 'succeeded' } as any],
+    executions: [{ id: 'real-write', tool: 'file_write', status: 'succeeded' } as any],
   };
   store.data.runs.push(run);
   // The retired designer engine accepted receipts for plain requests; now only a structured delegation does.
@@ -251,7 +251,7 @@ test('interrupted design tool calls are repaired as unknown and their evidence s
   designs.history(bot.id, task.origin, task.id).history.messages.push({
     role: 'assistant',
     content: null,
-    tool_calls: [call('host_file_write', { path: task.workspacePath + '/index.html', content: 'partial' })],
+    tool_calls: [call('file_write', { path: task.workspacePath + '/index.html', content: 'partial' })],
   });
   const restored = designs.history(bot.id, task.origin, task.id).history.messages;
   assert.equal(restored.at(-1)?.role, 'tool');
@@ -268,7 +268,7 @@ test('interrupted design tool calls are repaired as unknown and their evidence s
   };
   store.data.runs.push(prior);
   const ledger = new ExecutionLedger(store),
-    entry = ledger.begin(bot.id, prior.id, call('host_file_write', {}), { path: task.workspacePath + '/index.html' });
+    entry = ledger.begin(bot.id, prior.id, call('file_write', {}), { path: task.workspacePath + '/index.html' });
   ledger.finish(entry, 'unknown', { error: 'connection interrupted' }, 'result');
   const next: RunRecord = { ...prior, id: randomUUID(), status: 'running', executions: [] };
   store.data.runs.push(next);

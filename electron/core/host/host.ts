@@ -39,6 +39,7 @@ import { FileSearch } from '../tools/file-search';
 import { findRipgrep } from '../tools/ripgrep';
 import type { FileSearchRequest } from '../tools/file-search-types';
 import { BoundedOutput } from '../tools/bounded-output';
+import { approvalReason } from '../tools/approval-reason';
 import { AppError } from '../../../shared/errors';
 export { redactHost } from './host-redaction';
 
@@ -171,7 +172,7 @@ export class HostComputer {
   }
   async execute(botId: string, runId: string, args: Record<string, unknown>, signal: AbortSignal, workspace?: string) {
     const command = text(args.command, 'command', 6000),
-      reason = text(args.reason, 'reason', 1000);
+      reason = approvalReason(args, '执行本机操作');
     const defaultCwd = workspace || this.workspace(botId),
       cwd = this.canonical(
         args.cwd === undefined || args.cwd === '' ? defaultCwd : this.resolveFilePath(args.cwd, defaultCwd),
@@ -295,7 +296,7 @@ export class HostComputer {
     options: { silent?: boolean } = {},
   ) {
     const path = this.canonical(this.resolveFilePath(args.path, workspace)),
-      reason = text(args.reason, 'reason', 1000);
+      reason = approvalReason(args, '执行本机操作');
     const range = {
       offset: args.offset,
       startLine: args.startLine,
@@ -338,7 +339,7 @@ export class HostComputer {
     workspace?: string,
   ) {
     const path = this.canonical(this.resolveFilePath(args.path, workspace)),
-      reason = text(args.reason, 'reason', 1000),
+      reason = approvalReason(args, '执行本机操作'),
       stamp = this.stamp(path),
       limit = 25 * 1024 * 1024;
     await this.interactions.permission(
@@ -396,7 +397,7 @@ export class HostComputer {
     workspace?: string,
   ) {
     const path = this.canonical(this.resolveFilePath(args.path, workspace)),
-      reason = text(args.reason, 'reason', 1000),
+      reason = approvalReason(args, '执行本机操作'),
       stamp = this.stamp(path);
     if (!this.options.imagePreview) throw new FileToolError('IMAGE_UNAVAILABLE', '图像预览服务尚未就绪');
     await this.interactions.permission(
@@ -448,7 +449,7 @@ export class HostComputer {
     workspace?: string,
   ) {
     const path = this.canonical(this.resolveFilePath(args.path, workspace)),
-      reason = text(args.reason, 'reason', 1000);
+      reason = approvalReason(args, '执行本机操作');
     if (typeof args.content !== 'string' || args.content.length > 256000) throw new Error('写入内容过长或无效');
     if (args.overwrite !== undefined && typeof args.overwrite !== 'boolean') throw new Error('overwrite 必须是布尔值');
     const content = args.content,
@@ -490,7 +491,7 @@ export class HostComputer {
     workspace?: string,
   ) {
     const path = this.canonical(this.resolveFilePath(args.path, workspace)),
-      reason = text(args.reason, 'reason', 1000),
+      reason = approvalReason(args, '执行本机操作'),
       expected = expectedHash(args.expectedSha256, true)!;
     if (
       typeof args.oldText !== 'string' ||
@@ -589,7 +590,7 @@ export class HostComputer {
     workspace?: string,
   ) {
     const path = this.canonical(this.resolveFilePath(args.path || workspace || this.workspace(botId), workspace)),
-      reason = text(args.reason, 'reason', 1000);
+      reason = approvalReason(args, '执行本机操作');
     const offset = boundedInteger(args.offset, 0, 0, Number.MAX_SAFE_INTEGER, 'offset'),
       limit = boundedInteger(args.limit, 250, 1, 1000, 'limit');
     await this.interactions.permission(botId, runId, { operation: 'read_file', reason, path }, signal);
@@ -654,7 +655,7 @@ export class HostComputer {
     workspace?: string,
   ) {
     const path = this.canonical(this.resolveFilePath(args.path, workspace)),
-      reason = text(args.reason, 'reason', 1000),
+      reason = approvalReason(args, '执行本机操作'),
       stamp = this.stamp(path);
     if (!statSync(path).isFile()) throw Error('请选择视频文件');
     await this.interactions.permission(
@@ -682,7 +683,7 @@ export class HostComputer {
           workspace,
         ),
       ),
-      reason = text(args.reason, 'reason', 1000);
+      reason = approvalReason(args, '执行本机操作');
     const glob = text((kind === 'find' ? args.pattern : args.glob) ?? '**/*', 'glob', 500).replaceAll('\\', '/');
     if (/^[a-z]:|^\//i.test(glob) || glob.split('/').includes('..'))
       throw new FileToolError('INVALID_ARGUMENT', 'glob 必须相对于检索目录，不能包含绝对路径或 ..');
@@ -725,7 +726,7 @@ export class HostComputer {
         operation: 'read_file',
         reason,
         path,
-        tool: kind === 'find' ? 'host_find_files' : 'host_search_files',
+        tool: kind === 'find' ? 'find_files' : 'search_files',
         arguments: { glob, query, regex: request.regex, outputMode },
       },
       signal,
@@ -738,10 +739,7 @@ export class HostComputer {
         request.root = dirname(path);
         request.file = path;
       } else if (!stat.isDirectory())
-        throw new FileToolError(
-          'NOT_DIRECTORY',
-          '文件查找需要目录；单个文件请使用 host_file_read 或 host_search_files',
-        );
+        throw new FileToolError('NOT_DIRECTORY', '文件查找需要目录；单个文件请使用 file_read 或 search_files');
       request.secrets = this.secrets();
       return { location: 'host', ...(await this.searches.run(request, signal)) };
     } catch (error) {

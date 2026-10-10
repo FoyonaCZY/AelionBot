@@ -118,7 +118,7 @@ test('creating a plan keeps tool schemas stable and rejects reactions before exe
         title: '核对项目',
         acceptance: '命令成功返回核对结果',
         status: done ? 'done' : 'pending',
-        evidenceIds: done ? [store.data.runs[0].executions!.find((e) => e.tool === 'computer_execute')!.id] : [],
+        evidenceIds: done ? [store.data.runs[0].executions!.find((e) => e.tool === 'exec_command')!.id] : [],
       },
     ],
   });
@@ -137,7 +137,11 @@ test('creating a plan keeps tool schemas stable and rejects reactions before exe
         };
       assert.ok(messages.some((m) => m.role === 'system' && m.content?.includes('当前工具执行限制')));
       if (turn === 2)
-        return { content: '', finishReason: 'tool_calls', calls: [call('computer_execute', { command: 'verify' })] };
+        return {
+          content: '',
+          finishReason: 'tool_calls',
+          calls: [call('exec_command', { command: 'verify', location: 'vm' })],
+        };
       if (turn === 3) return { content: '', finishReason: 'tool_calls', calls: [call('plan_update', plan(1, true))] };
       return { content: '已核对项目。', finishReason: 'stop', calls: [] };
     },
@@ -167,10 +171,10 @@ test('large output does not add a new tool schema and read_result is available f
       schemas.push(JSON.stringify(tools));
       assert.ok(tools.some((tool) => tool.function.name === 'read_result'));
       turn++;
-      const name = turn === 1 ? 'computer_execute' : 'read_result',
+      const name = turn === 1 ? 'exec_command' : 'read_result',
         args =
           turn === 1
-            ? { command: 'read-large-output' }
+            ? { command: 'read-large-output', location: 'vm' }
             : { id: store.data.runs[0].executions![0].resultId, offset: 0, maxChars: 200 };
       return turn < 3
         ? {

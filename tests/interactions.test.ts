@@ -37,7 +37,7 @@ test('refusing a host operation skips later calls, returns the denial to the mod
     id: `call-${index}`,
     type: 'function',
     function: {
-      name: 'host_file_write',
+      name: 'file_write',
       arguments: JSON.stringify({ path, content: 'must not be written', reason: '测试' }),
     },
   }));
@@ -337,7 +337,7 @@ test('cancelling a paused run withdraws its request and never resumes the model'
             id: 'write',
             type: 'function',
             function: {
-              name: 'host_file_write',
+              name: 'file_write',
               arguments: JSON.stringify({ path: join(root, 'cancelled.txt'), content: 'no', reason: '测试' }),
             },
           },

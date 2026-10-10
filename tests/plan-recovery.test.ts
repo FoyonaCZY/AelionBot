@@ -80,7 +80,7 @@ test('plan and goal control failures cannot deadlock a completed verified task',
           call('goal_update', { status: 'completed', summary: '过早完成', evidenceIds: ['missing'] }),
         ];
       else if (turn === 2) calls = [call('plan_update', plan())];
-      else if (turn === 3) calls = [call('file_read', { path: 'README.md' })];
+      else if (turn === 3) calls = [call('file_read', { path: 'README.md', location: 'vm' })];
       else if (turn === 4)
         calls = [
           call('task_update', plan(1, 'done', [evidence!])),
@@ -135,7 +135,7 @@ test('goal completion still blocks unresolved writes and unknown operations', (t
   assert.throws(() => work.invoke(run, 'goal_update', complete), { code: 'execution.unresolved' });
   const retry = ledger.begin(botId, run.id, call('file_write', { path: 'output' }, 'retry'), { path: 'output' });
   ledger.finish(retry, 'succeeded', {}, 'retry-result');
-  const unknown = ledger.begin(botId, run.id, call('host_execute', { command: 'do work' }), { command: 'do work' });
+  const unknown = ledger.begin(botId, run.id, call('exec_command', { command: 'do work' }), { command: 'do work' });
   ledger.finish(unknown, 'unknown', { error: 'connection lost' }, 'unknown');
   assert.throws(() => work.invoke(run, 'goal_update', complete), { code: 'execution.unresolved' });
   assert.throws(() => work.updatePlan(run, plan(1, 'done', [retry.id, 'not-real'])), {
@@ -194,7 +194,7 @@ test('execution queries are bounded and cursors stay stable as diagnostic calls 
       callId: 'call-' + i,
       botId,
       runId: run.id,
-      tool: i % 3 ? 'host_file_read' : 'host_file_write',
+      tool: i % 3 ? 'file_read' : 'file_write',
       target: 'target/'.repeat(60),
       targetKey: String(i),
       status: i % 3 ? 'succeeded' : 'failed',

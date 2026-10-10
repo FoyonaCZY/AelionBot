@@ -65,7 +65,7 @@ interface RunDesign {
   reference: Map<string, WireMessage>;
 }
 
-const HOST_WRITES = new Set(['host_file_write', 'host_file_patch', 'apply_patch']);
+const HOST_WRITES = new Set(['file_write', 'file_patch', 'apply_patch', 'host_file_write', 'host_file_patch']);
 const artifactKind = (path: string): DesignArtifact['kind'] =>
   path.endsWith('.pptx') ? 'pptx' : /\.html?$/i.test(path) ? 'html' : path.endsWith('.pdf') ? 'pdf' : 'other';
 const sha256 = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
@@ -279,12 +279,17 @@ export class DesignWork {
   beforeTool(run: RunRecord | undefined, name: string, args: Record<string, unknown>) {
     const session = this.session(run),
       state = run && this.runs.get(run.id);
-    if (!session || !state || !HOST_WRITES.has(name) || session.location !== 'host') return;
+    if (!session || !state || !HOST_WRITES.has(name) || session.location !== 'host' || args.location === 'vm') return;
     for (const path of this.hostTargets(run!, name, args)) {
       if (!this.inTask(session, path)) continue;
-      if (name === 'host_file_write' && session.userEdits.length && /\.(html?|css)$/i.test(path) && existsSync(path))
+      if (
+        (name === 'file_write' || name === 'host_file_write') &&
+        session.userEdits.length &&
+        /\.(html?|css)$/i.test(path) &&
+        existsSync(path)
+      )
         throw new TemporarilyUnavailableTool(
-          '用户已在预览中保存过修改。请先 host_file_read，再用 host_file_patch 做局部更新，不要整文件覆盖。',
+          '用户已在预览中保存过修改。请先 file_read，再用 file_patch 做局部更新，不要整文件覆盖。',
         );
       try {
         state.before.set(path, existsSync(path) && statSync(path).size <= 8 * 1024 * 1024 ? readFileSync(path) : null);
@@ -459,14 +464,13 @@ export class DesignWork {
     }
     if (name === 'design_file_create') {
       const path = this.files.absolute(live, String(args.path));
-      if (host.callable('host_file_write'))
-        return host.invoke('host_file_write', {
+      if (host.callable('file_write'))
+        return host.invoke('file_write', {
           path,
           content: args.content,
-          reason: args.reason,
           overwrite: false,
         });
-      if (existsSync(path)) throw Error('文件已存在；请先读取再用 host_file_patch 修改');
+      if (existsSync(path)) throw Error('文件已存在；请先读取再用 file_patch 修改');
       await permission(path, String(args.reason), false);
       guard();
       const result = this.files.write(live, String(args.path), Buffer.from(String(args.content)), null);

@@ -24,7 +24,7 @@ test('a general Bot starts a design task from an ordinary request, writes on thi
     if (turn === 0) {
       // Unbound: only the entry tools are offered, next to the ordinary ones.
       assert.ok(requests[0].tools.includes('design_start'));
-      assert.ok(requests[0].tools.includes('host_file_read'));
+      assert.ok(requests[0].tools.includes('file_read'));
       assert.ok(!requests[0].tools.includes('design_file_create'));
       return { calls: [call('design_start', { kind: 'prototype', title: 'Planner', brief: 'Landing page' })] };
     }
@@ -189,7 +189,7 @@ test('an HTML file the user saved in the preview cannot be overwritten whole', a
   await f.runTask('Rewrite page', [
     {
       calls: [
-        call('host_file_write', {
+        call('file_write', {
           path: f.path('index.html'),
           content: '<html><body>All new</body></html>',
           reason: 'replace',
@@ -364,7 +364,7 @@ test('design_file_create goes through the real host write: one permission, no sh
   assert.equal(run.status, 'completed', run.error || 'run did not complete');
   assert.equal(readFileSync(f.path('index.html'), 'utf8'), content);
   assert.equal(f.permissions.length, 1);
-  assert.ok(!run.executions?.some((e) => e.tool === 'host_execute'));
+  assert.ok(!run.executions?.some((e) => e.tool === 'exec_command'));
   assert.equal(f.vmCalls(), 0);
   await assert.rejects(
     f.host.writeFile(

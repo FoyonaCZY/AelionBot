@@ -172,7 +172,7 @@ test('elapsed time and legacy progress markers never cause an extra model reques
     (messages) => {
       requests++;
       assert.ok(!JSON.stringify(messages).includes('现在只向用户简短汇报'));
-      return actions < 4 ? tool('computer_execute', { command: 'next-step' }) : answer('已执行完毕');
+      return actions < 4 ? tool('exec_command', { command: 'next-step', location: 'vm' }) : answer('已执行完毕');
     },
     vm,
   );
@@ -286,7 +286,8 @@ test('an in-flight operation completes once and the new request sees its recorde
   const fx = fixture(
     t,
     (messages) => {
-      if (!messages.some((m) => m.role === 'tool')) return tool('computer_execute', { command: 'create-once' });
+      if (!messages.some((m) => m.role === 'tool'))
+        return tool('exec_command', { command: 'create-once', location: 'vm' });
       assert.ok(JSON.stringify(messages).includes('created-once'));
       assert.ok(messages.some((m) => m.content === '只汇报结果'));
       return answer('已核对执行结果。');
@@ -306,7 +307,7 @@ test('a new input withdraws an obsolete permission instead of executing it', asy
   const fx = fixture(t, (messages) =>
     [...messages].reverse().find((message) => message.role === 'user')?.content === '不用写了'
       ? answer('收到，不再写入。')
-      : tool('host_file_write', { path: join(fx.dir, 'obsolete.txt'), content: '旧内容', reason: '旧请求' }),
+      : tool('file_write', { path: join(fx.dir, 'obsolete.txt'), content: '旧内容', reason: '旧请求' }),
   );
   fx.queue.send({ botId: fx.bot.id, message: '写入文件' });
   await until(() => fx.interactions.snapshot().length === 1);
@@ -327,7 +328,7 @@ test('model-authored progress stays visible without a separate summary request',
       requests++;
       return actions < 7
         ? {
-            ...tool('computer_execute', { command: 'next-step' }),
+            ...tool('exec_command', { command: 'next-step', location: 'vm' }),
             content: actions === 3 ? '已核对前三项，继续检查。' : '',
           }
         : answer('所有工作已完成。');
@@ -362,7 +363,10 @@ test('a new input preserves progress already spoken before an in-flight operatio
     (messages) =>
       messages.some((message) => message.role === 'user' && message.content === '只说明结果')
         ? answer('这是已执行的结果。')
-        : { ...tool('computer_execute', { command: 'run-once' }), content: '我先核对现有文件，再继续处理。' },
+        : {
+            ...tool('exec_command', { command: 'run-once', location: 'vm' }),
+            content: '我先核对现有文件，再继续处理。',
+          },
     vm,
   );
   fx.queue.send({ botId: fx.bot.id, message: '核对文件' });
@@ -385,7 +389,10 @@ test('a later execution error cannot overwrite completed progress with the failu
   } as unknown as VmController;
   const fx = fixture(
     t,
-    () => ({ ...tool('computer_execute', { command: 'same-failing-check' }), content: `正在做第 ${++calls} 次检查。` }),
+    () => ({
+      ...tool('exec_command', { command: 'same-failing-check', location: 'vm' }),
+      content: `正在做第 ${++calls} 次检查。`,
+    }),
     vm,
   );
   fx.queue.send({ botId: fx.bot.id, message: '核对文件' });

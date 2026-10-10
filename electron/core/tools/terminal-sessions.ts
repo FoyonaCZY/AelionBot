@@ -8,6 +8,7 @@ import type { HostComputer } from '../host/host';
 import type { Interactions } from '../agent/interactions';
 import type { VmController } from '../vm/vm';
 import { hostEnvironment, hostShell, stopHostProcess } from '../host/host-platform';
+import { approvalReason } from './approval-reason';
 import { boundedInteger, FileToolError, textPage } from './file-text';
 import { backoff } from '../model/model';
 export interface TerminalDriver {
@@ -16,6 +17,24 @@ export interface TerminalDriver {
   resize?: (cols: number, rows: number) => void;
   onData: (fn: (text: string) => void) => unknown;
   onExit: (fn: (code: number) => void) => unknown;
+}
+/** Test doubles and older VM objects only implement execute. Surface that as a terminal that has already exited. */
+async function oneShotTerminal(
+  vm: VmController,
+  botId: string,
+  command: string,
+  signal: AbortSignal,
+): Promise<TerminalDriver> {
+  const result = await vm.execute(command, botId, signal);
+  const text = [result.stdout, result.stderr].filter((part) => typeof part === 'string' && part).join('\n');
+  return {
+    write: () => {},
+    kill: () => {},
+    onData: (fn) => {
+      if (text) fn(text);
+    },
+    onExit: (fn) => fn(typeof result.exitCode === 'number' ? result.exitCode : 0),
+  };
 }
 interface Session {
   id: string;
@@ -62,7 +81,8 @@ export class TerminalSessions {
       driver: TerminalDriver;
     if (location === 'host') {
       if (!this.host || !this.interactions) throw Error('本机终端不可用');
-      if (typeof args.reason !== 'string' || !args.reason.trim()) throw Error('请说明执行原因');
+      if (typeof args.stdin === 'string' && args.stdin.length > 262144) throw Error('stdin 过长');
+      const reason = approvalReason(args, String(args.command));
       cwd = this.host.resolveFilePath(args.cwd || workspace || this.host.workspace(botId), workspace);
       if (!existsSync(cwd) || !statSync(cwd).isDirectory()) throw Error('终端工作目录不存在');
       cwd = realpathSync.native(cwd);
@@ -71,10 +91,11 @@ export class TerminalSessions {
         runId,
         {
           operation: 'command',
-          reason: args.reason,
+          reason,
           command: args.command,
           cwd,
-          tool: 'terminal_start',
+          ...(typeof args.stdin === 'string' ? { stdin: args.stdin } : {}),
+          tool: typeof args.tool === 'string' ? args.tool : 'terminal_start',
           arguments: { tty },
         },
         signal,
@@ -83,7 +104,7 @@ export class TerminalSessions {
       if (realpathSync.native(cwd) !== cwd) throw Error('目录在审批期间发生变化');
       const env = hostEnvironment(this.host.options.env || process.env),
         shell = hostShell(args.command, env),
-        shellArgs = shell.args.filter((arg) => arg !== '-NonInteractive');
+        shellArgs = tty ? shell.args.filter((arg) => arg !== '-NonInteractive') : shell.args;
       if (tty) {
         // node-pty rewrites its Mac spawn-helper path itself. Loading its JS from
         // app.asar.unpacked on Mac would rewrite that path a second time.
@@ -187,7 +208,10 @@ export class TerminalSessions {
       cwd = posix.resolve(`/work/${botId}`, typeof args.cwd === 'string' ? args.cwd : '.');
       if (cwd !== `/work/${botId}` && !cwd.startsWith(`/work/${botId}/`))
         throw Error('VM 终端目录必须在当前 Bot 工作目录内');
-      driver = await this.vm.openTerminal(botId, args.command, cwd, signal, tty ? { cols, rows } : undefined);
+      driver =
+        typeof this.vm.openTerminal === 'function'
+          ? await this.vm.openTerminal(botId, args.command, cwd, signal, tty ? { cols, rows } : undefined)
+          : await oneShotTerminal(this.vm, botId, args.command, signal);
     }
     const session: Session = {
       id: randomUUID(),
@@ -222,7 +246,23 @@ export class TerminalSessions {
       signal.throwIfAborted();
     }
     for (const [id, value] of this.sessions) if (value.closed && this.sessions.size > 64) this.sessions.delete(id);
-    return this.read(botId, session.id, signal, boundedInteger(args.yieldTimeMs, 1000, 0, 30000, 'yieldTimeMs'), 0);
+    try {
+      if (typeof args.stdin === 'string' && args.stdin) driver.write(args.stdin);
+      return await this.read(
+        botId,
+        session.id,
+        signal,
+        boundedInteger(args.yieldTimeMs, 1000, 0, 30000, 'yieldTimeMs'),
+        0,
+      );
+    } catch (error) {
+      if (signal.aborted) {
+        try {
+          driver.kill();
+        } catch {}
+      }
+      throw error;
+    }
   }
   async input(botId: string, runId: string, args: Record<string, unknown>, signal: AbortSignal) {
     const session = this.get(botId, String(args.id));
@@ -230,17 +270,16 @@ export class TerminalSessions {
     if (typeof args.chars !== 'string' || args.chars.length > 16000) throw Error('输入必须是最多 16000 字符的文本');
     const chars = args.chars;
     if (chars && session.location === 'host') {
-      if (!this.interactions || typeof args.reason !== 'string' || !args.reason.trim())
-        throw Error('本机终端输入需要说明原因');
+      if (!this.interactions) throw Error('本机终端不可用');
       await this.interactions.permission(
         botId,
         runId,
         {
           operation: 'command',
-          reason: args.reason,
+          reason: approvalReason(args, chars),
           cwd: session.cwd,
           command: session.command + '\n# 继续向终端发送输入\n' + JSON.stringify(chars),
-          tool: 'terminal_input',
+          tool: typeof args.tool === 'string' ? args.tool : 'terminal_input',
           arguments: { sessionId: session.id, input: chars, initialCommand: session.command },
         },
         signal,
@@ -316,7 +355,17 @@ export class TerminalSessions {
   list(botId: string, runId?: string) {
     return [...this.sessions.values()]
       .filter((session) => session.botId === botId && (!runId || session.runId === runId))
-      .map(({ id, runId, purpose, exitCode, location }) => ({ id, runId, purpose, exitCode, location }));
+      .map(({ id, runId, purpose, exitCode, location, command, cwd, createdAt, closed }) => ({
+        id,
+        runId,
+        purpose,
+        exitCode,
+        location,
+        command,
+        cwd,
+        createdAt,
+        status: closed ? 'exited' : 'running',
+      }));
   }
   live(botId: string) {
     return [...this.sessions.values()]
@@ -331,9 +380,13 @@ export class TerminalSessions {
         createdAt,
       }));
   }
-  cancelRun(botId: string, runId: string) {
-    for (const session of this.sessions.values())
-      if (session.botId === botId && session.runId === runId && !session.closed) session.driver.kill();
+  async cancelRun(botId: string, runId: string) {
+    const stopping = [...this.sessions.values()].filter(
+      (session) => session.botId === botId && session.runId === runId && !session.closed,
+    );
+    await Promise.all(
+      stopping.map((session) => this.stop(botId, session.id, AbortSignal.timeout(8000)).catch(() => {})),
+    );
   }
   async forgetBot(botId: string, signal: AbortSignal) {
     for (const session of Array.from(this.sessions.values()))

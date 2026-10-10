@@ -92,7 +92,7 @@ Use design_fonts to search and download needed open-source fonts into the projec
 
   refinement: `REFINEMENT WORKFLOW v2
 ${common}
-Read the latest source and task user-edit revision before touching files. Treat canvas comments, annotations, selected element, screenshot and outstanding design-lint findings as scope evidence. Prefer the named data-design-id; if missing, use the selector. Make a focused patch with the read SHA; preserve unrelated structure, styling and user changes. Do not replace a whole page to change one heading. After the user has saved preview edits, host_file_write on HTML/CSS is blocked — use host_file_patch. If files changed meanwhile, re-read and merge the requested change. If this is a clone, keep the observed structure; do not replace it with a generic landing page. Re-publish the same entry point, briefly state the actual changed behavior, and retain editable source.`,
+Read the latest source and task user-edit revision before touching files. Treat canvas comments, annotations, selected element, screenshot and outstanding design-lint findings as scope evidence. Prefer the named data-design-id; if missing, use the selector. Make a focused patch with the read SHA; preserve unrelated structure, styling and user changes. Do not replace a whole page to change one heading. After the user has saved preview edits, file_write on HTML/CSS is blocked — use file_patch. If files changed meanwhile, re-read and merge the requested change. If this is a clone, keep the observed structure; do not replace it with a generic landing page. Re-publish the same entry point, briefly state the actual changed behavior, and retain editable source.`,
 
   polish: `POLISH WORKFLOW v1
 ${common}
@@ -102,7 +102,7 @@ Read the actual file first — never critique from the prompt alone. Then work i
 2. REMOVE AI tells. Unmotivated gradients, reflexive three-card rows, uniform radii, emoji icons, empty marketing adjectives, accent overuse, filler copy.
 3. TIGHTEN. One focal point per viewport. Vary section density. Fix the alignment edges. Fix control states and focus rings. Fix the narrow layout.
 4. ADD ONE distinctive move if the page has none — a typographic decision, a single color call, an unexpected proportion, or one micro-interaction. One, not five.
-Prefer a few decisive patches over broad cosmetic churn. Every change is a focused host_file_patch with the read SHA. Report what actually changed and what you deliberately left alone. Do not claim visual verification without a real view_image observation.`,
+Prefer a few decisive patches over broad cosmetic churn. Every change is a focused file_patch with the read SHA. Report what actually changed and what you deliberately left alone. Do not claim visual verification without a real view_image observation.`,
 };
 
 export function designerPlaybookName(kind?: string) {

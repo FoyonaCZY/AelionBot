@@ -70,7 +70,7 @@ test('every Bot runs the general engine, with design tools offered on its first 
     {
       complete: async (_messages: any, tools: any[]) => {
         calls++;
-        assert.ok(tools.some((tool) => tool.function.name === 'computer_execute'));
+        assert.ok(tools.some((tool) => tool.function.name === 'exec_command'));
         assert.ok(!tools.some((tool) => ['continue_general', 'design_handoff'].includes(tool.function.name)));
         return { content: '请提供材料。', calls: [], finishReason: 'stop' };
       },

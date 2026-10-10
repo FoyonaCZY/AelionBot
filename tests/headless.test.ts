@@ -59,12 +59,12 @@ test('headless run edits the workspace, denies what would wait for a person and 
     if (results.length === 0)
       return {
         tool: {
-          name: 'host_file_write',
+          name: 'file_write',
           args: { path: 'notes.txt', content: 'headless ok\n', reason: 'record the result' },
         },
       };
     if (results.length === 1)
-      return { tool: { name: 'host_execute', args: { command: 'Remove-Item notes.txt', reason: 'clean up' } } };
+      return { tool: { name: 'exec_command', args: { command: 'Remove-Item notes.txt', reason: 'clean up' } } };
     return { text: results[1].includes('headless') ? '写入完成，删除操作被拒绝。' : 'unexpected' };
   });
   const events: HeadlessEvent[] = [];
@@ -85,8 +85,8 @@ test('headless run edits the workspace, denies what would wait for a person and 
   assert.ok(events.some((event) => event.type === 'started'));
   assert.ok(events.some((event) => event.type === 'denied' && event.operation === 'command'));
   const tools = new Set(requests[0].tools.map((tool: any) => tool.function.name));
-  for (const name of ['host_execute', 'host_file_write', 'host_search_files']) assert.ok(tools.has(name), name);
-  for (const name of ['computer', 'computer_execute', 'file_write', 'python_execute', 'request_user_input'])
+  for (const name of ['exec_command', 'file_write', 'search_files']) assert.ok(tools.has(name), name);
+  for (const name of ['computer', 'python_execute', 'request_user_input', 'request_user_control'])
     assert.ok(!tools.has(name), name);
   assert.match(requests[0].messages[0].content, /unattended headless run/);
   // The endpoint and model are saved for the next run; the key never is.
@@ -108,7 +108,7 @@ test('full permission runs host commands and a timeout stops a run that never fi
       ? { text: results[0].includes('from-node') ? '命令已执行' : 'no output' }
       : {
           tool: {
-            name: 'host_execute',
+            name: 'exec_command',
             args: { command: 'node -e "console.log(\'from-node\')"', reason: 'check node' },
           },
         };
@@ -126,9 +126,9 @@ test('full permission runs host commands and a timeout stops a run that never fi
   assert.equal(result.status, 'completed', result.error || '');
   assert.equal(result.reply, '命令已执行');
   assert.equal(result.denied, 0);
-  assert.ok(result.executions.some((item) => item.tool === 'host_execute' && item.status === 'succeeded'));
+  assert.ok(result.executions.some((item) => item.tool === 'exec_command' && item.status === 'succeeded'));
   const slow = await modelServer(t, () => ({
-    tool: { name: 'host_execute', args: { command: 'node -e "setTimeout(()=>{},60000)"', reason: 'wait' } },
+    tool: { name: 'exec_command', args: { command: 'node -e "setTimeout(()=>{},60000)"', reason: 'wait' } },
   }));
   const started = Date.now(),
     stopped = await runHeadless({

@@ -55,7 +55,7 @@ test('a task completes after exceeding the old token cap when no limit is config
               {
                 id: String(steps),
                 type: 'function',
-                function: { name: 'computer_execute', arguments: '{"command":"verify"}' },
+                function: { name: 'exec_command', arguments: '{"command":"verify","location":"vm"}' },
               },
             ],
           }

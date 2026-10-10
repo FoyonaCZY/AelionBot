@@ -5,13 +5,13 @@ import { CHAT_HANDLERS, GROUP_HANDLER } from './chat';
 import { COMPUTER_HANDLERS } from './computer';
 import { DELEGATION_HANDLERS } from './delegation';
 import { DESIGN_HANDLER } from './design';
-import { FILE_HANDLERS, HOST_HANDLER } from './files';
+import { FILE_HANDLERS } from './files';
 import { MCP_HANDLER } from './mcp';
 import { MEDIA_HANDLERS } from './media';
 import { MEMORY_HANDLERS, SKILL_HANDLERS } from './memory';
 import { MISC_HANDLERS } from './misc';
 import { PLANNING_HANDLERS } from './planning';
-import { PROCESS_HANDLERS, TERMINAL_HANDLERS } from './processes';
+import { EXEC_HANDLERS } from './processes';
 import { SCHEDULED_HANDLER } from './scheduling';
 import { WEB_HANDLERS } from './web';
 import { AppError } from '../../../../../shared/errors';
@@ -19,13 +19,12 @@ import { AppError } from '../../../../../shared/errors';
 /** Handlers for exact tool names. Names never overlap with a prefix handler (see tests/tool-registry.test.ts). */
 export const TOOL_HANDLERS: Record<string, ToolHandler> = {
   ...MEDIA_HANDLERS,
-  ...TERMINAL_HANDLERS,
+  ...EXEC_HANDLERS,
   ...FILE_HANDLERS,
   ...WEB_HANDLERS,
   ...MISC_HANDLERS,
   ...COMPUTER_HANDLERS,
   ...DELEGATION_HANDLERS,
-  ...PROCESS_HANDLERS,
   ...PLANNING_HANDLERS,
   ...ATTACHMENT_HANDLERS,
   ...CHAT_HANDLERS,
@@ -34,13 +33,7 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
 };
 
 /** Handlers for tool namespaces, tried in order. */
-export const PREFIX_HANDLERS: PrefixHandler[] = [
-  SCHEDULED_HANDLER,
-  GROUP_HANDLER,
-  HOST_HANDLER,
-  MCP_HANDLER,
-  DESIGN_HANDLER,
-];
+export const PREFIX_HANDLERS: PrefixHandler[] = [SCHEDULED_HANDLER, GROUP_HANDLER, MCP_HANDLER, DESIGN_HANDLER];
 
 export function dispatchTool(context: ToolContext) {
   const { name } = context;

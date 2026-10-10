@@ -23,7 +23,7 @@ const deferred = <T>() => {
 };
 const step = (id: string, dependsOn?: string[]) => ({
   id,
-  tool: 'host_file_read',
+  tool: 'file_read',
   args: { path: id, reason: 'read fixture' },
   ...(dependsOn ? { dependsOn } : {}),
 });
@@ -74,7 +74,7 @@ test('batch validation identifies the actual bad step before dispatch', async ()
   const cases: Array<[unknown, RegExp | { code: string; message: RegExp }]> = [
     [[step('a'), step('a')], { code: 'pipeline.duplicate_step', message: /a$/ }],
     [[step('a', ['missing'])], /a.*missing/],
-    [[{ ...step('a'), tool: 'host_execute' }], { code: 'pipeline.tool_not_allowed', message: /a.*host_execute/ }],
+    [[{ ...step('a'), tool: 'exec_command' }], { code: 'pipeline.tool_not_allowed', message: /a.*exec_command/ }],
     [[{ ...step('a'), args: [] }], /a.*args/],
     [[{ ...step('a'), dependsOn: 'bad' }], /a.*dependsOn/],
     [[step('a'), { ...step('b'), args: { path: { $from: 'a', path: 'value' } } }], /b.*dependsOn/],
@@ -99,7 +99,7 @@ test('batch validation identifies the actual bad step before dispatch', async ()
       1,
       new AbortController().signal,
       async () => {},
-      { allowedTools: new Set(['host_file_read']) },
+      { allowedTools: new Set(['file_read']) },
     ),
     { code: 'pipeline.tool_unavailable' },
   );
@@ -117,11 +117,11 @@ test('batch input is immutable and declared result references are resolved', asy
     return args.path === 'a' ? held.promise : { read: true };
   });
   await flush();
-  steps[1].tool = 'host_execute';
+  steps[1].tool = 'exec_command';
   steps[1].args.path = 'unapproved';
   held.resolve({ result: { path: 'resolved' } });
   await pending;
-  assert.deepEqual(calls, ['host_file_read:a', 'host_file_read:resolved']);
+  assert.deepEqual(calls, ['file_read:a', 'file_read:resolved']);
 });
 
 test('a fatal denial cancels sibling requests and never dispatches queued reads', async () => {
@@ -215,7 +215,7 @@ function fixture(t: test.TestContext, mode: 'ask' | 'auto' | 'full') {
                   arguments: JSON.stringify({
                     steps: ['README.md', 'go.mod', 'main.go'].map((path, index) => ({
                       id: 'read_' + index,
-                      tool: 'host_file_read',
+                      tool: 'file_read',
                       args: { path, reason: '读取项目资料' },
                     })),
                   }),
@@ -248,7 +248,7 @@ for (const mode of ['auto', 'full'] as const)
     assert.equal(f.interactions.snapshot().length, 0);
     assert.equal(f.reviews(), 0);
     assert.equal(
-      run.executions?.filter((entry) => entry.tool === 'host_file_read' && entry.status === 'succeeded').length,
+      run.executions?.filter((entry) => entry.tool === 'file_read' && entry.status === 'succeeded').length,
       3,
     );
     for (const entry of run.executions || [])
@@ -300,12 +300,12 @@ test('independent tool calls in one turn overlap while later serial work waits',
               {
                 id: 'a',
                 type: 'function',
-                function: { name: 'host_file_read', arguments: JSON.stringify({ path: 'a.txt', reason: 'read a' }) },
+                function: { name: 'file_read', arguments: JSON.stringify({ path: 'a.txt', reason: 'read a' }) },
               },
               {
                 id: 'b',
                 type: 'function',
-                function: { name: 'host_file_read', arguments: JSON.stringify({ path: 'b.txt', reason: 'read b' }) },
+                function: { name: 'file_read', arguments: JSON.stringify({ path: 'b.txt', reason: 'read b' }) },
               },
             ],
             finishReason: 'tool_calls',
@@ -330,8 +330,7 @@ test('independent tool calls in one turn overlap while later serial work waits',
   await pending;
   assert.equal(store.data.runs[0].status, 'completed');
   assert.equal(
-    store.data.runs[0].executions?.filter((entry) => entry.tool === 'host_file_read' && entry.status === 'succeeded')
-      .length,
+    store.data.runs[0].executions?.filter((entry) => entry.tool === 'file_read' && entry.status === 'succeeded').length,
     2,
   );
 });
@@ -348,7 +347,7 @@ test('denying one host batch approval withdraws the batch but resumes the model'
   assert.equal(f.modelCalls(), 2);
   assert.ok(f.store.data.messages.some((message) => message.operationDenial?.path?.endsWith('README.md')));
   assert.ok(
-    run.executions?.filter((entry) => entry.tool === 'host_file_read').every((entry) => entry.status === 'cancelled'),
+    run.executions?.filter((entry) => entry.tool === 'file_read').every((entry) => entry.status === 'cancelled'),
   );
   for (const entry of run.executions || [])
     if (entry.resultId)

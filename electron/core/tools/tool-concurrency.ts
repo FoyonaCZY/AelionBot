@@ -3,6 +3,9 @@ const EXCLUSIVE_TOOLS = new Set([
   'request_user_control',
   'request_user_input',
   'user_input_wait',
+  'exec_command',
+  'write_stdin',
+  'exec_stop',
   'host_execute',
   'host_file_write',
   'host_file_patch',
@@ -40,7 +43,7 @@ const normalizeLockPath = (path: string) =>
     .replace(/\/{2,}/g, '/');
 export function writeLockPaths(name: string, args: Record<string, unknown>) {
   if (!PATH_LOCKED_TOOLS.has(name)) return [];
-  const scope = 'vm';
+  const scope = args.location === 'vm' ? 'vm' : 'host';
   const paths = new Set<string>();
   const add = (value: unknown) => {
     if (typeof value === 'string' && value.trim()) paths.add(`${scope}:${normalizeLockPath(value.trim())}`);

@@ -193,7 +193,7 @@ test('resume keeps the original human request and execution evidence and does no
   const model = {
     complete: async (messages: WireMessage[]) => {
       if (!messages.some((item) => item.role === 'tool'))
-        return call('host_file_write', { path: target, content: 'written once', reason: '完成用户文件任务' });
+        return call('file_write', { path: target, content: 'written once', reason: '完成用户文件任务' });
       if (!resumed)
         throw new ContextCapacityError({
           capacity: 32000,
@@ -204,8 +204,7 @@ test('resume keeps the original human request and execution evidence and does no
       if (!messages.some((item) => item.tool_calls?.some((call) => call.function.name === 'execution_list')))
         return call('execution_list', {});
       seenEvidence = messages.some(
-        (item) =>
-          item.role === 'tool' && item.content?.includes('host_file_write') && item.content.includes('succeeded'),
+        (item) => item.role === 'tool' && item.content?.includes('file_write') && item.content.includes('succeeded'),
       );
       return answer('文件已写入并核对。');
     },
@@ -240,7 +239,7 @@ test('resume keeps the original human request and execution evidence and does no
   assert.equal(f.store.data.conversations[f.bot.id].filter((message) => message.role === 'user').length, 1);
   assert.equal(f.store.humanRunMessage(second.id)?.runId, first.id);
   assert.equal(
-    f.store.data.runs.flatMap((run) => run.executions || []).filter((entry) => entry.tool === 'host_file_write').length,
+    f.store.data.runs.flatMap((run) => run.executions || []).filter((entry) => entry.tool === 'file_write').length,
     1,
   );
   assert.equal(readFileSync(target, 'utf8'), 'written once');

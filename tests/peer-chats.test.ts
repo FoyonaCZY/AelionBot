@@ -347,7 +347,7 @@ test('cancelling a private request withdraws the recipient host permission witho
     relays = 0;
   const fx = fixture(t, (id, messages) => {
     if (id === fx.b.id)
-      return tool('host_file_write', { path: join(fx.dir, 'not-approved.txt'), content: 'no', reason: '协作写入测试' });
+      return tool('file_write', { path: join(fx.dir, 'not-approved.txt'), content: 'no', reason: '协作写入测试' });
     if (
       messages
         .filter((message) => message.role === 'system')
@@ -380,7 +380,7 @@ test('human refusal in a recipient task is not retried or automatically handed t
     id === fx.b.id
       ? messages.some((message) => message.role === 'tool' && (message.content || '').includes('"denied":true'))
         ? answer('读取被拒绝，无法继续。')
-        : (receiver++, tool('host_file_read', { path: join(fx.dir, 'state.json'), reason: '协作读取测试' }))
+        : (receiver++, tool('file_read', { path: join(fx.dir, 'state.json'), reason: '协作读取测试' }))
       : root++ === 0
         ? tool('bot_send_message', { botId: fx.b.id, message: '请读取文件' })
         : answer('正在等待。'),
@@ -405,14 +405,14 @@ test('the recipient chooses a main task, uses its own context and writes only af
       if (tools.some((item) => item.function.name === 'start_main_task')) {
         planned++;
         assert.ok(!messages.some((message) => message.content === '收件方自己的主会话'));
-        assert.ok(!tools.some((item) => item.function.name === 'host_file_write'));
+        assert.ok(!tools.some((item) => item.function.name === 'file_write'));
         return tool('start_main_task', {});
       }
       assert.ok(messages.some((message) => message.content === '收件方自己的主会话'));
       assert.ok(!messages.some((message) => message.content === '发件方的无关记录'));
       const result = messages.find((message) => message.role === 'tool' && message.content?.includes('delegated.txt'));
       if (!result)
-        return tool('host_file_write', {
+        return tool('file_write', {
           path: join(fx.dir, 'delegated.txt'),
           content: '由数据伙伴完成',
           reason: '完成受托任务',
@@ -449,7 +449,7 @@ test('the recipient chooses a main task, uses its own context and writes only af
     trace = reopened.runMessages(run.id);
   assert.equal(trace.filter((message) => message.role === 'user').length, 0);
   assert.equal(trace.filter((message) => message.taskSource?.botId === fx.a.id).length, 1);
-  assert.ok(trace.some((message) => message.tool === 'host_file_write' && message.status === 'done'));
+  assert.ok(trace.some((message) => message.tool === 'file_write' && message.status === 'done'));
   assert.ok(!reopened.data.peerMessages.some((message) => message.runId === run.id));
   assert.match(reopened.data.peerThreads[0].messages.at(-1)!.content, /已经保存/);
 });
@@ -474,7 +474,7 @@ test('a child reply resumes an accepted task in the recipient main conversation'
         assert.ok(
           messages.some((message) => message.tool_calls?.some((call) => call.function.name === 'bot_send_message')),
         );
-        return tool('host_file_write', { path: join(fx.dir, 'nested.txt'), content: '7', reason: '保存核验结果' });
+        return tool('file_write', { path: join(fx.dir, 'nested.txt'), content: '7', reason: '保存核验结果' });
       }
       if (!forwarded) {
         forwarded = true;

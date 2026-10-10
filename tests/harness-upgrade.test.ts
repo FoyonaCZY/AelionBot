@@ -68,7 +68,7 @@ test('read pipelines respect concurrency, dependencies and reject mutations befo
   let called = false;
   await assert.rejects(
     readPipeline(
-      [{ id: 'x', tool: 'host_execute', args: { command: 'write' } }],
+      [{ id: 'x', tool: 'exec_command', args: { command: 'write' } }],
       2,
       new AbortController().signal,
       async () => {
@@ -142,7 +142,7 @@ test('a long task can finish beyond the old 30-round limit', async (t) => {
               {
                 id: String(++steps),
                 type: 'function',
-                function: { name: 'computer_execute', arguments: '{"command":"verify"}' },
+                function: { name: 'exec_command', arguments: '{"command":"verify","location":"vm"}' },
               },
             ],
           }

@@ -26,4 +26,4 @@ export const mainTaskContext = (source: string, request: string, memory?: string
 export const workspaceReference = (dir: string) =>
   '\n本次任务的本机项目目录：' +
   JSON.stringify(dir) +
-  '。若本次工作围绕此本机项目，使用 host_* 工具；host_execute 默认 cwd 和 host_file_* 相对路径均基于此目录。VM /work 目录与本机项目不是同一个位置。先用 host_list_directory、host_file_read 查看项目结构、README 和适用的 AGENTS 开发约定，不猜测项目内容。选择目录本身不授予本机操作权限。';
+  '。若本次工作围绕此本机项目，使用 file_read、file_write、file_patch、list_directory、find_files、search_files 和 exec_command，不要传 location。VM /work 目录与本机项目不是同一个位置，只有 location=vm 才会进入工作电脑。先用 list_directory、file_read 查看项目结构、README 和适用的 AGENTS 开发约定，不猜测项目内容。选择目录本身不授予本机操作权限。';
