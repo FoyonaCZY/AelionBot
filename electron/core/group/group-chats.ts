@@ -26,7 +26,7 @@ import {
 } from '../../../shared/types/group-types';
 import { hasSilenceMarker, normalized } from './group-response';
 import { isEmptyGroupReply } from '../../../shared/chat/group-empty-reply';
-import { rememberPublished } from './group-history';
+import { rememberPublished, silentBotMessage } from './group-history';
 import { pinDescription, updatePins, validPin, type PinInput } from '../../../shared/chat/reactions';
 import { readableContent } from '../../../shared/chat/activity';
 import { botMentions } from '../../../shared/chat/mentions';
@@ -1764,11 +1764,13 @@ export class GroupChats implements GroupGateway {
           messages[0] && room.messages.findIndex((m) => m.id === messages[0].id) > 0 ? messages[0].id : undefined;
       return {
         groupId: room.id,
-        messages: messages.map((m) => ({
-          ...m,
-          content: m.content.slice(0, 2400),
-          ...(m.content.length > 2400 ? { truncated: true, offset: 2400 } : {}),
-        })),
+        messages: messages
+          .filter((m) => !silentBotMessage(m))
+          .map((m) => ({
+            ...m,
+            content: m.content.slice(0, 2400),
+            ...(m.content.length > 2400 ? { truncated: true, offset: 2400 } : {}),
+          })),
         before,
       };
     }

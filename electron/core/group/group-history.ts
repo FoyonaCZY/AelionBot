@@ -8,7 +8,15 @@ import type { GroupMessage } from '../../../shared/types/group-types';
 import type { WireMessage } from '../../../shared/types/core';
 import type { ModelClient, ToolDefinition } from '../model/model';
 import { groupReplyContent } from '../../../shared/chat/message-envelope';
+import { isEmptyGroupReply } from '../../../shared/chat/group-empty-reply';
 import { hasPendingHistoryCalls } from '../tools/tool-history';
+
+/** A Bot message with no visible body: the group UI hides it, and so does every model context. */
+export const silentBotMessage = (message: GroupMessage) =>
+  message.sender.kind === 'bot' &&
+  ['message', 'progress'].includes(message.kind) &&
+  !message.attachments?.length &&
+  isEmptyGroupReply(groupReplyContent(message.content, message.sender.id));
 
 export const groupContextKey = (groupId: string, botId: string) => `group:${groupId}:${botId}`;
 export function groupMessageWire(store: Store, message: GroupMessage, botId: string): WireMessage {
@@ -87,6 +95,8 @@ export function groupHistory(store: Store, groupId: string, botId: string, messa
   for (const message of room.messages) {
     if (resetAt && message.time < resetAt) continue;
     if (!selected.has(message.id)) continue;
+    // Older records may hold a "（不发言）" note; models copy what they see, so it never enters context.
+    if (silentBotMessage(message)) continue;
     if (!seen.has(message.id)) {
       history.push(groupMessageWire(store, message, botId));
       seen.add(message.id);

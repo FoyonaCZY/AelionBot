@@ -92,6 +92,27 @@ test('legacy group context drops unsent text, archives it, and preserves tool ev
   assert.ok(wire.every((message) => !('groupMessageId' in message)));
 });
 
+test('older "not speaking" notes stay out of a new member context so the model cannot copy them', (t) => {
+  const { store, bot, room } = fixture(t),
+    time = new Date().toISOString(),
+    other = { kind: 'bot' as const, id: 'other-bot', name: '乙', color: '#888' };
+  room.messages.push(
+    {
+      id: 'q',
+      seq: 1,
+      groupId: room.id,
+      kind: 'message',
+      sender: { kind: 'user', id: 'user', name: '你' },
+      content: '大家怎么看？',
+      time,
+    },
+    { id: 'quiet', seq: 2, groupId: room.id, kind: 'message', sender: other, content: '（不发言）', time },
+    { id: 'answer', seq: 3, groupId: room.id, kind: 'message', sender: other, content: '我建议先发灰度。', time },
+  );
+  const ids = groupHistory(store, room.id, bot.id).map((message) => message.groupMessageId);
+  assert.deepEqual(ids, ['q', 'answer']);
+});
+
 test('long group histories compact within the input budget including tool schemas, retain originals and persist independently', async (t) => {
   const { store, dir, key } = fixture(t);
   store.data.model.contextTokens = 8000;
