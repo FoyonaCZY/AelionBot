@@ -174,7 +174,7 @@ export interface PickRules<S extends MatchState = MatchState> {
   strong(s: S, r: GameRequest): boolean;
 }
 /** Werewolf: one legal target, or a seer voting where a wolf it found stands, always keeps the model's choice. */
-export const WEREWOLF_PICK: PickRules<WerewolfState> = { key: KEY_DECISIONS, strong: isStrong };
+const WEREWOLF_PICK: PickRules<WerewolfState> = { key: KEY_DECISIONS, strong: isStrong };
 function isStrong(s: WerewolfState, r: GameRequest) {
   if (r.targets.length === 1) return true;
   if (r.kind !== 'vote') return false;
