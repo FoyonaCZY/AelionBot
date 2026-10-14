@@ -1,9 +1,13 @@
 import { createHash } from 'node:crypto';
-import type { WerewolfState } from '../games/werewolf';
+import type { MatchState } from '../games/game-mode';
 import type { GrowthObservation } from '../../../shared/types/persona-growth-types';
 
-/** Capture only accepted model actions with a recorded, actually dispatched player view. */
-export function collectGrowthObservations(match: WerewolfState): GrowthObservation[] {
+/**
+ * Capture only accepted model actions with a recorded, actually dispatched player view. Every game sends the same
+ * outer input (you, context.shared, context.personal.self, request), so this reads no game rules. Roles are
+ * recorded as game:role, except Werewolf's, which keep their original names so earlier observations still count.
+ */
+export function collectGrowthObservations(match: MatchState): GrowthObservation[] {
   if (match.status !== 'finished' || !match.winner || match.personaPolicy !== 'model_semantic_v1') return [];
   const result: GrowthObservation[] = [];
   const trace = match.trace || [];
@@ -113,7 +117,7 @@ export function collectGrowthObservations(match: WerewolfState): GrowthObservati
         botId: seat.botId,
         matchId: match.id,
         createdAt: accepted.time,
-        role: seat.role,
+        role: !match.mode || match.mode === 'werewolf' ? seat.role : `${match.mode}:${seat.role}`,
         kind: accepted.kind,
         day: started.day,
         behavior,

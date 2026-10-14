@@ -2,8 +2,8 @@ import { PersonaStore, type AffinityModifier, type PersonaProfile } from './pers
 import type { PersonaView } from '../../../shared/types/persona-types';
 import type { GrowthObservation } from '../../../shared/types/persona-growth-types';
 import { GrowthRunner, type GrowthReviewerHooks } from './growth-runner';
-import { settleMatch, type SettleMatch } from './settle';
-import { matchExperiences } from './growth';
+import { settleMatch } from './settle';
+import type { MatchFacts } from './match-facts';
 import { birthPrompt, traitsFromFacets } from './birth';
 import {
   NEUTRAL,
@@ -11,14 +11,13 @@ import {
   clip,
   growthStep,
   mbtiOf,
-  planRole,
   roundTraits,
   styleText,
   tendencies,
   traitsFromMbti,
   type Traits,
 } from '../../../shared/persona/persona-model';
-import type { PersonaDecision, PersonaSeed, SeatPersona } from '../games/persona-play';
+import type { PersonaSeed } from '../games/persona-play';
 
 const DAY = 86_400_000;
 /** Neutral neuroticism for Bots without a profile (§11.2). */
@@ -41,10 +40,6 @@ function affinityWord(v: number) {
   return v >= 0.5 ? '很好' : v >= 0.15 ? '不错' : v <= -0.5 ? '很差' : v <= -0.15 ? '有芥蒂' : undefined;
 }
 
-export interface PersonaMatch extends SettleMatch {
-  decisions?: PersonaDecision[];
-  persona?: Record<string, SeatPersona>;
-}
 const dayStart = (t: number) => t - (t % DAY);
 
 export class PersonaService {
@@ -76,14 +71,12 @@ export class PersonaService {
     return this.view(botId);
   }
   /** Settle a finished match once. Returns the recap to post, or undefined when nothing is posted. */
-  settle(match: PersonaMatch, options?: { replayReport?: boolean }): string | undefined {
-    const seatOrder = match.seats.map((seat) => seat.id);
+  settle(match: MatchFacts, options?: { replayReport?: boolean }): string | undefined {
     // Matches retain their original seats after a Bot is deleted. Do not let a
     // delayed settlement restore that member in anyone's persistent memories.
-    match = {
-      ...match,
-      seats: match.seats.filter((seat) => !this.store.isForgotten(seat.human ? 'user' : seat.botId || '')),
-    };
+    const seats = match.seats.filter((seat) => !this.store.isForgotten(seat.human ? 'user' : seat.botId || ''));
+    const present = new Set(seats.map((seat) => seat.id));
+    match = { ...match, seats, experiences: match.experiences.filter((e) => e.seats.every((id) => present.has(id))) };
     if (!match.seats.some((s) => s.botId)) return undefined;
     const result = settleMatch(match);
     if (!result) return undefined;
@@ -93,20 +86,20 @@ export class PersonaService {
       for (const a of result.affinity) this.store.addAffinity({ ...a, createdAt: at });
       for (const h of result.highlights)
         this.store.addHighlight({ ...h, scope: 'match', sourceId: match.id, groupId: match.groupId, createdAt: at });
-      this.grow(match, at, seatOrder);
+      this.grow(match, at);
       return result.recap;
     });
   }
 
   /** Remember factual episodes; only legacy experiences use outcome-based growth. Remember the opening plan too. */
-  private grow(match: PersonaMatch, at: number, seatOrder: string[]) {
+  private grow(match: MatchFacts, at: number) {
     if (!match.persona) return;
-    const experiences = matchExperiences(match.seats, match.decisions || [], match.events, seatOrder);
+    const experiences = match.experiences;
     for (const [seatId, sp] of Object.entries(match.persona)) {
       const p = this.store.profile(sp.botId);
       if (!p) continue;
       const seat = match.seats.find((s) => s.id === seatId);
-      if (seat && sp.plan) p.lastPlans = { ...p.lastPlans, [planRole(seat.role)]: sp.plan.id };
+      if (seat?.planKey && sp.plan) p.lastPlans = { ...p.lastPlans, [seat.planKey]: sp.plan.id };
       const mine = experiences.filter((e) => e.botId === sp.botId);
       let growthCount = 0;
       for (const e of mine) {

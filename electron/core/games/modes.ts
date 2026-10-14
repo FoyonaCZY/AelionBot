@@ -4,6 +4,7 @@ import type { GameMode } from './game-mode';
 import { assignPersonas, personaPick } from './persona-play';
 import { gameInstructions, gamePrompt } from './model-player';
 import { gameSkills } from './skills';
+import { werewolfFacts } from './werewolf-facts';
 import { acceptAction, createWerewolf, validateAction, view, type WerewolfState } from './werewolf';
 
 const werewolf: GameMode<WerewolfState> = {
@@ -21,6 +22,7 @@ const werewolf: GameMode<WerewolfState> = {
   instructions: gameInstructions,
   prompt: gamePrompt,
   skills: gameSkills,
+  facts: (s) => werewolfFacts({ ...s, events: s.events || [] }),
   persona: { assign: assignPersonas, pick: personaPick },
 };
 

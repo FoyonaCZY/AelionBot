@@ -112,7 +112,7 @@ test('bounded growth respects absolute daily budget, trait bounds, precision and
   });
   const prompt = buildGrowthPrompt(profile, observations);
   assert.match(prompt.system, /重复表现出已有倾向不等于人格变化/);
-  assert.match(prompt.system, /狼人欺骗不等于低宜人性/);
+  assert.match(prompt.system, /角色任务要求的欺骗（如狼人杀的狼人、谁是卧底的卧底）不等于低宜人性/);
   assert.equal(JSON.parse(prompt.user).observations.length, 6);
 });
 function capturedMatch() {
