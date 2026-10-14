@@ -19,7 +19,8 @@ import {
 } from './game-view-model';
 
 type Seat = GameView['seats'][number];
-const EMBLEM: Record<GameRole, string> = {
+/** Werewolf roles only; other games' roles never reach this table. */
+const EMBLEM: Partial<Record<GameRole, string>> = {
   wolf: '🐺',
   seer: '👁',
   witch: '⚗',
@@ -27,11 +28,8 @@ const EMBLEM: Record<GameRole, string> = {
   idiot: '🃏',
   guard: '🛡',
   villager: '🌾',
-  civilian: '🙂',
-  undercover: '🕵',
-  blank: '⬜',
 };
-const ABILITY: Record<GameRole, string> = {
+const ABILITY: Partial<Record<GameRole, string>> = {
   wolf: '每晚和狼队友商量，袭击一名玩家。白天隐藏身份，把票引向好人。',
   seer: '每晚查验一名玩家，知道他是好人还是狼人。',
   witch: '有一瓶解药和一瓶毒药，每晚最多用一瓶，不能自救。',
@@ -39,9 +37,6 @@ const ABILITY: Record<GameRole, string> = {
   idiot: '第一次被放逐时翻牌免死，之后失去投票权。',
   guard: '每晚守护一人，不能连续两夜守同一人。',
   villager: '没有技能，靠发言和投票找出狼人。',
-  civilian: '',
-  undercover: '',
-  blank: '',
 };
 const camp = (role?: GameRole) => (!role ? '' : role === 'wolf' ? 'wolf' : role === 'villager' ? 'good' : 'god');
 const campLabel = (role?: GameRole) =>
@@ -66,17 +61,21 @@ export function Tally({
   rows,
   abstain,
   day,
+  rounds = false,
 }: {
   game: GameView;
   rows: TallyRow[];
   abstain: Seat[];
   day: number;
+  /** Party games count rounds instead of days. */
+  rounds?: boolean;
 }) {
   const total = rows.reduce((sum, row) => sum + row.total, 0);
+  const title = translate(rounds ? '第 {day} 轮 · 投票结果' : '第 {day} 天 · 投票结果', { day });
   return (
-    <section className="gg-tally" aria-label={translate('第 {day} 天 · 投票结果', { day })}>
+    <section className="gg-tally" aria-label={title}>
       <header>
-        <b>{translate('第 {day} 天 · 投票结果', { day })}</b>
+        <b>{title}</b>
         <span className="gg-muted">
           {translate('{votes} 票', { votes: total })}
           {abstain.length ? translate(' · {count} 人弃票', { count: abstain.length }) : ''}
@@ -144,7 +143,7 @@ function RoleReveal({ seat, board, onClose }: { seat: Seat; board?: GameView['bo
           {campLabel(seat.role)}
           {board ? ` · ${translate(BOARDS[board].name)}` : ''}
         </p>
-        <p>{translate(ABILITY[seat.role])}</p>
+        <p>{translate(ABILITY[seat.role] ?? '')}</p>
         <button className="primary-button" onClick={onClose} autoFocus>
           {translate('我记住了')}
         </button>

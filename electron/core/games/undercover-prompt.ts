@@ -81,7 +81,7 @@ export function undercoverPrompt(context: GameView, request: GameRequest) {
     context: {
       shared: {
         game: '谁是卧底',
-        round: context.day,
+        day: context.day,
         phase: context.phase,
         status: context.status,
         seats: context.seats.map((p, i) => ({

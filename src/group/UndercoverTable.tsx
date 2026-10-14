@@ -309,7 +309,16 @@ export function UndercoverTable({
           <div className="gg-transcript" ref={feed}>
             {transcriptItems(game).map((item) => {
               if (item.kind === 'tally')
-                return <Tally key={'t' + item.id} game={game} rows={item.rows} abstain={item.abstain} day={item.day} />;
+                return (
+                  <Tally
+                    key={'t' + item.id}
+                    game={game}
+                    rows={item.rows}
+                    abstain={item.abstain}
+                    day={item.day}
+                    rounds
+                  />
+                );
               const e = item.log;
               const player = game.seats.find((p) => p.id === e.seatId);
               if (player)
