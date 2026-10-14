@@ -5,9 +5,11 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PersonaService, type PersonaMatch } from '../electron/core/persona/persona-service';
+import { PersonaService } from '../electron/core/persona/persona-service';
+import type { WerewolfResult as PersonaMatch } from '../electron/core/games/werewolf-facts';
 import { NEUTRAL } from '../shared/persona/persona-model';
 import type { GrowthObservation } from '../shared/types/persona-growth-types';
+import { werewolfFacts } from '../electron/core/games/werewolf-facts';
 
 function fixture(t: test.TestContext) {
   const dir = mkdtempSync(join(tmpdir(), 'persona-lifecycle-'));
@@ -178,7 +180,7 @@ for (const phase of ['pending', 'failed'] as const) {
 test('a reset interrupted by a SQLite write failure preserves growth and evidence after reopen', (t) => {
   const f = fixture(t);
   f.svc.ensureProfile('A');
-  f.svc.settle(match());
+  f.svc.settle(werewolfFacts(match()));
   f.svc.recordGrowthObservations(observations());
   const before = f.svc.view('A');
   assert.ok(before.profile.n > 0);
@@ -209,7 +211,7 @@ for (const action of ['reset', 'set'] as const) {
     f.svc.ensureProfile('A');
     f.svc.ensureProfile('B');
     const old = observations();
-    for (const id of new Set(old.map((o) => o.matchId))) f.svc.settle({ ...match(), id });
+    for (const id of new Set(old.map((o) => o.matchId))) f.svc.settle(werewolfFacts({ ...match(), id }));
     f.db.exec(
       "CREATE TRIGGER fail_observation BEFORE INSERT ON growth_observation BEGIN SELECT RAISE(FAIL, 'observation write failure'); END",
     );
@@ -231,7 +233,7 @@ for (const action of ['reset', 'set'] as const) {
       'another Bot keeps its own evidence from the same matches',
     );
     // The fixture clock deliberately never advances: chronology comes from durable settlement identity.
-    for (const id of new Set(old.map((o) => `new-${o.matchId}`))) svc.settle({ ...match(), id });
+    for (const id of new Set(old.map((o) => `new-${o.matchId}`))) svc.settle(werewolfFacts({ ...match(), id }));
     svc.recordGrowthObservations(old.map((o) => ({ ...o, id: `new-${o.id}`, matchId: `new-${o.matchId}` })));
     assert.equal(svc.view('A').growthReview?.eligibleObservations, 6);
     svc.forget('A');
@@ -257,15 +259,15 @@ test('settlement report can be replayed after restart without repeating growth o
   const f = fixture(t);
   f.svc.ensureProfile('A');
   const game = match();
-  const recap = f.svc.settle(game);
+  const recap = f.svc.settle(werewolfFacts(game));
   assert.ok(recap);
   const before = f.svc.view('A');
   const svc = f.reopen();
-  assert.equal(svc.settle(game, { replayReport: true }), recap);
-  assert.equal(svc.settle(game), undefined);
+  assert.equal(svc.settle(werewolfFacts(game), { replayReport: true }), recap);
+  assert.equal(svc.settle(werewolfFacts(game)), undefined);
   assert.deepEqual(svc.view('A'), before);
   svc.forget('B');
-  assert.doesNotMatch(svc.settle(game, { replayReport: true })!, /B（/);
+  assert.doesNotMatch(svc.settle(werewolfFacts(game), { replayReport: true })!, /B（/);
   assert.deepEqual(svc.store.recentHighlights('B'), []);
 });
 
@@ -276,7 +278,7 @@ for (const forgotten of [false, true]) {
     const game = match();
     game.seats = [game.seats[2], game.seats[0], game.seats[1]];
     if (forgotten) svc.forget('C');
-    svc.settle(game);
+    svc.settle(werewolfFacts(game));
     assert.equal(svc.view('A').episodes[0].summary, '投票给 3 号，揭晓是狼人');
     if (forgotten) {
       assert.deepEqual(svc.view('C').highlights, []);

@@ -10,6 +10,7 @@ import { PersonaService } from '../electron/core/persona/persona-service';
 import type { ModelClient } from '../electron/core/model/model';
 import type { VmController } from '../electron/core/vm/vm';
 import type { WireMessage } from '../shared/types/core';
+import { werewolfFacts } from '../electron/core/games/werewolf-facts';
 
 const SOUL = '# SOUL.md\nPRIVATE_SOUL_SENTINEL: explain clearly and keep the user’s chosen voice.';
 const GROUP_ONLY = '[你的关系与记忆，仅供参考]\nGROUP_PERSONA_SENTINEL: 游戏中的外向性与共同经历。';
@@ -125,38 +126,40 @@ test('editing five traits and settling a game leave private chat identity and me
   f.persona.ensureProfile(f.bot.id, 'INTJ');
   const traits = { E: 0.91, A: 0.82, C: 0.73, N: 0.14, O: 0.95 };
   const view = f.persona.setTraits(f.bot.id, traits);
-  f.persona.settle({
-    id: 'private-isolation-match',
-    groupId: 'private-isolation-group',
-    winner: 'village',
-    personaPolicy: 'model_semantic_v1',
-    seats: [
-      { id: 'bot-seat', name: f.bot.name, human: false, botId: f.bot.id, role: 'villager' },
-      { id: 'user-seat', name: 'GAME_RELATION_SENTINEL', human: true, role: 'witch' },
-      { id: 'wolf-seat', name: '游戏中的狼人', human: false, role: 'wolf' },
-    ],
-    events: [{ type: 'save', day: 1, witchId: 'user-seat', seatId: 'bot-seat' }],
-    persona: {
-      'bot-seat': { botId: f.bot.id, traits, mbti: view.mbti, affinity: {} },
-    },
-    decisions: [
-      {
-        selectionMethod: 'model_semantic_v1',
-        growthDisposition: 'record_only',
-        requestId: 'private-isolation-vote',
-        seatId: 'bot-seat',
-        kind: 'vote',
-        day: 1,
-        strong: false,
-        options: 1,
-        chosen: { target: 'wolf-seat' },
-        subject: 'wolf-seat',
-        features: {},
-        prob: 1,
-        overridden: false,
+  f.persona.settle(
+    werewolfFacts({
+      id: 'private-isolation-match',
+      groupId: 'private-isolation-group',
+      winner: 'village',
+      personaPolicy: 'model_semantic_v1',
+      seats: [
+        { id: 'bot-seat', name: f.bot.name, human: false, botId: f.bot.id, role: 'villager' },
+        { id: 'user-seat', name: 'GAME_RELATION_SENTINEL', human: true, role: 'witch' },
+        { id: 'wolf-seat', name: '游戏中的狼人', human: false, role: 'wolf' },
+      ],
+      events: [{ type: 'save', day: 1, witchId: 'user-seat', seatId: 'bot-seat' }],
+      persona: {
+        'bot-seat': { botId: f.bot.id, traits, mbti: view.mbti, affinity: {} },
       },
-    ],
-  });
+      decisions: [
+        {
+          selectionMethod: 'model_semantic_v1',
+          growthDisposition: 'record_only',
+          requestId: 'private-isolation-vote',
+          seatId: 'bot-seat',
+          kind: 'vote',
+          day: 1,
+          strong: false,
+          options: 1,
+          chosen: { target: 'wolf-seat' },
+          subject: 'wolf-seat',
+          features: {},
+          prob: 1,
+          overridden: false,
+        },
+      ],
+    }),
+  );
   const settled = f.persona.view(f.bot.id);
   assert.deepEqual(settled.profile.traits, traits);
   assert.equal(settled.episodes.length, 1, 'the game really wrote an experience to the persona store');

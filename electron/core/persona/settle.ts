@@ -1,24 +1,5 @@
-import type { GameEvent, GameRole } from '../../../shared/types/game-types';
-import type { PersonaDecision } from '../games/persona-play';
+import type { MatchFacts } from './match-facts';
 
-/** The parts of a finished match that settlement reads. Seat ids are per match; botId is the member Bot. */
-interface SettleSeat {
-  id: string;
-  name: string;
-  human: boolean;
-  botId?: string;
-  role: GameRole;
-}
-export interface SettleMatch {
-  id: string;
-  groupId: string;
-  winner?: 'wolves' | 'village';
-  seats: SettleSeat[];
-  events: GameEvent[];
-  /** New matches retain same-camp exile as a fact without inferring betrayal or a grudge. */
-  personaPolicy?: 'model_semantic_v1';
-  decisions?: PersonaDecision[];
-}
 interface AffinityChange {
   botId: string;
   targetId: string;
@@ -30,98 +11,101 @@ interface HighlightDraft {
   botId: string;
   participants: string[];
   summary: string;
-  type: 'exiled_by_teammate' | 'saved_by_witch' | 'match';
+  /** A social fact's name, or 'match' for the match itself. */
+  type: string;
 }
 export interface Settlement {
   affinity: AffinityChange[];
   highlights: HighlightDraft[];
   recap: string;
 }
-const ROLE: Record<GameRole, string> = {
-  wolf: '狼人',
-  seer: '预言家',
-  witch: '女巫',
-  villager: '村民',
-  hunter: '猎人',
-  idiot: '白痴',
-  guard: '守卫',
-};
-const camp = (role: GameRole) => (role === 'wolf' ? 'wolves' : 'village');
 /** The persona identity of a seat: its Bot, 'user' for the human, none for temporary guests. */
-const who = (s: SettleSeat) => (s.human ? 'user' : s.botId);
+const who = (s: MatchFacts['seats'][number]) => (s.human ? 'user' : s.botId);
 
 /**
- * Rule-based settlement of one finished match (docs/ai-personality-module.md §9.6, stage 1).
- * Only unusual events move affinity; being exiled or killed by the other side is normal play and is not recorded.
- * A match stopped without a winner is not settled.
+ * Rule-based settlement of one finished match (docs/ai-personality-module.md §9.6, stage 1), from the facts its
+ * game reported. Only unusual events move affinity; being voted out or beaten by the other side is normal play
+ * and is not recorded. A match stopped without a result is not settled.
  */
-export function settleMatch(m: SettleMatch): Settlement | undefined {
-  if (!m.winner) return undefined;
+export function settleMatch(m: MatchFacts): Settlement | undefined {
+  if (!m.winners) return undefined;
+  const winners = m.winners;
   const seat = new Map(m.seats.map((s) => [s.id, s]));
+  const fill = (text: string, to: string, from: string[]) =>
+    text.replace(/\{(to|from)\}/g, (_, slot) =>
+      slot === 'to' ? seat.get(to)!.name : from.map((id) => seat.get(id)!.name).join('、'),
+    );
   const affinity: AffinityChange[] = [];
   const highlights: HighlightDraft[] = [];
   const key: string[] = [];
   const semantic =
     m.personaPolicy === 'model_semantic_v1' || m.decisions?.some((d) => d.selectionMethod === 'model_semantic_v1');
-  for (const e of m.events) {
-    if (e.type === 'exile') {
-      const out = seat.get(e.seatId);
+  // Affinity from the same kind of event between the same two players counts once per match, however often the
+  // game reports it, so a game with many small interactions cannot pile it up. Memories keep every occurrence.
+  const counted = new Set<string>();
+  const once = (a: AffinityChange) => {
+    const id = `${a.source}:${a.botId}:${a.targetId}`;
+    if (counted.has(id)) return;
+    counted.add(id);
+    affinity.push(a);
+  };
+  for (const e of m.social) {
+    if (e.type === 'ally_vote') {
+      const out = seat.get(e.to);
       if (!out) continue;
-      const mates = e.voters
-        .map((v) => seat.get(v))
-        .filter((v): v is SettleSeat => !!v && camp(v.role) === camp(out.role));
+      const mates = e.from.filter((id) => seat.has(id));
       if (!mates.length) continue;
-      key.push(`第 ${e.day} 天，${out.name} 被同阵营的 ${mates.map((v) => v.name).join('、')} 投票放逐`);
+      key.push(fill(e.key, e.to, mates));
       const me = out.botId;
       if (!me) continue;
-      for (const v of mates) {
-        const target = who(v);
+      for (const id of mates) {
+        const target = who(seat.get(id)!);
         if (!target || target === me) continue;
-        // The action may be a planned wolf sacrifice or an honest mistake. Record what happened, not a motive.
+        // The action may be a planned sacrifice or an honest mistake. Record what happened, not a motive.
         if (!semantic)
-          affinity.push({
+          once({
             botId: me,
             targetId: target,
             value: -0.4,
             durationDays: 30,
-            source: `match:${m.id}:exiled_by_teammate`,
+            source: `match:${m.id}:${e.name}`,
           });
       }
       highlights.push({
         botId: me,
-        participants: mates.map(who).filter((x): x is string => !!x),
-        summary: `第 ${e.day} 天，你（${ROLE[out.role]}）被同阵营的 ${mates.map((v) => v.name).join('、')} 投票放逐`,
-        type: 'exiled_by_teammate',
+        participants: mates.map((id) => who(seat.get(id)!)).filter((x): x is string => !!x),
+        summary: fill(e.highlight, e.to, mates),
+        type: e.name,
       });
-    } else if (e.type === 'save') {
-      const saved = seat.get(e.seatId),
-        witch = seat.get(e.witchId);
-      if (!saved || !witch) continue;
-      key.push(`第 ${e.day} 夜，女巫 ${witch.name} 救下了 ${saved.name}`);
-      const me = saved.botId,
-        target = who(witch);
+    } else {
+      const helped = seat.get(e.to),
+        helper = seat.get(e.from);
+      if (!helped || !helper) continue;
+      key.push(fill(e.key, e.to, [e.from]));
+      const me = helped.botId,
+        target = who(helper);
       if (!me || !target || target === me) continue;
-      affinity.push({
+      once({
         botId: me,
         targetId: target,
         value: 0.3,
         durationDays: 30,
-        source: `match:${m.id}:saved_by_witch`,
+        source: `match:${m.id}:${e.name}`,
       });
       highlights.push({
         botId: me,
         participants: [target],
-        summary: `第 ${e.day} 夜，女巫 ${witch.name} 用解药救下了你`,
-        type: 'saved_by_witch',
+        summary: fill(e.highlight, e.to, [e.from]),
+        type: e.name,
       });
     }
   }
-  const winners = m.seats.filter((s) => camp(s.role) === m.winner);
-  for (const a of winners)
-    for (const b of winners) {
+  const won = m.seats.filter((s) => winners.includes(s.team));
+  for (const a of won)
+    for (const b of won) {
       const me = a.botId,
         target = who(b);
-      if (a === b || !me || !target || target === me) continue;
+      if (a === b || a.team !== b.team || !me || !target || target === me) continue;
       affinity.push({
         botId: me,
         targetId: target,
@@ -130,23 +114,21 @@ export function settleMatch(m: SettleMatch): Settlement | undefined {
         source: `match:${m.id}:won_together`,
       });
     }
-  const lineup = m.seats.map((s) => `${s.name}（${ROLE[s.role]}）`).join('、');
-  const result = m.winner === 'village' ? '好人阵营获胜' : '狼人阵营获胜';
+  const lineup = m.seats.map((s) => `${s.name}（${s.role}）`).join('、');
   for (const s of m.seats) {
     if (!s.botId) continue;
-    const won = camp(s.role) === m.winner;
     highlights.push({
       botId: s.botId,
       participants: m.seats
         .filter((o) => o !== s)
         .map(who)
         .filter((x): x is string => !!x),
-      summary: `一局狼人杀：你是${ROLE[s.role]}，${won ? '赢了' : '输了'}（${result}）${key.length ? '；' + key.join('；') : ''}`,
+      summary: `一局${m.game}：你是${s.role}，${winners.includes(s.team) ? '赢了' : '输了'}（${m.result}）${key.length ? '；' + key.join('；') : ''}`,
       type: 'match',
     });
   }
   const recap = [
-    `狼人杀战报：${result}。`,
+    `${m.game}战报：${m.result}。`,
     `身份：${lineup}。`,
     ...(key.length ? [`关键事件：${key.join('；')}。`] : []),
   ].join('\n');

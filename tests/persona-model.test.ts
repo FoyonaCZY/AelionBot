@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { werewolfFacts } from '../electron/core/games/werewolf-facts';
 import {
   JACOBIAN,
   NEUTRAL,
@@ -27,7 +28,7 @@ import {
   type WerewolfState,
 } from '../electron/core/games/werewolf';
 import { assignPersonas, personaPick, mostNominated, type PersonaSeed } from '../electron/core/games/persona-play';
-import { matchExperiences } from '../electron/core/persona/growth';
+import { matchExperiences } from '../electron/core/games/werewolf-experiences';
 import { PersonaService } from '../electron/core/persona/persona-service';
 import { gamePrompt, gameInstructions, parseGameAction } from '../electron/core/games/model-player';
 import type { GameAction, GameRequest } from '../shared/types/game-types';
@@ -374,7 +375,7 @@ test('settlement grows each Bot within the daily cap, records why, remembers pla
     decisions: votes,
     persona,
   });
-  svc.settle(match('m1'));
+  svc.settle(werewolfFacts(match('m1')));
   const after = svc.view('A');
   assert.equal(after.episodes.length, 30, 'the page lists the latest 30');
   assert.ok(after.profile.traits.E > 0.7, 'right votes with assert reward E');
@@ -389,7 +390,7 @@ test('settlement grows each Bot within the daily cap, records why, remembers pla
   now += 86_400_000;
   svc.setLocked('A', true);
   const locked = svc.view('A').profile.traits;
-  svc.settle(match('m2'));
+  svc.settle(werewolfFacts(match('m2')));
   assert.deepEqual(svc.view('A').profile.traits, locked, 'a locked profile does not grow');
   const reset = svc.resetGrowth('A');
   assert.deepEqual(reset.profile.traits, reset.profile.anchor);
@@ -427,15 +428,17 @@ test('a whole match through the runtime: personas assigned, candidates honoured,
       personas: (bots, members) => svc.seeds(bots, members),
       finished: (s) => {
         done = s;
-        svc.settle({
-          id: s.id,
-          groupId: s.groupId,
-          winner: s.winner,
-          seats: s.seats,
-          events: s.events || [],
-          decisions: s.decisions,
-          persona: s.persona,
-        });
+        svc.settle(
+          werewolfFacts({
+            id: s.id,
+            groupId: s.groupId,
+            winner: s.winner,
+            seats: s.seats,
+            events: s.events || [],
+            decisions: s.decisions,
+            persona: s.persona,
+          }),
+        );
       },
     },
   );

@@ -7,6 +7,7 @@ import { Store } from '../electron/core/storage/store';
 import { GroupChats } from '../electron/core/group/group-chats';
 import { PersonaService } from '../electron/core/persona/persona-service';
 import { until } from './helpers';
+import { werewolfFacts } from '../electron/core/games/werewolf-facts';
 
 function fixture(t: test.TestContext) {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-persona-group-'));
@@ -57,17 +58,19 @@ test('a woken Bot receives its relation and one shared memory about the sender',
   const a = store.createBot('阿岩', 'bold', '#aa5500'),
     b = store.createBot('小周', 'calm', '#0055aa');
   const room = groups.create({ name: '狼人杀群', botIds: [a.id, b.id] });
-  persona.settle({
-    id: 'm1',
-    groupId: room.id,
-    winner: 'village',
-    seats: [
-      { id: 's1', name: '1号', human: false, botId: a.id, role: 'wolf' },
-      { id: 's2', name: '2号', human: false, botId: b.id, role: 'wolf' },
-      { id: 's3', name: '3号', human: true, role: 'villager' },
-    ],
-    events: [{ type: 'save', day: 1, witchId: 's3', seatId: 's1' }],
-  });
+  persona.settle(
+    werewolfFacts({
+      id: 'm1',
+      groupId: room.id,
+      winner: 'village',
+      seats: [
+        { id: 's1', name: '1号', human: false, botId: a.id, role: 'wolf' },
+        { id: 's2', name: '2号', human: false, botId: b.id, role: 'wolf' },
+        { id: 's3', name: '3号', human: true, role: 'villager' },
+      ],
+      events: [{ type: 'save', day: 1, witchId: 's3', seatId: 's1' }],
+    }),
+  );
   groups.send({ id: room.id, message: '上局怎么样' });
   await until(() => contexts.length > 0, { timeoutMs: 5000 });
   assert.ok(

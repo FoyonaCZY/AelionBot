@@ -1,23 +1,18 @@
 /**
- * Facts remembered after a finished match. Semantic decisions are record-only: a revealed role does not tell us
+ * Werewolf's episodes for the persona module: what each Bot's key decisions turned out to be once roles were
+ * revealed. Semantic decisions are record-only: a revealed role does not tell us
  * why a choice was made, and the model's interpretation is not evidence of a lasting trait change. The old
  * outcome-based growth rules remain only for legacy decisions so existing match settlement can be replayed.
  */
 import type { GameEvent, GameRole } from '../../../shared/types/game-types';
-import type { Experience } from '../../../shared/persona/persona-model';
-import type { PersonaDecision } from '../games/persona-play';
+import type { MatchExperience } from '../persona/match-facts';
+import type { PersonaDecision } from './persona-play';
 
-export interface GrowthSeat {
+interface GrowthSeat {
   id: string;
   name: string;
   botId?: string;
   role: GameRole;
-}
-export interface MatchExperience extends Experience {
-  botId: string;
-  kind: string;
-  summary: string;
-  growthDisposition?: 'record_only';
 }
 const camp = (role: GameRole) => (role === 'wolf' ? 'wolves' : 'village');
 
@@ -50,6 +45,7 @@ export function matchExperiences(
         ...base,
         o: recordOnly ? 0 : right ? 1 : -1,
         summary: `${verb} ${label(target.id)}，揭晓是${target.role === 'wolf' ? '狼人' : '好人'}`,
+        seats: [actor.id, target.id],
       });
     } else if (d.kind === 'witch' && d.chosen.potion === 'save' && target) {
       const right = camp(target.role) === camp(actor.role);
@@ -57,6 +53,7 @@ export function matchExperiences(
         ...base,
         o: recordOnly ? 0 : right ? 1 : -1,
         summary: `救了 ${label(target.id)}，揭晓是${target.role === 'wolf' ? '狼人' : '好人'}`,
+        seats: [actor.id, target.id],
       });
     } else if (d.kind === 'sheriff_join' && d.chosen.choice) {
       // 2·(elected − 1/k): subtract the chance one of k standing candidates wins anyway, so the rule that only one
@@ -72,6 +69,7 @@ export function matchExperiences(
         ...base,
         o: recordOnly ? 0 : 2 * ((elected ? 1 : 0) - 1 / standing.length),
         summary: `上警竞选，${standing.length} 人参选，${elected ? '当选警长' : '落选'}`,
+        seats: [actor.id],
       });
     }
   }
