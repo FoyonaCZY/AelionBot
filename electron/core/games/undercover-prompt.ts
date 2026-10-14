@@ -59,7 +59,7 @@ export function undercoverPrompt(context: GameView, request: GameRequest) {
     day: l.day,
     phase: l.phase,
     seatId: l.seatId,
-    text: alias(l.text),
+    text: alias(l.text, !!l.seatId),
     scope: l.scope,
   }));
   const persona = context.persona?.[request.seatId];
@@ -100,7 +100,7 @@ export function undercoverPrompt(context: GameView, request: GameRequest) {
         logs: events
           .filter((l) => l.scope !== 'shared')
           .map(({ scope: _, ...l }, i) => ({ ...l, id: i + 1, source: 'authorized_private_event' })),
-        ...(context.notes?.length ? { notes: context.notes.map(alias) } : {}),
+        ...(context.notes?.length ? { notes: context.notes.map((text) => alias(text, true)) } : {}),
       },
     },
     request: {

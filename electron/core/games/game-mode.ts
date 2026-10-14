@@ -110,3 +110,20 @@ export function personaView(s: MatchState, viewerId: string | undefined, reveal:
       };
   return Object.keys(persona).length ? { persona } : {};
 }
+/**
+ * The log as one seat may read it: shared lines, and private lines addressed to it. After the reveal everyone reads
+ * everything, and other seats' private system lines are labelled with whose they were.
+ */
+export function viewLogs(s: MatchState, viewerId: string | undefined, reveal: boolean): GameView['logs'] {
+  return s.logs
+    .filter((e) => !e.audience || reveal || (!!viewerId && e.audience.includes(viewerId)))
+    .map(({ audience, ...e }) => {
+      const otherPrivate = reveal && audience && !e.seatId && !(viewerId && audience.includes(viewerId));
+      const owners = audience?.map((id) => s.seats.find((p) => p.id === id)?.name || '玩家').join('、');
+      return {
+        ...e,
+        text: otherPrivate ? `【${owners} · 私有记录】${e.text.replace(/^你/, owners || '该玩家')}` : e.text,
+        scope: audience ? ('personal' as const) : ('shared' as const),
+      };
+    });
+}
