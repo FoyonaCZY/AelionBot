@@ -2745,4 +2745,11 @@ export const en: Record<string, string> = {
   提交猜测: 'Submit guess',
   卧底: 'Spy',
   猜平民词: "Guess the civilians' word",
+  '第 {round} 轮': 'Round {round}',
+  '未告知，本人只知道自己的词': 'Not told; the player only knows their own word',
+  '本人的词：': 'Own word: ',
+  狼人杀规则要点: 'Werewolf rules',
+  '第 {day} 轮 · 投票结果': 'Round {day} · Votes',
+  '私有事件：由规则按可见权限投递，例如本人拿到的词。':
+    'Private events: delivered by the rules according to visibility, such as the word this player was dealt.',
 };

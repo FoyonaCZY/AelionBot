@@ -339,7 +339,8 @@ export function GameActionControls({
   const skipLabel = translate(
     r.kind === 'badge' ? '撕毁警徽' : r.kind === 'shoot' ? '放弃开枪' : r.kind === 'guard' ? '空守' : '弃票',
   );
-  const action = translate(ACTION_NAMES[r.kind]);
+  // Who's the Spy votes someone out without the werewolf "exile" wording.
+  const action = translate(game.mode === 'undercover' && r.kind === 'vote' ? '投票' : ACTION_NAMES[r.kind]);
   return (
     <>
       {header(action)}

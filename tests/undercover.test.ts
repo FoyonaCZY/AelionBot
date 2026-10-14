@@ -279,3 +279,14 @@ test("the runtime plays Who's the Spy with model seats, settles it and keeps obs
     match.persona![match.seats[0].id].plan!.id,
   );
 });
+
+test('the model input keeps the shape the run record reads: round as day, own word, no role', () => {
+  const s = create(6, 13);
+  const r = s.requests[0];
+  const input = JSON.parse(undercoverPrompt(viewUndercover(s, r.seatId), r));
+  assert.equal(input.you, r.seatId);
+  assert.equal(input.context.shared.day, 1);
+  assert.equal(input.context.personal.self.word, ownWord(s, r.seatId));
+  assert.equal(input.context.personal.self.role, undefined);
+  assert.equal(input.request.kind, 'describe');
+});

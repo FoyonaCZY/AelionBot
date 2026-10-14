@@ -338,7 +338,8 @@ export function GroupGames({
         : unconfigured.length
           ? t('{count} 位 AI 还没有可用模型', { count: unconfigured.length })
           : '';
-  const available = members.filter((m) => !selected.includes(m.id));
+  // Members selected beyond this game's seats stay pickable rather than vanishing from both lists.
+  const available = members.filter((m) => !chosen.some((c) => c.id === m.id));
   const presetCount = guests.filter((guest) => mbtiPresets[guest.id]).length;
   const matchPhase = match
     ? match.status === 'paused'
@@ -613,7 +614,7 @@ export function GroupGames({
                   </small>
                 </button>
                 <details className="gg-lobby-rules">
-                  <summary>{t('规则要点')}</summary>
+                  <summary>{t('狼人杀规则要点')}</summary>
                   <p className="gg-rules-short">
                     {t(
                       '屠边局：狼人全灭好人胜，四民或四神全灭狼人胜。首夜后先竞选警长，警长 1.5 票并决定发言方向。真人发言 120 秒，其他真人行动 45 秒；AI 请求失败或超时会暂停，保留已完成的选择。',
@@ -978,7 +979,11 @@ export function GroupGames({
                             className="gg-add-member"
                             disabled={chosen.length >= limit}
                             onClick={() => {
-                              setSelected((ids) => [...ids, m.id]);
+                              setSelected((ids) => [
+                                ...chosen.map((c) => c.id),
+                                m.id,
+                                ...ids.filter((id) => id !== m.id && !chosen.some((c) => c.id === id)),
+                              ]);
                               setAdding(false);
                             }}
                           >

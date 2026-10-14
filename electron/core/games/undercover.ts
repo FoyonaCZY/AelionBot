@@ -43,7 +43,10 @@ export interface UndercoverState extends MatchState {
   events?: GameEvent[];
 }
 
-export const UNDERCOVER_SEATS = { min: 4, max: 10 } as const;
+const UNDERCOVER_SEATS = { min: 4, max: 10 } as const;
+export function checkUndercoverSeats(count: number) {
+  if (count < UNDERCOVER_SEATS.min || count > UNDERCOVER_SEATS.max) throw Error('谁是卧底需要 4–10 位玩家');
+}
 /** Longest description and blank guess, in characters. */
 export const DESCRIBE_MAX = 60;
 export const GUESS_MAX = 20;
@@ -85,7 +88,7 @@ export function createUndercover(
   pairs = wordPairs(),
 ): UndercoverState {
   const n = players.length;
-  if (n < UNDERCOVER_SEATS.min || n > UNDERCOVER_SEATS.max) throw Error('谁是卧底需要 4–10 位玩家');
+  checkUndercoverSeats(n);
   if (new Set(players.map((p) => p.id)).size !== n || players.filter((p) => p.human).length > 1)
     throw Error('玩家信息无效或重复');
   if (options.blank && n < 7) throw Error('7 人及以上才能加白板');
