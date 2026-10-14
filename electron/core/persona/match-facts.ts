@@ -60,6 +60,8 @@ export interface MatchFacts {
   winners?: string[];
   /** One line on how the match ended, such as 好人阵营获胜. */
   result: string;
+  /** Further lines for the report, such as the words of a word game. */
+  details?: string[];
   social: SocialFact[];
   experiences: MatchExperience[];
   /** New matches retain same-team votes as a fact without inferring betrayal or a grudge. */

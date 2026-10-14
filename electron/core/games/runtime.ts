@@ -291,6 +291,7 @@ export class GameRuntime {
       // Seat ids are random per match; the Bot a seat belongs to is kept as botId for post-match settlement.
       players: input.players.map(({ botId, ...p }) => ({ ...p, id: randomUUID(), ...(botId ? { botId } : {}) })),
       board: input.board,
+      blank: input.blank === true,
     });
     s.personaPolicy = 'model_semantic_v1';
     try {

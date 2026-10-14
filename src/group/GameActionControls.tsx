@@ -17,6 +17,8 @@ const HINTS: Partial<Record<GameRequest['kind'], string>> = {
   shoot: '被毒时不能开枪',
   last_words: '说给全场听，结束后不能再发言',
   wolf_plan: '仅狼队可见',
+  describe: '说出自己的词会被退回',
+  blank_guess: '猜中平民的词，白板单独获胜',
 };
 
 /** Every seat as an avatar tile; seats outside the request's targets stay visible but disabled. */
@@ -138,6 +140,31 @@ export function GameActionControls({
     });
   };
 
+  if (r.kind === 'describe' || r.kind === 'blank_guess') {
+    const describe = r.kind === 'describe',
+      max = describe ? 60 : 20;
+    return (
+      <>
+        {header(translate(ACTION_NAMES[r.kind]))}
+        <textarea
+          ref={box}
+          className="gg-say"
+          value={text}
+          maxLength={max}
+          aria-label={translate(ACTION_NAMES[r.kind])}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={translate(describe ? '用一句话描述你的词，不能说出这个词' : '你觉得平民的词是什么？')}
+        />
+        <div className="gg-dock-actions">
+          <span className="gg-muted">{translate('最多 {count} 字', { count: max })}</span>
+          <span className="gg-spacer" />
+          <button className="primary-button" disabled={busy || !text.trim()} onClick={() => send({ text })}>
+            {translate(describe ? '提交描述' : '提交猜测')}
+          </button>
+        </div>
+      </>
+    );
+  }
   if (SPEECH.includes(r.kind)) {
     const clues = personalClues(game).slice(-3);
     const others = game.seats.filter((p) => p.alive && p.id !== game.humanId).slice(0, 8);
@@ -306,11 +333,14 @@ export function GameActionControls({
         </div>
       </>
     );
-  const optional = !!game.board && ['guard', 'badge', 'shoot', 'vote', 'sheriff_vote'].includes(r.kind);
+  const optional =
+    (!!game.board && ['guard', 'badge', 'shoot', 'vote', 'sheriff_vote'].includes(r.kind)) ||
+    (game.mode === 'undercover' && r.kind === 'vote');
   const skipLabel = translate(
     r.kind === 'badge' ? '撕毁警徽' : r.kind === 'shoot' ? '放弃开枪' : r.kind === 'guard' ? '空守' : '弃票',
   );
-  const action = translate(ACTION_NAMES[r.kind]);
+  // Who's the Spy votes someone out without the werewolf "exile" wording.
+  const action = translate(game.mode === 'undercover' && r.kind === 'vote' ? '投票' : ACTION_NAMES[r.kind]);
   return (
     <>
       {header(action)}

@@ -14,8 +14,16 @@ export function collectGrowthObservations(match: MatchState): GrowthObservation[
   const aliases = match.seats.map((s, i) => ({ id: s.id, name: s.name, alias: `${i + 1}号玩家` }));
   const alias = (id: unknown) => aliases.find((s) => s.id === id)?.alias;
   const clean = (text: string, max: number) => {
-    for (const seat of [...aliases].sort((a, b) => b.name.length - a.name.length))
-      if (seat.name && seat.name !== '你') text = text.split(seat.name).join(seat.alias);
+    // Same rule as the prompts (prompt-seats.ts): a one-character name would also match inside ordinary words.
+    text = text
+      .split(/(「[^」]*」)/)
+      .map((part) => {
+        if (part.startsWith('「') && part.endsWith('」')) return part;
+        for (const seat of [...aliases].sort((a, b) => b.name.length - a.name.length))
+          if (seat.name.length > 1 && seat.name !== '你') part = part.split(seat.name).join(seat.alias);
+        return part;
+      })
+      .join('');
     for (const seat of [...aliases].sort((a, b) => b.id.length - a.id.length))
       text = text.split(seat.id).join(seat.alias);
     return text.slice(0, max);
@@ -51,7 +59,8 @@ export function collectGrowthObservations(match: MatchState): GrowthObservation[
       if (
         input.you !== seat.id ||
         personal?.self?.id !== seat.id ||
-        personal.self.role !== seat.role ||
+        // Games where players do not know their own role (Who's the Spy) send no role at all.
+        (personal.self.role !== undefined && personal.self.role !== seat.role) ||
         request?.seatId !== seat.id ||
         request.kind !== accepted.kind ||
         !Array.isArray(request.targets)
@@ -80,7 +89,7 @@ export function collectGrowthObservations(match: MatchState): GrowthObservation[
         behavior: JSON.parse(behavior),
         context: {
           you: alias(seat.id),
-          role: personal.self.role,
+          ...(personal.self.role !== undefined ? { role: personal.self.role } : {}),
           day: started.day,
           phase: started.phase,
           request: {

@@ -1,8 +1,19 @@
 import type { ModelSelection } from './core';
 import type { GameBehaviorPolicy, GameMbti } from '../games/game-personality';
 /** Games the runtime can host; each has a game mode in electron/core/games/modes.ts. */
-export type GameModeId = 'werewolf';
-export type GameRole = 'wolf' | 'seer' | 'witch' | 'villager' | 'hunter' | 'idiot' | 'guard';
+export type GameModeId = 'werewolf' | 'undercover';
+export type GameRole =
+  | 'wolf'
+  | 'seer'
+  | 'witch'
+  | 'villager'
+  | 'hunter'
+  | 'idiot'
+  | 'guard'
+  // Who's the Spy (谁是卧底)
+  | 'civilian'
+  | 'undercover'
+  | 'blank';
 export type GamePhase = 'night' | 'speech' | 'vote' | 'election' | 'resolution' | 'finished';
 export type GameStatus = 'running' | 'paused' | 'finished';
 export interface GamePlayer {
@@ -22,7 +33,8 @@ export type GameEvent =
   | { type: 'exile'; day: number; seatId: string; voters: string[] }
   | { type: 'save'; day: number; witchId: string; seatId: string }
   | { type: 'inspect'; day: number; seerId: string; seatId: string; wolf: boolean }
-  | { type: 'elect'; day: number; seatId?: string; applicants: string[]; withdrawn?: string[] };
+  | { type: 'elect'; day: number; seatId?: string; applicants: string[]; withdrawn?: string[] }
+  | { type: 'blank_guess'; day: number; seatId: string; correct: boolean };
 interface GameSeat extends GamePlayer {
   alive: boolean;
   role?: GameRole;
@@ -63,7 +75,10 @@ export interface GameRequest {
     | 'badge'
     | 'shoot'
     | 'last_words'
-    | 'pk_speak';
+    | 'pk_speak'
+    // Who's the Spy: describe your word without saying it; a voted-out blank guesses the civilians' word.
+    | 'describe'
+    | 'blank_guess';
   targets: string[];
   witch?: { victim?: string; canSave: boolean; canPoison: boolean };
   deadlineAt?: number;
@@ -96,7 +111,10 @@ export interface GameView {
   seats: GameSeat[];
   logs: GameLog[];
   pending: GameRequest[];
-  winner?: 'wolves' | 'village';
+  /** Werewolf: wolves or village. Who's the Spy: civilian, undercover or blank. */
+  winner?: 'wolves' | 'village' | 'civilian' | 'undercover' | 'blank';
+  /** Who's the Spy: the viewer's own word, and both words once they may be known. */
+  words?: { own?: string; civilian?: string; undercover?: string };
   /** When a finished match ended (ms); its report card sits at that point of the group timeline. */
   endedAt?: number;
   error?: string;
@@ -120,6 +138,8 @@ export interface GameCreate {
   mode?: GameModeId;
   groupId: string;
   board?: 'standard12' | 'guard12';
+  /** Who's the Spy: add a blank (a player with no word); only with seven or more players. */
+  blank?: boolean;
   players: GamePlayer[];
 }
 export interface GameAPI {

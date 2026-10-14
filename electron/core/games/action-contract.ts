@@ -1,5 +1,7 @@
 import type { GameRequest } from '../../../shared/types/game-types';
 import { AppError } from '../../../shared/errors';
+/** Shorter text limits than the default 800 characters. */
+const TEXT_MAX: Partial<Record<GameRequest['kind'], number>> = { describe: 60, blank_guess: 20 };
 type Field = { type: 'string' | 'boolean'; enum?: string[]; minLength?: number; maxLength?: number };
 export function actionContract(r: GameRequest) {
   const properties: Record<string, Field> = {
@@ -14,8 +16,8 @@ export function actionContract(r: GameRequest) {
   });
   let variants: string[][];
   let description = '只提交本轮字段。禁止 type、action、kind。';
-  if (['speak', 'wolf_plan', 'campaign', 'pk_speak', 'last_words'].includes(r.kind)) {
-    properties.text = { type: 'string', minLength: 1, maxLength: 800 };
+  if (['speak', 'wolf_plan', 'campaign', 'pk_speak', 'last_words', 'describe', 'blank_guess'].includes(r.kind)) {
+    properties.text = { type: 'string', minLength: 1, maxLength: TEXT_MAX[r.kind] ?? 800 };
     variants = [['text']];
     description = '只返回 text。禁止 type、action、kind。';
   } else if (['sheriff_join', 'withdraw'].includes(r.kind)) {

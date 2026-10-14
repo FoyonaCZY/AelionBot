@@ -1,5 +1,6 @@
 import type { GameEvent, GameRole } from '../../../shared/types/game-types';
 import { planRole } from '../../../shared/persona/persona-model';
+import { ROLE_NAMES as ROLE } from '../../../shared/games/game-boards';
 import type { MatchFacts, SocialFact } from '../persona/match-facts';
 import type { PersonaDecision, SeatPersona } from './persona-play';
 import { matchExperiences } from './werewolf-experiences';
@@ -15,15 +16,6 @@ export interface WerewolfResult {
   decisions?: PersonaDecision[];
   persona?: Record<string, SeatPersona>;
 }
-const ROLE: Record<GameRole, string> = {
-  wolf: '狼人',
-  seer: '预言家',
-  witch: '女巫',
-  villager: '村民',
-  hunter: '猎人',
-  idiot: '白痴',
-  guard: '守卫',
-};
 const camp = (role: GameRole) => (role === 'wolf' ? 'wolves' : 'village');
 
 /** Werewolf in the persona module's terms: camps are teams, a same-camp exile and a witch's save are social facts. */

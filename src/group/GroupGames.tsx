@@ -1,8 +1,9 @@
 import { BOARDS, PHASE_NAMES, TWELVE_RULES } from '../../shared/games/game-boards';
 import { WerewolfTable } from './WerewolfTable';
+import { UndercoverTable } from './UndercoverTable';
 import { PersonaPage } from './PersonaPage';
 import { syncSeats } from './game-view-model';
-import type { GameView } from '../../shared/types/game-types';
+import type { GameModeId, GameView } from '../../shared/types/game-types';
 import { GAME_MBTI_TYPES, isGameMbti, type GameMbti } from '../../shared/games/game-personality';
 import type { ModelProvider, ModelSelection } from '../../shared/types/core';
 import { Avatar } from '../ui/Avatar';
@@ -36,6 +37,13 @@ const guests: Member[] = [
   { id: 'guest-snow', name: '小雪', color: '#8194a8' },
 ];
 const phaseNames = PHASE_NAMES;
+const WINNER_NAMES: Record<NonNullable<GameView['winner']>, string> = {
+  wolves: '狼人获胜',
+  village: '好人获胜',
+  civilian: '平民获胜',
+  undercover: '卧底获胜',
+  blank: '白板获胜',
+};
 /** Four temperament groups used to colour MBTI types: analysts, diplomats, sentinels, explorers. */
 const temperament = (type: string) =>
   type[1] === 'N' ? (type[2] === 'T' ? 'nt' : 'nf') : type[3] === 'J' ? 'sj' : 'sp';
@@ -76,6 +84,9 @@ export function GroupGames({
 }) {
   const { t } = useI18n();
   const [board, setBoard] = useState<'standard12' | 'guard12'>('standard12');
+  const [game, setGame] = useState<GameModeId>('werewolf'),
+    [seatCount, setSeatCount] = useState(6),
+    [blank, setBlank] = useState(false);
   const storageKey = `aelion:game-prototype:v1:${groupId}`;
   const [match, setMatch] = useState<GameView | null>(null);
   const [open, setOpen] = useState(initialOpen),
@@ -127,10 +138,17 @@ export function GroupGames({
     options.find((o) => o.key === overrides[seat.id])?.selection || seat.model || defaultModel;
   function restore() {
     try {
-      const saved = JSON.parse(localStorage.getItem(storageKey + ':players') || 'null');
+      const stored = JSON.parse(localStorage.getItem(storageKey + ':players') || 'null');
+      // Each game remembers its own last setup; Werewolf setups saved before games were separate sit at the top level.
+      const saved = stored?.games?.[game] || (game === 'werewolf' && stored?.selected ? stored : null);
       if (!saved) {
         setConfigNotice(t('暂无上次配置'));
         return;
+      }
+      if (game === 'werewolf' && Object.hasOwn(BOARDS, saved.board)) setBoard(saved.board);
+      if (game === 'undercover' && Number.isInteger(saved.seatCount) && saved.seatCount >= 4 && saved.seatCount <= 10) {
+        setSeatCount(saved.seatCount);
+        setBlank(saved.blank === true);
       }
       if (['play', 'watch'].includes(saved.mode) && Array.isArray(saved.selected)) {
         setMode(saved.mode);
@@ -146,7 +164,7 @@ export function GroupGames({
         if (typeof key === 'string' && options.some((o) => o.key === key)) next[id] = key;
       setOverrides(next);
       const personalities: Record<string, GameMbti> = {};
-      for (const [id, type] of Object.entries(saved.mbtiPresets || {})) if (isGameMbti(type)) personalities[id] = type;
+      for (const [id, type] of Object.entries(stored.mbtiPresets || {})) if (isGameMbti(type)) personalities[id] = type;
       setMbtiPresets(personalities);
       const session: Record<string, GameMbti | 'random'> = {};
       for (const [id, type] of Object.entries(saved.sessionMbti || {}))
@@ -219,7 +237,9 @@ export function GroupGames({
     if (!open && dialog.current?.open) dialog.current?.close();
   }, [open]);
 
-  const limit = mode === 'play' ? 11 : 12;
+  // Werewolf seats twelve; Who's the Spy four to ten.
+  const total = game === 'undercover' ? seatCount : 12;
+  const limit = mode === 'play' ? total - 1 : total;
   const chosen = members.filter((m) => selected.includes(m.id)).slice(0, limit);
   const roster: Seat[] = [
     ...(mode === 'play' ? [{ id: 'human', name: '你', color: '#9177ac', role: '村民' }] : []),
@@ -274,14 +294,15 @@ export function GroupGames({
     savePresets(next);
   }
   async function start() {
-    if (starting || roster.length !== 12) return;
+    if (starting || roster.length !== total) return;
     setStarting(true);
     mutationStart();
     setGameError('');
     try {
       const next = await window.aelion.games.create({
         groupId,
-        board,
+        mode: game,
+        ...(game === 'werewolf' ? { board } : { blank: blank && seatCount >= 7 }),
         players: roster.map((p) => ({
           id: p.id,
           name: p.name,
@@ -293,9 +314,18 @@ export function GroupGames({
       });
       updateMatch(next);
       try {
+        const stored = JSON.parse(localStorage.getItem(storageKey + ':players') || '{}');
+        const setup = {
+          mode,
+          selected,
+          filled,
+          overrides,
+          sessionMbti,
+          ...(game === 'werewolf' ? { board } : { seatCount, blank }),
+        };
         localStorage.setItem(
           storageKey + ':players',
-          JSON.stringify({ mode, selected, filled, overrides, mbtiPresets, sessionMbti }),
+          JSON.stringify({ ...stored, mbtiPresets, games: { ...stored.games, [game]: setup } }),
         );
       } catch {
         setSaveError(true);
@@ -319,21 +349,27 @@ export function GroupGames({
     unfinished = !!match && match.status !== 'finished',
     blocker = unfinished
       ? t('还有一局没结束，先结束或继续那一局')
-      : roster.length !== 12
-        ? t('还差 {count} 个座位', { count: 12 - roster.length })
+      : roster.length !== total
+        ? t('还差 {count} 个座位', { count: total - roster.length })
         : unconfigured.length
           ? t('{count} 位 AI 还没有可用模型', { count: unconfigured.length })
           : '';
-  const available = members.filter((m) => !selected.includes(m.id));
+  // Members selected beyond this game's seats stay pickable rather than vanishing from both lists.
+  const available = members.filter((m) => !chosen.some((c) => c.id === m.id));
   const presetCount = guests.filter((guest) => mbtiPresets[guest.id]).length;
   const matchPhase = match
     ? match.status === 'paused'
       ? t('已暂停')
       : match.status === 'finished' || match.phase === 'finished'
         ? t('已结束')
-        : t(match.phase === 'night' ? '第 {day} 夜' : '第 {day} 天', { day: match.day }) +
-          ' · ' +
-          (match.stage || t(phaseNames[match.phase]))
+        : match.mode === 'undercover'
+          ? t('第 {round} 轮 · {phase}', {
+              round: match.day,
+              phase: t(match.phase === 'vote' ? '投票' : match.phase === 'resolution' ? '白板猜词' : '描述'),
+            })
+          : t(match.phase === 'night' ? '第 {day} 夜' : '第 {day} 天', { day: match.day }) +
+            ' · ' +
+            (match.stage || t(phaseNames[match.phase]))
     : '';
   const myTurn =
     !!match && match.status === 'running' && !!match.humanId && match.pending.some((r) => r.seatId === match.humanId);
@@ -364,7 +400,7 @@ export function GroupGames({
               </span>
               <span className="gg-chat-card-title">
                 <strong>
-                  {t('狼人杀')}
+                  {t(match.mode === 'undercover' ? '谁是卧底' : '狼人杀')}
                   {match.board ? ' · ' + t(BOARDS[match.board].name) : ''}
                 </strong>
                 <small>
@@ -373,11 +409,9 @@ export function GroupGames({
               </span>
               <span className={`gg-live ${match.status === 'running' ? '' : 'is-idle'}`}>
                 {match.status === 'finished'
-                  ? match.winner === 'wolves'
-                    ? t('狼人获胜')
-                    : match.winner === 'village'
-                      ? t('好人获胜')
-                      : t('已结束')
+                  ? match.winner
+                    ? t(WINNER_NAMES[match.winner])
+                    : t('已结束')
                   : match.status === 'paused'
                     ? t('已暂停')
                     : t('进行中')}
@@ -431,7 +465,7 @@ export function GroupGames({
                       ? t('补位 AI 预设')
                       : screen === 'persona'
                         ? t('人格')
-                        : t('狼人杀 · 开局设置')}
+                        : t(game === 'undercover' ? '谁是卧底 · 开局设置' : '狼人杀 · 开局设置')}
                 </strong>
                 {screen === 'presets' && <span>{t('长期保存，开局时可以按局修改')}</span>}
               </div>
@@ -490,11 +524,7 @@ export function GroupGames({
                       <b>{t('上一局')}</b>
                       <small>
                         {match.board ? t(BOARDS[match.board].name) + ' · ' : ''}
-                        {match.winner === 'wolves'
-                          ? t('狼人获胜')
-                          : match.winner === 'village'
-                            ? t('好人获胜')
-                            : t('中途结束，不计胜负')}
+                        {match.winner ? t(WINNER_NAMES[match.winner]) : t('中途结束，不计胜负')}
                       </small>
                     </span>
                     <button className="secondary-button" onClick={() => setScreen('table')}>
@@ -518,7 +548,14 @@ export function GroupGames({
                       <span>{t('约 30–45 分钟')}</span>
                     </div>
                     <div className="gg-hero-actions">
-                      <button className="gg-hero-primary" disabled={unfinished} onClick={() => setScreen('room')}>
+                      <button
+                        className="gg-hero-primary"
+                        disabled={unfinished}
+                        onClick={() => {
+                          setGame('werewolf');
+                          setScreen('room');
+                        }}
+                      >
                         {t('开始新对局')}
                       </button>
                       {unfinished && <span className="gg-hero-note">{t('先结束当前对局')}</span>}
@@ -541,6 +578,33 @@ export function GroupGames({
                         </span>
                       );
                     })}
+                  </div>
+                </section>
+                <section className="gg-hero gg-hero-compact">
+                  <div className="gg-hero-text">
+                    <h3>{t('谁是卧底')}</h3>
+                    <p>
+                      {t(
+                        '4–10 人。每人拿到一个词，卧底的词和大家相近但不同，谁都不知道自己是不是卧底。轮流用一句话描述，再投票找出卧底。',
+                      )}
+                    </p>
+                    <div className="gg-hero-tags">
+                      <span>{t('1–2 名卧底')}</span>
+                      <span>{t('7 人起可加白板')}</span>
+                      <span>{t('约 10–20 分钟')}</span>
+                    </div>
+                    <div className="gg-hero-actions">
+                      <button
+                        className="gg-hero-primary"
+                        disabled={unfinished}
+                        onClick={() => {
+                          setGame('undercover');
+                          setScreen('room');
+                        }}
+                      >
+                        {t('开始新对局')}
+                      </button>
+                    </div>
                   </div>
                 </section>
               </div>
@@ -566,7 +630,7 @@ export function GroupGames({
                   </small>
                 </button>
                 <details className="gg-lobby-rules">
-                  <summary>{t('规则要点')}</summary>
+                  <summary>{t('狼人杀规则要点')}</summary>
                   <p className="gg-rules-short">
                     {t(
                       '屠边局：狼人全灭好人胜，四民或四神全灭狼人胜。首夜后先竞选警长，警长 1.5 票并决定发言方向。真人发言 120 秒，其他真人行动 45 秒；AI 请求失败或超时会暂停，保留已完成的选择。',
@@ -632,33 +696,66 @@ export function GroupGames({
           {screen === 'room' && (
             <main className="gg-room">
               <aside className="gg-room-left">
-                <div>
-                  <div className="gg-label">{t('板子')}</div>
-                  <div className="gg-boards" role="radiogroup" aria-label={t('狼人杀板子')}>
-                    {(Object.entries(BOARDS) as [typeof board, (typeof BOARDS)[typeof board]][]).map(([id, b]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        role="radio"
-                        aria-checked={board === id}
-                        className={`gg-board ${board === id ? 'is-selected' : ''}`}
-                        onClick={() => setBoard(id)}
-                      >
-                        <b>{t(b.name)}</b>
-                        <span className="gg-chip-row">
-                          {b.description.split(' · ').map((part) => (
-                            <span
-                              key={part}
-                              className={`gg-tag ${part.includes('狼') ? 'is-wolf' : part.includes('民') ? 'is-good' : 'is-god'}`}
-                            >
-                              {t(part)}
-                            </span>
-                          ))}
-                        </span>
-                      </button>
-                    ))}
+                {game === 'undercover' ? (
+                  <div>
+                    <div className="gg-label">{t('人数')}</div>
+                    <div className="gg-seg" role="radiogroup" aria-label={t('人数')}>
+                      {[4, 5, 6, 7, 8, 9, 10].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          role="radio"
+                          aria-checked={seatCount === n}
+                          className={seatCount === n ? 'is-on' : ''}
+                          onClick={() => setSeatCount(n)}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="gg-muted">
+                      {t('{count} 名卧底', { count: seatCount <= 6 ? 1 : 2 })}
+                      {seatCount >= 7 && blank ? t(' · 1 名白板') : ''}
+                    </p>
+                    <label className="gg-check">
+                      <input
+                        type="checkbox"
+                        checked={blank && seatCount >= 7}
+                        disabled={seatCount < 7}
+                        onChange={(e) => setBlank(e.target.checked)}
+                      />
+                      {t('加一名白板（7 人起）')}
+                    </label>
                   </div>
-                </div>
+                ) : (
+                  <div>
+                    <div className="gg-label">{t('板子')}</div>
+                    <div className="gg-boards" role="radiogroup" aria-label={t('狼人杀板子')}>
+                      {(Object.entries(BOARDS) as [typeof board, (typeof BOARDS)[typeof board]][]).map(([id, b]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          role="radio"
+                          aria-checked={board === id}
+                          className={`gg-board ${board === id ? 'is-selected' : ''}`}
+                          onClick={() => setBoard(id)}
+                        >
+                          <b>{t(b.name)}</b>
+                          <span className="gg-chip-row">
+                            {b.description.split(' · ').map((part) => (
+                              <span
+                                key={part}
+                                className={`gg-tag ${part.includes('狼') ? 'is-wolf' : part.includes('民') ? 'is-good' : 'is-god'}`}
+                              >
+                                {t(part)}
+                              </span>
+                            ))}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <div className="gg-label">{t('你的位置')}</div>
                   <div className="gg-seg" role="radiogroup">
@@ -669,7 +766,7 @@ export function GroupGames({
                       className={mode === 'play' ? 'is-on' : ''}
                       onClick={() => {
                         setMode('play');
-                        setSelected((ids) => ids.slice(0, 11));
+                        setSelected((ids) => ids.slice(0, total - 1));
                       }}
                     >
                       {t('坐进去玩')}
@@ -681,23 +778,37 @@ export function GroupGames({
                       className={mode === 'watch' ? 'is-on' : ''}
                       onClick={() => setMode('watch')}
                     >
-                      {t('旁观 12 个 AI')}
+                      {t('旁观 {count} 个 AI', { count: total })}
                     </button>
                   </div>
                   <p className="gg-muted">{t('旁观时可以随时切换「全知视角」看所有身份。')}</p>
                 </div>
                 <details className="gg-rule-details">
                   <summary>{t('完整规则')}</summary>
-                  <p>{TWELVE_RULES}</p>
+                  <p>
+                    {game === 'undercover'
+                      ? t(
+                          '每轮存活玩家依次描述自己的词，然后同时投票，得票最多的人出局并公布身份。第一次平票时，平票的人各补一句描述后在他们之中重投，再平票本轮无人出局。卧底全部出局平民胜；存活卧底不少于平民，或只剩 3 人时仍有卧底，卧底胜。白板出局时可以猜一次平民的词，猜中则白板单独获胜。',
+                        )
+                      : TWELVE_RULES}
+                  </p>
                 </details>
-                <p className="gg-muted gg-room-note">{t('身份在开局时随机发放，座位顺序即发言顺序。')}</p>
+                <p className="gg-muted gg-room-note">
+                  {t(
+                    game === 'undercover'
+                      ? '词在开局时随机发放，每轮的描述从下一位玩家开始。'
+                      : '身份在开局时随机发放，座位顺序即发言顺序。',
+                  )}
+                </p>
               </aside>
               <section className="gg-room-main">
                 <div className="gg-toolbar">
-                  <b>{roster.length} / 12</b>
-                  {roster.length < 12 ? (
+                  <b>
+                    {roster.length} / {total}
+                  </b>
+                  {roster.length < total ? (
                     <>
-                      <span className="gg-muted">{t('还差 {count} 位', { count: 12 - roster.length })}</span>
+                      <span className="gg-muted">{t('还差 {count} 位', { count: total - roster.length })}</span>
                       <button className="secondary-button" onClick={() => setFilled(true)}>
                         {t('一键补齐')}
                       </button>
@@ -791,7 +902,7 @@ export function GroupGames({
                       </button>
                     );
                   })}
-                  {Array.from({ length: Math.max(0, 12 - roster.length) }, (_, i) => (
+                  {Array.from({ length: Math.max(0, total - roster.length) }, (_, i) => (
                     <button
                       type="button"
                       key={'empty' + i}
@@ -884,7 +995,11 @@ export function GroupGames({
                             className="gg-add-member"
                             disabled={chosen.length >= limit}
                             onClick={() => {
-                              setSelected((ids) => [...ids, m.id]);
+                              setSelected((ids) => [
+                                ...chosen.map((c) => c.id),
+                                m.id,
+                                ...ids.filter((id) => id !== m.id && !chosen.some((c) => c.id === id)),
+                              ]);
                               setAdding(false);
                             }}
                           >
@@ -918,7 +1033,7 @@ export function GroupGames({
                   {blocker ? (
                     <span className="gg-muted">{blocker}</span>
                   ) : (
-                    <span className="gg-ok">{t('✓ 12 位玩家都已就绪')}</span>
+                    <span className="gg-ok">{t('✓ {count} 位玩家都已就绪', { count: total })}</span>
                   )}
                   {configNotice && (
                     <span className="gg-muted" role="status">
@@ -938,7 +1053,18 @@ export function GroupGames({
               </section>
             </main>
           )}
-          {screen === 'table' && match && (
+          {screen === 'table' && match && match.mode === 'undercover' && (
+            <UndercoverTable
+              game={match}
+              onUpdate={updateMatch}
+              onMutationStart={mutationStart}
+              syncError={readError}
+              omniscient={omniscient}
+              onOmniscient={() => setOmniscient((v) => !v)}
+              onClose={() => setOpen(false)}
+            />
+          )}
+          {screen === 'table' && match && match.mode !== 'undercover' && (
             <WerewolfTable
               game={match}
               onUpdate={updateMatch}

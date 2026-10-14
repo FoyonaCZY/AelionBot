@@ -22,6 +22,8 @@ import {
   type Traits,
 } from '../../../shared/persona/persona-model';
 import type { WerewolfState } from './werewolf';
+import type { MatchState } from './game-mode';
+import type { Plan } from '../../../shared/persona/persona-model';
 
 /** Private persona of one Bot seat for this match. Only the seat itself sees it before the reveal. */
 export interface SeatPersona {
@@ -71,18 +73,26 @@ export interface PersonaSeed {
   affinity?: Record<string, number>;
 }
 
-const draw = (s: WerewolfState, salt: number) => {
+const draw = (s: MatchState, salt: number) => {
   // Each draw has its own stream: seed, a per-match counter and a salt. Replays with the same seed and the same
   // model answers give the same choices.
   s.personaDraws = (s.personaDraws || 0) + 1;
   return seededRandom(((s.seed || 0) ^ Math.imul(s.personaDraws, 0x9e3779b1) ^ Math.imul(salt + 1, 0x85ebca6b)) | 0);
 };
 
+/** Where a seat's opening plans come from: the plans it may draw, and the key its last plan is remembered under. */
+export type PlanTable = (seat: MatchState['seats'][number]) => { key: string; plans: Plan[] };
+
 /**
- * Give each Bot seat its persona and opening plan (§9.2). At most one wolf jumps per team: wolves draw in order of
- * `assert`, and once one picks the jump the rest lose that option.
+ * Give each Bot seat its persona and opening plan (§9.2). Seats draw in order of `assert`; a plan listed in `once`
+ * goes to at most one seat, and later seats lose that option.
  */
-export function assignPersonas(s: WerewolfState, seeds: Record<string, PersonaSeed>) {
+export function assignSeatPersonas(
+  s: MatchState,
+  seeds: Record<string, PersonaSeed>,
+  table: PlanTable,
+  once: string[] = [],
+) {
   const persona: Record<string, SeatPersona> = {};
   const bots = s.seats.filter((p) => p.botId && !p.human && seeds[p.botId]);
   if (!bots.length) return;
@@ -93,35 +103,51 @@ export function assignPersonas(s: WerewolfState, seeds: Record<string, PersonaSe
   const order = [...bots].sort(
     (a, b) => tendencies(seeds[b.botId!].traits).assert - tendencies(seeds[a.botId!].traits).assert,
   );
-  let wolfJumped = false;
+  const taken = new Set<string>();
   for (const p of order) {
     const seed = seeds[p.botId!],
-      role = planRole(p.role);
+      { key, plans: all } = table(p);
     const affinity: Record<string, number> = {};
     for (const other of s.seats) {
       const id = other.id !== p.id && memberOf(other.id);
       if (id && seed.affinity?.[id]) affinity[other.id] = seed.affinity[id];
     }
-    let plans = PLANS.filter((x) => x.role === role);
-    if (role === 'wolf' && wolfJumped) plans = plans.filter((x) => x.id !== 'wolf_jump');
-    const last = seed.lastPlans?.[role];
+    const plans = all.filter((x) => !(once.includes(x.id) && taken.has(x.id)));
+    const last = seed.lastPlans?.[key];
     const random = draw(s, s.seats.indexOf(p));
-    const picked = choose(
-      seed.traits,
-      plans.map((x) => ({ value: x.id, rank: 0, f: { ...x.f, explore: last ? (last === x.id ? -1 : 1) : 0 } })),
-      random,
-    );
-    const plan = plans[picked.index];
-    if (plan.id === 'wolf_jump') wolfJumped = true;
+    let plan: SeatPersona['plan'];
+    if (plans.length) {
+      const picked = choose(
+        seed.traits,
+        plans.map((x) => ({ value: x.id, rank: 0, f: { ...x.f, explore: last ? (last === x.id ? -1 : 1) : 0 } })),
+        random,
+      );
+      const chosen = plans[picked.index];
+      taken.add(chosen.id);
+      plan = { id: chosen.id, name: chosen.name, detail: chosen.detail, f: chosen.f, prob: picked.prob };
+    }
     persona[p.id] = {
       botId: p.botId!,
       traits: seed.traits,
       mbti: mbtiOf(seed.traits),
-      plan: { id: plan.id, name: plan.name, detail: plan.detail, f: plan.f, prob: picked.prob },
+      ...(plan ? { plan } : {}),
       affinity,
     };
   }
   s.persona = persona;
+}
+
+/** Werewolf's opening plans: one table per role, and at most one wolf jumps per team. */
+export function assignPersonas(s: WerewolfState, seeds: Record<string, PersonaSeed>) {
+  assignSeatPersonas(
+    s,
+    seeds,
+    (seat) => {
+      const role = planRole(seat.role);
+      return { key: role, plans: PLANS.filter((x) => x.role === role) };
+    },
+    ['wolf_jump'],
+  );
 }
 
 /** Seat most often named in today's public speeches (§8.3 f_conform), by seat number or player name. */
@@ -142,7 +168,13 @@ export function mostNominated(s: WerewolfState, exclude: string) {
   return top.length && (top.length === 1 || top[0][1] > top[1][1]) ? top[0][0] : undefined;
 }
 
-/** Rules with one legal target or a seer-confirmed wolf always keep the model's first choice. */
+/** Which requests are key decisions, and when the rules alone settle one so personality must not override it. */
+export interface PickRules<S extends MatchState = MatchState> {
+  key: GameRequest['kind'][];
+  strong(s: S, r: GameRequest): boolean;
+}
+/** Werewolf: one legal target, or a seer voting where a wolf it found stands, always keeps the model's choice. */
+const WEREWOLF_PICK: PickRules<WerewolfState> = { key: KEY_DECISIONS, strong: isStrong };
 function isStrong(s: WerewolfState, r: GameRequest) {
   if (r.targets.length === 1) return true;
   if (r.kind !== 'vote') return false;
@@ -158,15 +190,16 @@ function isStrong(s: WerewolfState, r: GameRequest) {
  * this attempt: concurrent actions and revealed identities are not evidence. Uncertain/missing advice keeps the
  * first choice. Referenced text proves provenance, not the truth of the model's interpretation.
  */
-export function personaPick(
-  s: WerewolfState,
+export function personaPick<S extends MatchState>(
+  s: S,
   r: GameRequest,
   action: GameAction,
   valid: (a: GameAction) => boolean,
   actorInput?: string,
+  rules: PickRules<S> = WEREWOLF_PICK as unknown as PickRules<S>,
 ): { action: GameAction; decision?: PersonaDecision } {
   const p = s.persona?.[r.seatId];
-  if (!p || !KEY_DECISIONS.includes(r.kind)) return { action };
+  if (!p || !rules.key.includes(r.kind)) return { action };
   const actor = s.seats.find((x) => x.id === r.seatId)!;
   const own: Candidate = { target: action.target, potion: action.potion, choice: action.choice, skip: action.skip };
   const legal = (action.candidates || []).filter((c) => valid(toAction(c, action)));
@@ -177,7 +210,7 @@ export function personaPick(
   );
   const decisive = (action.candidates || []).some((c) => c.decisive);
   const subject = (c: Candidate) => (c.potion === 'save' ? r.witch?.victim : c.skip ? undefined : c.target);
-  const strong = pool.length <= 1 || decisive || isStrong(s, r);
+  const strong = pool.length <= 1 || decisive || rules.strong(s, r);
   let gateReason: PersonaDecision['gateReason'] =
     pool.length <= 1 ? 'single_candidate' : decisive ? 'model_decisive' : strong ? 'rule_strong' : 'weak';
   if (!strong) {

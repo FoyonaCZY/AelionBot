@@ -1435,6 +1435,20 @@
   text-align: left;
 }
 
+.gg-word {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+.gg-word b {
+  font-size: 20px;
+  letter-spacing: 0.04em;
+}
+.gg-word small {
+  color: var(--gg-muted);
+  font-size: 12px;
+}
+
 /* ---------- role reveal ---------- */
 .gg-reveal {
   position: absolute;
@@ -1883,4 +1897,22 @@
   .gg-steps {
     display: none;
   }
+}
+
+/* ---------- party games ---------- */
+.gg-hero-compact {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+  margin-top: 12px;
+  background: linear-gradient(140deg, #23312c, #2b4039 60%, #355047);
+}
+.gg-hero-compact .gg-hero-actions {
+  margin-top: 16px;
+}
+.gg-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12.5px;
 }

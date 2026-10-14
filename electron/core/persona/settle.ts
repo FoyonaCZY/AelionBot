@@ -130,6 +130,7 @@ export function settleMatch(m: MatchFacts): Settlement | undefined {
   const recap = [
     `${m.game}战报：${m.result}。`,
     `身份：${lineup}。`,
+    ...(m.details || []),
     ...(key.length ? [`关键事件：${key.join('；')}。`] : []),
   ].join('\n');
   return { affinity, highlights, recap };

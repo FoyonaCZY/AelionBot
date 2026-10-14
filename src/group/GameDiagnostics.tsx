@@ -34,6 +34,22 @@ export function GameDiagnostics({ game }: { game: GameView }) {
     [seat, setSeat] = useState(''),
     [mode, setMode] = useState<'decisions' | 'technical'>('decisions');
   const allowed = !game.humanId || game.status === 'finished';
+  // Party games count rounds, not days and nights.
+  const rounds = !!game.mode && game.mode !== 'werewolf';
+  const period = (day: number, phase?: string) =>
+    rounds
+      ? t('第 {round} 轮', { round: day })
+      : t('第 {day} {period}', { day, period: t(phase === 'night' ? '夜' : '天') });
+  const phaseName = (phase: string) =>
+    rounds
+      ? phase === 'vote'
+        ? '投票'
+        : phase === 'resolution'
+          ? '白板猜词'
+          : phase === 'finished'
+            ? '对局结束'
+            : '描述'
+      : phases[phase];
   const name = (id?: string) => {
     const i = game.seats.findIndex((p) => p.id === id);
     return i < 0 ? t('无') : t('{seat} 号 {name}', { seat: i + 1, name: game.seats[i].name });
@@ -112,7 +128,7 @@ export function GameDiagnostics({ game }: { game: GameView }) {
       );
       return (
         <>
-          {e.skills && (
+          {!!e.skills?.length && (
             <p>
               <b>{t('已读攻略：')}</b>
               {e.skills.map((s) => s.title).join('、')}
@@ -127,18 +143,31 @@ export function GameDiagnostics({ game }: { game: GameView }) {
               <details>
                 <summary>{t('共享上下文 · 全员可见')}</summary>
                 <p>
-                  {t('第 {day} 天 · {phase}', { day: shared.day, phase: t(phases[shared.phase]) })}
+                  {period(shared.day, shared.phase)} · {t(phaseName(shared.phase))}
                   {t('；玩家座位与存活状态。这里不包含真实身份、性格预设或私有查验。')}
                 </p>
                 {renderLogs(shared.logs)}
               </details>
               <details>
                 <summary>{t('个人上下文 · 仅该玩家可见')}</summary>
-                <p>
-                  <b>{t('本人身份：')}</b>
-                  {t(roles[personal.self.role])}
-                  {t(' · 来源：开局分配')}
-                </p>
+                {personal.self.role ? (
+                  <p>
+                    <b>{t('本人身份：')}</b>
+                    {t(roles[personal.self.role])}
+                    {t(' · 来源：开局分配')}
+                  </p>
+                ) : (
+                  <p>
+                    <b>{t('本人身份：')}</b>
+                    {t('未告知，本人只知道自己的词')}
+                  </p>
+                )}
+                {personal.self.word && (
+                  <p>
+                    <b>{t('本人的词：')}</b>
+                    {personal.self.word}
+                  </p>
+                )}
                 <p>
                   <b>{t('本局性格：')}</b>
                   {personal.self.mbti || t('未记录')}
@@ -150,14 +179,20 @@ export function GameDiagnostics({ game }: { game: GameView }) {
                     {Object.values(personal.self.behaviorPolicy).join('；')}
                   </p>
                 )}
-                {personal.teammates.length > 0 && (
+                {personal.teammates?.length > 0 && (
                   <p>
                     <b>{t('狼队友：')}</b>
                     {personal.teammates.map((p: any) => name(p.id)).join(t('、'))}
                     {t(' · 来源：狼人相互知晓身份规则，写入本人的私有上下文，非共享信息')}
                   </p>
                 )}
-                <p>{t('私有事件：由规则按可见权限投递，例如本人的查验、用药结果或狼队行动。')}</p>
+                <p>
+                  {t(
+                    rounds
+                      ? '私有事件：由规则按可见权限投递，例如本人拿到的词。'
+                      : '私有事件：由规则按可见权限投递，例如本人的查验、用药结果或狼队行动。',
+                  )}
+                </p>
                 {personal.logs.length ? renderLogs(personal.logs) : <p>{t('暂无私有事件。')}</p>}
               </details>
             </>
@@ -276,7 +311,7 @@ export function GameDiagnostics({ game }: { game: GameView }) {
   function detail(e: GameTrace) {
     if (e.type === 'created')
       return t('{count} 位玩家加入对局；{detail}', { count: game.seats.length, detail: e.detail || '' });
-    if (e.type === 'transition') return t('当前进入') + t(phases[e.phase]);
+    if (e.type === 'transition') return t('当前进入') + t(phaseName(e.phase));
     if (e.type === 'request_created') return '';
     return e.detail;
   }
@@ -350,8 +385,7 @@ export function GameDiagnostics({ game }: { game: GameView }) {
                     <header>
                       <strong>{name(e.seatId)}</strong>
                       <span>
-                        {t('第 {day} {period}', { day: e.day, period: t(e.phase === 'night' ? '夜' : '天') })} ·{' '}
-                        {t(kinds[e.kind || ''])}
+                        {period(e.day, e.phase)} · {t(kinds[e.kind || ''])}
                       </span>
                       <time>{new Date(e.time).toLocaleTimeString('zh-CN')}</time>
                     </header>
@@ -381,8 +415,7 @@ export function GameDiagnostics({ game }: { game: GameView }) {
                         : ''}
                     </summary>
                     <div>
-                      {t('第 {day} {period}', { day: e.day, period: t(e.phase === 'night' ? '夜' : '天') })} ·{' '}
-                      {t(phases[e.phase])}
+                      {period(e.day, e.phase)} · {t(phaseName(e.phase))}
                       {e.attempt && e.attempt > 1 ? t(' · 重试第 {n} 次', { n: e.attempt - 1 }) : ''}
                       {e.model ? ' · ' + e.model : ''}
                     </div>

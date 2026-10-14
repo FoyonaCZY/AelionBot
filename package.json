@@ -45,6 +45,7 @@
       "assets/laya/**",
       "assets/skills/**",
       "assets/game-skills/**",
+      "assets/game-content/**",
       "!assets/skills/**/__pycache__/**",
       "!assets/skills/**/*.pyc",
       "package.json",
