@@ -12,6 +12,7 @@ import { PersonaService } from '../electron/core/persona/persona-service';
 import { GroupChats } from '../electron/core/group/group-chats';
 import { Store } from '../electron/core/storage/store';
 import type { GameAction, GameRequest } from '../shared/types/game-types';
+import { werewolfFacts } from '../electron/core/games/werewolf-facts';
 
 const players = Array.from({ length: 7 }, (_, i) => ({
   id: String(i),
@@ -373,7 +374,7 @@ test('a finished match waits for downstream startup and cancelled matches produc
 
 test('legacy completion adopts an already published unkeyed report but explicit pending matches still publish', async (t) => {
   const f = services(t);
-  const report = f.persona.settle({ ...f.match, events: f.match.events || [] })!;
+  const report = f.persona.settle(werewolfFacts({ ...f.match, events: f.match.events || [] }))!;
   f.groups.postGameResult(f.room.id, report);
   const oldMessageId = f.room.messages.at(-1)!.id;
   const first = f.open({ finished: (s) => settleFinishedGame(s, f.persona, f.groups) });

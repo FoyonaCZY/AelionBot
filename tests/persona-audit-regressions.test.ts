@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PersonaService } from '../electron/core/persona/persona-service';
 import { NEUTRAL, type Traits } from '../shared/persona/persona-model';
-import type { SettleMatch } from '../electron/core/persona/settle';
+import type { WerewolfResult } from '../electron/core/games/werewolf-facts';
+import { werewolfFacts } from '../electron/core/games/werewolf-facts';
 
 function fixture(t: test.TestContext) {
   const dir = mkdtempSync(join(tmpdir(), 'aelion-persona-audit-'));
@@ -44,7 +45,7 @@ test('same-millisecond history ends at the current saved personality, including 
 });
 test('a settlement write failure rolls back relationship changes and can be retried once', (t) => {
   const svc = fixture(t);
-  const match: SettleMatch = {
+  const match: WerewolfResult = {
     id: 'fault',
     groupId: 'g',
     winner: 'village',
@@ -59,12 +60,12 @@ test('a settlement write failure rolls back relationship changes and can be retr
   svc.store.addHighlight = () => {
     throw Error('simulated write failure');
   };
-  assert.throws(() => svc.settle(match), /simulated write failure/);
+  assert.throws(() => svc.settle(werewolfFacts(match)), /simulated write failure/);
   svc.store.addHighlight = original;
   assert.equal(svc.affinity('A', 'B'), 0, 'partial settlement must not survive');
-  assert.ok(svc.settle(match), 'failed settlement must remain retryable');
+  assert.ok(svc.settle(werewolfFacts(match)), 'failed settlement must remain retryable');
   const score = svc.affinity('A', 'B');
   assert.ok(score < 0);
-  assert.equal(svc.settle(match), undefined);
+  assert.equal(svc.settle(werewolfFacts(match)), undefined);
   assert.equal(svc.affinity('A', 'B'), score, 'successful settlement must not be duplicated');
 });

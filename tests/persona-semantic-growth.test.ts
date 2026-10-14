@@ -3,11 +3,13 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PersonaService, type PersonaMatch } from '../electron/core/persona/persona-service';
-import { matchExperiences } from '../electron/core/persona/growth';
+import { PersonaService } from '../electron/core/persona/persona-service';
+import type { WerewolfResult as PersonaMatch } from '../electron/core/games/werewolf-facts';
+import { matchExperiences } from '../electron/core/games/werewolf-experiences';
 import { settleMatch } from '../electron/core/persona/settle';
 import type { PersonaDecision } from '../electron/core/games/persona-play';
 import { NEUTRAL } from '../shared/persona/persona-model';
+import { werewolfFacts } from '../electron/core/games/werewolf-facts';
 
 const zero = { E: 0, A: 0, C: 0, N: 0, O: 0 };
 const seats: PersonaMatch['seats'] = [
@@ -78,7 +80,7 @@ test('semantic settlement preserves traits away from anchor, learning count, and
   const traits = { ...p.traits, E: 0.93, N: 0.812 };
   svc.store.saveProfile({ ...p, traits, n: 7 });
   const beforeHistory = svc.view('B').history;
-  assert.ok(svc.settle(match()));
+  assert.ok(svc.settle(werewolfFacts(match())));
   const first = svc.view('B');
   assert.deepEqual(first.profile.traits, traits, 'zero reward must not trigger the old anchor pull');
   assert.deepEqual(first.profile.anchor, p.anchor);
@@ -88,7 +90,7 @@ test('semantic settlement preserves traits away from anchor, learning count, and
   assert.deepEqual(first.episodes[0].delta, zero);
   assert.equal(first.episodes[0].o, 0);
   assert.match(first.episodes[0].summary, /投票给 1 号，揭晓是狼人/);
-  assert.equal(svc.settle(match()), undefined);
+  assert.equal(svc.settle(werewolfFacts(match())), undefined);
   assert.deepEqual(svc.view('B').episodes, first.episodes, 'replaying a finished match does not duplicate facts');
 });
 
@@ -96,17 +98,19 @@ test('growth lock still records semantic facts while blocking legacy growth', (t
   const svc = service(t);
   svc.ensureProfile('B');
   const before = svc.setLocked('B', true).profile;
-  svc.settle(match());
+  svc.settle(werewolfFacts(match()));
   const first = svc.view('B');
   assert.equal(first.episodes.length, 1);
   assert.deepEqual(first.profile.traits, before.traits);
   assert.equal(first.profile.n, 0);
   svc.settle(
-    match({
-      id: 'legacy-locked',
-      personaPolicy: undefined,
-      decisions: [decision({ selectionMethod: undefined, growthDisposition: undefined })],
-    }),
+    werewolfFacts(
+      match({
+        id: 'legacy-locked',
+        personaPolicy: undefined,
+        decisions: [decision({ selectionMethod: undefined, growthDisposition: undefined })],
+      }),
+    ),
   );
   assert.equal(svc.view('B').episodes.length, 1, 'legacy locked behavior remains unchanged');
 });
@@ -115,11 +119,13 @@ test('legacy settlement still uses the existing growth rule without retroactivel
   const svc = service(t);
   const before = svc.ensureProfile('B');
   svc.settle(
-    match({
-      id: 'legacy-m1',
-      personaPolicy: undefined,
-      decisions: [decision({ selectionMethod: undefined, growthDisposition: undefined })],
-    }),
+    werewolfFacts(
+      match({
+        id: 'legacy-m1',
+        personaPolicy: undefined,
+        decisions: [decision({ selectionMethod: undefined, growthDisposition: undefined })],
+      }),
+    ),
   );
   const after = svc.view('B');
   assert.equal(after.profile.n, 1);
@@ -130,19 +136,19 @@ test('legacy settlement still uses the existing growth rule without retroactivel
 
 test('new-policy teammate exile retains a factual memory without an automatic grudge, even without decisions', () => {
   for (const m of [match({ decisions: [] }), match({ personaPolicy: undefined })]) {
-    const result = settleMatch(m)!;
+    const result = settleMatch(werewolfFacts(m))!;
     assert.ok(!result.affinity.some((a) => a.source.endsWith('exiled_by_teammate')));
     const memory = result.highlights.find((h) => h.type === 'exiled_by_teammate');
     assert.ok(memory?.participants.includes('B'));
     assert.match(memory!.summary, /被同阵营的 阿乙 投票放逐/);
     assert.doesNotMatch(memory!.summary, /背叛|报复|不合作/);
   }
-  const legacy = settleMatch(match({ personaPolicy: undefined, decisions: [] }))!;
+  const legacy = settleMatch(werewolfFacts(match({ personaPolicy: undefined, decisions: [] })))!;
   assert.equal(legacy.affinity.find((a) => a.source.endsWith('exiled_by_teammate'))?.value, -0.4);
 });
 
 test('new-policy relationship settlement keeps the existing explicit save and shared-win rules', () => {
-  const result = settleMatch(match({ events: [{ type: 'save', day: 1, witchId: 'c', seatId: 'b' }] }))!;
+  const result = settleMatch(werewolfFacts(match({ events: [{ type: 'save', day: 1, witchId: 'c', seatId: 'b' }] })))!;
   assert.equal(result.affinity.find((a) => a.source.endsWith('saved_by_witch'))?.value, 0.3);
   assert.equal(result.affinity.find((a) => a.source.endsWith('won_together'))?.value, 0.1);
 });

@@ -1,5 +1,4 @@
 import type { Trait, Traits } from '../persona/persona-model';
-import type { GameRole } from './game-types';
 
 /** Accepted behavior with the information actually available then. Model self-explanations are excluded. */
 export interface GrowthObservation {
@@ -7,7 +6,8 @@ export interface GrowthObservation {
   botId: string;
   matchId: string;
   createdAt: number;
-  role: GameRole;
+  /** The seat's role; outside Werewolf it is prefixed with the game, such as undercover:civilian. */
+  role: string;
   kind: string;
   day: number;
   /** The accepted action alone: evidence must quote this, not somebody else's contextual speech. */

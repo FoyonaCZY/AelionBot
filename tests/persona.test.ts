@@ -3,12 +3,14 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { settleMatch, type SettleMatch } from '../electron/core/persona/settle';
+import { settleMatch } from '../electron/core/persona/settle';
+import type { WerewolfResult } from '../electron/core/games/werewolf-facts';
 import { PersonaService, affinityScore } from '../electron/core/persona/persona-service';
 import { createWerewolf, acceptAction, view } from '../electron/core/games/werewolf';
 import { gamePrompt } from '../electron/core/games/model-player';
 import { BOARDS } from '../shared/games/game-boards';
 import type { GameAction, GameRequest } from '../shared/types/game-types';
+import { werewolfFacts } from '../electron/core/games/werewolf-facts';
 
 const DAY = 86_400_000;
 function tempDir(t: test.TestContext) {
@@ -27,7 +29,7 @@ function personaService(t: test.TestContext, now?: () => number) {
   return svc;
 }
 // Seats: a (wolf, Bot A), b (wolf, Bot B), c (witch, Bot C), d (villager, human), e (villager, guest).
-const match = (over: Partial<SettleMatch> = {}): SettleMatch => ({
+const match = (over: Partial<WerewolfResult> = {}): WerewolfResult => ({
   id: 'm1',
   groupId: 'g1',
   winner: 'village',
@@ -44,13 +46,15 @@ const match = (over: Partial<SettleMatch> = {}): SettleMatch => ({
 
 test('settlement records only unusual events and leaves temporary guests out', () => {
   const r = settleMatch(
-    match({
-      events: [
-        { type: 'exile', day: 1, seatId: 'a', voters: ['b', 'd', 'e'] }, // wolf a exiled with wolf b's vote
-        { type: 'exile', day: 2, seatId: 'b', voters: ['c', 'd'] }, // normal play: the other camp votes a wolf out
-        { type: 'save', day: 2, witchId: 'c', seatId: 'd' }, // the witch saves the human, who has no Bot to settle
-      ],
-    }),
+    werewolfFacts(
+      match({
+        events: [
+          { type: 'exile', day: 1, seatId: 'a', voters: ['b', 'd', 'e'] }, // wolf a exiled with wolf b's vote
+          { type: 'exile', day: 2, seatId: 'b', voters: ['c', 'd'] }, // normal play: the other camp votes a wolf out
+          { type: 'save', day: 2, witchId: 'c', seatId: 'd' }, // the witch saves the human, who has no Bot to settle
+        ],
+      }),
+    ),
   )!;
   const teammate = r.affinity.filter((x) => x.source.endsWith('exiled_by_teammate'));
   assert.deepEqual(
@@ -71,12 +75,12 @@ test('settlement records only unusual events and leaves temporary guests out', (
 });
 
 test('a saved Bot remembers the witch, and a stopped match is not settled', () => {
-  const r = settleMatch(match({ events: [{ type: 'save', day: 1, witchId: 'c', seatId: 'b' }] }))!;
+  const r = settleMatch(werewolfFacts(match({ events: [{ type: 'save', day: 1, witchId: 'c', seatId: 'b' }] })))!;
   assert.deepEqual(
     r.affinity.filter((x) => x.source.endsWith('saved_by_witch')).map((x) => [x.botId, x.targetId, x.value]),
     [['B', 'C', 0.3]],
   );
-  assert.equal(settleMatch(match({ winner: undefined })), undefined);
+  assert.equal(settleMatch(werewolfFacts(match({ winner: undefined }))), undefined);
 });
 
 test('affinity decays linearly, weighs bad more than good, and is clipped', () => {
@@ -101,8 +105,8 @@ test('persona service settles once, recalls a memory once per cooldown, and forg
   let clock = 1_000 * DAY;
   const svc = personaService(t, () => clock);
   const m = match({ events: [{ type: 'exile', day: 1, seatId: 'a', voters: ['b', 'd'] }] });
-  assert.match(svc.settle(m)!, /狼人杀战报/);
-  assert.equal(svc.settle(m), undefined, 'the same match is settled only once');
+  assert.match(svc.settle(werewolfFacts(m))!, /狼人杀战报/);
+  assert.equal(svc.settle(werewolfFacts(m)), undefined, 'the same match is settled only once');
   assert.ok(svc.affinity('A', 'B') < -0.15);
   const first = svc.groupFragment('A', [{ id: 'B', name: 'Bot B' }]);
   assert.match(first, /你和Bot B的关系很差/, '−0.4 × (1 + N) = −0.6');
@@ -121,7 +125,7 @@ test('a match without seated Bots posts no report', (t) => {
   const svc = personaService(t);
   const noBots = match();
   noBots.seats = noBots.seats.map((s) => ({ ...s, botId: undefined }));
-  assert.equal(svc.settle(noBots), undefined);
+  assert.equal(svc.settle(werewolfFacts(noBots)), undefined);
 });
 
 const players = (n: number) =>
@@ -247,8 +251,8 @@ test('the runtime reports a finished match once, with each seat Bot and the engi
 test('forget removes owned memories as well as memories mentioning the deleted Bot', (t) => {
   const dir = tempDir(t);
   const svc = new PersonaService(dir);
-  svc.settle(match());
-  svc.settle(match({ id: 'unrelated', seats: match().seats.filter((s) => s.botId !== 'A') }));
+  svc.settle(werewolfFacts(match()));
+  svc.settle(werewolfFacts(match({ id: 'unrelated', seats: match().seats.filter((s) => s.botId !== 'A') })));
   svc.forget('A');
   assert.deepEqual(svc.store.recentHighlights('A'), []);
   assert.equal(svc.groupFragment('A', [{ id: 'B', name: 'B' }]), '');
@@ -283,7 +287,7 @@ for (const guarded of [true, false]) {
     assert.equal(s.phase, 'speech');
     assert.equal(s.seats[4].alive, !guarded);
     assert.equal(s.potions!.save, false, 'the potion is spent in both cases');
-    const result = settleMatch({ ...s, winner: 'wolves', events: s.events || [] })!;
+    const result = settleMatch(werewolfFacts({ ...s, winner: 'wolves', events: s.events || [] }))!;
     assert.equal(
       result.affinity.some((a) => a.source.endsWith('saved_by_witch')),
       !guarded,
@@ -304,7 +308,7 @@ test('a match finishing after deletion cannot restore the forgotten Bot or its r
   svc.close();
   svc = new PersonaService(dir);
   try {
-    svc.settle(match({ winner: 'wolves' }));
+    svc.settle(werewolfFacts(match({ winner: 'wolves' })));
     assert.deepEqual(svc.store.recentHighlights('A'), []);
     assert.deepEqual(svc.store.affinityTargets('A'), []);
     assert.equal(svc.affinity('B', 'A'), 0);

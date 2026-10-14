@@ -15,12 +15,15 @@ import type {
   GameTrace,
   GameView,
 } from '../../../shared/types/game-types';
+import type { MatchFacts } from '../persona/match-facts';
 import type { PersonaDecision, PersonaSeed, SeatPersona } from './persona-play';
 
 /** Fields every match has, whatever the game. Game-specific state lives in the mode's own fields. */
 export interface MatchState {
   /** Missing on matches saved before game modes existed; those are all Werewolf. */
   mode?: GameModeId;
+  /** Winning team. Missing while running and when the match was stopped without a result. */
+  winner?: string;
   id: string;
   groupId: string;
   day: number;
@@ -74,6 +77,8 @@ export interface GameMode<S extends MatchState = MatchState> {
   instructions(context: GameView, request: GameRequest): string;
   prompt(context: GameView, request: GameRequest): string;
   skills(context: GameView, request: GameRequest): GameSkill[];
+  /** The finished match in the persona module's terms (docs/ai-party-games-design.md §2.2). */
+  facts(s: S): MatchFacts;
   /** Personality hooks: an opening plan per Bot seat, and a choice among reasonable candidates. */
   persona?: {
     assign(s: S, seeds: Record<string, PersonaSeed>): void;
