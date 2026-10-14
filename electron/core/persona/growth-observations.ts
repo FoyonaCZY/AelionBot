@@ -51,7 +51,8 @@ export function collectGrowthObservations(match: MatchState): GrowthObservation[
       if (
         input.you !== seat.id ||
         personal?.self?.id !== seat.id ||
-        personal.self.role !== seat.role ||
+        // Games where players do not know their own role (Who's the Spy) send no role at all.
+        (personal.self.role !== undefined && personal.self.role !== seat.role) ||
         request?.seatId !== seat.id ||
         request.kind !== accepted.kind ||
         !Array.isArray(request.targets)
@@ -80,7 +81,7 @@ export function collectGrowthObservations(match: MatchState): GrowthObservation[
         behavior: JSON.parse(behavior),
         context: {
           you: alias(seat.id),
-          role: personal.self.role,
+          ...(personal.self.role !== undefined ? { role: personal.self.role } : {}),
           day: started.day,
           phase: started.phase,
           request: {

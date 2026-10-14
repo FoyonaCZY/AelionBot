@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GameRuntime, type GameHooks } from '../electron/core/games/runtime';
+import type { AnyMatch } from '../electron/core/games/modes';
 import { createWerewolf, acceptAction, view, type WerewolfState } from '../electron/core/games/werewolf';
 import { gamePrompt } from '../electron/core/games/model-player';
 import { assignPersonas } from '../electron/core/games/persona-play';
@@ -112,7 +113,7 @@ test('startup completes a match saved before the finished callback and acknowled
     f = fixture(t, [match]);
   const completed: string[] = [];
   const hooks = {
-    finished: (s: WerewolfState) => {
+    finished: (s: AnyMatch) => {
       completed.push(s.id);
     },
   };
@@ -293,7 +294,7 @@ for (const boundary of ['settled', 'growth', 'report'] as const)
     const f = services(t);
     const deliveriesBefore = f.store.data.groupDeliveries.length;
     let interrupted = false;
-    const finished = (s: WerewolfState) => {
+    const finished = (s: AnyMatch) => {
       if (!interrupted) {
         interrupted = true;
         if (boundary === 'settled') {

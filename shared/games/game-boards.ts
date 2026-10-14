@@ -7,6 +7,9 @@ export const ROLE_NAMES: Record<GameRole, string> = {
   idiot: '白痴',
   guard: '守卫',
   villager: '村民',
+  civilian: '平民',
+  undercover: '卧底',
+  blank: '白板',
 };
 export const PHASE_NAMES: Record<GamePhase, string> = {
   night: '夜间行动',
@@ -33,6 +36,8 @@ export const ACTION_NAMES: Record<GameRequest['kind'], string> = {
   shoot: '猎人开枪',
   last_words: '遗言',
   pk_speak: '平票 PK 发言',
+  describe: '描述',
+  blank_guess: '猜平民词',
 };
 export const BOARDS = {
   standard12: {
