@@ -18,7 +18,7 @@ import { ROLE_NAMES } from '../../../shared/games/game-boards';
 import { seededRandom, shuffle } from '../../../shared/games/seeded-random';
 import { gameContent } from './content';
 import { event } from './events';
-import { log, personaView, type MatchState } from './game-mode';
+import { log, personaView, viewLogs, type MatchState } from './game-mode';
 import type { MatchExperience, MatchFacts, SocialFact } from '../persona/match-facts';
 
 export interface WordPair {
@@ -344,17 +344,7 @@ export function viewUndercover(s: UndercoverState, viewerId?: string, omniscient
       // A seat's role is announced when it is voted out; a blank knows it is blank; nobody else learns their own.
       ...(reveal || !seat.alive || (seat.id === viewerId && role === 'blank') ? { role } : {}),
     })),
-    logs: s.logs
-      .filter((e) => !e.audience || reveal || (!!viewerId && e.audience.includes(viewerId)))
-      .map(({ audience, ...e }) => {
-        const otherPrivate = reveal && audience && !(viewerId && audience.includes(viewerId));
-        const owners = audience?.map((id) => nameOf(s, id)).join('、');
-        return {
-          ...e,
-          text: otherPrivate ? `【${owners} · 私有记录】${e.text.replace(/^你/, owners || '该玩家')}` : e.text,
-          scope: audience ? ('personal' as const) : ('shared' as const),
-        };
-      }),
+    logs: viewLogs(s, viewerId, reveal),
     pending: s.requests.filter((r) => r.seatId === viewerId),
     winner: s.winner,
     words: {

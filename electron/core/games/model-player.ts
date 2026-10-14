@@ -98,7 +98,7 @@ export function gamePrompt(context: GameView, request: GameRequest) {
     day: l.day,
     phase: l.phase,
     seatId: l.seatId,
-    text: aliasText(l.text),
+    text: aliasText(l.text, !!l.seatId),
     source:
       l.scope === 'shared'
         ? 'public_event'
@@ -153,7 +153,7 @@ export function gamePrompt(context: GameView, request: GameRequest) {
             .map((p) => ({ id: p.id, role: 'wolf', source: 'wolf_team_visibility' }))
         : [],
     logs: events.filter((l) => l.source !== 'public_event').map((l, i) => ({ ...l, id: i + 1 })),
-    ...(context.notes?.length ? { notes: context.notes.map((text) => aliasText(text)) } : {}),
+    ...(context.notes?.length ? { notes: context.notes.map((text) => aliasText(text, true)) } : {}),
   };
   return JSON.stringify({
     you: request.seatId,

@@ -14,8 +14,16 @@ export function collectGrowthObservations(match: MatchState): GrowthObservation[
   const aliases = match.seats.map((s, i) => ({ id: s.id, name: s.name, alias: `${i + 1}号玩家` }));
   const alias = (id: unknown) => aliases.find((s) => s.id === id)?.alias;
   const clean = (text: string, max: number) => {
-    for (const seat of [...aliases].sort((a, b) => b.name.length - a.name.length))
-      if (seat.name && seat.name !== '你') text = text.split(seat.name).join(seat.alias);
+    // Same rule as the prompts (prompt-seats.ts): a one-character name would also match inside ordinary words.
+    text = text
+      .split(/(「[^」]*」)/)
+      .map((part) => {
+        if (part.startsWith('「') && part.endsWith('」')) return part;
+        for (const seat of [...aliases].sort((a, b) => b.name.length - a.name.length))
+          if (seat.name.length > 1 && seat.name !== '你') part = part.split(seat.name).join(seat.alias);
+        return part;
+      })
+      .join('');
     for (const seat of [...aliases].sort((a, b) => b.id.length - a.id.length))
       text = text.split(seat.id).join(seat.alias);
     return text.slice(0, max);

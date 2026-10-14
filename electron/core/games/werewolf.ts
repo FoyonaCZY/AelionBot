@@ -1,7 +1,7 @@
 import { BOARDS } from '../../../shared/games/game-boards';
 import { startTwelve, acceptTwelve, validateTwelve, isSpeech, type TwelveState } from './twelve';
 import { event } from './events';
-import { log, personaView, type MatchState } from './game-mode';
+import { log, personaView, viewLogs, type MatchState } from './game-mode';
 import { randomUUID, randomInt } from 'node:crypto';
 import { seededRandom, shuffle } from '../../../shared/games/seeded-random';
 import type {
@@ -459,17 +459,7 @@ export function view(s: WerewolfState, viewerId?: string, omniscient = false): G
           : {}),
       };
     }),
-    logs: s.logs
-      .filter((e) => !e.audience || reveal || (!!viewerId && e.audience.includes(viewerId)))
-      .map(({ audience, ...e }) => {
-        const otherPrivate = reveal && audience && !e.seatId && !(viewerId && audience.includes(viewerId));
-        const owners = audience?.map((id) => s.seats.find((p) => p.id === id)?.name || '玩家').join('、');
-        return {
-          ...e,
-          text: otherPrivate ? `【${owners} · 私有记录】${e.text.replace(/^你/, owners || '该玩家')}` : e.text,
-          scope: audience ? ('personal' as const) : ('shared' as const),
-        };
-      }),
+    logs: viewLogs(s, viewerId, reveal),
     pending: s.requests.filter((r) => r.seatId === viewerId),
     winner: s.winner,
     // A finished archive takes no more trace entries, so its last one is when the match ended.
