@@ -138,10 +138,17 @@ export function GroupGames({
     options.find((o) => o.key === overrides[seat.id])?.selection || seat.model || defaultModel;
   function restore() {
     try {
-      const saved = JSON.parse(localStorage.getItem(storageKey + ':players') || 'null');
+      const stored = JSON.parse(localStorage.getItem(storageKey + ':players') || 'null');
+      // Each game remembers its own last setup; Werewolf setups saved before games were separate sit at the top level.
+      const saved = stored?.games?.[game] || (game === 'werewolf' && stored?.selected ? stored : null);
       if (!saved) {
         setConfigNotice(t('暂无上次配置'));
         return;
+      }
+      if (game === 'werewolf' && Object.hasOwn(BOARDS, saved.board)) setBoard(saved.board);
+      if (game === 'undercover' && Number.isInteger(saved.seatCount) && saved.seatCount >= 4 && saved.seatCount <= 10) {
+        setSeatCount(saved.seatCount);
+        setBlank(saved.blank === true);
       }
       if (['play', 'watch'].includes(saved.mode) && Array.isArray(saved.selected)) {
         setMode(saved.mode);
@@ -157,7 +164,7 @@ export function GroupGames({
         if (typeof key === 'string' && options.some((o) => o.key === key)) next[id] = key;
       setOverrides(next);
       const personalities: Record<string, GameMbti> = {};
-      for (const [id, type] of Object.entries(saved.mbtiPresets || {})) if (isGameMbti(type)) personalities[id] = type;
+      for (const [id, type] of Object.entries(stored.mbtiPresets || {})) if (isGameMbti(type)) personalities[id] = type;
       setMbtiPresets(personalities);
       const session: Record<string, GameMbti | 'random'> = {};
       for (const [id, type] of Object.entries(saved.sessionMbti || {}))
@@ -307,9 +314,18 @@ export function GroupGames({
       });
       updateMatch(next);
       try {
+        const stored = JSON.parse(localStorage.getItem(storageKey + ':players') || '{}');
+        const setup = {
+          mode,
+          selected,
+          filled,
+          overrides,
+          sessionMbti,
+          ...(game === 'werewolf' ? { board } : { seatCount, blank }),
+        };
         localStorage.setItem(
           storageKey + ':players',
-          JSON.stringify({ mode, selected, filled, overrides, mbtiPresets, sessionMbti }),
+          JSON.stringify({ ...stored, mbtiPresets, games: { ...stored.games, [game]: setup } }),
         );
       } catch {
         setSaveError(true);

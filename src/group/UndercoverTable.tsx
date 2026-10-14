@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import type { GameAction, GameView } from '../../shared/types/game-types';
+import type { GameView } from '../../shared/types/game-types';
 import { ROLE_NAMES as roles } from '../../shared/games/game-boards';
 import { translate } from '../../shared/i18n';
-import { Icon } from '../ui/Icon';
 import { GameActionControls } from './GameActionControls';
-import { GameDiagnostics } from './GameDiagnostics';
+import { DiagnosticsDrawer, GameTopbar, useGameTable, type GameTableProps } from './GameTableFrame';
 import { GameTimer } from './GamePhaseStatus';
 import { SeatAvatar, Tally } from './WerewolfTable';
 import { matchMinutes, seatNumber, transcriptItems } from './game-view-model';
@@ -109,83 +108,17 @@ function Report({ game, onDiagnostics, onClose }: { game: GameView; onDiagnostic
   );
 }
 
-export function UndercoverTable({
-  game,
-  onUpdate,
-  onMutationStart,
-  syncError,
-  omniscient,
-  onOmniscient,
-  onClose,
-}: {
-  game: GameView;
-  onMutationStart: () => void;
-  syncError: string;
-  onUpdate: (v: GameView) => void;
-  omniscient: boolean;
-  onOmniscient: () => void;
-  onClose: () => void;
-}) {
-  const [now, setNow] = useState(Date.now()),
-    [confirmStop, setConfirmStop] = useState(false),
-    [diagnostics, setDiagnostics] = useState(false),
-    [menu, setMenu] = useState(false),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState('');
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 200);
-    return () => clearInterval(timer);
-  }, []);
+export function UndercoverTable(props: GameTableProps) {
+  const { game, syncError, omniscient, onOmniscient, onClose } = props;
+  const { request, self, speaker, seconds, busy, error, control, submit } = useGameTable(props);
+  const [diagnostics, setDiagnostics] = useState(false);
   const feed = useRef<HTMLDivElement>(null);
-  const request = game.pending[0];
-  const self = game.seats.find((p) => p.id === game.humanId);
   const finished = game.status === 'finished' || game.phase === 'finished';
-  useEffect(() => {
-    setError('');
-  }, [request?.id]);
   useEffect(() => {
     if (feed.current) feed.current.scrollTop = feed.current.scrollHeight;
   }, [game.logs.length]);
-  const seconds =
-    game.clock && (game.clock.deadlineAt !== undefined || game.clock.remainingMs !== undefined)
-      ? Math.max(
-          0,
-          Math.ceil(
-            (game.status === 'paused' ? game.clock.remainingMs || 0 : (game.clock.deadlineAt || now) - now) / 1000,
-          ),
-        )
-      : null;
   const total = request?.kind === 'describe' ? 90 : 45;
-  const speaker = game.seats.find((p) => p.id === game.clock?.seatId);
-  async function perform(action: () => Promise<GameView>) {
-    if (busy || syncError) return;
-    onMutationStart();
-    setBusy(true);
-    setError('');
-    try {
-      onUpdate(await action());
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  const control = (action: 'pause' | 'resume' | 'stop') =>
-    perform(() => window.aelion.games.control({ id: game.id, action }));
-  const submit = (action: GameAction) =>
-    perform(() => window.aelion.games.act({ id: game.id, requestId: request!.id, action }));
-  const drawer = diagnostics && (
-    <aside className="gg-drawer" aria-label={translate('运行记录')}>
-      <header>
-        <b>{translate('运行记录')}</b>
-        <span className="gg-spacer" />
-        <button className="icon-button" aria-label={translate('关闭运行记录')} onClick={() => setDiagnostics(false)}>
-          <Icon name="close" size={16} />
-        </button>
-      </header>
-      <GameDiagnostics game={game} />
-    </aside>
-  );
+  const drawer = diagnostics && <DiagnosticsDrawer game={game} onClose={() => setDiagnostics(false)} />;
   if (finished)
     return (
       <div className="gg-table-root" data-period="finished">
@@ -197,85 +130,19 @@ export function UndercoverTable({
     game.phase === 'vote' ? translate('投票') : game.phase === 'resolution' ? translate('白板猜词') : translate('描述');
   return (
     <div className="gg-table-root" data-period="day">
-      <div className="gg-topbar">
-        <strong>
-          {translate('谁是卧底')}
-          <small>
-            {translate('第 {round} 轮 · {phase}', { round: game.day, phase })} ·{' '}
-            {translate(game.humanId ? '你参与' : omniscient ? '旁观 · 全知视角' : '旁观')}
-          </small>
-        </strong>
-        <span className="gg-spacer" />
-        {game.status === 'paused' ? (
-          <span className="gg-tag">{translate('已暂停')}</span>
-        ) : (
-          <GameTimer seconds={seconds} total={total} syncError={syncError} />
-        )}
-        <button
-          className="icon-button"
-          aria-label={translate(game.status === 'paused' ? '继续' : '暂停')}
-          title={translate(game.status === 'paused' ? '继续' : '暂停')}
-          disabled={busy || !!syncError}
-          onClick={() => void control(game.status === 'paused' ? 'resume' : 'pause')}
-        >
-          {game.status === 'paused' ? <span aria-hidden="true">▶</span> : <Icon name="pause" size={15} />}
-        </button>
-        <div className="gg-menu">
-          <button
-            className="icon-button"
-            aria-label={translate('更多操作')}
-            aria-haspopup="menu"
-            aria-expanded={menu}
-            onClick={() => setMenu(!menu)}
-          >
-            <span aria-hidden="true">⋯</span>
-          </button>
-          {menu && (
-            <div className="gg-menu-list" role="menu" onClick={() => setMenu(false)}>
-              <button role="menuitem" onClick={() => setDiagnostics(true)}>
-                {translate('运行记录')}
-              </button>
-              {!game.humanId && (
-                <button role="menuitem" aria-pressed={omniscient} onClick={onOmniscient}>
-                  {translate(omniscient ? '切换到公共视角' : '切换到全知视角')}
-                </button>
-              )}
-              <button
-                role="menuitem"
-                className="is-danger"
-                disabled={busy || !!syncError}
-                onClick={() => setConfirmStop(true)}
-              >
-                {translate('结束对局')}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-      {syncError && (
-        <div role="alert" className="gg-banner is-warning">
-          {translate('连接中断，当前显示最后一次同步的状态。{error}', { error: syncError })}
-        </div>
-      )}
-      {confirmStop && (
-        <div className="gg-banner is-warning" role="alert">
-          <span>{translate('结束后本局不计胜负，并保留操作记录。')}</span>
-          <span className="gg-spacer" />
-          <button className="secondary-button" onClick={() => setConfirmStop(false)}>
-            {translate('取消')}
-          </button>
-          <button
-            className="primary-button"
-            disabled={busy || !!syncError}
-            onClick={() => {
-              setConfirmStop(false);
-              void control('stop');
-            }}
-          >
-            {translate('确认结束')}
-          </button>
-        </div>
-      )}
+      <GameTopbar
+        game={game}
+        title={translate('谁是卧底')}
+        subtitle={`${translate('第 {round} 轮 · {phase}', { round: game.day, phase })} · ${translate(game.humanId ? '你参与' : omniscient ? '旁观 · 全知视角' : '旁观')}`}
+        seconds={seconds}
+        total={total}
+        syncError={syncError}
+        busy={busy}
+        omniscient={omniscient}
+        onOmniscient={onOmniscient}
+        onDiagnostics={() => setDiagnostics(true)}
+        control={control}
+      />
       {self && !self.alive && !request && (
         <div className="gg-banner is-out" role="status">
           <b>{translate('你已出局')}</b>
