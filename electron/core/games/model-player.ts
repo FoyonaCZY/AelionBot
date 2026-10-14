@@ -1,8 +1,22 @@
 import { actionContract, checkActionContract } from './action-contract';
 import { errorCode } from '../../../shared/errors';
-import { createHash } from 'node:crypto';
 import { BOARDS, TWELVE_RULES } from '../../../shared/games/game-boards';
 import { gameSkills } from './skills';
+import { seatAliases, shuffledTargets } from './prompt-seats';
+import {
+  CANDIDATES_SCHEMA_NOTE,
+  candidatesRule,
+  personaRule as personaPromptRule,
+  type PersonaPromptTerms,
+} from './persona-prompt';
+
+const WEREWOLF_TERMS: PersonaPromptTerms = {
+  goal: '身份目标',
+  decisionGoal: '阵营目标',
+  choices: '上警和退水也遵循这一要求，true/false 不自动视为同样合理。',
+  caveats:
+    '提及某人可能是在保护或引用，并不自动等于指控；投狼队友可能是战术牺牲；狼人欺骗属于角色任务，不能直接当作低宜人性；',
+};
 import type { GameAction, GameRequest, GameView } from '../../../shared/types/game-types';
 import { KEY_DECISIONS, styleText, type Candidate } from '../../../shared/persona/persona-model';
 import { parseCandidateSemantic } from '../../../shared/persona/persona-assessment';
@@ -34,13 +48,7 @@ export function gameInstructions(context: GameView, request: GameRequest) {
   const prompt = rules.slice(0, rules.indexOf('\n- 发言：'));
   const persona = context.persona?.[request.seatId];
   const personaRule = persona
-    ? '\n你的性格来自 personal.self.persona：按 plan 行动，按 style 说话；规则、身份目标和明确证据优先于它，不要在发言中提到性格或打法名称。' +
-      (KEY_DECISIONS.includes(request.kind)
-        ? '\n本轮是关键决策：先按规则、阵营目标和当时证据给出首选。另附 candidates 数组，列出最多 4 个实际考虑过的合法选项；没有合理备选时只列首选，不能为了体现性格凑候选。第一项必须与动作主体完全相同。每项包含本轮动作字段、reasonable 布尔、decisive 布尔和 semantic。只有与首选差不多合理的选项 reasonable 才为 true；明确证据决定首选时标 decisive:true。上警和退水也遵循这一要求，true/false 不自动视为同样合理。' +
-          '\nsemantic 格式：{"version":1,"status":"supported","fit":-1或0或1,"summary":"一句有具体依据的解释，最多120字","evidence":[{"source":"shared_log或personal_log","id":该区域日志编号,"quote":"从该条text原样摘录，最多240字"}]}。fit 仅表示候选与 personal.self.persona.style 的契合：-1明显冲突、0中性、1契合，不表示胜率、道德或决策质量。优先只引用 1–2 条必要事实，不输出内部思维过程。' +
-          '\n只根据本次提供的信息理解情境：提及某人可能是在保护或引用，并不自动等于指控；投狼队友可能是战术牺牲；狼人欺骗属于角色任务，不能直接当作低宜人性；敏感不等于报复、开放不等于冒险、严谨不等于固执、友善不等于附和。不得把对他人动机的推测写成已知事实。' +
-          '\n没有证据、行为主要由角色规则决定、无法区分候选的人格含义时，semantic 用 {"version":1,"status":"uncertain","summary":"为何无法判断","evidence":[]}，不填fit。不得伪造引文、使用其他座位私有信息或未来结果。模型解释只辅助本次选择，不提出长期人格数值变化。'
-        : '')
+    ? personaPromptRule(WEREWOLF_TERMS) + (KEY_DECISIONS.includes(request.kind) ? candidatesRule(WEREWOLF_TERMS) : '')
     : '';
   return (
     prompt +
@@ -57,9 +65,7 @@ export function gameInstructions(context: GameView, request: GameRequest) {
     JSON.stringify(actionContract(request)) +
     '\n' +
     actionFormatHint(request) +
-    (persona && KEY_DECISIONS.includes(request.kind)
-      ? '\n上述 schema 约束动作主体；本轮另允许顶层 candidates 作为独立元数据，按前文格式输出。候选中的动作字段也必须遵循本轮 schema。'
-      : '')
+    (persona && KEY_DECISIONS.includes(request.kind) ? CANDIDATES_SCHEMA_NOTE : '')
   );
 }
 function actionFormatHint(request: GameRequest) {
@@ -78,18 +84,8 @@ function actionFormatHint(request: GameRequest) {
 export function gamePrompt(context: GameView, request: GameRequest) {
   const self = context.seats.find((p) => p.id === request.seatId);
   if (!self?.role) throw Error('缺少本人身份');
-  const aliases = context.seats.map((p, i) => ({ id: p.id, name: `${i + 1}号玩家`, original: p.name }));
-  const aliasText = (text: string) => {
-    for (const p of [...aliases].sort((a, b) => b.original.length - a.original.length))
-      if (p.original && p.original !== '你') text = text.split(p.original).join(p.name);
-    return text;
-  };
-  // A request-stable permutation avoids always presenting the first seat as the first target.
-  const rank = (id: string) =>
-    createHash('sha256')
-      .update(request.id + ':' + id)
-      .digest('hex');
-  const targets = [...request.targets].sort((a, b) => rank(a).localeCompare(rank(b)));
+  const { aliases, alias: aliasText } = seatAliases(context.seats);
+  const targets = shuffledTargets(request);
   const ownRequest = {
     discussionRound: request.discussionRound,
     seatId: request.seatId,
