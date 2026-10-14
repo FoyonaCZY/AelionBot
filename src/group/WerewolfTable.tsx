@@ -27,6 +27,9 @@ const EMBLEM: Record<GameRole, string> = {
   idiot: '🃏',
   guard: '🛡',
   villager: '🌾',
+  civilian: '🙂',
+  undercover: '🕵',
+  blank: '⬜',
 };
 const ABILITY: Record<GameRole, string> = {
   wolf: '每晚和狼队友商量，袭击一名玩家。白天隐藏身份，把票引向好人。',
@@ -36,6 +39,9 @@ const ABILITY: Record<GameRole, string> = {
   idiot: '第一次被放逐时翻牌免死，之后失去投票权。',
   guard: '每晚守护一人，不能连续两夜守同一人。',
   villager: '没有技能，靠发言和投票找出狼人。',
+  civilian: '',
+  undercover: '',
+  blank: '',
 };
 const camp = (role?: GameRole) => (!role ? '' : role === 'wolf' ? 'wolf' : role === 'villager' ? 'good' : 'god');
 const campLabel = (role?: GameRole) =>

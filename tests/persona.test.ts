@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { settleMatch } from '../electron/core/persona/settle';
 import type { WerewolfResult } from '../electron/core/games/werewolf-facts';
 import { PersonaService, affinityScore } from '../electron/core/persona/persona-service';
-import { createWerewolf, acceptAction, view } from '../electron/core/games/werewolf';
+import { createWerewolf, acceptAction, view, type WerewolfState } from '../electron/core/games/werewolf';
 import { gamePrompt } from '../electron/core/games/model-player';
 import { BOARDS } from '../shared/games/game-boards';
 import type { GameAction, GameRequest } from '../shared/types/game-types';
@@ -209,7 +209,7 @@ test('the runtime reports a finished match once, with each seat Bot and the engi
     { aiTimeoutMs: 90000 },
     {
       finished: (s) => {
-        finished.push(s);
+        finished.push(s as WerewolfState);
       },
     },
   );

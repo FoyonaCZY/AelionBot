@@ -65,7 +65,7 @@ export interface GameMode<S extends MatchState = MatchState> {
   /** Throws when this game cannot be played with this many seats. Checked before anything else. */
   checkSeats(count: number): void;
   /** Start a match. Throws when the players or options do not fit this game. */
-  create(input: { groupId: string; players: GamePlayer[]; board?: GameView['board'] }): S;
+  create(input: { groupId: string; players: GamePlayer[]; board?: GameView['board']; blank?: boolean }): S;
   /** Rule description recorded in the run record when the match is created. */
   describe(s: S, aiTimeoutMs: number): string;
   validate(s: S, request: GameRequest, action: GameAction): void;
@@ -94,4 +94,19 @@ export interface GameMode<S extends MatchState = MatchState> {
 
 export function log(s: MatchState, text: string, seatId?: string, audience?: string[]) {
   s.logs.push({ id: s.logs.length + 1, day: s.day, phase: s.phase, text, seatId, audience, time: Date.now() });
+}
+/** Persona of Bot seats in a view: the viewer's own while running, every seat's after the reveal. */
+export function personaView(s: MatchState, viewerId: string | undefined, reveal: boolean) {
+  if (!s.persona) return {};
+  const persona: NonNullable<GameView['persona']> = {};
+  for (const [seatId, p] of Object.entries(s.persona))
+    if (reveal || seatId === viewerId)
+      persona[seatId] = {
+        botId: p.botId,
+        traits: p.traits,
+        mbti: p.mbti,
+        ...(p.plan ? { plan: { id: p.plan.id, name: p.plan.name, detail: p.plan.detail } } : {}),
+        ...(reveal ? { overrides: (s.decisions || []).filter((d) => d.seatId === seatId && d.overridden).length } : {}),
+      };
+  return Object.keys(persona).length ? { persona } : {};
 }

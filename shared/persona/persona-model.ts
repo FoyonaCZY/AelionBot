@@ -91,7 +91,8 @@ export function traitsFromMbti(type: string): Traits {
 export type PlanRole = 'wolf' | 'seer' | 'witch' | 'villager';
 export interface Plan {
   id: string;
-  role: PlanRole;
+  /** Werewolf plans use a PlanRole; other games key their plans by game, such as undercover:player. */
+  role: string;
   name: string;
   detail: string;
   /** Hand-labelled behaviour features (§9.2); f_explore is computed per Bot. */

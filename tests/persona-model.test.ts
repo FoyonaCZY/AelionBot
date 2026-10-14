@@ -426,7 +426,8 @@ test('a whole match through the runtime: personas assigned, candidates honoured,
     { aiTimeoutMs: 90000 },
     {
       personas: (bots, members) => svc.seeds(bots, members),
-      finished: (s) => {
+      finished: (match) => {
+        const s = match as WerewolfState;
         done = s;
         svc.settle(
           werewolfFacts({
