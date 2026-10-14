@@ -51,7 +51,7 @@ const campLabel = (role?: GameRole) =>
       ? translate('狼人阵营')
       : translate(role === 'villager' ? '好人阵营 · 平民' : '好人阵营 · 神职');
 
-function SeatAvatar({ seat, size = 30 }: { seat: Seat; size?: number }) {
+export function SeatAvatar({ seat, size = 30 }: { seat: Seat; size?: number }) {
   return seat.human ? (
     <span className="gg-human-avatar" style={{ width: size, height: size }}>
       <Icon name="user" size={Math.round(size * 0.55)} />
@@ -61,7 +61,17 @@ function SeatAvatar({ seat, size = 30 }: { seat: Seat; size?: number }) {
   );
 }
 
-function Tally({ game, rows, abstain, day }: { game: GameView; rows: TallyRow[]; abstain: Seat[]; day: number }) {
+export function Tally({
+  game,
+  rows,
+  abstain,
+  day,
+}: {
+  game: GameView;
+  rows: TallyRow[];
+  abstain: Seat[];
+  day: number;
+}) {
   const total = rows.reduce((sum, row) => sum + row.total, 0);
   return (
     <section className="gg-tally" aria-label={translate('第 {day} 天 · 投票结果', { day })}>
