@@ -12,6 +12,8 @@ export interface PersonaProfile {
   /** Where the anchor came from: a preset MBTI, the model answering the BFI-2 facets, or the user. */
   source: 'mbti' | 'bfi2' | 'user';
   confirmed: boolean;
+  /** BFI-2 facet settings (E1…O3, 0–1) from the SOUL estimate, kept so narrower differences are not averaged away. */
+  facets?: Record<string, number>;
   lastPlans: Record<string, string>;
   createdAt: number;
   updatedAt: number;

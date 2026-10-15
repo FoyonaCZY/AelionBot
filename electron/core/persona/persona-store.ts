@@ -326,6 +326,10 @@ export class PersonaStore {
       source: String(r.source),
     }));
   }
+  /** Change how long a modifier lasts, and relabel it (rumination and apologies adjust grudges). */
+  updateAffinity(id: string, durationDays: number, source: string) {
+    this.db.prepare('UPDATE affinity SET days = ?, source = ? WHERE id = ?').run(durationDays, source, id);
+  }
   addHighlight(h: Omit<Highlight, 'id'>) {
     const id = randomUUID();
     this.db

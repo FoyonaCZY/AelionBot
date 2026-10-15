@@ -4,6 +4,7 @@ import { LayaGroupDecisions } from './core/group/laya-decision';
 import { gameProviders } from './core/games/providers';
 import { GameRuntime } from './core/games/runtime';
 import { PersonaService } from './core/persona/persona-service';
+import { appraiser, groupSocialHooks } from './core/persona/group-relations';
 import { settleFinishedGame } from './core/games/settlement';
 import { contextBudget } from './core/context/context-budget';
 import { gameInstructions, gamePrompt, parseGameAction } from './core/games/model-player';
@@ -499,6 +500,23 @@ async function initialize() {
   const layaLog = new LayaDecisionLog(store.dir, () => groupChats?.layaChanged());
   layaFeature = new LayaFeature(store.dir, laya, changed);
   persona = new PersonaService(store.dir);
+  /** One short call to a Bot's own model for persona bookkeeping (birth estimate, relationship appraisal). */
+  const askPersonaModel =
+    (purpose: string, maxOutputTokens: number) => async (botId: string, system: string, user: string) => {
+      const config = providers.config(botId);
+      if (config.issue || !config.model) throw Error('Bot 尚未配置有效模型');
+      const result = await model.complete(
+        [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        [],
+        new AbortController().signal,
+        undefined,
+        { botId, purpose, maxOutputTokens, timeoutMs: 30000, retries: 1 },
+      );
+      return result.content || '';
+    };
   persona.configureGrowthReviewer({
     available: (botId) => store.data.bots.some((b) => b.id === botId),
     inputTokenBudget: (botId) => {
@@ -766,6 +784,20 @@ async function initialize() {
     host,
     new LayaGroupDecisions(laya, layaLog),
     (botId, people) => (persona ? persona.groupStyle(botId) + persona.groupFragment(botId, people) : ''),
+    persona
+      ? groupSocialHooks(
+          persona,
+          (ids) =>
+            store.data.bots.filter((b) => ids.includes(b.id)).map((b) => ({ id: b.id, name: b.name, soul: b.soul })),
+          appraiser(laya, askPersonaModel('persona_appraisal', 200)),
+          askPersonaModel('persona_birth', 400),
+          (error) =>
+            diagnostics?.record(
+              'persona.social',
+              error instanceof Error ? error.stack || error.message : String(error),
+            ),
+        )
+      : undefined,
   );
   chatPins = new ChatPinQueue(
     store,

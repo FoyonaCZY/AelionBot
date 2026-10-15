@@ -3,8 +3,9 @@ import type { PersonaView } from '../../../shared/types/persona-types';
 import type { GrowthObservation } from '../../../shared/types/persona-growth-types';
 import { GrowthRunner, type GrowthReviewerHooks } from './growth-runner';
 import { settleMatch, type SettleMatch } from './settle';
+import { APPRAISAL_KINDS, appraisalModifier, type Appraisal, type AppraisalType } from './appraisal';
 import { matchExperiences } from './growth';
-import { birthPrompt, traitsFromFacets } from './birth';
+import { birthPrompt, facetsFrom } from './birth';
 import {
   NEUTRAL,
   TRAITS,
@@ -50,6 +51,7 @@ const dayStart = (t: number) => t - (t % DAY);
 export class PersonaService {
   readonly store: PersonaStore;
   private growthRunner: GrowthRunner;
+  private estimating = new Set<string>();
   constructor(
     dir: string,
     private now: () => number = Date.now,
@@ -98,6 +100,64 @@ export class PersonaService {
     });
   }
 
+  /**
+   * A message aimed at this Bot changed how it feels about the sender (群聊人格方案 §3.6). Adds one decaying modifier;
+   * the same kind of event between the same two members counts once a day. A new offence while a grudge is still
+   * running extends that grudge once by half (rumination slows forgiveness); an apology halves what is left of
+   * every running grudge towards the sender. Insults, offences, help and apologies are also remembered with the
+   * sender's words, so the Bot can bring them up later.
+   */
+  appraise(e: {
+    botId: string;
+    actorId: string;
+    actorName: string;
+    appraisal: Appraisal;
+    quote: string;
+    groupId: string;
+    sourceId: string;
+  }) {
+    if (e.botId === e.actorId || this.store.isForgotten(e.botId) || this.store.isForgotten(e.actorId)) return;
+    const traits = this.store.profile(e.botId)?.traits || NEUTRAL;
+    const change = appraisalModifier(e.appraisal, traits);
+    if (!change) return;
+    const type = e.appraisal.type as Exclude<AppraisalType, 'none'>;
+    const at = this.now();
+    const held = this.store.affinity(e.botId, e.actorId);
+    if (held.some((m) => m.source.startsWith(`chat:${type}:`) && m.createdAt >= dayStart(at))) return;
+    const running = held.filter((m) => m.value < 0 && m.createdAt + m.durationDays * DAY > at);
+    this.store.transaction(() => {
+      if (change.value < 0) {
+        const last = running.filter((m) => !m.source.endsWith(':ruminated')).at(-1);
+        if (last) this.store.updateAffinity(last.id, last.durationDays * 1.5, last.source + ':ruminated');
+      }
+      if (type === 'apology')
+        for (const m of running) {
+          const left = m.createdAt + m.durationDays * DAY - at;
+          this.store.updateAffinity(m.id, (at - m.createdAt + left / 2) / DAY, m.source);
+        }
+      this.store.addAffinity({
+        botId: e.botId,
+        targetId: e.actorId,
+        value: change.value,
+        durationDays: change.durationDays,
+        createdAt: at,
+        source: `chat:${type}:${e.sourceId}`,
+      });
+      if (type !== 'thanks' && type !== 'argument')
+        this.store.addHighlight({
+          botId: e.botId,
+          participants: [e.actorId],
+          // The human without a display name is shown as 你 in the group; in the Bot's own memory that would read 「你骂了你」.
+          summary: `${e.actorName === '你' ? '用户' : e.actorName}${APPRAISAL_KINDS[type].verb}：「${e.quote.slice(0, 40)}${e.quote.length > 40 ? '…' : ''}」`,
+          type: `chat_${type}`,
+          scope: 'group',
+          sourceId: e.sourceId,
+          groupId: e.groupId,
+          createdAt: at,
+        });
+    });
+    return change;
+  }
   /** Remember factual episodes; only legacy experiences use outcome-based growth. Remember the opening plan too. */
   private grow(match: PersonaMatch, at: number, seatOrder: string[]) {
     if (!match.persona) return;
@@ -196,7 +256,7 @@ export class PersonaService {
     };
   }
   /** The user sets the birth personality: both the current value and the anchor move, and growth restarts from it. */
-  setTraits(botId: string, traits: Traits, source: PersonaProfile['source'] = 'user') {
+  setTraits(botId: string, traits: Traits, source: PersonaProfile['source'] = 'user', facets?: Record<string, number>) {
     if (
       !traits ||
       TRAITS.some((k) => typeof traits[k] !== 'number' || !Number.isFinite(traits[k]) || traits[k] < 0 || traits[k] > 1)
@@ -209,6 +269,9 @@ export class PersonaService {
       this.store.discardGrowthObservations(botId);
       const at = this.now();
       Object.assign(p, { traits: t, anchor: { ...t }, n: 0, source, confirmed: source === 'user', updatedAt: at });
+      // Facets describe the estimate they came from; a hand-set profile no longer matches them.
+      if (facets) p.facets = facets;
+      else delete p.facets;
       this.store.saveProfile(p);
       this.store.addHistory(botId, t, source === 'user' ? '手动设定' : '角色设定估计', at);
     });
@@ -224,10 +287,30 @@ export class PersonaService {
     this.cancelGrowthReview(botId);
     const epoch = this.store.growthEpoch(botId);
     const prompt = birthPrompt(name, soul);
-    const traits = traitsFromFacets(await ask(prompt.system, prompt.user));
+    const { traits, facets } = facetsFrom(await ask(prompt.system, prompt.user));
     const current = this.store.profile(botId);
     if (!current || current.n > 0 || this.store.growthEpoch(botId) !== epoch) throw Error('人格已改变，请重新发起估计');
-    return this.setTraits(botId, traits, 'bfi2');
+    return this.setTraits(botId, traits, 'bfi2', facets);
+  }
+  /**
+   * Every group member gets a personality (群聊人格方案 §3.1): a Bot without a profile gets a SOUL estimate, left
+   * unconfirmed for the user to adjust. Without a working model it keeps the neutral draft. Runs once per Bot.
+   */
+  async ensureGroupProfiles(
+    bots: { id: string; name: string; soul: string }[],
+    ask: (botId: string, system: string, user: string) => Promise<string>,
+  ) {
+    for (const b of bots) {
+      if (this.store.profile(b.id) || this.store.isForgotten(b.id) || this.estimating.has(b.id)) continue;
+      this.estimating.add(b.id);
+      try {
+        await this.draft(b.id, b.name, b.soul, (system, user) => ask(b.id, system, user));
+      } catch {
+        // The neutral draft draft() saved first stays; the user can estimate again from the profile page.
+      } finally {
+        this.estimating.delete(b.id);
+      }
+    }
   }
   /** Accept the draft as this Bot's birth personality. */
   confirm(botId: string, mbti?: string) {

@@ -19,6 +19,10 @@ export function birthPrompt(name: string, soul: string) {
 }
 /** Mean of three 1–5 facet ratings per domain, mapped linearly to 0–1. Missing or invalid ratings count as 3. */
 export function traitsFromFacets(raw: string): Traits {
+  return facetsFrom(raw).traits;
+}
+/** The fifteen facets on 0–1 and the five domain settings averaged from them. */
+export function facetsFrom(raw: string): { traits: Traits; facets: Record<string, number> } {
   const text = raw.trim().replace(/^```(?:json)?\s*|\s*```$/g, '');
   const span = text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1);
   const scores = JSON.parse(span) as Record<string, unknown>;
@@ -29,9 +33,13 @@ export function traitsFromFacets(raw: string): Traits {
   };
   const answered = TRAITS.flatMap((t) => [1, 2, 3].map((i) => `${t}${i}`)).filter((k) => k in scores).length;
   if (answered < 10) throw Error('人格估计结果不完整');
-  return roundTraits(
+  const facets = Object.fromEntries(
+    TRAITS.flatMap((t) => [1, 2, 3].map((i) => [`${t}${i}`, Math.round(((rating(`${t}${i}`) - 1) / 4) * 1000) / 1000])),
+  );
+  const traits = roundTraits(
     Object.fromEntries(
       TRAITS.map((t) => [t, ([1, 2, 3].reduce((a, i) => a + rating(`${t}${i}`), 0) / 3 - 1) / 4]),
     ) as Traits,
   );
+  return { traits, facets };
 }

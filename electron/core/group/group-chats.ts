@@ -70,6 +70,20 @@ interface Worker {
 type FinalReplyDecision = { kind: 'silent' } | { kind: 'publish'; content: string };
 const now = () => new Date().toISOString();
 const identity = botIdentity;
+/** What the persona module learns from group activity. Both calls are fire-and-forget. */
+export interface GroupSocialHooks {
+  /** Bots that joined a group, including when it is created. */
+  joined?(botIds: string[]): void;
+  /** A member's message aimed at other Bots was published. */
+  aimed?(event: {
+    groupId: string;
+    messageId: string;
+    sender: { id: string; name: string };
+    targets: { id: string; name: string }[];
+    text: string;
+    repliedTo?: string;
+  }): void;
+}
 const human: GroupSender = { kind: 'user', id: 'user', name: '你' };
 const system: GroupSender = { kind: 'system', id: 'system', name: '系统' };
 function required(value: unknown, label: string, max: number) {
@@ -125,6 +139,8 @@ export class GroupChats implements GroupGateway {
     private laya?: GroupDecisions,
     /** Persona lines (affinity, shared memories) appended to a Bot's group context; empty string when none. */
     private persona?: (botId: string, people: { id: string; name: string }[]) => string,
+    /** Social events the persona module learns from: who joined, and messages aimed at other members. */
+    private social?: GroupSocialHooks,
   ) {
     // Publication may commit just before the process exits, before the inbox receipt is saved.
     const recovering = store.data.groupDeliveries.filter(pendingOrResumable);
@@ -766,6 +782,7 @@ export class GroupChats implements GroupGateway {
     };
     room.messages.push(message);
     rememberPublished(this.store, message);
+    if (kind === 'message' && sender.kind !== 'system' && this.social?.aimed) this.reportAimed(room, message);
     room.updatedAt = message.time;
     if (round) {
       const current = this.store.data.groupRounds.findIndex((r) => r.id === room.activeRootId);
@@ -788,6 +805,40 @@ export class GroupChats implements GroupGateway {
     }
     return message;
   }
+  /**
+   * Tell the persona module about a message aimed at other Bots: by @, by replying to their message, or by
+   * naming them (names of two or more characters, so a short name inside a word does not count).
+   */
+  private reportAimed(room: GroupRoom, message: GroupMessage) {
+    const text =
+      message.sender.kind === 'bot' ? groupReplyContent(message.content, message.sender.id) : message.content;
+    if (!text.trim()) return;
+    const members = this.members(room).filter((member) => member.id !== message.sender.id);
+    const replied = room.messages.find((item) => item.id === replyTarget(message));
+    const targets = members.filter(
+      (member) =>
+        message.mentions?.some((mention) => mention.id === member.id) ||
+        replied?.sender.id === member.id ||
+        (member.name.length > 1 && text.includes(member.name)),
+    );
+    if (!targets.length) return;
+    const input = {
+      groupId: room.id,
+      messageId: message.id,
+      sender: { id: message.sender.id, name: message.sender.name },
+      targets: targets.map((member) => ({ id: member.id, name: member.name })),
+      text,
+      ...(replied ? { repliedTo: replied.content.slice(0, 300) } : {}),
+    };
+    // After the message is saved; appraisal must never hold up or fail publication.
+    queueMicrotask(() => {
+      try {
+        this.social?.aimed?.(input);
+      } catch {
+        // Relationship bookkeeping is optional context.
+      }
+    });
+  }
   private lifecycle(room: GroupRoom, content: string, event: Omit<GroupLifecycleEvent, 'members'>, round?: GroupRound) {
     round ||= this.store.data.groupRounds.find((item) => item.id === room.activeRootId && item.status === 'active');
     round ||= this.newRound(room, `群状态变化：${content}。这是成员关系通知，不是新的工作任务或操作授权。`);
@@ -807,6 +858,7 @@ export class GroupChats implements GroupGateway {
       lastReadSeq: 0,
     };
     this.store.data.groups.push(room);
+    this.social?.joined?.(bots.map((bot) => bot.id));
     this.lifecycle(
       room,
       `${sender.name} 创建了群聊`,
@@ -850,6 +902,7 @@ export class GroupChats implements GroupGateway {
       room.name = name;
       this.append(room, system, `群名称改为「${name}」`);
     }
+    if (joined.length) this.social?.joined?.(joined.map((bot) => bot.id));
     if (joined.length || left.length) {
       const content = [
         joined.length ? `${joined.map((bot) => bot.name).join('、')} 加入了群聊` : '',

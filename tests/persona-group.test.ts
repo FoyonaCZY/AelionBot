@@ -99,3 +99,45 @@ test('a Bot with a personality profile speaks in its own style in the group; one
     'the style reaches the group run',
   );
 });
+
+test('messages aimed at Bots by @, by reply or by name reach the persona module; others do not', async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'aelion-persona-social-'));
+  const store = new Store(dir);
+  const aimed: { sender: string; targets: string[]; text: string }[] = [],
+    joined: string[][] = [];
+  const groups = new GroupChats(
+    store,
+    { isRunning: () => false, run: async () => {}, cancel: () => {} },
+    () => {},
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    {
+      joined: (ids) => joined.push(ids),
+      aimed: (e) => aimed.push({ sender: e.sender.id, targets: e.targets.map((x) => x.name), text: e.text }),
+    },
+  );
+  groups.start();
+  t.after(() => {
+    groups.dispose();
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+  const a = store.createBot('阿岩', 'bold', '#aa5500'),
+    b = store.createBot('小周', 'calm', '#0055aa');
+  const room = groups.create({ name: '闲聊群', botIds: [a.id, b.id] });
+  assert.deepEqual(joined, [[a.id, b.id]], 'members of a new group are reported');
+  groups.send({ id: room.id, message: '大家早' });
+  groups.send({ id: room.id, message: '阿岩你今天好笨' });
+  groups.send({
+    id: room.id,
+    message: '@小周 帮我看看',
+    mentions: [{ id: b.id, name: b.name, color: b.color, start: 0, end: 3 }],
+  });
+  await until(() => aimed.length >= 2, { timeoutMs: 5000 });
+  assert.deepEqual(aimed, [
+    { sender: 'user', targets: ['阿岩'], text: '阿岩你今天好笨' },
+    { sender: 'user', targets: ['小周'], text: '@小周 帮我看看' },
+  ]);
+});
