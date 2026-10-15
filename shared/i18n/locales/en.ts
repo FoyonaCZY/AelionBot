@@ -2581,4 +2581,10 @@ export const en: Record<string, string> = {
   允许: 'Allow',
   操控这台电脑: 'Control this computer',
   想操控这台电脑: 'Wants to control this computer',
+  成员与性格: 'Members & personality',
+  未确认: 'Unconfirmed',
+  '对你：{word}': 'Toward you: {word}',
+  '对 {name}：{word}': 'Toward {name}: {word}',
+  '正在读取性格…': 'Loading personality…',
+  性格均衡: 'Balanced',
 };
