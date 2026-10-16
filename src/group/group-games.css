@@ -1093,10 +1093,7 @@
   gap: 9px;
   max-width: 92%;
 }
-.gg-message.is-me {
-  justify-self: end;
-  align-self: flex-end;
-}
+
 .gg-message-who {
   display: flex;
   gap: 6px;
@@ -1109,8 +1106,13 @@
   color: var(--gg-ink);
   font-weight: 560;
 }
+.gg-say::placeholder {
+  color: var(--gg-muted);
+  -webkit-text-fill-color: var(--gg-muted);
+}
 .gg-bubble {
   margin: 0;
+  color: var(--gg-ink);
   background: var(--gg-panel);
   border: 1px solid var(--gg-line);
   border-radius: 4px 14px 14px 14px;
@@ -1331,8 +1333,12 @@
   border: 1px solid var(--gg-line);
   border-radius: 11px;
   background: var(--gg-bg);
-  color: inherit;
-  font: 13.5px/1.6 inherit;
+  /* Set, not inherited: a form control can fall back to the app's light-theme ink on the night table. */
+  color: var(--gg-ink);
+  caret-color: var(--gg-ink);
+  -webkit-text-fill-color: var(--gg-ink);
+  font-size: 13.5px;
+  line-height: 1.6;
   padding: 8px 11px;
   resize: vertical;
 }
@@ -1915,4 +1921,59 @@
   gap: 6px;
   margin-top: 8px;
   font-size: 12.5px;
+}
+.gg-result-card {
+  width: min(420px, 100%);
+  margin: 4px 0;
+  border: 1px solid light-dark(#ece7ef, #3a3540);
+  border-radius: 14px;
+  background: light-dark(#fff, #25222a);
+  overflow: hidden;
+}
+.gg-result-card > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  list-style: none;
+  cursor: pointer;
+}
+.gg-result-card > summary::-webkit-details-marker {
+  display: none;
+}
+.gg-result-title {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.gg-result-title strong {
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+}
+.gg-result-title small {
+  color: light-dark(#6f7680, #bdbac0);
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+}
+.gg-result-more {
+  flex: none;
+  color: light-dark(#8c939c, #bdbac0);
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+}
+.gg-result-card[open] .gg-result-more {
+  visibility: hidden;
+}
+.gg-result-card > p {
+  margin: 0;
+  padding: 10px 14px 12px;
+  border-top: 1px solid light-dark(#ece7ef, #3a3540);
+  color: light-dark(#4b5058, #d5d2d9);
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.gg-pop-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
 }

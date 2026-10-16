@@ -229,3 +229,13 @@ test('the page lists a relationship whose good and bad cancel out, since the gru
   const relation = svc.view('A').relations.find((r) => r.id === 'B');
   assert.ok(relation && relation.grudge >= 0.15, 'listed even with a net affinity near zero');
 });
+
+test('a Bot without a preset is never told to return to catchphrases it does not have', (t) => {
+  const svc = service(t);
+  svc.setTraits('C', NEUTRAL);
+  svc.judged('C', 'out_of_voice', [], 'g');
+  assert.doesNotMatch(svc.groupFragment('C', [], 'g'), /口头禅/);
+  svc.applyPreset('A', 'queshi');
+  svc.judged('A', 'out_of_voice', [], 'g');
+  assert.match(svc.groupFragment('A', [], 'g'), /回到你的说话方式和口头禅/);
+});

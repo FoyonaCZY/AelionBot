@@ -92,6 +92,7 @@ export function undercoverPrompt(context: GameView, request: GameRequest) {
                 persona: {
                   ...(persona.plan ? { plan: `${persona.plan.name}：${persona.plan.detail}` } : {}),
                   style: styleText(persona.traits),
+                  ...(persona.voice ? { voice: persona.voice } : {}),
                 },
                 personalitySource: 'bot_persona',
               }

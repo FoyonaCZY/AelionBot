@@ -653,7 +653,12 @@ export interface AelionAPI {
   readPrivateChat(input: { threadId: string; before?: string }): Promise<PeerChatPage>;
   cancelPeerExchange(id: string): Promise<void>;
   createGroup(input: { name: string; botIds: string[] }): Promise<GroupSummary>;
-  updateGroup(input: { id: string; name: string; botIds: string[] }): Promise<void>;
+  updateGroup(input: {
+    id: string;
+    name: string;
+    botIds: string[];
+    pace?: import('./group-types').GroupPace;
+  }): Promise<void>;
   deleteGroup(id: string): Promise<void>;
   readGroup(input: { id: string; before?: string }): Promise<GroupPage>;
   sendGroup(input: {

@@ -30,7 +30,15 @@ export function gameSkills(context: GameView, request: GameRequest) {
   return [
     read('werewolf-player', '通用对局技巧', 'SKILL.md'),
     ...Object.entries(titles).map(([id, title]) => read('werewolf-' + id, title, 'references/' + id + '.md')),
-    ...(context.board ? [read('werewolf-twelve', '十二人警长与神职策略', 'references/twelve.md')] : []),
+    ...(context.board
+      ? [
+          read('werewolf-twelve', '十二人警长与神职策略', 'references/twelve.md'),
+          // Only the board's own special role: a 预女猎白 table never reads about a guard, nor the other way round.
+          context.board === 'guard12'
+            ? read('werewolf-twelve-guard', '守卫局要点', 'references/twelve-guard.md')
+            : read('werewolf-twelve-idiot', '白痴局要点', 'references/twelve-idiot.md'),
+        ]
+      : []),
     read('werewolf-playbook', '共享打法手册', 'references/playbook.md'),
   ];
 }

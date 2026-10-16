@@ -143,3 +143,6 @@ export function cardIndex(messages: { time: string }[], endedAt?: number) {
   const after = messages.findIndex((message) => Date.parse(message.time) > endedAt);
   return after < 0 ? messages.length : after;
 }
+
+/** A seat's id is random per match; the Bot sitting there is looked up by its own id so its real avatar shows. */
+export const seatBot = <T extends { id: string; botId?: string }>(seat: T) => ({ ...seat, id: seat.botId || seat.id });

@@ -112,7 +112,9 @@ export function PersonaPage({
   }, [draft, onUnsavedChange]);
   const [scope, setScope] = useState<'all' | 'game' | 'chat'>('all');
   const [showMore, setShowMore] = useState(false);
-  const [section, setSection] = useState<'personality' | 'growth' | 'relations' | 'settings'>('personality');
+  const [section, setSection] = useState<'personality' | 'library' | 'growth' | 'relations' | 'settings'>(
+    'personality',
+  );
   const [readErrors, setReadErrors] = useState<Record<string, boolean>>({});
   const [reload, setReload] = useState(0);
   const [busy, setBusy] = useState(''),
@@ -323,6 +325,7 @@ export function PersonaPage({
             {(
               [
                 ['personality', '性格'],
+                ['library', '人格库'],
                 ['growth', '经历与成长'],
                 ['relations', '关系'],
                 ['settings', '设置'],
@@ -344,8 +347,11 @@ export function PersonaPage({
             </p>
           )}
           <div className="gp-layout">
-            <div className="gp-main" hidden={section !== 'personality' && section !== 'growth'}>
-              <section className="gp-section gp-presets" hidden={section !== 'personality'} aria-label={t('人格库')}>
+            <div
+              className="gp-main"
+              hidden={section !== 'personality' && section !== 'library' && section !== 'growth'}
+            >
+              <section className="gp-section gp-presets" hidden={section !== 'library'} aria-label={t('人格库')}>
                 <header className="gp-section-head">
                   <h2>{t('人格库')}</h2>
                   <small className="gg-muted">{t('网络经典人格的夸张演绎，娱乐用，不是诊断')}</small>

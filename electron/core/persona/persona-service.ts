@@ -16,7 +16,7 @@ import {
   growthStep,
   mbtiOf,
   roundTraits,
-  chatStyleText,
+  styleText,
   tendencies,
   traitsFromMbti,
   type Traits,
@@ -184,6 +184,8 @@ export class PersonaService {
     if (!match.persona) return;
     const experiences = match.experiences;
     for (const [seatId, sp] of Object.entries(match.persona)) {
+      // A preset chosen for one match was not this Bot being itself, so it neither grows nor sets its plans.
+      if (sp.preset) continue;
       const p = this.store.profile(sp.botId);
       if (!p) continue;
       const seat = match.seats.find((s) => s.id === seatId);
@@ -256,7 +258,8 @@ export class PersonaService {
       const p = this.ensureProfile(b.botId, b.mbti);
       const affinity: Record<string, number> = {};
       for (const m of members) if (m !== b.botId) affinity[m] = this.affinity(b.botId, m, p.traits.N);
-      out[b.botId] = { traits: p.traits, lastPlans: p.lastPlans, affinity };
+      const voice = contentText(p, () => undefined, 'rate').trim();
+      out[b.botId] = { traits: p.traits, lastPlans: p.lastPlans, affinity, ...(voice ? { voice } : {}) };
     }
     return out;
   }
@@ -440,7 +443,7 @@ export class PersonaService {
           : '';
     return (
       '\n\n[你的说话方式，来自你的性格设定]\n' +
-      chatStyleText(p.traits) +
+      styleText(p.traits) +
       '。' +
       stance +
       contentText(p, nameOf) +
@@ -520,7 +523,7 @@ export class PersonaService {
     if (!key) return undefined;
     return {
       speaker: p.preset ? PRESETS[p.preset].name : '这个成员',
-      persona: contentText(p, () => undefined).trim() || chatStyleText(p.traits),
+      persona: contentText(p, () => undefined).trim() || styleText(p.traits),
       relations: this.relationsText(botId, others).trim() || '没有特别的关系',
       reply: text.slice(0, 600),
     };
@@ -534,7 +537,9 @@ export class PersonaService {
         return b.grudge >= GRUDGE && !b.apologized;
       })
       .map((x) => x.name);
-    const reminder = reminderFor(verdict, resented);
+    // A Bot without catchphrases or habits has no voice to return to; telling it to would make it invent some.
+    const voiced = !!contentText(this.store.profile(botId) || {}, () => undefined).trim();
+    const reminder = verdict === 'out_of_voice' && !voiced ? '' : reminderFor(verdict, resented);
     if (reminder) this.reminders.set(`${botId}:${groupId}`, reminder);
     else if (verdict === 'ok') this.reminders.delete(`${botId}:${groupId}`);
   }

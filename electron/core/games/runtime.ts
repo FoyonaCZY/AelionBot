@@ -15,6 +15,9 @@ import { log } from './game-mode';
 import { gameMode, type AnyMatch } from './modes';
 import { GameModelError } from './model-player';
 import type { PersonaSeed } from './persona-play';
+import { PRESETS, isPresetId, presetSeed } from '../../../shared/persona/presets';
+import { mbtiOf } from '../../../shared/persona/persona-model';
+import { gameBehaviorPolicy, gamePersonality, type GameMbti } from '../../../shared/games/game-personality';
 import { AppError } from '../../../shared/errors';
 export interface DecisionOptions {
   retryFeedback?: string;
@@ -289,7 +292,12 @@ export class GameRuntime {
     const s = mode.create({
       groupId: input.groupId,
       // Seat ids are random per match; the Bot a seat belongs to is kept as botId for post-match settlement.
-      players: input.players.map(({ botId, ...p }) => ({ ...p, id: randomUUID(), ...(botId ? { botId } : {}) })),
+      players: input.players.map(({ botId, preset, ...p }) => ({
+        ...p,
+        id: randomUUID(),
+        ...(botId ? { botId } : {}),
+        ...(isPresetId(preset) ? { preset } : {}),
+      })),
       board: input.board,
       blank: input.blank === true,
     });
@@ -298,18 +306,28 @@ export class GameRuntime {
       const bots = s.seats.filter((p) => p.botId && !p.human);
       if (bots.length && this.hooks.personas && mode.persona) {
         const members = s.seats.map((p) => (p.human ? 'user' : p.botId)).filter((x): x is string => !!x);
-        mode.persona.assign(
-          s,
-          this.hooks.personas(
-            bots.map((p) => ({ botId: p.botId!, mbti: p.mbti })),
-            members,
-          ),
+        const seeds = this.hooks.personas(
+          bots.map((p) => ({ botId: p.botId!, mbti: p.mbti })),
+          members,
         );
+        // A preset chosen for this match replaces the profile's traits and voice; relations still count.
+        for (const p of bots)
+          if (isPresetId(p.preset) && seeds[p.botId!])
+            seeds[p.botId!] = { ...seeds[p.botId!], ...presetSeed(p.preset) };
+        mode.persona.assign(s, seeds);
       }
     } catch {
       // Without personas the match plays exactly as before.
       delete s.persona;
     }
+    // A guest with a preset plays it through the game personality guests already use.
+    for (const p of s.seats)
+      if (!p.botId && !p.human && isPresetId(p.preset)) {
+        const mbti = mbtiOf(PRESETS[p.preset].traits) as GameMbti;
+        p.mbti = mbti;
+        p.behaviorPolicy = gameBehaviorPolicy(mbti);
+        p.personality = `${gamePersonality(mbti)}\n${presetSeed(p.preset).voice}`;
+      }
     this.record(s, 'created', {
       detail: mode.describe(s, this.timing.aiTimeoutMs),
     });

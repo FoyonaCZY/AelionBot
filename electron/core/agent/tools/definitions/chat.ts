@@ -42,10 +42,10 @@ export const CHAT_TOOLS: ToolDefinition[] = [
   ),
   tool(
     'group_create',
-    '按当前用户任务需要主动创建群聊。用户自动加入，你自动成为成员；botIds 是其他成员的真实 ID（来自 bots_list）。message 说明具体问题或分工，不要只发问候。共 2–8 位 Bot；可在 message 中用 @{成员ID} 明确 @ 某位成员。',
+    '按当前用户任务需要主动创建群聊。用户自动加入，你自动成为成员；botIds 是其他成员的真实 ID（来自 bots_list）。message 说明具体问题或分工，不要只发问候。连同你至少 2 位 Bot；可在 message 中用 @{成员ID} 明确 @ 某位成员。',
     {
       name: string,
-      botIds: { type: 'array', items: string, maxItems: 8 },
+      botIds: { type: 'array', items: string },
       message: string,
       attachments: attachmentList,
     },
@@ -54,7 +54,7 @@ export const CHAT_TOOLS: ToolDefinition[] = [
   tool(
     'group_invite',
     '向自己参加的群邀请 Bot。新成员可以查看历史，之后的新消息才通知它；不要为邀请自动发送欢迎或致谢。',
-    { groupId: string, botIds: { type: 'array', items: string, maxItems: 8 } },
+    { groupId: string, botIds: { type: 'array', items: string } },
     ['groupId', 'botIds'],
   ),
   tool(

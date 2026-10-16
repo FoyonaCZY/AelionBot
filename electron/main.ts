@@ -6,6 +6,7 @@ import { GameRuntime } from './core/games/runtime';
 import { PersonaService } from './core/persona/persona-service';
 import { userDisplayName } from '../shared/chat/user-profile';
 import { appraiser, groupSocialHooks, judger } from './core/persona/group-relations';
+import { personaCallOptions } from './core/persona/persona-call';
 import { settleFinishedGame } from './core/games/settlement';
 import { contextBudget } from './core/context/context-budget';
 import { parseGameAction } from './core/games/model-player';
@@ -510,30 +511,22 @@ async function initialize() {
   const layaLog = new LayaDecisionLog(store.dir, () => groupChats?.layaChanged());
   layaFeature = new LayaFeature(store.dir, laya, changed);
   persona = new PersonaService(store.dir);
-  /**
-   * Output cap for persona bookkeeping calls (birth estimate, relationship appraisal, character check). The answers
-   * are a few dozen tokens, but a model that reasons first spends its output budget on that
-   * reasoning (OpenAI reasoning models, Claude adaptive thinking), so the cap leaves room for it; only what is
-   * generated is billed. The timeout allows for the same reasoning; these calls run in the background.
-   */
-  const PERSONA_CALL_TOKENS = 4096;
   /** One short call to a Bot's own model for persona bookkeeping. */
-  const askPersonaModel =
-    (purpose: string, maxOutputTokens: number) => async (botId: string, system: string, user: string) => {
-      const config = providers.config(botId);
-      if (config.issue || !config.model) throw Error('Bot 尚未配置有效模型');
-      const result = await model.complete(
-        [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-        [],
-        new AbortController().signal,
-        undefined,
-        { botId, purpose, maxOutputTokens, timeoutMs: 60000, retries: 1 },
-      );
-      return result.content || '';
-    };
+  const askPersonaModel = (purpose: string) => async (botId: string, system: string, user: string) => {
+    const config = providers.config(botId);
+    if (config.issue || !config.model) throw Error('Bot 尚未配置有效模型');
+    const result = await model.complete(
+      [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      [],
+      new AbortController().signal,
+      undefined,
+      personaCallOptions(botId, purpose),
+    );
+    return result.content || '';
+  };
   persona.configureGrowthReviewer({
     available: (botId) => store.data.bots.some((b) => b.id === botId),
     inputTokenBudget: (botId) => {
@@ -827,14 +820,14 @@ async function initialize() {
           persona,
           (ids) =>
             store.data.bots.filter((b) => ids.includes(b.id)).map((b) => ({ id: b.id, name: b.name, soul: b.soul })),
-          appraiser(laya, askPersonaModel('persona_appraisal', PERSONA_CALL_TOKENS)),
-          askPersonaModel('persona_birth', PERSONA_CALL_TOKENS),
+          appraiser(laya, askPersonaModel('persona_appraisal')),
+          askPersonaModel('persona_birth'),
           (error) =>
             diagnostics?.record(
               'persona.social',
               error instanceof Error ? error.stack || error.message : String(error),
             ),
-          judger(laya, askPersonaModel('persona_check', PERSONA_CALL_TOKENS)),
+          judger(laya, askPersonaModel('persona_check')),
         )
       : undefined,
   );

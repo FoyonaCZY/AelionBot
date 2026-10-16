@@ -1,4 +1,4 @@
-import { GROUP_LIMITS, type GroupDelivery, type GroupMessage, type GroupRoom } from '../../../shared/types/group-types';
+import { groupPace, type GroupDelivery, type GroupMessage, type GroupRoom } from '../../../shared/types/group-types';
 import { isGroupAnswer, replyTarget } from '../../../shared/chat/group-answers';
 import { isEmptyGroupReply } from '../../../shared/chat/group-empty-reply';
 
@@ -39,12 +39,13 @@ export function sinceUser(room: GroupRoom, before = room.messages.length) {
   }
   return room.messages.slice(start, before);
 }
-/** Every published Bot text consumes the same budget, including progress and unaddressed replies. */
+/** Every published Bot text consumes the same budget, including unaddressed replies, and progress unless the group turned that off. */
 export function botMessageCount(room: GroupRoom) {
+  const progress = groupPace(room.pace).countProgress;
   return sinceUser(room).filter(
     (item) =>
       item.sender.kind === 'bot' &&
-      (item.kind === 'message' || item.kind === 'progress') &&
+      (item.kind === 'message' || (progress && item.kind === 'progress')) &&
       (!isEmptyGroupReply(item.content) || Boolean(item.attachments?.length)),
   ).length;
 }
@@ -96,7 +97,7 @@ function limit(room: GroupRoom, message: GroupMessage, recipientId: string): Tri
         (item.sender.id === sender && botTargets(room, item).has(recipientId)) ||
         (item.sender.id === recipientId && botTargets(room, item).has(sender)),
     );
-  if (pair.length >= GROUP_LIMITS.pairStreak) return { kind: 'limited', peerId: sender, reason: 'pair' };
+  if (pair.length >= groupPace(room.pace).pairStreak) return { kind: 'limited', peerId: sender, reason: 'pair' };
 }
 
 export function triage(delivery: GroupDelivery, context: TriageContext): Triage {
@@ -106,7 +107,7 @@ export function triage(delivery: GroupDelivery, context: TriageContext): Triage 
   if (!message) return { kind: 'skip', reason: '消息已不存在' };
   if (message.sender.kind === 'bot' && !message.attachments?.length && isEmptyGroupReply(message.content))
     return { kind: 'skip', reason: '空回复或模型结束标记，不叫醒' };
-  if (botMessageCount(room) >= GROUP_LIMITS.botStreak) return { kind: 'limited', reason: 'bot' };
+  if (botMessageCount(room) >= groupPace(room.pace).botStreak) return { kind: 'limited', reason: 'bot' };
   // 1. Events. A user reaction wakes the author of the message it reacts to; a Bot reaction wakes
   // nobody, so reactions cannot loop. Either one still counts as an answer to its message.
   if (message.kind === 'reaction') {

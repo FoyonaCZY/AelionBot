@@ -106,6 +106,7 @@ export function personaView(s: MatchState, viewerId: string | undefined, reveal:
         traits: p.traits,
         mbti: p.mbti,
         ...(p.plan ? { plan: { id: p.plan.id, name: p.plan.name, detail: p.plan.detail } } : {}),
+        ...(p.voice ? { voice: p.voice } : {}),
         ...(reveal ? { overrides: (s.decisions || []).filter((d) => d.seatId === seatId && d.overridden).length } : {}),
       };
   return Object.keys(persona).length ? { persona } : {};

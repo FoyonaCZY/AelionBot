@@ -3,7 +3,14 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { triage, sinceUser, answerFrom, type TriageContext } from '../electron/core/group/group-triage';
 import { unanswered } from '../shared/chat/group-answers';
-import { GROUP_LIMITS, type GroupDelivery, type GroupMessage, type GroupRoom } from '../shared/types/group-types';
+import {
+  GROUP_HARD_CAP,
+  GROUP_LIMITS,
+  groupPace,
+  type GroupDelivery,
+  type GroupMessage,
+  type GroupRoom,
+} from '../shared/types/group-types';
 
 const bot = (id: string) => ({ kind: 'bot' as const, id, name: id.toUpperCase(), color: '#000' });
 const user = { kind: 'user' as const, id: 'user' as const, name: '你' };
@@ -159,6 +166,40 @@ test('two Bots stop waking each other after two rounds; the whole group after te
     f.post(bot(['a', 'b', 'c'][i % 3]), { mentions: [mention(['b', 'c', 'a'][i % 3])] });
   assert.deepEqual(f.judge(f.post(bot('c'), { mentions: [mention('a')] }), 'a'), { kind: 'limited', reason: 'bot' });
   assert.equal(sinceUser(f.room).length, GROUP_LIMITS.botStreak + 2);
+});
+
+test("a group's own pace replaces the default limits; no limit still stops at the hard cap", () => {
+  assert.deepEqual(groupPace(undefined), {
+    botStreak: GROUP_LIMITS.botStreak,
+    pairStreak: GROUP_LIMITS.pairStreak,
+    countProgress: true,
+    holdSeconds: GROUP_LIMITS.holdSeconds,
+  });
+  assert.equal(groupPace({ botStreak: null }).botStreak, GROUP_HARD_CAP);
+  assert.equal(groupPace({ pairRounds: null }).pairStreak, Infinity);
+
+  const f = room();
+  f.room.pace = { pairRounds: 1, botStreak: 6, countProgress: false };
+  f.post(user);
+  assert.equal(f.judge(f.post(bot('a'), { mentions: [mention('b')] }), 'b').kind, 'wake');
+  assert.equal(f.judge(f.post(bot('b'), { mentions: [mention('a')] }), 'a').kind, 'wake');
+  assert.deepEqual(f.judge(f.post(bot('a'), { mentions: [mention('b')] }), 'b'), {
+    kind: 'limited',
+    peerId: 'a',
+    reason: 'pair',
+  });
+  // Progress is not counted in this group, so many updates leave room for real replies.
+  for (let i = 0; i < 10; i++) f.post(bot('c'), { kind: 'progress' });
+  assert.equal(f.judge(f.post(bot('c'), { mentions: [mention('a')] }), 'a').kind, 'wake');
+  f.post(bot('c'), { mentions: [mention('b')] });
+  assert.deepEqual(f.judge(f.post(bot('c'), { mentions: [mention('a')] }), 'a'), { kind: 'limited', reason: 'bot' });
+
+  f.room.pace = { pairRounds: null, botStreak: null };
+  f.post(user);
+  for (let i = 0; i < 30; i++) {
+    const [from, to] = i % 2 ? ['b', 'a'] : ['a', 'b'];
+    assert.equal(f.judge(f.post(bot(from), { mentions: [mention(to)] }), to).kind, 'wake', `message ${i + 1}`);
+  }
 });
 
 test('an unaddressed user message is unanswered only when every Bot looked and none answered', () => {

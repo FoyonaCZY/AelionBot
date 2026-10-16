@@ -21,7 +21,10 @@ import type { GroupMessage } from '../../../shared/types/group-types';
 import type { Bot, BotMention, RunRecord } from '../../../shared/types/core';
 import {
   GROUP_LIMITS,
+  GROUP_PACE_RANGES,
+  groupPace,
   groupPending,
+  type GroupPace,
   type GroupDelivery,
   type GroupLifecycleEvent,
   type GroupPage,
@@ -98,6 +101,26 @@ export interface GroupSocialHooks {
     text: string;
     people: { id: string; name: string }[];
   }): void;
+}
+/** A pace from the settings page, with every number inside its range. */
+function validPace(input: GroupPace): GroupPace {
+  if (!input || typeof input !== 'object') throw new AppError('group.pace_invalid', '群聊节奏设置无效');
+  const limit = (value: unknown, [min, max]: readonly [number, number], label: string, nullable: boolean) => {
+    if (value === undefined) return undefined;
+    if (value === null && nullable) return null;
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < min || value > max)
+      throw new AppError('group.pace_invalid', `${label}应在 ${min}–${max} 之间`);
+    return value;
+  };
+  const pace: GroupPace = {};
+  const botStreak = limit(input.botStreak, GROUP_PACE_RANGES.botStreak, 'Bot 连续发言', true),
+    pairRounds = limit(input.pairRounds, GROUP_PACE_RANGES.pairRounds, 'Bot 之间互相点名', true),
+    holdSeconds = limit(input.holdSeconds, GROUP_PACE_RANGES.holdSeconds, '等待时间', false);
+  if (botStreak !== undefined) pace.botStreak = botStreak;
+  if (pairRounds !== undefined) pace.pairRounds = pairRounds;
+  if (holdSeconds !== undefined && holdSeconds !== null) pace.holdSeconds = holdSeconds;
+  if (input.countProgress !== undefined) pace.countProgress = Boolean(input.countProgress);
+  return pace;
 }
 const human: GroupSender = { kind: 'user', id: 'user', name: '你' };
 const system: GroupSender = { kind: 'system', id: 'system', name: '系统' };
@@ -489,7 +512,7 @@ export class GroupChats implements GroupGateway {
       throw Error('发件回执对应的消息缺失');
     }
     if (this.enforceBotLimit(room))
-      throw new AppError('group.bot_limit', `Bot 发言已达 ${GROUP_LIMITS.botStreak} 条，等待用户继续`);
+      throw new AppError('group.bot_limit', `Bot 发言已达 ${groupPace(room.pace).botStreak} 条，等待用户继续`);
     if (!entry) {
       entry = {
         id: randomUUID(),
@@ -594,11 +617,10 @@ export class GroupChats implements GroupGateway {
     if (
       !Array.isArray(value) ||
       value.length < min ||
-      value.length > GROUP_LIMITS.bots ||
       value.some((id) => typeof id !== 'string') ||
       new Set(value).size !== value.length
     )
-      throw new Error(`请选择 ${min}–${GROUP_LIMITS.bots} 位 Bot`);
+      throw new Error(`请至少选择 ${min} 位 Bot`);
     return value.map((id) => this.store.bot(id));
   }
   private summary(room: GroupRoom): GroupSummary {
@@ -621,6 +643,7 @@ export class GroupChats implements GroupGateway {
     return {
       id: room.id,
       name: room.name,
+      ...(room.pace ? { pace: room.pace } : {}),
       members: room.members.map((member) => {
         const live = this.store.data.bots.find((bot) => bot.id === member.id);
         if (!live) return member;
@@ -933,8 +956,15 @@ export class GroupChats implements GroupGateway {
     this.touch();
     return this.summary(room);
   }
-  update(input: { id: string; name: string; botIds: string[] }) {
+  update(input: { id: string; name: string; botIds: string[]; pace?: GroupPace }) {
+    const pace = input?.pace === undefined ? undefined : validPace(input.pace);
     this.changeMembers(input, human);
+    if (pace) {
+      const room = this.room(input.id);
+      room.pace = pace;
+      // A raised limit lets a paused discussion go on only after the user speaks; nothing restarts by itself.
+      this.touch();
+    }
   }
   private changeMembers(input: { id: string; name: string; botIds: string[] }, actor: GroupSender, round?: GroupRound) {
     const room = this.room(required(input?.id, '群聊 ID', 80)),
@@ -1365,7 +1395,7 @@ export class GroupChats implements GroupGateway {
       room,
       deliveries,
       now: Date.now(),
-      holdMs: GROUP_LIMITS.holdSeconds * 1000,
+      holdMs: groupPace(room.pace).holdSeconds * 1000,
       scheduledBy: message?.scheduled
         ? this.store.data.scheduledTasks.find(
             (task) => task.id === message.scheduled!.taskId && task.createdBy.kind === 'bot',
@@ -1455,8 +1485,9 @@ export class GroupChats implements GroupGateway {
   }
   /** Pause the room at its text budget, keeping receipts for the last published answer. */
   private enforceBotLimit(room: GroupRoom, published?: GroupMessage) {
-    if (botMessageCount(room) < GROUP_LIMITS.botStreak) return false;
-    const reason = `Bot 发言已达 ${GROUP_LIMITS.botStreak} 条，本轮讨论已暂停，等待你发言或继续。`;
+    const { botStreak } = groupPace(room.pace);
+    if (botMessageCount(room) < botStreak) return false;
+    const reason = `Bot 发言已达 ${botStreak} 条，本轮讨论已暂停，等待你发言或继续。`;
     const roots = new Set<string>();
     if (room.activeRootId) roots.add(room.activeRootId);
     if (published?.kind === 'message') {
@@ -1511,7 +1542,7 @@ export class GroupChats implements GroupGateway {
     // Whoever spoke first in this exchange sums it up.
     const first = sinceUser(room).find((item) => pair.some((bot) => bot.id === item.sender.id)),
       owner = pair.find((bot) => bot.id === first?.sender.id) || pair[0],
-      content = `@${owner.name} ${key} 已来回 ${GROUP_LIMITS.pairStreak / 2} 轮，彼此的消息不再叫醒对方。请汇总双方理由，自己决定，或交给用户决定。`;
+      content = `@${owner.name} ${key} 已来回 ${groupPace(room.pace).pairStreak / 2} 轮，彼此的消息不再叫醒对方。请汇总双方理由，自己决定，或交给用户决定。`;
     this.append(
       room,
       system,
@@ -1529,7 +1560,7 @@ export class GroupChats implements GroupGateway {
     const holds: number[] = [];
     for (const room of this.store.data.groups)
       if (
-        botMessageCount(room) >= GROUP_LIMITS.botStreak &&
+        botMessageCount(room) >= groupPace(room.pace).botStreak &&
         this.store.data.groupDeliveries.some(
           (d) => d.groupId === room.id && groupPending(d.status) && d.recipientId !== 'user',
         )

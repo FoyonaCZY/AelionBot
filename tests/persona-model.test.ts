@@ -16,7 +16,7 @@ import {
   mbtiOf,
   tendencies,
   traitsFromMbti,
-  speechLimit,
+  styleText,
   type Traits,
 } from '../shared/persona/persona-model';
 import { seededRandom } from '../shared/games/seeded-random';
@@ -95,7 +95,9 @@ test('growth: rewards scale with E and punishments with N, the anchor pulls back
   assert.ok(late.E < early.E / 5, 'the learning rate falls with experience');
   const capped = growthStep(T(), T(), 0, risky, 'chat', { E: DAILY_CAP.chat - 0.0001 });
   assert.ok(capped.E <= 0.0001 + 1e-12, 'chat stops at its daily cap');
-  assert.ok(speechLimit(T({ E: 1 })) > speechLimit(T({ E: 0 })));
+  assert.match(styleText(T({ E: 1 })), /话比较多/);
+  assert.match(styleText(T({ E: 0 })), /话不多/);
+  assert.doesNotMatch(styleText(T({ E: 0.5 })), /不超过 \d+ 字/, 'no character cap: models meet it by dropping words');
 });
 
 const seat7 = (bots = 7) =>

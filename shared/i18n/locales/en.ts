@@ -797,8 +797,6 @@ export const en: Record<string, string> = {
   群名称: 'Group name',
   成员: 'Members',
   '至少需要两位 Bot 才能建群。': 'At least two Bots are required to create a group.',
-  '每个群最多 {count} 位 Bot，取消勾选一位后才能添加新成员。':
-    'A group holds at most {count} Bots. Unselect one to add another.',
   加载更早消息: 'Load older messages',
   私聊记录: 'Private chat history',
   'Bot 私聊': 'Bot private chat',
@@ -1364,8 +1362,8 @@ export const en: Record<string, string> = {
   否: 'No',
   'Aelion MCP 配置 · mcpServers': 'Aelion MCP configuration · mcpServers',
   群名称无效: 'Invalid group name',
-  '请选择 1–8 位 Bot': 'Choose 1–8 Bots',
-  '请选择 2–8 位 Bot': 'Choose 2–8 Bots',
+  '请至少选择 1 位 Bot': 'Choose at least 1 Bot',
+  '请至少选择 2 位 Bot': 'Choose at least 2 Bots',
   '群聊 ID无效': 'Invalid group chat ID',
   群聊不存在或已删除: 'Group chat not found or already deleted',
   纯色: 'Solid',
@@ -2963,4 +2961,40 @@ export const en: Record<string, string> = {
     'Starts every reply with "actually, no"; argues the point, not the person',
   '渴望被关注、想显得与众不同，中二又夸张；被笑就嘴硬':
     'Hungry for attention and wants to stand out; cringe and over the top; doubles down when laughed at',
+  基本: 'Basics',
+  对话节奏: 'Conversation pace',
+  智能判断: 'Smart judgement',
+  群工作区: 'Group workspace',
+  文件夹: 'Folder',
+  '群里所有 Bot 共用这个文件夹，一个 Bot 写的文件其他 Bot 能直接读':
+    'Every Bot in the group shares this folder, so files one Bot writes can be read by the others',
+  更换: 'Change',
+  发言上限: 'Message limits',
+  你说话后重新计数: 'Counting restarts when you speak',
+  'Bot 连续发言': 'Bot messages in a row',
+  '你不说话时，所有 Bot 加起来最多发几条。到了会暂停，等你说话':
+    'How many messages all Bots together may send while you are silent. At the limit the group pauses until you speak',
+  条: 'messages',
+  'Bot 之间互相点名': 'Bots addressing each other',
+  '两个 Bot 互相 @ 或回复最多几个来回，之后彼此的消息不再叫醒对方':
+    'How many round trips two Bots may @ or reply to each other before their messages stop waking each other',
+  个来回: 'round trips',
+  进度消息计入上限: 'Progress counts towards the limit',
+  '关闭后，Bot 干活时汇报进度不占发言额度':
+    'When off, progress updates while a Bot works do not use up the message limit',
+  先等被点名的人回答: 'Let the addressed Bot answer first',
+  '消息点名了某个 Bot 时，其他 Bot 最多等多久再补充':
+    'When a message addresses a Bot, how long the others wait before adding to it',
+  不限制: 'No limit',
+  '不限制时，Bot 之间可能一直聊下去并持续消耗 token。为防失控，每轮最多 {count} 条。':
+    'With no limit, Bots may keep talking and keep spending tokens. As a safeguard, a round stops at {count} messages.',
+  谁来回应: 'Who responds',
+  适用于所有群聊: 'Applies to all group chats',
+  当前版本没有本地决策模型: 'This version has no local decision model',
+  '{count} 条新消息': '{count} new messages',
+  '{game} · 战报': '{game} · Result',
+  对局战报: 'Match result',
+  本局人格: 'Personality this match',
+  '{name} 的本局人格': "{name}'s personality this match",
+  不用预设: 'No preset',
 };

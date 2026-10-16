@@ -91,6 +91,7 @@ export function GroupConversation({
     stickLock = useRef(0),
     paneHeight = useRef(0),
     anchor = useRef<ScrollAnchor | undefined>(undefined),
+    lastTop = useRef(0),
     scroll = useRef<{ height: number; top: number } | undefined>(undefined),
     active = useRef(true),
     sendLock = useRef(false);
@@ -116,30 +117,55 @@ export function GroupConversation({
     stickLock.current++;
     element.scrollTop = element.scrollHeight;
     paneHeight.current = element.scrollHeight;
+    lastTop.current = element.scrollTop;
     requestAnimationFrame(() => {
       const live = body.current;
       if (live && follow.current) {
         live.scrollTop = live.scrollHeight;
         paneHeight.current = live.scrollHeight;
+        lastTop.current = live.scrollTop;
       }
       requestAnimationFrame(() => {
         stickLock.current = Math.max(0, stickLock.current - 1);
       });
     });
   };
+  // Where the reader left the bottom: messages after it are counted as new instead of scrolling to them.
+  const [leftAt, setLeftAt] = useState<string>();
+  const lastMessageId = () => page?.messages.at(-1)?.id || '';
+  const following = (value: boolean) => {
+    follow.current = value;
+    if (value) setLeftAt(undefined);
+    else setLeftAt((current) => current ?? lastMessageId());
+  };
   const onMessagesScroll = (element: HTMLElement) => {
     if (stickLock.current) return;
     if (anchor.current && element.clientWidth !== anchor.current.width) return;
     const gap = element.scrollHeight - element.scrollTop - element.clientHeight,
-      grew = element.scrollHeight > paneHeight.current + 1;
+      grew = element.scrollHeight > paneHeight.current + 1,
+      // Scrolling up is always the reader's choice: while replies stream in, the content also grows, and that
+      // growth must not pull the reader back down.
+      up = element.scrollTop < lastTop.current - 1;
     paneHeight.current = element.scrollHeight;
-    if (grew && follow.current) {
+    lastTop.current = element.scrollTop;
+    if (grew && follow.current && !up) {
       stickToBottom();
       return;
     }
-    follow.current = gap < 90;
+    following(gap < 90);
     anchor.current = readScrollAnchor(element);
   };
+  const toLatest = () => {
+    following(true);
+    stickToBottom();
+  };
+  const unseen = useMemo(() => {
+    if (leftAt === undefined || !page) return 0;
+    const from = page.messages.findIndex((message) => message.id === leftAt);
+    return page.messages
+      .slice(from + 1)
+      .filter((message) => message.kind === 'message' && message.sender.kind !== 'user').length;
+  }, [leftAt, page]);
   useEffect(() => {
     active.current = true;
     return () => {
@@ -223,7 +249,7 @@ export function GroupConversation({
     sendLock.current = true;
     setSending(true);
     drafts.set(group.id, { text: '', mentions: [] });
-    follow.current = true;
+    following(true);
     try {
       if (
         !(await previewWorkbench?.send(
@@ -260,7 +286,7 @@ export function GroupConversation({
     try {
       const result = await window.aelion.readGroup({ id: group.id, before: page.before });
       if (body.current) scroll.current = { height: body.current.scrollHeight, top: body.current.scrollTop };
-      follow.current = false;
+      following(false);
       setPage((current) =>
         current
           ? {
@@ -375,6 +401,9 @@ export function GroupConversation({
             ref={body}
             className="messages group-messages"
             onScroll={(event) => onMessagesScroll(event.currentTarget)}
+            onWheel={(event) => {
+              if (event.deltaY < 0 && follow.current) following(false);
+            }}
           >
             {page?.before && (
               <button className="peer-chat-load" disabled={loading} onClick={() => void older()}>
@@ -410,6 +439,12 @@ export function GroupConversation({
         </ConversationTimeProvider>
       </PinThreadContext.Provider>
       <div ref={composerWrap} className={`composer-wrap floating-composer ${requests.length ? 'with-request' : ''}`}>
+        {unseen > 0 && (
+          <button type="button" className="group-new-messages" onClick={toLatest}>
+            <Icon name="down" size={14} />
+            {t('{count} 条新消息', { count: unseen })}
+          </button>
+        )}
         {error && (
           <div className="group-error" role="alert">
             {error}
@@ -524,6 +559,8 @@ const GroupMessageRow = memo(function GroupMessageRow({
       </>
     );
   if (message.kind === 'reaction') return null;
+  if (message.kind === 'system' && message.id.startsWith('game-result:'))
+    return <GameResultCard content={message.content} />;
   if (message.kind === 'system' || message.kind === 'continue')
     return <div className="event-message group-system">{message.content}</div>;
   const bot =
@@ -596,3 +633,28 @@ const GroupMessageRow = memo(function GroupMessageRow({
     </>
   );
 }, sameProps);
+
+/**
+ * A finished match's report as a card of its own, so several matches in a row read as several results instead of
+ * one live card and a wall of text. The first line is the outcome; the rest folds away.
+ */
+function GameResultCard({ content }: { content: string }) {
+  const { t } = useI18n();
+  const [first = '', ...rest] = content.split('\n');
+  const match = /^(.+?)战报：(.+?)。?$/.exec(first);
+  return (
+    <details className="gg-result-card">
+      <summary>
+        <span className="gg-moon is-day" aria-hidden="true">
+          ☀
+        </span>
+        <span className="gg-result-title">
+          <strong>{match ? t('{game} · 战报', { game: t(match[1]) }) : t('对局战报')}</strong>
+          <small>{match ? match[2] : first}</small>
+        </span>
+        <span className="gg-result-more">{t('详情')}</span>
+      </summary>
+      {rest.length > 0 && <p>{rest.join('\n')}</p>}
+    </details>
+  );
+}

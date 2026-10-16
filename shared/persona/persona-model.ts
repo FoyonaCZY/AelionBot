@@ -286,16 +286,12 @@ export function growthStep(
 
 /* ------------------------------------------------------------------ expression (§8.5) */
 
-/** Speech length cap: base × (0.6 + 0.8·E). Extraverts talk more (Mehl et al., 2006). */
-export const speechLimit = (t: Traits, base = 150) => Math.round(base * (0.6 + 0.8 * t.E));
-export function styleText(t: Traits) {
-  return [`发言不超过 ${speechLimit(t)} 字`, ...traitExpression(t)].join('；');
-}
 /**
- * The same tendencies for group chat, where a character cap made replies telegraphic: models squeeze a count by
- * dropping words. Extraversion sets how much a member usually says, as people talk, never as a number.
+ * How a member tends to speak, for group chat and game seats alike. Extraversion sets how much it usually says
+ * (extraverts talk more; Mehl et al., 2006), in everyday terms rather than a character cap: models meet a cap by
+ * dropping words, which made replies read like telegrams.
  */
-export function chatStyleText(t: Traits) {
+export function styleText(t: Traits) {
   const length =
     t.E >= 0.65
       ? '话比较多，聊得起劲时会多说几句'

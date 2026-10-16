@@ -1,3 +1,4 @@
+import { personaCallOptions } from '../core/persona/persona-call';
 import type { IpcContext } from './context';
 import type { PersonaUpdate } from '../../shared/types/persona-types';
 import { isGameMbti } from '../../shared/games/game-personality';
@@ -47,7 +48,7 @@ export function registerPersona(ctx: IpcContext) {
           [],
           new AbortController().signal,
           undefined,
-          { botId: b.id, purpose: 'persona_birth', maxOutputTokens: 400, timeoutMs: 30000, retries: 1 },
+          personaCallOptions(b.id, 'persona_birth'),
         );
         return result.content || '';
       });

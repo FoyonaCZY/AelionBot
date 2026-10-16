@@ -4,7 +4,7 @@ import { ACTION_NAMES } from '../../shared/games/game-boards';
 import { translate } from '../../shared/i18n';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
-import { personalClues, seatNumber } from './game-view-model';
+import { personalClues, seatBot, seatNumber } from './game-view-model';
 
 const SPEECH = ['speak', 'wolf_plan', 'campaign', 'pk_speak', 'last_words'];
 const HINTS: Partial<Record<GameRequest['kind'], string>> = {
@@ -56,7 +56,7 @@ function TargetGrid({
                 <Icon name="user" size={13} />
               </span>
             ) : (
-              <Avatar bot={seat} size={24} />
+              <Avatar bot={seatBot(seat)} size={24} />
             )}
             <span className="gg-tile-name">{seat.human ? translate('你') : seat.name}</span>
           </button>
@@ -167,7 +167,6 @@ export function GameActionControls({
   }
   if (SPEECH.includes(r.kind)) {
     const clues = personalClues(game).slice(-3);
-    const others = game.seats.filter((p) => p.alive && p.id !== game.humanId).slice(0, 8);
     return (
       <>
         {header(translate(ACTION_NAMES[r.kind]))}
@@ -181,28 +180,20 @@ export function GameActionControls({
           onChange={(e) => setText(e.target.value)}
           placeholder={translate(r.kind === 'campaign' ? '说说你的身份、判断和警徽计划…' : '说说你的判断…')}
         />
-        <div className="gg-chip-row gg-quick">
-          {clues.map((clue) => (
-            <button
-              type="button"
-              className="gg-chip"
-              key={clue.id}
-              onClick={() => insert(clue.text.replace(/^查验结果：/, ''))}
-            >
-              {translate('＋ 引用：{text}', { text: clue.text.replace(/^查验结果：/, '').replace(/。$/, '') })}
-            </button>
-          ))}
-          {others.map((seat) => (
-            <button
-              type="button"
-              className="gg-chip"
-              key={seat.id}
-              onClick={() => insert(translate('{seat} 号', { seat: seatNumber(game, seat.id) }))}
-            >
-              {translate('{seat} 号', { seat: seatNumber(game, seat.id) })}
-            </button>
-          ))}
-        </div>
+        {clues.length > 0 && (
+          <div className="gg-chip-row gg-quick">
+            {clues.map((clue) => (
+              <button
+                type="button"
+                className="gg-chip"
+                key={clue.id}
+                onClick={() => insert(clue.text.replace(/^查验结果：/, ''))}
+              >
+                {translate('＋ 引用：{text}', { text: clue.text.replace(/^查验结果：/, '').replace(/。$/, '') })}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="gg-dock-actions">
           <span className="gg-muted">{translate('可以分几段发送，最多 800 字')}</span>
           <span className="gg-spacer" />

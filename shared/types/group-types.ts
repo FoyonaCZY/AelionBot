@@ -5,7 +5,6 @@ import type { MessagePin, PinEvent } from '../chat/reactions';
 import type { BotIdentity, BotMention } from './peer-types';
 import type { ScheduledTrigger } from './scheduled-types';
 export const GROUP_LIMITS = {
-  bots: 8,
   groupsPerTask: 2,
   /** Hard cap on published Bot messages and progress since the user's latest text or explicit continuation. */
   botStreak: 20,
@@ -14,6 +13,32 @@ export const GROUP_LIMITS = {
   /** Seconds others wait for an addressed Bot, or for replies still being written, before continuing. */
   holdSeconds: 20,
 } as const;
+/**
+ * How freely Bots talk in one group, set in its settings. A missing field uses GROUP_LIMITS; null means no limit,
+ * still bounded by GROUP_HARD_CAP so a runaway exchange cannot spend without end.
+ */
+export interface GroupPace {
+  /** Published Bot messages since the user's latest text; null for no limit. */
+  botStreak?: number | null;
+  /** Round trips two Bots may wake each other for; null for no limit. */
+  pairRounds?: number | null;
+  /** Whether progress messages count towards botStreak. */
+  countProgress?: boolean;
+  /** Seconds others wait for an addressed Bot before continuing. */
+  holdSeconds?: number;
+}
+export const GROUP_PACE_RANGES = { botStreak: [5, 100], pairRounds: [1, 20], holdSeconds: [0, 120] } as const;
+/** The most Bot messages one round can hold even when its limits are off. */
+export const GROUP_HARD_CAP = 200;
+/** The limits in force for a group. */
+export function groupPace(pace: GroupPace | undefined) {
+  return {
+    botStreak: pace?.botStreak === null ? GROUP_HARD_CAP : (pace?.botStreak ?? GROUP_LIMITS.botStreak),
+    pairStreak: pace?.pairRounds === null ? Infinity : (pace?.pairRounds ?? GROUP_LIMITS.pairStreak / 2) * 2,
+    countProgress: pace?.countProgress ?? true,
+    holdSeconds: pace?.holdSeconds ?? GROUP_LIMITS.holdSeconds,
+  };
+}
 const conversationTools = new Set([
   'open_preview',
   'preview_mark',
@@ -133,6 +158,7 @@ export interface GroupRoom {
   messages: GroupMessage[];
   lastReadSeq: number;
   activeRootId?: string;
+  pace?: GroupPace;
   /** Legacy group task records. They are kept untouched and no longer read or written. */
   tasks?: unknown[];
 }
@@ -204,6 +230,7 @@ export interface GroupSummary {
   round?: { id: string; status: GroupRound['status']; botMessages: number; reason?: string };
   activities?: Array<{ botId: string; phase: 'deciding' | 'running' | 'updating' }>;
   activity?: { botId: string; phase: 'deciding' | 'running' };
+  pace?: GroupPace;
 }
 export interface GroupPage {
   pins?: Record<string, MessagePin[]>;

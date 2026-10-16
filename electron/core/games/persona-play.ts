@@ -33,6 +33,10 @@ export interface SeatPersona {
   plan?: { id: string; name: string; detail: string; f: Features; prob: number };
   /** Affinity of this Bot towards the Bot in each other seat, frozen at the start. */
   affinity: Record<string, number>;
+  /** How it talks, frozen at the start; see PersonaSeed.voice. */
+  voice?: string;
+  /** Played with a preset chosen for this match only: nothing from it grows the Bot's own profile. */
+  preset?: string;
 }
 /** One key decision made under personality, kept for growth at settlement. */
 export interface PersonaDecision {
@@ -71,6 +75,10 @@ export interface PersonaSeed {
   lastPlans?: Partial<Record<string, string>>;
   /** Affinity towards other Bots and 'user', by member id. */
   affinity?: Record<string, number>;
+  /** How it talks: a preset's habits and catchphrases, for what it says aloud. */
+  voice?: string;
+  /** Set when this seed is a preset chosen for one match instead of the Bot's profile. */
+  preset?: string;
 }
 
 const draw = (s: MatchState, salt: number) => {
@@ -132,6 +140,8 @@ export function assignSeatPersonas(
       mbti: mbtiOf(seed.traits),
       ...(plan ? { plan } : {}),
       affinity,
+      ...(seed.voice ? { voice: seed.voice } : {}),
+      ...(seed.preset ? { preset: seed.preset } : {}),
     };
   }
   s.persona = persona;

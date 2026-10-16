@@ -2203,3 +2203,23 @@ test('a published Bot reply reaches the persona module with the members it was t
   await until(fx.settled);
   assert.deepEqual(spoke, [{ botId: fx.a.id, text: `@${fx.b.name} 你也看看`, people: [fx.b.id, 'user'].sort() }]);
 });
+test('group settings keep a pace inside its ranges and show it in the group summary', async (t) => {
+  const fx = fixture(t);
+  const room = fx.groups.create({ name: '节奏', botIds: [fx.a.id, fx.b.id] });
+  await until(fx.settled);
+  const update = (pace: unknown) =>
+    fx.groups.update({ id: room.id, name: '节奏', botIds: [fx.a.id, fx.b.id], pace: pace as never });
+  assert.throws(() => update({ botStreak: 2 }), /5–100/);
+  assert.throws(() => update({ pairRounds: 0 }), /1–20/);
+  assert.throws(() => update({ holdSeconds: null }), /0–120/, 'waiting has no unlimited setting');
+  assert.throws(() => update({ botStreak: 7.5 }));
+  update({ botStreak: null, pairRounds: 5, countProgress: false, holdSeconds: 0 });
+  const summary = fx.groups.snapshot().rooms.find((r) => r.id === room.id)!;
+  assert.deepEqual(summary.pace, { botStreak: null, pairRounds: 5, countProgress: false, holdSeconds: 0 });
+  update(undefined);
+  assert.deepEqual(
+    fx.groups.snapshot().rooms.find((r) => r.id === room.id)!.pace,
+    { botStreak: null, pairRounds: 5, countProgress: false, holdSeconds: 0 },
+    'saving without a pace keeps the current one',
+  );
+});

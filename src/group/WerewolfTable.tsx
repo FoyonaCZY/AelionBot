@@ -13,6 +13,7 @@ import {
   personalClues,
   reportTimeline,
   seatFate,
+  seatBot,
   seatNumber,
   transcriptItems,
   type TallyRow,
@@ -52,7 +53,7 @@ export function SeatAvatar({ seat, size = 30 }: { seat: Seat; size?: number }) {
       <Icon name="user" size={Math.round(size * 0.55)} />
     </span>
   ) : (
-    <Avatar bot={seat} size={size} />
+    <Avatar bot={seatBot(seat)} size={size} />
   );
 }
 

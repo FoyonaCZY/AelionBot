@@ -39,7 +39,14 @@ export function collectGrowthObservations(match: MatchState): GrowthObservation[
     )
       continue;
     const seat = match.seats.find((s) => s.id === accepted.seatId);
-    if (!seat?.botId || seat.human || !match.persona?.[seat.id] || seen.has(accepted.requestId)) continue;
+    if (
+      !seat?.botId ||
+      seat.human ||
+      !match.persona?.[seat.id] ||
+      match.persona[seat.id].preset ||
+      seen.has(accepted.requestId)
+    )
+      continue;
     const started = trace
       .filter(
         (e) =>

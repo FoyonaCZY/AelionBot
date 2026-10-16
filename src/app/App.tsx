@@ -4,6 +4,7 @@ import { usePreviewWorkbench } from '../preview/PreviewWorkbench';
 import { useAgentPreview } from '../preview/use-agent-preview';
 import { useAppearance } from './use-appearance';
 import { useEffect, useMemo, useState } from 'react';
+import { workspaceKey } from '../../shared/types/work-types';
 import { FilePreviewProvider, PreviewScopeProvider } from '../preview/FilePreviewContext';
 import type { Bot, InteractionRequest, WorkSession } from '../../shared/types/core';
 import { ipcErrorText } from '../ui/ipc-error';
@@ -454,6 +455,16 @@ function AppContent() {
               key={groupEditor}
               bots={state.bots}
               group={state.groups?.rooms.find((room) => room.id === groupEditor)}
+              workspace={
+                groupEditor
+                  ? {
+                      dir:
+                        state.conversationWorkspaces?.[workspaceKey({ kind: 'group', id: groupEditor })] ||
+                        state.hostWorkspace?.workspaceDir,
+                      inherited: !state.conversationWorkspaces?.[workspaceKey({ kind: 'group', id: groupEditor })],
+                    }
+                  : undefined
+              }
               onClose={() => setGroupEditor(undefined)}
               onSaved={(id) => {
                 setGroupEditor(undefined);

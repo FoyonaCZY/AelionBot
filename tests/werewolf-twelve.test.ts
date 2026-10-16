@@ -399,3 +399,22 @@ test('night discussion speaker is private, including clock metadata', () => {
   assert.equal(view(s, '0').clock?.seatId, s.requests[0].seatId);
   assert.equal(view(s, undefined, true).clock?.seatId, s.requests[0].seatId);
 });
+test("each board's players read only its own special role in the rules and the guides", () => {
+  for (const [board, has, lacks] of [
+    ['standard12', '白痴', '守卫'],
+    ['guard12', '守卫', '白痴'],
+  ] as const) {
+    const s = make(board);
+    for (const p of s.seats) {
+      const r = s.requests.find((x) => x.seatId === p.id) || {
+        id: 'r',
+        seatId: p.id,
+        kind: 'speak' as const,
+        targets: [],
+      };
+      const text = gameInstructions(view(s, p.id), r) + gamePrompt(view(s, p.id), r);
+      assert.match(text, new RegExp(has), `${board} explains its ${has}`);
+      assert.doesNotMatch(text, new RegExp(lacks), `${board} never mentions a ${lacks}`);
+    }
+  }
+});

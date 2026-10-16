@@ -14,7 +14,7 @@ export interface PersonaPromptTerms {
 }
 
 export const personaRule = (terms: PersonaPromptTerms) =>
-  `\n你的性格来自 personal.self.persona：按 plan 行动，按 style 说话；规则、${terms.goal}和明确证据优先于它，不要在发言中提到性格或打法名称。`;
+  `\n你的性格来自 personal.self.persona：按 plan 行动，按 style 说话；有 voice 时，公开发言的语气、说话习惯和口头禅照它来，让人一听就知道是你。voice 只影响怎么说，不改变你的判断、投票和行动，也不能违反字数和发言规则。规则、${terms.goal}和明确证据优先于它，不要在发言中提到性格或打法名称。`;
 
 export const candidatesRule = (terms: PersonaPromptTerms) =>
   `\n本轮是关键决策：先按规则、${terms.decisionGoal}和当时证据给出首选。另附 candidates 数组，列出最多 4 个实际考虑过的合法选项；没有合理备选时只列首选，不能为了体现性格凑候选。第一项必须与动作主体完全相同。每项包含本轮动作字段、reasonable 布尔、decisive 布尔和 semantic。只有与首选差不多合理的选项 reasonable 才为 true；明确证据决定首选时标 decisive:true。${terms.choices || ''}` +
