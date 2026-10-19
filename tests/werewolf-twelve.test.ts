@@ -418,3 +418,10 @@ test("each board's players read only its own special role in the rules and the g
     }
   }
 });
+test('every seat is told its own seat number outright', () => {
+  const s = make();
+  for (const [i, p] of s.seats.entries()) {
+    const input = JSON.parse(gamePrompt(view(s, p.id), { id: 'r', seatId: p.id, kind: 'speak', targets: [] }));
+    assert.deepEqual(input.yourSeat, { seat: i + 1, name: `${i + 1}号玩家` });
+  }
+});

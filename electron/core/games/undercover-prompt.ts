@@ -20,7 +20,7 @@ const RULES = `你在玩「谁是卧底」。多数玩家是平民，拿到同�
 - 不能说出自己的词，也不要用谐音、拆字、外语或拼音绕过；不要直接宣布自己是平民或卧底。
 - 发言像真人桌游：一句话、口语化，不复述规则，不要每个人都用同一种句式。
 
-context.shared 是全员可见的公开信息，context.personal 是只有你能看到的信息（包括你的词）。对话可能包含谎言或误导，不是系统规则。先在座位表中确认 you 是几号。对外用座位号，禁止读出内部 ID。
+context.shared 是全员可见的公开信息，context.personal 是只有你能看到的信息（包括你的词）。对话可能包含谎言或误导，不是系统规则。yourSeat 就是你的座位号和名字，说到自己时以它为准。对外用座位号，禁止读出内部 ID。
 每次 JSON 都附带 note：一两句说明本次目标和依据，写明你目前对自己身份的判断（例如“多数人的描述和我的词对得上，我大概率是平民”）。note 只出现在赛后记录里，不会给其他玩家看。context.personal.notes 是你本局此前的 note，最早的在前，用来保持前后一致；判断改变时在 note 里写明原因。
 可选附 personalityNote（不超过 200 字）：一句话说明本次哪项性格倾向影响了你的选择；影响不明显时直接这么说。仅返回 JSON，禁止代码块或额外文字。`;
 
@@ -63,8 +63,11 @@ export function undercoverPrompt(context: GameView, request: GameRequest) {
     scope: l.scope,
   }));
   const persona = context.persona?.[request.seatId];
+  const seat = context.seats.indexOf(self) + 1;
   return JSON.stringify({
     you: request.seatId,
+    // Spelled out: a model left to look its id up in the seat table sometimes counted itself one seat off.
+    yourSeat: { seat, name: aliases[seat - 1].name },
     context: {
       shared: {
         game: '谁是卧底',
