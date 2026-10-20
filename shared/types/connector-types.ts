@@ -1,5 +1,5 @@
-// Connectors: IM accounts (Feishu, WeCom, WeChat) through which people message their Bot. Each private chat on a
-// connector is one work session of the bound Bot (see WorkSession.connector).
+// Connectors: IM accounts (Feishu, WeCom, WeChat) through which people message their Bot. Each private or group chat
+// on a connector is one work session of the bound Bot (see WorkSession.connector).
 import type { HostPermissionMode } from './permission-types';
 
 export type ConnectorPlatform = 'feishu' | 'wecom' | 'weixin';
@@ -71,6 +71,8 @@ export interface MessageConnectorSource {
   connectorId: string;
   platform: ConnectorPlatform;
   messageId: string;
+  /** Sent in a group chat, where the reply is visible to every member. */
+  isGroup?: boolean;
   sender: ConnectorPerson;
 }
 type ConnectorCredentials =

@@ -2,6 +2,8 @@
 
 状态：飞书、企业微信、微信（实验）已实现，钉钉不做。调研日期 2026-10-14。使用说明见 [INTEGRATIONS.md](../INTEGRATIONS.md#连接器飞书企业微信微信)。
 
+> 2026-10-20 更新：企业微信群的 @ 消息已支持——只有 owner 和已授权成员能触发，回复发回群，审批仍走私聊；飞书和微信的群消息仍然丢弃。下面“不做群聊”的描述保留为 2026-10-14 的方案记录。
+
 实现与方案的出入：
 
 - 飞书直接用 SDK 的 `createLarkChannel()`（长连接、去重、CardKit 流式、卡片按钮都在里面），扫码用 `registerApp()`。SDK 在主进程打包时是 external，首次启用飞书时才加载。
@@ -86,7 +88,7 @@
 - **单连接**：每个机器人只能保持一个有效连接，新的订阅会顶掉旧连接（旧连接收到 `disconnected_event`）。
 - **收消息** `aibot_msg_callback`：
   - 用 `msgid` 去重。
-  - `chattype` 是 `single` 或 `group`，群消息直接丢弃。发送人在 `from.userid`。
+  - `chattype` 是 `single` 或 `group`。群消息只在 @ 机器人时推送，`text.content` 带 @ 提及；只有 owner 和已授权成员能触发，陌生人不在群里配对。发送人在 `from.userid`，群会话在 `chatid`。
   - `msgtype` 有 text、image、mixed、voice、file、video。
   - 媒体给出 `url`（5 分钟内有效）和 `aeskey`，用 AES-256-CBC 解密。
 - **答复** `aibot_respond_msg`：

@@ -1,6 +1,6 @@
 // Connectors: IM accounts through which people message their Bot. The hub runs each connector's adapter, lets in only
-// the owner and the people the owner approved, maps every private chat to a work session of the bound Bot and hands
-// messages to the chat queue like the app's own composer. Replies go back through the outbox.
+// the owner and the people the owner approved, maps every private or group chat to a work session of the bound Bot and
+// hands messages to the chat queue like the app's own composer. Replies go back through the outbox.
 import { randomInt, randomUUID } from 'node:crypto';
 import {
   CONNECTOR_PLATFORM_NAMES,
@@ -388,20 +388,24 @@ export class Connectors {
     const connector = this.saved.get(id);
     if (!connector || !message.messageId || !message.chatId || !message.sender.id) return;
     if (!this.saved.remember(connector, message.messageId)) return;
-    // Group chats are not supported; their messages never reach the Bot.
-    if (message.isGroup) return void this.saved.save();
+    // WeCom only pushes group messages that mention the Bot. Other platforms deliver every group message, so their
+    // groups stay off until their adapters can tell whether the Bot was addressed.
+    if (message.isGroup && connector.platform !== 'wecom') return void this.saved.save();
     connector.lastMessageAt = new Date().toISOString();
     const person = message.sender,
       isOwner = connector.owner?.id === person.id,
       allowed = connector.allowed.find((item) => item.id === person.id);
     if (!isOwner && !allowed) {
+      // Only the owner and people they approved can wake the Bot in a group; strangers are not paired there.
+      if (message.isGroup) return void this.saved.save();
       this.saved.save();
       return this.pair(connector, message, adapter);
     }
-    // Remember the chat that reaches this person, for approvals sent to the owner later.
+    // Remember the private chat that reaches this person, for approvals sent to the owner later. A group message
+    // must not replace it, or approvals would be posted where everyone in the group can see them.
     const record = isOwner ? connector.owner! : allowed!;
-    if (record.chatId !== message.chatId || (person.name && record.name !== person.name)) {
-      record.chatId = message.chatId;
+    if ((!message.isGroup && record.chatId !== message.chatId) || (person.name && record.name !== person.name)) {
+      if (!message.isGroup) record.chatId = message.chatId;
       if (person.name) record.name = person.name;
     }
     this.saved.save();
@@ -411,6 +415,8 @@ export class Connectors {
       return void this.say(adapter, message.chatId, '这个连接器绑定的 Bot 已删除，请在电脑上重新选择 Bot。');
     const command = /^\/(new|stop|status|help)\s*$/i.exec(message.text.trim())?.[1]?.toLowerCase();
     if (command) return this.command(connector, message, adapter, command);
+    // A group message that is only the @mention has nothing to do.
+    if (message.isGroup && !message.text.trim() && !message.resources.length) return;
     const session = this.session(connector, message);
     if (Date.now() - message.sentAt > STALE_MS)
       await this.say(adapter, message.chatId, '刚上线，看到你之前发的消息了，现在开始处理。');
@@ -446,6 +452,7 @@ export class Connectors {
           connectorId: connector.id,
           platform: connector.platform,
           messageId: message.messageId,
+          ...(message.isGroup ? { isGroup: true } : {}),
           sender: { id: person.id, ...(record.name ? { name: record.name } : {}) },
         },
       });
@@ -471,7 +478,11 @@ export class Connectors {
       session: WorkSession = {
         id: randomUUID(),
         botId: connector.botId,
-        name: isOwner ? platform : `${platform} · ${who || message.sender.id.slice(-6)}`,
+        name: message.isGroup
+          ? `${platform} · 群聊`
+          : isOwner
+            ? platform
+            : `${platform} · ${who || message.sender.id.slice(-6)}`,
         createdAt: now,
         updatedAt: now,
         connector: {

@@ -276,7 +276,9 @@ export function PluginsPage({
                 <div>
                   <strong>{t('在飞书、企业微信或微信里和 Bot 对话')}</strong>
                   <p>
-                    {t('连接后，私聊里发的消息会交给 Bot 在这台电脑上处理，做完把结果和文件发回去。不需要公网地址。')}
+                    {t(
+                      '连接后，私聊消息会交给 Bot 在这台电脑上处理；企业微信群里 @ 它的消息也可以。做完把结果和文件发回去，不需要公网地址。',
+                    )}
                   </p>
                 </div>
                 <div className="connector-empty-platforms">

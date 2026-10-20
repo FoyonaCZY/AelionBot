@@ -192,8 +192,8 @@ export class ConnectorOutbox {
         .replace(/[^a-z0-9]/gi, '')
         .slice(0, 4)
         .toUpperCase();
-    // Approvals belong to the owner; questions go back to whoever asked for the work.
-    const chatId = request.kind === 'host_permission' ? ownerChat(connector) : tracked.chatId;
+    // Approvals and takeover prompts belong to the owner's private chat; questions go back to whoever asked.
+    const chatId = request.kind === 'user_input' ? tracked.chatId : ownerChat(connector);
     if (!chatId) return;
     const prompt: Prompt = {
       requestId: request.id,

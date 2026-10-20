@@ -49,4 +49,6 @@ export function chatInputText(message: ChatMessage, includeReply = true) {
 }
 /** Messages from a connector: the person reads the reply in an IM app, away from this computer's screen. */
 const connectorNote = (source: MessageConnectorSource) =>
-  `（这条消息来自${CONNECTOR_PLATFORM_NAMES[source.platform]}${source.sender.name ? `，发送人：${source.sender.name}` : ''}。对方在 IM 里阅读回复，看不到这台电脑的界面；回复尽量简洁，交付文件用 message_attach。）\n`;
+  `（这条消息来自${CONNECTOR_PLATFORM_NAMES[source.platform]}${source.isGroup ? '群聊' : ''}${
+    source.sender.name ? `，发送人：${source.sender.name}` : ''
+  }。${source.isGroup ? '回复会发到群里，其他成员也能看到；' : ''}对方在 IM 里阅读回复，看不到这台电脑的界面；回复尽量简洁，交付文件用 message_attach。）\n`;

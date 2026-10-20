@@ -14,6 +14,8 @@ const REPLY_WINDOW_MS = 23 * 3600_000;
 const CHUNK_BYTES = 512 * 1024;
 const IMAGE_FILE = /\.(png|jpe?g|gif)$/i;
 const LIMITS = { image: 10 * 1024 * 1024, file: 20 * 1024 * 1024 };
+/** Group text starts with the bot's @mention, which is routing rather than part of the request. */
+const GROUP_MENTION = /^(?:\s*@[^\s@]+\s+)+/u;
 
 interface Frame {
   cmd?: string;
@@ -23,6 +25,10 @@ interface Frame {
   errmsg?: string;
 }
 const requestId = (prefix: string) => `${prefix}_${Date.now()}_${randomBytes(4).toString('hex')}`;
+
+function stripGroupMention(text: string) {
+  return text.replace(GROUP_MENTION, '').trim();
+}
 
 /** Decrypts a WeCom download: AES-256-CBC, IV = first 16 key bytes, PKCS#7 padded to 32 bytes. */
 export function decryptWecomFile(data: Buffer, aesKey: string) {
@@ -172,14 +178,14 @@ export class WecomAdapter implements ConnectorAdapter {
     const quote = body.quote,
       quoted =
         quote?.msgtype === 'text' ? quote.text?.content : quote?.msgtype === 'voice' ? quote.voice?.content : undefined;
+    const isGroup = body.chattype === 'group';
     this.handlers?.message({
       messageId: String(body.msgid),
       chatId,
-      isGroup: body.chattype === 'group',
-      sender: { id: String(body.from?.userid || '') },
-      // Group messages carry the @mention of the bot; groups are ignored anyway.
-      text: texts.join('\n').trim(),
-      ...(quoted ? { quoted } : {}),
+      isGroup,
+      sender: { id: String(body.from?.userid || ''), ...(body.from?.name ? { name: String(body.from.name) } : {}) },
+      text: isGroup ? stripGroupMention(texts.join('\n')) : texts.join('\n').trim(),
+      ...(quoted ? { quoted: isGroup ? stripGroupMention(quoted) : quoted } : {}),
       resources,
       sentAt: body.create_time ? Number(body.create_time) * (Number(body.create_time) < 1e12 ? 1000 : 1) : Date.now(),
     });
@@ -258,7 +264,7 @@ export class WecomAdapter implements ConnectorAdapter {
     const reqId = this.context(chatId);
     return reqId
       ? this.request(reqId, passive, 'aibot_respond_msg')
-      : this.request(requestId('aibot_send_msg'), { chatid: chatId, chat_type: 1, ...proactive }, 'aibot_send_msg');
+      : this.request(requestId('aibot_send_msg'), { chatid: chatId, ...proactive }, 'aibot_send_msg');
   }
   async stop() {
     this.stopped = true;

@@ -2658,8 +2658,8 @@ export const en: Record<string, string> = {
     'Give Bots skills and outside tools, or let them take messages in Feishu and WeChat.',
   '在手机上给 Bot 发消息': 'Message your Bots from your phone',
   '在飞书、企业微信或微信里和 Bot 对话': 'Talk to a Bot in Feishu, WeCom or WeChat',
-  '连接后，私聊里发的消息会交给 Bot 在这台电脑上处理，做完把结果和文件发回去。不需要公网地址。':
-    'Once connected, private messages go to the Bot on this computer, and it sends the results and files back. No public address needed.',
+  '连接后，私聊消息会交给 Bot 在这台电脑上处理；企业微信群里 @ 它的消息也可以。做完把结果和文件发回去，不需要公网地址。':
+    'Once connected, private messages go to the Bot on this computer, and group @mentions work in WeCom too. It sends the results and files back, with no public address needed.',
   '飞书、企业微信或微信': 'Feishu, WeCom or WeChat',
   'MCP 服务': 'MCP servers',
   '{count} 个 · {connected} 个已连接': '{count} · {connected} connected',
