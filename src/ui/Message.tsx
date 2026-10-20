@@ -19,7 +19,7 @@ import { MessageReasoning } from '../chat/MessageReasoning';
 import { shallowEqual, sameItems } from './equality';
 import { useI18n } from '../i18n';
 import type { MessageBlock } from '../../shared/chat/message-blocks';
-import { stripBlockMarkers } from '../../shared/chat/message-blocks';
+import { stripBlockPlacements } from '../../shared/chat/message-blocks';
 import { MessageBlockContent, MessageBlocks, hasBlockMarkers } from '../chat/MessageBlocks';
 import '../chat/message-surfaces.css';
 
@@ -96,13 +96,14 @@ function MessageView({
         : readableContent(message.content)
       : readableQuestionAnswer(presentation.content);
   const hasBlocks = Boolean(blocks?.length),
-    displayContent = hasBlocks ? stripBlockMarkers(content) : content,
-    splitBlocks = hasBlocks && message.role === 'assistant' && hasBlockMarkers(content);
+    // A model may write a placement marker without storing a block; the marker is never shown.
+    displayContent = message.role === 'assistant' ? stripBlockPlacements(content) : content,
+    splitBlocks = hasBlocks && hasBlockMarkers(content);
   // A model call that only reasoned before its tool calls leaves a single disclosure line, no bubble.
   if (
     message.role === 'assistant' &&
     message.reasoning?.text &&
-    !content &&
+    !displayContent &&
     !message.attachments?.length &&
     !hasBlocks &&
     message.status !== 'running'
@@ -115,8 +116,9 @@ function MessageView({
   const images = (message.attachments || []).filter((file) => file.image || file.mime.startsWith('image/')),
     // Images sit above the bubble and other files below it. A message that is only attachments puts them in a
     // see-through bubble so hover actions (reply, pin) still have a target.
-    bare = Boolean(message.attachments?.length) && !content && !answer && !message.reply && !hasBlocks,
-    clock = bare || message.status === 'running' || !(content || answer || hasBlocks) ? '' : clockTime(message.time);
+    bare = Boolean(message.attachments?.length) && !displayContent && !answer && !message.reply && !hasBlocks,
+    clock =
+      bare || message.status === 'running' || !(displayContent || answer || hasBlocks) ? '' : clockTime(message.time);
   return (
     <>
       <MessageTime id={message.id} time={message.time} />
@@ -157,15 +159,15 @@ function MessageView({
           {message.reply && <MessageQuote reply={message.reply} />}
           {answer ? (
             <QuestionAnswerMessage answer={answer} />
-          ) : content || hasBlocks ? (
+          ) : displayContent || hasBlocks ? (
             message.role === 'assistant' ? (
               splitBlocks ? (
                 <MessageBlockContent content={content} blocks={blocks!} />
               ) : (
                 <>
-                  {content && (
+                  {displayContent && (
                     <div className="markdown">
-                      <MentionContent content={content} mentions={presentation.mentions} markdown pins={pins} />
+                      <MentionContent content={displayContent} mentions={presentation.mentions} markdown pins={pins} />
                     </div>
                   )}
                   {hasBlocks && <MessageBlocks blocks={blocks!} />}
@@ -173,7 +175,7 @@ function MessageView({
               )
             ) : (
               <>
-                <MentionContent content={content} mentions={presentation.mentions} />
+                <MentionContent content={displayContent} mentions={presentation.mentions} />
                 {/* Keeps the last line of text clear of the time in the bubble's corner. */}
                 {clock && <span className="bubble-time-gap" aria-hidden="true" />}
               </>

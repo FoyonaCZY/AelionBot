@@ -10,6 +10,7 @@ import {
   evaluateFormula,
   messageBlockSegments,
   stripBlockMarkers,
+  stripBlockPlacements,
   type CalculatorSpec,
 } from '../shared/chat/message-blocks';
 import { Store } from '../electron/core/storage/store';
@@ -163,6 +164,24 @@ test('markers interleave blocks between paragraphs and unused blocks follow the 
     ['text', 'block'],
   );
   assert.equal(stripBlockMarkers(`文字[[block:${first.id}]]`), '文字');
+});
+
+test('a marker the model named itself anchors the next stored block', () => {
+  const block = make(chart),
+    segments = messageBlockSegments('结论[[block:rates]]之后的段落', [block]);
+  assert.deepEqual(
+    segments.map((segment) => segment.kind),
+    ['text', 'block', 'text'],
+  );
+  assert.equal(segments[0].kind === 'text' ? segments[0].text : '', '结论');
+  assert.equal(segments[2].kind === 'text' ? segments[2].text : '', '之后的段落');
+});
+
+test('a placement marker without any stored block never reaches the reader', () => {
+  const segments = messageBlockSegments('正文\n\n[[block:rates]]\n\n后面', []);
+  assert.deepEqual(segments, [{ kind: 'text', text: '正文\n\n后面' }]);
+  assert.equal(stripBlockPlacements('正文\n[[block:rates]]\n后面'), '正文\n\n后面');
+  assert.equal(stripBlockPlacements('正文里的 [[block:rates]] 只是文字'), '正文里的 [[block:rates]] 只是文字');
 });
 
 test('the message_block tool stores one block on the run for the final answer', async (t) => {

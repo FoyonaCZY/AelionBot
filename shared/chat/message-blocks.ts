@@ -103,6 +103,13 @@ export const stripBlockMarkers = (content: string) =>
     .replace(BLOCK_MARKER, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+/** Placement markers stand on their own line; a marker inside a sentence is just text. */
+const PLACEMENT_MARKER = /(^|\n)[ \t]*\[\[block:[A-Za-z0-9_-]+\]\][ \t]*(?=\n|$)/g;
+export const stripBlockPlacements = (content: string) =>
+  content
+    .replace(PLACEMENT_MARKER, '$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 
 export type MessageBlockSegment = { kind: 'text'; text: string } | { kind: 'block'; block: MessageBlock };
 
@@ -111,19 +118,32 @@ export type MessageBlockSegment = { kind: 'text'; text: string } | { kind: 'bloc
  * model that forgets the marker still shows its work.
  */
 export function messageBlockSegments(content: string, blocks: MessageBlock[]): MessageBlockSegment[] {
-  if (!blocks.length) return content.trim() ? [{ kind: 'text', text: content }] : [];
+  // A model can write a marker without storing a block; never show the raw marker.
+  if (!blocks.length) {
+    const text = stripBlockPlacements(content);
+    return text ? [{ kind: 'text', text }] : [];
+  }
   const byId = new Map(blocks.map((block) => [block.id, block])),
     segments: MessageBlockSegment[] = [],
     used = new Set<string>();
+  // A marker the model named itself (`[[block:rates]]`) anchors the next stored block in order.
+  const take = (id: string) => {
+    const exact = byId.get(id);
+    if (exact) {
+      if (used.has(exact.id)) return undefined;
+      used.add(exact.id);
+      return exact;
+    }
+    const next = blocks.find((block) => !used.has(block.id));
+    if (next) used.add(next.id);
+    return next;
+  };
   let last = 0;
   for (const match of content.matchAll(BLOCK_MARKER)) {
     const text = content.slice(last, match.index);
     if (text.trim()) segments.push({ kind: 'text', text });
-    const block = byId.get(match[1]);
-    if (block) {
-      segments.push({ kind: 'block', block });
-      used.add(block.id);
-    }
+    const block = take(match[1]);
+    if (block) segments.push({ kind: 'block', block });
     last = (match.index || 0) + match[0].length;
   }
   const tail = content.slice(last);
