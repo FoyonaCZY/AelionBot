@@ -378,10 +378,12 @@
   display: flex;
   align-items: center;
   gap: 11px;
+  min-width: 0;
 }
 .connector-card-name {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
 }
 .connector-card-name .plugin-open {
   font-size: 14px;
