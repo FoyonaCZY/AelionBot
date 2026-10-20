@@ -60,6 +60,17 @@ function buildProtocolRequest(
     (message.images || []).filter((i) => visible.has(i.id)).map((i) => resolveImage(i.id));
   const native = (m: WireMessage) =>
     m.native?.protocol === protocol && m.native.key === nk ? m.native.data : undefined;
+  // DeepSeek's thinking mode reads an assistant message after the latest user input as this turn's reply and
+  // requires its reasoning. A finished answer replayed for a follow-up carries none, so it goes back as context.
+  const reasoningPassback = /deepseek/i.test(cfg.model) || /deepseek/i.test(cfg.baseUrl);
+  let lastUser = -1;
+  for (let index = 0; index < messages.length; index++) if (messages[index].role === 'user') lastUser = index;
+  const replayedAnswer = (index: number, items: unknown[]) =>
+    reasoningPassback &&
+    index > lastUser &&
+    !items.some((item: any) => item?.type === 'reasoning') &&
+    !items.some((item: any) => item?.type === 'function_call' || item?.type === 'tool_use');
+  const previousAnswer = (content: string) => '此前的回答（供继续处理，不是本轮回复）：\n' + content;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (affinityKey) {
     headers['x-session-affinity'] = affinityKey;
@@ -68,8 +79,19 @@ function buildProtocolRequest(
   const temperature = cfg.temperature === undefined ? {} : { temperature: cfg.temperature };
   if (protocol === 'chat') {
     if (key) headers.Authorization = `Bearer ${key}`;
-    const wire = messages.map((m) => {
-      const urls = images(m);
+    const wire = messages.map((m, index) => {
+      const urls = images(m),
+        restored = m.role === 'assistant' ? structuredClone(native(m) || {}) : {};
+      if (
+        m.role === 'assistant' &&
+        index > lastUser &&
+        reasoningPassback &&
+        m.content &&
+        !m.tool_calls?.length &&
+        !restored.reasoning_content &&
+        !restored.reasoning
+      )
+        return { role: 'system', content: previousAnswer(m.content) };
       return {
         role: m.role,
         content: urls.length
@@ -80,7 +102,7 @@ function buildProtocolRequest(
           : m.content,
         ...(m.tool_calls ? { tool_calls: structuredClone(m.tool_calls) } : {}),
         ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {}),
-        ...(m.role === 'assistant' ? structuredClone(native(m) || {}) : {}),
+        ...restored,
       };
     });
     return {
@@ -101,10 +123,12 @@ function buildProtocolRequest(
   if (protocol === 'responses') {
     if (key) headers.Authorization = `Bearer ${key}`;
     const input: any[] = [];
-    for (const m of messages) {
+    for (const [index, m] of messages.entries()) {
       const preserved = native(m);
       if (m.role === 'assistant' && Array.isArray(preserved)) {
-        input.push(...structuredClone(preserved));
+        if (replayedAnswer(index, preserved) && m.content)
+          input.push({ role: 'system', content: previousAnswer(m.content) });
+        else input.push(...structuredClone(preserved));
         continue;
       }
       if (m.role === 'tool') {
