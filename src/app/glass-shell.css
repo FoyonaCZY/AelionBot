@@ -638,7 +638,7 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
 
 /* Windows/Linux caption buttons sit on a native overlay; keep the strip behind them
    in the same ambient colour as the shell. */
-:is([data-platform='win32'], [data-platform='linux']) .app-shell::before {
+.app-shell:is([data-platform='win32'], [data-platform='linux'])::before {
   content: '';
   position: fixed;
   z-index: 20;
@@ -650,7 +650,7 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   pointer-events: none;
 }
 
-:root[data-theme='dark'] :is([data-platform='win32'], [data-platform='linux']) .app-shell::before {
+:root[data-theme='dark'] .app-shell:is([data-platform='win32'], [data-platform='linux'])::before {
   background: #1a1c22;
 }
 
