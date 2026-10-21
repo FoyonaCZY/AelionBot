@@ -102,7 +102,9 @@ export function FilePreviewProvider({ children }: { children: ReactNode }) {
       setSession(next ? { ...next, generation: ++generation.current } : undefined);
     };
     const transition = (document as ViewTransitionDocument).startViewTransition;
-    if (!transition || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    // Only opening or closing the panel changes the layout. Switching Bots or pages with no preview on either side
+    // must not cross-fade the whole window, or the sidebar flickers.
+    if (!transition || !current.current === !next || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
       apply();
       return;
     }
