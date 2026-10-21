@@ -1,5 +1,6 @@
 import { ROLE_NAMES, PHASE_NAMES, ACTION_NAMES } from '../../shared/games/game-boards';
 import { useI18n } from '../i18n';
+import { Select } from '../ui/Select';
 import { useEffect, useState } from 'react';
 import type { GameTrace, GameView, GameAction } from '../../shared/types/game-types';
 const labels: Record<GameTrace['type'], string> = {
@@ -320,14 +321,19 @@ export function GameDiagnostics({ game }: { game: GameView }) {
       <div className="gg-config-heading">
         <strong>{t('运行记录')}</strong>
         {allowed && (
-          <select aria-label={t('筛选玩家记录')} value={seat} onChange={(e) => setSeat(e.target.value)}>
+          <Select
+            className="wg-seat-select"
+            aria-label={t('筛选玩家记录')}
+            value={seat}
+            onChange={(e) => setSeat(e.target.value)}
+          >
             <option value="">{t('全部玩家')}</option>
             {game.seats.map((p) => (
               <option key={p.id} value={p.id}>
                 {name(p.id)}
               </option>
             ))}
-          </select>
+          </Select>
         )}
       </div>
       {!allowed ? (

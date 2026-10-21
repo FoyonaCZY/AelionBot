@@ -1793,13 +1793,69 @@
   margin-top: 8px;
   overflow-wrap: anywhere;
 }
-.wg-diagnostics select {
+.wg-diagnostics .wg-seat-select {
+  width: auto;
+  min-width: 176px;
+  min-height: 32px;
+  padding: 6px 10px;
   border: 1px solid var(--gg-line);
   border-radius: 8px;
   background: var(--gg-soft);
   color: inherit;
-  padding: 7px;
   font: inherit;
+}
+/* The shared Select keeps its own picker; in the game surfaces it keeps their compact height. */
+.gg-dialog .aelion-select,
+.gg-toolbar .aelion-select,
+.gg-preset .aelion-select,
+.gg-seat-pop .aelion-select {
+  min-height: 30px;
+}
+@supports (appearance: base-select) {
+  .wg-diagnostics .wg-seat-select::picker-icon,
+  .gg-dialog .aelion-select::picker-icon,
+  .gg-toolbar .aelion-select::picker-icon,
+  .gg-preset .aelion-select::picker-icon,
+  .gg-seat-pop .aelion-select::picker-icon {
+    background-color: var(--gg-muted);
+  }
+  .wg-diagnostics .wg-seat-select::picker(select),
+  .gg-dialog .aelion-select::picker(select),
+  .gg-toolbar .aelion-select::picker(select),
+  .gg-preset .aelion-select::picker(select),
+  .gg-seat-pop .aelion-select::picker(select) {
+    border-color: var(--gg-line);
+    background: var(--gg-panel);
+    color: inherit;
+    box-shadow: 0 12px 32px #12101a4d;
+  }
+  .wg-diagnostics .wg-seat-select option:hover,
+  .wg-diagnostics .wg-seat-select option:focus-visible,
+  .gg-dialog .aelion-select option:hover,
+  .gg-dialog .aelion-select option:focus-visible,
+  .gg-toolbar .aelion-select option:hover,
+  .gg-toolbar .aelion-select option:focus-visible,
+  .gg-preset .aelion-select option:hover,
+  .gg-preset .aelion-select option:focus-visible,
+  .gg-seat-pop .aelion-select option:hover,
+  .gg-seat-pop .aelion-select option:focus-visible {
+    background: var(--gg-soft);
+  }
+  .wg-diagnostics .wg-seat-select option:checked,
+  .gg-dialog .aelion-select option:checked,
+  .gg-toolbar .aelion-select option:checked,
+  .gg-preset .aelion-select option:checked,
+  .gg-seat-pop .aelion-select option:checked {
+    background: var(--gg-soft);
+    color: var(--gg-acc);
+  }
+  .wg-diagnostics .wg-seat-select option::checkmark,
+  .gg-dialog .aelion-select option::checkmark,
+  .gg-toolbar .aelion-select option::checkmark,
+  .gg-preset .aelion-select option::checkmark,
+  .gg-seat-pop .aelion-select option::checkmark {
+    background-color: var(--gg-acc);
+  }
 }
 .wg-record-tabs {
   display: flex;

@@ -9,6 +9,7 @@ import { PRESETS, PRESET_IDS, isPresetId, type PresetId } from '../../shared/per
 import type { ModelProvider, ModelSelection } from '../../shared/types/core';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
+import { Select } from '../ui/Select';
 import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState } from 'react';
 import './group-games.css';
@@ -278,7 +279,7 @@ export function GroupGames({
         {t('查看人格档案')}
       </button>
     ) : (
-      <select
+      <Select
         aria-label={t('{name} 的本局性格', { name: s.name })}
         value={sessionMbti[s.id] || ''}
         onChange={(e) => {
@@ -300,7 +301,7 @@ export function GroupGames({
             {type}
           </option>
         ))}
-      </select>
+      </Select>
     );
   function savePresets(next = mbtiPresets) {
     setMbtiPresets(next);
@@ -687,7 +688,7 @@ export function GroupGames({
                       <strong>{bot.name}</strong>
                       {bot.id.startsWith('guest-') && <span className="gg-tag">{t('临时')}</span>}
                     </span>
-                    <select
+                    <Select
                       aria-label={t('{name} 的 MBTI', { name: bot.name })}
                       value={mbtiPresets[bot.id] || ''}
                       className={mbtiPresets[bot.id] ? `is-${temperament(mbtiPresets[bot.id])}` : ''}
@@ -704,7 +705,7 @@ export function GroupGames({
                           {type}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                     <small>
                       {mbtiPresets[bot.id]
                         ? t(TEMPERAMENT_NOTES[temperament(mbtiPresets[bot.id])])
@@ -855,14 +856,14 @@ export function GroupGames({
                     </button>
                   ) : null}
                   <span className="gg-spacer" />
-                  <select aria-label={t('统一模型')} value={batch} onChange={(e) => setBatch(e.target.value)}>
+                  <Select aria-label={t('统一模型')} value={batch} onChange={(e) => setBatch(e.target.value)}>
                     <option value="">{t('统一模型：选择模型')}</option>
                     {options.map((o) => (
                       <option key={o.key} value={o.key}>
                         {o.label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                   <button
                     className="secondary-button"
                     disabled={!batch}
@@ -980,7 +981,7 @@ export function GroupGames({
                       </div>
                       <label>
                         {t('本局模型')}
-                        <select
+                        <Select
                           aria-label={t('{name} 的本局模型', { name: editSeat.name })}
                           value={options.some((o) => o.key === overrides[editSeat.id]) ? overrides[editSeat.id] : ''}
                           onChange={(e) => setOverrides((v) => ({ ...v, [editSeat.id]: e.target.value }))}
@@ -997,11 +998,11 @@ export function GroupGames({
                               {o.label}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       </label>
                       <label>
                         {t('本局人格')}
-                        <select
+                        <Select
                           aria-label={t('{name} 的本局人格', { name: editSeat.name })}
                           value={sessionPreset[editSeat.id] || ''}
                           onChange={(e) => {
@@ -1017,7 +1018,7 @@ export function GroupGames({
                               {PRESETS[id].name}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       </label>
                       {sessionPreset[editSeat.id] ? (
                         <p className="gg-muted gg-pop-note">{t(PRESETS[sessionPreset[editSeat.id]].summary)}</p>
