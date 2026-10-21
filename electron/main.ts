@@ -141,7 +141,20 @@ let polling = false;
 const REVEAL_MS = 3000;
 const startup = new StartupTimer();
 let exiting = false;
-if (!app.requestSingleInstanceLock()) {
+ipcMain.on('window:toggle-maximize', (event) => {
+  const target = BrowserWindow.fromWebContents(event.sender) || window;
+  if (!target) return;
+  if (target.isMaximized()) target.unmaximize();
+  else target.maximize();
+});
+// A packaged build in /Applications owns the single-instance lock. Dev builds (source, a local
+// app bundle or a DMG) may run beside it so UI work does not require quitting the installed app.
+const developmentBuild =
+  !app.isPackaged ||
+  process.env.AELION_DEV === '1' ||
+  process.argv.includes('--dev') ||
+  (process.platform === 'darwin' && !process.execPath.startsWith('/Applications/'));
+if (!developmentBuild && !app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   // Another launch while this one runs: bring its window forward, even while the page is still loading.

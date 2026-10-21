@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useRef, useState, useMemo, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import { nextPinNumber } from '../../shared/preview/preview-annotations';
 import type { PreviewAnnotation } from '../../shared/types/preview-editor-types';
 import type { AttachmentScope } from '../../shared/types/attachment-types';
@@ -61,6 +62,9 @@ interface Session {
   generation: number;
 }
 const scopeKey = (scope?: AttachmentScope) => (scope ? scope.kind + ':' + scope.id : '');
+type ViewTransitionDocument = Document & {
+  startViewTransition?: (update: () => void) => { finished: Promise<void> };
+};
 const Context = createContext<((items: PreviewItem[], index?: number, options?: PreviewOptions) => void) | undefined>(
   undefined,
 );
@@ -93,8 +97,16 @@ export function FilePreviewProvider({ children }: { children: ReactNode }) {
     marks = useRef<PreviewAnnotationControls | undefined>(undefined);
   current.current = session;
   const show = (next?: Session) => {
-    setInfo(undefined);
-    setSession(next ? { ...next, generation: ++generation.current } : undefined);
+    const apply = () => {
+      setInfo(undefined);
+      setSession(next ? { ...next, generation: ++generation.current } : undefined);
+    };
+    const transition = (document as ViewTransitionDocument).startViewTransition;
+    if (!transition || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      apply();
+      return;
+    }
+    transition.call(document, () => flushSync(apply));
   };
   const navigate = useCallback((action: () => void) => {
     if (guard.current) guard.current(action);

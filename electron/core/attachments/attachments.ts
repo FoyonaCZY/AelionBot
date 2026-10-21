@@ -353,6 +353,8 @@ export class Attachments {
     const file = this.file(id);
     if (file.mime.startsWith('image/'))
       return { kind: 'image', dataUrl: `data:${file.mime};base64,${this.bytes(id).toString('base64')}` };
+    if (file.mime.startsWith('video/'))
+      return { kind: 'video', dataUrl: `data:${file.mime};base64,${this.bytes(id).toString('base64')}` };
     if (file.mime === 'application/pdf')
       return { kind: 'pdf', dataUrl: `data:application/pdf;base64,${this.bytes(id).toString('base64')}` };
     const text = this.text(file),

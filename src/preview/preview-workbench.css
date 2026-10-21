@@ -1,11 +1,31 @@
 body:has(.fp-panel[data-layout='docked']) {
-  --preview-chat-width: 340px;
+  --preview-chat-width: 344px;
 }
 @media (min-width: 1000px) {
+  body:has(.fp-panel[data-layout='docked']) {
+    background: #f4f2f6 !important;
+  }
+
+  :root[data-theme='dark'] body:has(.fp-panel[data-layout='docked']) {
+    background: #1a1c22 !important;
+  }
+
   body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] {
     width: var(--preview-chat-width);
     min-width: 0;
+    height: 100vh;
+    padding: 52px 12px 12px;
+    background: light-dark(#f4f2f6, #1a1c22) !important;
     grid-template-columns: minmax(0, 1fr) !important;
+  }
+  body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] > .conversation {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    border: 1px solid light-dark(#e7e3ee, #ffffff14);
+    border-radius: 12px;
+    background: light-dark(#ffffff, #202024);
+    box-shadow: 0 10px 30px rgba(54, 43, 70, 0.12);
   }
   body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] > .sidebar,
   body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] > .computer-details {
@@ -102,8 +122,234 @@ body:has(.fp-panel[data-layout='docked']) {
   }
 }
 .fp-layer.is-docked {
-  width: calc(100vw - var(--preview-chat-width, 340px));
-  top: 40px;
+  top: 52px;
+  right: 12px;
+  bottom: 12px;
+  left: var(--preview-chat-width, 344px);
+  width: auto;
+  overflow: hidden;
+  border: 1px solid light-dark(#e7e3ee, #ffffff14);
+  border-radius: 12px;
+  background: var(--fp-canvas);
+  box-shadow: 0 10px 30px rgba(54, 43, 70, 0.12);
+}
+
+.fp-layer.is-docked .fp-panel {
+  border-left: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.58) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(30px) saturate(1.1);
+  -webkit-backdrop-filter: blur(30px) saturate(1.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .fp-layer.is-docked {
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(32, 30, 36, 0.48);
+  }
+
+  .fp-layer.is-docked .fp-panel {
+    background: rgba(32, 30, 36, 0.64) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+}
+
+@media (max-width: 999px) {
+  .fp-layer.is-docked {
+    inset: 0;
+    width: auto;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .fp-layer.is-docked .fp-panel {
+    border-radius: 0;
+  }
+}
+
+/* Canvas conversation rail: compact thread, not a squeezed copy of the full chat. */
+@media (min-width: 1000px) {
+  body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .chat-header {
+    height: 44px;
+    min-height: 44px;
+    padding: 6px 12px;
+    gap: 8px;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .chat-header .bot-heading {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .chat-header .bot-heading .avatar {
+    width: 24px;
+    height: 24px;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .chat-header .bot-heading strong {
+    overflow: hidden;
+    font-size: 12.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .chat-header .bot-heading strong::after {
+    content: ' · 画布';
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 400;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .chat-header .session-heading {
+    display: none;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .chat-header .header-actions {
+    display: none;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .messages::before {
+    content: '画布对话 · 最近消息';
+    display: block;
+    padding: 1px 2px 9px;
+    color: var(--text-muted);
+    font-size: 10px;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .messages {
+    padding: 10px 12px 14px;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .message-row {
+    margin: 9px 0;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .message-row:not(:last-child) .markdown {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .bubble {
+    padding: 8px 10px;
+    border-radius: 14px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .composer {
+    border-radius: 13px;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .composer-workspace,
+  body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .permission-mode,
+  body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .context-usage-slot {
+    display: none !important;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .composer-bottom {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .composer-tools {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Designer tasks use their own workspace, not ConversationPane. Keep the same compact
+     canvas rail when their preview is docked. */
+  body:has(.fp-panel[data-layout='docked']) .designer-workspace {
+    background: light-dark(#ffffff, #202024) !important;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .designer-workspace .designer-header {
+    height: 44px;
+    min-height: 44px;
+    padding: 6px 12px;
+    gap: 8px;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .designer-workspace .designer-identity {
+    display: none;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .designer-workspace .designer-header,
+  body:has(.fp-panel[data-layout='docked']) .designer-workspace .designer-thread,
+  body:has(.fp-panel[data-layout='docked']) .designer-workspace .designer-task-composer {
+    background: light-dark(#ffffff, #202024) !important;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .designer-workspace .designer-identity .avatar {
+    width: 24px;
+    height: 24px;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .designer-workspace .designer-identity strong {
+    overflow: hidden;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .designer-workspace .designer-thread {
+    padding: 10px 12px 14px;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .designer-workspace .designer-thread::before {
+    content: '画布对话 · 最近消息';
+    display: block;
+    padding: 1px 2px 9px;
+    color: var(--text-muted);
+    font-size: 10px;
+  }
+
+  body:has(.fp-panel[data-layout='docked'])
+    .designer-workspace
+    .designer-thread
+    .message-row:not(:last-child)
+    .markdown {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .designer-workspace .designer-thread .message-row {
+    margin: 9px 0;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .designer-workspace .designer-thread .bubble {
+    padding: 8px 10px;
+    border-radius: 14px;
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .designer-workspace .designer-activity {
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 11px;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .designer-workspace .designer-task-composer {
+    padding: 8px;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .designer-workspace .designer-task-composer .composer-workspace,
+  body:has(.fp-panel[data-layout='docked']) .designer-workspace .designer-task-composer .permission-mode {
+    display: none !important;
+  }
+
+  body:has(.fp-panel[data-layout='docked']) .preview-bot-switcher {
+    display: none !important;
+  }
 }
 .preview-bot-switcher {
   height: 40px;

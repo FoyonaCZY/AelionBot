@@ -21,6 +21,7 @@ const subscribe =
   };
 const api: AelionAPI = {
   ...invoke,
+  toggleWindowZoom: () => ipcRenderer.send('window:toggle-maximize'),
   games: {
     inspect: (input) => ipcRenderer.invoke(GAME_CHANNELS.inspect, input),
     create: (input) => ipcRenderer.invoke(GAME_CHANNELS.create, input),

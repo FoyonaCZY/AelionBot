@@ -1,0 +1,637 @@
+/*
+ * Frosted container surfaces for the app shell. This file intentionally only touches the
+ * surfaces that hold each existing block: sidebar, conversation column, floating cards and
+ * the docked preview. Their internal layout and controls keep their existing styles.
+ */
+.app-shell {
+  background:
+    radial-gradient(1100px 720px at 4% -4%, #f0e3fb 0, transparent 58%),
+    radial-gradient(1000px 700px at 100% 6%, #e4eff8 0, transparent 60%), linear-gradient(135deg, #f7f4fa, #eef1f6) !important;
+}
+
+.app-shell > .sidebar,
+.app-shell > .conversation,
+.app-shell > .plugins-page,
+.app-shell > .computer-details {
+  -webkit-app-region: no-drag;
+}
+
+/* Give the main chat room floating panels with the same 12px rhythm as the docked canvas.
+   The docked-preview layout already supplies its own 12px seam, so it is excluded. */
+body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] {
+  padding: 52px 12px 12px;
+  gap: 12px;
+}
+
+/* The main screen uses the same top/bottom rhythm as the docked preview cards. */
+body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > .sidebar,
+body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > .conversation {
+  min-height: 0;
+  height: 100%;
+}
+
+/* The chat header is a small floating bar at the top-left, not a full-width strip. */
+body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > .conversation > .chat-header {
+  position: absolute;
+  z-index: 6;
+  top: 12px;
+  left: 12px;
+  width: auto;
+  max-width: calc(100% - 24px);
+  height: auto;
+  min-height: 40px;
+  margin: 0;
+  padding: 5px 10px;
+  border: 1px solid light-dark(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  background: light-dark(rgba(255, 255, 255, 0.76), rgba(42, 38, 49, 0.78));
+  box-shadow:
+    0 8px 20px rgba(54, 43, 70, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+}
+
+body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > .conversation {
+  position: relative;
+}
+
+body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > .conversation > .messages {
+  padding-top: 68px;
+}
+
+body:not(:has(.fp-panel[data-layout='docked']))
+  .app-shell[data-page='chat']
+  > .conversation
+  > .chat-header
+  .header-actions {
+  gap: 8px;
+}
+
+.app-shell[data-page='chat'] > .sidebar,
+.app-shell[data-page='chat'] > .conversation {
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.app-shell > .sidebar {
+  background: light-dark(#ffffff, #25232a) !important;
+  border-right-color: light-dark(rgba(233, 229, 239, 0.9), rgba(255, 255, 255, 0.08)) !important;
+  box-shadow: none !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.app-shell > .conversation {
+  background: rgba(255, 255, 255, 0.64) !important;
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.38) !important;
+  backdrop-filter: blur(30px) saturate(1.08);
+  -webkit-backdrop-filter: blur(30px) saturate(1.08);
+}
+
+.app-shell[data-page='chat'] > .sidebar {
+  background: light-dark(#ffffff, #25232a) !important;
+  border-right-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* The sidebar and the conversation are the same kind of floating card on the main screen. */
+body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > :is(.sidebar, .conversation) {
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  box-shadow:
+    0 16px 36px rgba(54, 43, 70, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+}
+
+:root[data-theme='dark']
+  body:not(:has(.fp-panel[data-layout='docked']))
+  .app-shell[data-page='chat']
+  > :is(.sidebar, .conversation) {
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 16px 36px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.app-shell[data-platform='darwin'] .sidebar .sidebar-top {
+  min-height: 44px !important;
+  padding: 0 19px 6px !important;
+}
+
+.app-shell > .sidebar :is(.bot-item, .session-item, .group-item) {
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.app-shell > .sidebar :is(.bot-item, .session-item, .group-item).selected {
+  box-shadow: 0 3px 10px rgba(54, 43, 70, 0.07);
+}
+
+.app-shell > .sidebar :is(.bot-item, .session-item, .group-item):hover {
+  box-shadow: 0 6px 16px rgba(54, 43, 70, 0.1);
+}
+
+.app-shell > .sidebar :is(.bot-item, .session-item, .group-item):not(.selected):hover {
+  background: light-dark(rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.06));
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell > .sidebar :is(.bot-item, .session-item, .group-item) {
+    transition: none;
+  }
+
+  .app-shell > .sidebar :is(.bot-item, .session-item, .group-item):not(.selected):hover {
+    transform: none;
+  }
+}
+
+/* Opening or closing a docked preview is one surface change: cross-fade the old and new
+   layout instead of swapping the chat rail and panel abruptly. */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) {
+    animation: aelion-view-out 170ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+
+  ::view-transition-new(root) {
+    animation: aelion-view-in 200ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+}
+
+@keyframes aelion-view-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes aelion-view-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Preview layout morph: the conversation column narrows into the docked rail while the
+   preview panel grows out from the centre of the remaining space. */
+.app-shell > .conversation {
+  view-transition-name: conversation;
+}
+
+.app-shell > .sidebar {
+  view-transition-name: sidebar;
+}
+
+.fp-panel {
+  view-transition-name: preview;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-group(conversation) {
+    animation-duration: 380ms;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  ::view-transition-group(sidebar) {
+    animation-duration: 280ms;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  ::view-transition-group(preview) {
+    animation-duration: 380ms;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  ::view-transition-old(conversation),
+  ::view-transition-new(conversation) {
+    animation-duration: 300ms;
+  }
+
+  ::view-transition-old(sidebar) {
+    animation: aelion-sidebar-out 240ms ease both;
+  }
+
+  ::view-transition-new(sidebar) {
+    animation: aelion-sidebar-in 300ms 70ms ease both;
+  }
+
+  ::view-transition-new(preview) {
+    animation: aelion-preview-in 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    transform-origin: center;
+  }
+
+  ::view-transition-old(preview) {
+    animation: aelion-preview-out 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    transform-origin: center;
+  }
+}
+
+@keyframes aelion-sidebar-out {
+  to {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+}
+
+@keyframes aelion-sidebar-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+}
+
+@keyframes aelion-preview-in {
+  from {
+    opacity: 0;
+    transform: scale(0.93);
+  }
+}
+
+@keyframes aelion-preview-out {
+  to {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+/* Frosted controls: search, the composer and the small selectors inside it share one
+   restrained glass treatment (translucent fill, soft rim and a light inner highlight). */
+.app-shell .search,
+.app-shell .composer,
+.app-shell .composer-workspace,
+.app-shell .permission-mode > .aelion-select,
+.app-shell .bot-model-button,
+.app-shell .chat-search,
+.app-shell .new-conversation-menu,
+.settings-modal :is(.plugins-search, .provider-model-search, .usage-search, .design-search) {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(247, 244, 251, 0.68)) !important;
+  border: 1px solid light-dark(rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.16)) !important;
+  box-shadow:
+    0 8px 22px rgba(54, 43, 70, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -1px 0 rgba(54, 43, 70, 0.03) !important;
+  backdrop-filter: blur(26px) saturate(1.32);
+  -webkit-backdrop-filter: blur(26px) saturate(1.32);
+}
+
+.app-shell .search:hover,
+.app-shell .composer-workspace:hover,
+.app-shell .permission-mode > .aelion-select:not(:disabled):hover,
+.app-shell .bot-model-button:hover,
+.app-shell .chat-search:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 251, 0.82)) !important;
+  border-color: light-dark(rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.24)) !important;
+}
+
+:root[data-theme='dark'] .app-shell .search,
+:root[data-theme='dark'] .app-shell .composer,
+:root[data-theme='dark'] .app-shell .composer-workspace,
+:root[data-theme='dark'] .app-shell .permission-mode > .aelion-select,
+:root[data-theme='dark'] .app-shell .bot-model-button,
+:root[data-theme='dark'] .app-shell .chat-search,
+:root[data-theme='dark'] .app-shell .new-conversation-menu,
+:root[data-theme='dark'] .settings-modal :is(.plugins-search, .provider-model-search, .usage-search, .design-search) {
+  background: linear-gradient(135deg, rgba(61, 55, 69, 0.84), rgba(38, 34, 44, 0.74)) !important;
+}
+
+:root[data-theme='dark'] .app-shell .search:hover,
+:root[data-theme='dark'] .app-shell .composer-workspace:hover,
+:root[data-theme='dark'] .app-shell .permission-mode > .aelion-select:not(:disabled):hover,
+:root[data-theme='dark'] .app-shell .bot-model-button:hover,
+:root[data-theme='dark'] .app-shell .chat-search:hover {
+  background: linear-gradient(135deg, rgba(70, 63, 79, 0.9), rgba(44, 39, 51, 0.82)) !important;
+}
+
+.app-shell .composer {
+  border-radius: 14px;
+  backdrop-filter: blur(30px) saturate(1.38);
+  -webkit-backdrop-filter: blur(30px) saturate(1.38);
+}
+
+.app-shell .composer-workspace,
+.app-shell .permission-mode > .aelion-select {
+  border-radius: 10px;
+}
+
+.app-shell .search {
+  border-radius: 10px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.app-shell .search input {
+  border: 0 !important;
+  outline: 0;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.app-shell .chat-search,
+.settings-modal :is(.plugins-search, .provider-model-search, .usage-search, .design-search) {
+  border-radius: 9px;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .app-shell .search,
+  .app-shell .composer,
+  .app-shell .composer-workspace,
+  .app-shell .permission-mode > .aelion-select,
+  .app-shell .bot-model-button,
+  .app-shell .chat-search,
+  .app-shell .new-conversation-menu,
+  .settings-modal :is(.plugins-search, .provider-model-search, .usage-search, .design-search) {
+    background: light-dark(#ffffff, #25232a) !important;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* The plugins page follows the same floating-card grammar as the chat and preview. */
+.app-shell[data-page='plugins'] {
+  padding: 52px 12px 12px;
+  gap: 12px;
+}
+
+.app-shell[data-page='plugins'] > .sidebar,
+.app-shell[data-page='plugins'] > .plugins-page {
+  min-height: 0;
+  border: 1px solid rgba(255, 255, 255, 0.66);
+  border-radius: 14px;
+  background: light-dark(#ffffff, #202024) !important;
+  box-shadow:
+    0 16px 36px rgba(54, 43, 70, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72) !important;
+}
+
+.app-shell[data-page='plugins'] > .plugins-page {
+  overflow: auto;
+}
+
+.plugins-page .plugins-search,
+.plugins-page .connector-card,
+.plugins-page .mcp-list,
+.plugins-page .skill-card,
+.plugins-page .plugins-add-menu {
+  border-color: light-dark(rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.12)) !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(247, 244, 251, 0.7)) !important;
+  box-shadow:
+    0 8px 22px rgba(54, 43, 70, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86) !important;
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+}
+
+:root[data-theme='dark'] .app-shell[data-page='plugins'] > .sidebar,
+:root[data-theme='dark'] .app-shell[data-page='plugins'] > .plugins-page {
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 16px 36px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+:root[data-theme='dark'] .plugins-page .plugins-search,
+:root[data-theme='dark'] .plugins-page .connector-card,
+:root[data-theme='dark'] .plugins-page .mcp-list,
+:root[data-theme='dark'] .plugins-page .skill-card,
+:root[data-theme='dark'] .plugins-page .plugins-add-menu {
+  background: linear-gradient(135deg, rgba(61, 55, 69, 0.84), rgba(38, 34, 44, 0.74)) !important;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .plugins-page .plugins-search,
+  .plugins-page .connector-card,
+  .plugins-page .mcp-list,
+  .plugins-page .skill-card,
+  .plugins-page .plugins-add-menu {
+    background: light-dark(#ffffff, #29262f) !important;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+.app-shell[data-page='chat'] > .conversation {
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  box-shadow:
+    0 16px 36px rgba(54, 43, 70, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+}
+
+.app-shell > .computer-details {
+  background: transparent !important;
+}
+
+.app-shell > .computer-details > .computer-card,
+.app-shell > .computer-details > .design-canvas-card {
+  background: rgba(255, 255, 255, 0.58) !important;
+  border: 1px solid rgba(255, 255, 255, 0.62) !important;
+  box-shadow:
+    0 16px 36px rgba(54, 43, 70, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(26px) saturate(1.12);
+  -webkit-backdrop-filter: blur(26px) saturate(1.12);
+}
+
+:root[data-theme='dark'] .app-shell {
+  background:
+    radial-gradient(1100px 720px at 4% -4%, #352a44 0, transparent 58%),
+    radial-gradient(1000px 700px at 100% 6%, #1f333f 0, transparent 60%), linear-gradient(135deg, #201d25, #1a1c22) !important;
+}
+
+:root[data-theme='dark'] .app-shell > .sidebar {
+  background: rgba(36, 33, 42, 0.58) !important;
+  border-right-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+:root[data-theme='dark'] .app-shell > .conversation {
+  background: rgba(32, 29, 38, 0.64) !important;
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+:root[data-theme='dark'] .app-shell > .computer-details > .computer-card,
+:root[data-theme='dark'] .app-shell > .computer-details > .design-canvas-card {
+  background: rgba(40, 36, 47, 0.62) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow:
+    0 16px 36px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.app-shell .composer-add-menu {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(247, 244, 251, 0.8)) !important;
+  border: 1px solid light-dark(rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.14)) !important;
+  box-shadow:
+    0 16px 36px rgba(54, 43, 70, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(24px) saturate(1.28);
+  -webkit-backdrop-filter: blur(24px) saturate(1.28);
+}
+
+:root[data-theme='dark'] .app-shell .composer-add-menu {
+  background: linear-gradient(135deg, rgba(61, 55, 69, 0.94), rgba(38, 34, 44, 0.86)) !important;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .modal-backdrop.settings-backdrop {
+    animation: settings-backdrop-in 180ms ease both;
+  }
+}
+
+.modal.settings-modal {
+  background: light-dark(#f4f4f5, #1f1d23) !important;
+  border: 1px solid light-dark(#ffffff, #ffffff14) !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.settings-modal .settings-rail {
+  background: light-dark(#ffffff, #25232a) !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.settings-modal :is(.settings-card, .settings-me) {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(247, 244, 251, 0.68)) !important;
+  border-color: light-dark(rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.12)) !important;
+  box-shadow:
+    0 8px 22px rgba(54, 43, 70, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82) !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ModelSelectionFields renders its own settings-card inside a settings page card.
+   Flatten that inner card so the page card remains the only surface. */
+.settings-modal .settings-card .settings-card,
+.bot-profile-modal .settings-card .settings-card {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Model assignment: the outer .model-assignment-panel is the card. Its inner
+   .settings-card is only a layout wrapper and must stay transparent. */
+.settings-modal .model-assignment-panel .settings-card {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Provider workspace: one outer card; the browser, selected row and editor are
+   content inside it, not separate cards. */
+.settings-modal .provider-workspace {
+  background: light-dark(#ffffff, #25232a) !important;
+  box-shadow: 0 0 0 1px light-dark(#ececef, #3a3541) !important;
+}
+
+.settings-modal .provider-workspace .provider-browser,
+.settings-modal .provider-workspace .provider-editor {
+  background: transparent !important;
+}
+
+.settings-modal .provider-browser-item.is-selected {
+  background: light-dark(#efe9f7, #3b3148) !important;
+  box-shadow: none !important;
+}
+
+.modal.bot-profile-modal {
+  background: light-dark(#ffffff, #25232a) !important;
+  border: 1px solid rgba(255, 255, 255, 0.86) !important;
+  border-radius: 18px;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:root[data-theme='dark'] .modal.settings-modal,
+:root[data-theme='dark'] .modal.bot-profile-modal {
+  background: light-dark(#f4f4f5, #1f1d23) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+:root[data-theme='dark'] .settings-modal .settings-rail {
+  background: #25232a !important;
+}
+
+:root[data-theme='dark'] .settings-modal :is(.settings-card, .settings-me) {
+  background: linear-gradient(135deg, rgba(61, 55, 69, 0.82), rgba(38, 34, 44, 0.72)) !important;
+}
+
+@keyframes settings-backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.window-drag-strip {
+  position: fixed;
+  z-index: 8;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 52px;
+  -webkit-app-region: no-drag;
+  user-select: none;
+}
+
+body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
+  display: none;
+}
+
+/* Cards are the glass layer; fields inside stay flat so they do not stack a second and
+   third translucent surface on top of the card. */
+.settings-modal
+  :is(
+    .settings-field,
+    .settings-row input:not([type='checkbox'], [type='radio'], [type='range'], .aelion-combobox-input)
+  ),
+.bot-profile-modal .settings-field {
+  background: light-dark(#ffffff, #2b2831) !important;
+  border-color: light-dark(#e4e2e8, #4a4452) !important;
+  box-shadow: none !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Keep the native select layer and arrow; only flatten its fill. */
+.settings-modal .settings-row .aelion-select,
+.bot-profile-modal .aelion-select {
+  background-color: light-dark(#ffffff, #2b2831) !important;
+  border-color: light-dark(#e4e2e8, #4a4452) !important;
+  box-shadow: none !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* EditableSelect is an input plus an arrow button, not an .aelion-select. */
+.bot-profile-modal .editable-select input,
+.settings-modal .model-selection-fields .editable-select input {
+  background: light-dark(#ffffff, #2b2831) !important;
+  border: 1px solid light-dark(#e4e2e8, #4a4452) !important;
+  border-radius: 9px;
+  box-shadow: none !important;
+}
+
+/* Settings content: one flat canvas and flat controls, without card-inside-card
+   surfaces or repeated translucent fills. */
+.settings-modal
+  :is(
+    .provider-workspace,
+    .provider-browser,
+    .provider-editor,
+    .model-assignment-panel,
+    .model-assignment-panel .settings-card,
+    .settings-card
+  ),
+.bot-profile-modal .settings-card {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

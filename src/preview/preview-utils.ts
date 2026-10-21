@@ -8,6 +8,7 @@ export function previewKind(name: string) {
   if (['ppt', 'pptx', 'odp'].includes(ext)) return '演示文稿';
   if (['html', 'htm'].includes(ext)) return '网页';
   if (['png', 'jpg', 'jpeg', 'svg', 'gif', 'webp', 'bmp', 'avif'].includes(ext)) return '图片';
+  if (['mp4', 'm4v', 'mov', 'webm', 'ogv'].includes(ext)) return '视频';
   return '文档';
 }
 export function csvRows(text: string) {

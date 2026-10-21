@@ -250,7 +250,18 @@ print(json.dumps(files,ensure_ascii=False))`;
       '.bmp': 'image/bmp',
       '.avif': 'image/avif',
     };
+    const videoTypes: Record<string, string> = {
+      '.mp4': 'video/mp4',
+      '.m4v': 'video/x-m4v',
+      '.mov': 'video/quicktime',
+      '.webm': 'video/webm',
+      '.ogv': 'video/ogg',
+    };
     const isText = !imageTypes[extension] && sourceTextFile(path);
+    if (videoTypes[extension]) {
+      const bytes = await this.read(botId, path, 30 * 1024 * 1024);
+      return { kind: 'video', dataUrl: `data:${videoTypes[extension]};base64,${bytes.toString('base64')}` };
+    }
     if (!isText && !imageTypes[extension] && extension !== '.pdf') return { kind: 'unsupported' };
     const bytes = await this.read(botId, path, isText ? 2 * 1024 * 1024 : 15 * 1024 * 1024);
     if (imageTypes[extension])

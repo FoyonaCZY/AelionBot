@@ -1,4 +1,5 @@
 import './conversation-chrome.css';
+import './glass-shell.css';
 // Import order below decides the order of the bundled stylesheets (the cascade), so keep it when editing.
 import { usePreviewWorkbench } from '../preview/PreviewWorkbench';
 import { useAgentPreview } from '../preview/use-agent-preview';
@@ -324,6 +325,11 @@ function AppContent() {
     >
       <BotAvatarProvider bots={state.bots}>
         <div className="app-shell" data-platform={state.platform} data-page={page}>
+          <div
+            className="window-drag-strip"
+            aria-hidden="true"
+            onDoubleClick={() => window.aelion.toggleWindowZoom()}
+          />
           <Sidebar
             state={state}
             page={page}

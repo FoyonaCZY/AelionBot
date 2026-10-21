@@ -86,6 +86,14 @@ export function PreviewContent({
     );
   }
   if (value.kind === 'image') return <ImagePreview src={value.dataUrl!} name={item.name} />;
+  if (value.kind === 'video')
+    return (
+      <div className="fp-video-stage">
+        <video src={value.dataUrl} controls playsInline preload="metadata" aria-label={item.name}>
+          {t('当前环境无法播放此视频，可保存原文件后查看。')}
+        </video>
+      </div>
+    );
   if (value.kind === 'pdf')
     return (
       <Suspense

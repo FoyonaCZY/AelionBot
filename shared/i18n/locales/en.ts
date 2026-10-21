@@ -753,6 +753,8 @@ export const en: Record<string, string> = {
   '保存后，继续查看': 'Save it to continue viewing',
   '此格式暂不支持直接预览，可保存到本机打开。':
     'This format cannot be previewed directly; save it and open it locally.',
+  '当前环境无法播放此视频，可保存原文件后查看。':
+    'This video cannot be played here; save the original file to view it.',
   '预览内容已截断，可保存原文件查看全部内容。': 'The preview is truncated; save the original file to view all content.',
   未保存的修改: 'Unsaved changes',
   '要保存修改吗？': 'Save your changes?',

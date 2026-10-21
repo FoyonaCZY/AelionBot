@@ -161,7 +161,7 @@ export interface Artifact {
   urlLocation?: 'host' | 'vm';
 }
 export interface ArtifactPreview {
-  kind: 'text' | 'markdown' | 'html' | 'image' | 'pdf' | 'web' | 'unsupported';
+  kind: 'text' | 'markdown' | 'html' | 'image' | 'video' | 'pdf' | 'web' | 'unsupported';
   web?: import('../preview/web-preview').WebPreviewSource;
   content?: string;
   dataUrl?: string;
@@ -478,6 +478,7 @@ export interface CommandResult {
 }
 export interface AelionAPI {
   games: GameAPI;
+  toggleWindowZoom(): void;
   designSystem(id: string): Promise<import('./designer-types').DesignSystemDetail>;
   createDesignSession(
     input: import('./designer-types').DesignSessionInput,

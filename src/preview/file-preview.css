@@ -266,6 +266,25 @@
   line-height: 1.8;
   overflow-wrap: anywhere;
 }
+.fp-video-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 24px;
+  background: light-dark(#f3f2f0, #111214);
+}
+.fp-video-stage video {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 10px;
+  background: #000;
+  box-shadow: 0 12px 32px #0003;
+}
 .fp-loading {
   width: 24px;
   height: 24px;
