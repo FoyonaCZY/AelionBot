@@ -314,6 +314,12 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > :
   border-radius: 10px;
 }
 
+.app-shell .bot-model-button {
+  border-radius: 8px;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
 .app-shell .search {
   border-radius: 10px;
   overflow: hidden;
@@ -494,10 +500,8 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > :
 
 .settings-modal :is(.settings-card, .settings-me) {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(247, 244, 251, 0.68)) !important;
-  border-color: light-dark(rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.12)) !important;
-  box-shadow:
-    0 8px 22px rgba(54, 43, 70, 0.07),
-    inset 0 1px 0 rgba(255, 255, 255, 0.82) !important;
+  border-color: transparent !important;
+  box-shadow: var(--glass-float-sm) !important;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -636,6 +640,19 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   -webkit-backdrop-filter: none;
 }
 
+/* Menus launched from the sidebar must escape its rounded card instead of being
+   clipped into a narrow strip. */
+.app-shell > .sidebar {
+  position: relative;
+  z-index: 20;
+  overflow: visible !important;
+}
+
+.app-shell .new-conversation-menu {
+  z-index: 120;
+  min-width: 190px;
+}
+
 /* Windows/Linux caption buttons sit on a native overlay; keep the strip behind them
    in the same ambient colour as the shell. */
 .app-shell:is([data-platform='win32'], [data-platform='linux'])::before {
@@ -659,8 +676,7 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
 :root[data-theme='dark'] .app-shell {
   background:
     radial-gradient(1100px 720px at 4% -4%, #30253d 0, transparent 58%),
-    radial-gradient(1000px 700px at 100% 6%, #172b35 0, transparent 60%),
-    linear-gradient(135deg, #151419, #191a20) !important;
+    radial-gradient(1000px 700px at 100% 6%, #172b35 0, transparent 60%), linear-gradient(135deg, #151419, #191a20) !important;
 }
 
 :root[data-theme='dark'] .app-shell > .sidebar {
@@ -729,4 +745,327 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
+}
+
+/* Dark mode: a neutral near-black frame with clearly separated cards and high-contrast
+   message surfaces instead of several near-identical charcoal layers. */
+:root[data-theme='dark'] {
+  --conversation-canvas: #1b1920;
+  --conversation-edge: #1b1920;
+  --bubble-surface: #2f2b37;
+  --bubble-chip: #28242f;
+  --bubble-block: #24212a;
+}
+
+:root[data-theme='dark'] .app-shell {
+  background:
+    radial-gradient(1000px 640px at 0% -8%, #2b2435 0, transparent 58%),
+    radial-gradient(900px 620px at 100% 0%, #17262d 0, transparent 58%), linear-gradient(135deg, #101014, #18171d) !important;
+}
+
+:root[data-theme='dark'] .app-shell > .sidebar {
+  background: #17151c !important;
+  border-color: #302b37 !important;
+}
+
+:root[data-theme='dark'] .app-shell > .conversation {
+  background: #201d25 !important;
+  border-color: #38323f !important;
+}
+
+:root[data-theme='dark'] .app-shell .messages {
+  background: #1b1920 !important;
+}
+
+:root[data-theme='dark'] .app-shell .message-row .markdown {
+  color: #f2eef6;
+}
+
+:root[data-theme='dark'] .app-shell .message-row.assistant .bubble {
+  background: #2f2b37 !important;
+  border: 1px solid #403a49 !important;
+  box-shadow: 0 1px 0 #ffffff0a inset !important;
+}
+
+:root[data-theme='dark'] .app-shell .message-row.user .bubble {
+  background: #403557 !important;
+  border: 1px solid #5a4b73 !important;
+  color: #fbf8ff;
+}
+
+:root[data-theme='dark'] .app-shell .message-time,
+:root[data-theme='dark'] .app-shell .bubble-time {
+  color: #a9a2b4 !important;
+}
+
+:root[data-theme='dark'] .app-shell .composer {
+  background: #28242f !important;
+  border-color: #423b4c !important;
+  box-shadow:
+    0 10px 26px #0000003d,
+    inset 0 1px 0 #ffffff0d !important;
+}
+
+:root[data-theme='dark'] .app-shell .sidebar .search {
+  background: #24212a !important;
+  border-color: #3c3646 !important;
+}
+
+:root[data-theme='dark'] .app-shell .computer-details > .computer-card,
+:root[data-theme='dark'] .app-shell .computer-details > .design-canvas-card {
+  background: #24212a !important;
+  border-color: #39343f !important;
+}
+
+/* Material system.
+   - Main cards (sidebar, conversation, plugins page, right-hand cards) are solid and lift off
+     the window with a two-layer shadow. Nothing sits behind them except the window, so blur
+     would have nothing to show.
+   - Glass is reserved for layers that float over app content: the chat header and composer
+     (messages scroll under them), menus and the settings modal. They use a strong blur,
+     raised saturation and a faint grain, with no border or rim.
+   - Controls inside a glass layer are flat tinted fills; nesting backdrop-filter adds cost
+     without adding anything visible.
+   - The window background carries a few soft colour fields so the gaps between cards and the
+     area under dialogs have some depth. */
+:root {
+  --ambient-base: #f4f2f6;
+  --ambient-a: rgba(196, 170, 238, 0.42);
+  --ambient-b: rgba(160, 206, 232, 0.4);
+  --ambient-c: rgba(240, 190, 214, 0.3);
+  --card-solid: #ffffff;
+  --card-shadow: 0 1px 2px rgba(42, 32, 58, 0.05), 0 18px 40px -16px rgba(42, 32, 58, 0.16);
+  --glass-tint: linear-gradient(180deg, rgba(255, 255, 255, 0.74), rgba(250, 248, 253, 0.6));
+  --glass-tint-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(249, 247, 252, 0.84));
+  --glass-blur: blur(28px) saturate(1.7) brightness(1.04);
+  --glass-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --glass-float: 0 1px 2px rgba(42, 32, 58, 0.06), 0 14px 34px -10px rgba(42, 32, 58, 0.2);
+  --glass-float-sm: 0 1px 2px rgba(42, 32, 58, 0.05), 0 4px 12px -4px rgba(42, 32, 58, 0.14);
+  --glass-focus: 0 0 0 2px rgba(139, 107, 234, 0.32);
+  --chip-fill: rgba(92, 72, 132, 0.07);
+  --chip-fill-hover: rgba(92, 72, 132, 0.12);
+}
+
+:root[data-theme='dark'] {
+  --ambient-base: #141318;
+  --ambient-a: rgba(118, 84, 186, 0.3);
+  --ambient-b: rgba(44, 112, 140, 0.26);
+  --ambient-c: rgba(150, 70, 120, 0.18);
+  --card-solid: #1d1b22;
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 22px 48px -18px rgba(0, 0, 0, 0.7);
+  --glass-tint: linear-gradient(180deg, rgba(46, 42, 56, 0.66), rgba(32, 29, 40, 0.58));
+  --glass-tint-strong: linear-gradient(180deg, rgba(42, 38, 50, 0.88), rgba(30, 28, 36, 0.84));
+  --glass-blur: blur(28px) saturate(1.5) brightness(1.08);
+  --glass-float: 0 1px 2px rgba(0, 0, 0, 0.36), 0 16px 38px -10px rgba(0, 0, 0, 0.62);
+  --glass-float-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 14px -4px rgba(0, 0, 0, 0.5);
+  --glass-focus: 0 0 0 2px rgba(167, 139, 250, 0.42);
+  --chip-fill: rgba(255, 255, 255, 0.07);
+  --chip-fill-hover: rgba(255, 255, 255, 0.12);
+  --conversation-canvas: #1d1b22;
+  --conversation-edge: #1d1b22;
+}
+
+/* Window background: soft colour fields that stay clear of the caption strip at the top. */
+.app-shell,
+:root[data-theme='dark'] .app-shell {
+  background:
+    linear-gradient(180deg, var(--ambient-base) 0, transparent 120px),
+    radial-gradient(900px 620px at 6% 18%, var(--ambient-a), transparent 62%),
+    radial-gradient(860px 600px at 96% 30%, var(--ambient-b), transparent 62%),
+    radial-gradient(760px 520px at 48% 108%, var(--ambient-c), transparent 64%), var(--ambient-base) !important;
+}
+
+.app-shell:is([data-platform='win32'], [data-platform='linux'])::before,
+:root[data-theme='dark'] .app-shell:is([data-platform='win32'], [data-platform='linux'])::before {
+  background: var(--ambient-base) !important;
+}
+
+/* Main cards: solid, borderless, lifted by shadow. */
+.app-shell[data-page] > :is(.sidebar, .conversation, .plugins-page),
+body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > :is(.sidebar, .conversation),
+:root[data-theme='dark']
+  body:not(:has(.fp-panel[data-layout='docked']))
+  .app-shell[data-page='chat']
+  > :is(.sidebar, .conversation),
+:root[data-theme='dark'] .app-shell[data-page] > :is(.sidebar, .conversation, .plugins-page),
+:root[data-theme='dark'] .app-shell > :is(.sidebar, .conversation),
+.app-shell > .computer-details > :is(.computer-card, .design-canvas-card),
+:root[data-theme='dark'] .app-shell > .computer-details > :is(.computer-card, .design-canvas-card) {
+  border-color: transparent !important;
+  background: var(--card-solid) !important;
+  box-shadow: var(--card-shadow) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* The conversation card and its message canvas are one surface. */
+.app-shell[data-page] > .conversation,
+body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > .conversation,
+:root[data-theme='dark'] .app-shell[data-page] > .conversation,
+:root[data-theme='dark'] .app-shell > .conversation {
+  background: var(--conversation-canvas) !important;
+}
+
+:root[data-theme='dark'] .app-shell .messages {
+  background: var(--conversation-canvas) !important;
+}
+
+/* Floating glass: header and composer over the message list, menus over content. */
+.app-shell > .conversation > .chat-header,
+body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > .conversation > .chat-header,
+:root[data-theme='dark'] .app-shell > .conversation > .chat-header,
+.app-shell .composer,
+.floating-composer .composer,
+:root[data-theme='dark'] .app-shell .composer {
+  border-color: transparent !important;
+  background: var(--glass-grain), var(--glass-tint) !important;
+  box-shadow: var(--glass-float) !important;
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+}
+
+.app-shell :is(.new-conversation-menu, .composer-add-menu),
+:root[data-theme='dark'] .app-shell :is(.new-conversation-menu, .composer-add-menu),
+.plugins-page .plugins-add-menu,
+:root[data-theme='dark'] .plugins-page .plugins-add-menu {
+  border-color: transparent !important;
+  background: var(--glass-grain), var(--glass-tint-strong) !important;
+  box-shadow: var(--glass-float) !important;
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+}
+
+.app-shell .composer:focus-within,
+.floating-composer .composer:focus-within {
+  box-shadow: var(--glass-float), var(--glass-focus) !important;
+}
+
+/* Controls inside cards and glass layers: flat tinted fills, no blur, no rim. */
+.app-shell :is(.search, .chat-search, .composer-workspace, .permission-mode > .aelion-select, .bot-model-button),
+:root[data-theme='dark']
+  .app-shell
+  :is(
+    .search,
+    .sidebar .search,
+    .chat-search,
+    .composer-workspace,
+    .permission-mode > .aelion-select,
+    .bot-model-button
+  ),
+.settings-modal :is(.plugins-search, .provider-model-search, .usage-search, .design-search),
+:root[data-theme='dark'] .settings-modal :is(.plugins-search, .provider-model-search, .usage-search, .design-search),
+.plugins-page .plugins-search,
+:root[data-theme='dark'] .plugins-page .plugins-search {
+  border-color: transparent !important;
+  background: var(--chip-fill) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.app-shell :is(.search, .chat-search, .composer-workspace, .bot-model-button):hover,
+.app-shell .permission-mode > .aelion-select:not(:disabled):hover,
+:root[data-theme='dark'] .app-shell :is(.search, .chat-search, .composer-workspace, .bot-model-button):hover,
+:root[data-theme='dark'] .app-shell .permission-mode > .aelion-select:not(:disabled):hover {
+  border-color: transparent !important;
+  background: var(--chip-fill-hover) !important;
+}
+
+.app-shell .search:focus-within,
+.app-shell .chat-search:focus-within {
+  box-shadow: var(--glass-focus) !important;
+}
+
+/* Plugin cards sit on the solid plugins page: a light fill and a small lift. */
+.plugins-page :is(.connector-card, .mcp-list, .skill-card),
+:root[data-theme='dark'] .plugins-page :is(.connector-card, .mcp-list, .skill-card) {
+  border-color: transparent !important;
+  background: light-dark(#faf9fc, #25222b) !important;
+  box-shadow: var(--glass-float-sm) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Message bubbles separate by fill alone. */
+.app-shell .message-row .bubble,
+:root[data-theme='dark'] .app-shell .message-row .bubble,
+:root[data-theme='dark'] .app-shell .message-row.assistant .bubble,
+:root[data-theme='dark'] .app-shell .message-row.user .bubble {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Dialogs: the backdrop dims (it used to lighten in dark mode), and the settings and bot
+   profile modals are frosted panels over it. */
+:root[data-theme='dark'] .modal-backdrop {
+  background: rgba(6, 5, 10, 0.55);
+}
+
+.modal.settings-modal,
+.modal.bot-profile-modal,
+:root[data-theme='dark'] .modal.settings-modal,
+:root[data-theme='dark'] .modal.bot-profile-modal {
+  border-color: transparent !important;
+  background: var(--glass-grain), var(--glass-tint-strong) !important;
+  box-shadow: var(--card-shadow) !important;
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+}
+
+.settings-modal .settings-rail,
+:root[data-theme='dark'] .settings-modal .settings-rail {
+  background: light-dark(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.03)) !important;
+  border-right-color: transparent !important;
+}
+
+.settings-modal .provider-workspace,
+:root[data-theme='dark'] .settings-modal .provider-workspace {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Fields read by their fill and show a focus ring when active. */
+.settings-modal
+  :is(
+    .settings-field,
+    .settings-row input:not([type='checkbox'], [type='radio'], [type='range'], .aelion-combobox-input),
+    .settings-row .aelion-select,
+    .editable-select input,
+    .aelion-select
+  ),
+.bot-profile-modal :is(.settings-field, .aelion-select, .editable-select input),
+:root[data-theme='dark']
+  .settings-modal
+  :is(
+    .settings-field,
+    .settings-row input:not([type='checkbox'], [type='radio'], [type='range'], .aelion-combobox-input),
+    .settings-row .aelion-select,
+    .editable-select input,
+    .aelion-select
+  ) {
+  border-color: transparent !important;
+  background-color: light-dark(rgba(92, 72, 132, 0.07), rgba(255, 255, 255, 0.07)) !important;
+}
+
+.settings-modal
+  :is(
+    .settings-field,
+    .settings-row input:not([type='checkbox'], [type='radio'], [type='range'], .aelion-combobox-input),
+    .settings-row .aelion-select,
+    .editable-select input,
+    .aelion-select
+  ):focus-visible,
+.bot-profile-modal :is(.settings-field, .aelion-select, .editable-select input):focus-visible {
+  outline: none;
+  box-shadow: var(--glass-focus) !important;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .app-shell :is(.chat-header, .composer, .new-conversation-menu, .composer-add-menu),
+  .plugins-page .plugins-add-menu,
+  .modal:is(.settings-modal, .bot-profile-modal) {
+    background: var(--card-solid) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
 }

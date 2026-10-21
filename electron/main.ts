@@ -1119,7 +1119,7 @@ async function initialize() {
     window.setBackgroundColor(dark ? '#202024' : '#ffffff');
     if (process.platform !== 'darwin' && !appearanceDimmed)
       window.setTitleBarOverlay({
-        color: dark ? '#1a1c22' : '#f4f2f6',
+        color: dark ? '#141318' : '#f4f2f6',
         symbolColor: dark ? '#eeeaf2' : '#555555',
         height: 38,
       });
