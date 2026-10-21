@@ -158,7 +158,6 @@ test('a manual connector pairs its first sender as owner, then routes their mess
     peer: { id: 'owner', name: '小周' },
   });
   assert.deepEqual(modes, [{ sessionId: session.id, mode: 'ask' }]);
-  assert.equal(connectors.sessionLocked(session.id), true);
 
   // The owner can talk to the Bot in a group; the session is tied to the group chat, while approvals stay private.
   adapter.receive({ text: '群里问一句', isGroup: true, chatId: 'group-1' });
@@ -172,7 +171,6 @@ test('a manual connector pairs its first sender as owner, then routes their mess
     peer: { id: 'owner', name: '小周' },
   });
   assert.equal(sent[1].message, '群里问一句');
-  assert.equal(connectors.sessionLocked(groupSession.id), true);
   assert.equal(
     connectors.saved.data.connectors[0].owner?.chatId,
     'chat-owner',
@@ -204,7 +202,6 @@ test('a manual connector pairs its first sender as owner, then routes their mess
   );
   await connectors.remove(id);
   assert.equal(session.connector, undefined, 'removing a connector leaves its sessions as ordinary ones');
-  assert.equal(connectors.sessionLocked(session.id), false);
 });
 
 test('group messages only reach the Bot on WeCom, which pushes them for @mentions', async (t) => {

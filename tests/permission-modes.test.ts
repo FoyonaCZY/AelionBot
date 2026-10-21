@@ -140,6 +140,29 @@ const command = (cwd: string): HostPermissionDetails => ({
   reason: '验证项目构建',
 });
 
+test('a work session keeps its own mode even when it equals the default', async (t) => {
+  const f = fixture(t),
+    session = {
+      id: 'session-1',
+      botId: f.bot.id,
+      name: '工作会话',
+      createdAt: f.run.startedAt,
+      updatedAt: f.run.startedAt,
+    };
+  (f.store.data.workSessions ||= []).push(session);
+  f.run.sessionId = session.id;
+  f.service.set({ kind: 'bot', id: f.bot.id, sessionId: session.id }, 'auto');
+  assert.equal(f.store.data.hostPermissionModes?.['session:' + session.id], 'auto');
+  f.service.set({ kind: 'bot', id: f.bot.id }, 'full');
+  assert.equal(
+    f.service.modeFor({ runId: f.run.id, botId: f.bot.id } as HostPermissionRequest),
+    'auto',
+    'the work session does not follow the main chat',
+  );
+  f.service.set({ kind: 'bot', id: f.bot.id, sessionId: session.id }, 'ask');
+  assert.equal(f.service.modeFor({ runId: f.run.id, botId: f.bot.id } as HostPermissionRequest), 'ask');
+});
+
 test('every-time mode ignores saved command grants and requires a decision for every request', async (t) => {
   const f = fixture(t),
     details = command(f.project);

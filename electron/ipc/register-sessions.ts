@@ -26,6 +26,12 @@ export function registerSessions(ctx: IpcContext) {
     const now = new Date().toISOString();
     const session: WorkSession = { id: randomUUID(), botId: bot.id, name, createdAt: now, updatedAt: now };
     (ctx.store.data.workSessions ||= []).push(session);
+    // A work session starts from the Bot's current mode but keeps its own copy, so changing the main chat later
+    // does not change this session.
+    ctx.hostApprovals.set(
+      { kind: 'bot', id: bot.id, sessionId: session.id },
+      ctx.hostApprovals.modeForScope({ kind: 'bot', id: bot.id }),
+    );
     if (workspaceDir)
       setConversationWorkspace(ctx.store, ctx.host, { kind: 'bot', id: bot.id, sessionId: session.id }, workspaceDir);
     ctx.store.save();

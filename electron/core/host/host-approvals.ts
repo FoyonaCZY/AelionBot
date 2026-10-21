@@ -75,7 +75,23 @@ export class HostApprovals implements HostApprovalPolicy {
       /** Parses a PowerShell command into a syntax tree (Windows); compound read-only queries then need no model. */
       parsePowerShell?: (command: string) => Promise<PsParse>;
     },
-  ) {}
+  ) {
+    this.decoupleWorkSessions();
+  }
+  /** Existing sessions get their own mode once, so a later change in the Bot's main chat cannot move them. */
+  private decoupleWorkSessions() {
+    const modes = this.store.data.hostPermissionModes || {},
+      next = { ...modes };
+    let changed = false;
+    for (const session of this.store.data.workSessions || []) {
+      if (session.connector) continue;
+      const key = `session:${session.id}`;
+      if (next[key] !== undefined) continue;
+      next[key] = modes[`bot:${session.botId}`] || DEFAULT_HOST_PERMISSION_MODE;
+      changed = true;
+    }
+    if (changed) this.store.replaceData({ ...this.store.data, hostPermissionModes: next });
+  }
   /**
    * Whose mode decides a request: the Bot's, set in its main chat, or a work session's once that session has been
    * given one (projects can differ in trust). Group work always follows the Bot's.
@@ -96,23 +112,35 @@ export class HostApprovals implements HostApprovalPolicy {
     );
   }
   modeFor(request: HostPermissionRequest): HostPermissionMode {
-    const mode =
-      this.store.data.hostPermissionModes?.[workspaceKey(this.scopeFor(request))] ?? DEFAULT_HOST_PERMISSION_MODE;
+    return this.modeForScope(this.scopeFor(request));
+  }
+  /** A scope's own mode, or the default when the scope has never been set. */
+  modeForScope(scope: AttachmentScope): HostPermissionMode {
+    const mode = this.store.data.hostPermissionModes?.[workspaceKey(scope)] ?? DEFAULT_HOST_PERMISSION_MODE;
     return mode === 'auto' || mode === 'full' ? mode : 'ask';
+  }
+  hasSessionMode(sessionId: string) {
+    return this.store.data.hostPermissionModes?.[`session:${sessionId}`] !== undefined;
   }
   set(scope: AttachmentScope, mode: HostPermissionMode) {
     if (scope?.kind !== 'bot') throw new AppError('permission.scope_invalid', '请在 Bot 主会话或工作会话设置本机权限');
     assertWorkspaceScope(this.store, scope);
     if (!['ask', 'auto', 'full'].includes(mode)) throw new AppError('permission.mode_invalid', '无效权限模式');
     const key = workspaceKey(scope),
-      previous = this.store.data.hostPermissionModes?.[key] ?? DEFAULT_HOST_PERMISSION_MODE;
+      previous = this.store.data.hostPermissionModes?.[key];
+    // An unset scope is not the same as one explicitly set to the default: write it so it stops following another scope.
     if (previous === mode) return false;
     this.store.replaceData({
       ...this.store.data,
       hostPermissionModes: { ...this.store.data.hostPermissionModes, [key]: mode },
     });
     try {
-      this.store.journal('permissions.mode', { scope, previous, mode, actor: 'user' });
+      this.store.journal('permissions.mode', {
+        scope,
+        previous: previous ?? DEFAULT_HOST_PERMISSION_MODE,
+        mode,
+        actor: 'user',
+      });
     } catch {}
     return true;
   }

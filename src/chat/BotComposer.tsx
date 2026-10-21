@@ -159,7 +159,6 @@ export function BotComposer({
   workspaceDir,
   workspaceInherited,
   permissionMode,
-  permissionLocked = false,
   contextOverview,
   contextCapacity,
   requestMetrics,
@@ -188,8 +187,6 @@ export function BotComposer({
   workspaceDir?: string;
   workspaceInherited?: boolean;
   permissionMode?: HostPermissionMode;
-  /** The conversation follows a connector's permission mode, set on the Plugins page. */
-  permissionLocked?: boolean;
   onChange: (draft: ComposerDraft) => void;
   onSend: () => void;
   onStop: () => void;
@@ -829,7 +826,7 @@ export function BotComposer({
                 }
               />
             </span>
-            <PermissionModePicker scope={scope} mode={permissionMode} locked={permissionLocked} />
+            <PermissionModePicker scope={scope} mode={permissionMode} />
           </>
         )}
         {running && hasContent && (

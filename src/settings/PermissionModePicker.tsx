@@ -13,12 +13,9 @@ import './permission-modes.css';
 export function PermissionModePicker({
   scope,
   mode = DEFAULT_HOST_PERMISSION_MODE,
-  locked = false,
 }: {
   scope: AttachmentScope;
   mode?: HostPermissionMode;
-  /** Shown but not changed here: a connector session follows its connector's mode. */
-  locked?: boolean;
 }) {
   const { t } = useI18n();
   const [pending, setPending] = useState(false),
@@ -39,13 +36,9 @@ export function PermissionModePicker({
     <div className={`permission-mode permission-mode-${current.id}`}>
       <Select
         aria-label={t('本机权限模式')}
-        title={
-          locked
-            ? `${t(current.label)} · ${t('跟随连接器，在“插件 → 连接器”里修改')}`
-            : `${t('当前会话')} · ${t(current.description)}`
-        }
+        title={`${t('当前会话')} · ${t(current.description)}`}
         value={current.id}
-        disabled={pending || locked}
+        disabled={pending}
         onChange={(event) => void change(event.target.value as HostPermissionMode)}
       >
         {HOST_PERMISSION_MODES.map((item) => (

@@ -1,5 +1,4 @@
 import { dialog } from 'electron';
-import { AppError } from '../../shared/errors';
 import { respondToInteraction } from '../core/agent/interactions';
 import { assertWorkspaceScope, conversationWorkspace, setConversationWorkspace } from '../core/storage/workspaces';
 import type { IpcContext } from './context';
@@ -14,8 +13,6 @@ export function registerWorkspace(ctx: IpcContext) {
     return respondToInteraction(ctx.interactions, ctx.computer, input);
   });
   handle('setHostPermissionMode', (input) => {
-    if (ctx.connectors?.sessionLocked(input?.scope?.sessionId))
-      throw new AppError('permission.connector_session', '这个会话的权限跟随连接器，请在“插件 → 连接器”里修改');
     if (ctx.hostApprovals.set(input?.scope, input?.mode)) ctx.interactions.refreshHostPolicy();
     ctx.changed();
   });

@@ -186,7 +186,7 @@ export function ConnectorDetails({
           <label>
             <span>
               {t('本机权限')}
-              <small>{t('这个连接器的所有会话都用这个模式')}</small>
+              <small>{t('修改后会同步到这个连接器的所有会话；单个会话仍可再调整')}</small>
             </span>
             <Select
               value={connector.permissionMode}

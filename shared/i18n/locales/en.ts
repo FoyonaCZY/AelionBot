@@ -2697,6 +2697,8 @@ export const en: Record<string, string> = {
   配对码: 'Pairing code',
   收到的消息交给它处理: 'Messages received go to this Bot',
   这个连接器的所有会话都用这个模式: 'Every chat of this connector uses this mode',
+  '修改后会同步到这个连接器的所有会话；单个会话仍可再调整':
+    'Changes apply to every chat of this connector; each chat can still be adjusted separately.',
   可以使用的人: 'People who can use it',
   '主人 · 审批卡片发给主人': 'Owner · approval cards go to the owner',
   第一个发消息并被你允许的人会成为主人: 'The first person who writes and is allowed by you becomes the owner',

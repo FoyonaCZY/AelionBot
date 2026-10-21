@@ -136,7 +136,7 @@ Telegram 长轮询、Slack Socket Mode、Discord Gateway 也不需要公网地�
 | 插件页 | `src/settings/PluginsPage.tsx` 只有技能和 MCP，偏好存在 `~/.aelion/integrations.json`（`electron/core/extensions/integrations.ts`） | 新增“连接器”分类 |
 | 输入入口 | `ChatPinQueue.send` / `schedule`（`electron/core/agent/chat-pins.ts`）写入消息并按通道排队。主聊天和每个工作会话各一条通道，可以并发；新输入会让同一通道里正在运行的任务让路 | 外部消息走同一入口 |
 | 工作会话 | `WorkSession` 有独立的历史、上下文、文件夹、权限和定时任务 | 一个外部私聊对应一个工作会话 |
-| 权限模式 | `hostPermissionModes`，键是 `bot:<id>` 或 `session:<id>`。`HostApprovals.scopeFor` 规定：会话设过自己的模式就用自己的，否则跟随 Bot 主会话 | 连接器会话改为跟随连接器 |
+| 权限模式 | `hostPermissionModes`，键是 `bot:<id>` 或 `session:<id>`。`HostApprovals.scopeFor` 规定：会话设过自己的模式就用自己的，否则跟随 Bot 主会话 | 每个工作会话都保存自己的模式；连接器设置同步到它的会话，单个会话仍可再调整 |
 | 流式文本 | `ReplyStreams`（`electron/core/agent/reply-streams.ts`）按 100 ms 节流，只有一个全局 `onEmit` | 需要加按运行订阅的接口 |
 | 最终答复 | `presentation: 'answer'` 的 assistant 消息；`message_attach` 把文件挂在最终答复上 | 回推内容的来源 |
 | 运行收尾 | `Harness.finishRun` 是运行唯一的收尾点 | 在这里发 `runFinished` 事件 |
@@ -228,8 +228,8 @@ Bot 能在本机执行命令、读写文件。连接器等于在 IM 里开了一
 - **群聊**：不做。群消息丢弃；飞书扫码创建时也不申请群消息权限。
 - **权限模式**：
   - 插件页按连接器选择（每次询问 / 自动审批 / 完全访问），新建时默认自动审批。
-  - 存成连接器配置的 `permissionMode`。`HostApprovals.scopeFor` 增加一条规则：会话带 `connector` 时，由连接器的模式决定。
-  - 桌面端在这些会话里的权限选择器只显示，不能修改；提示在插件页修改。这样只有一处设置，不会两边不一致。
+  - 存成连接器配置的 `permissionMode`；建会话时写入该会话自己的权限，升级时也会给缺少模式的会话补齐连接器模式。
+  - 连接器的模式会同步到它的所有会话；桌面端仍允许单独修改某个会话，修改只影响该会话。
 - **远程审批**：允许，见第八节。只提供“允许一次”和“拒绝”，不提供“总是允许”，长期规则仍在桌面端设置。
 - **Computer Use 和接管**：远程触发时不弹出“允许 Bot 使用你的屏幕”的确认，直接回复“需要在电脑前处理”。
 - **数据外发**：答复和附件会经过飞书或企微的服务器，添加连接器时提示一次。附件上传前检查大小，超过平台限制就改成文字说明。

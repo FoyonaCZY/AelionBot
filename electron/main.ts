@@ -873,6 +873,7 @@ async function initialize() {
     setPermission: (botId, sessionId, mode) => {
       if (hostApprovals.set({ kind: 'bot', id: botId, sessionId }, mode)) interactions.refreshHostPolicy();
     },
+    hasPermission: (sessionId) => hostApprovals.hasSessionMode(sessionId),
     interactions,
     changed: () => {
       changed();

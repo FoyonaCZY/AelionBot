@@ -46,6 +46,8 @@ export interface ConnectorDeps {
   cancel(botId: string, sessionId: string): void;
   isRunning(botId: string, sessionId: string): boolean;
   setPermission(botId: string, sessionId: string, mode: HostPermissionMode): void;
+  /** Whether a session already has its own mode; the connector default fills only the missing ones. */
+  hasPermission?(sessionId: string): boolean;
   interactions: OutboxHost['interactions'];
   changed(): void;
   lark(): LarkSdk;
@@ -90,7 +92,12 @@ export class Connectors {
     });
   }
   start() {
-    for (const connector of this.saved.data.connectors) if (connector.enabled) this.connect(connector);
+    for (const connector of this.saved.data.connectors) {
+      for (const session of this.sessions(connector.id))
+        if (!this.deps.hasPermission?.(session.id))
+          this.deps.setPermission(session.botId, session.id, connector.permissionMode);
+      if (connector.enabled) this.connect(connector);
+    }
   }
   snapshot(): ConnectorsView {
     return {
@@ -114,11 +121,6 @@ export class Connectors {
     this.saved.data.keepRunning = enabled;
     this.saved.save();
     this.deps.changed();
-  }
-  /** Connector sessions take their permission mode from the connector, so the app does not set it per session. */
-  sessionLocked(sessionId: string | undefined) {
-    const session = sessionId ? this.deps.store.data.workSessions?.find((item) => item.id === sessionId) : undefined;
-    return Boolean(session?.connector && this.saved.get(session.connector.connectorId));
   }
   wrapRun(botId: string, options: HarnessRunOptions, start: (options: HarnessRunOptions) => Promise<void>) {
     return this.outbox.wrapRun(botId, options, start);
