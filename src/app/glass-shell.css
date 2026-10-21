@@ -635,3 +635,98 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+
+/* Windows/Linux caption buttons sit on a native overlay; keep the strip behind them
+   in the same ambient colour as the shell. */
+:is([data-platform='win32'], [data-platform='linux']) .app-shell::before {
+  content: '';
+  position: fixed;
+  z-index: 20;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 38px;
+  background: #f4f2f6;
+  pointer-events: none;
+}
+
+:root[data-theme='dark'] :is([data-platform='win32'], [data-platform='linux']) .app-shell::before {
+  background: #1a1c22;
+}
+
+/* Dark mode needs real surface separation instead of relying on near-black
+   translucent layers for every card and field. */
+:root[data-theme='dark'] .app-shell {
+  background:
+    radial-gradient(1100px 720px at 4% -4%, #30253d 0, transparent 58%),
+    radial-gradient(1000px 700px at 100% 6%, #172b35 0, transparent 60%),
+    linear-gradient(135deg, #151419, #191a20) !important;
+}
+
+:root[data-theme='dark'] .app-shell > .sidebar {
+  background: #1c1a21 !important;
+  border-color: #37323f !important;
+}
+
+:root[data-theme='dark'] .app-shell > .conversation {
+  background: #211f27 !important;
+  border-color: #39343f !important;
+}
+
+:root[data-theme='dark'] .app-shell > .conversation > .chat-header {
+  background: rgba(42, 38, 49, 0.94) !important;
+  border-color: #443d4d !important;
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+:root[data-theme='dark'] .app-shell[data-page='plugins'] > .plugins-page {
+  background: #1b1a20 !important;
+}
+
+:root[data-theme='dark'] .app-shell .message-row .bubble {
+  background: #2c2933 !important;
+  border-color: #413b4a !important;
+  color: #ece8f1;
+}
+
+:root[data-theme='dark'] .app-shell .sidebar .bot-item.selected,
+:root[data-theme='dark'] .app-shell .sidebar .session-item.selected,
+:root[data-theme='dark'] .app-shell .sidebar .group-item.selected {
+  background: rgba(139, 107, 234, 0.18) !important;
+}
+
+:root[data-theme='dark'] .modal.settings-modal {
+  background: #17161c !important;
+  border-color: #39343f !important;
+}
+
+:root[data-theme='dark'] .settings-modal .settings-rail {
+  background: #211f27 !important;
+  border-right-color: #39343f !important;
+}
+
+:root[data-theme='dark']
+  .settings-modal
+  :is(
+    .settings-field,
+    .settings-row input:not([type='checkbox'], [type='radio'], [type='range'], .aelion-combobox-input),
+    .settings-row .aelion-select,
+    .editable-select input,
+    .aelion-select
+  ) {
+  background-color: #2d2a34 !important;
+  border-color: #4a4452 !important;
+  color: #f1edf5 !important;
+}
+
+:root[data-theme='dark'] .settings-modal :is(.settings-row > span, .settings-note) {
+  color: #b9b2c4 !important;
+}
+
+:root[data-theme='dark'] .settings-modal .model-assignment-panel .settings-card {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}

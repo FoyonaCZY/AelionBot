@@ -1040,7 +1040,7 @@ async function initialize() {
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
     ...(process.platform === 'darwin'
       ? { trafficLightPosition: { x: 18, y: 18 } }
-      : { titleBarOverlay: { color: '#f7f7f7', symbolColor: '#555555', height: 38 } }),
+      : { titleBarOverlay: { color: '#f4f2f6', symbolColor: '#555555', height: 38 } }),
     webPreferences: {
       preload: join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
@@ -1119,7 +1119,7 @@ async function initialize() {
     window.setBackgroundColor(dark ? '#202024' : '#ffffff');
     if (process.platform !== 'darwin' && !appearanceDimmed)
       window.setTitleBarOverlay({
-        color: dark ? '#25232a' : '#f7f7f7',
+        color: dark ? '#1a1c22' : '#f4f2f6',
         symbolColor: dark ? '#eeeaf2' : '#555555',
         height: 38,
       });
