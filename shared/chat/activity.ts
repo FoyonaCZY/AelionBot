@@ -455,6 +455,27 @@ export function runSteps(messages: ChatMessage[], options: { finalId?: string; e
   }
   return steps;
 }
+/**
+ * What the run transcript shows. While the run works every text output stays visible; only older tool rows fold
+ * behind a count so a long run cannot push the composer away. Once the run ends the transcript is closed unless
+ * the reader opened it.
+ */
+export function visibleRunSteps(
+  steps: RunStep[],
+  options: { running: boolean; expanded: boolean; toolLimit?: number },
+): { steps: RunStep[]; hiddenTools: number } {
+  if (!options.running && !options.expanded) return { steps: [], hiddenTools: 0 };
+  if (options.expanded) return { steps, hiddenTools: 0 };
+  const limit = Math.max(0, options.toolLimit ?? 8),
+    tools = steps.filter((step) => step.kind === 'tool'),
+    hiddenTools = Math.max(0, tools.length - limit);
+  if (!hiddenTools) return { steps, hiddenTools: 0 };
+  const kept = new Set(tools.slice(-limit).map((step) => step.id));
+  return {
+    steps: steps.filter((step) => step.kind !== 'tool' || kept.has(step.id)),
+    hiddenTools,
+  };
+}
 /** Wall-clock time of a finished run, or undefined while it runs or when timestamps are missing. */
 export function runDurationMs(run?: RunRecord) {
   if (!run?.endedAt) return;

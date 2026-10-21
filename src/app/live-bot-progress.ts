@@ -1,12 +1,10 @@
-import { liveBotStep, toolOperation, type LiveBotStep } from '../../shared/chat/activity';
+import { liveBotStep, type LiveBotStep } from '../../shared/chat/activity';
 import type { ChatMessage, InteractionRequest, RunRecord } from '../../shared/types/core';
 import { translate } from '../../shared/i18n';
 
 export interface LiveBotProgress extends LiveBotStep {
   runId?: string;
   description?: string;
-  receipt?: string;
-  recent?: Array<{ id: string; time: string; label: string }>;
   since?: string;
   waitingOn?: 'model' | 'tool' | 'stream' | 'output';
   retry?: boolean;
@@ -22,26 +20,7 @@ export function liveBotProgress(
   const executions = (run?.executions || []).filter((e) => e.runId === run?.id && e.botId === run?.botId);
   const base = liveBotStep(messages, run ? { ...run, executions } : undefined, waiting, reviewing);
   if (!base || !run) return;
-  const recent = executions
-    .filter((e) => e.status === 'succeeded' && e.endedAt && !batch(e.tool))
-    .sort((a, b) => Date.parse(a.endedAt!) - Date.parse(b.endedAt!))
-    .slice(-3)
-    .map((e) => ({
-      id: e.id,
-      time: e.endedAt!,
-      label: translate('已完成：{label}', { label: toolOperation(e.tool).label }),
-    }));
-  // Older runs may have only committed tool messages. Never count both sources.
-  if (!executions.length)
-    for (const m of messages
-      .filter((m) => m.runId === run.id && m.role === 'tool' && m.status === 'done' && !batch(m.tool || ''))
-      .slice(-3))
-      recent.push({
-        id: m.id,
-        time: m.time,
-        label: translate('已返回：{label}', { label: toolOperation(m.tool).label }),
-      });
-  const common = { ...base, runId: run.id, recent, receipt: recent.at(-1)?.label };
+  const common = { ...base, runId: run.id };
   if (reviewing) return { ...common, description: translate('正在审核操作权限。') };
   if (waiting)
     return {

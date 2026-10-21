@@ -1,9 +1,11 @@
-import { memo, useEffect, useId, useRef, useState } from 'react';
-import type { ChatMessage } from '../../shared/types/core';
-import { readableContent, toolDisplay, toolResult, type RunStep } from '../../shared/chat/activity';
+import { memo, useContext, useEffect, useId, useRef, useState } from 'react';
+import type { Bot, ChatMessage } from '../../shared/types/core';
+import { readableContent, toolDisplay, toolResult, visibleRunSteps, type RunStep } from '../../shared/chat/activity';
 import { stepMeta } from './tool-details-model';
 import { AttachmentList } from '../files/Attachments';
+import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
+import { MessageAvatarContext } from '../ui/Message';
 import { MentionContent } from '../ui/MentionContent';
 import { MessageReasoning, useReasoningDisplay } from './MessageReasoning';
 import { ToolDetails } from './ToolDetails';
@@ -13,8 +15,6 @@ import { shallowEqual } from '../ui/equality';
 import { REVEAL_MESSAGE_EVENT } from './reveal-message';
 import './run-process.css';
 
-/** Steps kept visible while a run is working and the list is not expanded. */
-const LIVE_TAIL = 3;
 /** Fired by chat search so a folded run opens before the view scrolls to one of its messages. */
 
 const diffCounts = (diff: NonNullable<ChatMessage['diff']>) => ({
@@ -99,17 +99,32 @@ function ToolStep({ message }: { message: ChatMessage }) {
   );
 }
 
-function NoteStep({ message }: { message: ChatMessage }) {
+function NoteBubble({
+  message,
+  avatar,
+  showAvatar,
+}: {
+  message: ChatMessage;
+  avatar?: Pick<Bot, 'id' | 'name' | 'color' | 'avatarStyle'>;
+  showAvatar: boolean;
+}) {
   const content = readableContent(message.content);
   return (
-    <li className="run-step run-step-note" data-message-id={message.id}>
-      {content && (
-        <div className="markdown">
-          <MentionContent content={content} mentions={message.mentions} markdown />
-        </div>
+    <div className="run-note" data-message-id={message.id}>
+      {showAvatar && avatar && (
+        <span className="run-note-avatar" aria-hidden="true">
+          <Avatar bot={avatar} size={30} />
+        </span>
       )}
-      <AttachmentList files={message.attachments} />
-    </li>
+      <div className="bubble run-note-bubble">
+        {content && (
+          <div className="markdown">
+            <MentionContent content={content} mentions={message.mentions} markdown />
+          </div>
+        )}
+        <AttachmentList files={message.attachments} />
+      </div>
+    </div>
   );
 }
 
@@ -121,20 +136,28 @@ const durationLabel = (t: ReturnType<typeof useI18n>['t'], ms: number) => {
 };
 
 /**
- * Everything a run did before its answer, folded into one line once the run ends. While the run works the newest
- * steps stay visible so progress is readable without the history growing without bound.
+ * Everything a run did before its answer. While it works the transcript stays open and talks in bubbles; once the
+ * answer arrives the transcript folds into one line and only opens on request.
  */
-type RunProcessProps = { steps: RunStep[]; running: boolean; durationMs?: number };
+type RunProcessProps = {
+  steps: RunStep[];
+  running: boolean;
+  durationMs?: number;
+  /** A final answer follows in its own bubble, so no transcript bubble needs the avatar. */
+  answerFollows?: boolean;
+};
 export const RunProcess = memo(
   RunProcessView,
   (a: RunProcessProps, b: RunProcessProps) =>
     a.running === b.running &&
     a.durationMs === b.durationMs &&
+    a.answerFollows === b.answerFollows &&
     a.steps.length === b.steps.length &&
     a.steps.every((step, index) => shallowEqual(step, b.steps[index])),
 );
-function RunProcessView({ steps: allSteps, running, durationMs }: RunProcessProps) {
+function RunProcessView({ steps: allSteps, running, durationMs, answerFollows = false }: RunProcessProps) {
   const { t } = useI18n();
+  const avatar = useContext(MessageAvatarContext);
   const reasoning = useReasoningDisplay(),
     steps = reasoning === 'hidden' ? allSteps.filter((step) => step.kind !== 'reasoning') : allSteps;
   const [expanded, setExpanded] = useState(false);
@@ -155,8 +178,10 @@ function RunProcessView({ steps: allSteps, running, durationMs }: RunProcessProp
     return () => window.removeEventListener(REVEAL_MESSAGE_EVENT, reveal);
   }, [ids]);
   if (!steps.length) return null;
-  const visible = expanded ? steps : running ? steps.slice(-LIVE_TAIL) : [],
-    hidden = steps.length - visible.length;
+  const transcript = visibleRunSteps(steps, { running, expanded }),
+    lastNote = [...steps].reverse().find((step) => step.kind === 'note')?.id,
+    // While working the newest text bubble carries the avatar; once the answer exists the answer carries it.
+    avatarNote = answerFollows ? undefined : lastNote;
   const summary = running
     ? t('正在处理 · {count} 个步骤', { count: steps.length })
     : durationMs !== undefined
@@ -164,34 +189,38 @@ function RunProcessView({ steps: allSteps, running, durationMs }: RunProcessProp
       : t('处理过程 · {count} 个步骤', { count: steps.length });
   return (
     <div className={`run-process ${running ? 'is-running' : ''} ${expanded ? 'is-expanded' : ''}`}>
-      <button
-        type="button"
-        className="run-process-toggle"
-        aria-expanded={expanded}
-        aria-controls={visible.length ? listId : undefined}
-        aria-label={`${summary} · ${t(expanded ? '收起处理过程' : '展开处理过程')}`}
-        onClick={() => setExpanded(!expanded)}
-      >
-        <span className="run-process-mark">
-          {running ? <span className="run-step-spinner" /> : <Icon name="layers" size={13} />}
-        </span>
-        <span className="run-process-summary">{summary}</span>
-        <Icon name="chevron" size={12} />
-      </button>
-      {visible.length > 0 && (
-        <ol className="run-process-steps" id={listId}>
-          {hidden > 0 && (
+      {!running && (
+        <button
+          type="button"
+          className="run-process-toggle"
+          aria-expanded={expanded}
+          aria-controls={expanded ? listId : undefined}
+          aria-label={`${summary} · ${t(expanded ? '收起处理过程' : '展开处理过程')}`}
+          onClick={() => setExpanded(!expanded)}
+        >
+          <span className="run-process-mark">
+            <Icon name="layers" size={13} />
+          </span>
+          <span className="run-process-summary">{summary}</span>
+          <Icon name="chevron" size={12} />
+        </button>
+      )}
+      {(running || expanded) && transcript.steps.length > 0 && (
+        <ol className={running ? 'run-transcript' : 'run-process-steps'} id={listId}>
+          {transcript.hiddenTools > 0 && (
             <li className="run-step run-step-more">
               <button type="button" onClick={() => setExpanded(true)}>
-                {t('还有 {count} 个较早的步骤', { count: hidden })}
+                {t('还有 {count} 个较早的步骤', { count: transcript.hiddenTools })}
               </button>
             </li>
           )}
-          {visible.map((step) =>
+          {transcript.steps.map((step) =>
             step.kind === 'tool' ? (
               <ToolStep key={step.id} message={step.message} />
             ) : step.kind === 'note' ? (
-              <NoteStep key={step.id} message={step.message} />
+              <li key={step.id} className="run-step run-step-note">
+                <NoteBubble message={step.message} avatar={avatar} showAvatar={step.id === avatarNote} />
+              </li>
             ) : (
               <li key={step.id} className="run-step run-step-reasoning" data-message-id={step.message.id}>
                 <MessageReasoning reasoning={step.message.reasoning} />

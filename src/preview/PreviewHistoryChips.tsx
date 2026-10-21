@@ -8,18 +8,23 @@ export function PreviewHistoryChips({
   runIds,
   artifactNames,
   attachmentIds,
+  hideDesignCanvas,
   onOpen,
 }: {
   entries: PreviewHistoryEntry[];
   runIds?: string[];
   artifactNames?: Set<string>;
   attachmentIds?: Set<string>;
+  /** A design task's own index.html is the canvas, not an intermediate preview worth listing. */
+  hideDesignCanvas?: boolean;
   onOpen: (entry: PreviewHistoryEntry) => void;
 }) {
   const { t } = useI18n();
   const match = new Set(runIds || []);
   const scoped = entries.filter((entry) => {
     if (!match.has(entry.runId)) return false;
+    if (hideDesignCanvas && entry.target.kind === 'workspace' && /(^|\/)index\.html$/i.test(entry.target.path))
+      return false;
     if (entry.target.kind === 'workspace' && artifactNames?.has(entry.target.path)) return false;
     if (entry.target.kind === 'attachment' && attachmentIds?.has(entry.target.file.id)) return false;
     return true;

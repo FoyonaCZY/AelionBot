@@ -39,8 +39,6 @@ test('progress uses only confirmed current-run operations, excluding wrappers an
   });
   const p = liveBotProgress([], r)!;
   assert.equal(p.label, '正在读取文件');
-  assert.equal(p.recent?.length, 2);
-  assert.match(p.receipt!, /保存文件/);
   assert.equal(p.since, at);
   assert.doesNotMatch(JSON.stringify(p), /private|secret|foreign|batch/);
 });

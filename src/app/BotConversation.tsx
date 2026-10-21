@@ -279,7 +279,6 @@ export function BotConversation({
               {(running || greeting) && (
                 <BotWorkingStatus
                   bot={bot}
-                  onStop={actions.stop}
                   onReview={waiting ? () => onReview(waiting) : undefined}
                   step={
                     liveBotStep(
@@ -448,6 +447,7 @@ const TimelineRun = memo(function TimelineRun({
         attachmentIds={
           new Set(allRunMessages.flatMap((message) => message.attachments?.map((attachment) => attachment.id) || []))
         }
+        hideDesignCanvas={Boolean(run?.designSessionId)}
         onOpen={actions.openPreviewEntry}
       />
       {/* A design task is an experience, not a file list. Its canvas opens the home page; export remains available from the preview. */}

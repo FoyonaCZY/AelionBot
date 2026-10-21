@@ -644,6 +644,7 @@ const GroupMessageRow = memo(function GroupMessageRow({
             runIds={[...(runId ? [runId] : []), ...(message.runIds || [])]}
             artifactNames={new Set(files.map((file) => file.path))}
             attachmentIds={new Set(message.attachments?.map((attachment) => attachment.id) || [])}
+            hideDesignCanvas={Boolean(message.designSessionId)}
             onOpen={actions.openPreviewEntry}
           />
           <ArtifactList files={files} onOpen={actions.openFile} onSave={actions.saveFile} disabled={!vmReady} />

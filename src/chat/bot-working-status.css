@@ -143,62 +143,6 @@
   font-size: var(--text-caption);
   color: light-dark(#967147, #d6b186);
 }
-.bot-working-description {
-  font-size: var(--text-caption);
-  line-height: 1.8;
-  color: var(--text-secondary);
-  margin: 4px 0 0;
-  overflow-wrap: anywhere;
-}
-.bot-working-meta {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 14px;
-  flex-wrap: wrap;
-  font-size: var(--text-caption);
-  color: var(--text-muted);
-  margin-top: 9px;
-}
-.bot-working-meta > span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.bot-working-meta > button {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 0;
-  color: light-dark(#846b9b, #bba0d0);
-  font-size: var(--text-caption);
-  white-space: nowrap;
-}
-.bot-working-meta > button[aria-expanded='true'] svg {
-  transform: rotate(180deg);
-}
-.bot-working-recent {
-  list-style: none;
-  padding: 12px 14px;
-  margin: 12px 0 0;
-  border: 1px solid var(--appearance-line);
-  border-radius: 9px;
-  background: var(--appearance-fill);
-  display: grid;
-  gap: 8px;
-}
-.bot-working-recent li {
-  display: flex;
-  gap: 12px;
-  align-items: baseline;
-  font-size: var(--text-caption);
-  color: var(--text-secondary);
-  line-height: 1.7;
-}
-.bot-working-recent time {
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
 .bot-working-actions {
   display: flex;
   gap: 8px;
@@ -216,12 +160,6 @@
   font-size: var(--text-caption);
   color: var(--text-secondary);
 }
-.bot-working-error {
-  font-size: var(--text-caption);
-  color: light-dark(#a76860, #dc9e94);
-  overflow-wrap: anywhere;
-  margin: 8px 0 0;
-}
 @container conversation (max-width:420px) {
   .bot-working-status {
     gap: 9px;
@@ -232,11 +170,5 @@
   .bot-working-avatar > .avatar {
     width: 38px;
     height: 38px;
-  }
-  .bot-working-meta {
-    gap: 5px;
-  }
-  .bot-working-meta > span {
-    flex-basis: 100%;
   }
 }

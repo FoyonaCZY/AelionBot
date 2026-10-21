@@ -53,7 +53,22 @@
   border-left: 1.5px solid var(--appearance-line);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 8px;
+}
+/* While a run works its transcript is the conversation itself: no rail, no folded history. */
+.run-transcript {
+  list-style: none;
+  margin: 2px 0 10px 4px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.run-transcript .run-step {
+  padding: 0;
+}
+.run-transcript .run-step::before {
+  display: none;
 }
 .run-step {
   position: relative;
@@ -180,15 +195,30 @@
 }
 
 .run-step-note {
-  padding: 4px 0 6px;
-  color: var(--text-secondary);
-  line-height: 1.75;
-  overflow-wrap: anywhere;
+  padding: 0;
 }
-.run-step-note .markdown > :first-child {
+.run-step-note::before {
+  display: none;
+}
+.run-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+.run-note-avatar {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+}
+.run-note > .run-note-bubble {
+  max-width: min(100%, 680px);
+  padding: 8px 13px;
+}
+.run-note-bubble .markdown > :first-child {
   margin-top: 0;
 }
-.run-step-note .markdown > :last-child {
+.run-note-bubble .markdown > :last-child {
   margin-bottom: 0;
 }
 .run-step-reasoning .message-reasoning {
