@@ -653,24 +653,6 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   min-width: 190px;
 }
 
-/* Windows/Linux caption buttons sit on a native overlay; keep the strip behind them
-   in the same ambient colour as the shell. */
-.app-shell:is([data-platform='win32'], [data-platform='linux'])::before {
-  content: '';
-  position: fixed;
-  z-index: 20;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 38px;
-  background: #f4f2f6;
-  pointer-events: none;
-}
-
-:root[data-theme='dark'] .app-shell:is([data-platform='win32'], [data-platform='linux'])::before {
-  background: #1a1c22;
-}
-
 /* Dark mode needs real surface separation instead of relying on near-black
    translucent layers for every card and field. */
 :root[data-theme='dark'] .app-shell {
@@ -865,7 +847,8 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   --conversation-edge: #1d1b22;
 }
 
-/* Window background: soft colour fields that stay clear of the caption strip at the top. */
+/* Window background: soft colour fields that fade out toward the top, where the native caption buttons sit
+   on a transparent overlay (electron/main.ts). */
 .app-shell,
 :root[data-theme='dark'] .app-shell {
   background:
@@ -873,11 +856,6 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
     radial-gradient(900px 620px at 6% 18%, var(--ambient-a), transparent 62%),
     radial-gradient(860px 600px at 96% 30%, var(--ambient-b), transparent 62%),
     radial-gradient(760px 520px at 48% 108%, var(--ambient-c), transparent 64%), var(--ambient-base) !important;
-}
-
-.app-shell:is([data-platform='win32'], [data-platform='linux'])::before,
-:root[data-theme='dark'] .app-shell:is([data-platform='win32'], [data-platform='linux'])::before {
-  background: var(--ambient-base) !important;
 }
 
 /* Main cards: solid, borderless, lifted by shadow. */

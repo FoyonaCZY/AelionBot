@@ -1040,7 +1040,8 @@ async function initialize() {
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
     ...(process.platform === 'darwin'
       ? { trafficLightPosition: { x: 18, y: 18 } }
-      : { titleBarOverlay: { color: '#f4f2f6', symbolColor: '#555555', height: 38 } }),
+      : // Transparent so the shell's gradient (and any modal backdrop) runs under the caption buttons.
+        { titleBarOverlay: { color: '#00000000', symbolColor: '#555555', height: 38 } }),
     webPreferences: {
       preload: join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
@@ -1119,7 +1120,7 @@ async function initialize() {
     window.setBackgroundColor(dark ? '#202024' : '#ffffff');
     if (process.platform !== 'darwin' && !appearanceDimmed)
       window.setTitleBarOverlay({
-        color: dark ? '#141318' : '#f4f2f6',
+        color: '#00000000',
         symbolColor: dark ? '#eeeaf2' : '#555555',
         height: 38,
       });

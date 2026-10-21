@@ -54,6 +54,8 @@ export function registerApp(ctx: IpcContext) {
     )
       throw new Error('无效窗口状态');
     ctx.appearanceDimmed = enabled;
+    // The overlay stays transparent, so the page (and any backdrop) shows under the buttons; the color the
+    // renderer sampled there only decides whether the symbols are dark or light.
     const background =
         color ||
         (enabled
@@ -66,7 +68,7 @@ export function registerApp(ctx: IpcContext) {
       brightness = [1, 3, 5].reduce((sum, index) => sum + parseInt(background.slice(index, index + 2), 16), 0) / 3;
     if (process.platform !== 'darwin')
       ctx.window?.setTitleBarOverlay({
-        color: background,
+        color: '#00000000',
         symbolColor: brightness < 128 ? '#f2f2f2' : '#555555',
         height: 38,
       });
