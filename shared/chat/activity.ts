@@ -456,24 +456,24 @@ export function runSteps(messages: ChatMessage[], options: { finalId?: string; e
   return steps;
 }
 /**
- * What the run transcript shows. While the run works every text output stays visible; only older tool rows fold
- * behind a count so a long run cannot push the composer away. Once the run ends the transcript is closed unless
- * the reader opened it.
+ * What the run transcript shows. While the run works every text output stays visible; only the newest three other
+ * steps (tools and reasoning) stay, so a long run cannot push the composer away. Once the run ends the transcript
+ * is closed unless the reader opened it.
  */
 export function visibleRunSteps(
   steps: RunStep[],
-  options: { running: boolean; expanded: boolean; toolLimit?: number },
-): { steps: RunStep[]; hiddenTools: number } {
-  if (!options.running && !options.expanded) return { steps: [], hiddenTools: 0 };
-  if (options.expanded) return { steps, hiddenTools: 0 };
-  const limit = Math.max(0, options.toolLimit ?? 8),
-    tools = steps.filter((step) => step.kind === 'tool'),
-    hiddenTools = Math.max(0, tools.length - limit);
-  if (!hiddenTools) return { steps, hiddenTools: 0 };
-  const kept = new Set(tools.slice(-limit).map((step) => step.id));
+  options: { running: boolean; expanded: boolean; stepLimit?: number },
+): { steps: RunStep[]; hiddenSteps: number } {
+  if (!options.running && !options.expanded) return { steps: [], hiddenSteps: 0 };
+  if (options.expanded) return { steps, hiddenSteps: 0 };
+  const limit = Math.max(0, options.stepLimit ?? 3),
+    other = steps.filter((step) => step.kind !== 'note'),
+    hiddenSteps = Math.max(0, other.length - limit);
+  if (!hiddenSteps) return { steps, hiddenSteps: 0 };
+  const kept = new Set(other.slice(-limit).map((step) => step.id));
   return {
-    steps: steps.filter((step) => step.kind !== 'tool' || kept.has(step.id)),
-    hiddenTools,
+    steps: steps.filter((step) => step.kind === 'note' || kept.has(step.id)),
+    hiddenSteps,
   };
 }
 /** Wall-clock time of a finished run, or undefined while it runs or when timestamps are missing. */

@@ -207,10 +207,10 @@ function RunProcessView({ steps: allSteps, running, durationMs, answerFollows = 
       )}
       {(running || expanded) && transcript.steps.length > 0 && (
         <ol className={running ? 'run-transcript' : 'run-process-steps'} id={listId}>
-          {transcript.hiddenTools > 0 && (
+          {transcript.hiddenSteps > 0 && (
             <li className="run-step run-step-more">
               <button type="button" onClick={() => setExpanded(true)}>
-                {t('还有 {count} 个较早的步骤', { count: transcript.hiddenTools })}
+                {t('还有 {count} 个较早的步骤', { count: transcript.hiddenSteps })}
               </button>
             </li>
           )}
