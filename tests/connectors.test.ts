@@ -179,22 +179,23 @@ test('a manual connector pairs its first sender as owner, then routes their mess
     'a group message does not move approvals into the group',
   );
 
-  // Strangers in a group are ignored without a pairing request; a private stranger still gets one.
-  adapter.receive({ text: '我是陌生人', isGroup: true, chatId: 'group-1', sender: { id: 'stranger' } });
-  await settle();
-  assert.equal(sent.length, 2);
+  // Any group member WeCom lets through reaches the same group session; private strangers still need pairing.
+  adapter.receive({ text: '群友问一句', isGroup: true, chatId: 'group-1', sender: { id: 'guest' } });
+  await until(() => sent.length === 3);
+  assert.equal(sent[2].sessionId, groupSession.id);
+  assert.equal(sent[2].message, '群友问一句');
   assert.equal(connectors.snapshot().connectors[0].pairings.length, 0);
   adapter.receive({ text: '我是陌生人', chatId: 'chat-x', sender: { id: 'stranger' } });
   await until(() => connectors.snapshot().connectors[0].pairings.length === 1);
-  assert.equal(sent.length, 2);
+  assert.equal(sent.length, 3);
   assert.ok(adapter.texts.some((item) => item.chatId === 'chat-owner' && /请求使用/.test(item.text)));
 
   // /new archives the private session; the next message opens another one.
   adapter.receive({ text: '/new' });
   await until(() => Boolean(session.archivedAt));
   adapter.receive({ text: '新的事情' });
-  await until(() => sent.length === 3);
-  assert.notEqual(sent[2].sessionId, session.id);
+  await until(() => sent.length === 4);
+  assert.notEqual(sent[3].sessionId, session.id);
 
   connectors.update({ id, permissionMode: 'full' });
   assert.deepEqual(
@@ -229,7 +230,15 @@ test('connector messages run the Bot and its answer goes back; desktop input in 
   let replies = 0;
   const model = {
     complete: async () =>
-      answer(++replies === 1 ? '日程已经整理好了。' : replies === 2 ? '群里安排好了。' : '桌面上的回答'),
+      answer(
+        ++replies === 1
+          ? '日程已经整理好了。'
+          : replies === 2
+            ? '群里安排好了。'
+            : replies === 3
+              ? '群友的问题答好了。'
+              : '桌面上的回答',
+      ),
   } as unknown as ModelClient;
   const harness = new Harness(store, {} as VmController, model, () => {});
   let connectors: Connectors | undefined;
@@ -289,11 +298,16 @@ test('connector messages run the Bot and its answer goes back; desktop input in 
   assert.equal(groupInput.connector?.isGroup, true);
   assert.notEqual(groupInput.sessionId, input.sessionId);
 
+  // Another group member gets an answer in the same group.
+  adapter.receive({ text: '群友也问一句', isGroup: true, chatId: 'group-1', sender: { id: 'guest' } });
+  await until(() => adapter.texts.length === 3);
+  assert.deepEqual(adapter.texts[2], { chatId: 'group-1', text: '群友的问题答好了。' });
+
   // The same session, written from the app: the Bot answers in the app only.
   queue.send({ botId: bot.id, sessionId: input.sessionId, message: '桌面上问一句' });
-  await until(() => replies === 3 && !harness.busy);
+  await until(() => replies === 4 && !harness.busy);
   await settle();
-  assert.equal(adapter.texts.length, 2);
+  assert.equal(adapter.texts.length, 3);
 });
 
 test('approvals of connector runs go to the owner as cards; only the owner decides', async (t) => {
