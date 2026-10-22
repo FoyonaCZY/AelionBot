@@ -693,6 +693,8 @@
    src/ui/use-collapse.ts keeps it mounted that long). The inner wrapper clips with a margin so shadows survive. */
 .ui-collapse {
   display: grid;
+  /* minmax(0, …): a long line inside (command output) scrolls in place instead of widening everything around it. */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: 1fr;
   opacity: 1;
   transition:
@@ -711,6 +713,7 @@
   pointer-events: none;
 }
 .ui-collapse > * {
+  min-width: 0;
   min-height: 0;
   overflow: clip;
   overflow-clip-margin: 16px;

@@ -8,6 +8,8 @@
   font-size: calc(12.5px * var(--appearance-text-scale, 1));
 }
 .run-process.is-expanded {
+  /* Opened, the sheet takes the full column so it does not change width as steps open. */
+  width: 100%;
   margin-bottom: 12px;
 }
 .run-process-line {
