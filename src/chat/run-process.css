@@ -268,8 +268,8 @@
   gap: 9px;
   width: 100%;
   min-width: 0;
-  min-height: 34px;
-  padding: 5px 8px 5px 6px;
+  min-height: 32px;
+  padding: 5px 8px;
   border-radius: 10px;
   text-align: left;
   color: var(--text-secondary);
@@ -284,27 +284,20 @@
 .run-step-row:disabled {
   cursor: default;
 }
-/* The kind of step, as a small tinted tile. */
+/* The kind of step, as a plain line icon in one quiet colour, so a long run reads as a list and not a column of
+   tiles. Colour is kept for state: red for a failure, the accent while a step runs. */
 .run-step-icon {
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  border-radius: 7px;
-  background: var(--ctl-fill);
-  color: var(--text-secondary);
-}
-.run-step-tool.is-command .run-step-icon {
-  background: light-dark(rgba(41, 32, 58, 0.82), rgba(255, 255, 255, 0.12));
-  color: light-dark(#fff, #e9e5ef);
+  width: 20px;
+  height: 20px;
+  color: var(--text-muted);
 }
 .run-step-tool.is-failed .run-step-icon {
-  background: var(--ctl-danger-soft);
   color: var(--ctl-danger);
 }
 .run-step-tool.is-running .run-step-icon {
-  background: var(--ctl-accent-soft);
   color: var(--ctl-accent);
 }
 .run-step-label {
@@ -390,7 +383,7 @@
   transform: rotate(90deg);
 }
 .run-step-body {
-  margin: 4px 0 8px 39px;
+  margin: 4px 0 8px 37px;
 }
 .run-step-body .tool-detail {
   margin: 0;
@@ -415,7 +408,8 @@
   margin-bottom: 0;
 }
 
-/* A thought on the sheet reads as one more row: its sparkle in a tile, the time, and the text in a card when open. */
+/* A thought is a lighter row than a step: muted, regular weight and a little shorter, so the eye follows the work and
+   the thoughts read as the pauses between it. Its text opens in a card. */
 .run-step-reasoning .message-reasoning {
   margin: 0;
   max-width: none;
@@ -424,21 +418,20 @@
   display: flex;
   gap: 9px;
   width: 100%;
-  min-height: 34px;
+  min-height: 28px;
   margin: 0;
-  padding: 5px 8px 5px 6px;
+  padding: 4px 8px;
   border-radius: 10px;
-  color: var(--text-secondary);
-  font-size: inherit;
+  color: var(--text-muted);
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-body);
 }
 .run-step-reasoning .reasoning-toggle > svg:first-child {
   box-sizing: content-box;
-  width: 14px;
-  height: 14px;
-  padding: 5px;
-  border-radius: 7px;
-  background: var(--ctl-accent-soft);
-  color: var(--ctl-accent);
+  width: 13px;
+  height: 13px;
+  padding: 0 3.5px;
+  color: color-mix(in srgb, var(--ctl-accent) 55%, var(--text-muted));
 }
 .run-step-reasoning .reasoning-toggle > svg:last-child:not(:first-child) {
   margin-left: auto;
@@ -447,7 +440,7 @@
   background: var(--ctl-fill);
 }
 .run-step-reasoning .reasoning-body {
-  margin: 4px 0 8px 39px;
+  margin: 4px 0 8px 37px;
 }
 
 .run-step-spinner {
