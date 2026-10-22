@@ -495,13 +495,6 @@ html:active-view-transition * {
   backdrop-filter: none;
 }
 
-.settings-modal :is(.settings-card, .settings-me) {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(247, 244, 251, 0.68)) !important;
-  border-color: transparent !important;
-  box-shadow: var(--glass-float-sm) !important;
-  backdrop-filter: none;
-}
-
 /* ModelSelectionFields renders its own settings-card inside a settings page card.
    Flatten that inner card so the page card remains the only surface. */
 .settings-modal .settings-card .settings-card,
@@ -510,32 +503,6 @@ html:active-view-transition * {
   border: 0 !important;
   box-shadow: none !important;
   backdrop-filter: none;
-}
-
-/* Model assignment: the outer .model-assignment-panel is the card. Its inner
-   .settings-card is only a layout wrapper and must stay transparent. */
-.settings-modal .model-assignment-panel .settings-card {
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  backdrop-filter: none;
-}
-
-/* Provider workspace: one outer card; the browser, selected row and editor are
-   content inside it, not separate cards. */
-.settings-modal .provider-workspace {
-  background: light-dark(#ffffff, #25232a) !important;
-  box-shadow: 0 0 0 1px light-dark(#ececef, #3a3541) !important;
-}
-
-.settings-modal .provider-workspace .provider-browser,
-.settings-modal .provider-workspace .provider-editor {
-  background: transparent !important;
-}
-
-.settings-modal .provider-browser-item.is-selected {
-  background: light-dark(#efe9f7, #3b3148) !important;
-  box-shadow: none !important;
 }
 
 .modal.bot-profile-modal {
@@ -549,14 +516,6 @@ html:active-view-transition * {
 :root[data-theme='dark'] .modal.bot-profile-modal {
   background: light-dark(#f4f4f5, #1f1d23) !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
-}
-
-:root[data-theme='dark'] .settings-modal .settings-rail {
-  background: #25232a !important;
-}
-
-:root[data-theme='dark'] .settings-modal :is(.settings-card, .settings-me) {
-  background: linear-gradient(135deg, rgba(61, 55, 69, 0.82), rgba(38, 34, 44, 0.72)) !important;
 }
 
 @keyframes settings-backdrop-in {
@@ -580,54 +539,11 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   display: none;
 }
 
-/* Cards are the glass layer; fields inside stay flat so they do not stack a second and
-   third translucent surface on top of the card. */
-.settings-modal
-  :is(
-    .settings-field,
-    .settings-row input:not([type='checkbox'], [type='radio'], [type='range'], .aelion-combobox-input)
-  ),
-.bot-profile-modal .settings-field {
-  background: light-dark(#ffffff, #2b2831) !important;
-  border-color: light-dark(#e4e2e8, #4a4452) !important;
-  box-shadow: none !important;
-  backdrop-filter: none;
-}
-
-/* Keep the native select layer and arrow; only flatten its fill. */
-.settings-modal .settings-row .aelion-select,
-.bot-profile-modal .aelion-select {
-  background-color: light-dark(#ffffff, #2b2831) !important;
-  border-color: light-dark(#e4e2e8, #4a4452) !important;
-  box-shadow: none !important;
-  backdrop-filter: none;
-}
-
-/* EditableSelect is an input plus an arrow button, not an .aelion-select. */
-.bot-profile-modal .editable-select input,
-.settings-modal .model-selection-fields .editable-select input {
-  background: light-dark(#ffffff, #2b2831) !important;
-  border: 1px solid light-dark(#e4e2e8, #4a4452) !important;
-  border-radius: 9px;
-  box-shadow: none !important;
-}
-
-/* Settings content: one flat canvas and flat controls, without card-inside-card
-   surfaces or repeated translucent fills. */
-.settings-modal
-  :is(
-    .provider-workspace,
-    .provider-browser,
-    .provider-editor,
-    .model-assignment-panel,
-    .model-assignment-panel .settings-card,
-    .settings-card
-  ),
+/* The Bot profile dialog is a white sheet: its model fields are rows on it, not a card on a card. */
 .bot-profile-modal .settings-card {
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
-  backdrop-filter: none;
 }
 
 /* Menus launched from the sidebar must escape its rounded card instead of being
@@ -695,28 +611,8 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   border-right-color: #39343f !important;
 }
 
-:root[data-theme='dark']
-  .settings-modal
-  :is(
-    .settings-field,
-    .settings-row input:not([type='checkbox'], [type='radio'], [type='range'], .aelion-combobox-input),
-    .settings-row .aelion-select,
-    .editable-select input,
-    .aelion-select
-  ) {
-  background-color: #2d2a34 !important;
-  border-color: #4a4452 !important;
-  color: #f1edf5 !important;
-}
-
 :root[data-theme='dark'] .settings-modal :is(.settings-row > span, .settings-note) {
   color: #b9b2c4 !important;
-}
-
-:root[data-theme='dark'] .settings-modal .model-assignment-panel .settings-card {
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
 }
 
 /* Dark mode: a neutral near-black frame with clearly separated cards and high-contrast
@@ -998,48 +894,6 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > .
 :root[data-theme='dark'] .settings-modal .settings-rail {
   background: light-dark(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.03)) !important;
   border-right-color: transparent !important;
-}
-
-.settings-modal .provider-workspace,
-:root[data-theme='dark'] .settings-modal .provider-workspace {
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-/* Fields read by their fill and show a focus ring when active. */
-.settings-modal
-  :is(
-    .settings-field,
-    .settings-row input:not([type='checkbox'], [type='radio'], [type='range'], .aelion-combobox-input),
-    .settings-row .aelion-select,
-    .editable-select input,
-    .aelion-select
-  ),
-.bot-profile-modal :is(.settings-field, .aelion-select, .editable-select input),
-:root[data-theme='dark']
-  .settings-modal
-  :is(
-    .settings-field,
-    .settings-row input:not([type='checkbox'], [type='radio'], [type='range'], .aelion-combobox-input),
-    .settings-row .aelion-select,
-    .editable-select input,
-    .aelion-select
-  ) {
-  border-color: transparent !important;
-  background-color: light-dark(rgba(92, 72, 132, 0.07), rgba(255, 255, 255, 0.07)) !important;
-}
-
-.settings-modal
-  :is(
-    .settings-field,
-    .settings-row input:not([type='checkbox'], [type='radio'], [type='range'], .aelion-combobox-input),
-    .settings-row .aelion-select,
-    .editable-select input,
-    .aelion-select
-  ):focus-visible,
-.bot-profile-modal :is(.settings-field, .aelion-select, .editable-select input):focus-visible {
-  outline: none;
-  box-shadow: var(--glass-focus) !important;
 }
 
 @media (prefers-reduced-transparency: reduce) {

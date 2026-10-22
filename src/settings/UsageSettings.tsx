@@ -514,6 +514,70 @@ export function UsageSettings({ state }: { state: Snapshot }) {
 
   return (
     <div className="usage-settings">
+      <div className="usage-tabs-row">
+        <div className="usage-tabs" role="tablist" aria-label={t('用量')}>
+          <button
+            type="button"
+            role="tab"
+            className={`usage-tab${tab === 'overview' ? ' is-active' : ''}`}
+            aria-selected={tab === 'overview'}
+            aria-controls="usage-overview-panel"
+            onClick={() => setTab('overview')}
+          >
+            {t('概览')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            className={`usage-tab${tab === 'detail' ? ' is-active' : ''}`}
+            aria-selected={tab === 'detail'}
+            aria-controls="usage-detail-panel"
+            onClick={() => setTab('detail')}
+          >
+            {t('模型明细')}
+          </button>
+        </div>
+        <div className="usage-range-row">
+          <div className="usage-range" role="group" aria-label={t('用量时间范围')}>
+            {[
+              ['1', t('今天')],
+              ['7', t('{count} 天', { count: 7 })],
+              ['30', t('{count} 天', { count: 30 })],
+              ['90', t('{count} 天', { count: 90 })],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={preset === value ? 'is-active' : ''}
+                aria-pressed={preset === value}
+                onClick={() => applyPreset(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className={`usage-icon-button${preset === 'custom' ? ' is-active' : ''}`}
+            aria-label={t('自定义')}
+            aria-pressed={preset === 'custom'}
+            title={t('自定义')}
+            onClick={() => applyPreset('custom')}
+          >
+            <Icon name="clock" size={16} />
+          </button>
+          <button
+            type="button"
+            className="usage-icon-button"
+            aria-label={t('刷新')}
+            title={t('刷新')}
+            onClick={() => setRefresh((value) => value + 1)}
+          >
+            <Icon name="restart" size={16} />
+          </button>
+        </div>
+      </div>
+
       <div className="usage-filter-row">
         <span className="usage-filter-label">{t('筛选')}</span>
         <label className="usage-filter">
@@ -591,70 +655,6 @@ export function UsageSettings({ state }: { state: Snapshot }) {
         </div>
       )}
 
-      <div className="usage-tabs-row">
-        <div className="usage-tabs" role="tablist" aria-label={t('用量')}>
-          <button
-            type="button"
-            role="tab"
-            className={`usage-tab${tab === 'overview' ? ' is-active' : ''}`}
-            aria-selected={tab === 'overview'}
-            aria-controls="usage-overview-panel"
-            onClick={() => setTab('overview')}
-          >
-            {t('概览')}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            className={`usage-tab${tab === 'detail' ? ' is-active' : ''}`}
-            aria-selected={tab === 'detail'}
-            aria-controls="usage-detail-panel"
-            onClick={() => setTab('detail')}
-          >
-            {t('模型明细')}
-          </button>
-        </div>
-        <div className="usage-range-row">
-          <div className="usage-range" role="group" aria-label={t('用量时间范围')}>
-            {[
-              ['1', t('今天')],
-              ['7', t('{count} 天', { count: 7 })],
-              ['30', t('{count} 天', { count: 30 })],
-              ['90', t('{count} 天', { count: 90 })],
-            ].map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                className={preset === value ? 'is-active' : ''}
-                aria-pressed={preset === value}
-                onClick={() => applyPreset(value)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            className={`usage-icon-button${preset === 'custom' ? ' is-active' : ''}`}
-            aria-label={t('自定义')}
-            aria-pressed={preset === 'custom'}
-            title={t('自定义')}
-            onClick={() => applyPreset('custom')}
-          >
-            <Icon name="clock" size={16} />
-          </button>
-          <button
-            type="button"
-            className="usage-icon-button"
-            aria-label={t('刷新')}
-            title={t('刷新')}
-            onClick={() => setRefresh((value) => value + 1)}
-          >
-            <Icon name="restart" size={16} />
-          </button>
-        </div>
-      </div>
-
       {error ? (
         <div className="usage-error" role="alert">
           {error}
@@ -678,7 +678,7 @@ export function UsageSettings({ state }: { state: Snapshot }) {
             <Icon name="chart" size={22} />
           </span>
           <h3>{t('这段时间还没有用量记录')}</h3>
-          <button type="button" onClick={reset}>
+          <button type="button" className="primary-button" onClick={reset}>
             {t('最近 30 天')}
           </button>
         </div>

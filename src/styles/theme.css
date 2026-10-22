@@ -97,9 +97,6 @@
 :root[data-theme='dark'] :is(.setup-mascot-floor, .computer-rest-visual > .computer-rest-scene) {
   opacity: 0.65;
 }
-:root[data-theme='dark'] .runtime-actions {
-  background: #202024;
-}
 :root[data-theme='dark'] :is(.appearance-theme-swatch, .appearance-canvas-swatch) {
   color-scheme: light;
 }

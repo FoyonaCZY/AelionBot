@@ -1,5 +1,6 @@
-/* Runtime limits: two cards of number fields side by side, then file recovery, and a save bar that floats at the
-   bottom of the page while anything is unsaved. Built from the settings tokens (settings.css). */
+/* Runtime limits: one column of cards in the grammar every settings page uses (a section heading, a white card,
+   rows with the words on the left and the control on the right), and a save bar that floats at the bottom of the
+   page as glass while anything is unsaved. Built from the settings tokens (settings.css). */
 .runtime-settings {
   container: runtime / inline-size;
   min-width: 0;
@@ -13,9 +14,8 @@
 }
 .runtime-columns {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 18px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 26px;
 }
 .runtime-group {
   min-width: 0;
@@ -25,7 +25,7 @@
 }
 .settings-modal .runtime-group h3 {
   margin: 0 4px 8px;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: calc(14px * var(--appearance-text-scale, 1));
   font-weight: var(--weight-label);
   line-height: 1.5;
   color: var(--text-secondary);
@@ -43,8 +43,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  min-height: 60px;
-  padding: 10px 0;
+  min-height: 62px;
+  padding: 11px 0;
 }
 .runtime-field + .runtime-field {
   border-top: 1px solid var(--settings-line);
@@ -78,29 +78,27 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 0 0 124px;
-  width: 124px;
+  flex: 0 0 148px;
+  width: 148px;
   min-width: 0;
   height: var(--settings-control-height);
   padding: 0 10px;
-  border: 1px solid transparent;
-  border-radius: var(--settings-control-radius);
-  background: var(--settings-field);
+  border: 0;
+  border-radius: var(--ctl-radius);
+  background: var(--ctl-fill);
   transition:
-    border-color 0.15s,
     background 0.15s,
     box-shadow 0.15s;
 }
 .runtime-number:hover {
-  border-color: var(--settings-field-line);
+  background: var(--ctl-fill-hover);
 }
 .runtime-number:focus-within {
-  border-color: light-dark(#a68bcf, #8f7fb3);
   background: var(--settings-card);
-  box-shadow: 0 0 0 3px var(--settings-accent-soft);
+  box-shadow: var(--ctl-focus);
 }
 .runtime-number.is-invalid {
-  border-color: light-dark(#d39a8e, #a86a62);
+  box-shadow: 0 0 0 1.5px light-dark(#d39a8e, #a86a62);
 }
 .settings-modal .runtime-number input {
   display: block;
@@ -139,8 +137,8 @@
   font-weight: var(--weight-body);
 }
 .runtime-number.is-stepper {
-  flex-basis: 104px;
-  width: 104px;
+  flex-basis: 148px;
+  width: 148px;
   gap: 2px;
   padding: 0 3px;
 }
@@ -154,16 +152,16 @@
   width: 28px;
   height: 28px;
   padding: 0;
-  border-radius: 7px;
+  border-radius: 999px;
   background: transparent;
   color: var(--text-secondary);
   font-size: calc(17px * var(--appearance-text-scale, 1));
   line-height: 1;
 }
 .runtime-number button:hover:not(:disabled) {
-  background: var(--settings-card);
+  background: var(--ctl-raised);
   color: var(--text-ink);
-  box-shadow: 0 1px 2px #1d14281f;
+  box-shadow: var(--ctl-raised-shadow);
 }
 .runtime-number button:disabled {
   opacity: 0.25;
@@ -171,8 +169,8 @@
 .runtime-fields:disabled {
   opacity: 0.7;
 }
-/* The save bar lies flat at the end of the page; once something is unsaved it lifts into a floating card that
-   stays in reach, like the composer over the conversation. */
+/* The save bar lies flat at the end of the page; once something is unsaved it lifts into floating glass that stays
+   in reach, like the composer over the conversation. */
 .runtime-actions {
   position: sticky;
   bottom: 0;
@@ -180,28 +178,29 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 22px 0 0;
-  padding: 10px 10px 10px 8px;
-  border-radius: var(--settings-radius);
+  margin: 26px 0 0;
+  padding: 8px;
+  border-radius: 999px;
   transition:
     background 0.2s,
     box-shadow 0.2s;
 }
 .runtime-actions[data-dirty] {
-  background: var(--settings-card);
-  box-shadow:
-    0 0 0 1px var(--settings-ring),
-    0 10px 30px -14px #1d142859;
+  background: var(--glass-grain), var(--liquid-sheen), var(--glass-tint-strong);
+  box-shadow: var(--liquid-rim), var(--glass-float);
+  backdrop-filter: var(--glass-blur);
 }
 .runtime-reset {
-  padding: 6px 10px;
-  border-radius: 8px;
-  color: var(--settings-accent);
-  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  min-height: 34px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: calc(13px * var(--appearance-text-scale, 1));
   white-space: nowrap;
 }
 .runtime-reset:hover:not(:disabled) {
-  background: var(--settings-accent-soft);
+  background: var(--ctl-fill-hover);
+  color: var(--text-ink);
 }
 .runtime-save-state {
   flex: 1;
@@ -217,19 +216,8 @@
 .runtime-save {
   flex-shrink: 0;
   min-height: 34px;
-  padding: 6px 14px;
-  border: 0;
-  border-radius: var(--settings-control-radius);
-  background: var(--settings-accent-fill);
-  color: var(--settings-accent-ink);
+  padding: 6px 16px;
   font-size: calc(13px * var(--appearance-text-scale, 1));
-  transition: opacity 0.15s;
-}
-.runtime-save:hover:not(:disabled) {
-  background: light-dark(#6b4f8d, #b39bcb);
-}
-.runtime-save:disabled {
-  opacity: 0.4;
 }
 .runtime-sr-only {
   position: absolute;
@@ -240,12 +228,6 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
-}
-@container runtime (max-width: 610px) {
-  .runtime-columns {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 26px;
-  }
 }
 @container runtime (max-width: 350px) {
   .runtime-number {

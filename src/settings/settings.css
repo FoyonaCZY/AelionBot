@@ -14,9 +14,10 @@
   --settings-lift: 0 1px 2px light-dark(#1d14280d, #00000040);
   --settings-line: light-dark(#ececef, #3a3541);
   --settings-fill: light-dark(#f7f7f8, #26232b);
-  --settings-field: light-dark(#f4f4f6, #221f26);
+  /* Fields share the app-wide tinted fill (src/styles/controls.css). */
+  --settings-field: var(--ctl-fill);
   --settings-field-line: light-dark(#dfdfe4, #4a4452);
-  --settings-hover: light-dark(#f0f0f2, #34303b);
+  --settings-hover: var(--ctl-fill-hover);
   --settings-accent: light-dark(#7a5c9e, #bda8d8);
   --settings-accent-fill: light-dark(#7a5c9e, #a58abe);
   --settings-accent-ink: light-dark(#fff, #221d29);

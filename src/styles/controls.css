@@ -204,19 +204,21 @@
 }
 
 /* ---------- Fields and selects ---------- */
-:root :is(.aelion-select, .aelion-combobox .aelion-combobox-input, .editable-select input) {
+/* :where() keeps these at one class, so a component that places a select inside its own chip can still clear it. */
+:root :where(.aelion-select, .aelion-combobox .aelion-combobox-input, .editable-select input) {
   border-color: transparent !important;
   border-radius: var(--ctl-radius) !important;
   background-color: var(--ctl-fill) !important;
   box-shadow: none !important;
 }
 
-:root :is(.aelion-select, .aelion-combobox .aelion-combobox-input, .editable-select input):not(:disabled):hover {
+:root
+  :where(.aelion-select, .aelion-combobox .aelion-combobox-input, .editable-select input):where(:not(:disabled)):hover {
   background-color: var(--ctl-fill-hover) !important;
 }
 
 :root
-  :is(.aelion-select, .aelion-combobox .aelion-combobox-input, .editable-select input):is(
+  :where(.aelion-select, .aelion-combobox .aelion-combobox-input, .editable-select input):is(
     :focus-visible,
     :open,
     :focus
@@ -225,7 +227,7 @@
   box-shadow: var(--ctl-focus) !important;
 }
 
-:root :is(.aelion-select, .aelion-combobox .aelion-combobox-input, .editable-select input):disabled {
+:root :where(.aelion-select, .aelion-combobox .aelion-combobox-input, .editable-select input):disabled {
   background-color: light-dark(rgba(92, 72, 132, 0.04), rgba(255, 255, 255, 0.04)) !important;
 }
 

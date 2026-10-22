@@ -444,7 +444,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ---------- Assignments: two cards side by side ---------- */
+/* ---------- Assignments: one card per role, stacked; rows read across like every settings card ---------- */
 .model-assignments-page {
   min-height: 0;
   overflow-y: auto;
@@ -454,9 +454,8 @@
 }
 .model-assignment-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
 }
 .model-assignment-panel {
   min-width: 0;
@@ -479,7 +478,7 @@
   place-items: center;
   width: 28px;
   height: 28px;
-  border-radius: 8px;
+  border-radius: 9px;
   background: var(--settings-accent-soft);
   color: var(--settings-accent);
 }
@@ -490,7 +489,7 @@
 }
 .model-assignment-panel .model-assignment {
   margin: 0;
-  padding: 4px 16px 10px;
+  padding: 0 16px;
 }
 .settings-modal .model-assignment-panel .settings-card {
   padding: 0;
@@ -499,31 +498,35 @@
   box-shadow: none;
 }
 .settings-modal .model-assignment-panel .settings-row {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 6px;
-  min-height: 0;
-  padding: 12px 0;
-  border: 0;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 16px;
+  min-height: 56px;
+  padding: 10px 0;
 }
 .settings-modal .model-assignment-panel .settings-row > span {
-  font-size: var(--text-caption);
-  color: var(--text-secondary);
+  color: var(--text-ink);
 }
 .settings-modal .model-assignment-panel .settings-number input {
   width: 100%;
   text-align: left;
 }
 .settings-modal .model-assignment-panel .model-default-row {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  min-height: 52px;
-  padding: 12px 0;
+  min-height: 56px;
+  padding: 10px 0;
   border: 0;
   border-radius: 0;
   background: none;
   font-size: calc(13.5px * var(--appearance-text-scale, 1));
 }
 .model-assignment-panel .model-default-row + .settings-card {
+  margin-top: 0;
+  border-top: 1px solid var(--settings-line);
+}
+.settings-modal .model-assignment-panel .model-catalog-note + .settings-row {
   border-top: 1px solid var(--settings-line);
 }
 .model-assignment-panel .model-default-row > span {
@@ -537,10 +540,14 @@
 .model-assignment-panel > .provider-model-note {
   padding: 0 16px 14px;
 }
+/* The catalog's facts about the chosen model sit under the field, in the control column. */
 .model-assignment-panel .model-catalog-note {
-  margin: -4px 0 4px;
-  padding: 0;
+  margin: -6px 0 0;
+  padding: 0 0 12px 156px;
   color: var(--text-muted);
+}
+.model-assignment-panel .model-selection-fields > .settings-card + .settings-card {
+  border-top: 1px solid var(--settings-line);
 }
 .model-add-first {
   display: flex;
@@ -817,7 +824,6 @@
   gap: 14px;
   padding: 12px 20px;
   border-top: 1px solid var(--settings-line);
-  background: var(--settings-fill);
 }
 .provider-save-status {
   min-width: 0;
@@ -879,22 +885,20 @@
   gap: 8px;
   min-width: 0;
   padding: 0 11px;
-  border: 1px solid transparent;
-  border-radius: var(--settings-control-radius);
-  background: var(--settings-field);
+  border: 0;
+  border-radius: var(--ctl-radius);
+  background: var(--ctl-fill);
   color: var(--text-muted);
   transition:
-    border-color 0.15s,
     background 0.15s,
     box-shadow 0.15s;
 }
 .provider-model-search:hover {
-  border-color: var(--settings-field-line);
+  background: var(--ctl-fill-hover);
 }
 .provider-model-search:focus-within {
-  border-color: light-dark(#a68bcf, #8f7fb3);
   background: var(--settings-card);
-  box-shadow: 0 0 0 3px var(--settings-accent-soft);
+  box-shadow: var(--ctl-focus);
 }
 .settings-modal .provider-model-search input {
   width: 100%;
@@ -928,16 +932,15 @@
   margin: 0;
   padding: 7px 11px;
   border: 1px solid transparent;
-  border-radius: var(--settings-control-radius);
-  background: var(--settings-field);
+  border-radius: var(--ctl-radius);
+  background: var(--ctl-fill);
   color: var(--model-ink);
   font-size: calc(13px * var(--appearance-text-scale, 1));
 }
 .settings-modal .provider-catalog-panel .provider-model-add input:focus-visible {
   outline: none;
-  border-color: light-dark(#a68bcf, #8f7fb3);
   background: var(--settings-card);
-  box-shadow: 0 0 0 3px var(--settings-accent-soft);
+  box-shadow: var(--ctl-focus);
 }
 .provider-model-results {
   min-height: 0;
@@ -981,7 +984,7 @@
 .settings-modal .provider-catalog-panel .provider-model-card > .settings-row {
   padding-left: 12px;
   padding-right: 12px;
-  background: var(--settings-fill);
+  background: var(--ctl-fill);
 }
 .settings-modal .provider-catalog-panel .provider-model-card > summary + .settings-row {
   border-radius: 10px 10px 0 0;
@@ -1021,8 +1024,12 @@
   }
 }
 @media (max-width: 760px) {
-  .model-assignment-grid {
+  .settings-modal .model-assignment-panel .settings-row {
     grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  .model-assignment-panel .model-catalog-note {
+    padding-left: 0;
   }
   .provider-workspace {
     grid-template-columns: minmax(0, 1fr);
