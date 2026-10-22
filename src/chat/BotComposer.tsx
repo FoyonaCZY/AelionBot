@@ -22,6 +22,7 @@ import {
 } from '../../shared/types/attachment-types';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
+import { useLiquidGlass } from '../ui/liquid-glass';
 import { CompanionGlyph } from '../bots/CompanionCard';
 import { botIdentity, normalizeBotAvatarStyle, type BotPalette } from '../../shared/chat/bot-colors';
 import { botAvatarDataUrl } from '../bots/bot-avatar';
@@ -192,7 +193,8 @@ export function BotComposer({
   onStop: () => void;
 }) {
   const { t } = useI18n();
-  const editor = useRef<HTMLDivElement>(null),
+  const root = useRef<HTMLDivElement>(null),
+    editor = useRef<HTMLDivElement>(null),
     list = useRef<HTMLDivElement>(null),
     last = useRef(''),
     composing = useRef(false),
@@ -529,8 +531,10 @@ export function BotComposer({
         list.current.scrollTop = item.offsetTop + item.offsetHeight - list.current.clientHeight;
     }
   }, [active]);
+  useLiquidGlass(root);
   return (
     <div
+      ref={root}
       className={`composer mention-composer ${dragging ? 'is-dragging' : ''}`}
       onDragOver={(event) => {
         if (event.dataTransfer.types.includes('Files')) {

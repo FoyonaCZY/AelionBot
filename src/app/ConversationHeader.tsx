@@ -1,7 +1,9 @@
+import { useRef } from 'react';
 import type { Bot, WorkSession } from '../../shared/types/core';
 import type { BotActivity } from '../bots/bot-activity';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
+import { useLiquidGlass } from '../ui/liquid-glass';
 import { ChatSearch } from '../chat/ChatSearch';
 import { ComputerCardToggle } from '../computer/ComputerCardToggle';
 import { useI18n } from '../i18n';
@@ -27,8 +29,10 @@ export function ConversationHeader({
 }) {
   const { t } = useI18n();
   const { currentModel, running, greeting, waiting } = conversation;
+  const header = useRef<HTMLElement>(null);
+  useLiquidGlass(header);
   return (
-    <header className="chat-header drag">
+    <header ref={header} className="chat-header drag">
       <div className="chat-heading">
         <button className="bot-heading no-drag" onClick={onProfile}>
           <Avatar bot={bot} size={31} activity={activity} />

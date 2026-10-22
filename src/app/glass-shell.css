@@ -786,7 +786,8 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
      would have nothing to show.
    - Glass is reserved for layers that float over app content: the chat header and composer
      (messages scroll under them), menus and the settings modal. They use a strong blur,
-     raised saturation and a faint grain. The header and composer are liquid glass: a thinner
+     raised saturation and a faint grain. The header and composer are liquid glass: refraction
+     that bends what lies behind their rim (useLiquidGlass, src/ui/liquid-glass.ts), a thinner
      tint, a sheen and a lit rim (--liquid-*). Write backdrop-filter unprefixed only: the CSS
      minifier keeps whichever of the prefixed and unprefixed lines comes last.
    - Controls inside a glass layer are flat tinted fills; nesting backdrop-filter adds cost
@@ -896,7 +897,8 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > .
   border-color: transparent !important;
   background: var(--glass-grain), var(--liquid-tint) !important;
   box-shadow: var(--liquid-rim), var(--glass-float) !important;
-  backdrop-filter: var(--liquid-blur) !important;
+  /* The refracting filter from useLiquidGlass (src/ui/liquid-glass.ts); plain frost until it is ready. */
+  backdrop-filter: var(--liquid-filter, var(--liquid-blur)) !important;
 }
 
 .app-shell :is(.new-conversation-menu, .composer-add-menu),
