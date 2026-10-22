@@ -219,8 +219,10 @@ body:has(.fp-panel[data-layout='docked']) {
     font-size: 10px;
   }
 
+  /* The composer still floats over the end of the list here, so keep the room it measures (use-floating-composer). */
   body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .messages {
-    padding: 10px 12px 14px;
+    padding: 10px 12px calc(var(--composer-inset, 120px) + 14px);
+    scroll-padding-bottom: calc(var(--composer-inset, 120px) + 14px);
   }
 
   body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .message-row {
