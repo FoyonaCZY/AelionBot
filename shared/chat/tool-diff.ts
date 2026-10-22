@@ -169,5 +169,11 @@ export function toolDiff(tool: string, args: Record<string, unknown>, clean: (te
     return bounded([{ path, kind: 'update', ...lineDiff(args.oldText, args.newText) }], clean);
   }
   if (tool === 'apply_patch' && typeof args.patch === 'string') return bounded(patchFiles(args.patch), clean);
+  if (tool === 'host_file_write' || tool === 'file_write') {
+    const path = text(args.path);
+    if (!path || typeof args.content !== 'string') return;
+    // The old text of an overwritten file is not in the arguments, so a write counts only the lines it wrote.
+    return bounded([{ path, kind: args.overwrite === true ? 'update' : 'add', ...lineDiff('', args.content) }], clean);
+  }
   return;
 }

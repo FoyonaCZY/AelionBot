@@ -18,6 +18,7 @@ import { ScreenshotImage } from './ScreenshotImage';
 import { useI18n } from '../i18n';
 import { shallowEqual } from '../ui/equality';
 import { REVEAL_MESSAGE_EVENT } from './reveal-message';
+import { useCollapse } from '../ui/use-collapse';
 import './run-process.css';
 
 /** Fired by chat search so a folded run opens before the view scrolls to one of its messages. */
@@ -29,12 +30,13 @@ const diffCounts = (diff: NonNullable<ChatMessage['diff']>) => ({
 
 function toolIcon(tool = '') {
   if (/search|find_files/.test(tool)) return 'search';
-  if (/execute|terminal|process|python|code_exec/.test(tool)) return 'terminal';
+  if (/execute|exec_command|write_stdin|exec_stop|terminal|process|python|code_exec/.test(tool)) return 'terminal';
   if (/^web_|browser/.test(tool)) return 'globe';
   if (tool === 'computer' || tool === 'request_user_control') return 'computer';
   if (/^(bot_|group_|delegation)/.test(tool)) return 'message';
   if (/memory|skill/.test(tool)) return 'memory';
   if (/plan|task|goal|schedule/.test(tool)) return 'check';
+  if (/image|video_frames/.test(tool)) return 'canvas';
   return 'file';
 }
 
@@ -46,7 +48,8 @@ function ToolStep({ message }: { message: ChatMessage }) {
     status = message.status || 'done',
     running = status === 'running',
     image = message.tool === 'view_image' ? message.screenshotId : undefined,
-    meta = running ? undefined : stepMeta(toolResult(message));
+    meta = running ? undefined : stepMeta(toolResult(message)),
+    body = useCollapse(open && !running);
   return (
     <li
       className={`run-step run-step-tool is-${status} ${meta?.tone === 'bad' ? 'is-failed' : ''} ${toolIcon(message.tool) === 'terminal' ? 'is-command' : ''}`}
@@ -60,7 +63,7 @@ function ToolStep({ message }: { message: ChatMessage }) {
         onClick={() => setOpen(!open)}
       >
         <span className="run-step-icon">
-          <Icon name={toolIcon(message.tool)} size={13} />
+          {running ? <span className="run-step-spinner" /> : <Icon name={toolIcon(message.tool)} size={13} />}
         </span>
         <span className="run-step-label">{display.label}</span>
         {image ? (
@@ -86,18 +89,16 @@ function ToolStep({ message }: { message: ChatMessage }) {
           className="run-step-state"
           aria-label={running ? t('进行中') : status === 'failed' ? t('失败') : undefined}
         >
-          {running ? (
-            <span className="run-step-spinner" />
-          ) : status === 'failed' ? (
-            <Icon name="alert" size={12} />
-          ) : (
-            <Icon name="chevron" size={11} />
-          )}
+          {running ? null : status === 'failed' ? <Icon name="alert" size={12} /> : <Icon name="chevron" size={11} />}
         </span>
       </button>
-      {open && !running && (
-        <div className="run-step-body" id={bodyId}>
-          <ToolDetails message={message} />
+      {body.mounted && (
+        <div className="ui-collapse" data-closing={body.closing || undefined}>
+          <div>
+            <div className="run-step-body" id={bodyId}>
+              <ToolDetails message={message} />
+            </div>
+          </div>
         </div>
       )}
     </li>
@@ -186,7 +187,8 @@ function RunProcessView({ steps: allSteps, running, startedAt, durationMs }: Run
   const [expanded, setExpanded] = useState(false);
   const listId = useId(),
     wasRunning = useRef(running),
-    elapsed = useElapsed(running ? startedAt : undefined);
+    elapsed = useElapsed(running ? startedAt : undefined),
+    sheet = useCollapse(expanded);
   // The answer takes over once the run ends: fold the process even if it was opened while working.
   useEffect(() => {
     if (wasRunning.current && !running) setExpanded(false);
@@ -202,8 +204,21 @@ function RunProcessView({ steps: allSteps, running, startedAt, durationMs }: Run
     return () => window.removeEventListener(REVEAL_MESSAGE_EVENT, reveal);
   }, [ids]);
   if (!steps.length) return null;
-  // Folded, a working run keeps only what it said; every tool and thought goes into the capsule.
-  const transcript = visibleRunSteps(steps, { running, expanded, stepLimit: 0 });
+  // Folded, a working run keeps only what it said; every tool and thought goes into the capsule. Opened, every step
+  // sits on the sheet, which stays mounted while it animates shut.
+  const notes = running && !expanded ? visibleRunSteps(steps, { running, expanded: false, stepLimit: 0 }).steps : [];
+  const renderStep = (step: RunStep) =>
+    step.kind === 'tool' ? (
+      <ToolStep key={step.id} message={step.message} />
+    ) : step.kind === 'note' ? (
+      <li key={step.id} className="run-step run-step-note">
+        <NoteBubble message={step.message} />
+      </li>
+    ) : (
+      <li key={step.id} className="run-step run-step-reasoning" data-message-id={step.message.id}>
+        <MessageReasoning reasoning={step.message.reasoning} />
+      </li>
+    );
   const overview = runOverview(steps),
     time = running ? elapsed : durationMs;
   const status = running
@@ -272,22 +287,15 @@ function RunProcessView({ steps: allSteps, running, startedAt, durationMs }: Run
           </span>
         )}
       </div>
-      {transcript.steps.length > 0 && (
-        <ol className={running && !expanded ? 'run-transcript' : 'run-process-steps'} id={listId}>
-          {transcript.steps.map((step) =>
-            step.kind === 'tool' ? (
-              <ToolStep key={step.id} message={step.message} />
-            ) : step.kind === 'note' ? (
-              <li key={step.id} className="run-step run-step-note">
-                <NoteBubble message={step.message} />
-              </li>
-            ) : (
-              <li key={step.id} className="run-step run-step-reasoning" data-message-id={step.message.id}>
-                <MessageReasoning reasoning={step.message.reasoning} />
-              </li>
-            ),
-          )}
-        </ol>
+      {notes.length > 0 && <ol className="run-transcript">{notes.map(renderStep)}</ol>}
+      {sheet.mounted && (
+        <div className="ui-collapse" data-closing={sheet.closing || undefined}>
+          <div>
+            <ol className="run-process-steps" id={listId}>
+              {steps.map(renderStep)}
+            </ol>
+          </div>
+        </div>
       )}
     </div>
   );

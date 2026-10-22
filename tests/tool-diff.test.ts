@@ -24,7 +24,7 @@ test('distant changes are separated by a gap and unchanged runs are dropped', ()
   assert.equal(diff.added, 2);
 });
 
-test('file_patch and apply_patch produce diffs; other tools do not', () => {
+test('file_patch, apply_patch and file writes produce diffs; other tools do not', () => {
   const patch = toolDiff('file_patch', { path: 'src/a.ts', oldText: 'x = 1', newText: 'x = 2\ny = 3' });
   assert.equal(patch?.files[0].path, 'src/a.ts');
   assert.equal(patch?.files[0].added, 2);
@@ -56,7 +56,13 @@ test('file_patch and apply_patch produce diffs; other tools do not', () => {
     ],
   );
   assert.deepEqual(ops(applied!.files[1].lines), [' keep', '-old', '+new', '…', '-gone']);
-  assert.equal(toolDiff('file_write', { path: 'a', content: 'b' }), undefined);
+  const written = toolDiff('host_file_write', { path: 'C:/x/report.ps1', content: 'a\nb\nc\n' });
+  assert.deepEqual(
+    written?.files.map((file) => [file.kind, file.added, file.removed]),
+    [['add', 3, 0]],
+  );
+  assert.equal(toolDiff('file_write', { path: 'a', content: 'b', overwrite: true })?.files[0].kind, 'update');
+  assert.equal(toolDiff('exec_command', { command: 'ls' }), undefined);
   assert.equal(toolDiff('file_patch', { path: 'a' }), undefined);
 });
 

@@ -203,16 +203,23 @@
   }
 }
 
+/* Opened, the steps sit on one sheet of glass under the capsule: each row a tinted icon tile, a label and its detail,
+   with notes and thoughts in the same column. No rail or dots; rows separate by their hover fill. */
 .run-process-steps {
   list-style: none;
-  margin: 4px 0 0 1px;
-  padding: 0 0 0 16px;
-  border-left: 1.5px solid var(--appearance-line);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 1px;
+  margin: 8px 0 0;
+  padding: 6px;
+  border-radius: 16px;
+  background: light-dark(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.04));
+  box-shadow:
+    inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.05)),
+    0 0 0 0.5px var(--ctl-line),
+    0 6px 20px -10px light-dark(rgba(41, 32, 58, 0.18), rgba(0, 0, 0, 0.5));
 }
-/* While a run works its transcript is the conversation itself: no rail, no folded history. */
+/* While a run works its text is the conversation itself: no sheet. */
 .run-transcript {
   list-style: none;
   margin: 10px 0 10px 4px;
@@ -221,67 +228,60 @@
   flex-direction: column;
   gap: 10px;
 }
-.run-transcript .run-step {
-  padding: 0;
-}
-.run-transcript .run-step::before {
-  display: none;
-}
 .run-step {
   position: relative;
   min-width: 0;
-}
-/* A small dot on the rail marks each step. */
-.run-step::before {
-  content: '';
-  position: absolute;
-  left: -20px;
-  top: 12px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--conversation-edge);
-  border: 1.5px solid light-dark(#cfc8da, #5a5363);
-}
-.run-step-tool.is-running::before {
-  border-color: light-dark(#9d8cc0, #a597c2);
-  background: light-dark(#9d8cc0, #a597c2);
-}
-.run-step-tool.is-failed::before {
-  border-color: light-dark(#d39a8e, #c58f86);
-}
-.run-step-more::before {
-  display: none;
 }
 
 .run-step-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   width: 100%;
   min-width: 0;
-  padding: 5px 8px;
-  margin-left: -8px;
-  border-radius: 7px;
+  min-height: 34px;
+  padding: 5px 8px 5px 6px;
+  border-radius: 10px;
   text-align: left;
   color: var(--text-secondary);
+  transition: background 0.12s;
 }
 .run-step-row:not(:disabled):hover,
-.run-step-row:focus-visible {
-  background: light-dark(#29282c12, #29262f);
+.run-step-row:focus-visible,
+.run-step-row[aria-expanded='true'] {
+  background: var(--ctl-fill);
   outline: none;
 }
 .run-step-row:disabled {
   cursor: default;
 }
+/* The kind of step, as a small tinted tile. */
 .run-step-icon {
-  display: inline-flex;
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
-  color: var(--text-muted);
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: var(--ctl-fill);
+  color: var(--text-secondary);
+}
+.run-step-tool.is-command .run-step-icon {
+  background: light-dark(rgba(41, 32, 58, 0.82), rgba(255, 255, 255, 0.12));
+  color: light-dark(#fff, #e9e5ef);
+}
+.run-step-tool.is-failed .run-step-icon {
+  background: var(--ctl-danger-soft);
+  color: var(--ctl-danger);
+}
+.run-step-tool.is-running .run-step-icon {
+  background: var(--ctl-accent-soft);
+  color: var(--ctl-accent);
 }
 .run-step-label {
   flex-shrink: 0;
   color: var(--text-ink);
+  font-weight: var(--weight-label);
 }
 /* Details are mostly prose ("main.ts · 第 1052 行起"); only commands read better in the code font. */
 .run-step-detail {
@@ -297,13 +297,14 @@
 .run-step-image {
   display: inline-flex;
   flex: 0 0 auto;
-  width: 44px;
-  height: 30px;
-  margin-left: 6px;
+  width: 40px;
+  height: 28px;
   overflow: hidden;
-  border: 1px solid light-dark(#ddd9d2, #3a373f);
   border-radius: 6px;
-  background: light-dark(#f3f0ea, #232127);
+  background: var(--ctl-fill);
+  box-shadow:
+    0 0 0 0.5px var(--ctl-line),
+    0 1px 3px light-dark(rgba(41, 32, 58, 0.12), rgba(0, 0, 0, 0.4));
 }
 .run-step-image img {
   display: block;
@@ -321,16 +322,27 @@
   gap: 5px;
   flex-shrink: 0;
   font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
   font-variant-numeric: tabular-nums;
+}
+.run-step-diff .is-added {
+  color: light-dark(#2f8a5b, #7fd3a5);
+}
+.run-step-diff .is-removed {
+  color: light-dark(#c2564b, #f0a29d);
 }
 .run-step-meta {
   flex-shrink: 0;
-  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--ctl-fill);
+  font-size: calc(11px * var(--appearance-text-scale, 1));
   font-variant-numeric: tabular-nums;
-  color: light-dark(#aaa5b1, #a6a2ac);
+  color: var(--text-muted);
 }
 .run-step-meta.is-bad {
-  color: light-dark(#b36c58, #d9a595);
+  background: var(--ctl-danger-soft);
+  color: var(--ctl-danger);
 }
 .run-step-state {
   display: inline-flex;
@@ -339,23 +351,23 @@
   color: var(--text-muted);
 }
 .run-step-tool.is-failed .run-step-state {
-  color: light-dark(#b0685a, #d59d93);
+  color: var(--ctl-danger);
+}
+.run-step-state svg {
+  transition: transform 0.18s;
 }
 .run-step-row[aria-expanded='true'] .run-step-state svg {
   transform: rotate(90deg);
 }
 .run-step-body {
-  margin: 2px 0 8px;
+  margin: 4px 0 8px 39px;
 }
 .run-step-body .tool-detail {
   margin: 0;
 }
 
-.run-step-note {
-  padding: 0;
-}
-.run-step-note::before {
-  display: none;
+.run-process-steps .run-step-note {
+  padding: 6px 4px;
 }
 .run-note {
   display: flex;
@@ -372,26 +384,48 @@
 .run-note-bubble .markdown > :last-child {
   margin-bottom: 0;
 }
+
+/* A thought on the sheet reads as one more row: its sparkle in a tile, the time, and the text in a card when open. */
 .run-step-reasoning .message-reasoning {
   margin: 0;
   max-width: none;
 }
-
-.run-step-more button {
-  padding: 3px 0;
-  color: var(--text-muted);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
-}
-.run-step-more button:hover {
+.run-step-reasoning .reasoning-toggle {
+  display: flex;
+  gap: 9px;
+  width: 100%;
+  min-height: 34px;
+  margin: 0;
+  padding: 5px 8px 5px 6px;
+  border-radius: 10px;
   color: var(--text-secondary);
+  font-size: inherit;
+}
+.run-step-reasoning .reasoning-toggle > svg:first-child {
+  box-sizing: content-box;
+  width: 14px;
+  height: 14px;
+  padding: 5px;
+  border-radius: 7px;
+  background: var(--ctl-accent-soft);
+  color: var(--ctl-accent);
+}
+.run-step-reasoning .reasoning-toggle > svg:last-child:not(:first-child) {
+  margin-left: auto;
+}
+.run-step-reasoning .message-reasoning.is-open .reasoning-toggle {
+  background: var(--ctl-fill);
+}
+.run-step-reasoning .reasoning-body {
+  margin: 4px 0 8px 39px;
 }
 
 .run-step-spinner {
   display: inline-block;
-  width: 11px;
-  height: 11px;
-  border: 1.5px solid light-dark(#ddd6e6, #4a4452);
-  border-top-color: light-dark(#8f7fb3, #b3a6cc);
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--ctl-accent-soft);
+  border-top-color: var(--ctl-accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -399,7 +433,8 @@
   .run-step-spinner {
     animation: none;
   }
-  .run-process-toggle > svg:last-child {
+  .run-process-toggle > svg:last-child,
+  .run-step-state svg {
     transition: none;
   }
 }

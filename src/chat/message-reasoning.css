@@ -46,24 +46,32 @@
   font-variant-numeric: tabular-nums;
 }
 .reasoning-body {
-  margin: 6px 0 2px 6px;
-  padding: 2px 0 2px 14px;
-  border-left: 2px solid light-dark(#ebe7f1, #34303b);
-  color: light-dark(#77737f, #aaa6ae);
-  line-height: 1.75;
+  margin: 6px 0 4px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--ctl-fill);
+  color: var(--text-secondary);
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  line-height: 1.7;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  max-height: 320px;
+  max-height: 280px;
   overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.reasoning-body:hover {
+  scrollbar-color: light-dark(rgba(41, 32, 58, 0.22), rgba(255, 255, 255, 0.22)) transparent;
 }
 /* While streaming, only the newest three lines show and the oldest fades out. */
 .message-reasoning.is-live .reasoning-body {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  max-height: calc(1.75em * 3);
+  max-height: calc(1.7em * 3 + 24px);
   overflow: hidden;
-  mask-image: linear-gradient(to bottom, transparent 0, #000 1.6em);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 2.2em);
 }
 .message-reasoning.is-live .reasoning-tail {
   flex-shrink: 0;

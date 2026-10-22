@@ -565,7 +565,7 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
   const result = objectValue(value),
     tool = message.tool,
     display = toolDisplay(message),
-    output = cleanConsole(textValue(result.stdout));
+    output = cleanConsole(textValue(result.stdout) || textValue(result.output));
   if (message.status === 'running')
     return (
       <div className="detail-pending">
@@ -904,22 +904,28 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
   }
   if (tool === 'host_file_write' || (tool === 'file_write' && result.location === 'host'))
     return (
-      <DetailHeader
-        icon="file"
-        title={fileName(textValue(result.path)) || t('文件已保存')}
-        subtitle={textValue(result.path)}
-        meta={t('本机')}
-      />
+      <>
+        <DetailHeader
+          icon="file"
+          title={fileName(textValue(result.path)) || t('文件已保存')}
+          subtitle={textValue(result.path)}
+          meta={t('本机')}
+        />
+        {message.diff && <DiffView diff={message.diff} />}
+      </>
     );
   if (tool === 'file_write') {
     const file = objectValue(parsedText(output));
     return (
-      <DetailHeader
-        icon="file"
-        title={fileName(textValue(file.path)) || display.detail || t('文件已保存')}
-        subtitle={t('已保存到工作电脑')}
-        meta={typeof file.bytes === 'number' ? bytes(file.bytes) : undefined}
-      />
+      <>
+        <DetailHeader
+          icon="file"
+          title={fileName(textValue(file.path)) || display.detail || t('文件已保存')}
+          subtitle={t('已保存到工作电脑')}
+          meta={typeof file.bytes === 'number' ? bytes(file.bytes) : undefined}
+        />
+        {message.diff && <DiffView diff={message.diff} />}
+      </>
     );
   }
   if (tool === 'computer' || tool === 'request_user_control' || (tool === 'host_computer' && message.screenshotId))
@@ -931,12 +937,26 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
   const stderr = cleanConsole(textValue(result.stderr)),
     failedExit = typeof result.exitCode === 'number' && result.exitCode !== 0,
     hostCommand = tool === 'host_execute' || (tool === 'exec_command' && result.location !== 'vm');
-  if (tool === 'python_execute' || tool === 'exec_command' || tool === 'host_execute' || tool === 'computer_execute')
+  if (
+    tool === 'python_execute' ||
+    tool === 'exec_command' ||
+    tool === 'write_stdin' ||
+    tool === 'host_execute' ||
+    tool === 'computer_execute'
+  )
     return (
       <>
         <DetailHeader
           icon="terminal"
-          title={failedExit ? t('命令失败') : hostCommand ? t('本机命令完成') : t('运行成功')}
+          title={
+            failedExit
+              ? t('命令失败')
+              : result.status === 'running'
+                ? t('命令仍在运行')
+                : hostCommand
+                  ? t('本机命令完成')
+                  : t('运行成功')
+          }
           chips={[
             ...(typeof result.exitCode === 'number'
               ? [{ text: `exit ${result.exitCode}`, tone: failedExit ? ('bad' as const) : ('ok' as const) }]

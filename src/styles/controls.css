@@ -687,3 +687,36 @@
     backdrop-filter: none !important;
   }
 }
+
+/* ---------- Collapsible content ---------- */
+/* Grows from no height and fades in when it mounts, and shrinks back while data-closing is set (useCollapse,
+   src/ui/use-collapse.ts keeps it mounted that long). The inner wrapper clips with a margin so shadows survive. */
+.ui-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition:
+    grid-template-rows 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.18s ease;
+}
+@starting-style {
+  .ui-collapse {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+.ui-collapse[data-closing] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+}
+.ui-collapse > * {
+  min-height: 0;
+  overflow: clip;
+  overflow-clip-margin: 16px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-collapse {
+    transition: none;
+  }
+}

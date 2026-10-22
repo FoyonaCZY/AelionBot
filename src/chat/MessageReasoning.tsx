@@ -2,6 +2,7 @@ import { useEffect, useId, useState, useSyncExternalStore } from 'react';
 import type { MessageReasoning as Reasoning } from '../../shared/types/core';
 import type { ReasoningDisplay } from '../../shared/preview/appearance';
 import { Icon } from '../ui/Icon';
+import { useCollapse } from '../ui/use-collapse';
 import { useI18n } from '../i18n';
 import './message-reasoning.css';
 
@@ -32,6 +33,7 @@ export function MessageReasoning({ reasoning, streaming = false }: { reasoning?:
   const live = streaming && reasoning?.durationMs === undefined;
   const elapsed = useElapsed(reasoning?.startedAt, live);
   const [open, setOpen] = useState(mode === 'expanded');
+  const body = useCollapse(live || open);
   if (mode === 'hidden' || !reasoning?.text.trim()) return null;
   const seconds = Math.max(1, Math.round((live ? elapsed : reasoning.durationMs || 0) / 1000));
   const label = live
@@ -61,9 +63,13 @@ export function MessageReasoning({ reasoning, streaming = false }: { reasoning?:
         {!live && <Icon name="chevron" size={12} />}
       </button>
       {/* Streaming text is not a live region: announcing every delta would drown out the reply. */}
-      {expanded && (
-        <div className="reasoning-body" id={bodyId}>
-          {live ? <div className="reasoning-tail">{reasoning.text.trim()}</div> : reasoning.text.trim()}
+      {body.mounted && (
+        <div className="ui-collapse" data-closing={body.closing || undefined}>
+          <div>
+            <div className="reasoning-body" id={bodyId}>
+              {live ? <div className="reasoning-tail">{reasoning.text.trim()}</div> : reasoning.text.trim()}
+            </div>
+          </div>
         </div>
       )}
     </div>
