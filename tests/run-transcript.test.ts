@@ -91,7 +91,13 @@ test('a folded run line names the kinds of work in the order the run first did t
     toolStep('file_read', { activity: { label: '读取文件', detail: 'b.ts · 第 40 行起' } }),
     toolStep('file_read', { activity: { label: '读取文件', detail: 'a.ts · 第 90 行起' } }),
   ]);
-  assert.deepEqual(overview.parts, ['读取了 2 个文件', '运行了 1 条命令']);
+  assert.deepEqual(
+    overview.parts.map((part) => [part.kind, part.count, part.text]),
+    [
+      ['read', 2, '读取了 2 个文件'],
+      ['command', 1, '运行了 1 条命令'],
+    ],
+  );
 });
 
 test('a folded run line adds up changed lines and keeps the images read, not computer screens', () => {

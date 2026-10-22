@@ -538,8 +538,8 @@ const OTHER_KIND = { kind: 'other', one: '执行了 1 项其他操作', many: '�
 const SCREEN_TOOLS = new Set(['computer', 'host_computer', 'request_user_control']);
 
 export interface RunOverview {
-  /** One phrase per kind of work, in the order the run first did it, e.g. "读取了 2 个文件". */
-  parts: string[];
+  /** One entry per kind of work, in the order the run first did it; text reads e.g. "读取了 2 个文件". */
+  parts: Array<{ kind: string; count: number; text: string }>;
   added: number;
   removed: number;
   /** Ids of the images the run read or made, oldest first. */
@@ -566,9 +566,11 @@ export function runOverview(steps: RunStep[]): RunOverview {
     }
     if (message.screenshotId && !SCREEN_TOOLS.has(tool)) images.push(message.screenshotId);
   }
-  const parts = [...counts.values()].map(({ kind, keys }) =>
-    keys.size === 1 ? translate(kind.one) : translate(kind.many, { count: keys.size }),
-  );
+  const parts = [...counts.values()].map(({ kind, keys }) => ({
+    kind: kind.kind,
+    count: keys.size,
+    text: keys.size === 1 ? translate(kind.one) : translate(kind.many, { count: keys.size }),
+  }));
   return { parts, added, removed, images };
 }
 /** Wall-clock time of a finished run, or undefined while it runs or when timestamps are missing. */

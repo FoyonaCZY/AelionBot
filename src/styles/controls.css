@@ -662,8 +662,8 @@
   background: var(--ctl-fill);
 }
 
-/* Quiet disclosure rows in the conversation (reasoning, a run's steps, a scheduled card). */
-:root :is(.reasoning-toggle, .run-process-toggle):not(:disabled):hover,
+/* Quiet disclosure rows in the conversation (reasoning, a scheduled card). */
+:root .reasoning-toggle:not(:disabled):hover,
 :root .scheduled-card .scheduled-card-toggle:hover {
   background: var(--ctl-fill);
 }

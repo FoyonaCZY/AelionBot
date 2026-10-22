@@ -1,100 +1,181 @@
-/* One quiet line above the answer, while the run works and after: the kinds of work it did, the lines it changed and
-   the images it read. Expanding it shows the steps as a vertical timeline. */
+/* One small glass capsule above the answer, while the run works and after: its state and time, the kinds of work it
+   did as icons with counts, and the lines it changed. The images it read stack beside it. Expanding it shows the steps
+   as a vertical timeline. */
 .run-process {
   max-width: min(82%, 680px);
-  margin: 0 0 3px 4px;
+  margin: 0 0 4px 2px;
   min-width: 0;
   font-size: calc(12.5px * var(--appearance-text-scale, 1));
 }
 .run-process.is-expanded {
   margin-bottom: 12px;
 }
-.run-process-toggle {
+.run-process-line {
   display: flex;
   align-items: center;
-  gap: 7px;
-  width: calc(100% + 6px);
+  gap: 12px;
   min-width: 0;
-  margin-left: -6px;
-  padding: 4px 9px 4px 6px;
-  border-radius: 8px;
-  color: var(--text-muted);
+}
+.run-process-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  height: 30px;
+  padding: 0 10px 0 7px;
+  border-radius: 999px;
+  background: light-dark(rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.045));
+  box-shadow:
+    inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.05)),
+    0 0 0 0.5px var(--ctl-line),
+    0 1px 2px light-dark(rgba(41, 32, 58, 0.05), rgba(0, 0, 0, 0.3));
+  color: var(--text-secondary);
+  white-space: nowrap;
   transition:
-    background 0.15s,
-    color 0.15s;
+    background 0.16s,
+    box-shadow 0.16s,
+    transform 0.12s;
 }
 .run-process-toggle:hover,
+.run-process.is-expanded .run-process-toggle {
+  background: light-dark(#ffffff, rgba(255, 255, 255, 0.08));
+  box-shadow:
+    inset 0 1px 0 light-dark(#ffffff, rgba(255, 255, 255, 0.07)),
+    0 0 0 0.5px light-dark(rgba(41, 32, 58, 0.12), rgba(255, 255, 255, 0.06)),
+    0 2px 8px -2px light-dark(rgba(41, 32, 58, 0.14), rgba(0, 0, 0, 0.45));
+}
+.run-process-toggle:active {
+  transform: scale(0.98);
+}
 .run-process-toggle:focus-visible {
-  background: light-dark(#29282c12, #29262f);
-  color: var(--text-secondary);
   outline: none;
+  box-shadow:
+    0 0 0 0.5px var(--ctl-line),
+    var(--ctl-focus);
 }
-.run-process-toggle:focus-visible {
-  box-shadow: 0 0 0 2px light-dark(#cbbfe2, #6d5f86);
-}
-.run-process-mark {
+
+/* State: a turning ring while the run works, a soft check once it is done. */
+.run-process-status {
   display: inline-flex;
-  width: 16px;
-  justify-content: center;
-  color: light-dark(#a99bc4, #9d8fb8);
-}
-.run-process-summary {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-ink);
+  font-weight: var(--weight-label);
   font-variant-numeric: tabular-nums;
 }
-.run-process-toggle > :is(.run-process-diff, .run-process-duration, svg) {
+.run-process-done,
+.run-process-spinner {
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
-}
-.run-process-duration {
-  color: light-dark(#aaa5b1, #a6a2ac);
-  font-variant-numeric: tabular-nums;
-}
-/* A working run breathes where the finished one shows its layers mark. */
-.run-process-pulse {
-  width: 7px;
-  height: 7px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  background: var(--ctl-accent);
-  animation: run-process-pulse 1.4s ease-in-out infinite;
 }
-@keyframes run-process-pulse {
-  50% {
-    opacity: 0.35;
-    transform: scale(0.7);
+.run-process-done {
+  background: var(--ctl-accent-soft);
+  color: var(--ctl-accent);
+}
+.run-process-spinner {
+  border: 1.75px solid var(--ctl-accent-soft);
+  border-top-color: var(--ctl-accent);
+  animation: run-process-spin 0.9s linear infinite;
+}
+@keyframes run-process-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .run-process-pulse {
-    animation: none;
+  .run-process-spinner {
+    animation-duration: 2.4s;
   }
 }
-/* The images the run read sit at the end of the line, newest last, after a count of the rest. */
+
+/* Kinds of work and lines changed, each group after a hairline. */
+.run-process-kinds,
+.run-process-diff {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding-left: 10px;
+  border-left: 1px solid var(--ctl-line);
+}
+.run-process-kinds {
+  overflow: hidden;
+}
+.run-process-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+}
+.run-process-kind > b {
+  color: var(--text-secondary);
+  font-weight: var(--weight-label);
+  font-variant-numeric: tabular-nums;
+}
+.run-process-diff {
+  gap: 6px;
+  flex-shrink: 0;
+  font-weight: var(--weight-label);
+  font-variant-numeric: tabular-nums;
+}
+.run-process-diff .is-added {
+  color: light-dark(#2f8a5b, #7fd3a5);
+}
+.run-process-diff .is-removed {
+  color: light-dark(#c2564b, #f0a29d);
+}
+.run-process-toggle > svg:last-child {
+  flex-shrink: 0;
+  margin-left: -2px;
+  color: var(--text-muted);
+  transition: transform 0.18s;
+}
+.run-process.is-expanded .run-process-toggle > svg:last-child {
+  transform: rotate(90deg);
+}
+
+/* The images the run read, as a fanned stack of small cards right after the capsule; it spreads when pointed at. */
 .run-process-images {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
   flex-shrink: 0;
-  margin-left: auto;
-  padding-left: 12px;
-}
-.run-process-more-images {
-  margin-right: 2px;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
+  padding-left: 2px;
+  cursor: pointer;
 }
 .run-process-thumb {
   display: block;
-  width: 34px;
-  height: 24px;
+  width: 38px;
+  height: 27px;
+  margin-left: -14px;
   overflow: hidden;
-  border-radius: 6px;
+  border: 1.5px solid light-dark(#ffffff, #3a3542);
+  border-radius: 7px;
   background: var(--ctl-fill);
   box-shadow:
-    0 0 0 0.5px var(--ctl-line),
-    0 1px 3px light-dark(rgba(41, 32, 58, 0.14), rgba(0, 0, 0, 0.4));
+    0 1px 2px light-dark(rgba(41, 32, 58, 0.12), rgba(0, 0, 0, 0.4)),
+    0 4px 10px -4px light-dark(rgba(41, 32, 58, 0.24), rgba(0, 0, 0, 0.55));
+  transition:
+    margin 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.run-process-thumb:first-child {
+  margin-left: 0;
+}
+.run-process-thumb:nth-child(odd) {
+  transform: rotate(-3deg);
+}
+.run-process-thumb:nth-child(even) {
+  transform: rotate(2deg) translateY(-1px);
+}
+.run-process-images:hover .run-process-thumb:not(:first-child) {
+  margin-left: 4px;
+}
+.run-process-images:hover .run-process-thumb {
+  transform: none;
 }
 .run-process-thumb img {
   display: block;
@@ -102,12 +183,24 @@
   height: 100%;
   object-fit: cover;
 }
-.run-process-toggle > svg:last-child {
-  opacity: 0.7;
-  transition: transform 0.18s;
+.run-process-more-images {
+  min-width: 22px;
+  height: 20px;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--ctl-fill);
+  color: var(--text-secondary);
+  font-size: calc(11px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
-.run-process.is-expanded .run-process-toggle > svg:last-child {
-  transform: rotate(90deg);
+@media (prefers-reduced-motion: reduce) {
+  .run-process-thumb {
+    transition: none;
+  }
 }
 
 .run-process-steps {
@@ -122,7 +215,7 @@
 /* While a run works its transcript is the conversation itself: no rail, no folded history. */
 .run-transcript {
   list-style: none;
-  margin: 2px 0 10px 4px;
+  margin: 10px 0 10px 4px;
   padding: 0;
   display: flex;
   flex-direction: column;
