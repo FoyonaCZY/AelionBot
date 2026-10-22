@@ -661,8 +661,7 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   color: #fbf8ff;
 }
 
-:root[data-theme='dark'] .app-shell .message-time,
-:root[data-theme='dark'] .app-shell .bubble-time {
+:root[data-theme='dark'] .app-shell .message-time {
   color: #a9a2b4 !important;
 }
 
@@ -812,11 +811,6 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > .
   background: var(--glass-grain), var(--glass-tint-strong) !important;
   box-shadow: var(--glass-float) !important;
   backdrop-filter: var(--glass-blur) !important;
-}
-
-.app-shell .composer:focus-within,
-.floating-composer .composer:focus-within {
-  box-shadow: var(--liquid-rim), var(--glass-float), var(--glass-focus) !important;
 }
 
 /* Controls inside cards and glass layers: flat tinted fills, no blur, no rim. */

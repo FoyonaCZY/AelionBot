@@ -55,9 +55,6 @@
     0 1px 2px light-dark(#0000000a, #00000033),
     0 10px 30px -12px light-dark(#0000002e, #00000099);
 }
-.floating-composer .composer:focus-within {
-  border-color: light-dark(#cfcfd3, #57525d);
-}
 /* Cards that sit above the composer float with it. */
 .floating-composer .work-items-panel,
 .floating-composer .live-work {

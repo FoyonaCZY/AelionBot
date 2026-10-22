@@ -76,31 +76,6 @@
   padding: 12px 16px 11px;
 }
 
-/* The time a message was sent sits in the bubble's lower right corner. The last line of text keeps clear of it with
-   an invisible spacer; text that ends in a list, a table or code gets a line of padding instead. */
-.bubble-time {
-  position: absolute;
-  right: 11px;
-  bottom: 5px;
-  font-size: calc(11px * var(--appearance-text-scale, 1));
-  line-height: 14px;
-  color: color-mix(in srgb, currentColor 52%, transparent);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  user-select: none;
-  pointer-events: none;
-}
-.bubble-time-gap,
-.bubble.has-time > .markdown > p:last-child::after {
-  content: '';
-  display: inline-block;
-  width: calc(38px * var(--appearance-text-scale, 1));
-  height: 1px;
-}
-:root .message-row .bubble.has-time:has(> .markdown > :last-child:not(p)) {
-  padding-bottom: 22px;
-}
-
 /* Messages from one side that follow each other form a group: 3px apart, the corners between them tightened. */
 .messages > .message-row.user:has(+ .message-row.user) {
   margin-bottom: 3px;

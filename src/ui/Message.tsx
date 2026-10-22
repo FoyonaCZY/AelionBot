@@ -2,7 +2,6 @@ import { createContext, memo, useContext, useRef } from 'react';
 import { previewFeedbackDisplay } from '../../shared/preview/preview-feedback';
 import { MessageQuote } from '../chat/MessageQuote';
 import { MessageTime } from '../chat/ConversationTime';
-import { clockTime } from '../chat/conversation-time';
 import { AttachmentList } from '../files/Attachments';
 import { attachmentSummary } from '../../shared/types/attachment-types';
 import type { Bot, ChatMessage } from '../../shared/types/core';
@@ -116,9 +115,7 @@ function MessageView({
   const images = (message.attachments || []).filter((file) => file.image || file.mime.startsWith('image/')),
     // Images sit above the bubble and other files below it. A message that is only attachments puts them in a
     // see-through bubble so hover actions (reply, pin) still have a target.
-    bare = Boolean(message.attachments?.length) && !displayContent && !answer && !message.reply && !hasBlocks,
-    clock =
-      bare || message.status === 'running' || !(displayContent || answer || hasBlocks) ? '' : clockTime(message.time);
+    bare = Boolean(message.attachments?.length) && !displayContent && !answer && !message.reply && !hasBlocks;
   return (
     <>
       <MessageTime id={message.id} time={message.time} />
@@ -146,7 +143,7 @@ function MessageView({
               ? () => onReply({ ...message, content: displayContent })
               : undefined
           }
-          bubbleClassName={`bubble ${answer ? 'question-answer-bubble' : ''} ${message.status === 'failed' ? 'failed' : ''} ${bare ? 'is-media' : ''} ${clock ? 'has-time' : ''}`}
+          bubbleClassName={`bubble ${answer ? 'question-answer-bubble' : ''} ${message.status === 'failed' ? 'failed' : ''} ${bare ? 'is-media' : ''}`}
           after={bare ? undefined : <AttachmentList files={message.attachments} only="files" />}
           onPin={
             allowPins &&
@@ -174,11 +171,7 @@ function MessageView({
                 </>
               )
             ) : (
-              <>
-                <MentionContent content={displayContent} mentions={presentation.mentions} />
-                {/* Keeps the last line of text clear of the time in the bubble's corner. */}
-                {clock && <span className="bubble-time-gap" aria-hidden="true" />}
-              </>
+              <MentionContent content={displayContent} mentions={presentation.mentions} />
             )
           ) : message.attachments?.length ? null : (
             <span className="typing">
@@ -188,11 +181,6 @@ function MessageView({
             </span>
           )}
           {bare && <AttachmentList files={message.attachments} />}
-          {clock && (
-            <time className="bubble-time" dateTime={message.time}>
-              {clock}
-            </time>
-          )}
         </MessageActions>
       </div>
     </>
