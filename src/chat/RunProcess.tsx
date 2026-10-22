@@ -20,8 +20,11 @@ import { shallowEqual } from '../ui/equality';
 import { REVEAL_MESSAGE_EVENT } from './reveal-message';
 import { useCollapse } from '../ui/use-collapse';
 import { useFilePreview, type PreviewItem } from '../preview/FilePreviewContext';
+import './run-process.css';
 
 type RunImage = { id: string; name: string };
+/** The preview pages between items (arrows, ←/→) only when their names say they are images. */
+const imageName = (name: string) => (/\.(png|jpe?g|gif|webp|bmp|avif|svg)$/i.test(name) ? name : `${name}.png`);
 /** Opens a run's images in the file preview, paging through all of them from the one clicked. */
 function useOpenImages() {
   const openPreview = useFilePreview();
@@ -30,7 +33,7 @@ function useOpenImages() {
         openPreview(
           images.map((image): PreviewItem => ({
             id: 'screenshot:' + image.id,
-            name: image.name,
+            name: imageName(image.name),
             size: 0,
             load: async () => ({ kind: 'image', dataUrl: await window.aelion.screenshot(image.id) }),
           })),
@@ -38,7 +41,6 @@ function useOpenImages() {
         )
     : undefined;
 }
-import './run-process.css';
 
 /** Fired by chat search so a folded run opens before the view scrolls to one of its messages. */
 

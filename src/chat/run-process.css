@@ -12,10 +12,12 @@
   width: 100%;
   margin-bottom: 12px;
 }
+/* In a narrow column the images move under the capsule instead of covering it. */
 .run-process-line {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 6px 12px;
   min-width: 0;
 }
 .run-process-toggle {
