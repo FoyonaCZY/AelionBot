@@ -110,7 +110,10 @@ test('a folded run line adds up changed lines and keeps the images read, not com
   ]);
   assert.equal(overview.added, 5);
   assert.equal(overview.removed, 1);
-  assert.deepEqual(overview.images, ['img-1', 'img-2']);
+  assert.deepEqual(
+    overview.images.map((image) => image.id),
+    ['img-1', 'img-2'],
+  );
 });
 
 test('a run without tools has no kinds to name', () => {

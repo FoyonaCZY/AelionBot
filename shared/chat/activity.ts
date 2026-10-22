@@ -542,15 +542,15 @@ export interface RunOverview {
   parts: Array<{ kind: string; count: number; text: string }>;
   added: number;
   removed: number;
-  /** Ids of the images the run read or made, oldest first. */
-  images: string[];
+  /** The images the run read or made, oldest first: screenshot id and a name to show in the viewer. */
+  images: Array<{ id: string; name: string }>;
 }
 /** The facts a folded run line shows: kinds of work done, lines changed and the images it read. */
 export function runOverview(steps: RunStep[]): RunOverview {
   const counts = new Map<string, { kind: (typeof RUN_KINDS)[number] | typeof OTHER_KIND; keys: Set<string> }>();
   let added = 0,
     removed = 0;
-  const images: string[] = [];
+  const images: RunOverview['images'] = [];
   for (const step of steps) {
     if (step.kind !== 'tool') continue;
     const message = step.message,
@@ -564,7 +564,11 @@ export function runOverview(steps: RunStep[]): RunOverview {
       added += file.added;
       removed += file.removed;
     }
-    if (message.screenshotId && !SCREEN_TOOLS.has(tool)) images.push(message.screenshotId);
+    if (message.screenshotId && !SCREEN_TOOLS.has(tool))
+      images.push({
+        id: message.screenshotId,
+        name: detail || translate('图片 {index}', { index: images.length + 1 }),
+      });
   }
   const parts = [...counts.values()].map(({ kind, keys }) => ({
     kind: kind.kind,

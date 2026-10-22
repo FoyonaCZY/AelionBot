@@ -19,6 +19,25 @@ import { useI18n } from '../i18n';
 import { shallowEqual } from '../ui/equality';
 import { REVEAL_MESSAGE_EVENT } from './reveal-message';
 import { useCollapse } from '../ui/use-collapse';
+import { useFilePreview, type PreviewItem } from '../preview/FilePreviewContext';
+
+type RunImage = { id: string; name: string };
+/** Opens a run's images in the file preview, paging through all of them from the one clicked. */
+function useOpenImages() {
+  const openPreview = useFilePreview();
+  return openPreview
+    ? (images: RunImage[], index: number) =>
+        openPreview(
+          images.map((image): PreviewItem => ({
+            id: 'screenshot:' + image.id,
+            name: image.name,
+            size: 0,
+            load: async () => ({ kind: 'image', dataUrl: await window.aelion.screenshot(image.id) }),
+          })),
+          index,
+        )
+    : undefined;
+}
 import './run-process.css';
 
 /** Fired by chat search so a folded run opens before the view scrolls to one of its messages. */
@@ -49,7 +68,8 @@ function ToolStep({ message }: { message: ChatMessage }) {
     running = status === 'running',
     image = message.tool === 'view_image' ? message.screenshotId : undefined,
     meta = running ? undefined : stepMeta(toolResult(message)),
-    body = useCollapse(open && !running);
+    body = useCollapse(open && !running),
+    openImages = useOpenImages();
   return (
     <li
       className={`run-step run-step-tool is-${status} ${meta?.tone === 'bad' ? 'is-failed' : ''} ${toolIcon(message.tool) === 'terminal' ? 'is-command' : ''}`}
@@ -67,7 +87,16 @@ function ToolStep({ message }: { message: ChatMessage }) {
         </span>
         <span className="run-step-label">{display.label}</span>
         {image ? (
-          <span className="run-step-image" title={display.detail}>
+          <span
+            className="run-step-image"
+            title={display.detail}
+            onClick={(event) => {
+              if (!openImages) return;
+              // The thumbnail opens the image; the rest of the row opens the step's details.
+              event.stopPropagation();
+              openImages([{ id: image, name: display.detail || t('查看图片') }], 0);
+            }}
+          >
             <ScreenshotImage id={image} alt={display.detail || t('查看图片')} />
           </span>
         ) : display.detail ? (
@@ -188,7 +217,8 @@ function RunProcessView({ steps: allSteps, running, startedAt, durationMs }: Run
   const listId = useId(),
     wasRunning = useRef(running),
     elapsed = useElapsed(running ? startedAt : undefined),
-    sheet = useCollapse(expanded);
+    sheet = useCollapse(expanded),
+    openImages = useOpenImages();
   // The answer takes over once the run ends: fold the process even if it was opened while working.
   useEffect(() => {
     if (wasRunning.current && !running) setExpanded(false);
@@ -232,6 +262,8 @@ function RunProcessView({ steps: allSteps, running, startedAt, durationMs }: Run
   const changed = overview.added > 0 || overview.removed > 0;
   const thumbnails = overview.images.slice(-3),
     moreImages = overview.images.length - thumbnails.length;
+  // Each thumbnail opens the gallery at itself; the count opens it at the first image.
+  const showImage = (index: number) => (openImages ? openImages(overview.images, index) : setExpanded(true));
   return (
     <div className={`run-process ${running ? 'is-running' : ''} ${expanded ? 'is-expanded' : ''}`}>
       <div className="run-process-line">
@@ -277,13 +309,29 @@ function RunProcessView({ steps: allSteps, running, startedAt, durationMs }: Run
           <Icon name="chevron" size={12} />
         </button>
         {thumbnails.length > 0 && (
-          <span className="run-process-images" aria-hidden="true" onClick={() => setExpanded(!expanded)}>
-            {thumbnails.map((id) => (
-              <span key={id} className="run-process-thumb">
-                <ScreenshotImage id={id} alt="" />
-              </span>
+          <span className="run-process-images">
+            {thumbnails.map((image, index) => (
+              <button
+                key={image.id}
+                type="button"
+                className="run-process-thumb"
+                title={image.name}
+                aria-label={t('查看图片 {name}', { name: image.name })}
+                onClick={() => showImage(moreImages + index)}
+              >
+                <ScreenshotImage id={image.id} alt="" />
+              </button>
             ))}
-            {moreImages > 0 && <span className="run-process-more-images">+{moreImages}</span>}
+            {moreImages > 0 && (
+              <button
+                type="button"
+                className="run-process-more-images"
+                aria-label={t('查看全部 {count} 张图片', { count: overview.images.length })}
+                onClick={() => showImage(0)}
+              >
+                +{moreImages}
+              </button>
+            )}
           </span>
         )}
       </div>

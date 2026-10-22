@@ -1309,6 +1309,8 @@ export const en: Record<string, string> = {
   本次运行没有文本输出: 'This run produced no text output',
   本机命令完成: 'Local command completed',
   命令仍在运行: 'Command still running',
+  '图片 {index}': 'Image {index}',
+  '查看图片 {name}': 'View image {name}',
   必填: 'Required',
   编辑文件: 'Edit file',
   '操作后的电脑画面，可点击放大查看。': 'The work computer after the action; click to enlarge.',
