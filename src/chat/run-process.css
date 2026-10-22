@@ -2,14 +2,14 @@
    did as icons with counts, and the lines it changed. The images it read stack beside it. Expanding it shows the steps
    as a vertical timeline. */
 .run-process {
+  container: run-process / inline-size;
+  width: 100%;
   max-width: min(82%, 680px);
   margin: 0 0 4px 2px;
   min-width: 0;
   font-size: calc(12.5px * var(--appearance-text-scale, 1));
 }
 .run-process.is-expanded {
-  /* Opened, the sheet takes the full column so it does not change width as steps open. */
-  width: 100%;
   margin-bottom: 12px;
 }
 /* In a narrow column the images move under the capsule instead of covering it. */
@@ -25,6 +25,8 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
+  /* The chevron always stays inside; see the container queries below for what gives way in a narrow column. */
+  max-width: 100%;
   height: 30px;
   padding: 0 10px 0 7px;
   border-radius: 999px;
@@ -63,6 +65,7 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  min-width: 0;
   color: var(--text-ink);
   font-weight: var(--weight-label);
   font-variant-numeric: tabular-nums;
@@ -108,6 +111,22 @@
 }
 .run-process-kinds {
   overflow: hidden;
+}
+/* A narrow column (the chat docked beside a preview) drops the kinds, then the line counts, so the status reads in full. */
+@container run-process (max-width: 440px) {
+  .run-process-kinds {
+    display: none;
+  }
+}
+@container run-process (max-width: 250px) {
+  .run-process-diff {
+    display: none;
+  }
+}
+.run-process-status-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .run-process-kind {
   display: inline-flex;

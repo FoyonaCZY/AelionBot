@@ -285,7 +285,7 @@ function RunProcessView({ steps: allSteps, running, startedAt, durationMs }: Run
                 <Icon name="check" size={10} />
               </span>
             )}
-            {status}
+            <span className="run-process-status-text">{status}</span>
           </span>
           {overview.parts.length > 0 ? (
             <span className="run-process-kinds">
