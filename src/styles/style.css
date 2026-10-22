@@ -698,15 +698,22 @@ dd {
 .modal textarea {
   display: block;
   width: 100%;
-  border: 1px solid light-dark(#dddfe1, #3e3945);
-  border-radius: 9px;
+  border: 1px solid transparent;
+  border-radius: var(--ctl-radius);
   padding: 10px 12px;
   margin-top: 7px;
   color: light-dark(#42474b, #d9d6dc);
-  background: light-dark(#fdfdfd, #201e24);
+  background: var(--ctl-fill);
   resize: vertical;
   font-size: calc(12px * var(--appearance-text-scale, 1));
   line-height: 1.6;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s;
+}
+.modal :is(input, textarea):focus {
+  background: light-dark(rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.1));
+  box-shadow: var(--ctl-focus);
 }
 .modal input::placeholder,
 .modal textarea::placeholder {

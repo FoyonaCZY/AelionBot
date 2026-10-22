@@ -1,0 +1,687 @@
+/* Controls: one look for the small parts that sit inside the app's glass and solid cards — buttons, fields and
+   selects, switches, tabs, menus, chips and list rows. Each component stylesheet still lays its control out; this
+   file only gives it its surface, so a page that draws a switch or a menu its own way still looks like the rest.
+
+   - Fields, chips and quiet buttons are flat tinted fills (--ctl-fill) with no border; hover deepens the tint.
+   - Raised parts — the secondary button, the selected tab and the selected row — are a small pane of white glass
+     (--ctl-raised): a lit top edge, a hairline and a soft drop.
+   - The primary action is an ink capsule with the same lit edge; colour is kept for state (on, selected, focus).
+   - Menus and pickers are the floating glass of glass-shell.css: grain, sheen, a dense tint, rim and blur.
+
+   This file loads last (src/app/main.tsx) and is the one place controls get their surface, so where a component rule
+   is more specific it uses !important. Layout properties (position, size, gap) stay with the component. */
+:root {
+  --ctl-accent: light-dark(#7458c4, #b9a5f0);
+  --ctl-accent-strong: light-dark(#6346b8, #c9b8f5);
+  --ctl-accent-soft: light-dark(rgba(116, 88, 196, 0.1), rgba(185, 165, 240, 0.16));
+  --ctl-accent-ring: light-dark(rgba(116, 88, 196, 0.3), rgba(185, 165, 240, 0.4));
+  --ctl-fill: light-dark(rgba(92, 72, 132, 0.065), rgba(255, 255, 255, 0.065));
+  --ctl-fill-hover: light-dark(rgba(92, 72, 132, 0.11), rgba(255, 255, 255, 0.1));
+  --ctl-fill-press: light-dark(rgba(92, 72, 132, 0.15), rgba(255, 255, 255, 0.14));
+  --ctl-line: light-dark(rgba(41, 32, 58, 0.08), rgba(255, 255, 255, 0.08));
+  --ctl-raised-shadow:
+    inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.12)),
+    0 0 0 0.5px light-dark(rgba(41, 32, 58, 0.12), rgba(0, 0, 0, 0.4)),
+    0 1px 2px light-dark(rgba(41, 32, 58, 0.07), rgba(0, 0, 0, 0.3)),
+    0 3px 10px -4px light-dark(rgba(41, 32, 58, 0.16), rgba(0, 0, 0, 0.45));
+  --ctl-on-ink: light-dark(#ffffff, #1e1b24);
+  --ctl-ink-shadow:
+    inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.9)),
+    inset 0 -1px 0 light-dark(rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.08)),
+    0 1px 2px light-dark(rgba(31, 24, 44, 0.18), rgba(0, 0, 0, 0.35)),
+    0 4px 12px -4px light-dark(rgba(31, 24, 44, 0.35), rgba(0, 0, 0, 0.5));
+  --ctl-danger: light-dark(#c2413b, #f0a29d);
+  --ctl-danger-soft: light-dark(rgba(194, 65, 59, 0.09), rgba(240, 162, 157, 0.14));
+  --ctl-focus: 0 0 0 3px var(--ctl-accent-ring);
+  --ctl-radius: 10px;
+  --ctl-item-radius: 8px;
+  --ctl-menu-radius: 14px;
+  --ctl-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m7 10 5 5 5-5' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  accent-color: var(--ctl-accent);
+  scrollbar-color: light-dark(rgba(41, 32, 58, 0.2), rgba(255, 255, 255, 0.2)) transparent;
+}
+
+/* Gradients cannot go through light-dark(), so the raised, ink and danger fills switch with the theme here. */
+:root {
+  --ctl-raised: linear-gradient(180deg, #ffffff, rgba(255, 255, 255, 0.88));
+  --ctl-raised-hover: linear-gradient(180deg, #ffffff, #ffffff);
+  --ctl-ink: linear-gradient(180deg, #3a3642, #1f1d24);
+  --ctl-ink-hover: linear-gradient(180deg, #48434f, #2a2730);
+  --ctl-danger-fill: linear-gradient(180deg, #d4544d, #b93a34);
+  --ctl-switch-on: linear-gradient(180deg, #8a6fd6, #6a4fbf);
+}
+
+:root[data-theme='dark'] {
+  --ctl-raised: linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.08));
+  --ctl-raised-hover: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.11));
+  --ctl-ink: linear-gradient(180deg, #f6f3fa, #dcd6e4);
+  --ctl-ink-hover: linear-gradient(180deg, #ffffff, #e8e3ee);
+  --ctl-danger-fill: linear-gradient(180deg, #f3b0ab, #e6928c);
+  --ctl-switch-on: linear-gradient(180deg, #b7a2ee, #9c83e0);
+}
+
+/* ---------- Focus ---------- */
+:root :is(button, [role='button'], [role='tab'], [role='switch'], a):focus-visible {
+  outline: 2px solid var(--ctl-accent-ring);
+  outline-offset: 2px;
+}
+
+/* ---------- Buttons ---------- */
+/* Primary: an ink capsule. Secondary (and the plain buttons on Bot cards): a raised capsule of white glass. Group
+   games keep their own themed buttons. */
+:root
+  :is(
+    .primary-button,
+    .runtime-save,
+    .computer-rest-start,
+    .companion-primary,
+    .secondary-button,
+    .companion-button:not(.companion-primary, .companion-quiet),
+    .bot-palette-random,
+    .danger-button
+  ):not(.gg-table-root *, .gg-reveal-card *) {
+  border: 0 !important;
+  border-radius: 999px !important;
+  transition:
+    background 0.16s,
+    box-shadow 0.16s,
+    color 0.16s,
+    transform 0.12s,
+    opacity 0.16s;
+}
+
+:root
+  :is(.primary-button, .runtime-save, .computer-rest-start, .companion-primary):not(
+    .gg-table-root *,
+    .gg-reveal-card *
+  ) {
+  background: var(--ctl-ink) !important;
+  color: var(--ctl-on-ink) !important;
+  box-shadow: var(--ctl-ink-shadow) !important;
+}
+
+:root
+  :is(.primary-button, .runtime-save, .computer-rest-start, .companion-primary):not(
+    :disabled,
+    .gg-table-root *,
+    .gg-reveal-card *
+  ):hover {
+  background: var(--ctl-ink-hover) !important;
+  color: var(--ctl-on-ink) !important;
+}
+
+:root
+  :is(.secondary-button, .companion-button:not(.companion-primary, .companion-quiet), .bot-palette-random):not(
+    .gg-table-root *,
+    .gg-reveal-card *
+  ) {
+  background: var(--ctl-raised) !important;
+  color: var(--text-ink) !important;
+  box-shadow: var(--ctl-raised-shadow) !important;
+}
+
+:root
+  :is(.secondary-button, .companion-button:not(.companion-primary, .companion-quiet), .bot-palette-random):not(
+    :disabled,
+    .gg-table-root *,
+    .gg-reveal-card *
+  ):hover {
+  background: var(--ctl-raised-hover) !important;
+}
+
+:root .secondary-button.danger-text {
+  color: var(--ctl-danger) !important;
+}
+
+:root .danger-button {
+  background: var(--ctl-danger-fill) !important;
+  color: light-dark(#fff, #2a1414) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 1px 2px rgba(120, 30, 26, 0.2),
+    0 4px 12px -4px rgba(150, 40, 34, 0.4) !important;
+}
+
+:root .danger-button:not(:disabled):hover {
+  filter: brightness(1.06);
+}
+
+:root
+  :is(
+    .primary-button,
+    .runtime-save,
+    .computer-rest-start,
+    .companion-primary,
+    .secondary-button,
+    .companion-button:not(.companion-primary, .companion-quiet),
+    .bot-palette-random,
+    .danger-button
+  ):not(:disabled, .gg-table-root *, .gg-reveal-card *):active {
+  transform: scale(0.97);
+}
+
+:root
+  :is(
+    .primary-button,
+    .runtime-save,
+    .computer-rest-start,
+    .companion-primary,
+    .secondary-button,
+    .companion-button:not(.companion-primary, .companion-quiet),
+    .bot-palette-random,
+    .danger-button
+  ):not(.gg-table-root *, .gg-reveal-card *):disabled {
+  box-shadow: none !important;
+  opacity: 0.42;
+}
+
+:root .companion-surface .companion-quiet:not(:disabled):hover {
+  background: var(--ctl-fill-hover);
+}
+
+:root .text-button {
+  color: var(--ctl-accent);
+}
+
+:root .text-button:not(:disabled):hover {
+  color: var(--ctl-accent-strong);
+}
+
+:root .icon-button {
+  border-radius: var(--ctl-radius);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+:root .icon-button:not(:disabled):hover {
+  background: var(--ctl-fill-hover);
+  color: var(--text-ink);
+}
+
+:root .icon-button:not(:disabled):active {
+  background: var(--ctl-fill-press);
+}
+
+/* ---------- Fields and selects ---------- */
+:root :is(.aelion-select, .aelion-combobox .aelion-combobox-input, .editable-select input) {
+  border-color: transparent !important;
+  border-radius: var(--ctl-radius) !important;
+  background-color: var(--ctl-fill) !important;
+  box-shadow: none !important;
+}
+
+:root :is(.aelion-select, .aelion-combobox .aelion-combobox-input, .editable-select input):not(:disabled):hover {
+  background-color: var(--ctl-fill-hover) !important;
+}
+
+:root
+  :is(.aelion-select, .aelion-combobox .aelion-combobox-input, .editable-select input):is(
+    :focus-visible,
+    :open,
+    :focus
+  ) {
+  background-color: light-dark(rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.1)) !important;
+  box-shadow: var(--ctl-focus) !important;
+}
+
+:root :is(.aelion-select, .aelion-combobox .aelion-combobox-input, .editable-select input):disabled {
+  background-color: light-dark(rgba(92, 72, 132, 0.04), rgba(255, 255, 255, 0.04)) !important;
+}
+
+:root .aelion-select::picker-icon,
+:root .aelion-combobox-arrow {
+  background: var(--text-muted);
+  mask-image: var(--ctl-chevron);
+}
+
+/* Settings fields: the same fill as every other field instead of a bordered white box. */
+.settings-modal
+  :is(
+    .settings-field,
+    .settings-row input:not([type='checkbox'], [type='radio'], [type='range'], .aelion-combobox-input),
+    .settings-row textarea
+  ),
+.bot-profile-modal
+  :is(
+    .settings-field,
+    textarea,
+    input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'])
+  ),
+:root :is(.group-name input, .scheduled-editor :is(input:not([type='checkbox'], [type='radio']), textarea)) {
+  border-color: transparent !important;
+  border-radius: var(--ctl-radius) !important;
+  background-color: var(--ctl-fill) !important;
+  box-shadow: none !important;
+}
+
+.settings-modal
+  :is(
+    .settings-field,
+    .settings-row input:not([type='checkbox'], [type='radio'], [type='range'], .aelion-combobox-input),
+    .settings-row textarea
+  ):focus,
+.bot-profile-modal
+  :is(.settings-field, input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'])):focus,
+:root :is(.group-name input, .scheduled-editor :is(input:not([type='checkbox'], [type='radio']), textarea)):focus {
+  outline: none;
+  background-color: light-dark(rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.1)) !important;
+  box-shadow: var(--ctl-focus) !important;
+}
+
+/* The task name used to be an underlined title; as a filled field it needs the same inset as the others. */
+:root .scheduled-editor .scheduled-name input {
+  height: 40px;
+  padding: 9px 11px;
+}
+
+/* ---------- Switches ---------- */
+/* Six components draw a switch: a track with a knob as its child (or ::after, or ::before on a checkbox). All share
+   one track and one knob; each size sets its own travel. */
+:root
+  :is(
+    .learning-switch,
+    .runtime-switch,
+    .vm-storage-switch,
+    .plugin-switch,
+    .scheduled-toggle-track,
+    .settings-row.provider-hosted-row input[type='checkbox']
+  ) {
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: light-dark(rgba(92, 72, 132, 0.16), rgba(255, 255, 255, 0.16)) !important;
+  box-shadow: inset 0 1px 2px light-dark(rgba(41, 32, 58, 0.12), rgba(0, 0, 0, 0.35)) !important;
+  transition:
+    background 0.2s,
+    box-shadow 0.2s !important;
+}
+
+:root
+  :is(
+    .learning-switch.enabled,
+    .runtime-switch[aria-checked='true'],
+    .vm-storage-switch[aria-checked='true'],
+    .plugin-switch[aria-checked='true'],
+    .scheduled-toggle[aria-checked='true'] .scheduled-toggle-track,
+    .settings-row.provider-hosted-row input[type='checkbox']:checked
+  ) {
+  background: var(--ctl-switch-on) !important;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.28),
+    inset 0 -1px 1px rgba(40, 20, 80, 0.18) !important;
+}
+
+:root
+  :is(
+    .learning-switch > i,
+    .runtime-switch > span,
+    .vm-storage-switch > i,
+    .plugin-switch > span,
+    .scheduled-toggle-track::after,
+    .settings-row.provider-hosted-row input[type='checkbox']::before
+  ) {
+  background: linear-gradient(180deg, #ffffff, #f3f1f6) !important;
+  box-shadow:
+    0 0 0 0.5px rgba(41, 32, 58, 0.1),
+    0 1px 2px rgba(41, 32, 58, 0.2),
+    0 2px 5px rgba(41, 32, 58, 0.14) !important;
+  transition: transform 0.22s cubic-bezier(0.3, 1.4, 0.5, 1) !important;
+}
+
+/* Regular size: 38 × 22, knob 18. */
+:root :is(.learning-switch, .runtime-switch, .vm-storage-switch) {
+  width: 38px !important;
+  height: 22px !important;
+  padding: 2px !important;
+}
+
+:root :is(.learning-switch > i, .runtime-switch > span, .vm-storage-switch > i) {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+:root
+  :is(
+    .learning-switch.enabled > i,
+    .runtime-switch[aria-checked='true'] > span,
+    .vm-storage-switch[aria-checked='true'] > i
+  ) {
+  transform: translateX(16px) !important;
+}
+
+/* Compact, in lists: 32 × 19, knob 15. */
+:root .plugin-switch {
+  width: 32px !important;
+  height: 19px !important;
+  padding: 2px !important;
+}
+
+:root .plugin-switch > span {
+  width: 15px !important;
+  height: 15px !important;
+}
+
+:root .plugin-switch[aria-checked='true'] > span {
+  transform: translateX(13px) !important;
+}
+
+:root .scheduled-toggle[aria-checked='true'] .scheduled-toggle-track::after {
+  transform: translateX(11px) !important;
+}
+
+:root :is(.learning-switch, .runtime-switch, .vm-storage-switch, .plugin-switch):disabled,
+:root .scheduled-toggle:disabled .scheduled-toggle-track {
+  opacity: 0.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root
+    :is(
+      .learning-switch > i,
+      .runtime-switch > span,
+      .vm-storage-switch > i,
+      .plugin-switch > span,
+      .scheduled-toggle-track::after,
+      .settings-row.provider-hosted-row input[type='checkbox']::before
+    ) {
+    transition: none !important;
+  }
+}
+
+/* ---------- Segmented controls ---------- */
+.settings-modal :is(.design-tabs, .model-settings-navigation) {
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--ctl-fill);
+  box-shadow: inset 0 1px 2px light-dark(rgba(41, 32, 58, 0.06), rgba(0, 0, 0, 0.25));
+}
+
+.settings-modal :is(.design-tabs, .model-settings-navigation) > button {
+  border-radius: 999px;
+}
+
+.settings-modal
+  :is(.design-tabs, .model-settings-navigation)
+  > button:is([aria-selected='true'], [aria-pressed='true']) {
+  background: var(--ctl-raised);
+  box-shadow: var(--ctl-raised-shadow);
+}
+
+/* ---------- Tabs ---------- */
+/* Tab rows were text with an underline. They are now capsules on the page: the current tab is raised, the rest show a
+   tint on hover. The row keeps its own spacing to the content below; only the rule under it goes. */
+:root :is(.plugins-tabs, .plugin-tabs, .provider-editor-tabs, .usage-tabs, .bot-palette-tabs) {
+  gap: 4px !important;
+  border-bottom: 0 !important;
+}
+
+:root .usage-tabs-row {
+  border-bottom: 0 !important;
+}
+
+:root
+  :is(
+    .plugins-tabs > button:not(.plugins-tab-link),
+    .plugin-tabs button,
+    .provider-editor-tabs > button,
+    .usage-tabs .usage-tab,
+    .bot-palette-tabs button
+  ) {
+  align-items: center !important;
+  padding: 5px 12px !important;
+  border-radius: 999px !important;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    box-shadow 0.15s;
+}
+
+:root
+  :is(
+    .plugins-tabs > button:not(.plugins-tab-link),
+    .plugin-tabs button,
+    .provider-editor-tabs > button,
+    .usage-tabs .usage-tab,
+    .bot-palette-tabs button
+  ):not(:disabled):hover {
+  background: var(--ctl-fill);
+  color: var(--text-ink);
+}
+
+:root
+  :is(
+    .plugins-tabs > button[aria-current='true'],
+    .plugin-tabs button[aria-selected='true'],
+    .provider-editor-tabs > button[aria-pressed='true'],
+    .usage-tabs .usage-tab.is-active,
+    .bot-palette-tabs button[aria-pressed='true']
+  ),
+:root
+  :is(
+    .plugins-tabs > button[aria-current='true'],
+    .plugin-tabs button[aria-selected='true'],
+    .provider-editor-tabs > button[aria-pressed='true'],
+    .usage-tabs .usage-tab.is-active,
+    .bot-palette-tabs button[aria-pressed='true']
+  ):hover {
+  background: var(--ctl-raised);
+  color: var(--text-ink);
+  box-shadow: var(--ctl-raised-shadow);
+}
+
+:root
+  :is(
+    .plugins-tabs > button,
+    .plugin-tabs button,
+    .provider-editor-tabs > button,
+    .usage-tabs .usage-tab,
+    .bot-palette-tabs button
+  )::after {
+  display: none !important;
+}
+
+/* The counts inside tabs are small badges. */
+:root :is(.plugins-tabs > button > span, .plugin-tabs button span, .provider-editor-tabs > button > span) {
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--ctl-fill);
+  font-size: 11px;
+  line-height: 17px;
+  text-align: center;
+}
+
+/* ---------- Menus and pickers ---------- */
+:root
+  :is(
+    .bot-context-menu,
+    .message-context-menu,
+    .new-conversation-menu,
+    .composer-add-menu,
+    .plugins-add-menu,
+    .work-menu-list,
+    .mention-picker,
+    .editable-select-options,
+    .aelion-combobox-list,
+    .context-usage-panel
+  ),
+:root .aelion-select::picker(select) {
+  border: 0 !important;
+  border-radius: var(--ctl-menu-radius) !important;
+  background: var(--glass-grain), var(--liquid-sheen), var(--glass-tint-strong) !important;
+  box-shadow:
+    var(--liquid-rim),
+    0 0 0 0.5px light-dark(rgba(41, 32, 58, 0.1), rgba(0, 0, 0, 0.5)),
+    var(--glass-float) !important;
+  backdrop-filter: var(--glass-blur) !important;
+}
+
+:root .aelion-select::picker(select) {
+  margin: 6px 0;
+}
+
+:root
+  :is(
+    .bot-context-menu button,
+    .new-conversation-menu button,
+    .composer-add-menu button,
+    .plugins-add-menu button,
+    .work-menu-list > button,
+    .message-menu-action,
+    .mention-picker button
+  ),
+:root :is(.aelion-select option, .aelion-combobox-option) {
+  border-radius: var(--ctl-item-radius) !important;
+  transition: background 0.12s;
+}
+
+:root
+  :is(
+    .bot-context-menu button,
+    .new-conversation-menu button,
+    .composer-add-menu button,
+    .plugins-add-menu button,
+    .work-menu-list > button,
+    .message-menu-action,
+    .mention-picker button
+  ):is(:hover, :focus-visible),
+:root :is(.aelion-select option:is(:hover, :focus-visible), .aelion-combobox-option.is-active) {
+  background: var(--ctl-fill-hover) !important;
+  outline: none;
+}
+
+:root :is(.aelion-select option:checked, .aelion-combobox-option[aria-selected='true']) {
+  background: var(--ctl-accent-soft) !important;
+  color: var(--ctl-accent-strong) !important;
+}
+
+:root .aelion-select option::checkmark,
+:root .aelion-option-check {
+  background: var(--ctl-accent);
+}
+
+:root :is(.bot-context-menu .destructive, .work-menu-list > .is-danger) {
+  color: var(--ctl-danger) !important;
+}
+
+:root :is(.bot-context-menu .destructive, .work-menu-list > .is-danger):is(:hover, :focus-visible) {
+  background: var(--ctl-danger-soft) !important;
+}
+
+:root :is(.bot-menu-separator, .message-menu-separator, .composer-menu-divider, .work-menu-divider) {
+  height: 1px;
+  border: 0;
+  background: var(--ctl-line) !important;
+}
+
+/* ---------- Chips, tags and badges ---------- */
+:root
+  :is(
+    .plugin-chip,
+    .plugin-tag,
+    .model-count-badge,
+    .computer-details .scheduled-panel h2 > span,
+    .conversation-time > time
+  ) {
+  border: 0;
+  border-radius: 999px;
+  background: var(--ctl-fill);
+}
+
+/* The time between messages floats on the conversation like a small pane of glass. */
+:root .conversation-time > time {
+  padding: 2px 11px;
+  background: light-dark(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.06));
+  box-shadow:
+    inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.06)),
+    0 0 0 0.5px var(--ctl-line),
+    0 2px 6px -3px light-dark(rgba(41, 32, 58, 0.14), rgba(0, 0, 0, 0.4));
+}
+
+:root .plugin-badge {
+  border-color: transparent;
+}
+
+/* Chips that are buttons: the workspace in the composer and the model in the header. */
+:root :is(.composer-workspace, .bot-model-button) {
+  border-radius: 999px !important;
+}
+
+:root .composer-workspace .workspace-remove {
+  border-radius: 999px;
+}
+
+:root .composer-workspace .workspace-remove:hover {
+  background: var(--ctl-fill-hover);
+}
+
+/* ---------- List rows ---------- */
+/* Rows in the settings rail and the provider list: the selected one is raised, others tint on hover. */
+:root .settings-nav-item {
+  border-radius: var(--ctl-radius);
+}
+
+:root .settings-nav-item:not(.active):hover {
+  background: var(--ctl-fill);
+}
+
+:root .settings-nav-item.active {
+  background: var(--ctl-raised);
+  box-shadow: var(--ctl-raised-shadow);
+}
+
+.settings-modal .provider-browser-item:not(.is-selected):hover {
+  background: var(--ctl-fill) !important;
+}
+
+.settings-modal .provider-browser-item.is-selected {
+  background: var(--ctl-raised) !important;
+  box-shadow: var(--ctl-raised-shadow) !important;
+}
+
+/* Sidebar: the selected Bot, group or session is tinted with the accent; hover is a quiet fill. */
+.app-shell > .sidebar :is(.bot-item, .session-item, .group-item) {
+  border-radius: 12px;
+}
+
+.app-shell > .sidebar :is(.bot-item, .session-item, .group-item):not(.selected):hover {
+  background: var(--ctl-fill) !important;
+  box-shadow: none;
+  transform: none;
+}
+
+.app-shell > .sidebar :is(.bot-item, .session-item, .group-item).selected,
+:root[data-theme='dark'] .app-shell .sidebar :is(.bot-item, .session-item, .group-item).selected {
+  background: var(--ctl-accent-soft) !important;
+  box-shadow: none !important;
+}
+
+:root .computer-details .scheduled-row:hover {
+  background: var(--ctl-fill);
+}
+
+/* Quiet disclosure rows in the conversation (reasoning, a run's steps, a scheduled card). */
+:root :is(.reasoning-toggle, .run-process-toggle):not(:disabled):hover,
+:root .scheduled-card .scheduled-card-toggle:hover {
+  background: var(--ctl-fill);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root
+    :is(
+      .bot-context-menu,
+      .message-context-menu,
+      .new-conversation-menu,
+      .composer-add-menu,
+      .plugins-add-menu,
+      .work-menu-list,
+      .mention-picker,
+      .editable-select-options,
+      .aelion-combobox-list,
+      .context-usage-panel
+    ),
+  :root .aelion-select::picker(select) {
+    background: var(--card-solid) !important;
+    backdrop-filter: none !important;
+  }
+}

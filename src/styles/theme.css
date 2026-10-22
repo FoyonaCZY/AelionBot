@@ -94,15 +94,6 @@
 :root[data-theme='dark'] .modal-backdrop {
   background: #0008;
 }
-:root[data-theme='dark'] :is(.learning-switch, .runtime-switch) {
-  background: #49434f;
-}
-:root[data-theme='dark'] :is(.learning-switch.enabled, .runtime-switch[aria-checked='true']) {
-  background: #a58abe;
-}
-:root[data-theme='dark'] :is(.learning-switch i, .runtime-switch > span) {
-  background: #f2edf7;
-}
 :root[data-theme='dark'] :is(.setup-mascot-floor, .computer-rest-visual > .computer-rest-scene) {
   opacity: 0.65;
 }

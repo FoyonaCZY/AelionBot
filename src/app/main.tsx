@@ -5,6 +5,7 @@ import '../styles/style.css';
 import '../settings/settings.css';
 import '../styles/typography.css';
 import '../styles/theme.css';
+import '../styles/controls.css';
 import { initializeAppearance } from './use-appearance';
 import { initializeI18n } from '../i18n';
 initializeAppearance();
