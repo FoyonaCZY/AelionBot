@@ -882,6 +882,13 @@ export class Harness {
           peers: Boolean(this.peers),
           groups: Boolean(this.groups),
           chatPin: !options.peerOrigin && !options.groupOrigin && !this.disabledTools.has('chat_pin'),
+          // Headless runs hide it, and small-context models only see COMPACT_TOOLS outside private sessions.
+          messageBlocks:
+            !options.peerOrigin &&
+            !options.groupOrigin &&
+            !this.headless &&
+            !this.disabledTools.has('message_block') &&
+            (modelConfig.contextTokens >= 32000 || Boolean(privateSessionId)),
           history: Boolean(cognition) && !this.disabledTools.has('history_search'),
           web: !this.disabledTools.has('web_read'),
           privateMessage: Boolean(privateSessionId && options.peerOrigin?.kind !== 'peer_summary'),

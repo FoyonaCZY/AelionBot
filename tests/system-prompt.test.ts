@@ -59,3 +59,8 @@ test('authority and denial rules are stated once, and tool-dependent lines follo
   assert.ok(!bare.includes('open_preview'));
   assert.ok(!bare.includes('selected with @'));
 });
+
+test('message block guidance appears only when message_block is offered', () => {
+  assert.ok(!harnessInstructions(interactive).includes('message_block'));
+  assert.equal(count(harnessInstructions({ ...interactive, messageBlocks: true }), 'message_block'), 1);
+});
