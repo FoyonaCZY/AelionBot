@@ -155,38 +155,25 @@
   background: #1d1d20e0;
 }
 
-/* Offline: the screen area keeps its shape; the mascot and one button, the title only when it explains something. */
+/* Offline: the screen area keeps its 16:10 shape. */
 .computer-details .computer-rest-card {
-  justify-content: center;
   aspect-ratio: 16 / 10;
   min-height: 0;
-  padding: 18px 16px 16px;
-  border-bottom: 1px solid light-dark(#efefef, #3a3540);
-  background: light-dark(#fafafa, #25232a);
-}
-.computer-details .computer-rest-visual {
-  transform: scale(0.64);
-  transform-origin: 50% 0;
-  margin-bottom: -46px;
-}
-.computer-details
-  .computer-rest-card:is([data-state='stopped'], [data-state='invite'], [data-state='ready'])
-  .computer-rest-title {
-  display: none;
+  padding: 14px 16px 16px;
 }
 .computer-details .computer-rest-title {
-  margin: 4px 0 8px;
+  margin: 2px 0 12px;
 }
-.computer-details .computer-rest-start {
-  margin-top: 6px;
-  border-radius: 16px;
-  background: light-dark(#29282c, #e3e0e6);
-  color: light-dark(#fff, #202024);
-  font-weight: var(--weight-label);
+/* On the dark theme's pane the settings and close buttons turn light. */
+:root[data-theme='dark'] .computer-panel.is-offline .computer-panel-settings,
+:root[data-theme='dark'] .computer-card:has(.computer-panel.is-offline) .computer-card-close {
+  color: rgba(255, 255, 255, 0.66);
+  background: transparent;
 }
-.computer-details .computer-rest-start:hover {
-  background: light-dark(#3a393e, #f2eff5);
-  color: light-dark(#fff, #202024);
+:root[data-theme='dark'] .computer-panel.is-offline .computer-panel-settings:hover,
+:root[data-theme='dark'] .computer-card:has(.computer-panel.is-offline) .computer-card-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
 }
 .computer-details .desktop-status {
   margin: 0;

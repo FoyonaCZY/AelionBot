@@ -73,7 +73,6 @@
   :is(
     .primary-button,
     .runtime-save,
-    .computer-rest-start,
     .companion-primary,
     .secondary-button,
     .companion-button:not(.companion-primary, .companion-quiet),
@@ -90,22 +89,14 @@
     opacity 0.16s;
 }
 
-:root
-  :is(.primary-button, .runtime-save, .computer-rest-start, .companion-primary):not(
-    .gg-table-root *,
-    .gg-reveal-card *
-  ) {
+:root :is(.primary-button, .runtime-save, .companion-primary):not(.gg-table-root *, .gg-reveal-card *) {
   background: var(--ctl-ink) !important;
   color: var(--ctl-on-ink) !important;
   box-shadow: var(--ctl-ink-shadow) !important;
 }
 
 :root
-  :is(.primary-button, .runtime-save, .computer-rest-start, .companion-primary):not(
-    :disabled,
-    .gg-table-root *,
-    .gg-reveal-card *
-  ):hover {
+  :is(.primary-button, .runtime-save, .companion-primary):not(:disabled, .gg-table-root *, .gg-reveal-card *):hover {
   background: var(--ctl-ink-hover) !important;
   color: var(--ctl-on-ink) !important;
 }
@@ -150,7 +141,6 @@
   :is(
     .primary-button,
     .runtime-save,
-    .computer-rest-start,
     .companion-primary,
     .secondary-button,
     .companion-button:not(.companion-primary, .companion-quiet),
@@ -164,7 +154,6 @@
   :is(
     .primary-button,
     .runtime-save,
-    .computer-rest-start,
     .companion-primary,
     .secondary-button,
     .companion-button:not(.companion-primary, .companion-quiet),

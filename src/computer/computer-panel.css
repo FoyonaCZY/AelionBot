@@ -95,33 +95,90 @@
 .computer-panel-screen:hover .computer-panel-expand {
   background: light-dark(#151c2bdd, #e0dbe6dd);
 }
+/* The computer is off: the card is its screen at rest, a soft lilac pane in the light theme and a dark one in the dark
+   theme, with a faint reflection across the glass. The Bot dozes in a breathing glow while a few z's drift up; one
+   button wakes it. Gradients cannot go through light-dark(), so each theme sets its own below. */
 .computer-rest-card {
+  --rest-ground:
+    radial-gradient(90% 70% at 50% 38%, rgba(167, 139, 250, 0.16) 0%, rgba(167, 139, 250, 0) 70%),
+    linear-gradient(180deg, #faf8fd 0%, #f1edf7 100%);
+  --rest-sheen: linear-gradient(
+    118deg,
+    rgba(255, 255, 255, 0.85) 0%,
+    rgba(255, 255, 255, 0.3) 30%,
+    rgba(255, 255, 255, 0) 46%
+  );
+  --rest-glow: rgba(167, 139, 250, 0.3);
+  --rest-ink: var(--text-secondary);
+  --rest-z: rgba(116, 88, 196, 0.6);
+  --rest-shadow: rgba(76, 58, 120, 0.22);
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   min-width: 0;
-  padding: 28px 22px 21px;
   min-height: 245px;
-  color: light-dark(#837a8e, #c3c0c6);
+  padding: 28px 22px 22px;
+  overflow: hidden;
+  background: var(--rest-ground);
+  color: var(--rest-ink);
+}
+:root[data-theme='dark'] .computer-rest-card {
+  --rest-ground:
+    radial-gradient(90% 70% at 50% 38%, #2c2540 0%, rgba(30, 26, 40, 0) 70%),
+    linear-gradient(180deg, #1c1923 0%, #121117 100%);
+  --rest-sheen: linear-gradient(
+    118deg,
+    rgba(255, 255, 255, 0.075) 0%,
+    rgba(255, 255, 255, 0.02) 30%,
+    rgba(255, 255, 255, 0) 46%
+  );
+  --rest-glow: rgba(167, 139, 250, 0.34);
+  --rest-ink: rgba(255, 255, 255, 0.72);
+  --rest-z: rgba(214, 200, 255, 0.9);
+  --rest-shadow: rgba(0, 0, 0, 0.45);
+}
+.computer-rest-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--rest-sheen), var(--glass-grain);
+  pointer-events: none;
 }
 .computer-rest-visual {
   position: relative;
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
-  width: 198px;
-  height: 139px;
+  width: 96px;
+  height: 96px;
 }
-.computer-rest-visual > .computer-rest-scene {
-  display: block;
-  width: 100%;
-  height: 100%;
+.computer-rest-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    var(--rest-glow) 0%,
+    color-mix(in srgb, var(--rest-glow) 30%, transparent) 45%,
+    transparent 70%
+  );
+}
+.computer-rest-visual.is-sleeping .computer-rest-glow {
+  animation: computer-rest-breathe 4.2s ease-in-out infinite;
 }
 .computer-rest-visual > .avatar {
-  position: absolute;
-  left: 76px;
-  top: 38px;
-  width: 46px;
-  height: 46px;
+  position: relative;
+  width: 50px;
+  height: 50px;
   overflow: visible;
+  filter: drop-shadow(0 6px 14px var(--rest-shadow));
+}
+.computer-rest-visual.is-sleeping > .avatar {
+  filter: drop-shadow(0 6px 14px var(--rest-shadow)) saturate(0.9);
 }
 .computer-rest-visual.is-sleeping .avatar-gaze {
   transform: translateY(3.3333%);
@@ -132,48 +189,125 @@
 .computer-rest-visual .avatar-halo {
   display: none;
 }
-.computer-rest-title {
-  font-size: calc(12px * var(--appearance-text-scale, 1));
-  line-height: 1.5;
-  font-weight: var(--weight-label);
-  color: light-dark(#8a8094, #c1bec4);
-  margin: -3px 0 12px;
+/* Three z's rise from beside the Bot's head, one after another. */
+.computer-rest-zzz {
+  position: absolute;
+  top: 6px;
+  left: 64px;
+  width: 30px;
+  height: 34px;
 }
+.computer-rest-zzz > i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  color: var(--rest-z);
+  font: 600 10px/1 var(--font-ui);
+  font-style: normal;
+  opacity: 0;
+  animation: computer-rest-z 3.6s ease-out infinite;
+}
+.computer-rest-zzz > i:nth-child(2) {
+  font-size: 12px;
+  animation-delay: 1.2s;
+}
+.computer-rest-zzz > i:nth-child(3) {
+  font-size: 14px;
+  animation-delay: 2.4s;
+}
+@keyframes computer-rest-z {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(14px, -26px);
+  }
+}
+@keyframes computer-rest-breathe {
+  50% {
+    opacity: 0.55;
+    transform: scale(0.9);
+  }
+}
+.computer-rest-title {
+  margin: 6px 0 14px;
+  color: var(--rest-ink);
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+}
+/* The app's primary ink capsule on the light pane; a translucent glass pill on the dark one. */
 .computer-rest-start {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  min-height: 33px;
-  padding: 7px 14px;
+  gap: 8px;
+  min-height: 34px;
+  padding: 7px 18px 7px 15px;
   border: 0;
-  border-radius: 18px;
-  background: light-dark(#eee9f5, #232127);
-  color: light-dark(#79648e, #c2b8cd);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
-  font-weight: var(--weight-body);
+  border-radius: 999px;
+  background: var(--ctl-ink);
+  box-shadow: var(--ctl-ink-shadow);
+  color: var(--ctl-on-ink);
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
+  transition:
+    background 0.16s,
+    box-shadow 0.16s,
+    transform 0.12s;
 }
 .computer-rest-start:hover {
-  background: light-dark(#e5dcee, #242228);
-  color: light-dark(#604b76, #c2b7cd);
+  background: var(--ctl-ink-hover);
+}
+:root[data-theme='dark'] .computer-rest-start {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 6px 18px -6px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+  color: #fff;
+}
+:root[data-theme='dark'] .computer-rest-start:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.15));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    0 0 0 4px rgba(167, 139, 250, 0.16),
+    0 8px 22px -6px rgba(0, 0, 0, 0.6);
+}
+.computer-rest-start:active {
+  transform: scale(0.97);
+}
+.computer-rest-start:focus-visible {
+  outline: 2px solid rgba(196, 181, 253, 0.7);
+  outline-offset: 2px;
 }
 .computer-rest-start svg {
   flex-shrink: 0;
 }
+:root[data-theme='dark'] .computer-rest-start svg {
+  color: #c9b8ff;
+}
 .computer-rest-card .setup-progress {
   width: min(170px, 100%);
-  margin: 0 0 12px;
-  background: light-dark(#ede7f3, #232127);
+  margin: 0 0 14px;
+  background: light-dark(rgba(116, 88, 196, 0.12), rgba(255, 255, 255, 0.12));
 }
 .computer-rest-card .setup-progress > span {
-  background: light-dark(#a593bd, #b8b0c3);
+  background: linear-gradient(90deg, #a78bfa, #c4b5fd);
 }
 .computer-rest-card[data-state='error'] .computer-rest-title {
-  color: light-dark(#a27668, #d3bdb6);
+  color: var(--ctl-danger);
 }
-.computer-rest-card[data-state='error'] .computer-rest-start {
-  color: light-dark(#956e60, #d1beb7);
-  background: light-dark(#f4ece8, #232127);
+.computer-rest-card[data-state='error'] .computer-rest-glow {
+  background: radial-gradient(circle, rgba(240, 140, 120, 0.3) 0%, rgba(240, 140, 120, 0.08) 45%, transparent 70%);
 }
 @media (max-width: 1150px) {
   .computer-details {
@@ -187,7 +321,12 @@
 @media (prefers-reduced-motion: reduce) {
   .computer-rest-visual .avatar-body,
   .computer-rest-visual .avatar-gaze,
-  .computer-rest-visual .avatar-eye {
+  .computer-rest-visual .avatar-eye,
+  .computer-rest-glow,
+  .computer-rest-zzz > i {
     animation: none !important;
+  }
+  .computer-rest-zzz {
+    display: none;
   }
 }

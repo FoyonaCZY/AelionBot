@@ -66,16 +66,16 @@ export function ComputerStatus({
   );
   return (
     <section className="computer-rest-card" data-state={view.kind} aria-label={t('工作电脑状态')}>
+      {/* The card is the screen itself, dark while the computer is off: the Bot dozes in a soft glow. */}
       <div className={`computer-rest-visual ${view.working ? '' : 'is-sleeping'}`} aria-hidden="true">
-        <svg className="computer-rest-scene" viewBox="0 0 198 139" fill="none">
-          <ellipse cx="99" cy="128" rx="65" ry="3" fill="#eeebf2" />
-          <path d="M85 100h28l4 21H81l4-21Z" fill="#e4dfec" />
-          <rect x="69" y="120" width="60" height="4" rx="2" fill="#d9d2e4" />
-          <rect x="26" y="19" width="146" height="89" rx="10" fill="#f2eff7" stroke="#d7d0e2" strokeWidth="1.4" />
-          <rect x="32" y="25" width="134" height="71" rx="5" fill="#faf8fd" />
-          <circle cx="99" cy="102" r="1.6" fill="#c4b7d5" />
-          <path d="M17 38h-5m151-28 3-4m16 45h5" stroke="#e1dbea" strokeWidth="2" strokeLinecap="round" />
-        </svg>
+        <span className="computer-rest-glow" />
+        {view.kind === 'stopped' && (
+          <span className="computer-rest-zzz">
+            <i>z</i>
+            <i>z</i>
+            <i>z</i>
+          </span>
+        )}
         <Avatar
           bot={bot || { name: 'AelionBot', color: '#a38cc7' }}
           size={46}

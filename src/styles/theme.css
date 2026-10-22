@@ -94,7 +94,7 @@
 :root[data-theme='dark'] .modal-backdrop {
   background: #0008;
 }
-:root[data-theme='dark'] :is(.setup-mascot-floor, .computer-rest-visual > .computer-rest-scene) {
+:root[data-theme='dark'] .setup-mascot-floor {
   opacity: 0.65;
 }
 :root[data-theme='dark'] :is(.appearance-theme-swatch, .appearance-canvas-swatch) {
@@ -105,13 +105,6 @@
 }
 :root[data-theme='dark'] :is(.appearance-themes, .appearance-canvases) > button[aria-pressed='true'] {
   color: var(--text-ink);
-}
-:root[data-theme='dark'] .computer-rest-scene :is([fill='#f2eff7'], [fill='#faf8fd']) {
-  fill: #393140;
-  stroke: #65556f;
-}
-:root[data-theme='dark'] .computer-rest-scene :is([fill='#eeebf2'], [fill='#e4dfec'], [fill='#d9d2e4']) {
-  fill: #51465a;
 }
 /* Keep the preview's document paper and syntax viewer independent of the UI theme. */
 :root .fp-layer {
