@@ -49,7 +49,6 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > .
     0 8px 20px rgba(54, 43, 70, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(22px) saturate(1.2);
-  -webkit-backdrop-filter: blur(22px) saturate(1.2);
 }
 
 body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > .conversation {
@@ -79,7 +78,6 @@ body:not(:has(.fp-panel[data-layout='docked']))
   border-right-color: light-dark(rgba(233, 229, 239, 0.9), rgba(255, 255, 255, 0.08)) !important;
   box-shadow: none !important;
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   transform: translateZ(0);
   backface-visibility: hidden;
 }
@@ -88,7 +86,6 @@ body:not(:has(.fp-panel[data-layout='docked']))
   background: rgba(255, 255, 255, 0.64) !important;
   box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.38) !important;
   backdrop-filter: blur(30px) saturate(1.08);
-  -webkit-backdrop-filter: blur(30px) saturate(1.08);
 }
 
 .app-shell[data-page='chat'] > .sidebar {
@@ -272,7 +269,6 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > :
     inset 0 1px 0 rgba(255, 255, 255, 0.92),
     inset 0 -1px 0 rgba(54, 43, 70, 0.03) !important;
   backdrop-filter: blur(26px) saturate(1.32);
-  -webkit-backdrop-filter: blur(26px) saturate(1.32);
 }
 
 .app-shell .search:hover,
@@ -306,7 +302,6 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > :
 .app-shell .composer {
   border-radius: 14px;
   backdrop-filter: blur(30px) saturate(1.38);
-  -webkit-backdrop-filter: blur(30px) saturate(1.38);
 }
 
 .app-shell .composer-workspace,
@@ -350,7 +345,6 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > :
   .settings-modal :is(.plugins-search, .provider-model-search, .usage-search, .design-search) {
     background: light-dark(#ffffff, #25232a) !important;
     backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
 }
 
@@ -386,7 +380,6 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > :
     0 8px 22px rgba(54, 43, 70, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.86) !important;
   backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
 }
 
 :root[data-theme='dark'] .app-shell[data-page='plugins'] > .sidebar,
@@ -413,7 +406,6 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > :
   .plugins-page .plugins-add-menu {
     background: light-dark(#ffffff, #29262f) !important;
     backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
 }
 
@@ -436,7 +428,6 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > :
     0 16px 36px rgba(54, 43, 70, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
   backdrop-filter: blur(26px) saturate(1.12);
-  -webkit-backdrop-filter: blur(26px) saturate(1.12);
 }
 
 :root[data-theme='dark'] .app-shell {
@@ -472,7 +463,6 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > :
     0 16px 36px rgba(54, 43, 70, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.94) !important;
   backdrop-filter: blur(24px) saturate(1.28);
-  -webkit-backdrop-filter: blur(24px) saturate(1.28);
 }
 
 :root[data-theme='dark'] .app-shell .composer-add-menu {
@@ -489,13 +479,11 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > :
   background: light-dark(#f4f4f5, #1f1d23) !important;
   border: 1px solid light-dark(#ffffff, #ffffff14) !important;
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 .settings-modal .settings-rail {
   background: light-dark(#ffffff, #25232a) !important;
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 .settings-modal :is(.settings-card, .settings-me) {
@@ -503,7 +491,6 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > :
   border-color: transparent !important;
   box-shadow: var(--glass-float-sm) !important;
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 /* ModelSelectionFields renders its own settings-card inside a settings page card.
@@ -514,7 +501,6 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > :
   border: 0 !important;
   box-shadow: none !important;
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 /* Model assignment: the outer .model-assignment-panel is the card. Its inner
@@ -524,7 +510,6 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > :
   border: 0 !important;
   box-shadow: none !important;
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 /* Provider workspace: one outer card; the browser, selected row and editor are
@@ -549,7 +534,6 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > :
   border: 1px solid rgba(255, 255, 255, 0.86) !important;
   border-radius: 18px;
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 :root[data-theme='dark'] .modal.settings-modal,
@@ -599,7 +583,6 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   border-color: light-dark(#e4e2e8, #4a4452) !important;
   box-shadow: none !important;
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 /* Keep the native select layer and arrow; only flatten its fill. */
@@ -609,7 +592,6 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   border-color: light-dark(#e4e2e8, #4a4452) !important;
   box-shadow: none !important;
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 /* EditableSelect is an input plus an arrow button, not an .aelion-select. */
@@ -637,7 +619,6 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   border: 0 !important;
   box-shadow: none !important;
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 /* Menus launched from the sidebar must escape its rounded card instead of being
@@ -805,7 +786,9 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
      would have nothing to show.
    - Glass is reserved for layers that float over app content: the chat header and composer
      (messages scroll under them), menus and the settings modal. They use a strong blur,
-     raised saturation and a faint grain, with no border or rim.
+     raised saturation and a faint grain. The header and composer are liquid glass: a thinner
+     tint, a sheen and a lit rim (--liquid-*). Write backdrop-filter unprefixed only: the CSS
+     minifier keeps whichever of the prefixed and unprefixed lines comes last.
    - Controls inside a glass layer are flat tinted fills; nesting backdrop-filter adds cost
      without adding anything visible.
    - The window background carries a few soft colour fields so the gaps between cards and the
@@ -820,6 +803,15 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   --glass-tint: linear-gradient(180deg, rgba(255, 255, 255, 0.74), rgba(250, 248, 253, 0.6));
   --glass-tint-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(249, 247, 252, 0.84));
   --glass-blur: blur(28px) saturate(1.7) brightness(1.04);
+  /* Liquid glass for the layers that float over messages (header, composer): thinner tint so the blurred colours
+     come through, a sheen across the top, and a lit rim that gives the pane an edge. */
+  --liquid-tint:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(248, 246, 252, 0.5));
+  --liquid-blur: blur(22px) saturate(1.9) brightness(1.06);
+  --liquid-rim:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5);
   --glass-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --glass-float: 0 1px 2px rgba(42, 32, 58, 0.06), 0 14px 34px -10px rgba(42, 32, 58, 0.2);
   --glass-float-sm: 0 1px 2px rgba(42, 32, 58, 0.05), 0 4px 12px -4px rgba(42, 32, 58, 0.14);
@@ -838,6 +830,13 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   --glass-tint: linear-gradient(180deg, rgba(46, 42, 56, 0.66), rgba(32, 29, 40, 0.58));
   --glass-tint-strong: linear-gradient(180deg, rgba(42, 38, 50, 0.88), rgba(30, 28, 36, 0.84));
   --glass-blur: blur(28px) saturate(1.5) brightness(1.08);
+  --liquid-tint:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, rgba(44, 40, 54, 0.6), rgba(30, 28, 38, 0.52));
+  --liquid-blur: blur(22px) saturate(1.6) brightness(1.1);
+  --liquid-rim:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07);
   --glass-float: 0 1px 2px rgba(0, 0, 0, 0.36), 0 16px 38px -10px rgba(0, 0, 0, 0.62);
   --glass-float-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 14px -4px rgba(0, 0, 0, 0.5);
   --glass-focus: 0 0 0 2px rgba(167, 139, 250, 0.42);
@@ -873,7 +872,6 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > :
   background: var(--card-solid) !important;
   box-shadow: var(--card-shadow) !important;
   backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
 }
 
 /* The conversation card and its message canvas are one surface. */
@@ -896,10 +894,9 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > .
 .floating-composer .composer,
 :root[data-theme='dark'] .app-shell .composer {
   border-color: transparent !important;
-  background: var(--glass-grain), var(--glass-tint) !important;
-  box-shadow: var(--glass-float) !important;
-  backdrop-filter: var(--glass-blur) !important;
-  -webkit-backdrop-filter: var(--glass-blur) !important;
+  background: var(--glass-grain), var(--liquid-tint) !important;
+  box-shadow: var(--liquid-rim), var(--glass-float) !important;
+  backdrop-filter: var(--liquid-blur) !important;
 }
 
 .app-shell :is(.new-conversation-menu, .composer-add-menu),
@@ -910,12 +907,11 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > .
   background: var(--glass-grain), var(--glass-tint-strong) !important;
   box-shadow: var(--glass-float) !important;
   backdrop-filter: var(--glass-blur) !important;
-  -webkit-backdrop-filter: var(--glass-blur) !important;
 }
 
 .app-shell .composer:focus-within,
 .floating-composer .composer:focus-within {
-  box-shadow: var(--glass-float), var(--glass-focus) !important;
+  box-shadow: var(--liquid-rim), var(--glass-float), var(--glass-focus) !important;
 }
 
 /* Controls inside cards and glass layers: flat tinted fills, no blur, no rim. */
@@ -938,7 +934,6 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > .
   background: var(--chip-fill) !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
 }
 
 .app-shell :is(.search, .chat-search, .composer-workspace, .bot-model-button):hover,
@@ -961,7 +956,6 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > .
   background: light-dark(#faf9fc, #25222b) !important;
   box-shadow: var(--glass-float-sm) !important;
   backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
 }
 
 /* Message bubbles separate by fill alone. */
@@ -987,7 +981,6 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > .
   background: var(--glass-grain), var(--glass-tint-strong) !important;
   box-shadow: var(--card-shadow) !important;
   backdrop-filter: var(--glass-blur) !important;
-  -webkit-backdrop-filter: var(--glass-blur) !important;
 }
 
 .settings-modal .settings-rail,
@@ -1044,6 +1037,5 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > .
   .modal:is(.settings-modal, .bot-profile-modal) {
     background: var(--card-solid) !important;
     backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
   }
 }
