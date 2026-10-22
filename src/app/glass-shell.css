@@ -170,6 +170,13 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > :
   }
 }
 
+/* While a view transition runs, Chromium can apply a backdrop-filter inside a captured element to the whole
+   snapshot once its cross-fade ends, blurring the entire conversation for the last ~100ms. Glass goes plain for
+   those few hundred milliseconds instead. */
+html:active-view-transition * {
+  backdrop-filter: none !important;
+}
+
 /* Preview layout morph: the conversation column narrows into the docked rail while the
    preview panel grows out from the centre of the remaining space. */
 .app-shell > .conversation {
