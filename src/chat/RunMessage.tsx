@@ -73,12 +73,7 @@ export function RunMessage({
       data-run-segment={messages[0]?.id}
       data-run-terminal={isLast}
     >
-      <RunProcess
-        steps={steps}
-        running={running}
-        durationMs={isLast ? runDurationMs(run) : undefined}
-        answerFollows={Boolean(final)}
-      />
+      <RunProcess steps={steps} running={running} durationMs={isLast ? runDurationMs(run) : undefined} />
       {denials.map((message) => (
         <OperationDenial key={message.id} denial={message.operationDenial!} />
       ))}

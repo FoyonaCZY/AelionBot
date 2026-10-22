@@ -2053,6 +2053,7 @@ export const en: Record<string, string> = {
   展开处理过程: 'Show process',
   收起处理过程: 'Hide process',
   '还有 {count} 个较早的步骤': '{count} earlier steps',
+  收起较早的步骤: 'Hide earlier steps',
   搜索聊天记录: 'Search chat history',
   没有匹配的消息: 'No matches',
   上一个结果: 'Previous match',

@@ -203,13 +203,7 @@
 .run-note {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
   min-width: 0;
-}
-.run-note-avatar {
-  flex: 0 0 30px;
-  width: 30px;
-  height: 30px;
 }
 .run-note > .run-note-bubble {
   max-width: min(100%, 680px);
