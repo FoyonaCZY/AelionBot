@@ -1,6 +1,13 @@
 import { memo, useEffect, useId, useRef, useState } from 'react';
 import type { ChatMessage } from '../../shared/types/core';
-import { readableContent, toolDisplay, toolResult, visibleRunSteps, type RunStep } from '../../shared/chat/activity';
+import {
+  readableContent,
+  runOverview,
+  toolDisplay,
+  toolResult,
+  visibleRunSteps,
+  type RunStep,
+} from '../../shared/chat/activity';
 import { stepMeta } from './tool-details-model';
 import { AttachmentList } from '../files/Attachments';
 import { Icon } from '../ui/Icon';
@@ -122,8 +129,8 @@ const durationLabel = (t: ReturnType<typeof useI18n>['t'], ms: number) => {
 };
 
 /**
- * Everything a run did before its answer. While it works the transcript stays open and talks in bubbles; once the
- * answer arrives the transcript folds into one line and only opens on request.
+ * Everything a run did before its answer, folded into one line that says what kinds of work it did. While the run
+ * works only its text stays out under the line; the steps open on request, and fold again when the answer arrives.
  */
 type RunProcessProps = {
   steps: RunStep[];
@@ -160,48 +167,57 @@ function RunProcessView({ steps: allSteps, running, durationMs }: RunProcessProp
     return () => window.removeEventListener(REVEAL_MESSAGE_EVENT, reveal);
   }, [ids]);
   if (!steps.length) return null;
-  const transcript = visibleRunSteps(steps, { running, expanded }),
-    // While working there is no summary toggle, so an opened transcript offers its own way back.
-    foldable = running && expanded && visibleRunSteps(steps, { running, expanded: false }).hiddenSteps > 0;
-  const summary = running
-    ? t('正在处理 · {count} 个步骤', { count: steps.length })
-    : durationMs !== undefined
-      ? t('已处理 {duration} · {count} 个步骤', { duration: durationLabel(t, durationMs), count: steps.length })
-      : t('处理过程 · {count} 个步骤', { count: steps.length });
+  // Folded, a working run keeps only what it said; every tool and thought goes into the line above.
+  const transcript = visibleRunSteps(steps, { running, expanded, stepLimit: 0 });
+  const overview = runOverview(steps),
+    duration = durationMs !== undefined ? durationLabel(t, durationMs) : undefined;
+  const summary = overview.parts.length
+    ? overview.parts.join(t('，'))
+    : running
+      ? t('正在处理 · {count} 个步骤', { count: steps.length })
+      : duration
+        ? t('已处理 {duration} · {count} 个步骤', { duration, count: steps.length })
+        : t('处理过程 · {count} 个步骤', { count: steps.length });
+  const thumbnails = overview.images.slice(-3),
+    moreImages = overview.images.length - thumbnails.length;
   return (
     <div className={`run-process ${running ? 'is-running' : ''} ${expanded ? 'is-expanded' : ''}`}>
-      {!running && (
-        <button
-          type="button"
-          className="run-process-toggle"
-          aria-expanded={expanded}
-          aria-controls={expanded ? listId : undefined}
-          aria-label={`${summary} · ${t(expanded ? '收起处理过程' : '展开处理过程')}`}
-          onClick={() => setExpanded(!expanded)}
-        >
-          <span className="run-process-mark">
-            <Icon name="layers" size={13} />
+      <button
+        type="button"
+        className="run-process-toggle"
+        aria-expanded={expanded}
+        aria-controls={expanded ? listId : undefined}
+        aria-label={`${summary} · ${t(expanded ? '收起处理过程' : '展开处理过程')}`}
+        onClick={() => setExpanded(!expanded)}
+      >
+        <span className="run-process-mark">
+          {running ? <span className="run-process-pulse" /> : <Icon name="layers" size={13} />}
+        </span>
+        <span className="run-process-summary">{summary}</span>
+        {(overview.added > 0 || overview.removed > 0) && (
+          <span
+            className="run-step-diff run-process-diff"
+            aria-label={t('新增 {added} 行，删除 {removed} 行', { added: overview.added, removed: overview.removed })}
+          >
+            <span className="is-added">+{overview.added}</span>
+            <span className="is-removed">−{overview.removed}</span>
           </span>
-          <span className="run-process-summary">{summary}</span>
-          <Icon name="chevron" size={12} />
-        </button>
-      )}
-      {(running || expanded) && transcript.steps.length > 0 && (
-        <ol className={running ? 'run-transcript' : 'run-process-steps'} id={listId}>
-          {transcript.hiddenSteps > 0 && (
-            <li className="run-step run-step-more">
-              <button type="button" aria-expanded={false} onClick={() => setExpanded(true)}>
-                {t('还有 {count} 个较早的步骤', { count: transcript.hiddenSteps })}
-              </button>
-            </li>
-          )}
-          {foldable && (
-            <li className="run-step run-step-more">
-              <button type="button" aria-expanded onClick={() => setExpanded(false)}>
-                {t('收起较早的步骤')}
-              </button>
-            </li>
-          )}
+        )}
+        {overview.parts.length > 0 && duration && <span className="run-process-duration">{duration}</span>}
+        <Icon name="chevron" size={12} />
+        {thumbnails.length > 0 && (
+          <span className="run-process-images" aria-hidden="true">
+            {moreImages > 0 && <span className="run-process-more-images">+{moreImages}</span>}
+            {thumbnails.map((id) => (
+              <span key={id} className="run-process-thumb">
+                <ScreenshotImage id={id} alt="" />
+              </span>
+            ))}
+          </span>
+        )}
+      </button>
+      {transcript.steps.length > 0 && (
+        <ol className={running && !expanded ? 'run-transcript' : 'run-process-steps'} id={listId}>
           {transcript.steps.map((step) =>
             step.kind === 'tool' ? (
               <ToolStep key={step.id} message={step.message} />

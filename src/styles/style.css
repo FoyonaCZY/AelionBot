@@ -115,6 +115,13 @@ textarea {
   padding: 0 10px;
   overflow: auto;
   flex: 1;
+  /* The scrollbar shows only while the pointer is over the sidebar, or the keyboard is in the list. */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.sidebar:hover .bot-list,
+.bot-list:has(:focus-visible) {
+  scrollbar-color: light-dark(rgba(41, 32, 58, 0.22), rgba(255, 255, 255, 0.22)) transparent;
 }
 .bot-item {
   width: 100%;

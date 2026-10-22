@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { visibleRunSteps, type RunStep } from '../shared/chat/activity';
+import { runOverview, visibleRunSteps, type RunStep } from '../shared/chat/activity';
 import type { ChatMessage } from '../shared/types/core';
 
 let sequence = 0;
@@ -75,4 +75,47 @@ test('a finished run shows nothing until it is expanded', () => {
 test('an empty transcript stays empty in every state', () => {
   assert.deepEqual(visibleRunSteps([], { running: true, expanded: false }), { steps: [], hiddenSteps: 0 });
   assert.deepEqual(visibleRunSteps([], { running: false, expanded: true }), { steps: [], hiddenSteps: 0 });
+});
+
+const toolStep = (tool: string, patch: Partial<ChatMessage> = {}): RunStep => ({
+  kind: 'tool',
+  id: `t${++sequence}`,
+  message: message({ role: 'tool', tool, ...patch }),
+});
+
+test('a folded run line names the kinds of work in the order the run first did them', () => {
+  const overview = runOverview([
+    toolStep('file_read', { activity: { label: '读取文件', detail: 'a.ts' } }),
+    toolStep('exec_command'),
+    note(),
+    toolStep('file_read', { activity: { label: '读取文件', detail: 'b.ts · 第 40 行起' } }),
+    toolStep('file_read', { activity: { label: '读取文件', detail: 'a.ts · 第 90 行起' } }),
+  ]);
+  assert.deepEqual(overview.parts, ['读取了 2 个文件', '运行了 1 条命令']);
+});
+
+test('a folded run line adds up changed lines and keeps the images read, not computer screens', () => {
+  const overview = runOverview([
+    toolStep('apply_patch', { diff: { files: [{ path: 'a', added: 3, removed: 1 }] } } as Partial<ChatMessage>),
+    toolStep('file_patch', { diff: { files: [{ path: 'b', added: 2, removed: 0 }] } } as Partial<ChatMessage>),
+    toolStep('view_image', { screenshotId: 'img-1' }),
+    toolStep('computer', { screenshotId: 'screen-1' }),
+    toolStep('attachment_read', { screenshotId: 'img-2' }),
+  ]);
+  assert.equal(overview.added, 5);
+  assert.equal(overview.removed, 1);
+  assert.deepEqual(overview.images, ['img-1', 'img-2']);
+});
+
+test('a run without tools has no kinds to name', () => {
+  assert.deepEqual(runOverview([note(), reasoning()]).parts, []);
+});
+
+test('a folded running transcript keeps only the run text', () => {
+  const steps = [tool(), note(), reasoning(), tool()],
+    result = visibleRunSteps(steps, { running: true, expanded: false, stepLimit: 0 });
+  assert.deepEqual(
+    result.steps.map((step) => step.kind),
+    ['note'],
+  );
 });

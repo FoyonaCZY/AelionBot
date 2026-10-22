@@ -470,11 +470,106 @@ export function visibleRunSteps(
     other = steps.filter((step) => step.kind !== 'note'),
     hiddenSteps = Math.max(0, other.length - limit);
   if (!hiddenSteps) return { steps, hiddenSteps: 0 };
-  const kept = new Set(other.slice(-limit).map((step) => step.id));
+  // slice(-0) would keep everything, so a limit of 0 keeps nothing explicitly.
+  const kept = new Set((limit ? other.slice(-limit) : []).map((step) => step.id));
   return {
     steps: steps.filter((step) => step.kind === 'note' || kept.has(step.id)),
     hiddenSteps,
   };
+}
+/** What a folded run line says it did, by kind of work. Each kind has a phrase for one and for several. */
+const RUN_KINDS = [
+  {
+    kind: 'read',
+    test: /^(file_read|host_file_read|attachment_read|skill_file_read|mcp_read_resource|tools_batch|read_result)$/,
+    one: '读取了 1 个文件',
+    many: '读取了 {count} 个文件',
+    distinct: true,
+  },
+  {
+    kind: 'image',
+    test: /^(view_image|video_frames)$/,
+    one: '查看了 1 张图片',
+    many: '查看了 {count} 张图片',
+    distinct: true,
+  },
+  {
+    kind: 'edit',
+    test: /^(file_patch|apply_patch|host_file_patch|checkpoint_restore)$/,
+    one: '修改了 1 个文件',
+    many: '修改了 {count} 个文件',
+    distinct: true,
+  },
+  {
+    kind: 'write',
+    test: /^(file_write|host_file_write|skill_file_write)$/,
+    one: '写入了 1 个文件',
+    many: '写入了 {count} 个文件',
+    distinct: true,
+  },
+  {
+    kind: 'command',
+    test: /execute|exec_command|terminal|process_|python|code_exec|write_stdin/,
+    one: '运行了 1 条命令',
+    many: '运行了 {count} 条命令',
+  },
+  { kind: 'web', test: /^web_|browser/, one: '浏览了 1 个网页', many: '浏览了 {count} 个网页' },
+  {
+    kind: 'search',
+    test: /search|find_files|list_directory|tool_search|skills_list/,
+    one: '搜索了 1 次',
+    many: '搜索了 {count} 次',
+  },
+  {
+    kind: 'computer',
+    test: /^(computer|host_computer|request_user_control)$/,
+    one: '操作了 1 次电脑',
+    many: '操作了 {count} 次电脑',
+  },
+  { kind: 'generate', test: /^generate_image$/, one: '生成了 1 张图片', many: '生成了 {count} 张图片' },
+  { kind: 'message', test: /^(bot_|group_|delegation)/, one: '协作了 1 次', many: '协作了 {count} 次' },
+  { kind: 'mcp', test: /^mcp_/, one: '调用了 1 次外部工具', many: '调用了 {count} 次外部工具' },
+  { kind: 'plan', test: /^(plan_|task_|goal_)/, one: '更新了 1 次计划', many: '更新了 {count} 次计划' },
+  { kind: 'skill', test: /^skill_/, one: '用了 1 个技能', many: '用了 {count} 个技能', distinct: true },
+  { kind: 'memory', test: /^(memory|history_read)$/, one: '整理了 1 次记忆', many: '整理了 {count} 次记忆' },
+] as const;
+const OTHER_KIND = { kind: 'other', one: '执行了 1 项其他操作', many: '执行了 {count} 项其他操作' } as const;
+/** Steps that produced a picture the run looked at; screens from operating a computer are left out. */
+const SCREEN_TOOLS = new Set(['computer', 'host_computer', 'request_user_control']);
+
+export interface RunOverview {
+  /** One phrase per kind of work, in the order the run first did it, e.g. "读取了 2 个文件". */
+  parts: string[];
+  added: number;
+  removed: number;
+  /** Ids of the images the run read or made, oldest first. */
+  images: string[];
+}
+/** The facts a folded run line shows: kinds of work done, lines changed and the images it read. */
+export function runOverview(steps: RunStep[]): RunOverview {
+  const counts = new Map<string, { kind: (typeof RUN_KINDS)[number] | typeof OTHER_KIND; keys: Set<string> }>();
+  let added = 0,
+    removed = 0;
+  const images: string[] = [];
+  for (const step of steps) {
+    if (step.kind !== 'tool') continue;
+    const message = step.message,
+      tool = message.tool || '';
+    const kind = RUN_KINDS.find((item) => item.test.test(tool)) || OTHER_KIND;
+    const entry = counts.get(kind.kind) || { kind, keys: new Set<string>() };
+    const detail = message.activity?.detail?.replace(/ · 第 \d+ 行起$/, '');
+    entry.keys.add('distinct' in kind && kind.distinct && detail ? detail : message.id);
+    counts.set(kind.kind, entry);
+    for (const file of message.diff?.files || []) {
+      added += file.added;
+      removed += file.removed;
+    }
+    if (message.screenshotId && !SCREEN_TOOLS.has(tool)) images.push(message.screenshotId);
+  }
+  const parts = [...counts.values()].map(({ kind, keys }) =>
+    keys.size === 1 ? translate(kind.one) : translate(kind.many, { count: keys.size }),
+  );
+  return { parts, added, removed, images };
 }
 /** Wall-clock time of a finished run, or undefined while it runs or when timestamps are missing. */
 export function runDurationMs(run?: RunRecord) {
