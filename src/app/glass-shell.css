@@ -471,7 +471,9 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > :
 
 @media (prefers-reduced-motion: no-preference) {
   .modal-backdrop.settings-backdrop {
-    animation: settings-backdrop-in 180ms ease both;
+    /* backwards, not both: a forwards fill keeps the backdrop a compositing root, and the dialog's backdrop-filter
+       would then blur only the backdrop's own dim layer instead of the app behind it. */
+    animation: settings-backdrop-in 180ms ease backwards;
   }
 }
 
@@ -806,9 +808,8 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   --glass-blur: blur(28px) saturate(1.7) brightness(1.04);
   /* Liquid glass for the layers that float over messages (header, composer): thinner tint so the blurred colours
      come through, a sheen across the top, and a lit rim that gives the pane an edge. */
-  --liquid-tint:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 42%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(248, 246, 252, 0.5));
+  --liquid-sheen: linear-gradient(160deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 42%);
+  --liquid-tint: var(--liquid-sheen), linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(248, 246, 252, 0.5));
   --liquid-blur: blur(22px) saturate(1.9) brightness(1.06);
   --liquid-rim:
     inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(255, 255, 255, 0.35),
@@ -831,9 +832,8 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   --glass-tint: linear-gradient(180deg, rgba(46, 42, 56, 0.66), rgba(32, 29, 40, 0.58));
   --glass-tint-strong: linear-gradient(180deg, rgba(42, 38, 50, 0.88), rgba(30, 28, 36, 0.84));
   --glass-blur: blur(28px) saturate(1.5) brightness(1.08);
-  --liquid-tint:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 42%),
-    linear-gradient(180deg, rgba(44, 40, 54, 0.6), rgba(30, 28, 38, 0.52));
+  --liquid-sheen: linear-gradient(160deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 42%);
+  --liquid-tint: var(--liquid-sheen), linear-gradient(180deg, rgba(44, 40, 54, 0.6), rgba(30, 28, 38, 0.52));
   --liquid-blur: blur(22px) saturate(1.6) brightness(1.1);
   --liquid-rim:
     inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -1px 0 rgba(255, 255, 255, 0.04),
@@ -979,9 +979,11 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell[data-page='chat'] > .
 .modal.bot-profile-modal,
 :root[data-theme='dark'] .modal.settings-modal,
 :root[data-theme='dark'] .modal.bot-profile-modal {
+  /* Same lit rim and sheen as the header and composer, over a denser tint so forms stay legible. No refraction:
+     behind a dialog there is only the dimmed backdrop, so bending it would show nothing. */
   border-color: transparent !important;
-  background: var(--glass-grain), var(--glass-tint-strong) !important;
-  box-shadow: var(--card-shadow) !important;
+  background: var(--glass-grain), var(--liquid-sheen), var(--glass-tint-strong) !important;
+  box-shadow: var(--liquid-rim), var(--card-shadow) !important;
   backdrop-filter: var(--glass-blur) !important;
 }
 
