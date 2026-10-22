@@ -86,7 +86,7 @@
 :root :is(.message-code-language, .message-code-copy) {
   font-family: var(--font-ui);
   font-size: var(--text-caption);
-  font-weight: var(--weight-body);
+  font-weight: var(--weight-label);
 }
 :root :is(.composer textarea, .composer-editor, .group-composer textarea, .peer-composer textarea) {
   font-size: var(--text-control);

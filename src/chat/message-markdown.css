@@ -67,17 +67,21 @@
 }
 :root .markdown blockquote {
   margin: 1em 0;
-  padding: 2px 0 2px 15px;
-  border-left: 2px solid light-dark(#ceced7, #3e3945);
+  padding: 8px 14px 8px 16px;
+  border-left: 0;
+  border-radius: 4px 12px 12px 4px;
+  background: var(--message-surface);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--message-link) 45%, transparent);
   color: var(--message-muted);
 }
 :root .markdown blockquote > :last-child {
   margin-bottom: 0;
 }
 :root .markdown hr {
+  height: 1px;
   margin: 1.6em 0;
   border: 0;
-  border-top: 1px solid var(--message-line);
+  background: linear-gradient(90deg, transparent, var(--message-line) 15%, var(--message-line) 85%, transparent);
 }
 :root .markdown a[href] {
   color: var(--message-link);
@@ -99,9 +103,10 @@
   border-radius: 2px;
 }
 :root .markdown :not(pre) > code {
-  padding: 0.14em 0.35em;
-  border-radius: 4px;
+  padding: 0.12em 0.4em;
+  border-radius: 6px;
   background: var(--message-inline);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--message-line) 70%, transparent);
   color: inherit;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
@@ -142,14 +147,17 @@
   margin-bottom: 0;
 }
 
+/* A code block is a recessed card in the bubble: a hairline ring, a quiet header with the language and a copy pill, and
+   long code folded behind a fade. */
 .message-code-block {
+  position: relative;
   min-width: 0;
   max-width: 100%;
   margin: 1em 0;
   overflow: hidden;
-  border: 1px solid var(--message-line, light-dark(#e5e5e9, #3e3945));
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--message-surface, light-dark(#f7f7f8, #211f25));
+  box-shadow: inset 0 0 0 1px var(--message-line, light-dark(#e5e5e9, #3e3945));
   color: var(--message-ink, light-dark(#343840, #dddae0));
   text-align: left;
 }
@@ -158,50 +166,60 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 39px;
-  padding: 3px 8px 3px 16px;
-  border-bottom: 1px solid var(--message-line, light-dark(#e5e5e9, #3e3945));
+  min-height: 36px;
+  padding: 4px 6px 0 14px;
   user-select: none;
 }
 .message-code-language {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--message-muted, light-dark(#74747d, #c7c4ca));
-  font: var(--weight-body) calc(12px * var(--appearance-text-scale, 1))/1.5 var(--font-ui);
+  font: var(--weight-label) calc(11.5px * var(--appearance-text-scale, 1))/1.5 var(--font-ui);
+  letter-spacing: 0.01em;
+}
+.message-code-language > svg {
+  opacity: 0.75;
 }
 .message-code-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   flex-shrink: 0;
-  min-width: 64px;
-  min-height: 30px;
-  padding: 4px 8px;
+  min-height: 26px;
+  padding: 3px 10px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 999px;
   background: transparent;
   color: var(--message-muted, light-dark(#74747d, #c7c4ca));
-  font: var(--weight-body) calc(12px * var(--appearance-text-scale, 1))/1.5 var(--font-ui);
+  font: var(--weight-label) calc(11.5px * var(--appearance-text-scale, 1))/1.5 var(--font-ui);
   cursor: pointer;
-  transition: none;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 .message-code-copy:hover {
   color: var(--message-ink, light-dark(#343840, #dddae0));
-  background: var(--message-inline, light-dark(#ededf0, #232127));
+  background: var(--ctl-fill-hover);
 }
 .message-code-copy[data-status='copied'] {
-  color: var(--code-string, light-dark(#38715d, #b2cfc5));
+  color: light-dark(#2f8a5b, #7fd3a5);
 }
 .message-code-copy[data-status='error'] {
-  color: light-dark(#ad4545, #e5b1b1);
+  color: var(--ctl-danger);
 }
 .message-code-copy:focus-visible {
-  outline: 2px solid var(--message-link-line, light-dark(#cdbde7, #3e3945));
-  outline-offset: 0;
+  outline: none;
+  box-shadow: var(--ctl-focus);
 }
 :root .message-code-block pre.message-code-scroll {
   max-width: 100%;
   margin: 0;
-  padding: 14px 16px 16px;
+  padding: 6px 16px 14px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -265,12 +283,46 @@
   font-weight: var(--weight-label);
 }
 
+/* Long code shows its first lines under a fade, and a bar to open the rest. */
+:root .message-code-block.is-folded pre.message-code-scroll {
+  /* Sixteen lines at the code size and leading the appearance settings choose (typography.css). */
+  max-height: calc(var(--text-code, 13px) * var(--message-leading, 1.8) * 16 + 20px);
+  overflow-y: hidden;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 64px), transparent);
+}
+.message-code-fold {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  min-height: 32px;
+  border-top: 1px solid var(--message-line, light-dark(#e5e5e9, #3e3945));
+  color: var(--message-muted, light-dark(#74747d, #c7c4ca));
+  font: var(--weight-label) calc(12px * var(--appearance-text-scale, 1))/1.5 var(--font-ui);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.message-code-fold:hover {
+  background: var(--ctl-fill);
+  color: var(--message-ink, light-dark(#343840, #dddae0));
+}
+.message-code-fold > svg {
+  transition: transform 0.18s;
+}
+.message-code-fold[aria-expanded='true'] > svg {
+  transform: rotate(180deg);
+}
+
+/* A table is a card like a code block: a quiet header row, hairlines between rows and a tint under the pointer. Column
+   alignment from the Markdown arrives as inline styles and wins over the left default here. */
 .markdown-table-scroll {
   max-width: 100%;
   margin: 1em 0;
   overflow: auto;
-  border: 1px solid var(--message-line, light-dark(#e5e5e9, #3e3945));
-  border-radius: 8px;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--message-line, light-dark(#e5e5e9, #3e3945));
   scrollbar-width: thin;
   scrollbar-color: light-dark(#cccbd2, #a8a5ab) transparent;
 }
@@ -279,24 +331,35 @@
   outline-offset: 2px;
 }
 .markdown-table-scroll table {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   min-width: 100%;
   width: max-content;
   font-size: 0.92em;
-  line-height: 1.65;
+  line-height: 1.6;
   font-variant-numeric: tabular-nums;
 }
 .markdown-table-scroll :is(th, td) {
   max-width: 30rem;
-  padding: 10px 14px;
+  padding: 9px 14px;
   border: 0;
   border-bottom: 1px solid var(--message-line, light-dark(#e5e5e9, #3e3945));
   text-align: left;
+  vertical-align: top;
   overflow-wrap: anywhere;
 }
 .markdown-table-scroll th {
-  font-weight: var(--weight-body);
   background: var(--message-surface, light-dark(#f7f7f8, #211f25));
+  color: var(--message-muted, light-dark(#74747d, #c7c4ca));
+  font-size: 0.92em;
+  font-weight: var(--weight-label);
+  white-space: nowrap;
+}
+.markdown-table-scroll tbody tr {
+  transition: background 0.12s;
+}
+.markdown-table-scroll tbody tr:hover {
+  background: color-mix(in srgb, var(--message-surface, light-dark(#f7f7f8, #211f25)) 70%, transparent);
 }
 .markdown-table-scroll tr:last-child td {
   border-bottom: 0;
