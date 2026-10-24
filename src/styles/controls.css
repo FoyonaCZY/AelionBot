@@ -67,8 +67,8 @@
 }
 
 /* ---------- Buttons ---------- */
-/* Primary: an ink capsule. Secondary (and the plain buttons on Bot cards): a raised capsule of white glass. Group
-   games keep their own themed buttons. */
+/* Primary: an ink capsule. Secondary (and the plain buttons on Bot cards): a raised capsule of white glass. The
+   night game table sets these tokens again for its own colours (src/group/group-games.css). */
 :root
   :is(
     .primary-button,
@@ -78,7 +78,7 @@
     .companion-button:not(.companion-primary, .companion-quiet),
     .bot-palette-random,
     .danger-button
-  ):not(.gg-table-root *, .gg-reveal-card *) {
+  ) {
   border: 0 !important;
   border-radius: 999px !important;
   transition:
@@ -89,23 +89,18 @@
     opacity 0.16s;
 }
 
-:root :is(.primary-button, .runtime-save, .companion-primary):not(.gg-table-root *, .gg-reveal-card *) {
+:root :is(.primary-button, .runtime-save, .companion-primary) {
   background: var(--ctl-ink) !important;
   color: var(--ctl-on-ink) !important;
   box-shadow: var(--ctl-ink-shadow) !important;
 }
 
-:root
-  :is(.primary-button, .runtime-save, .companion-primary):not(:disabled, .gg-table-root *, .gg-reveal-card *):hover {
+:root :is(.primary-button, .runtime-save, .companion-primary):not(:disabled):hover {
   background: var(--ctl-ink-hover) !important;
   color: var(--ctl-on-ink) !important;
 }
 
-:root
-  :is(.secondary-button, .companion-button:not(.companion-primary, .companion-quiet), .bot-palette-random):not(
-    .gg-table-root *,
-    .gg-reveal-card *
-  ) {
+:root :is(.secondary-button, .companion-button:not(.companion-primary, .companion-quiet), .bot-palette-random) {
   background: var(--ctl-raised) !important;
   color: var(--text-ink) !important;
   box-shadow: var(--ctl-raised-shadow) !important;
@@ -113,9 +108,7 @@
 
 :root
   :is(.secondary-button, .companion-button:not(.companion-primary, .companion-quiet), .bot-palette-random):not(
-    :disabled,
-    .gg-table-root *,
-    .gg-reveal-card *
+    :disabled
   ):hover {
   background: var(--ctl-raised-hover) !important;
 }
@@ -146,7 +139,7 @@
     .companion-button:not(.companion-primary, .companion-quiet),
     .bot-palette-random,
     .danger-button
-  ):not(:disabled, .gg-table-root *, .gg-reveal-card *):active {
+  ):not(:disabled):active {
   transform: scale(0.97);
 }
 
@@ -159,7 +152,7 @@
     .companion-button:not(.companion-primary, .companion-quiet),
     .bot-palette-random,
     .danger-button
-  ):not(.gg-table-root *, .gg-reveal-card *):disabled {
+  ):disabled {
   box-shadow: none !important;
   opacity: 0.42;
 }

@@ -1,4 +1,5 @@
 import { ROLE_NAMES, PHASE_NAMES, ACTION_NAMES } from '../../shared/games/game-boards';
+import { tileName } from '../../shared/games/mahjong-rules';
 import { useI18n } from '../i18n';
 import { Select } from '../ui/Select';
 import { useEffect, useState } from 'react';
@@ -28,6 +29,7 @@ const labels: Record<GameTrace['type'], string> = {
 const phases: Record<string, string> = PHASE_NAMES;
 const kinds: Record<string, string> = ACTION_NAMES;
 const roles: Record<string, string> = ROLE_NAMES;
+const CARD_KINDS = ['bid', 'play', 'discard', 'claim'];
 export function GameDiagnostics({ game }: { game: GameView }) {
   const { t } = useI18n();
   const [events, setEvents] = useState<GameTrace[]>([]),
@@ -41,8 +43,9 @@ export function GameDiagnostics({ game }: { game: GameView }) {
     rounds
       ? t('第 {round} 轮', { round: day })
       : t('第 {day} {period}', { day, period: t(phase === 'night' ? '夜' : '天') });
+  const cards = game.mode === 'doudizhu' || game.mode === 'mahjong';
   const phaseName = (phase: string) =>
-    rounds
+    rounds && !cards
       ? phase === 'vote'
         ? '投票'
         : phase === 'resolution'
@@ -55,7 +58,23 @@ export function GameDiagnostics({ game }: { game: GameView }) {
     const i = game.seats.findIndex((p) => p.id === id);
     return i < 0 ? t('无') : t('{seat} 号 {name}', { seat: i + 1, name: game.seats[i].name });
   };
-  const actionText = (a: GameAction, kind?: string) =>
+  /** A card or tile move as the table reads it, with the line of table talk that came with it. */
+  const cardMove = (a: GameAction, kind?: string) => {
+    const [move, tile] = (a.target || '').split(':');
+    const text = a.skip
+      ? t(kind === 'bid' ? '不叫' : kind === 'claim' ? '过' : '不要')
+      : kind === 'bid'
+        ? t('叫 {count} 分', { count: Number(move.slice(3)) })
+        : kind === 'play'
+          ? move.split('-').join(' ')
+          : tile
+            ? `${t({ d: '打出', ag: '暗杠', jg: '加杠' }[move] || move)} ${tileName(tile)}`
+            : t({ hu: '和牌', peng: '碰', gang: '杠' }[move] || move);
+    return text + (a.text ? ` 「${a.text}」` : '');
+  };
+  const actionText = (a: GameAction, kind?: string): string =>
+    kind && CARD_KINDS.includes(kind) ? cardMove(a, kind) : moveText(a, kind);
+  const moveText = (a: GameAction, kind?: string) =>
     a.choice !== undefined
       ? kind === 'withdraw'
         ? a.choice

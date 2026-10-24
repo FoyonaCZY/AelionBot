@@ -1,4 +1,4 @@
-import { actionContract, checkActionContract } from './action-contract';
+import { actionContract, checkActionContract, textLimit } from './action-contract';
 import { errorCode } from '../../../shared/errors';
 import { BOARDS, twelveRules } from '../../../shared/games/game-boards';
 import { gameSkills } from './skills';
@@ -221,11 +221,13 @@ function repairAction(
   const dropped = Object.keys(parsed).filter((key) => !(key in allowed));
   for (const key of dropped) delete parsed[key];
   if (dropped.length) fixes.push('忽略了本轮不需要的字段 ' + dropped.join('、'));
-  for (const [key, max] of Object.entries(TEXT_LIMITS))
+  for (const [key, limit] of Object.entries(TEXT_LIMITS)) {
+    const max = key === 'text' ? textLimit(request) : limit;
     if (typeof parsed[key] === 'string' && parsed[key].length > max) {
       parsed[key] = parsed[key].slice(0, max);
       fixes.push(`${key} 超过 ${max} 字，已截断`);
     }
+  }
   for (const key of ['choice', 'skip'])
     if (parsed[key] === 'true' || parsed[key] === 'false') parsed[key] = parsed[key] === 'true';
   if (parsed.skip === false && 'target' in parsed) delete parsed.skip;
@@ -234,7 +236,9 @@ function repairAction(
     fixes.push('save/skip 不带目标，已忽略 target');
   }
   const target = parsed.target;
-  if ((typeof target === 'string' || typeof target === 'number') && !request.targets.includes(String(target))) {
+  // A card id such as 10 written as a JSON number.
+  if (typeof target === 'number' && request.targets.includes(String(target))) parsed.target = String(target);
+  else if ((typeof target === 'string' || typeof target === 'number') && !request.targets.includes(String(target))) {
     const raw = String(target).trim();
     const number = /^(\d{1,2})\s*号?(?:玩家)?$/.exec(raw);
     const seat = number ? seats?.[Number(number[1]) - 1] : undefined;

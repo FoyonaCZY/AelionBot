@@ -1,26 +1,7 @@
-/* Native app palette is scoped to this screen; other games keep their table theme. */
+/* The persona screen is wider than the other game screens; it shares their glass and tokens. */
 .gg-dialog[data-screen='persona'] {
-  --gg-bg: light-dark(#fff, #202024);
-  --gg-panel: light-dark(#fff, #202024);
-  --gg-line: light-dark(#e9e9ec, #3b3841);
-  --gg-ink: var(--text-ink);
-  --gg-muted: var(--text-muted);
-  --gg-soft: light-dark(#f5f5f7, #2b2830);
-  --gg-hi: light-dark(#eeedf1, #36313d);
-  --gg-acc: light-dark(#827098, #baa6d0);
   width: min(1200px, calc(100vw - 40px));
   height: min(900px, calc(100dvh - 40px));
-  border-radius: 16px;
-  box-shadow: 0 18px 64px #0002;
-}
-.gg-dialog[data-screen='persona'] .gg-header {
-  min-height: 60px;
-  padding: 10px 20px;
-  background: var(--gg-panel);
-}
-.gg-dialog[data-screen='persona'] .gg-header strong {
-  font-size: var(--text-control);
-  font-weight: var(--weight-label);
 }
 .gp-page {
   flex: 1;
@@ -48,12 +29,10 @@
   align-items: center;
   flex-shrink: 0;
   gap: 8px;
-  padding: 12px 28px;
+  padding: 2px 20px 12px;
   overflow-x: auto;
   overscroll-behavior-inline: contain;
   scrollbar-width: thin;
-  border-bottom: 1px solid var(--gg-line);
-  background: light-dark(#fafafa, #232126);
 }
 .gp-row {
   display: inline-flex;
@@ -62,16 +41,17 @@
   gap: 8px;
   min-height: 40px;
   max-width: 220px;
-  padding: 6px 12px 6px 8px;
-  border-radius: 10px;
+  padding: 5px 14px 5px 6px;
+  border-radius: 999px;
   color: var(--text-secondary);
   text-align: left;
+  transition: background 0.15s;
 }
 .gp-row:hover {
-  background: var(--gg-soft);
+  background: var(--ctl-fill);
 }
 .gp-row.is-on {
-  background: var(--gg-hi);
+  background: var(--ctl-fill-hover);
   color: var(--gg-ink);
 }
 .gp-row-copy {
@@ -97,12 +77,18 @@
   min-height: 0;
   min-width: 0;
   overflow: auto;
-  padding: 24px 32px 32px;
+  padding: 26px 32px 32px;
   scrollbar-gutter: stable;
-  width: 100%;
-  max-width: 1000px;
-  margin: 0 auto;
+  width: calc(100% - 40px);
+  margin: 0 20px 20px;
   box-sizing: border-box;
+  border-radius: 18px;
+  background: var(--gg-card);
+  box-shadow: var(--gg-card-shadow);
+}
+.gp-detail > * {
+  max-width: 940px;
+  margin-inline: auto;
 }
 .gp-profile-header {
   display: flex;
@@ -133,8 +119,8 @@
 }
 .gp-mbti {
   display: inline-block;
-  padding: 2px 7px;
-  border-radius: 5px;
+  padding: 1px 9px;
+  border-radius: 999px;
   background: var(--gg-soft);
   color: var(--text-secondary);
   font: var(--weight-label) var(--text-caption) / 1.5 var(--font-ui);
@@ -174,22 +160,29 @@
 }
 .gp-tabs {
   display: flex;
-  gap: 24px;
-  border-bottom: 1px solid var(--gg-line);
-  margin-bottom: 24px;
+  gap: 2px;
+  margin-bottom: 26px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--ctl-line);
   overflow-x: auto;
 }
 .gp-tabs button {
-  padding: 8px 0 12px;
   flex-shrink: 0;
-  color: var(--gg-muted);
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  font-size: var(--text-control);
+  padding: 5px 13px;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.gp-tabs button:hover {
+  color: var(--gg-ink);
 }
 .gp-tabs button[aria-pressed='true'] {
-  border-color: var(--gp-bot-color);
+  background: var(--ctl-fill);
   color: var(--gg-ink);
+  font-weight: var(--weight-label);
 }
 .gp-tabs button:last-child {
   margin-left: auto;

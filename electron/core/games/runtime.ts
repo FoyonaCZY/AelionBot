@@ -145,9 +145,24 @@ export class GameRuntime {
     this.record(s, type, detail);
     this.commit(s, false);
   }
+  /** Whether a request runs on its own deadline: every person's, and a model seat's in a game that times models too. */
+  private timed(s: AnyMatch, r: GameRequest) {
+    return !!s.seats.find((p) => p.id === r.seatId)?.human || !!gameMode(s.mode).timesModels;
+  }
+  /** A timed model seat that cannot give a usable move in time makes the timeout move, as a person would. */
+  private expire(id: string, requestId: string, detail: string) {
+    const current = this.state(id);
+    const open = current.requests.find((p) => p.id === requestId);
+    if (this.closed || current.status !== 'running' || !open) return;
+    const next = structuredClone(current);
+    const mode = gameMode(next.mode);
+    this.record(next, 'timeout', { requestId, seatId: open.seatId, kind: open.kind, detail });
+    mode.accept(next, requestId, mode.timeoutAction(open), true);
+    this.commitTransition(current, next);
+  }
   private freeze(s: AnyMatch) {
     for (const r of s.requests) {
-      if (!s.seats.find((p) => p.id === r.seatId)?.human) {
+      if (!this.timed(s, r)) {
         delete r.deadlineAt;
         delete r.remainingMs;
         continue;
@@ -164,7 +179,7 @@ export class GameRuntime {
       const expired = current.requests.filter((r) => r.deadlineAt !== undefined && r.deadlineAt <= Date.now());
       if (!expired.length) continue;
       const s = structuredClone(current);
-      const aiExpired = expired.filter((r) => !s.seats.find((p) => p.id === r.seatId)?.human);
+      const aiExpired = expired.filter((r) => !this.timed(s, r));
       if (aiExpired.length) {
         for (const r of aiExpired)
           this.record(s, 'timeout', {
@@ -187,7 +202,12 @@ export class GameRuntime {
       }
       for (const r of expired) {
         if (!s.requests.some((x) => x.id === r.id)) continue;
-        this.record(s, 'timeout', { requestId: r.id, seatId: r.seatId, kind: r.kind });
+        this.record(s, 'timeout', {
+          requestId: r.id,
+          seatId: r.seatId,
+          kind: r.kind,
+          ...(s.seats.find((p) => p.id === r.seatId)?.human ? {} : { detail: '模型思考超时，按超时规则自动行动' }),
+        });
         const mode = gameMode(s.mode);
         mode.accept(s, r.id, mode.timeoutAction(r), true);
       }
@@ -215,7 +235,7 @@ export class GameRuntime {
     const previous = this.states.get(s.id);
     if (this.needsSettlement(s)) s.settlementComplete = false;
     for (const r of s.requests)
-      if (!s.seats.find((p) => p.id === r.seatId)?.human && !previous?.requests.some((old) => old.id === r.id)) {
+      if (!this.timed(s, r) && !previous?.requests.some((old) => old.id === r.id)) {
         delete r.deadlineAt;
         delete r.remainingMs;
       }
@@ -241,9 +261,7 @@ export class GameRuntime {
           requestId: r.id,
           seatId: r.seatId,
           kind: r.kind,
-          detail: next.seats.find((p) => p.id === r.seatId)?.human
-            ? `操作截止时间 ${r.deadlineAt}`
-            : '等待模型响应；响应超时保留行动',
+          detail: this.timed(next, r) ? `操作截止时间 ${r.deadlineAt}` : '等待模型响应；响应超时保留行动',
         });
     this.commit(next);
   }
@@ -300,6 +318,7 @@ export class GameRuntime {
       })),
       board: input.board,
       blank: input.blank === true,
+      tableTalk: input.tableTalk === true,
     });
     s.personaPolicy = 'model_semantic_v1';
     try {
@@ -388,7 +407,7 @@ export class GameRuntime {
       this.check(s.seats);
       s.status = 'running';
       for (const r of s.requests) {
-        if (s.seats.find((p) => p.id === r.seatId)?.human) r.deadlineAt = Date.now() + (r.remainingMs ?? 30000);
+        if (this.timed(s, r)) r.deadlineAt = Date.now() + (r.remainingMs ?? 30000);
         else delete r.deadlineAt;
         delete r.remainingMs;
       }
@@ -495,14 +514,19 @@ export class GameRuntime {
         const dispatched = structuredClone(this.state(id)),
           pending = dispatched.requests.find((p) => p.id === r.id);
         if (!pending) return;
-        pending.deadlineAt = Date.now() + this.timing.aiTimeoutMs;
-        this.commit(dispatched, false);
+        // A timed seat keeps the deadline its turn started with, retries and waits included.
+        const timed = this.timed(dispatched, pending);
+        if (!timed) {
+          pending.deadlineAt = Date.now() + this.timing.aiTimeoutMs;
+          this.commit(dispatched, false);
+        }
         let retryFeedback: string | undefined;
         // Each retry and each backoff wait gets the full response budget, so waiting never trips the pause timer.
         const renew = () => {
           const renewed = structuredClone(this.state(id)),
             open = renewed.requests.find((p) => p.id === r.id);
           if (!open || renewed.status !== 'running') return false;
+          if (timed) return true;
           open.deadlineAt = Date.now() + this.timing.aiTimeoutMs;
           this.commit(renewed, false);
           return true;
@@ -615,10 +639,15 @@ export class GameRuntime {
               status >= 400 ||
               (e instanceof GameModelError && e.code === 'network') ||
               (e as Error)?.name === 'TimeoutError';
-            if (attempt >= (transient ? TRANSIENT_ATTEMPTS : MODEL_ATTEMPTS)) throw e;
+            // Out of attempts: a timed seat moves as on a timeout instead of holding up the table.
+            const giveUp = () => {
+              if (!timed) throw e;
+              this.expire(id, r.id, '模型多次未给出可用行动，按超时规则自动行动');
+            };
+            if (attempt >= (transient ? TRANSIENT_ATTEMPTS : MODEL_ATTEMPTS)) return giveUp();
             if (transient) {
               const retryAfter = e instanceof GameModelError ? e.retryAfterMs : undefined;
-              if (retryAfter !== undefined && retryAfter > MAX_RETRY_AFTER_MS) throw e;
+              if (retryAfter !== undefined && retryAfter > MAX_RETRY_AFTER_MS) return giveUp();
               if (!renew()) return;
               await new Promise<void>((resolve, reject) => {
                 const abort = () => {

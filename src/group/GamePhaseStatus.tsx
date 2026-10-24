@@ -2,6 +2,7 @@ import type { GameView } from '../../shared/types/game-types';
 import { PHASE_NAMES } from '../../shared/games/game-boards';
 import { translate } from '../../shared/i18n';
 import { periodOf, phaseSteps, seatNumber } from './game-view-model';
+import { GameGlyph } from './GameGlyph';
 
 export function electionLabel(game: GameView, id: string) {
   const e = game.election;
@@ -62,7 +63,7 @@ export function GamePhaseSteps({ game }: { game: GameView }) {
         <li key={step.key} className={`is-${step.state}`} aria-current={step.state === 'now' ? 'step' : undefined}>
           {index > 0 && <i aria-hidden="true" />}
           <span>
-            {step.state === 'now' && (step.key === 'night' ? '☾ ' : '☀ ')}
+            {step.state === 'now' && <GameGlyph name={step.key === 'night' ? 'moon' : 'sun'} size={13} />}
             {translate(STEP_NAMES[step.key], { day: game.day })}
             {step.state === 'now' && game.stage && game.stage !== translate(PHASE_NAMES[game.phase])
               ? ` · ${game.stage}`

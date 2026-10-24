@@ -1,4 +1,349 @@
-/* Group AI games. One table, two lights: night tints the table deep indigo, day uses warm paper. */
+/* Group AI games. The dialog is the app's frosted glass, and almost everything sits directly on it, held by space
+   and hairlines rather than boxes; only the action dock is lifted, as the composer is in a chat. Secondary actions are
+   quiet text buttons. Colour is kept for meaning: the camps, your turn, and the night, which turns the table deep
+   indigo in either theme. Controls take the shared tokens of src/styles/controls.css. */
+.gg-dialog {
+  --gg-card: light-dark(#ffffff, rgba(255, 255, 255, 0.045));
+  --gg-card-ring: 0 0 0 0.5px light-dark(rgba(41, 32, 58, 0.1), rgba(255, 255, 255, 0.08));
+  --gg-card-shadow: var(--gg-card-ring), 0 1px 2px light-dark(rgba(41, 32, 58, 0.04), rgba(0, 0, 0, 0.2));
+  --gg-line: var(--ctl-line);
+  --gg-ink: var(--text-ink);
+  --gg-muted: var(--text-muted);
+  --gg-soft: var(--ctl-fill);
+  --gg-soft-hover: var(--ctl-fill-hover);
+  --gg-hi: var(--ctl-accent-soft);
+  --gg-acc: var(--ctl-accent);
+  --gg-wolf: light-dark(#bf5a4f, #eba196);
+  --gg-good: light-dark(#4a76a8, #a8c4e4);
+  --gg-god: light-dark(#a07628, #dec38e);
+  /* Older names some screens still read. */
+  --gg-panel: var(--gg-card);
+  --gg-bg: transparent;
+  padding: 0;
+  border: 0;
+  border-radius: 22px;
+  width: min(1080px, calc(100vw - 48px));
+  height: min(760px, calc(100dvh - 48px));
+  max-width: none;
+  max-height: none;
+  background: var(--glass-grain), var(--liquid-sheen), var(--glass-tint-strong);
+  box-shadow: var(--liquid-rim), var(--card-shadow);
+  backdrop-filter: var(--glass-blur);
+  color: var(--gg-ink);
+  overflow: hidden;
+}
+.gg-dialog::backdrop {
+  background: rgba(30, 24, 42, 0.26);
+}
+:root[data-theme='dark'] .gg-dialog::backdrop {
+  background: rgba(6, 5, 10, 0.55);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .gg-dialog[open] {
+    transition:
+      opacity 0.2s ease,
+      transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  @starting-style {
+    .gg-dialog[open] {
+      opacity: 0;
+      transform: translateY(10px) scale(0.985);
+    }
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .gg-dialog {
+    background: var(--card-solid);
+    backdrop-filter: none;
+  }
+}
+.gg-workspace {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.gg-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 64px;
+  padding: 14px 16px 8px 32px;
+}
+.gg-header > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.gg-header > div:first-child > .icon-button {
+  margin-left: -10px;
+}
+.gg-header strong {
+  font-size: calc(16px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-heading, 600);
+}
+.gg-header > div > span:not(.gg-legend) {
+  font-size: var(--text-caption);
+  color: var(--gg-muted);
+}
+.gg-header-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.gg-header-link:hover {
+  background: var(--ctl-fill);
+  color: var(--gg-ink);
+}
+/* Inside the games a secondary action is quiet text; the one primary action on a screen is the ink capsule. */
+:root:root .gg-dialog .secondary-button {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-secondary) !important;
+}
+:root:root .gg-dialog .secondary-button:not(:disabled):hover {
+  background: var(--ctl-fill) !important;
+  color: var(--gg-ink) !important;
+}
+:root:root .gg-dialog .secondary-button:disabled {
+  background: transparent !important;
+}
+.gg-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 8px;
+  font-size: var(--text-caption);
+  color: var(--gg-muted);
+}
+
+/* ---------- shared parts ---------- */
+.gg-glyph {
+  flex-shrink: 0;
+}
+.gg-muted {
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  color: var(--gg-muted);
+  line-height: 1.7;
+}
+.gg-spacer {
+  flex: 1;
+}
+.gg-back {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.gg-back:hover {
+  background: var(--gg-soft);
+  color: var(--gg-ink);
+}
+.gg-link {
+  color: var(--gg-acc);
+  font-size: var(--text-caption);
+  text-align: left;
+}
+.gg-ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  color: light-dark(#3f8a66, #9fd2b8);
+}
+.gg-label,
+.gg-section-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: var(--text-caption);
+  font-weight: var(--weight-label);
+  color: var(--gg-muted);
+}
+.gg-card {
+  display: block;
+  width: 100%;
+  padding: 0 2px 16px;
+  color: inherit;
+  text-align: left;
+}
+.gg-card h4,
+.gg-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: var(--text-caption);
+  font-weight: var(--weight-label);
+  color: var(--gg-muted);
+}
+.gg-card + .gg-card {
+  padding-top: 16px;
+  border-top: 1px solid var(--ctl-line);
+}
+.gg-card-head b {
+  color: var(--gg-ink);
+  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+}
+.gg-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.gg-tag {
+  display: inline-block;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--gg-soft);
+  color: var(--text-secondary);
+  font-size: calc(11px * var(--appearance-text-scale, 1));
+  line-height: 19px;
+  white-space: nowrap;
+}
+.gg-tag.is-accent {
+  background: var(--gg-hi);
+  color: var(--gg-acc);
+}
+.gg-tag.is-wolf {
+  background: color-mix(in srgb, var(--gg-wolf) 13%, transparent);
+  color: var(--gg-wolf);
+}
+.gg-tag.is-good {
+  background: color-mix(in srgb, var(--gg-good) 13%, transparent);
+  color: var(--gg-good);
+}
+.gg-tag.is-god,
+.gg-tag.is-sheriff {
+  background: color-mix(in srgb, var(--gg-god) 15%, transparent);
+  color: var(--gg-god);
+}
+.gg-mbti {
+  padding: 1px 6px;
+  border-radius: 999px;
+  font: 600 10.5px var(--font-code);
+}
+.gg-mbti.is-nt,
+.gg-preset .aelion-select.is-nt {
+  background: light-dark(#eee8fa, #342d45);
+  color: light-dark(#6c4fb0, #cbb8f0);
+}
+.gg-mbti.is-nf,
+.gg-preset .aelion-select.is-nf {
+  background: light-dark(#e5f3eb, #263a31);
+  color: light-dark(#3a7b5c, #a9d6bf);
+}
+.gg-mbti.is-sj,
+.gg-preset .aelion-select.is-sj {
+  background: light-dark(#e6eef8, #26313e);
+  color: light-dark(#436a96, #aec6e2);
+}
+.gg-mbti.is-sp,
+.gg-preset .aelion-select.is-sp {
+  background: light-dark(#f7eedf, #3a3122);
+  color: light-dark(#93702f, #dcc08c);
+}
+.gg-human-avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--gg-hi, var(--ctl-accent-soft));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ctl-accent) 30%, transparent);
+  color: var(--ctl-accent);
+}
+/* A mark: a small rounded tile holding a glyph; its tint says night, day or a party game. */
+.gg-mark {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: light-dark(#f7efdf, #3a3122);
+  color: light-dark(#b0802a, #e2c58f);
+}
+.gg-mark.is-night,
+.is-night > * > .gg-mark {
+  background: linear-gradient(160deg, #2e2945, #1c1a28);
+  color: #d8ccfa;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+.gg-mark.is-party,
+.is-party > * > .gg-mark {
+  background: light-dark(#e3f2ec, #233630);
+  color: light-dark(#3a7e66, #9fd4bf);
+}
+.gg-chevron {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  background: currentColor;
+  color: var(--gg-muted);
+  -webkit-mask: var(--ctl-chevron) center / contain no-repeat;
+  mask: var(--ctl-chevron) center / contain no-repeat;
+  transform: rotate(-90deg);
+  transition: transform 0.2s;
+}
+.gg-storage-warning {
+  margin: 0 16px 12px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: light-dark(#fff3df, #3a3122);
+  color: light-dark(#8c6a2f, #dcc08c);
+  font-size: var(--text-caption);
+}
+.gg-rule-details {
+  color: var(--gg-muted);
+  font-size: var(--text-caption);
+  line-height: 1.8;
+}
+.gg-rule-details summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  list-style: none;
+}
+.gg-rule-details summary::-webkit-details-marker {
+  display: none;
+}
+.gg-rule-details summary::after {
+  content: '';
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+  -webkit-mask: var(--ctl-chevron) center / contain no-repeat;
+  mask: var(--ctl-chevron) center / contain no-repeat;
+  opacity: 0.7;
+  transition: transform 0.2s;
+}
+.gg-rule-details[open] summary::after {
+  transform: rotate(180deg);
+}
+
+/* ---------- the composer's entry ---------- */
 .gg-host {
   display: contents;
 }
@@ -12,520 +357,308 @@
 .gg-entry {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   height: 28px;
-  padding: 0 10px;
-  border-radius: 8px;
+  padding: 0 11px 0 9px;
+  border-radius: 999px;
+  background: var(--ctl-fill);
+  color: var(--text-secondary);
   font-size: calc(12px * var(--appearance-text-scale, 1));
   font-weight: var(--weight-label, 500);
-  color: #e6e0f7;
-  background: #2a2638;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 .gg-entry:hover {
-  background: #37314a;
+  background: var(--ctl-fill-hover);
+  color: var(--text-ink);
 }
-.gg-dialog {
-  --gg-bg: light-dark(#fbfaf7, #1f1d23);
-  --gg-panel: light-dark(#fff, #25222a);
-  --gg-line: light-dark(#ece7ef, #3a3540);
-  --gg-ink: light-dark(#2c2a31, #e6e3ea);
-  --gg-muted: light-dark(#857f8c, #aaa6b0);
-  --gg-soft: light-dark(#f4f1f8, #2c2931);
-  --gg-hi: light-dark(#efe9f9, #362f45);
-  --gg-acc: light-dark(#8f7fb3, #b3a4e0);
-  --gg-wolf: light-dark(#b95d52, #e39a90);
-  --gg-good: light-dark(#4f79a6, #a5c2e2);
-  --gg-god: light-dark(#9a7431, #dcc08c);
-  padding: 0;
-  border: 1px solid var(--gg-line);
-  border-radius: 16px;
-  background: var(--gg-bg);
-  color: var(--gg-ink);
-  width: min(1080px, calc(100vw - 48px));
-  height: min(760px, calc(100dvh - 48px));
-  max-width: none;
-  max-height: none;
-  box-shadow: 0 18px 60px #0003;
-  overflow: hidden;
-}
-.gg-dialog::backdrop {
-  background: #0005;
-}
-.gg-workspace {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-  position: relative;
-}
-.gg-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--gg-line);
-  background: var(--gg-panel);
-  flex-shrink: 0;
-}
-.gg-header > div {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.gg-header strong {
-  font-size: calc(15px * var(--appearance-text-scale, 1));
-  font-weight: var(--weight-heading, 600);
-}
-.gg-header > div > span:not(.gg-legend) {
-  font-size: 12px;
-  color: var(--gg-muted);
-}
-.gg-legend {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-right: 10px;
-  font-size: 12px;
-  color: var(--gg-muted);
-}
-.gg-muted {
-  font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: var(--gg-muted);
-  line-height: 1.7;
-}
-.gg-spacer {
-  flex: 1;
-}
-.gg-back {
-  font-size: 12px;
-  color: var(--gg-muted);
-  padding: 5px 8px;
-  border-radius: 7px;
-}
-.gg-back:hover {
-  background: var(--gg-soft);
-  color: var(--gg-ink);
-}
-.gg-link {
-  color: var(--gg-acc);
-}
-.gg-ok {
-  font-size: 12.5px;
-  color: light-dark(#4f8a6f, #9fcfb6);
-}
-.gg-label,
-.gg-section-label {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11.5px;
-  color: var(--gg-muted);
-  margin-bottom: 6px;
-}
-.gg-card {
-  display: block;
-  width: 100%;
-  text-align: left;
-  border: 1px solid var(--gg-line);
-  border-radius: 12px;
-  padding: 11px 12px;
-  background: var(--gg-bg);
-  color: inherit;
-}
-.gg-card h4,
-.gg-card-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 7px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--gg-muted);
-}
-.gg-card-head b {
-  color: var(--gg-ink);
-  font-size: 13px;
-}
-.gg-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  align-items: center;
-}
-.gg-tag {
-  display: inline-block;
-  font-size: 10.5px;
-  line-height: 17px;
-  padding: 0 5px;
-  border-radius: 4px;
-  white-space: nowrap;
-  background: var(--gg-soft);
-  color: var(--gg-muted);
-}
-.gg-tag.is-accent {
-  background: var(--gg-hi);
-  color: var(--gg-acc);
-}
-.gg-tag.is-wolf {
-  background: color-mix(in srgb, var(--gg-wolf) 14%, transparent);
-  color: var(--gg-wolf);
-}
-.gg-tag.is-good {
-  background: color-mix(in srgb, var(--gg-good) 14%, transparent);
-  color: var(--gg-good);
-}
-.gg-tag.is-god,
-.gg-tag.is-sheriff {
-  background: color-mix(in srgb, var(--gg-god) 16%, transparent);
-  color: var(--gg-god);
-}
-.gg-mbti {
-  font: 600 10.5px var(--font-code);
-  border-radius: 5px;
-  padding: 1px 5px;
-}
-.gg-mbti.is-nt,
-.gg-preset select.is-nt {
-  background: light-dark(#ece6f8, #342d45);
-  color: light-dark(#7355b0, #cbb8f0);
-}
-.gg-mbti.is-nf,
-.gg-preset select.is-nf {
-  background: light-dark(#e6f3ec, #263a31);
-  color: light-dark(#3f8062, #a9d6bf);
-}
-.gg-mbti.is-sj,
-.gg-preset select.is-sj {
-  background: light-dark(#e7eff8, #26313e);
-  color: light-dark(#48709b, #aec6e2);
-}
-.gg-mbti.is-sp,
-.gg-preset select.is-sp {
-  background: light-dark(#f8efe1, #3a3122);
-  color: light-dark(#9a7431, #dcc08c);
-}
-.gg-human-avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1.5px dashed var(--gg-acc);
-  background: var(--gg-soft);
-  color: var(--gg-acc);
-  flex-shrink: 0;
-}
-.gg-dialog select,
-.gg-toolbar select {
-  height: 30px;
-  border: 1px solid var(--gg-line);
-  border-radius: 8px;
-  background: var(--gg-bg);
-  color: inherit;
-  padding: 0 8px;
-  font: inherit;
-  font-size: 12.5px;
-}
-.gg-storage-warning {
-  padding: 10px 14px;
-  font-size: 12px;
-  color: #a2643b;
-  background: #fff2dc;
-}
-.gg-rule-details {
-  font-size: 12px;
-  color: var(--gg-muted);
-  line-height: 1.8;
-}
-.gg-rule-details summary {
-  cursor: pointer;
-  color: var(--gg-acc);
+.gg-entry .gg-glyph {
+  color: var(--ctl-accent);
 }
 
-/* ---------- chat card ---------- */
-/* The card's place in the message list: a row of the list, with the card centred in it as before. */
+/* ---------- cards in the group chat ---------- */
+/* The live card's place among the messages; finished matches are told by result cards in the timeline. */
 .gg-card-slot {
   display: flex;
   justify-content: center;
 }
+.gg-chat-card,
+.gg-result-card {
+  width: min(440px, 100%);
+  margin: 6px auto;
+  border-radius: 18px;
+  background: var(--bubble-surface);
+  box-shadow:
+    0 0 0 0.5px light-dark(rgba(41, 32, 58, 0.1), rgba(255, 255, 255, 0.07)),
+    var(--bubble-lift),
+    0 6px 20px -12px light-dark(rgba(41, 32, 58, 0.18), rgba(0, 0, 0, 0.5));
+  color: var(--text-ink);
+  text-align: left;
+  overflow: hidden;
+}
 .gg-chat-card {
   display: flex;
   flex-direction: column;
-  width: min(420px, 100%);
-  text-align: left;
-  border: 1px solid light-dark(#ece7ef, #3a3540);
-  border-radius: 14px;
-  background: light-dark(#fff, #25222a);
-  overflow: hidden;
-  margin: 4px 0;
-  box-shadow: 0 2px 10px #2a223808;
+  padding: 0;
+  transition:
+    box-shadow 0.2s,
+    transform 0.2s;
 }
 .gg-chat-card:hover {
-  border-color: light-dark(#d9cfeb, #4a4257);
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 0.5px light-dark(rgba(41, 32, 58, 0.14), rgba(255, 255, 255, 0.1)),
+    var(--bubble-lift),
+    0 12px 28px -14px light-dark(rgba(41, 32, 58, 0.28), rgba(0, 0, 0, 0.6));
+}
+.gg-chat-card.is-turn {
+  box-shadow:
+    0 0 0 1.5px var(--ctl-accent-ring),
+    var(--bubble-lift),
+    0 10px 26px -14px light-dark(rgba(116, 88, 196, 0.4), rgba(0, 0, 0, 0.6));
 }
 .gg-chat-card-top {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 11px 13px 9px;
-}
-.gg-moon {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  background: #23202f;
-  color: #d9cff7;
-  font-size: 17px;
-}
-.gg-moon.is-day {
-  background: light-dark(#f6ecd8, #3a3122);
-  color: light-dark(#b8914a, #dcc08c);
+  gap: 12px;
+  padding: 14px 16px 12px;
 }
 .gg-chat-card-title {
   flex: 1;
   min-width: 0;
 }
-.gg-chat-card-title strong {
+.gg-chat-card-title strong,
+.gg-result-title strong {
   display: block;
-  font-size: 13.5px;
+  font-size: calc(14px * var(--appearance-text-scale, 1));
   font-weight: var(--weight-label, 500);
 }
-.gg-chat-card-title small {
+.gg-chat-card-title small,
+.gg-result-title small {
   display: block;
-  font-size: 12px;
-  color: light-dark(#857f8c, #aaa6b0);
-  white-space: nowrap;
   overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--text-caption);
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .gg-live {
   display: inline-flex;
-  align-items: center;
-  gap: 5px;
   flex-shrink: 0;
-  font-size: 11.5px;
-  color: light-dark(#8f7fb3, #b3a4e0);
+  align-items: center;
+  gap: 6px;
+  color: var(--ctl-accent);
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
 }
 .gg-live::before {
   content: '';
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: currentColor;
-  box-shadow: 0 0 0 3px light-dark(#ebe5f3, #362f45);
+  box-shadow: 0 0 0 3px var(--ctl-accent-soft);
+  animation: gg-pulse 2s ease-in-out infinite;
 }
 .gg-live.is-idle {
-  color: light-dark(#857f8c, #aaa6b0);
+  color: var(--text-muted);
 }
 .gg-live.is-idle::before {
   box-shadow: none;
+  animation: none;
   opacity: 0.6;
+}
+@keyframes gg-pulse {
+  50% {
+    box-shadow: 0 0 0 5px transparent;
+  }
 }
 .gg-chat-card-seats {
   display: flex;
-  gap: 4px;
-  padding: 0 13px 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  padding: 0 14px 14px 64px;
+}
+.gg-chat-card-seats > span {
+  display: inline-flex;
+  border-radius: 50%;
 }
 .gg-chat-card-seats .is-dead {
-  opacity: 0.28;
+  opacity: 0.3;
   filter: grayscale(1);
 }
 .gg-dot-human {
-  width: 20px;
-  height: 20px;
-}
-.gg-chat-card-foot {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 13px;
-  border-top: 1px solid light-dark(#ece7ef, #3a3540);
-  background: light-dark(#fbfaf7, #211f25);
-  font-size: 12.5px;
-}
-.gg-chat-card-foot b {
-  font-weight: var(--weight-label, 500);
-  color: light-dark(#2c2a31, #e6e3ea);
+  width: 22px;
+  height: 22px;
 }
 .gg-turn {
-  color: light-dark(#b95d52, #e39a90);
-  font-weight: var(--weight-label, 500);
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--ctl-accent-soft);
+  color: var(--ctl-accent);
+  font-weight: var(--weight-label);
 }
-.gg-chat-card.is-turn {
-  border-color: light-dark(#ecc9c3, #5a3b37);
+.gg-go {
+  display: inline-flex;
+  margin-left: auto;
+  color: var(--text-muted);
+  transition:
+    transform 0.2s,
+    color 0.2s;
+}
+.gg-chat-card:hover .gg-go {
+  color: var(--text-ink);
+  transform: translate(1px, -1px);
+}
+.gg-result-card > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px 12px 16px;
+  list-style: none;
+  cursor: pointer;
+}
+.gg-result-card > summary::-webkit-details-marker {
+  display: none;
+}
+.gg-result-title {
+  flex: 1;
+  min-width: 0;
+}
+.gg-result-card[open] .gg-chevron {
+  transform: none;
+}
+.gg-result-card > p {
+  margin: 0;
+  padding: 0 16px 14px 64px;
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
+.gg-result-open {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--text-caption);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.gg-result-open:hover {
+  background: var(--ctl-fill);
+  color: var(--text-ink);
 }
 
 /* ---------- lobby ---------- */
+/* Two games side by side: a picture, a title, two lines and one button. Nothing else competes with them. */
 .gg-lobby {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-}
-.gg-lobby-main {
-  padding: 20px 22px;
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: 14px;
+  gap: 22px;
+  min-height: 0;
+  padding: 10px 32px 22px;
   overflow: auto;
 }
 .gg-resume {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 12px;
-  border: 1px solid var(--gg-line);
-  border-radius: 13px;
-  padding: 11px 13px;
-  background: var(--gg-panel);
+  padding: 9px 9px 9px 16px;
+  border-radius: 14px;
+  background: var(--ctl-fill);
+  color: var(--text-secondary);
 }
 .gg-resume-text {
   flex: 1;
   min-width: 0;
 }
 .gg-resume-text b {
-  display: block;
-  font-size: 13.5px;
+  margin-right: 10px;
+  color: var(--gg-ink);
+  font-size: calc(13px * var(--appearance-text-scale, 1));
   font-weight: var(--weight-label, 500);
 }
 .gg-resume-text small {
-  font-size: 12px;
   color: var(--gg-muted);
+  font-size: var(--text-caption);
 }
-.gg-hero {
+.gg-resume :is(.primary-button, .secondary-button) {
+  height: 30px;
+  padding: 0 14px;
+  font-size: var(--text-caption);
+}
+.gg-games {
+  margin-block: auto;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 250px;
-  min-height: 250px;
-  border-radius: 16px;
-  overflow: hidden;
-  background: linear-gradient(140deg, #221f31, #2e2946 60%, #3b3157);
-  color: #ece7f7;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
 }
-.gg-hero-text {
-  padding: 24px 26px;
+.gg-game {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  align-items: flex-start;
+  min-width: 0;
 }
-.gg-hero .gg-hero-text h3 {
-  margin: 0;
-  color: #ece7f7;
-  font-size: 24px;
-  font-weight: 650;
-  letter-spacing: 0.02em;
-}
-.gg-hero-text p {
-  margin: 0;
-  color: #bdb4d6;
-  font-size: 13px;
-  line-height: 1.7;
-}
-.gg-hero-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.gg-hero-tags span {
-  font-size: 11.5px;
-  padding: 1px 8px;
-  border-radius: 6px;
-  background: #ffffff14;
-  border: 1px solid #ffffff22;
-  color: #d9d1ee;
-}
-.gg-hero-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: auto;
-}
-.gg-hero-primary {
-  height: 40px;
-  padding: 0 20px;
-  border-radius: 11px;
-  background: #ece7f7;
-  color: #221f31;
-  font-size: 14px;
-  font-weight: var(--weight-label, 500);
-}
-.gg-hero-primary:disabled {
-  opacity: 0.5;
-}
-.gg-hero-note {
-  font-size: 12px;
-  color: #bdb4d6;
-}
-.gg-hero-ring {
+.gg-game-art {
   position: relative;
+  align-self: stretch;
+  height: clamp(200px, 34vh, 280px);
+  margin-bottom: 20px;
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(60% 70% at 50% 50%, rgba(140, 116, 220, 0.28), transparent 70%),
+    linear-gradient(160deg, #262139, #1a1726);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
-.gg-hero-moon {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 74px;
-  height: 74px;
-  margin: -37px 0 0 -37px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 38% 36%, #fbf5e6, #d9cfa9 70%);
-  box-shadow: 0 0 50px #f3e7b855;
-}
-.gg-hero-seat {
-  position: absolute;
-  display: flex;
-  border-radius: 50%;
-  box-shadow: 0 0 0 2px #2b2640;
-}
-.gg-lobby-side {
-  border-left: 1px solid var(--gg-line);
-  background: var(--gg-panel);
-  padding: 18px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  overflow: auto;
-}
-.gg-lobby-link {
+.gg-game-art > img {
   display: block;
   width: 100%;
-  text-align: left;
-  padding: 14px 6px;
-  border-bottom: 1px solid var(--gg-line);
-  border-radius: 0;
-  color: var(--gg-ink);
+  height: 100%;
+  object-fit: cover;
 }
-.gg-lobby-link:hover {
-  background: var(--gg-soft);
+.gg-game.is-undercover .gg-game-art {
+  background:
+    radial-gradient(60% 70% at 50% 50%, rgba(110, 190, 160, 0.22), transparent 70%),
+    linear-gradient(160deg, #1d2b27, #141e1b);
 }
-.gg-lobby-link .gg-card-head {
-  margin: 0 0 5px;
+.gg-game h3 {
+  margin: 0 0 6px;
+  font-size: calc(19px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-heading);
+  letter-spacing: 0.01em;
 }
-.gg-lobby-link > small {
-  color: var(--gg-muted);
-  font-size: var(--text-caption);
-}
-.gg-lobby-rules {
-  padding: 14px 6px;
-  color: var(--gg-muted);
-  font-size: var(--text-caption);
-}
-.gg-lobby-rules summary {
-  cursor: pointer;
-}
-.gg-lobby-rules[open] summary {
-  margin-bottom: 12px;
-}
-.gg-rules-short {
+.gg-game p {
   margin: 0;
-  font-size: 12.5px;
+  color: var(--text-secondary);
+  font-size: calc(13px * var(--appearance-text-scale, 1));
   line-height: 1.75;
 }
+.gg-game .gg-game-meta {
+  margin-top: 6px;
+  color: var(--gg-muted);
+  font-size: var(--text-caption);
+}
+.gg-game .primary-button {
+  height: 34px;
+  margin-top: 18px;
+  padding: 0 18px;
+}
 .gg-lobby-note {
-  margin: auto 0 0;
+  margin: 0;
+  text-align: center;
 }
 
 /* ---------- presets ---------- */
@@ -533,104 +666,139 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 16px 20px;
+  padding: 10px 32px 24px;
 }
 .gg-preset-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 26px 24px;
+  padding-top: 8px;
 }
 .gg-preset {
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  border: 1px solid var(--gg-line);
-  border-radius: 13px;
-  background: var(--gg-panel);
-  padding: 11px 12px;
+  gap: 8px;
 }
 .gg-preset-head {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
 }
 .gg-preset-head strong {
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--appearance-text-scale, 1));
   font-weight: var(--weight-label, 500);
 }
-.gg-preset select {
+.gg-preset-head .gg-tag {
+  display: none;
+}
+.gg-preset .aelion-select {
   width: 100%;
   font: 600 12px var(--font-code);
 }
 .gg-preset small {
-  font-size: 11.5px;
-  line-height: 1.5;
   color: var(--gg-muted);
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  line-height: 1.5;
 }
 .gg-notice {
   margin: 12px 0 0;
 }
 
 /* ---------- room setup ---------- */
+/* Choices on the left as plain lists; the seats on the right, with the start bar below them. */
 .gg-room {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 290px minmax(0, 1fr);
+  grid-template-columns: 244px minmax(0, 1fr);
+  gap: 32px;
+  padding: 10px 32px 0;
 }
 .gg-room-left {
-  border-right: 1px solid var(--gg-line);
-  background: var(--gg-panel);
-  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;
+  min-height: 0;
   overflow: auto;
+  /* Room for the rows' hover tint, which reaches past the text; overflow would clip it flush otherwise. */
+  margin: 0 -10px;
+  padding: 0 10px 22px;
 }
 .gg-boards {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
+  margin: 0 -10px;
 }
 .gg-board {
   display: flex;
-  flex-direction: column;
-  gap: 7px;
-  text-align: left;
-  border: 1px solid var(--gg-line);
-  border-radius: 13px;
-  padding: 11px 12px;
-  background: var(--gg-bg);
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 12px;
   color: inherit;
+  text-align: left;
+  transition: background 0.15s;
 }
-.gg-board b {
-  font-size: 14px;
+.gg-board:hover {
+  background: var(--ctl-fill);
+}
+.gg-board-copy {
+  flex: 1;
+  min-width: 0;
+}
+.gg-board-copy b {
+  display: block;
+  font-size: calc(13.5px * var(--appearance-text-scale, 1));
   font-weight: var(--weight-label, 500);
 }
-.gg-board.is-selected {
-  border-color: var(--gg-acc);
-  background: var(--gg-hi);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gg-acc) 20%, transparent);
+.gg-board-copy small {
+  color: var(--gg-muted);
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  line-height: 1.5;
 }
+.gg-radio {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px light-dark(rgba(41, 32, 58, 0.22), rgba(255, 255, 255, 0.24));
+  transition: box-shadow 0.15s;
+}
+.is-selected > .gg-radio {
+  box-shadow: inset 0 0 0 5px var(--ctl-accent);
+}
+/* Two or more options in a row; the chosen one is a quiet tint. */
 .gg-seg {
   display: flex;
-  background: var(--gg-soft);
-  border-radius: 10px;
-  padding: 3px;
-  margin-bottom: 6px;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 0 -10px 6px;
 }
 .gg-seg button {
-  flex: 1;
-  padding: 6px 0;
-  border-radius: 8px;
-  font-size: 13px;
-  color: var(--gg-muted);
+  min-width: 30px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.gg-seg button:hover {
+  color: var(--gg-ink);
 }
 .gg-seg button.is-on {
-  background: var(--gg-panel);
+  background: var(--ctl-fill-hover);
   color: var(--gg-ink);
   font-weight: var(--weight-label, 500);
-  box-shadow: 0 1px 3px #0000000f;
+}
+.gg-check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
 }
 .gg-room-note {
   margin-top: auto;
@@ -638,51 +806,85 @@
 .gg-room-main {
   display: flex;
   flex-direction: column;
-  min-height: 0;
   min-width: 0;
+  min-height: 0;
 }
 .gg-toolbar {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--gg-line);
-  background: var(--gg-panel);
+  align-items: center;
+  gap: 6px;
 }
-.gg-toolbar b {
-  font-size: 14px;
+.gg-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  margin-right: 4px;
 }
-.gg-toolbar .secondary-button {
-  padding: 6px 11px;
+.gg-count b {
+  font-size: calc(18px * var(--appearance-text-scale, 1));
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.gg-count small {
+  color: var(--gg-muted);
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+}
+.gg-meter {
+  width: 56px;
+  height: 3px;
+  margin-right: 6px;
+  border-radius: 2px;
+  background: var(--ctl-fill-hover);
+  overflow: hidden;
+}
+.gg-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ctl-accent);
+  transition: width 0.3s;
+}
+.gg-toolbar-model {
+  padding-top: 10px;
+}
+.gg-toolbar-model .gg-label {
+  margin: 0 6px 0 0;
+}
+.gg-toolbar-model .aelion-select {
+  flex: 0 1 300px;
+  min-width: 0;
 }
 .gg-seat-grid {
   position: relative;
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 14px 16px;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-auto-rows: 104px;
-  gap: 10px;
+  grid-auto-rows: 96px;
   align-content: start;
+  gap: 8px;
+  margin: 0 -4px;
+  padding: 16px 4px;
 }
 .gg-seat-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  text-align: left;
-  border: 1px solid var(--gg-line);
-  border-radius: 13px;
-  background: var(--gg-panel);
-  padding: 10px 11px;
-  color: inherit;
+  gap: 4px;
   min-width: 0;
+  padding: 11px 12px;
+  border-radius: 14px;
+  background: var(--ctl-fill);
+  color: inherit;
+  text-align: left;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s;
 }
-.gg-seat-card:not(:disabled):hover {
-  border-color: color-mix(in srgb, var(--gg-acc) 55%, var(--gg-line));
+.gg-seat-card:not(:disabled, .is-empty):hover {
+  background: var(--ctl-fill-hover);
 }
 .gg-seat-card:disabled {
   opacity: 1;
@@ -690,114 +892,141 @@
 }
 .gg-seat-card-number {
   position: absolute;
-  right: 10px;
-  top: 8px;
-  font: 11px var(--font-code);
+  top: 10px;
+  right: 12px;
   color: var(--gg-muted);
+  font: 11px var(--font-code);
 }
 .gg-seat-card-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   min-width: 0;
 }
 .gg-seat-card-head b {
-  font-size: 13.5px;
-  font-weight: var(--weight-label, 500);
-  white-space: nowrap;
   overflow: hidden;
+  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label, 500);
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .gg-seat-card-model {
-  font: 11.5px var(--font-code);
-  color: var(--gg-muted);
-  white-space: nowrap;
   overflow: hidden;
+  color: var(--gg-muted);
+  font: 11.5px var(--font-code);
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .gg-seat-card-model.is-missing {
   color: var(--gg-wolf);
 }
-.gg-seat-card .gg-chip-row {
+.gg-seat-card-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
   margin-top: auto;
+  color: var(--gg-muted);
+  font-size: calc(11px * var(--appearance-text-scale, 1));
+  white-space: nowrap;
 }
 .gg-seat-card.is-you {
-  border-color: var(--gg-acc);
-  background: var(--gg-hi);
+  background: var(--ctl-accent-soft);
 }
 .gg-seat-card.is-temp {
-  border-style: dashed;
-  background: var(--gg-bg);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--ctl-line);
 }
-.gg-seat-card.is-editing {
-  box-shadow: 0 0 0 2px var(--gg-acc);
+.gg-seat-card.is-temp:hover {
+  background: var(--ctl-fill);
+}
+.gg-seat-card.is-editing,
+.gg-seat-card.is-editing:hover {
+  box-shadow: inset 0 0 0 1.5px var(--ctl-accent);
 }
 .gg-seat-card.is-empty {
-  border-style: dashed;
   align-items: center;
   justify-content: center;
-  color: var(--gg-muted);
-  font-size: 12.5px;
+  gap: 2px;
   background: transparent;
+  box-shadow: none;
+  outline: 1px dashed light-dark(rgba(41, 32, 58, 0.16), rgba(255, 255, 255, 0.16));
+  outline-offset: -1px;
+  color: var(--gg-muted);
 }
-.gg-seat-card.is-empty {
-  position: relative;
-  gap: 6px;
+.gg-seat-take,
+.gg-seat-add {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  font-size: var(--text-caption);
+  transition: background 0.15s;
 }
 .gg-seat-take {
-  padding: 6px 14px;
-  border: 1px solid var(--gg-acc, #9177ac);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--gg-acc, #9177ac) 12%, transparent);
-  color: var(--gg-ink, inherit);
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 560;
-}
-.gg-seat-take:hover {
-  background: color-mix(in srgb, var(--gg-acc, #9177ac) 22%, transparent);
+  color: var(--ctl-accent);
+  font-weight: var(--weight-label);
 }
 .gg-seat-add {
-  padding: 2px 6px;
-  border: 0;
-  background: none;
-  color: var(--gg-muted, inherit);
-  font: inherit;
-  font-size: 12px;
+  color: var(--gg-muted);
 }
+.gg-seat-take:hover,
 .gg-seat-add:hover {
-  color: var(--gg-ink, inherit);
+  background: var(--ctl-fill);
 }
+/* Seat settings float over the grid as glass, like the app's menus. */
 .gg-seat-pop {
   position: absolute;
-  right: 16px;
-  top: 14px;
+  top: 16px;
+  right: 4px;
   z-index: 3;
-  width: 280px;
   display: flex;
   flex-direction: column;
-  gap: 9px;
-  padding: 12px;
-  border: 1px solid var(--gg-line);
-  border-radius: 13px;
-  background: var(--gg-panel);
-  box-shadow: 0 14px 40px #2a22381f;
+  gap: 10px;
+  width: 290px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--glass-grain), var(--liquid-sheen), var(--glass-tint-strong);
+  box-shadow: var(--liquid-rim), var(--glass-float);
+  backdrop-filter: var(--glass-blur);
+}
+.gg-seat-pop .gg-card-head {
+  margin: 0;
+}
+.gg-seat-pop .gg-card-head .icon-button {
+  width: 26px;
+  height: 26px;
+  margin: -4px -4px -4px 0;
 }
 .gg-seat-pop label {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
+  gap: 5px;
   color: var(--gg-muted);
+  font-size: var(--text-caption);
 }
-.gg-seat-pop select {
+.gg-seat-pop .aelion-select {
   width: 100%;
   color: var(--gg-ink);
 }
+.gg-pop-note {
+  margin: 0;
+  font-size: var(--text-caption);
+  line-height: 1.5;
+}
 .gg-pop-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
+}
+.gg-pop-actions > .gg-muted {
+  flex-basis: 100%;
+  margin-bottom: 4px;
+  line-height: 1.5;
+}
+.gg-pop-actions > .gg-spacer {
+  display: none;
 }
 .gg-add-list {
   display: flex;
@@ -809,96 +1038,125 @@
 .gg-add-member {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 6px;
-  border-radius: 8px;
-  font-size: 13px;
+  gap: 9px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
   text-align: left;
 }
 .gg-add-member:hover {
-  background: var(--gg-soft);
+  background: var(--ctl-fill);
 }
 .gg-room-warning {
-  margin: 0 16px 8px;
+  margin: 0 0 10px;
 }
 .gg-room-footer {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 11px 16px;
-  border-top: 1px solid var(--gg-line);
-  background: var(--gg-panel);
+  padding: 14px 0 20px;
+  border-top: 1px solid var(--ctl-line);
+}
+.gg-room-footer .primary-button {
+  height: 36px;
+  padding: 0 20px;
 }
 
 /* ---------- table ---------- */
+/* Day sits on the dialog's glass. Night is the same table in deep indigo, whatever the app theme: every token the
+   table reads is set again here, because production CSS resolves light-dark() where a token is defined. */
 .gg-table-root {
-  --gg-bg: light-dark(#fbfaf7, #1f1d23);
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
   position: relative;
-  background: var(--gg-bg);
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
 }
 .gg-table-root[data-period='night'] {
-  --gg-bg: #1b1925;
-  --gg-panel: #232030;
-  --gg-line: #34304a;
-  --gg-ink: #ebe7f3;
-  --gg-muted: #9d96ad;
-  --gg-soft: #2a2638;
-  --gg-hi: #352f4d;
-  --gg-acc: #b3a4e0;
-  --gg-wolf: #e39a90;
-  --gg-good: #a5c2e2;
-  --gg-god: #dcc08c;
-  color: var(--gg-ink);
+  --text-ink: #ece8f4;
+  --text-secondary: #cbc4d9;
+  --text-muted: #9f98b0;
+  --gg-ink: var(--text-ink);
+  --gg-muted: var(--text-muted);
+  --gg-card: rgba(255, 255, 255, 0.05);
+  --gg-card-ring: 0 0 0 0.5px rgba(255, 255, 255, 0.08);
+  --gg-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 0 0.5px rgba(255, 255, 255, 0.08);
+  --gg-soft: rgba(255, 255, 255, 0.07);
+  --gg-hi: rgba(185, 165, 240, 0.16);
+  --gg-acc: #b9a5f0;
+  --gg-wolf: #eba196;
+  --gg-good: #a8c4e4;
+  --gg-god: #dec38e;
+  --ctl-accent: #b9a5f0;
+  --ctl-accent-soft: rgba(185, 165, 240, 0.16);
+  --ctl-accent-ring: rgba(185, 165, 240, 0.4);
+  --ctl-fill: rgba(255, 255, 255, 0.07);
+  --ctl-fill-hover: rgba(255, 255, 255, 0.11);
+  --ctl-fill-press: rgba(255, 255, 255, 0.15);
+  --ctl-line: rgba(255, 255, 255, 0.08);
+  --ctl-danger: #f0a29d;
+  --ctl-raised: linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.08));
+  --ctl-raised-hover: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.11));
+  --ctl-raised-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3),
+    0 3px 10px -4px rgba(0, 0, 0, 0.45);
+  --ctl-ink: linear-gradient(180deg, #f6f3fa, #dcd6e4);
+  --ctl-ink-hover: linear-gradient(180deg, #ffffff, #e8e3ee);
+  --ctl-on-ink: #1e1b24;
+  --ctl-ink-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.35),
+    0 4px 12px -4px rgba(0, 0, 0, 0.5);
+  --bubble-surface: rgba(255, 255, 255, 0.07);
+  --bubble-lift: 0 0 0 0 transparent;
   color-scheme: dark;
-}
-.gg-table-root[data-period='night'] .primary-button {
-  background: var(--gg-acc);
-  color: #1b1925;
-}
-.gg-table-root[data-period='night'] .secondary-button {
-  background: var(--gg-soft);
-  border-color: var(--gg-line);
-  color: var(--gg-ink);
+  background:
+    radial-gradient(90% 60% at 50% 0%, rgba(110, 88, 190, 0.22), transparent 70%),
+    linear-gradient(180deg, #1b1828, #14121c);
+  color: var(--text-ink);
 }
 .gg-topbar {
-  height: 54px;
-  flex-shrink: 0;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 10px;
-  padding: 0 12px 0 16px;
-  border-bottom: 1px solid var(--gg-line);
-  background: var(--gg-panel);
+  height: 60px;
+  padding: 0 14px 0 28px;
 }
 .gg-topbar > strong {
-  font-size: 14.5px;
-  font-weight: 620;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  font-size: calc(15px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-heading);
   white-space: nowrap;
 }
 .gg-topbar > strong small {
-  margin-left: 6px;
-  font-weight: 450;
-  font-size: 12px;
+  overflow: hidden;
   color: var(--gg-muted);
+  font-size: var(--text-caption);
+  font-weight: 400;
+  text-overflow: ellipsis;
 }
 .gg-topbar .icon-button {
-  width: 30px;
-  height: 30px;
-  color: var(--gg-muted);
+  width: 32px;
+  height: 32px;
+  color: var(--text-secondary);
 }
+.gg-topbar > .gg-tag {
+  line-height: 24px;
+  padding: 0 10px;
+}
+/* Where the day stands, as a quiet segmented track; the current step is the raised one. */
 .gg-steps {
   display: flex;
   align-items: center;
+  min-width: 0;
   margin: 0 auto;
   padding: 0;
-  list-style: none;
-  font-size: 12px;
   color: var(--gg-muted);
-  min-width: 0;
+  font-size: var(--text-caption);
+  list-style: none;
   overflow: hidden;
 }
 .gg-steps li {
@@ -907,30 +1165,37 @@
   white-space: nowrap;
 }
 .gg-steps li i {
-  width: 12px;
+  display: block;
+  width: 14px;
   height: 1px;
-  margin: 0 2px;
-  background: var(--gg-line);
+  margin: 0 10px;
+  background: light-dark(rgba(41, 32, 58, 0.18), rgba(255, 255, 255, 0.18));
 }
 .gg-steps span {
-  padding: 3px 10px;
-  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 .gg-steps .is-done span {
-  opacity: 0.65;
+  opacity: 0.6;
 }
 .gg-steps .is-now span,
 .gg-steps > span.is-now {
-  background: var(--gg-hi);
   color: var(--gg-ink);
-  font-weight: 600;
+  font-weight: var(--weight-label);
+}
+.gg-table-root[data-period='night'] .gg-steps .is-now .gg-glyph {
+  color: var(--ctl-accent);
+}
+.gg-table-root[data-period='day'] .gg-steps .is-now .gg-glyph {
+  color: var(--gg-god);
 }
 .gg-timer {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 6px;
   font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
 }
 .gg-timer svg {
   transform: rotate(-90deg);
@@ -938,23 +1203,23 @@
 .gg-timer-track,
 .gg-timer-value {
   fill: none;
-  stroke-width: 3;
+  stroke-width: 2.5;
 }
 .gg-timer-track {
-  stroke: var(--gg-line);
+  stroke: var(--ctl-fill-hover);
 }
 .gg-timer-value {
-  stroke: var(--gg-acc);
+  stroke: var(--ctl-accent);
   stroke-linecap: round;
   transition: stroke-dasharray 0.2s linear;
 }
 .gg-timer b {
-  font-size: 16px;
-  font-weight: 650;
+  font-size: calc(15px * var(--appearance-text-scale, 1));
+  font-weight: 600;
 }
 .gg-timer small {
-  font-size: 11.5px;
   color: var(--gg-muted);
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
 }
 .gg-timer.is-urgent b {
   color: var(--gg-wolf);
@@ -967,110 +1232,135 @@
 }
 .gg-menu-list {
   position: absolute;
+  top: calc(100% + 6px);
   right: 0;
-  top: calc(100% + 4px);
   z-index: 20;
-  min-width: 170px;
-  padding: 5px;
-  border-radius: 11px;
-  background: var(--gg-panel);
-  border: 1px solid var(--gg-line);
-  box-shadow: 0 8px 24px #24242b24;
   display: flex;
   flex-direction: column;
+  min-width: 180px;
+  padding: 5px;
+  border-radius: var(--ctl-menu-radius);
+  background: var(--glass-grain), var(--liquid-sheen), var(--glass-tint-strong);
+  box-shadow: var(--liquid-rim), var(--glass-float);
+  backdrop-filter: var(--glass-blur);
+}
+.gg-table-root[data-period='night'] .gg-menu-list {
+  background: linear-gradient(180deg, rgba(48, 43, 66, 0.94), rgba(34, 31, 48, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 0 0.5px rgba(255, 255, 255, 0.08),
+    0 16px 38px -10px rgba(0, 0, 0, 0.62);
 }
 .gg-menu-list button {
-  text-align: left;
-  padding: 7px 9px;
-  border-radius: 7px;
-  font-size: 12.5px;
+  padding: 7px 10px;
+  border-radius: var(--ctl-item-radius);
   color: var(--gg-ink);
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  text-align: left;
 }
 .gg-menu-list button:not(:disabled):hover {
-  background: var(--gg-soft);
+  background: var(--ctl-fill);
 }
 .gg-menu-list .is-danger {
-  color: var(--gg-wolf);
+  color: var(--ctl-danger);
 }
 .gg-banner {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 16px;
-  font-size: 12.5px;
-  border-bottom: 1px solid var(--gg-line);
+  margin: 0 24px 12px 28px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
 }
 .gg-banner.is-warning {
-  background: light-dark(#fff6e8, #3a3122);
-  color: light-dark(#8c6a2f, #dcc08c);
+  background: light-dark(#fff3df, rgba(222, 195, 142, 0.12));
+  color: light-dark(#8c6a2f, #dec38e);
 }
 .gg-banner.is-out {
-  background: light-dark(#fbf3ef, #3a2b27);
-  color: light-dark(#9a5f4a, #e0b2a4);
+  background: color-mix(in srgb, var(--gg-wolf) 12%, transparent);
+  color: var(--gg-wolf);
+}
+.gg-banner .secondary-button,
+.gg-banner .primary-button {
+  height: 28px;
+  padding: 0 12px;
+  font-size: var(--text-caption);
 }
 .gg-table {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr) 240px;
+  grid-template-columns: 196px minmax(0, 1fr) 220px;
+  gap: 24px;
+  padding: 0 24px 18px 16px;
 }
 .gg-table.is-spectating .gg-rail,
 .gg-table.is-spectating .gg-side {
+  opacity: 0.8;
   filter: saturate(0.6);
-  opacity: 0.85;
 }
 .gg-rail {
-  list-style: none;
   margin: 0;
-  padding: 10px 8px;
-  border-right: 1px solid var(--gg-line);
-  background: var(--gg-panel);
+  padding: 4px 0;
+  list-style: none;
   overflow: auto;
 }
 .gg-rail .gg-section-label {
-  padding: 0 6px;
+  padding: 2px 8px 0;
 }
 .gg-seat {
   display: grid;
-  grid-template-columns: 18px 30px minmax(0, 1fr) auto;
+  grid-template-columns: 16px 30px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 7px;
-  padding: 5px 6px;
-  border-radius: 9px;
-  font-size: 13px;
+  gap: 8px;
+  padding: 5px 8px 5px 4px;
+  border-radius: 12px;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  transition: background 0.2s;
 }
 .gg-seat-number {
-  font: 11px var(--font-code);
   color: var(--gg-muted);
+  font: 11px var(--font-code);
   text-align: right;
 }
 .gg-seat-name {
   min-width: 0;
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .gg-seat-name small {
   display: block;
-  font-size: 11px;
-  color: var(--gg-muted);
-  line-height: 1.3;
   overflow: hidden;
+  color: var(--gg-muted);
+  font-size: calc(11px * var(--appearance-text-scale, 1));
+  line-height: 1.3;
   text-overflow: ellipsis;
 }
 .gg-seat.is-dead {
-  opacity: 0.42;
+  opacity: 0.4;
+}
+.gg-seat.is-dead :is(.avatar, .gg-human-avatar) {
+  filter: grayscale(1);
 }
 .gg-seat.is-dead .gg-seat-name {
   text-decoration: line-through;
-  text-decoration-color: #9993;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
 }
 .gg-seat.is-me {
-  background: var(--gg-soft);
+  background: var(--ctl-fill);
 }
 .gg-seat.is-speaking {
-  background: var(--gg-hi);
-  box-shadow: inset 3px 0 0 var(--gg-acc);
+  background: var(--ctl-accent-soft);
+}
+.gg-seat.is-speaking :is(.avatar, .gg-human-avatar) {
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--ctl-accent);
+}
+.gg-seat .gg-tag {
+  line-height: 18px;
+  padding: 0 6px;
 }
 .gg-stage {
   display: flex;
@@ -1079,13 +1369,14 @@
   min-height: 0;
 }
 .gg-transcript {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 14px 18px 10px;
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  min-height: 0;
+  padding: 14px 6px;
+  overflow: auto;
+  mask-image: linear-gradient(180deg, transparent 0, #000 18px, #000 calc(100% - 10px), transparent 100%);
 }
 .gg-transcript > * {
   flex-shrink: 0;
@@ -1093,66 +1384,82 @@
 .gg-system {
   align-self: center;
   max-width: 90%;
-  text-align: center;
-  font-size: 12px;
   color: var(--gg-muted);
-  background: var(--gg-soft);
-  border-radius: 999px;
-  padding: 3px 12px;
+  font-size: var(--text-caption);
+  text-align: center;
 }
+/* Night falls / day breaks: a line across the stage with the phase in the middle. */
 .gg-system.is-big {
-  font-size: 13px;
-  color: var(--gg-ink);
-  padding: 6px 16px;
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+  gap: 8px;
+  max-width: none;
+  margin: 6px 0 2px;
+  color: var(--text-secondary);
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
+}
+.gg-system.is-big::before,
+.gg-system.is-big::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--ctl-line);
+}
+.gg-system.is-big .gg-glyph {
+  color: var(--gg-god);
+}
+.gg-table-root[data-period='night'] .gg-system.is-big .gg-glyph {
+  color: var(--ctl-accent);
 }
 .gg-system.is-private {
-  background: transparent;
-  border: 1px dashed var(--gg-line);
+  padding: 7px 14px;
   border-radius: 12px;
+  background: var(--ctl-accent-soft);
+  color: var(--text-secondary);
 }
 .gg-private-mark {
   display: block;
-  font-size: 10.5px;
-  color: var(--gg-acc);
+  color: var(--ctl-accent);
+  font-size: calc(10.5px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
 }
 .gg-message {
   display: grid;
   grid-template-columns: 30px minmax(0, 1fr);
-  gap: 9px;
-  max-width: 92%;
+  gap: 10px;
+  max-width: 88%;
 }
-
 .gg-message-who {
   display: flex;
-  gap: 6px;
   align-items: center;
-  font-size: 12px;
+  gap: 6px;
+  margin-bottom: 3px;
   color: var(--gg-muted);
-  margin-bottom: 2px;
+  font-size: var(--text-caption);
 }
 .gg-message-who b {
-  color: var(--gg-ink);
-  font-weight: 560;
-}
-.gg-say::placeholder {
-  color: var(--gg-muted);
-  -webkit-text-fill-color: var(--gg-muted);
+  color: var(--text-secondary);
+  font-weight: var(--weight-label);
 }
 .gg-bubble {
   margin: 0;
+  padding: 9px 13px;
+  border-radius: 4px 16px 16px 16px;
+  background: var(--bubble-surface);
+  box-shadow:
+    0 0 0 0.5px light-dark(rgba(41, 32, 58, 0.07), rgba(255, 255, 255, 0.05)),
+    var(--bubble-lift);
   color: var(--gg-ink);
-  background: var(--gg-panel);
-  border: 1px solid var(--gg-line);
-  border-radius: 4px 14px 14px 14px;
-  padding: 8px 12px;
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--appearance-text-scale, 1));
   line-height: 1.65;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 .gg-message.is-me .gg-bubble {
-  background: var(--gg-hi);
-  border-color: transparent;
+  background: var(--ctl-accent-soft);
+  box-shadow: none;
 }
 .gg-typing {
   display: inline-flex;
@@ -1161,10 +1468,10 @@
   vertical-align: middle;
 }
 .gg-typing i {
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
-  background: var(--gg-muted);
+  background: currentColor;
   animation: gg-typing 1.2s infinite;
 }
 .gg-typing i:nth-child(2) {
@@ -1180,47 +1487,51 @@
 }
 .gg-election,
 .gg-tally {
-  align-self: stretch;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  border: 1px solid var(--gg-line);
-  border-radius: 12px;
-  background: var(--gg-panel);
-  padding: 9px 12px;
-  font-size: 12.5px;
+  align-self: stretch;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px var(--ctl-line);
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
 }
 .gg-election p {
   margin: 0;
 }
 .gg-election > div {
   display: flex;
-  gap: 8px;
   align-items: baseline;
+  gap: 10px;
 }
 .gg-election > div > b {
-  flex: 0 0 34px;
-  font-weight: 500;
-  font-size: 12px;
+  flex: 0 0 38px;
   color: var(--gg-muted);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-label);
 }
 .gg-tally header {
   display: flex;
   justify-content: space-between;
+  margin-bottom: 2px;
+}
+.gg-tally header b {
+  font-weight: var(--weight-label);
 }
 .gg-tally-row {
   display: grid;
   grid-template-columns: 130px minmax(0, 1fr) 40px;
-  gap: 10px;
   align-items: center;
+  gap: 10px;
 }
 .gg-tally-row > b {
+  font-variant-numeric: tabular-nums;
   text-align: right;
 }
 .gg-tally-target {
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .gg-tally-voters {
   display: flex;
@@ -1232,52 +1543,72 @@
   align-items: center;
 }
 .gg-tally-voter small {
-  font-size: 10px;
-  color: var(--gg-god);
   margin-left: 1px;
+  color: var(--gg-god);
+  font-size: 10px;
 }
 .gg-tally-voter .gg-human-avatar {
-  border-width: 1px;
+  width: 18px;
+  height: 18px;
 }
 .gg-tally-bar {
   display: flex;
-  height: 6px;
-  border-radius: 3px;
+  gap: 2px;
+  height: 4px;
+  margin-top: 2px;
+  border-radius: 2px;
   overflow: hidden;
-  background: var(--gg-soft);
 }
 .gg-tally-bar i {
-  background: var(--gg-acc);
+  border-radius: 2px;
+  background: var(--ctl-accent);
 }
+/* The action dock floats at the foot of the stage, as the composer does in a chat. */
 .gg-dock {
   flex-shrink: 0;
-  border-top: 1px solid var(--gg-line);
-  background: var(--gg-panel);
-  padding: 12px 16px 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: var(--gg-card);
+  box-shadow:
+    var(--gg-card-ring),
+    0 8px 24px -14px light-dark(rgba(41, 32, 58, 0.25), rgba(0, 0, 0, 0.6));
+}
+.gg-dock:not(.is-active) {
+  padding: 8px 4px 2px;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
 }
 .gg-dock-idle {
-  font-size: 12.5px;
   color: var(--gg-muted);
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+}
+.gg-dock .group-error {
+  margin: 0 0 10px;
 }
 .gg-dock-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 9px;
-  font-size: 13px;
+  margin-bottom: 10px;
+  font-size: calc(13.5px * var(--appearance-text-scale, 1));
 }
 .gg-dock-head b {
-  font-weight: 620;
+  font-weight: var(--weight-heading);
 }
 .gg-dock-head small {
   color: var(--gg-muted);
-  font-size: 12px;
+  font-size: var(--text-caption);
 }
 .gg-dock-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 12px;
+}
+.gg-dock-actions :is(.primary-button, .secondary-button) {
+  height: 34px;
+  padding: 0 16px;
 }
 .gg-targets {
   display: grid;
@@ -1289,164 +1620,185 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 8px 4px 6px;
-  border: 1px solid var(--gg-line);
-  border-radius: 11px;
-  background: var(--gg-bg);
-  color: inherit;
-  font-size: 12px;
+  gap: 4px;
   min-width: 0;
+  padding: 9px 4px 7px;
+  border-radius: 12px;
+  background: var(--ctl-fill);
+  color: inherit;
+  font-size: var(--text-caption);
+  transition:
+    background 0.15s,
+    box-shadow 0.15s;
 }
 .gg-targets button:disabled {
-  opacity: 0.35;
+  opacity: 0.32;
 }
 .gg-targets button:not(:disabled):hover {
-  border-color: color-mix(in srgb, var(--gg-acc) 55%, var(--gg-line));
+  background: var(--ctl-fill-hover);
 }
-.gg-targets button.is-selected {
-  border-color: var(--gg-acc);
-  background: var(--gg-hi);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gg-acc) 22%, transparent);
+.gg-targets button.is-selected,
+.gg-targets button.is-selected:hover {
+  background: var(--ctl-accent-soft);
+  box-shadow: 0 0 0 1.5px var(--ctl-accent);
   opacity: 1;
 }
 .gg-tile-number {
   position: absolute;
-  left: 6px;
-  top: 3px;
-  font: 10.5px var(--font-code);
+  top: 4px;
+  left: 7px;
   color: var(--gg-muted);
+  font: 10.5px var(--font-code);
 }
 .gg-tile-name {
   max-width: 100%;
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .gg-choices {
   display: flex;
-  gap: 8px;
   align-items: stretch;
+  gap: 8px;
 }
 .gg-choice {
-  flex: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 2px;
-  text-align: left;
-  border: 1px solid var(--gg-line);
-  border-radius: 12px;
-  padding: 10px 14px;
-  background: var(--gg-bg);
+  padding: 11px 14px;
+  border-radius: 14px;
+  background: var(--ctl-fill);
   color: inherit;
+  text-align: left;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s;
+}
+.gg-choice:not(:disabled):hover {
+  background: var(--ctl-fill-hover);
 }
 .gg-choice b {
-  font-size: 14px;
-  font-weight: 560;
+  font-size: calc(14px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
 }
 .gg-choice small {
-  font-size: 12px;
   color: var(--gg-muted);
+  font-size: var(--text-caption);
 }
-.gg-choice.is-selected {
-  border-color: var(--gg-acc);
-  background: var(--gg-hi);
+.gg-choice.is-selected,
+.gg-choice.is-selected:hover {
+  background: var(--ctl-accent-soft);
+  box-shadow: 0 0 0 1.5px var(--ctl-accent);
 }
-.gg-choice-confirm {
-  padding: 0 20px;
+.gg-choices .gg-choice-confirm {
+  align-self: center;
+  height: 36px;
+  padding: 0 22px;
 }
 .gg-say {
   width: 100%;
-  height: 64px;
-  border: 1px solid var(--gg-line);
-  border-radius: 11px;
-  background: var(--gg-bg);
+  height: 68px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--ctl-fill);
   /* Set, not inherited: a form control can fall back to the app's light-theme ink on the night table. */
   color: var(--gg-ink);
-  caret-color: var(--gg-ink);
+  caret-color: var(--ctl-accent);
   -webkit-text-fill-color: var(--gg-ink);
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--appearance-text-scale, 1));
   line-height: 1.6;
-  padding: 8px 11px;
   resize: vertical;
+  outline: none;
+  transition: box-shadow 0.15s;
+}
+.gg-say:focus {
+  box-shadow: var(--ctl-focus);
+}
+.gg-say::placeholder {
+  color: var(--gg-muted);
+  -webkit-text-fill-color: var(--gg-muted);
 }
 .gg-quick {
-  margin-top: 7px;
+  margin-top: 8px;
 }
 .gg-chip {
-  font-size: 11.5px;
-  border: 1px solid var(--gg-line);
+  height: 24px;
+  padding: 0 10px;
   border-radius: 999px;
-  padding: 1px 9px;
-  color: var(--gg-muted);
-  background: var(--gg-bg);
+  background: var(--ctl-fill);
+  color: var(--text-secondary);
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
 }
 .gg-chip:hover {
+  background: var(--ctl-fill-hover);
   color: var(--gg-ink);
-  border-color: var(--gg-acc);
 }
 .gg-witch-victim {
-  margin: 0 0 8px;
-  font-size: 13px;
+  margin: 0 0 10px;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
 }
 .gg-side {
-  border-left: 1px solid var(--gg-line);
-  background: var(--gg-panel);
-  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  min-height: 0;
+  padding-top: 6px;
   overflow: auto;
 }
 .gg-identity {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
-  text-align: left;
   color: inherit;
-  filter: blur(5px);
-  transition: filter 0.15s;
+  text-align: left;
+  filter: blur(6px);
+  transition: filter 0.18s;
   user-select: none;
 }
 .gg-identity.is-peeking {
   filter: none;
 }
 .gg-identity-emblem {
-  width: 40px;
-  height: 40px;
-  border-radius: 11px;
   display: grid;
+  flex-shrink: 0;
   place-items: center;
-  font-size: 20px;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
   background: color-mix(in srgb, var(--gg-good) 14%, transparent);
+  color: var(--gg-good);
 }
 .gg-identity.is-wolf .gg-identity-emblem {
-  background: color-mix(in srgb, var(--gg-wolf) 16%, transparent);
+  background: color-mix(in srgb, var(--gg-wolf) 15%, transparent);
+  color: var(--gg-wolf);
 }
 .gg-identity.is-god .gg-identity-emblem {
-  background: color-mix(in srgb, var(--gg-god) 18%, transparent);
+  background: color-mix(in srgb, var(--gg-god) 16%, transparent);
+  color: var(--gg-god);
 }
 .gg-identity b {
   display: block;
-  font-size: 15px;
+  font-size: calc(15px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-heading);
 }
 .gg-identity small {
-  font-size: 11.5px;
   color: var(--gg-muted);
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
 }
 .gg-clues {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  font-size: 12.5px;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  list-style: none;
 }
 .gg-clues li {
   display: flex;
-  gap: 6px;
+  gap: 8px;
 }
 .gg-clues .is-wolf {
   color: var(--gg-wolf);
@@ -1457,9 +1809,9 @@
 .gg-kv {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 3px 10px;
+  gap: 5px 12px;
   margin: 0;
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
 }
 .gg-kv dt {
   color: var(--gg-muted);
@@ -1468,19 +1820,20 @@
   margin: 0;
   text-align: left;
 }
-
 .gg-word {
   display: grid;
   gap: 4px;
   margin: 0;
 }
 .gg-word b {
-  font-size: 20px;
+  font-size: calc(22px * var(--appearance-text-scale, 1));
+  font-weight: 650;
   letter-spacing: 0.04em;
 }
 .gg-word small {
   color: var(--gg-muted);
-  font-size: 12px;
+  font-size: var(--text-caption);
+  line-height: 1.6;
 }
 
 /* ---------- role reveal ---------- */
@@ -1490,120 +1843,153 @@
   z-index: 10;
   display: grid;
   place-items: center;
-  background: radial-gradient(ellipse at 50% 45%, #2d2845f2 0, #1b1925f7 70%);
+  background: rgba(14, 12, 22, 0.6);
+  backdrop-filter: blur(14px);
+  animation: gg-fade 0.3s ease;
 }
 .gg-reveal-card {
-  width: 320px;
+  --ctl-ink: linear-gradient(180deg, #f6f3fa, #dcd6e4);
+  --ctl-ink-hover: linear-gradient(180deg, #ffffff, #e8e3ee);
+  --ctl-on-ink: #1e1b24;
+  --ctl-ink-shadow: inset 0 1px 0 #fff, 0 6px 16px -6px rgba(0, 0, 0, 0.5);
+  --gg-good: #a8c4e4;
+  --gg-wolf: #eba196;
+  --gg-god: #dec38e;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  width: 320px;
+  padding: 30px 26px 20px;
+  border-radius: 24px;
+  background: var(--glass-grain), linear-gradient(170deg, rgba(48, 43, 70, 0.96), rgba(30, 27, 44, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 0.5px rgba(255, 255, 255, 0.08),
+    0 24px 60px -12px rgba(0, 0, 0, 0.6);
+  color: #ece8f4;
+  color-scheme: dark;
   text-align: center;
-  padding: 26px 24px 18px;
-  border-radius: 20px;
-  background: linear-gradient(170deg, #2c2843, #221f33);
-  border: 1px solid #433c62;
-  color: #ebe7f3;
-  box-shadow: 0 20px 60px #0008;
+  animation: gg-rise 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .gg-reveal-card small {
-  font-size: 12px;
-  color: #9d96ad;
+  color: #9f98b0;
+  font-size: var(--text-caption);
 }
 .gg-reveal-emblem {
-  width: 84px;
-  height: 84px;
-  border-radius: 26px;
   display: grid;
   place-items: center;
-  font-size: 40px;
-  background: radial-gradient(circle at 40% 35%, #6b8fc7, #3b5680);
-  box-shadow: 0 0 40px #5e87b366;
+  width: 84px;
+  height: 84px;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--gg-good) 30%, transparent), transparent 70%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gg-good) 35%, transparent);
+  color: var(--gg-good);
 }
 .gg-reveal-card.is-wolf .gg-reveal-emblem {
-  background: radial-gradient(circle at 40% 35%, #c9786d, #7d3b33);
-  box-shadow: 0 0 40px #c0655a66;
+  background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--gg-wolf) 30%, transparent), transparent 70%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gg-wolf) 35%, transparent);
+  color: var(--gg-wolf);
 }
 .gg-reveal-card.is-god .gg-reveal-emblem {
-  background: radial-gradient(circle at 40% 35%, #d8b36a, #86652a);
-  box-shadow: 0 0 40px #b8914a66;
+  background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--gg-god) 30%, transparent), transparent 70%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gg-god) 35%, transparent);
+  color: var(--gg-god);
 }
 .gg-reveal .gg-reveal-card h3 {
   margin: 0;
-  color: #ebe7f3;
-  font-size: 26px;
+  color: #fff;
+  font-size: calc(26px * var(--appearance-text-scale, 1));
+  font-weight: 650;
   letter-spacing: 0.06em;
 }
 .gg-reveal-card p {
   margin: 0;
-  font-size: 13px;
-  line-height: 1.75;
   color: #c9c1dd;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  line-height: 1.75;
 }
 .gg-reveal-card .gg-reveal-camp {
-  font-size: 12px;
-  color: #b3a4e0;
+  color: #b9a5f0;
+  font-size: var(--text-caption);
 }
 .gg-reveal-card .primary-button {
-  margin: 8px 0 4px;
-  padding: 9px 22px;
-  background: #b3a4e0;
-  color: #1b1925;
+  height: 38px;
+  margin: 10px 0 4px;
+  padding: 0 24px;
 }
 .gg-reveal-card .gg-muted {
-  color: #9d96ad;
+  color: #9f98b0;
+}
+@keyframes gg-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes gg-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
 }
 
 /* ---------- report ---------- */
+/* The result as a page: the outcome in large type, then who was who, then what happened. */
 .gg-report {
-  flex: 1;
-  min-height: 0;
   display: flex;
+  flex: 1;
   flex-direction: column;
+  gap: 26px;
+  min-height: 0;
+  padding: 30px 32px 0;
 }
 .gg-report-hero {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
-  gap: 18px;
-  padding: 20px 24px 16px;
-  border-bottom: 1px solid var(--gg-line);
-  background: linear-gradient(135deg, light-dark(#e9f0f8, #232a33), light-dark(#f4f1f8, #25222a));
-}
-.gg-report-hero.is-wolves {
-  background: linear-gradient(135deg, light-dark(#f8ebe8, #33252a), light-dark(#f4f1f8, #25222a));
+  gap: 16px;
 }
 .gg-report-mark {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
   width: 48px;
   height: 48px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  font-size: 24px;
-  background: light-dark(#f6ecd8, #3a3122);
-  color: light-dark(#b8914a, #dcc08c);
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--gg-god) 15%, transparent);
+  color: var(--gg-god);
 }
 .gg-report-hero.is-wolves .gg-report-mark {
-  background: #23202f;
-  color: #d9cff7;
+  background: linear-gradient(160deg, #2e2945, #1c1a28);
+  color: #d8ccfa;
+}
+.gg-report-hero.is-none .gg-report-mark {
+  background: var(--ctl-fill);
+  color: var(--gg-muted);
 }
 .gg-report-hero h2 {
   margin: 0;
-  font-size: 24px;
-  font-weight: 680;
   color: var(--gg-good);
+  font-size: calc(24px * var(--appearance-text-scale, 1));
+  font-weight: 650;
+  line-height: 1.25;
 }
 .gg-report-hero.is-wolves h2 {
   color: var(--gg-wolf);
 }
+.gg-report-hero.is-none h2 {
+  color: var(--gg-ink);
+}
 .gg-report-hero p {
-  margin: 2px 0 0;
-  font-size: 12.5px;
+  margin: 4px 0 0;
   color: var(--gg-muted);
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
 }
 .gg-kpis {
-  margin: 0 0 0 auto;
   display: flex;
-  gap: 22px;
+  gap: 28px;
+  margin: 0 0 0 auto;
 }
 .gg-kpis div {
   display: flex;
@@ -1612,280 +1998,265 @@
 }
 .gg-kpis dd {
   margin: 0;
-  font-size: 18px;
-  font-weight: 650;
+  font-size: calc(18px * var(--appearance-text-scale, 1));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 .gg-kpis dt {
-  font-size: 11.5px;
   color: var(--gg-muted);
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
 }
 .gg-report-body {
-  flex: 1;
-  min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 36px;
+  min-height: 0;
 }
 .gg-report-seats {
-  padding: 14px 16px;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-auto-rows: 84px;
-  gap: 8px;
-  overflow: auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-content: start;
+  gap: 4px 20px;
+  overflow: auto;
 }
 .gg-report-seat {
   display: grid;
   grid-template-columns: 30px minmax(0, 1fr);
   grid-template-rows: auto auto;
-  gap: 3px 8px;
   align-items: center;
-  border: 1px solid var(--gg-line);
-  border-radius: 12px;
-  background: var(--gg-panel);
-  padding: 8px 10px;
+  column-gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--ctl-line);
 }
 .gg-report-seat > :first-child {
-  grid-row: span 1;
+  grid-row: 1 / 3;
 }
 .gg-report-seat > div {
-  min-width: 0;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
 }
 .gg-report-seat b {
-  font-size: 13px;
-  white-space: nowrap;
   overflow: hidden;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
   text-overflow: ellipsis;
-  max-width: 100%;
+  white-space: nowrap;
+}
+.gg-report-seat .gg-tag {
+  padding: 0;
+  background: none;
+  font-size: var(--text-caption);
+  line-height: inherit;
 }
 .gg-report-seat small {
-  grid-column: 1 / -1;
-  font-size: 11px;
   color: var(--gg-muted);
+  font-size: calc(11px * var(--appearance-text-scale, 1));
 }
-.gg-report-seat.is-wolf {
-  border-color: color-mix(in srgb, var(--gg-wolf) 30%, var(--gg-line));
-  background: color-mix(in srgb, var(--gg-wolf) 5%, var(--gg-panel));
+.gg-report-seat.is-dead :is(.avatar, .gg-human-avatar) {
+  filter: grayscale(1);
+  opacity: 0.5;
 }
 .gg-report-seat.is-dead b {
   color: var(--gg-muted);
 }
 .gg-report-timeline {
-  border-left: 1px solid var(--gg-line);
-  background: var(--gg-panel);
-  padding: 14px 16px;
   overflow: auto;
 }
 .gg-report-timeline ol {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .gg-report-timeline li {
+  position: relative;
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-columns: 50px minmax(0, 1fr);
   gap: 8px;
-  font-size: 12.5px;
+  padding: 0 0 12px 16px;
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
   line-height: 1.6;
 }
+.gg-report-timeline li::before {
+  content: '';
+  position: absolute;
+  top: 7px;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--gg-muted);
+}
+.gg-report-timeline li:last-child::before {
+  background: var(--ctl-accent);
+}
+.gg-report-timeline li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 16px;
+  bottom: 2px;
+  left: 2px;
+  width: 1px;
+  background: var(--ctl-line);
+}
 .gg-report-timeline li span {
-  font-size: 11.5px;
   color: var(--gg-muted);
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
 }
 .gg-report-timeline li p {
   margin: 0;
 }
 .gg-report-actions {
   display: flex;
+  flex-shrink: 0;
   gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--gg-line);
-  background: var(--gg-panel);
+  padding: 14px 0 22px;
+  border-top: 1px solid var(--ctl-line);
+}
+.gg-report-actions .primary-button {
+  height: 36px;
+  padding: 0 20px;
 }
 
 /* ---------- run records drawer ---------- */
 .gg-drawer {
   position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  top: 8px;
+  right: 8px;
+  bottom: 8px;
   z-index: 8;
-  width: min(460px, 100%);
   display: flex;
   flex-direction: column;
-  background: var(--gg-panel);
-  border-left: 1px solid var(--gg-line);
-  box-shadow: -12px 0 32px #2a223826;
+  width: min(460px, calc(100% - 16px));
+  border-radius: 18px;
+  background: var(--glass-grain), var(--card-solid);
+  box-shadow: var(--liquid-rim), var(--glass-float);
   color: var(--gg-ink);
+  animation: gg-slide 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.gg-table-root[data-period='night'] .gg-drawer {
+  background: linear-gradient(180deg, rgba(40, 36, 56, 0.97), rgba(28, 26, 40, 0.97));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 0 0.5px rgba(255, 255, 255, 0.08),
+    0 16px 38px -10px rgba(0, 0, 0, 0.62);
+}
+@keyframes gg-slide {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
 }
 .gg-drawer > header {
   display: flex;
   align-items: center;
-  padding: 10px 12px 10px 16px;
-  border-bottom: 1px solid var(--gg-line);
+  padding: 12px 10px 4px 18px;
+}
+.gg-drawer > header b {
+  font-size: calc(14px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-heading);
 }
 .gg-drawer > .wg-diagnostics {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  border-bottom: 0;
+}
+.gg-drawer .gg-config-heading {
+  margin-top: 4px;
+}
+.gg-drawer .gg-config-heading strong {
+  display: none;
 }
 
 /* Run records internals (GameDiagnostics). */
-.wg-raw-output {
-  margin: 6px 0;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--gg-soft);
-  font: 12px/1.6 var(--font-code);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  max-height: 240px;
-  overflow: auto;
+.wg-diagnostics {
+  padding: 8px 18px 18px;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+}
+.wg-diagnostics p {
+  margin: 8px 0;
 }
 .gg-config-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  font-size: 12px;
-  margin: 16px 0;
+  margin: 12px 0;
+  font-size: var(--text-caption);
 }
 .gg-config-heading strong {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
 }
-.wg-diagnostics {
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--gg-line);
-  font-size: 13px;
+.wg-diagnostics .wg-seat-select {
+  width: auto;
+  min-width: 176px;
 }
-.wg-diagnostics p {
-  margin: 8px 0;
+.wg-raw-output {
+  max-height: 240px;
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--ctl-fill);
+  font: 12px/1.6 var(--font-code);
+  overflow: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 .wg-traces {
   max-height: none;
   overflow: auto;
 }
 .wg-traces details {
-  padding: 8px 0;
-  border-top: 1px solid var(--gg-line);
+  padding: 9px 0;
+  border-top: 1px solid var(--ctl-line);
 }
 .wg-traces summary {
   cursor: pointer;
 }
 .wg-traces pre {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font: 12px/1.6 monospace;
   padding: 10px;
-  background: var(--gg-soft);
-  border-radius: 8px;
+  border-radius: 10px;
+  background: var(--ctl-fill);
+  font: 12px/1.6 var(--font-code);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 .wg-traces details > div {
   margin-top: 8px;
   overflow-wrap: anywhere;
 }
-.wg-diagnostics .wg-seat-select {
-  width: auto;
-  min-width: 176px;
-  min-height: 32px;
-  padding: 6px 10px;
-  border: 1px solid var(--gg-line);
-  border-radius: 8px;
-  background: var(--gg-soft);
-  color: inherit;
-  font: inherit;
-}
-/* The shared Select keeps its own picker; in the game surfaces it keeps their compact height. */
-.gg-dialog .aelion-select,
-.gg-toolbar .aelion-select,
-.gg-preset .aelion-select,
-.gg-seat-pop .aelion-select {
-  min-height: 30px;
-}
-@supports (appearance: base-select) {
-  .wg-diagnostics .wg-seat-select::picker-icon,
-  .gg-dialog .aelion-select::picker-icon,
-  .gg-toolbar .aelion-select::picker-icon,
-  .gg-preset .aelion-select::picker-icon,
-  .gg-seat-pop .aelion-select::picker-icon {
-    background-color: var(--gg-muted);
-  }
-  .wg-diagnostics .wg-seat-select::picker(select),
-  .gg-dialog .aelion-select::picker(select),
-  .gg-toolbar .aelion-select::picker(select),
-  .gg-preset .aelion-select::picker(select),
-  .gg-seat-pop .aelion-select::picker(select) {
-    border-color: var(--gg-line);
-    background: var(--gg-panel);
-    color: inherit;
-    box-shadow: 0 12px 32px #12101a4d;
-  }
-  .wg-diagnostics .wg-seat-select option:hover,
-  .wg-diagnostics .wg-seat-select option:focus-visible,
-  .gg-dialog .aelion-select option:hover,
-  .gg-dialog .aelion-select option:focus-visible,
-  .gg-toolbar .aelion-select option:hover,
-  .gg-toolbar .aelion-select option:focus-visible,
-  .gg-preset .aelion-select option:hover,
-  .gg-preset .aelion-select option:focus-visible,
-  .gg-seat-pop .aelion-select option:hover,
-  .gg-seat-pop .aelion-select option:focus-visible {
-    background: var(--gg-soft);
-  }
-  .wg-diagnostics .wg-seat-select option:checked,
-  .gg-dialog .aelion-select option:checked,
-  .gg-toolbar .aelion-select option:checked,
-  .gg-preset .aelion-select option:checked,
-  .gg-seat-pop .aelion-select option:checked {
-    background: var(--gg-soft);
-    color: var(--gg-acc);
-  }
-  .wg-diagnostics .wg-seat-select option::checkmark,
-  .gg-dialog .aelion-select option::checkmark,
-  .gg-toolbar .aelion-select option::checkmark,
-  .gg-preset .aelion-select option::checkmark,
-  .gg-seat-pop .aelion-select option::checkmark {
-    background-color: var(--gg-acc);
-  }
-}
 .wg-record-tabs {
   display: flex;
-  gap: 4px;
-  border-bottom: 1px solid var(--gg-line);
-  margin: 12px 0;
+  gap: 2px;
+  margin: 10px -4px 8px;
 }
 .wg-record-tabs button {
-  font-size: 12px;
-  color: var(--gg-muted);
-  padding: 8px 12px;
-  border-bottom: 2px solid transparent;
+  padding: 4px 12px;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
 }
 .wg-record-tabs button[aria-pressed='true'] {
-  color: inherit;
-  border-bottom-color: light-dark(#8d7ca4, #c3b2d1);
+  background: var(--ctl-fill-hover);
+  color: var(--gg-ink);
+  font-weight: var(--weight-label);
 }
 .wg-decision-card {
-  border: 1px solid var(--gg-line);
-  border-radius: 10px;
-  padding: 14px;
-  margin: 0 0 12px;
-  background: var(--gg-soft);
+  margin: 0;
+  padding: 14px 0;
+  border-top: 1px solid var(--ctl-line);
 }
 .wg-decision-card header {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 12px;
   flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--text-caption);
 }
 .wg-decision-card header span,
 .wg-decision-card time {
@@ -1897,47 +2268,48 @@
 }
 .wg-personality-heading {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
   margin-top: 12px;
 }
 .wg-personality-heading > strong {
-  font-size: 12px;
-  padding: 3px 7px;
-  background: light-dark(#ede6f4, #362d40);
-  border-radius: 5px;
-  color: light-dark(#755491, #c3b2d1);
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--ctl-accent-soft);
+  color: var(--ctl-accent);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-label);
 }
 .wg-personality-heading > span {
-  font-size: 12px;
   color: var(--gg-muted);
+  font-size: var(--text-caption);
 }
 .wg-decision-action {
-  font-size: 14px;
+  font-size: calc(14px * var(--appearance-text-scale, 1));
   line-height: 1.8;
   white-space: pre-wrap;
 }
 .wg-decision-reason {
-  font-size: 12px;
-  line-height: 1.8;
   margin-top: 12px;
+  font-size: var(--text-caption);
+  line-height: 1.8;
 }
 .wg-decision-reason b {
-  font-weight: 500;
+  font-weight: var(--weight-label);
 }
 .wg-decision-reason small {
-  font-weight: 400;
-  color: var(--gg-muted);
   margin-left: 6px;
+  color: var(--gg-muted);
+  font-weight: 400;
 }
 .wg-decision-reason p {
   margin: 4px 0;
 }
 .wg-decision-missing,
 .wg-personality-details {
-  font-size: 12px;
   color: var(--gg-muted);
+  font-size: var(--text-caption);
 }
 .wg-personality-details dl {
   margin: 8px 0;
@@ -1956,10 +2328,21 @@
   max-height: none;
 }
 
+/* The shared Select keeps its own picker; in the games it is a little more compact. */
+.gg-dialog .aelion-select {
+  min-height: 32px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .gg-typing i,
-  .gg-timer-value {
+  .gg-live::before,
+  .gg-reveal,
+  .gg-reveal-card,
+  .gg-drawer {
     animation: none;
+  }
+  .gg-timer-value,
+  .gg-chat-card {
     transition: none;
   }
 }
@@ -1969,13 +2352,12 @@
   .gg-report-body {
     grid-template-columns: 1fr;
   }
-  .gg-lobby-side,
-  .gg-room-left,
-  .gg-report-timeline {
-    border: 0;
+  .gg-games {
+    grid-template-columns: minmax(0, 640px);
+    justify-content: center;
   }
   .gg-table {
-    grid-template-columns: 160px minmax(0, 1fr);
+    grid-template-columns: 170px minmax(0, 1fr);
   }
   .gg-side {
     display: none;
@@ -1987,90 +2369,4 @@
   .gg-steps {
     display: none;
   }
-}
-
-/* ---------- party games ---------- */
-.gg-hero-compact {
-  grid-template-columns: minmax(0, 1fr);
-  min-height: 0;
-  margin-top: 12px;
-  background: linear-gradient(140deg, #23312c, #2b4039 60%, #355047);
-}
-.gg-hero-compact .gg-hero-actions {
-  margin-top: 16px;
-}
-.gg-check {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 8px;
-  font-size: 12.5px;
-}
-.gg-result-card {
-  width: min(420px, 100%);
-  margin: 4px 0;
-  border: 1px solid light-dark(#ece7ef, #3a3540);
-  border-radius: 14px;
-  background: light-dark(#fff, #25222a);
-  overflow: hidden;
-}
-.gg-result-card > summary {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  list-style: none;
-  cursor: pointer;
-}
-.gg-result-card > summary::-webkit-details-marker {
-  display: none;
-}
-.gg-result-title {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-}
-.gg-result-title strong {
-  font-size: calc(13px * var(--appearance-text-scale, 1));
-}
-.gg-result-title small {
-  color: light-dark(#6f7680, #bdbac0);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
-}
-.gg-result-more {
-  flex: none;
-  color: light-dark(#8c939c, #bdbac0);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
-}
-.gg-result-card[open] .gg-result-more {
-  visibility: hidden;
-}
-.gg-result-card > p {
-  margin: 0;
-  padding: 10px 14px 12px;
-  border-top: 1px solid light-dark(#ece7ef, #3a3540);
-  color: light-dark(#4b5058, #d5d2d9);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
-  line-height: 1.7;
-  white-space: pre-wrap;
-}
-.gg-pop-note {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
-}
-.gg-result-open {
-  flex: none;
-  padding: 3px 10px;
-  border: 1px solid light-dark(#e6e1ec, #3e3945);
-  border-radius: 999px;
-  background: none;
-  color: light-dark(#5e4f74, #d6cbe6);
-  font: inherit;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
-}
-.gg-result-open:hover {
-  background: light-dark(#f3eff8, #2c2535);
 }

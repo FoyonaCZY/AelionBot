@@ -2,16 +2,23 @@ import type { GameRequest } from '../../../shared/types/game-types';
 import { AppError } from '../../../shared/errors';
 /** Shorter text limits than the default 800 characters. */
 const TEXT_MAX: Partial<Record<GameRequest['kind'], number>> = { describe: 60, blank_guess: 20 };
+/** With table talk on, a card or tile move may carry one short line of talk next to it. */
+export const TABLE_TALK_MAX = 30;
+/** The longest text a request takes. */
+export const textLimit = (r: GameRequest) => (r.talk ? TABLE_TALK_MAX : (TEXT_MAX[r.kind] ?? 800));
 type Field = { type: 'string' | 'boolean'; enum?: string[]; minLength?: number; maxLength?: number };
 export function actionContract(r: GameRequest) {
   const properties: Record<string, Field> = {
     note: { type: 'string', maxLength: 500 },
     personalityNote: { type: 'string', maxLength: 200 },
   };
+  const talk = !!r.talk;
+  if (talk) properties.text = { type: 'string', maxLength: TABLE_TALK_MAX };
+  const optional = ['note', 'personalityNote', ...(talk ? ['text'] : [])];
   const branch = (required: string[], fields: Record<string, Field>) => ({
     type: 'object' as const,
     required,
-    properties: { ...fields, ...Object.fromEntries(['note', 'personalityNote'].map((k) => [k, properties[k]])) },
+    properties: { ...fields, ...Object.fromEntries(optional.map((k) => [k, properties[k]])) },
     additionalProperties: false as const,
   });
   let variants: string[][];
@@ -50,7 +57,9 @@ export function actionContract(r: GameRequest) {
     properties.target = { type: 'string', enum: r.targets };
     variants = [['target']];
     description = '只提交 target，值必须是 request.targets 中的 id 原文。禁止 type、action、kind、role。';
-    if (['vote', 'sheriff_vote', 'guard', 'shoot', 'badge'].includes(r.kind)) {
+    if (r.options)
+      description = '只提交 target，值必须是 request.options 里某一项的 id 原文。禁止 type、action、kind。';
+    if (r.canPass || ['vote', 'sheriff_vote', 'guard', 'shoot', 'badge'].includes(r.kind)) {
       properties.skip = { type: 'boolean' };
       variants.push(['skip']);
       description =
@@ -80,7 +89,8 @@ export function checkActionContract(a: Record<string, unknown>, r: GameRequest) 
     )
       throw Error(`${key} 不符合本轮允许值或长度`);
   }
-  const keys = Object.keys(a).filter((k) => !['note', 'personalityNote'].includes(k));
+  const optional = ['note', 'personalityNote', ...(r.talk ? ['text'] : [])];
+  const keys = Object.keys(a).filter((k) => !optional.includes(k));
   if (!schema.oneOf.some((v) => keys.length === v.required.length && v.required.every((k) => keys.includes(k))))
     throw Error('缺少本轮动作字段，或同时提交了多个动作');
   if ('skip' in a && a.skip !== true) throw Error('跳过动作必须为 skip:true');

@@ -1,7 +1,13 @@
 import { BOARDS, PHASE_NAMES, twelveRules } from '../../shared/games/game-boards';
 import { WerewolfTable } from './WerewolfTable';
 import { UndercoverTable } from './UndercoverTable';
+import { DoudizhuTable } from './DoudizhuTable';
+import { MahjongTable } from './MahjongTable';
 import { PersonaPage } from './PersonaPage';
+import werewolfLobbyArt from './werewolf-lobby.webp';
+import undercoverLobbyArt from './undercover-lobby.webp';
+import doudizhuLobbyArt from './doudizhu-lobby.webp';
+import mahjongLobbyArt from './mahjong-lobby.webp';
 import { seatBot, syncSeats } from './game-view-model';
 import type { GameModeId, GameView } from '../../shared/types/game-types';
 import { GAME_MBTI_TYPES, isGameMbti, type GameMbti } from '../../shared/games/game-personality';
@@ -9,6 +15,7 @@ import { PRESETS, PRESET_IDS, isPresetId, type PresetId } from '../../shared/per
 import type { ModelProvider, ModelSelection } from '../../shared/types/core';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
+import { GameGlyph } from './GameGlyph';
 import { Select } from '../ui/Select';
 import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState } from 'react';
@@ -45,7 +52,30 @@ const WINNER_NAMES: Record<NonNullable<GameView['winner']>, string> = {
   civilian: '平民获胜',
   undercover: '卧底获胜',
   blank: '白板获胜',
+  landlord: '地主获胜',
+  farmer: '农民获胜',
+  hu: '和牌',
+  draw: '流局',
 };
+const GAME_NAMES: Record<GameModeId, string> = {
+  werewolf: '狼人杀',
+  undercover: '谁是卧底',
+  doudizhu: '斗地主',
+  mahjong: '麻将',
+};
+/** Card and tile games seat a fixed number of players and have nobody to vote out. */
+const CARD_GAMES: GameModeId[] = ['doudizhu', 'mahjong'];
+/** The mark of a match: the phase of the day for Werewolf, the game's own glyph otherwise. */
+const markOf = (match: GameView) =>
+  match.mode === 'undercover'
+    ? 'undercover'
+    : match.mode === 'doudizhu'
+      ? 'cards'
+      : match.mode === 'mahjong'
+        ? 'tile'
+        : match.phase === 'night'
+          ? 'moon'
+          : 'sun';
 /** Four temperament groups used to colour MBTI types: analysts, diplomats, sentinels, explorers. */
 const temperament = (type: string) =>
   type[1] === 'N' ? (type[2] === 'T' ? 'nt' : 'nf') : type[3] === 'J' ? 'sj' : 'sp';
@@ -91,7 +121,9 @@ export function GroupGames({
   const [board, setBoard] = useState<'standard12' | 'guard12'>('standard12');
   const [game, setGame] = useState<GameModeId>('werewolf'),
     [seatCount, setSeatCount] = useState(6),
-    [blank, setBlank] = useState(false);
+    [blank, setBlank] = useState(false),
+    // Card and tile games: AI players may chat at the table. Off by default, since a careless line gives a hand away.
+    [tableTalk, setTableTalk] = useState(false);
   const storageKey = `aelion:game-prototype:v1:${groupId}`;
   const [match, setMatch] = useState<GameView | null>(null);
   const [open, setOpen] = useState(initialOpen),
@@ -159,6 +191,7 @@ export function GroupGames({
         setSeatCount(saved.seatCount);
         setBlank(saved.blank === true);
       }
+      if (CARD_GAMES.includes(game)) setTableTalk(saved.tableTalk === true);
       if (Number.isInteger(saved.humanSeat) && saved.humanSeat >= 0) setHumanSeat(saved.humanSeat);
       if (['play', 'watch'].includes(saved.mode) && Array.isArray(saved.selected)) {
         setMode(saved.mode);
@@ -251,8 +284,8 @@ export function GroupGames({
     if (!open && dialog.current?.open) dialog.current?.close();
   }, [open]);
 
-  // Werewolf seats twelve; Who's the Spy four to ten.
-  const total = game === 'undercover' ? seatCount : 12;
+  // Werewolf seats twelve; Who's the Spy four to ten; Dou Di Zhu three; Mahjong four.
+  const total = game === 'undercover' ? seatCount : game === 'doudizhu' ? 3 : game === 'mahjong' ? 4 : 12;
   const limit = mode === 'play' ? total - 1 : total;
   const chosen = members.filter((m) => selected.includes(m.id)).slice(0, limit);
   const others: Seat[] = [
@@ -329,7 +362,11 @@ export function GroupGames({
       const next = await window.aelion.games.create({
         groupId,
         mode: game,
-        ...(game === 'werewolf' ? { board } : { blank: blank && seatCount >= 7 }),
+        ...(game === 'werewolf'
+          ? { board }
+          : game === 'undercover'
+            ? { blank: blank && seatCount >= 7 }
+            : { tableTalk }),
         players: roster.map((p) => ({
           id: p.id,
           name: p.name,
@@ -351,7 +388,7 @@ export function GroupGames({
           sessionMbti,
           sessionPreset,
           humanSeat,
-          ...(game === 'werewolf' ? { board } : { seatCount, blank }),
+          ...(game === 'werewolf' ? { board } : game === 'undercover' ? { seatCount, blank } : { tableTalk }),
         };
         localStorage.setItem(
           storageKey + ':players',
@@ -396,20 +433,23 @@ export function GroupGames({
           : '';
   // Members selected beyond this game's seats stay pickable rather than vanishing from both lists.
   const available = members.filter((m) => !chosen.some((c) => c.id === m.id));
-  const presetCount = guests.filter((guest) => mbtiPresets[guest.id]).length;
   const matchPhase = match
     ? match.status === 'paused'
       ? t('已暂停')
       : match.status === 'finished' || match.phase === 'finished'
         ? t('已结束')
-        : match.mode === 'undercover'
-          ? t('第 {round} 轮 · {phase}', {
-              round: match.day,
-              phase: t(match.phase === 'vote' ? '投票' : match.phase === 'resolution' ? '白板猜词' : '描述'),
-            })
-          : t(match.phase === 'night' ? '第 {day} 夜' : '第 {day} 天', { day: match.day }) +
-            ' · ' +
-            (match.stage || t(phaseNames[match.phase]))
+        : match.mode === 'doudizhu'
+          ? t(match.phase === 'bid' ? '叫地主' : '出牌中')
+          : match.mode === 'mahjong'
+            ? t('剩 {count} 张', { count: match.tiles?.wall ?? 0 })
+            : match.mode === 'undercover'
+              ? t('第 {round} 轮 · {phase}', {
+                  round: match.day,
+                  phase: t(match.phase === 'vote' ? '投票' : match.phase === 'resolution' ? '白板猜词' : '描述'),
+                })
+              : t(match.phase === 'night' ? '第 {day} 夜' : '第 {day} 天', { day: match.day }) +
+                ' · ' +
+                (match.stage || t(phaseNames[match.phase]))
     : '';
   const myTurn =
     !!match && match.status === 'running' && !!match.humanId && match.pending.some((r) => r.seatId === match.humanId);
@@ -424,7 +464,8 @@ export function GroupGames({
             setOpen(true);
           }}
         >
-          <span aria-hidden="true">☾</span> {t('AI 游戏')}
+          <GameGlyph name="moon" size={15} />
+          {t('AI 游戏')}
         </button>
       </div>
       {/* Only an unfinished match has a live card; a finished one is told by its result card in the timeline. */}
@@ -432,40 +473,49 @@ export function GroupGames({
         match.status !== 'finished' &&
         cardContainer &&
         createPortal(
-          <button className={`gg-chat-card ${myTurn ? 'is-turn' : ''}`} onClick={enter}>
+          <button
+            className={`gg-chat-card is-${match.mode && match.mode !== 'werewolf' ? 'party' : match.phase === 'night' ? 'night' : 'day'} ${myTurn ? 'is-turn' : ''}`}
+            onClick={enter}
+          >
             <span className="gg-chat-card-top">
-              <span className={`gg-moon ${match.phase === 'night' ? '' : 'is-day'}`} aria-hidden="true">
-                {match.phase === 'night' ? '☾' : '☀'}
+              <span className="gg-mark">
+                <GameGlyph name={markOf(match)} size={18} />
               </span>
               <span className="gg-chat-card-title">
                 <strong>
-                  {t(match.mode === 'undercover' ? '谁是卧底' : '狼人杀')}
+                  {t(GAME_NAMES[match.mode || 'werewolf'])}
                   {match.board ? ' · ' + t(BOARDS[match.board].name) : ''}
                 </strong>
                 <small>
                   {matchPhase} · {t(match.humanId ? '你参与' : '你旁观')}
+                  {match.mode && CARD_GAMES.includes(match.mode)
+                    ? ''
+                    : ' · ' + t('{count} 人存活', { count: match.seats.filter((p) => p.alive).length })}
                 </small>
               </span>
-              <span className={`gg-live ${match.status === 'running' ? '' : 'is-idle'}`}>
-                {match.status === 'paused' ? t('已暂停') : t('进行中')}
-              </span>
+              {myTurn ? (
+                <span className="gg-turn">{t('轮到你了')}</span>
+              ) : (
+                <span className={`gg-live ${match.status === 'running' ? '' : 'is-idle'}`}>
+                  {match.status === 'paused' ? t('已暂停') : t('进行中')}
+                </span>
+              )}
             </span>
             <span className="gg-chat-card-seats" aria-hidden="true">
               {match.seats.map((seat) => (
                 <span key={seat.id} className={seat.alive ? '' : 'is-dead'}>
                   {seat.human ? (
-                    <span className="gg-human-avatar gg-dot-human" />
+                    <span className="gg-human-avatar gg-dot-human">
+                      <Icon name="user" size={12} />
+                    </span>
                   ) : (
-                    <Avatar bot={seatBot(seat)} size={20} />
+                    <Avatar bot={seatBot(seat)} size={22} />
                   )}
                 </span>
               ))}
-            </span>
-            <span className="gg-chat-card-foot">
-              <span>{t('{count} 人存活', { count: match.seats.filter((p) => p.alive).length })}</span>
-              {myTurn && <span className="gg-turn">{t('· 轮到你了')}</span>}
-              <span className="gg-spacer" />
-              <b>{t('进入对局')} ↗</b>
+              <span className="gg-go">
+                <GameGlyph name="arrow" size={15} />
+              </span>
             </span>
           </button>,
           cardContainer,
@@ -502,11 +552,25 @@ export function GroupGames({
                       ? t('补位 AI 预设')
                       : screen === 'persona'
                         ? t('人格')
-                        : t(game === 'undercover' ? '谁是卧底 · 开局设置' : '狼人杀 · 开局设置')}
+                        : t('{game} · 开局设置', { game: t(GAME_NAMES[game]) })}
                 </strong>
                 {screen === 'presets' && <span>{t('长期保存，开局时可以按局修改')}</span>}
               </div>
               <div>
+                {screen === 'select' && (
+                  <>
+                    {members.length > 0 && (
+                      <button className="gg-header-link" onClick={() => openPersona()}>
+                        <GameGlyph name="mask" size={16} />
+                        {t('人格')}
+                      </button>
+                    )}
+                    <button className="gg-header-link" onClick={() => setScreen('presets')}>
+                      <GameGlyph name="dice" size={16} />
+                      {t('补位 AI 预设')}
+                    </button>
+                  </>
+                )}
                 {screen === 'presets' && (
                   <>
                     <span className="gg-legend" aria-hidden="true">
@@ -533,149 +597,133 @@ export function GroupGames({
           )}
           {screen === 'select' && (
             <main className="gg-lobby">
-              <div className="gg-lobby-main">
-                {unfinished && (
-                  <div className="gg-resume">
-                    <span className="gg-moon" aria-hidden="true">
-                      ☾
-                    </span>
-                    <span className="gg-resume-text">
-                      <b>{t('有一局还没结束')}</b>
-                      <small>
-                        {match.board ? t(BOARDS[match.board].name) + ' · ' : ''}
-                        {matchPhase} · {t('{count} 人存活', { count: match.seats.filter((p) => p.alive).length })}
-                        {myTurn ? ' · ' + t('轮到你了') : ''}
-                      </small>
-                    </span>
-                    <button className="primary-button" onClick={() => setScreen('table')}>
-                      {t('继续对局')}
-                    </button>
-                  </div>
-                )}
-                {match && !unfinished && (
-                  <div className="gg-resume">
-                    <span className="gg-moon is-day" aria-hidden="true">
-                      ☀
-                    </span>
-                    <span className="gg-resume-text">
-                      <b>{t('上一局')}</b>
-                      <small>
-                        {match.board ? t(BOARDS[match.board].name) + ' · ' : ''}
-                        {match.winner ? t(WINNER_NAMES[match.winner]) : t('中途结束，不计胜负')}
-                      </small>
-                    </span>
-                    <button className="secondary-button" onClick={() => setScreen('table')}>
-                      {t('查看战报')}
-                    </button>
-                  </div>
-                )}
-                <section className="gg-hero">
-                  <div className="gg-hero-text">
-                    <h3>{t('狼人杀')}</h3>
-                    <p>
-                      {t(
-                        '12 人局，有警长。你可以坐进去一起玩，也可以旁观 12 个 AI 对局，结束后看战报和每个 AI 的思路。',
-                      )}
-                    </p>
-                    <div className="gg-hero-tags">
-                      {Object.values(BOARDS).map((b) => (
-                        <span key={b.name}>{t(b.name)}</span>
-                      ))}
-                      <span>{t('4 狼 · 4 民 · 4 神')}</span>
-                      <span>{t('约 30–45 分钟')}</span>
-                    </div>
-                    <div className="gg-hero-actions">
-                      <button
-                        className="gg-hero-primary"
-                        disabled={unfinished}
-                        onClick={() => {
-                          setGame('werewolf');
-                          setScreen('room');
-                        }}
-                      >
-                        {t('开始新对局')}
-                      </button>
-                      {unfinished && <span className="gg-hero-note">{t('先结束当前对局')}</span>}
-                    </div>
-                  </div>
-                  <div className="gg-hero-ring" aria-hidden="true">
-                    <span className="gg-hero-moon" />
-                    {[...members, ...guests].slice(0, 12).map((m, i) => {
-                      const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
-                      return (
-                        <span
-                          key={m.id}
-                          className="gg-hero-seat"
-                          style={{
-                            left: `calc(50% + ${Math.cos(a) * 92}px - 13px)`,
-                            top: `calc(50% + ${Math.sin(a) * 92}px - 13px)`,
-                          }}
-                        >
-                          <Avatar bot={{ ...m, color: m.color || '#8e7ca2' }} size={26} />
-                        </span>
-                      );
-                    })}
-                  </div>
-                </section>
-                <section className="gg-hero gg-hero-compact">
-                  <div className="gg-hero-text">
-                    <h3>{t('谁是卧底')}</h3>
-                    <p>
-                      {t(
-                        '4–10 人。每人拿到一个词，卧底的词和大家相近但不同，谁都不知道自己是不是卧底。轮流用一句话描述，再投票找出卧底。',
-                      )}
-                    </p>
-                    <div className="gg-hero-tags">
-                      <span>{t('1–2 名卧底')}</span>
-                      <span>{t('7 人起可加白板')}</span>
-                      <span>{t('约 10–20 分钟')}</span>
-                    </div>
-                    <div className="gg-hero-actions">
-                      <button
-                        className="gg-hero-primary"
-                        disabled={unfinished}
-                        onClick={() => {
-                          setGame('undercover');
-                          setScreen('room');
-                        }}
-                      >
-                        {t('开始新对局')}
-                      </button>
-                    </div>
-                  </div>
-                </section>
-              </div>
-              <aside className="gg-lobby-side">
-                {members.length > 0 && (
-                  <button className="gg-lobby-link" onClick={() => openPersona()}>
-                    <span className="gg-card-head">
-                      <span>{t('人格')}</span>
-                      <span aria-hidden="true">›</span>
-                    </span>
-                    <small>{t('性格、经历与关系')}</small>
-                  </button>
-                )}
-                <button className="gg-lobby-link" onClick={() => setScreen('presets')}>
-                  <span className="gg-card-head">
-                    <span>{t('补位 AI 预设')}</span>
-                    <span aria-hidden="true">›</span>
+              {unfinished && (
+                <div className="gg-resume">
+                  <GameGlyph name={markOf(match)} size={17} />
+                  <span className="gg-resume-text">
+                    <b>{t('有一局还没结束')}</b>
+                    <small>
+                      {t(GAME_NAMES[match.mode || 'werewolf'])} ·{' '}
+                      {match.board ? t(BOARDS[match.board].name) + ' · ' : ''}
+                      {matchPhase}
+                      {match.mode && CARD_GAMES.includes(match.mode)
+                        ? ''
+                        : ' · ' + t('{count} 人存活', { count: match.seats.filter((p) => p.alive).length })}
+                      {myTurn ? ' · ' + t('轮到你了') : ''}
+                    </small>
                   </span>
-                  <small>
-                    {presetCount
-                      ? t('{count} 位已设性格，其余每局随机', { count: presetCount })
-                      : t('临时玩家，每局随机性格')}
-                  </small>
-                </button>
-                <details className="gg-lobby-rules">
-                  <summary>{t('狼人杀规则要点')}</summary>
-                  <p className="gg-rules-short">
+                  <button className="primary-button" onClick={() => setScreen('table')}>
+                    {t('继续对局')}
+                  </button>
+                </div>
+              )}
+              {match && !unfinished && (
+                <div className="gg-resume">
+                  <GameGlyph name="history" size={17} />
+                  <span className="gg-resume-text">
+                    <b>{t('上一局')}</b>
+                    <small>
+                      {t(GAME_NAMES[match.mode || 'werewolf'])} ·{' '}
+                      {match.board ? t(BOARDS[match.board].name) + ' · ' : ''}
+                      {match.winner ? t(WINNER_NAMES[match.winner]) : t('中途结束，不计胜负')}
+                    </small>
+                  </span>
+                  <button className="secondary-button" onClick={() => setScreen('table')}>
+                    {t('查看战报')}
+                  </button>
+                </div>
+              )}
+              <div className="gg-games">
+                <article className="gg-game is-werewolf">
+                  <div className="gg-game-art" aria-hidden="true">
+                    <img src={werewolfLobbyArt} alt="" decoding="async" />
+                  </div>
+                  <h3>{t('狼人杀')}</h3>
+                  <p>
+                    {t('12 人局，有警长。你可以坐进去一起玩，也可以旁观 12 个 AI 对局，结束后看战报和每个 AI 的思路。')}
+                  </p>
+                  <p className="gg-game-meta">
+                    {[...Object.values(BOARDS).map((b) => t(b.name)), t('约 30–45 分钟')].join(' · ')}
+                  </p>
+                  <button
+                    className="primary-button"
+                    disabled={unfinished}
+                    title={unfinished ? t('先结束当前对局') : undefined}
+                    onClick={() => {
+                      setGame('werewolf');
+                      setScreen('room');
+                    }}
+                  >
+                    {t('开始新对局')}
+                  </button>
+                </article>
+                <article className="gg-game is-undercover">
+                  <div className="gg-game-art" aria-hidden="true">
+                    <img src={undercoverLobbyArt} alt="" decoding="async" />
+                  </div>
+                  <h3>{t('谁是卧底')}</h3>
+                  <p>
                     {t(
-                      '屠边局：狼人全灭好人胜，四民或四神全灭狼人胜。首夜后先竞选警长，警长 1.5 票并决定发言方向。真人发言 120 秒，其他真人行动 45 秒；AI 请求失败或超时会暂停，保留已完成的选择。',
+                      '4–10 人。每人拿到一个词，卧底的词和大家相近但不同，谁都不知道自己是不是卧底。轮流用一句话描述，再投票找出卧底。',
                     )}
                   </p>
-                </details>
-                <p className="gg-muted gg-lobby-note">{t('对局在本机运行，AI 调用会消耗各自模型的额度。')}</p>
-              </aside>
+                  <p className="gg-game-meta">
+                    {[t('1–2 名卧底'), t('7 人起可加白板'), t('约 10–20 分钟')].join(' · ')}
+                  </p>
+                  <button
+                    className="primary-button"
+                    disabled={unfinished}
+                    title={unfinished ? t('先结束当前对局') : undefined}
+                    onClick={() => {
+                      setGame('undercover');
+                      setScreen('room');
+                    }}
+                  >
+                    {t('开始新对局')}
+                  </button>
+                </article>
+                <article className="gg-game is-doudizhu">
+                  <div className="gg-game-art" aria-hidden="true">
+                    <img src={doudizhuLobbyArt} alt="" decoding="async" />
+                  </div>
+                  <h3>{t('斗地主')}</h3>
+                  <p>{t('3 人，一个地主对两个农民。叫分抢地主，出牌压过上家，先出完的一边获胜；炸弹和春天翻倍。')}</p>
+                  <p className="gg-game-meta">{[t('叫分 1–3'), t('带记牌器'), t('约 5–10 分钟')].join(' · ')}</p>
+                  <button
+                    className="primary-button"
+                    disabled={unfinished}
+                    title={unfinished ? t('先结束当前对局') : undefined}
+                    onClick={() => {
+                      setGame('doudizhu');
+                      setScreen('room');
+                    }}
+                  >
+                    {t('开始新对局')}
+                  </button>
+                </article>
+                <article className="gg-game is-mahjong">
+                  <div className="gg-game-art" aria-hidden="true">
+                    <img src={mahjongLobbyArt} alt="" decoding="async" />
+                  </div>
+                  <h3>{t('麻将')}</h3>
+                  <p>
+                    {t('4 人推倒胡，不吃，可碰、杠、和；四组面子加一对将，或七对。每张牌都标好打后的向听数和进张。')}
+                  </p>
+                  <p className="gg-game-meta">{[t('136 张无花'), t('按番计分'), t('约 15–25 分钟')].join(' · ')}</p>
+                  <button
+                    className="primary-button"
+                    disabled={unfinished}
+                    title={unfinished ? t('先结束当前对局') : undefined}
+                    onClick={() => {
+                      setGame('mahjong');
+                      setScreen('room');
+                    }}
+                  >
+                    {t('开始新对局')}
+                  </button>
+                </article>
+              </div>
+              <p className="gg-muted gg-lobby-note">{t('对局在本机运行，AI 调用会消耗各自模型的额度。')}</p>
             </main>
           )}
           {screen === 'presets' && (
@@ -733,7 +781,29 @@ export function GroupGames({
           {screen === 'room' && (
             <main className="gg-room">
               <aside className="gg-room-left">
-                {game === 'undercover' ? (
+                {CARD_GAMES.includes(game) ? (
+                  <div>
+                    <div className="gg-label">{t('人数')}</div>
+                    <p className="gg-muted">
+                      {t(
+                        game === 'doudizhu'
+                          ? '3 人：叫分决定地主，另外两人是农民。'
+                          : '4 人：开局随机定庄家，庄家先摸牌。',
+                      )}
+                    </p>
+                    <label className="gg-check">
+                      <input type="checkbox" checked={tableTalk} onChange={(e) => setTableTalk(e.target.checked)} />
+                      {t('AI 出牌时附带闲聊')}
+                    </label>
+                    <p className="gg-muted">
+                      {t(
+                        tableTalk
+                          ? 'AI 出牌时会顺口说一句，所有人都能看到；可能无意中透露牌情。'
+                          : 'AI 只出牌、不说话，牌桌上不会出现任何 AI 发言。',
+                      )}
+                    </p>
+                  </div>
+                ) : game === 'undercover' ? (
                   <div>
                     <div className="gg-label">{t('人数')}</div>
                     <div className="gg-seg" role="radiogroup" aria-label={t('人数')}>
@@ -777,17 +847,11 @@ export function GroupGames({
                           className={`gg-board ${board === id ? 'is-selected' : ''}`}
                           onClick={() => setBoard(id)}
                         >
-                          <b>{t(b.name)}</b>
-                          <span className="gg-chip-row">
-                            {b.description.split(' · ').map((part) => (
-                              <span
-                                key={part}
-                                className={`gg-tag ${part.includes('狼') ? 'is-wolf' : part.includes('民') ? 'is-good' : 'is-god'}`}
-                              >
-                                {t(part)}
-                              </span>
-                            ))}
+                          <span className="gg-board-copy">
+                            <b>{t(b.name)}</b>
+                            <small>{t(b.description)}</small>
                           </span>
+                          <span className="gg-radio" aria-hidden="true" />
                         </button>
                       ))}
                     </div>
@@ -818,31 +882,53 @@ export function GroupGames({
                       {t('旁观 {count} 个 AI', { count: total })}
                     </button>
                   </div>
-                  <p className="gg-muted">{t('旁观时可以随时切换「全知视角」看所有身份。')}</p>
+                  <p className="gg-muted">
+                    {t(
+                      CARD_GAMES.includes(game)
+                        ? '旁观时可以随时切换「全知视角」看所有人的牌。'
+                        : '旁观时可以随时切换「全知视角」看所有身份。',
+                    )}
+                  </p>
                 </div>
                 <details className="gg-rule-details">
                   <summary>{t('完整规则')}</summary>
                   <p>
-                    {game === 'undercover'
+                    {game === 'doudizhu'
                       ? t(
-                          '每轮存活玩家依次描述自己的词，然后同时投票，得票最多的人出局并公布身份。第一次平票时，平票的人各补一句描述后在他们之中重投，再平票本轮无人出局。卧底全部出局平民胜；存活卧底不少于平民，或只剩 3 人时仍有卧底，卧底胜。白板出局时可以猜一次平民的词，猜中则白板单独获胜。',
+                          '一副 54 张牌，每人 17 张，留 3 张底牌。从随机一人开始每人叫一次，可叫 1、2、3 分或不叫，叫 3 分直接当地主，否则最高者当地主；无人叫则重新发牌。地主拿底牌先出。出牌要压过上家同类型、同张数的牌，或者不要；两家都不要时最后出牌的人重新出。牌型有单张、对子、三张、三带一、三带二、顺子、连对、飞机（可带单或带对）、四带二、炸弹和王炸。先出完的一边获胜；底分是叫分，每个炸弹、王炸和春天翻倍，地主输赢是农民的两倍。',
                         )
-                      : twelveRules(board)}
+                      : game === 'mahjong'
+                        ? t(
+                            '136 张牌，没有花牌。每人 13 张，庄家先摸。轮到你时摸一张，然后自摸和牌、暗杠或加杠，或者打出一张。别人打出的牌可以和、杠或碰，不能吃；和牌优先，多人能和时出牌者下家起第一个人和。四组面子加一对将，或七个对子，就能和。番数：平胡 1，七对、碰碰胡、混一色各 2，清一色 4，字一色 6，门清、自摸、杠上开花、海底捞月各 1。点炮由出牌的人付，自摸三家各付。牌墙摸完无人和牌就是流局。',
+                          )
+                        : game === 'undercover'
+                          ? t(
+                              '每轮存活玩家依次描述自己的词，然后同时投票，得票最多的人出局并公布身份。第一次平票时，平票的人各补一句描述后在他们之中重投，再平票本轮无人出局。卧底全部出局平民胜；存活卧底不少于平民，或只剩 3 人时仍有卧底，卧底胜。白板出局时可以猜一次平民的词，猜中则白板单独获胜。',
+                            )
+                          : twelveRules(board)}
                   </p>
                 </details>
                 <p className="gg-muted gg-room-note">
                   {t(
-                    game === 'undercover'
-                      ? '词在开局时随机发放，每轮的描述从下一位玩家开始。'
-                      : '身份在开局时随机发放，座位顺序即发言顺序。',
+                    game === 'doudizhu'
+                      ? '牌在开局时随机发放，座位顺序即出牌顺序。'
+                      : game === 'mahjong'
+                        ? '牌在开局时随机发放，座位顺序即摸牌顺序。'
+                        : game === 'undercover'
+                          ? '词在开局时随机发放，每轮的描述从下一位玩家开始。'
+                          : '身份在开局时随机发放，座位顺序即发言顺序。',
                   )}
                 </p>
               </aside>
               <section className="gg-room-main">
                 <div className="gg-toolbar">
-                  <b>
-                    {roster.length} / {total}
-                  </b>
+                  <span className="gg-count">
+                    <b>{roster.length}</b>
+                    <small>/ {total}</small>
+                  </span>
+                  <span className="gg-meter" aria-hidden="true">
+                    <i style={{ width: `${(roster.length / total) * 100}%` }} />
+                  </span>
                   {roster.length < total ? (
                     <>
                       <span className="gg-muted">{t('还差 {count} 位', { count: total - roster.length })}</span>
@@ -856,27 +942,6 @@ export function GroupGames({
                     </button>
                   ) : null}
                   <span className="gg-spacer" />
-                  <Select aria-label={t('统一模型')} value={batch} onChange={(e) => setBatch(e.target.value)}>
-                    <option value="">{t('统一模型：选择模型')}</option>
-                    {options.map((o) => (
-                      <option key={o.key} value={o.key}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </Select>
-                  <button
-                    className="secondary-button"
-                    disabled={!batch}
-                    onClick={() => {
-                      setOverrides((current) => ({
-                        ...current,
-                        ...Object.fromEntries([...members, ...guests].map((s) => [s.id, batch])),
-                      }));
-                      setConfigNotice(t('已应用到全部 AI，包括补位玩家'));
-                    }}
-                  >
-                    {t('应用')}
-                  </button>
                   <button
                     className="gg-back"
                     onClick={() => {
@@ -901,6 +966,30 @@ export function GroupGames({
                   )}
                   <button className="gg-back" onClick={restore}>
                     {t('沿用上次')}
+                  </button>
+                </div>
+                <div className="gg-toolbar gg-toolbar-model">
+                  <span className="gg-label">{t('统一模型')}</span>
+                  <Select aria-label={t('统一模型')} value={batch} onChange={(e) => setBatch(e.target.value)}>
+                    <option value="">{t('统一模型：选择模型')}</option>
+                    {options.map((o) => (
+                      <option key={o.key} value={o.key}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <button
+                    className="secondary-button"
+                    disabled={!batch}
+                    onClick={() => {
+                      setOverrides((current) => ({
+                        ...current,
+                        ...Object.fromEntries([...members, ...guests].map((s) => [s.id, batch])),
+                      }));
+                      setConfigNotice(t('已应用到全部 AI，包括补位玩家'));
+                    }}
+                  >
+                    {t('应用')}
                   </button>
                 </div>
                 <div className="gg-seat-grid">
@@ -947,23 +1036,26 @@ export function GroupGames({
                         <span className={`gg-seat-card-model ${s.id !== 'human' && !model ? 'is-missing' : ''}`}>
                           {s.id === 'human' ? t('真人玩家') : model ? model.model : t('未配置模型')}
                         </span>
-                        <span className="gg-chip-row">
-                          {s.id === 'human' ? (
-                            <span className="gg-tag is-accent">{t('参与')}</span>
-                          ) : sessionPreset[s.id] ? (
-                            <span className="gg-tag is-accent">{PRESETS[sessionPreset[s.id]].name}</span>
-                          ) : !s.temporary ? (
-                            <span className="gg-tag">{t('沿用人格档案')}</span>
-                          ) : type ? (
-                            <span className={`gg-mbti is-${temperament(type)}`}>{type}</span>
-                          ) : (
-                            <span className="gg-tag">{t('随机性格')}</span>
-                          )}
-                          {s.temporary && <span className="gg-tag">{t('临时')}</span>}
-                          {(overrides[s.id] || sessionPreset[s.id] || (s.temporary && sessionMbti[s.id])) && (
-                            <span className="gg-tag">{t('本局修改')}</span>
-                          )}
-                        </span>
+                        {s.id !== 'human' && (
+                          <span className="gg-seat-card-note">
+                            {sessionPreset[s.id] ? (
+                              <span className="gg-tag is-accent">{PRESETS[sessionPreset[s.id]].name}</span>
+                            ) : s.temporary && type ? (
+                              <span className={`gg-mbti is-${temperament(type)}`}>{type}</span>
+                            ) : null}
+                            <span>
+                              {[
+                                s.temporary ? t('临时') : '',
+                                s.temporary && !type && !sessionPreset[s.id] ? t('随机性格') : '',
+                                overrides[s.id] || sessionPreset[s.id] || (s.temporary && sessionMbti[s.id])
+                                  ? t('本局修改')
+                                  : '',
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </span>
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -1156,7 +1248,29 @@ export function GroupGames({
               onClose={() => setOpen(false)}
             />
           )}
-          {screen === 'table' && match && match.mode !== 'undercover' && (
+          {screen === 'table' && match && match.mode === 'doudizhu' && (
+            <DoudizhuTable
+              game={match}
+              onUpdate={updateMatch}
+              onMutationStart={mutationStart}
+              syncError={readError}
+              omniscient={omniscient}
+              onOmniscient={() => setOmniscient((v) => !v)}
+              onClose={() => setOpen(false)}
+            />
+          )}
+          {screen === 'table' && match && match.mode === 'mahjong' && (
+            <MahjongTable
+              game={match}
+              onUpdate={updateMatch}
+              onMutationStart={mutationStart}
+              syncError={readError}
+              omniscient={omniscient}
+              onOmniscient={() => setOmniscient((v) => !v)}
+              onClose={() => setOpen(false)}
+            />
+          )}
+          {screen === 'table' && match && (!match.mode || match.mode === 'werewolf') && (
             <WerewolfTable
               game={match}
               onUpdate={updateMatch}

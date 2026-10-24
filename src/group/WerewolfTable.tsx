@@ -3,6 +3,7 @@ import { DiagnosticsDrawer, GameTopbar, useGameTable, type GameTableProps } from
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
+import { GameGlyph } from './GameGlyph';
 import type { GameView, GameRole } from '../../shared/types/game-types';
 import { BOARDS, ROLE_NAMES as roles } from '../../shared/games/game-boards';
 import { GameActionControls } from './GameActionControls';
@@ -20,16 +21,6 @@ import {
 } from './game-view-model';
 
 type Seat = GameView['seats'][number];
-/** Werewolf roles only; other games' roles never reach this table. */
-const EMBLEM: Partial<Record<GameRole, string>> = {
-  wolf: '🐺',
-  seer: '👁',
-  witch: '⚗',
-  hunter: '🎯',
-  idiot: '🃏',
-  guard: '🛡',
-  villager: '🌾',
-};
 const ABILITY: Partial<Record<GameRole, string>> = {
   wolf: '每晚和狼队友商量，袭击一名玩家。白天隐藏身份，把票引向好人。',
   seer: '每晚查验一名玩家，知道他是好人还是狼人。',
@@ -135,8 +126,8 @@ function RoleReveal({ seat, board, onClose }: { seat: Seat; board?: GameView['bo
   return (
     <div className="gg-reveal" role="dialog" aria-modal="true" aria-label={translate('你的身份')}>
       <div className={`gg-reveal-card is-${camp(seat.role)}`}>
-        <span className="gg-reveal-emblem" aria-hidden="true">
-          {EMBLEM[seat.role]}
+        <span className="gg-reveal-emblem">
+          <GameGlyph name={seat.role} size={38} />
         </span>
         <small>{translate('你的身份')}</small>
         <h3>{translate(roles[seat.role])}</h3>
@@ -169,8 +160,8 @@ function Report({ game, onDiagnostics, onClose }: { game: GameView; onDiagnostic
   return (
     <div className="gg-report">
       <header className={`gg-report-hero is-${game.winner || 'none'}`}>
-        <span className="gg-report-mark" aria-hidden="true">
-          {game.winner === 'wolves' ? '☾' : '☀'}
+        <span className="gg-report-mark">
+          <GameGlyph name={game.winner === 'wolves' ? 'moon' : 'sun'} size={24} />
         </span>
         <div>
           <h2>{title}</h2>
@@ -400,14 +391,16 @@ export function WerewolfTable(props: GameTableProps) {
                     </div>
                   </article>
                 );
-              const night = /^第 \d+ 夜$/.test(e.text) || e.text.startsWith('天黑');
+              const night = /^第 \d+ 夜$/.test(e.text) || e.text.startsWith('天黑'),
+                dawn = e.text.startsWith('天亮');
               return (
                 <div
-                  className={`gg-system ${e.scope === 'personal' ? 'is-private' : ''} ${night || e.text.startsWith('天亮') ? 'is-big' : ''}`}
+                  className={`gg-system ${e.scope === 'personal' ? 'is-private' : ''} ${night || dawn ? 'is-big' : ''}`}
                   key={e.id}
                 >
                   {e.scope === 'personal' && <span className="gg-private-mark">{translate('只有你能看到')}</span>}
-                  {e.text}
+                  {(night || dawn) && <GameGlyph name={night ? 'moon' : 'sun'} size={14} />}
+                  <span>{e.text}</span>
                 </div>
               );
             })}
@@ -466,8 +459,8 @@ export function WerewolfTable(props: GameTableProps) {
                 onBlur={() => setPeek(false)}
                 aria-label={translate('按住查看身份')}
               >
-                <span className="gg-identity-emblem" aria-hidden="true">
-                  {EMBLEM[self.role]}
+                <span className="gg-identity-emblem">
+                  <GameGlyph name={self.role} size={20} />
                 </span>
                 <span>
                   <b>{translate(roles[self.role])}</b>

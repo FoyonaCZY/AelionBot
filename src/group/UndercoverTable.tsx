@@ -5,6 +5,7 @@ import { translate } from '../../shared/i18n';
 import { GameActionControls } from './GameActionControls';
 import { DiagnosticsDrawer, GameTopbar, useGameTable, type GameTableProps } from './GameTableFrame';
 import { GameTimer } from './GamePhaseStatus';
+import { GameGlyph } from './GameGlyph';
 import { SeatAvatar, Tally } from './WerewolfTable';
 import { matchMinutes, seatNumber, transcriptItems } from './game-view-model';
 
@@ -45,8 +46,8 @@ function Report({ game, onDiagnostics, onClose }: { game: GameView; onDiagnostic
       <header
         className={`gg-report-hero is-${game.winner === 'civilian' ? 'village' : game.winner ? 'wolves' : 'none'}`}
       >
-        <span className="gg-report-mark" aria-hidden="true">
-          🕵
+        <span className="gg-report-mark">
+          <GameGlyph name="undercover" size={24} />
         </span>
         <div>
           <h2>{translate(game.winner ? WINNER[game.winner] : '对局已中止')}</h2>
@@ -211,7 +212,7 @@ export function UndercoverTable(props: GameTableProps) {
                   key={e.id}
                 >
                   {e.scope === 'personal' && <span className="gg-private-mark">{translate('只有你能看到')}</span>}
-                  {e.text}
+                  <span>{e.text}</span>
                 </div>
               );
             })}

@@ -65,13 +65,24 @@ export interface GameMode<S extends MatchState = MatchState> {
   /** Throws when this game cannot be played with this many seats. Checked before anything else. */
   checkSeats(count: number): void;
   /** Start a match. Throws when the players or options do not fit this game. */
-  create(input: { groupId: string; players: GamePlayer[]; board?: GameView['board']; blank?: boolean }): S;
+  create(input: {
+    groupId: string;
+    players: GamePlayer[];
+    board?: GameView['board'];
+    blank?: boolean;
+    tableTalk?: boolean;
+  }): S;
   /** Rule description recorded in the run record when the match is created. */
   describe(s: S, aiTimeoutMs: number): string;
   validate(s: S, request: GameRequest, action: GameAction): void;
   accept(s: S, requestId: string, action: GameAction, timeout?: boolean): void;
   /** What a human seat submits when its deadline passes. */
   timeoutAction(request: GameRequest): GameAction;
+  /**
+   * Model seats play to a deadline as people do: past it, or out of attempts, they make the timeout move.
+   * Without it a model that is late pauses the match and keeps its turn.
+   */
+  timesModels?: boolean;
   view(s: S, viewerId?: string, omniscient?: boolean): GameView;
   /** System prompt and input sent to the model; they may only use what `view` gave this seat. */
   instructions(context: GameView, request: GameRequest): string;

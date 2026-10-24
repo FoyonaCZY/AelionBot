@@ -3,6 +3,7 @@ import type { GameAction, GameView } from '../../shared/types/game-types';
 import { translate } from '../../shared/i18n';
 import { Icon } from '../ui/Icon';
 import { GameDiagnostics } from './GameDiagnostics';
+import { GameGlyph } from './GameGlyph';
 import { GameTimer } from './GamePhaseStatus';
 
 /** What every game table receives from the AI games dialog. */
@@ -136,7 +137,7 @@ export function GameTopbar({
           disabled={busy || !!syncError}
           onClick={() => void control(game.status === 'paused' ? 'resume' : 'pause')}
         >
-          {game.status === 'paused' ? <span aria-hidden="true">▶</span> : <Icon name="pause" size={15} />}
+          {game.status === 'paused' ? <GameGlyph name="play" size={14} /> : <Icon name="pause" size={15} />}
         </button>
         <div className="gg-menu">
           <button
@@ -146,7 +147,7 @@ export function GameTopbar({
             aria-expanded={menu}
             onClick={() => setMenu(!menu)}
           >
-            <span aria-hidden="true">⋯</span>
+            <Icon name="more" size={17} />
           </button>
           {menu && (
             <div className="gg-menu-list" role="menu" onClick={() => setMenu(false)}>

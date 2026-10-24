@@ -1,0 +1,770 @@
+/* Card and tile games (Dou Di Zhu, Mahjong). The table sits on the dialog's glass like the other games: seats are
+   plain areas, the cards and tiles themselves are the only solid objects, drawn as real ones (white cards, ivory
+   tiles) in either theme. The side column holds the card counter and the log. */
+.cg-layout {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) 228px;
+  gap: 22px;
+  min-height: 0;
+  padding: 0 22px 18px 18px;
+}
+
+/* ---------- Dou Di Zhu ---------- */
+.cg-felt {
+  display: grid;
+  grid-template-areas:
+    'left center right'
+    'mine mine mine';
+  grid-template-columns: minmax(150px, 220px) minmax(0, 1fr) minmax(150px, 220px);
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px 16px;
+  min-width: 0;
+  min-height: 0;
+  padding: 16px 18px 14px;
+  border-radius: 20px;
+  background: var(--ctl-fill);
+}
+.cg-felt > .cg-seat.is-left {
+  grid-area: left;
+}
+.cg-felt > .cg-seat.is-right {
+  grid-area: right;
+  align-items: flex-end;
+  text-align: right;
+}
+.cg-center {
+  display: flex;
+  grid-area: center;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-width: 0;
+}
+.cg-mine {
+  display: flex;
+  grid-area: mine;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.cg-seat {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.cg-seat.is-bottom {
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+}
+.cg-seat-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.cg-seat.is-right .cg-seat-head {
+  flex-direction: row-reverse;
+}
+.cg-seat-avatar {
+  position: relative;
+  display: inline-flex;
+}
+.cg-seat.is-turn .cg-seat-avatar :is(.avatar, .gg-human-avatar),
+.mj-seat.is-turn .mj-seat-head :is(.avatar, .gg-human-avatar) {
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--ctl-accent);
+}
+.cg-crown {
+  position: absolute;
+  top: -5px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #f6cf6a, #d99a2b);
+  box-shadow: 0 1px 3px rgba(80, 50, 0, 0.35);
+  color: #5a3a00;
+}
+.cg-seat-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cg-seat-name b {
+  overflow: hidden;
+  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cg-seat-name small {
+  color: var(--gg-muted);
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+}
+.cg-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--ctl-accent-soft);
+  color: var(--ctl-accent);
+  font-size: calc(11px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
+  white-space: nowrap;
+}
+.cg-thinking::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: cg-blink 1.2s ease-in-out infinite;
+}
+@keyframes cg-blink {
+  50% {
+    opacity: 0.3;
+  }
+}
+.cg-backs {
+  display: flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+.cg-backs > .cg-card + .cg-card {
+  margin-left: -24px;
+}
+/* Face-up hands (after the match, or in full view) overlap less so each rank shows. */
+.cg-backs > .cg-card:not(.is-back) + .cg-card {
+  margin-left: -15px;
+}
+.cg-seat.is-right .cg-backs {
+  justify-content: flex-end;
+}
+.cg-talk {
+  position: relative;
+  max-width: 100%;
+  margin: 0;
+  padding: 6px 11px;
+  border-radius: 4px 14px 14px 14px;
+  background: var(--bubble-surface);
+  box-shadow:
+    0 0 0 0.5px light-dark(rgba(41, 32, 58, 0.08), rgba(255, 255, 255, 0.06)),
+    var(--bubble-lift);
+  color: var(--gg-ink);
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  line-height: 1.5;
+  animation: cg-pop 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.cg-seat.is-right .cg-talk {
+  border-radius: 14px 4px 14px 14px;
+}
+@keyframes cg-pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.97);
+  }
+}
+.cg-played {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 62px;
+}
+.cg-seat.is-right .cg-played {
+  align-items: flex-end;
+}
+.cg-seat.is-bottom .cg-played {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-height: 0;
+  margin-left: auto;
+}
+.cg-played small {
+  color: var(--gg-muted);
+  font-size: calc(11px * var(--appearance-text-scale, 1));
+}
+.cg-play-cards {
+  display: flex;
+  animation: cg-pop 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.cg-play-cards > .cg-card + .cg-card {
+  margin-left: -14px;
+}
+.cg-pass {
+  color: var(--gg-muted);
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
+}
+.cg-kitty {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.cg-kitty small {
+  margin-right: 6px;
+  color: var(--gg-muted);
+  font-size: var(--text-caption);
+}
+.cg-hand {
+  display: flex;
+  justify-content: center;
+  min-height: 96px;
+  padding-top: 16px;
+}
+.cg-hand > .cg-card + .cg-card {
+  margin-left: -32px;
+}
+.cg-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+}
+.cg-actions .group-error {
+  flex-basis: 100%;
+  margin: 0;
+}
+.cg-actions :is(.primary-button, .secondary-button) {
+  height: 34px;
+  padding: 0 16px;
+}
+.cg-pick {
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+}
+.cg-pick.is-bad {
+  color: var(--ctl-danger);
+}
+
+/* A playing card: always a real white card, red or near-black ink, in either theme. The corner index carries the
+   card while cards overlap; the middle and the turned index at the far corner show on a card seen whole. */
+.cg-card {
+  --ink: #1d1b24;
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 60px;
+  height: 84px;
+  padding: 0;
+  border-radius: 7px;
+  background: linear-gradient(165deg, #ffffff 0%, #fbfaf7 55%, #f3f0ea 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.9),
+    0 0 0 0.5px rgba(28, 22, 36, 0.28),
+    0 1px 1px rgba(28, 22, 36, 0.1),
+    0 4px 10px -4px rgba(28, 22, 36, 0.28);
+  color: var(--ink);
+  font-family: Cambria, 'Times New Roman', Georgia, serif;
+  font-variant-numeric: lining-nums;
+  line-height: 1;
+  text-align: left;
+  transition:
+    transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.16s;
+}
+.cg-card.is-red {
+  --ink: #c42f26;
+}
+/* Cards in a hand are buttons, which the app sets in its interface face; a card keeps its own. */
+:root button.cg-card {
+  font-family: Cambria, 'Times New Roman', Georgia, serif;
+}
+.cg-index {
+  position: absolute;
+  top: 5px;
+  left: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 15px;
+  gap: 2px;
+}
+.cg-index b {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.06em;
+}
+.cg-index svg {
+  width: 11px;
+  height: 11px;
+}
+.cg-index.is-joker {
+  gap: 0;
+}
+.cg-index.is-joker i {
+  font-size: 8.5px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.02;
+}
+.cg-index-end {
+  position: absolute;
+  inset: 0;
+  transform: rotate(180deg);
+}
+.cg-middle {
+  position: absolute;
+  inset: 16px 14px;
+  display: grid;
+  place-items: center;
+}
+.cg-pip {
+  width: 24px;
+  height: 24px;
+}
+.cg-pip.is-ace {
+  width: 32px;
+  height: 32px;
+}
+/* J, Q, K: the letter in a framed panel tinted with the suit's ink. */
+.cg-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 30px;
+  height: 46px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 35%, transparent);
+}
+.cg-face b {
+  font-size: 21px;
+  font-weight: 700;
+}
+.cg-face svg {
+  width: 11px;
+  height: 11px;
+}
+.cg-crown-art {
+  width: 30px;
+  height: 30px;
+}
+.cg-card.is-sm {
+  width: 32px;
+  height: 45px;
+  border-radius: 5px;
+}
+.cg-card.is-sm .cg-index {
+  top: 3px;
+  left: 2px;
+  width: 13px;
+  gap: 1px;
+}
+.cg-card.is-sm .cg-index b {
+  font-size: 12.5px;
+}
+.cg-card.is-sm .cg-index svg {
+  width: 9px;
+  height: 9px;
+}
+.cg-card.is-sm .cg-index.is-joker i {
+  font-size: 7px;
+}
+/* The back: a deep indigo field with a fine lattice, framed by a white border, and a small emblem. */
+.cg-card.is-back {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.22) 0 3px, transparent 3.5px),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.09) 0 1px, transparent 1px 6px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.09) 0 1px, transparent 1px 6px),
+    linear-gradient(160deg, #4b3f86, #2c2557);
+  box-shadow:
+    inset 0 0 0 2.5px #fbfaf7,
+    inset 0 0 0 3.5px rgba(44, 37, 87, 0.5),
+    0 0 0 0.5px rgba(28, 22, 36, 0.3),
+    0 2px 5px -2px rgba(28, 22, 36, 0.35);
+}
+.cg-card.is-sm.is-back {
+  box-shadow:
+    inset 0 0 0 2px #fbfaf7,
+    0 0 0 0.5px rgba(28, 22, 36, 0.3),
+    0 2px 4px -2px rgba(28, 22, 36, 0.35);
+}
+button.cg-card {
+  cursor: pointer;
+}
+button.cg-card:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.cg-hand.is-live button.cg-card:not(:disabled):hover {
+  transform: translateY(-6px);
+}
+button.cg-card.is-selected,
+.cg-hand.is-live button.cg-card.is-selected:hover {
+  transform: translateY(-18px);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.9),
+    0 0 0 2px var(--ctl-accent),
+    0 10px 18px -8px rgba(28, 22, 36, 0.45);
+}
+
+/* The result in the middle of the table. */
+.cg-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-width: 240px;
+  padding: 20px 24px;
+  border-radius: 18px;
+  background: var(--bubble-surface);
+  box-shadow:
+    0 0 0 0.5px light-dark(rgba(41, 32, 58, 0.1), rgba(255, 255, 255, 0.08)),
+    0 10px 30px -14px light-dark(rgba(41, 32, 58, 0.3), rgba(0, 0, 0, 0.6));
+  text-align: center;
+  animation: cg-pop 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.cg-result h2 {
+  margin: 0;
+  color: var(--gg-good);
+  font-size: calc(22px * var(--appearance-text-scale, 1));
+  font-weight: 650;
+}
+.cg-result.is-landlord h2 {
+  color: var(--gg-god);
+}
+.cg-result ul {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cg-result li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+}
+.cg-result li b {
+  font-variant-numeric: tabular-nums;
+}
+.cg-result .is-up {
+  color: light-dark(#2f8a5d, #8fd6b1);
+}
+.cg-result .is-down {
+  color: var(--ctl-danger);
+}
+.cg-result .gg-muted {
+  margin: 0;
+}
+.cg-result-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.cg-result-actions :is(.primary-button, .secondary-button) {
+  height: 34px;
+  padding: 0 16px;
+}
+
+/* ---------- side column ---------- */
+.cg-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 4px;
+}
+.cg-counter {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 18px;
+}
+.cg-counter span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 0 4px;
+  border-radius: 9px;
+  background: var(--ctl-fill);
+}
+.cg-counter b {
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  font-weight: 600;
+}
+.cg-counter i {
+  color: var(--gg-muted);
+  font-size: calc(11px * var(--appearance-text-scale, 1));
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+.cg-counter .is-out {
+  opacity: 0.35;
+}
+.cg-log {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0 2px 0 0;
+  overflow: auto;
+  color: var(--text-secondary);
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  line-height: 1.55;
+  list-style: none;
+}
+.cg-log li {
+  padding: 3px 0;
+}
+.cg-log li.is-talk {
+  color: var(--gg-ink);
+}
+.cg-log li b {
+  margin-right: 6px;
+  font-weight: var(--weight-label);
+}
+
+/* ---------- Mahjong ---------- */
+.mj-felt {
+  display: grid;
+  grid-template-areas:
+    'left top right'
+    'left center right'
+    'bottom bottom bottom';
+  grid-template-columns: minmax(130px, 176px) minmax(0, 1fr) minmax(130px, 176px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px 14px;
+  min-width: 0;
+  min-height: 0;
+  padding: 14px 16px 12px;
+  border-radius: 20px;
+  background: var(--ctl-fill);
+  overflow: auto;
+}
+.mj-seat.is-top {
+  grid-area: top;
+}
+.mj-seat.is-left {
+  grid-area: left;
+}
+.mj-seat.is-right {
+  grid-area: right;
+}
+.mj-seat.is-bottom {
+  grid-area: bottom;
+}
+.mj-center {
+  display: grid;
+  grid-area: center;
+  place-items: center;
+  min-height: 120px;
+}
+.mj-seat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.mj-seat.is-top,
+.mj-seat.is-bottom {
+  align-items: center;
+}
+.mj-seat-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mj-seat-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.mj-seat-name b {
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
+}
+.mj-seat-name small {
+  color: var(--gg-muted);
+  font-size: calc(11px * var(--appearance-text-scale, 1));
+}
+.mj-seat.is-won .mj-seat-name b {
+  color: var(--gg-god);
+}
+.mj-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px 1px;
+}
+.mj-meld {
+  display: inline-flex;
+  margin-right: 6px;
+}
+.mj-river {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px 2px;
+  max-width: calc(24px * 10);
+}
+.mj-seat.is-left .mj-river,
+.mj-seat.is-right .mj-river {
+  max-width: calc(24px * 6);
+}
+.mj-hand {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  min-height: 60px;
+  padding-top: 8px;
+}
+.mj-hand .mj-drawn {
+  margin-left: 12px;
+}
+.mj-wall {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.mj-wall > b {
+  font-size: calc(26px * var(--appearance-text-scale, 1));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.mj-wall > small {
+  color: var(--gg-muted);
+  font-size: var(--text-caption);
+}
+.mj-last {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 12px;
+  animation: cg-pop 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.mj-last small {
+  color: var(--gg-muted);
+  font-size: calc(11px * var(--appearance-text-scale, 1));
+}
+.mj-win-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+}
+
+/* A mahjong tile: an ivory face over a green back. Below the face show a sliver of ivory body and then the green
+   layer, as on a real tile, which also gives it its depth. Colours stay those of a real set in either theme. */
+.mj-tile {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  width: 38px;
+  height: 51px;
+  margin-bottom: 4px;
+  padding: 3px 2.5px;
+  border-radius: 6px;
+  background: linear-gradient(170deg, #fffef9 0%, #faf5e9 50%, #f1e9d6 100%);
+  box-shadow:
+    inset 0 1px 0 #ffffff,
+    inset 0 -1px 0 rgba(120, 100, 60, 0.12),
+    0 0 0 0.5px rgba(80, 64, 30, 0.35),
+    0 2px 0 #e8dcc0,
+    0 4px 0 #2b7a5f,
+    0 4px 0 0.5px rgba(16, 58, 43, 0.55),
+    0 7px 10px -3px rgba(20, 16, 8, 0.38);
+  transition:
+    transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.16s;
+}
+.mj-face {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+/* A brush face, thickened with an outline in its own colour: the app turns off synthetic bold, and a regular brush
+   face reads too thin for a tile. */
+.mj-glyph {
+  font-family: KaiTi, STKaiti, 'Kaiti SC', BiauKai, 'Songti SC', SimSun, serif;
+  font-weight: 700;
+  text-anchor: middle;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+.mj-tile.is-sm {
+  width: 22px;
+  height: 30px;
+  margin-bottom: 2.5px;
+  padding: 2px 1.5px;
+  border-radius: 4px;
+  box-shadow:
+    inset 0 1px 0 #ffffff,
+    0 0 0 0.5px rgba(80, 64, 30, 0.35),
+    0 1.5px 0 #e8dcc0,
+    0 2.5px 0 #2b7a5f,
+    0 4px 5px -2px rgba(20, 16, 8, 0.3);
+}
+/* Seen from behind: the green back, a lighter rim, and the ivory body beneath. */
+.mj-tile.is-back {
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(255, 255, 255, 0.22), transparent 60%),
+    linear-gradient(180deg, #3b9174, #286b55);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    0 0 0 0.5px rgba(16, 58, 43, 0.6),
+    0 2px 0 #e8dcc0,
+    0 3px 6px -2px rgba(20, 16, 8, 0.35);
+}
+.mj-tile.is-sm.is-back {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    0 0 0 0.5px rgba(16, 58, 43, 0.6),
+    0 1.5px 0 #e8dcc0,
+    0 3px 4px -2px rgba(20, 16, 8, 0.3);
+}
+.mj-tile.is-active {
+  outline: 2px solid var(--ctl-accent);
+  outline-offset: 1.5px;
+}
+.mj-tile.is-dim {
+  opacity: 0.4;
+}
+button.mj-tile {
+  cursor: pointer;
+}
+button.mj-tile:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.mj-hand.is-live button.mj-tile:not(:disabled):hover,
+.mj-hand.is-live button.mj-tile.is-active {
+  transform: translateY(-9px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cg-thinking::before,
+  .cg-talk,
+  .cg-play-cards,
+  .cg-result,
+  .mj-last {
+    animation: none;
+  }
+}
+@media (max-width: 900px) {
+  .cg-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cg-side {
+    display: none;
+  }
+}

@@ -10,11 +10,17 @@ export const ROLE_NAMES: Record<GameRole, string> = {
   civilian: '平民',
   undercover: '卧底',
   blank: '白板',
+  landlord: '地主',
+  farmer: '农民',
+  dealer: '庄家',
+  player: '闲家',
 };
 export const PHASE_NAMES: Record<GamePhase, string> = {
   night: '夜间行动',
   election: '警长竞选',
   resolution: '出局结算',
+  bid: '叫地主',
+  play: '出牌',
   speech: '白天发言',
   vote: '放逐投票',
   finished: '对局结束',
@@ -38,6 +44,10 @@ export const ACTION_NAMES: Record<GameRequest['kind'], string> = {
   pk_speak: '平票 PK 发言',
   describe: '描述',
   blank_guess: '猜平民词',
+  bid: '叫地主',
+  play: '出牌',
+  discard: '出牌',
+  claim: '碰杠胡',
 };
 export const BOARDS = {
   standard12: {
