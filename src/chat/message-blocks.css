@@ -345,8 +345,10 @@
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
+/* One label-value pair per row; the global dl rule would split them into two columns. */
 .message-calculator-result dl {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
   min-width: 180px;
   margin: 0;
@@ -381,6 +383,8 @@
   color: light-dark(#5b4d72, #d8cae8);
   font: inherit;
   font-size: calc(12px * var(--appearance-text-scale, 1));
+  white-space: nowrap;
+  flex-shrink: 0;
   cursor: pointer;
 }
 .message-calculator-actions button:hover:not(:disabled) {
