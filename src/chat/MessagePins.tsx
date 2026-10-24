@@ -74,6 +74,7 @@ export function MessageActions({
   pins = [],
   onPin,
   onReply,
+  onEdit,
   bubbleClassName,
   after,
   children,
@@ -83,6 +84,8 @@ export function MessageActions({
   pins?: MessagePin[];
   onPin?: (input: PinInput) => Promise<unknown>;
   onReply?: () => void;
+  /** Takes the message back into the composer to edit it. */
+  onEdit?: () => void;
   bubbleClassName: string;
   /** Shown between the bubble and its reactions: the files a message carries. */
   after?: ReactNode;
@@ -102,7 +105,7 @@ export function MessageActions({
   const toolbar = useRef<HTMLDivElement>(null),
     hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
     copiedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const hasToolbar = Boolean(onPin || onReply || content.trim());
+  const hasToolbar = Boolean(onPin || onReply || onEdit || content.trim());
   const showToolbar = () => {
     clearTimeout(hoverTimer.current);
     window.dispatchEvent(new CustomEvent('aelion:message-hover', { detail: messageId }));
@@ -163,7 +166,7 @@ export function MessageActions({
       window.removeEventListener('scroll', hide, true);
       window.removeEventListener('resize', hide);
     };
-  }, [hovered, onPin, onReply, messageId]);
+  }, [hovered, onPin, onReply, onEdit, messageId]);
   const dismiss = (restore = false) => {
     const previous = anchorRef.current?.returnFocus;
     setAnchor(undefined);
@@ -388,6 +391,31 @@ export function MessageActions({
                   aria-hidden="true"
                 >
                   <path d="m9 5-6 6 6 6M3 11h11a7 7 0 0 1 7 7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
+            {onEdit && (
+              <button
+                type="button"
+                aria-label={t('撤回并编辑')}
+                title={t('撤回并编辑')}
+                onClick={() => {
+                  setHovered(false);
+                  onEdit();
+                }}
+              >
+                <svg
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4ZM13.5 6.5l4 4" />
                 </svg>
               </button>
             )}

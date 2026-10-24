@@ -271,6 +271,10 @@ export class ContextEngine {
   compactionPending(botId: string, scopeKey?: string) {
     return this.manual.has(manualKey(botId, scopeKey));
   }
+  /** How much of a chat's history a summary already covers; cutting the history below it needs a fresh context. */
+  summarizedThrough(botId: string, scopeKey?: string) {
+    return this.storage.head(scopeKey ? `${botId}:${scopeKey}` : botId).through;
+  }
   // Compact the main chat now, outside a run. System prompt and tools are not needed on the serialized path.
   async compactNow(
     botId: string,

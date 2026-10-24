@@ -31,6 +31,8 @@ import { PreviewAnnotationChips } from '../preview/PreviewAnnotationChips';
 
 export interface ComposerDraft {
   reply?: MessageReply;
+  /** The message this draft was taken back from to edit; setting it puts the caret at the end of the text. */
+  restoredFrom?: string;
   text: string;
   mentions: BotMention[];
   attachments?: Attachment[];
@@ -505,7 +507,7 @@ export function BotComposer({
     }
   }, [draft]);
   useEffect(() => {
-    if (draft.reply) {
+    if (draft.reply || draft.restoredFrom) {
       const root = editor.current;
       if (!root) return;
       root.focus({ preventScroll: true });
@@ -516,7 +518,7 @@ export function BotComposer({
       selection?.removeAllRanges();
       selection?.addRange(range);
     }
-  }, [draft.reply?.messageId]);
+  }, [draft.reply?.messageId, draft.restoredFrom]);
   useLayoutEffect(() => {
     for (const node of editor.current?.querySelectorAll<HTMLElement>('[data-bot-id]') || []) {
       const live = bots.find((item) => item.id === node.dataset.botId);

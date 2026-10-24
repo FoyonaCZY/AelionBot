@@ -258,3 +258,51 @@
   background: light-dark(#25282c, #e4e1e7);
   color: light-dark(#fff, #201e24);
 }
+
+/* A Bot's archived sessions (ArchivedSessions.tsx): one row each, the name opens it. */
+.archived-session-list {
+  display: grid;
+  gap: 2px;
+  max-height: min(420px, 60vh);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.archived-session-list > li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.archived-session-open {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: 9px;
+  text-align: left;
+  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  color: light-dark(#35383c, #e3e0e7);
+}
+.archived-session-open:hover {
+  background: light-dark(#f5f3f8, #232127);
+}
+.archived-session-open > svg {
+  flex-shrink: 0;
+  color: light-dark(#9a9ba0, #8f8b95);
+}
+.archived-session-open > small {
+  flex-shrink: 0;
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  color: light-dark(#9a9ba0, #a19da7);
+}
+.archived-session-list .secondary-button {
+  flex-shrink: 0;
+}
+.archived-session-empty {
+  margin: 4px 0 8px;
+  color: light-dark(#8b8c8e, #a19da7);
+}

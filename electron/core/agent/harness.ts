@@ -656,8 +656,10 @@ export class Harness {
     const superseded = options.supersedesRunId
       ? this.store.data.runs.find((r) => r.id === options.supersedesRunId && r.botId === botId)
       : undefined;
-    // Only a run of the same conversation is superseded; its plan and context carry over.
+    // Only a run of the same conversation is superseded; its plan and context carry over. A run the user took back
+    // to edit carries nothing.
     if (
+      superseded?.retracted ||
       superseded?.groupOrigin?.groupId !== options.groupOrigin?.groupId ||
       superseded?.sessionId !== options.sessionId
     )
@@ -2242,7 +2244,8 @@ export class Harness {
     if (this.groupActive.get(botId) === groupRuntime) this.groupActive.delete(botId);
     this.runtimes.delete(lane);
     this.active.delete(lane);
-    if (cognition) cognition.afterRun(botId, run.id, state.lastRuntimeMessages, state.lastTools);
+    // Nothing is learned from a run the user took back.
+    if (cognition && !run.retracted) cognition.afterRun(botId, run.id, state.lastRuntimeMessages, state.lastTools);
     else this.cognition?.learning.schedule();
     this.changed();
   }

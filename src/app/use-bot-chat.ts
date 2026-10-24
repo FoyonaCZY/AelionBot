@@ -45,6 +45,44 @@ export function useBotChat(input: {
       },
     }));
   };
+  /**
+   * Takes back a message still waiting or being worked on and puts it in the composer to edit. Anything already typed
+   * there stays, after it.
+   */
+  const edit = async (message: ChatMessage) => {
+    if (!bot || message.botId !== bot.id) return;
+    const key = chatKey(bot.id);
+    try {
+      const taken = await window.aelion.retractChat({
+        botId: bot.id,
+        ...(sessionId ? { sessionId } : {}),
+        messageId: message.id,
+      });
+      drafts.update((value) => {
+        const typed = value[key],
+          offset = typed?.text ? taken.text.length + 2 : 0,
+          attachments = [...taken.attachments];
+        for (const file of typed?.attachments || [])
+          if (!attachments.some((known) => known.id === file.id)) attachments.push(file);
+        const reply = taken.reply || typed?.reply;
+        return {
+          ...value,
+          [key]: {
+            text: typed?.text ? taken.text + '\n\n' + typed.text : taken.text,
+            mentions: [
+              ...taken.mentions,
+              ...(typed?.mentions || []).map((m) => ({ ...m, start: m.start + offset, end: m.end + offset })),
+            ],
+            ...(attachments.length ? { attachments } : {}),
+            ...(reply ? { reply } : {}),
+            restoredFrom: message.id,
+          },
+        };
+      });
+    } catch (error) {
+      onError(ipcErrorText(error));
+    }
+  };
   const send = async () => {
     // Read when sending: the draft changes on every keystroke and is not part of this hook's render.
     const key = chatKey(bot?.id || '');
@@ -105,5 +143,5 @@ export function useBotChat(input: {
       .resumeChat({ botId: bot.id, runId: latestRun.id })
       .catch((error) => onError(ipcErrorText(error)));
   };
-  return { send, replyTo, continueWork };
+  return { send, replyTo, edit, continueWork };
 }

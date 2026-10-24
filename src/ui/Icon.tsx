@@ -166,6 +166,20 @@ export function Icon({ name, size = 20 }: { name: string; size?: number }) {
       </>
     ),
     folder: <path d="M3 5h7l2 3h9v12H3z" />,
+    fork: (
+      <>
+        <circle cx="6" cy="5" r="2" />
+        <circle cx="18" cy="5" r="2" />
+        <circle cx="12" cy="19" r="2" />
+        <path d="M6 7v2a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7M12 12v5" />
+      </>
+    ),
+    archive: (
+      <>
+        <rect x="3" y="4" width="18" height="5" rx="1" />
+        <path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4" />
+      </>
+    ),
     arrow: <path d="m8 5 7 7-7 7" />,
     down: <path d="m6 9 6 6 6-6" />,
     globe: (

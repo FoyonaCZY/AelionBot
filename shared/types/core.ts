@@ -233,6 +233,8 @@ export interface RunRecord {
   executions?: ToolExecution[];
   attachments?: Attachment[];
   inputUpdated?: boolean;
+  /** The user took back the input this run worked on to edit it; its messages are gone from the chat. */
+  retracted?: boolean;
   supersedesRunId?: string;
   progressSteps?: number;
   groupReplyMessageId?: string;
@@ -641,6 +643,11 @@ export interface AelionAPI {
   createWorkSession(input: { botId: string; name: string; workspaceDir?: string }): Promise<WorkSession>;
   updateWorkSession(input: { id: string; name?: string; archived?: boolean }): Promise<void>;
   deleteWorkSession(id: string): Promise<void>;
+  /**
+   * A new work session from the Bot's main chat (no `sessionId`) or one of its work sessions: the records up to its
+   * last completed task, with its folder and permission mode.
+   */
+  forkWorkSession(input: { botId: string; sessionId?: string }): Promise<WorkSession>;
   updateBot(input: BotUpdateInput): Promise<void>;
   /** The Bot's personality profile (personality doc §14). */
   personaProfile(input: { botId: string; mbti?: string }): Promise<import('./persona-types').PersonaView>;
@@ -685,6 +692,16 @@ export interface AelionAPI {
   continueGroup(id: string): Promise<void>;
   /** Stops a Bot's main chat (with its group and delegated work), or with `sessionId` one work session. */
   cancel(botId: string, sessionId?: string): Promise<void>;
+  /**
+   * Takes back a message that is waiting or whose task is still running, stopping that task, and returns what it
+   * held for the composer (see shared/chat/retract.ts).
+   */
+  retractChat(input: { botId: string; sessionId?: string; messageId: string }): Promise<{
+    text: string;
+    mentions: BotMention[];
+    attachments: Attachment[];
+    reply?: MessageReply;
+  }>;
   stopLiveWork(input: { botId: string; kind: 'terminal' | 'process'; id: string }): Promise<void>;
   saveModel(input: { baseUrl: string; model: string; apiKey?: string; contextTokens: number }): Promise<void>;
   testModel(): Promise<string>;

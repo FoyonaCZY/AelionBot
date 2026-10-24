@@ -65,6 +65,8 @@ export class ChatPinQueue {
   /** Keyed by lane (see runLane): each of a Bot's chats has its own worker and superseded run. */
   private workers = new Set<string>();
   private superseded = new Map<string, string>();
+  /** Lanes whose input is being taken back: nothing new starts in them until that is done. */
+  private held = new Set<string>();
   constructor(
     private store: Store,
     private runner: {
@@ -227,7 +229,8 @@ export class ChatPinQueue {
         if (
           !this.store.modelFor(botId).model ||
           this.runner.isRunning(botId, sessionId ?? null) ||
-          this.workers.has(lane)
+          this.workers.has(lane) ||
+          this.held.has(lane)
         )
           continue;
         const human = queued.filter((message) => !message.scheduled),
@@ -279,6 +282,26 @@ export class ChatPinQueue {
     for (const lane of this.superseded.keys()) if (laneMatches(lane, botId, sessionId)) this.superseded.delete(lane);
     this.store.save();
     this.changed();
+  }
+  /**
+   * Keeps queued input in one chat from starting while `work` runs, so a run started meanwhile cannot write into the
+   * history that is being cut back; the queue goes on afterwards.
+   */
+  async hold<T>(botId: string, sessionId: string | undefined, work: () => Promise<T>) {
+    const lane = runLane(botId, sessionId);
+    if (this.held.has(lane)) throw new AppError('chat.retract_busy', '正在撤回这个对话里的消息，请稍后再试');
+    this.held.add(lane);
+    try {
+      return await work();
+    } finally {
+      this.held.delete(lane);
+      this.wake();
+    }
+  }
+  /** Forgets that a run was superseded, so the next input does not carry on with it. */
+  forgetSuperseded(botId: string, sessionId: string | undefined, runId: string) {
+    const lane = runLane(botId, sessionId);
+    if (this.superseded.get(lane) === runId) this.superseded.delete(lane);
   }
   /** A work session moves up the conversation list when the user writes in it. */
   private touchSession(sessionId?: string) {

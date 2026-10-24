@@ -31,7 +31,11 @@ export function botConversation(state: Snapshot | undefined, bot: Bot | undefine
   const timeline = conversationTimeline(messages);
   const botRuns = (state?.runs || []).filter(
     (run) =>
-      run.botId === bot?.id && run.sessionId === sessionId && !isPrivatePeerOrigin(run.peerOrigin) && !run.groupOrigin,
+      run.botId === bot?.id &&
+      run.sessionId === sessionId &&
+      !isPrivatePeerOrigin(run.peerOrigin) &&
+      !run.groupOrigin &&
+      !run.retracted,
   );
   const lastContext = botRuns.filter((run) => run.contextOverview).at(-1)?.contextOverview;
   const runIds = new Set(botRuns.map((run) => run.id)),

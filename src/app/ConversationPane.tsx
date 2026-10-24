@@ -141,6 +141,7 @@ export function ConversationPane({
             followLive={followLive}
             onSend={() => void chat.send()}
             onReply={chat.replyTo}
+            onEdit={(message) => void chat.edit(message)}
             onContinue={chat.continueWork}
             onSettings={(tab) => (tab === 'model' && bot.model ? onProfile(bot) : onSettings(tab))}
             onScreen={onScreen}

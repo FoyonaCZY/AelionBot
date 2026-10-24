@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { AppError } from '../../shared/errors';
 import type { WorkSession } from '../../shared/types/core';
 import { setConversationWorkspace } from '../core/storage/workspaces';
+import { forkConversation } from '../core/agent/fork-session';
 import type { IpcContext } from './context';
 
 const sessionName = (value: unknown) => {
@@ -48,6 +49,11 @@ export function registerSessions(ctx: IpcContext) {
     }
     ctx.store.save();
     ctx.changed();
+  });
+  handle('forkWorkSession', (input) => {
+    const session = forkConversation(ctx.store, input, (scope) => ctx.hostApprovals.modeForScope(scope));
+    ctx.changed();
+    return session;
   });
   handle('deleteWorkSession', (id) => {
     const session = find(id);

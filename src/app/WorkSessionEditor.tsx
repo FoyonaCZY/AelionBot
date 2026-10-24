@@ -13,13 +13,15 @@ const folderName = (path: string) =>
     .pop() || path;
 
 /**
- * Creates a work session of `bot` (or of one of `bots`, picked here), or edits `session`: its name, folder, archiving
- * and deletion. A session is another chat with the Bot, so this asks only for what tells it apart.
+ * Creates a work session of `bot` (or of one of `bots`, picked here), or edits `session`: its name and folder. With
+ * `deleting` it only asks to confirm the session's deletion; archiving and deleting start from the session's menu.
+ * A session is another chat with the Bot, so this asks only for what tells it apart.
  */
 export function WorkSessionEditor({
   bot,
   bots,
   session,
+  deleting = false,
   workspaceDir,
   onClose,
   onCreated,
@@ -29,6 +31,8 @@ export function WorkSessionEditor({
   /** The Bots a new session can belong to, `bot` chosen first; absent when it is `bot`'s. */
   bots?: Bot[];
   session?: WorkSession;
+  /** Opened to delete `session`: shows only the confirmation. */
+  deleting?: boolean;
   /** The session's own folder, when it has one. */
   workspaceDir?: string;
   onClose: () => void;
@@ -40,7 +44,7 @@ export function WorkSessionEditor({
     [folder, setFolder] = useState(session ? workspaceDir : undefined),
     [pending, setPending] = useState(false),
     [error, setError] = useState(''),
-    [confirmDelete, setConfirmDelete] = useState(false),
+    [confirmDelete, setConfirmDelete] = useState(deleting),
     [ownerId, setOwnerId] = useState(bot.id);
   const choices = !session && bots && bots.length > 1 ? bots : undefined;
   const scope = session ? { kind: 'bot' as const, id: bot.id, sessionId: session.id } : undefined;
@@ -100,7 +104,7 @@ export function WorkSessionEditor({
           if (event.key === 'Escape' && !pending) {
             event.preventDefault();
             event.stopPropagation();
-            if (confirmDelete) setConfirmDelete(false);
+            if (confirmDelete && !deleting) setConfirmDelete(false);
             else onClose();
           }
         }}
@@ -122,7 +126,12 @@ export function WorkSessionEditor({
               </p>
             )}
             <div className="dialog-actions">
-              <button className="secondary-button" autoFocus disabled={pending} onClick={() => setConfirmDelete(false)}>
+              <button
+                className="secondary-button"
+                autoFocus
+                disabled={pending}
+                onClick={() => (deleting ? onClose() : setConfirmDelete(false))}
+              >
                 {t('取消')}
               </button>
               <button
@@ -219,31 +228,6 @@ export function WorkSessionEditor({
               </p>
             )}
             <div className="dialog-actions work-session-actions">
-              {session && (
-                <>
-                  <button
-                    type="button"
-                    className="secondary-button danger-text"
-                    disabled={pending}
-                    onClick={() => setConfirmDelete(true)}
-                  >
-                    {t('删除')}
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={pending}
-                    onClick={() =>
-                      run(async () => {
-                        await window.aelion.updateWorkSession({ id: session.id, archived: !session.archivedAt });
-                        onClose();
-                      })
-                    }
-                  >
-                    {session.archivedAt ? t('取消归档') : t('归档')}
-                  </button>
-                </>
-              )}
               <span className="spacer" />
               <button type="button" className="secondary-button" disabled={pending} onClick={onClose}>
                 {t('取消')}

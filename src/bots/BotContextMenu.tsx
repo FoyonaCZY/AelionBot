@@ -1,33 +1,28 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { Icon } from '../ui/Icon';
 import { useI18n } from '../i18n';
 
+/** Where a sidebar menu opens: a Bot's row, or with `sessionId` one of its work sessions. */
 export interface BotMenuAnchor {
   id: string;
+  sessionId?: string;
   x: number;
   y: number;
   trigger: HTMLButtonElement;
 }
-export function BotContextMenu({
+
+/** A menu at the pointer: it stays on screen, closes on any outside click, and moves with the arrow keys. */
+function ContextMenu({
   anchor,
-  name,
-  canDelete,
-  onEdit,
-  onDelete,
+  label,
   onClose,
-  onPrivateChats,
-  onNewSession,
+  children,
 }: {
   anchor: BotMenuAnchor;
-  name: string;
-  canDelete: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
+  label: string;
   onClose: () => void;
-  onPrivateChats?: () => void;
-  onNewSession?: () => void;
+  children: ReactNode;
 }) {
-  const { t } = useI18n();
   const menu = useRef<HTMLDivElement>(null),
     close = useRef(onClose);
   close.current = onClose;
@@ -59,7 +54,7 @@ export function BotContextMenu({
     <div
       ref={menu}
       role="menu"
-      aria-label={t('{name} 的菜单', { name })}
+      aria-label={label}
       className="bot-context-menu"
       style={{ left: anchor.x, top: anchor.y }}
       onContextMenu={(event) => event.preventDefault()}
@@ -98,6 +93,50 @@ export function BotContextMenu({
         }
       }}
     >
+      {children}
+    </div>
+  );
+}
+
+/** Forks the chat into a new work session; shared by both menus. */
+function ForkItem({ onFork }: { onFork: () => void }) {
+  const { t } = useI18n();
+  return (
+    <button role="menuitem" title={t('把最后一次完成的任务及之前的记录和设置复制到新的工作会话')} onClick={onFork}>
+      <Icon name="fork" size={16} />
+      {t('Fork 到新工作会话')}
+    </button>
+  );
+}
+
+export function BotContextMenu({
+  anchor,
+  name,
+  canDelete,
+  onEdit,
+  onDelete,
+  onClose,
+  onPrivateChats,
+  onNewSession,
+  onFork,
+  onArchived,
+}: {
+  anchor: BotMenuAnchor;
+  name: string;
+  canDelete: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+  onClose: () => void;
+  onPrivateChats?: () => void;
+  onNewSession?: () => void;
+  /** Forks the Bot's main chat. */
+  onFork?: () => void;
+  /** Lists the Bot's archived work sessions; given only when it has some. */
+  onArchived?: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <ContextMenu anchor={anchor} label={t('{name} 的菜单', { name })} onClose={onClose}>
       <button role="menuitem" onClick={onEdit}>
         <Icon name="edit" size={16} />
         {t('编辑')}
@@ -106,6 +145,13 @@ export function BotContextMenu({
         <button role="menuitem" onClick={onNewSession}>
           <Icon name="folder" size={16} />
           {t('新建工作会话')}
+        </button>
+      )}
+      {onFork && <ForkItem onFork={onFork} />}
+      {onArchived && (
+        <button role="menuitem" onClick={onArchived}>
+          <Icon name="archive" size={16} />
+          {t('已归档的会话')}
         </button>
       )}
       {onPrivateChats && (
@@ -125,6 +171,47 @@ export function BotContextMenu({
         <Icon name="trash" size={16} />
         {t('删除')}
       </button>
-    </div>
+    </ContextMenu>
+  );
+}
+
+/** A work session's menu: its settings, a fork, archiving and deletion. */
+export function SessionContextMenu({
+  anchor,
+  name,
+  archived,
+  onEdit,
+  onFork,
+  onArchive,
+  onDelete,
+  onClose,
+}: {
+  anchor: BotMenuAnchor;
+  name: string;
+  archived: boolean;
+  onEdit: () => void;
+  onFork: () => void;
+  onArchive: () => void;
+  onDelete: () => void;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <ContextMenu anchor={anchor} label={t('{name} 的菜单', { name })} onClose={onClose}>
+      <button role="menuitem" onClick={onEdit}>
+        <Icon name="edit" size={16} />
+        {t('编辑')}
+      </button>
+      <ForkItem onFork={onFork} />
+      <button role="menuitem" onClick={onArchive}>
+        <Icon name="archive" size={16} />
+        {archived ? t('取消归档') : t('归档')}
+      </button>
+      <div className="bot-menu-separator" role="separator" />
+      <button role="menuitem" className="destructive" onClick={onDelete}>
+        <Icon name="trash" size={16} />
+        {t('删除')}
+      </button>
+    </ContextMenu>
   );
 }

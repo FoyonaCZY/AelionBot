@@ -1,4 +1,5 @@
 import { resumableRun } from '../core/agent/resume-run';
+import { retractInput } from '../core/agent/retract-input';
 import type { IpcContext } from './context';
 import { AppError } from '../../shared/errors';
 
@@ -38,10 +39,8 @@ export function registerChat(ctx: IpcContext) {
   handle('pinChat', (input) => ctx.chatPins!.pin(input));
   // Stops the work of the chat it is pressed in: the Bot's main chat (with its group and delegated work), or one
   // work session. The Bot's other chats keep working.
-  handle('cancel', (id, session) => {
-    const botId = String(id),
-      lane = typeof session === 'string' ? session : null;
-    ctx.chatPins?.cancel(botId, lane);
+  /** Stops the run in one chat, with the group and delegated work of the main chat's. */
+  const stop = (botId: string, lane: string | null) => {
     const run = ctx.store.data.runs.find(
       (run) => run.botId === botId && run.status === 'running' && (run.sessionId ?? null) === lane,
     );
@@ -50,6 +49,27 @@ export function registerChat(ctx: IpcContext) {
       ctx.groupChats?.cancelRun(run);
     }
     ctx.harness.cancel(botId, lane);
+  };
+  handle('cancel', (id, session) => {
+    const botId = String(id),
+      lane = typeof session === 'string' ? session : null;
+    ctx.chatPins?.cancel(botId, lane);
+    stop(botId, lane);
+  });
+  handle('retractChat', (input) => {
+    const queue = ctx.chatPins!;
+    return retractInput(
+      {
+        store: ctx.store,
+        stop,
+        isRunning: (botId, lane) => ctx.harness.isRunning(botId, lane),
+        hold: (botId, sessionId, work) => queue.hold(botId, sessionId, work),
+        forgetSuperseded: (botId, sessionId, runId) => queue.forgetSuperseded(botId, sessionId, runId),
+        summarizedThrough: (botId, scopeKey) => ctx.cognition.context.summarizedThrough(botId, scopeKey),
+        changed: ctx.changed,
+      },
+      input,
+    );
   });
   handle('readToolResult', (input) => ctx.store.readToolResult(String(input?.botId), String(input?.messageId)));
   handle('setBackgroundLearning', (enabled) => {
