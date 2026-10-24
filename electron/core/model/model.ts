@@ -25,7 +25,13 @@ import { primeTokenCounts } from '../context/token-counter';
 import { PromptCacheDiagnostics, promptCacheKey, rejectsPromptCacheKey } from '../context/prompt-cache';
 import type { RequestCacheDiagnostics } from '../../../shared/types/runtime-types';
 import { stableToolDefinitions, transportErrorCodes } from '../agent/request-snapshot';
-import { imageInputRejected, omitHistoricalImages, ModelImageUnsupportedError } from './model-vision';
+import {
+  imageInputRejected,
+  ModelImageUnsupportedError,
+  ModelRequestTooLargeError,
+  omitHistoricalImages,
+  trimImagesToBudget,
+} from './model-vision';
 import { modelFetch, prepareModelHttp } from './model-http';
 import {
   ContentPolicyError,
@@ -293,6 +299,11 @@ export class ModelClient {
       imagesOmitted = next.some((message, index) => message !== messages[index]);
       messages = next;
     }
+    const trimmedImages = trimImagesToBudget(messages, requiredImages, resolveImage);
+    if (trimmedImages.dropped) {
+      messages = trimmedImages.messages;
+      imagesOmitted = true;
+    }
     const retries = options.retries ?? settings.modelRetries;
     let emitted = false,
       reasoned = false,
@@ -445,6 +456,15 @@ export class ModelClient {
             response = await send();
           } else throw new ModelImageUnsupportedError(cfg.model, detail);
         }
+        if (response.status === 413) {
+          const reduced = trimImagesToBudget(messages, requiredImages, resolveImage, 0);
+          if (reduced.dropped) {
+            await response.body?.cancel();
+            messages = reduced.messages;
+            imagesOmitted = true;
+            response = await send();
+          }
+        }
         while (!response.ok && policyStage < 2) {
           const body = (await response.clone().text()).slice(0, 1600);
           if (
@@ -477,6 +497,7 @@ export class ModelClient {
                 ? Number(retry) * 1000
                 : Date.parse(retry) - Date.now()
               : 0;
+          if (response.status === 413) throw new ModelRequestTooLargeError(cfg.model, redactHost(body, [key]));
           throw new RequestError(
             `模型请求失败 HTTP ${response.status}: ${redactHost(body, [key])}`,
             [408, 409, 429].includes(response.status) || response.status >= 500,
@@ -709,7 +730,8 @@ export class ModelClient {
         if (
           error instanceof ContextOverflowError ||
           error instanceof ContentPolicyError ||
-          error instanceof ModelImageUnsupportedError
+          error instanceof ModelImageUnsupportedError ||
+          error instanceof ModelRequestTooLargeError
         )
           throw error;
         const retryable =

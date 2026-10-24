@@ -192,11 +192,14 @@ export class ComputerController {
     desktop.last = undefined;
     this.changed();
   }
-  image(id: string) {
+  readImage(id: string) {
     if (!/^[a-f0-9-]{36}$/.test(id)) throw new Error('无效截图 ID');
     const direct = join(this.imageDir, `${id}.png`),
       file = existsSync(direct) ? direct : join(this.imageDir, 'video-frames', `${id}.png`);
-    return `data:image/png;base64,${readFileSync(file).toString('base64')}`;
+    return readFileSync(file);
+  }
+  image(id: string) {
+    return `data:image/png;base64,${this.readImage(id).toString('base64')}`;
   }
   private async capture(botId: string, signal: AbortSignal): Promise<ScreenReference> {
     const id = randomUUID();

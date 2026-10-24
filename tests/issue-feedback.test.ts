@@ -10,7 +10,7 @@ import { ModelClient } from '../electron/core/model/model';
 import { ModelProviders } from '../electron/core/model/model-providers';
 import { BotGreetings } from '../electron/core/agent/bot-greetings';
 import { Harness } from '../electron/core/agent/harness';
-import { imageCapability, ModelImageUnsupportedError } from '../electron/core/model/model-vision';
+import { imageCapability, ModelImageUnsupportedError, trimImagesToBudget } from '../electron/core/model/model-vision';
 import { Store } from '../electron/core/storage/store';
 import { CognitiveStore } from '../electron/core/memory/cognitive-store';
 import { ContextEngine } from '../electron/core/context/context-engine';
@@ -249,6 +249,108 @@ test('an unsupported current image gives a useful error, while later text messag
   });
   assert.equal(recovered.content, 'hello');
   assert.equal(requests.length, 4, 'a fresh client retries an explicit image rejection only once without old images');
+});
+test('the image byte budget keeps required pictures and the newest optional ones', () => {
+  const history: WireMessage[] = ['oldest', 'middle', 'current'].map((id) => ({
+      role: 'user',
+      content: id,
+      images: [{ id, width: 10, height: 10 }],
+    })),
+    snapshot = JSON.stringify(history),
+    measured = () => 'x'.repeat(10),
+    trimmed = trimImagesToBudget(history, new Set(['current']), measured, 15);
+  assert.equal(trimmed.dropped, 2);
+  assert.equal(JSON.stringify(history), snapshot);
+  assert.deepEqual(
+    trimmed.messages.flatMap((message) => (message.images || []).map((image) => image.id)),
+    ['current'],
+  );
+  assert.match(trimmed.messages[0].content!, /已省略 1 张较早的图片/);
+  assert.match(trimmed.messages[1].content!, /已省略 1 张较早的图片/);
+  assert.equal(trimImagesToBudget(history, new Set(['current']), measured, 30).dropped, 0);
+});
+test('a request rejected for its body size retries without old images and keeps the current ones', async (t) => {
+  const requests: any[] = [];
+  const server = createServer(async (req, res) => {
+    let text = '';
+    for await (const chunk of req) text += chunk;
+    const body = JSON.parse(text);
+    requests.push(body);
+    const images = body.messages.reduce(
+      (total: number, message: any) =>
+        total +
+        (Array.isArray(message.content) ? message.content.filter((part: any) => part.type === 'image_url').length : 0),
+      0,
+    );
+    res.setHeader('content-type', 'application/json');
+    if (images > 1) {
+      res.statusCode = 413;
+      res.end('Failed to buffer the request body: length limit exceeded');
+      return;
+    }
+    res.end(
+      JSON.stringify({
+        choices: [{ message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 10, completion_tokens: 1 },
+      }),
+    );
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => {
+    server.closeAllConnections();
+    server.close();
+  });
+  const config = { ...cfg, baseUrl: `http://127.0.0.1:${(server.address() as any).port}/v1` },
+    client = new ModelClient(
+      () => config,
+      () => '',
+      (id) => `data:image/png;base64,${id}`,
+    );
+  t.after(() => client.dispose());
+  const history: WireMessage[] = [
+    { role: 'user', content: 'older', images: [{ id: 'older', width: 10, height: 10 }] },
+    { role: 'user', content: 'current', images: [{ id: 'current', width: 10, height: 10 }] },
+  ];
+  const result = await client.complete(history, [], new AbortController().signal, undefined, {
+    requiredImageIds: ['current'],
+  });
+  assert.equal(result.content, 'ok');
+  assert.equal(result.inputImagesOmitted, true);
+  assert.equal(requests.length, 2);
+  assert.equal(JSON.stringify(requests[0]).match(/"type":"image_url"/g)?.length, 2);
+  assert.equal(JSON.stringify(requests[1]).match(/"type":"image_url"/g)?.length, 1);
+  assert.match(JSON.stringify(requests[1]), /已省略 1 张较早的图片/);
+});
+test('a request that is still too large with its required images gives an actionable error', async (t) => {
+  const server = createServer(async (_req, res) => {
+    for await (const _chunk of _req) {
+      // Drain the body before answering.
+    }
+    res.statusCode = 413;
+    res.end('Failed to buffer the request body: length limit exceeded');
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => {
+    server.closeAllConnections();
+    server.close();
+  });
+  const config = { ...cfg, baseUrl: `http://127.0.0.1:${(server.address() as any).port}/v1` },
+    client = new ModelClient(
+      () => config,
+      () => '',
+      (id) => `data:image/png;base64,${id}`,
+    );
+  t.after(() => client.dispose());
+  await assert.rejects(
+    client.complete(
+      [{ role: 'user', content: 'current', images: [{ id: 'current', width: 10, height: 10 }] }],
+      [],
+      new AbortController().signal,
+      undefined,
+      { requiredImageIds: ['current'], retries: 0 },
+    ),
+    { code: 'model.request_too_large' },
+  );
 });
 test('model image capabilities and actionable notices do not depend on model name guesses', () => {
   assert.equal(imageCapability({ architecture: { input_modalities: ['text'] } }), false);
