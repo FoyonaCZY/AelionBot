@@ -138,7 +138,10 @@ export class Interactions {
     }
     return this.enqueue(request, signal);
   }
-  /** Asks whether this run may operate the user's computer. Only a person answers: no mode or rule skips it. */
+  /**
+   * Asks whether this run may operate the user's computer. Only a person answers, in the app or, for a run answering
+   * a connector chat, the connector's owner there: no mode or rule skips it.
+   */
   computerAccess(botId: string, runId: string, signal: AbortSignal) {
     return this.enqueue(
       { id: randomUUID(), botId, runId, createdAt: new Date().toISOString(), kind: 'computer_use', phase: 'waiting' },

@@ -412,6 +412,68 @@ test('approvals of connector runs go to the owner as cards; only the owner decid
   }
 });
 
+test('the owner allows or denies computer use of a connector run from the chat', async (t) => {
+  const { store, bot, adapter, connectors, interactions, sent } = fixture(t);
+  const id = connectors.add({
+    botId: bot.id,
+    permissionMode: 'ask',
+    credentials: { platform: 'feishu', appId: 'cli_computer', appSecret: 'fixture-secret' },
+  });
+  connectors.saved.get(id)!.owner = { id: 'owner', chatId: 'chat-owner' };
+  adapter.receive({ text: '帮我在电脑上打开设置' });
+  await until(() => sent.length === 1);
+  const session = store.data.workSessions!.find((item) => item.connector?.connectorId === id)!;
+  const message = store.message(bot.id, 'user', '帮我在电脑上打开设置', {
+    sessionId: session.id,
+    connector: { connectorId: id, platform: 'feishu', messageId: 'y', sender: { id: 'owner' } },
+  });
+  let finish!: () => void;
+  const running = connectors.wrapRun(
+    bot.id,
+    { sessionId: session.id, inputMessageIds: [message.id] },
+    async (options) => {
+      options.onStarted?.('run-computer');
+      await new Promise<void>((resolve) => (finish = resolve));
+    },
+  );
+  const controller = new AbortController();
+  const allowed = interactions.computerAccess(bot.id, 'run-computer', controller.signal);
+  await until(() => adapter.cards.length === 1);
+  const card = adapter.cards[0];
+  assert.equal(card.chatId, 'chat-owner');
+  assert.match(card.card.title, /操控这台电脑/);
+  const allow = card.card.buttons.find((button) => button.key.endsWith(':allow'))!;
+  assert.equal(
+    await adapter.handlers!.action({ chatId: 'chat-owner', operator: { id: 'stranger' }, key: allow.key }),
+    undefined,
+  );
+  assert.equal(interactions.snapshot().length, 1);
+  assert.equal(
+    await adapter.handlers!.action({ chatId: 'chat-owner', operator: { id: 'owner' }, key: allow.key }),
+    '已允许',
+  );
+  await allowed;
+  await until(() => adapter.closed.length === 1);
+
+  // A text reply from the owner decides the only request waiting, without its code.
+  const denied = interactions.computerAccess(bot.id, 'run-computer', controller.signal);
+  await until(() => adapter.cards.length === 2);
+  adapter.receive({ text: '拒绝', sender: { id: 'stranger', name: '路人' }, chatId: 'chat-owner' });
+  await settle();
+  assert.equal(interactions.snapshot().length, 1);
+  adapter.receive({ text: '拒绝' });
+  await assert.rejects(denied, { code: 'permission.denied' });
+
+  // Decided on the computer instead: the card says so.
+  const local = interactions.computerAccess(bot.id, 'run-computer', controller.signal);
+  await until(() => adapter.cards.length === 3);
+  interactions.decideComputerAccess(interactions.snapshot()[0].id, true);
+  await local;
+  await until(() => adapter.closed.some((item) => item.result === '已在电脑上处理'));
+  finish();
+  await running;
+});
+
 test('the final reply to a private message sent while answering a connector chat goes back to that chat', async (t) => {
   const { store, bot, adapter, connectors, sent } = fixture(t);
   const id = connectors.add({

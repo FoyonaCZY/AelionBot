@@ -19,6 +19,7 @@ export interface OutboxHost {
   interactions: {
     snapshot(): InteractionRequest[];
     approve(id: string, allow: boolean): void;
+    decideComputerAccess(id: string, allow: boolean): void;
     answer(id: string, value: unknown): void;
   };
   journal(type: string, payload: unknown): void;
@@ -47,6 +48,8 @@ const TICK_MS = 1000;
 const TYPING_MS = 10_000;
 const APPROVE = /^(同意|允许|批准|可以|ok|yes|y)\s*#?([a-z0-9]{4})?$/i;
 const DENY = /^(拒绝|不同意|驳回|不行|no|n)\s*#?([a-z0-9]{4})?$/i;
+/** Requests the owner allows or denies, by card button or text reply; each keyed by its card button prefix. */
+const DECISIONS: Partial<Record<InteractionRequest['kind'], string>> = { host_permission: 'p', computer_use: 'c' };
 
 /** Owners are reached in the chat they last wrote from, or by their ID where the platform accepts one. */
 export const ownerChat = (connector: StoredConnector) => connector.owner?.chatId || connector.owner?.id;
@@ -205,15 +208,29 @@ export class ConnectorOutbox {
     };
     this.prompts.set(request.id, prompt);
     try {
-      if (request.kind === 'host_permission') {
-        prompt.card = {
-          title: `${bot} 请求本机权限`,
-          lines: permissionSummary(request.details),
-          buttons: [
-            { label: '允许一次', key: `p:${code}:allow`, style: 'primary' },
-            { label: '拒绝', key: `p:${code}:deny`, style: 'danger' },
-          ],
-        };
+      if (request.kind === 'host_permission' || request.kind === 'computer_use') {
+        const prefix = DECISIONS[request.kind];
+        prompt.card =
+          request.kind === 'host_permission'
+            ? {
+                title: `${bot} 请求本机权限`,
+                lines: permissionSummary(request.details),
+                buttons: [
+                  { label: '允许一次', key: `${prefix}:${code}:allow`, style: 'primary' },
+                  { label: '拒绝', key: `${prefix}:${code}:deny`, style: 'danger' },
+                ],
+              }
+            : {
+                title: `${bot} 请求操控这台电脑`,
+                lines: [
+                  '允许后，它会在这次任务中使用这台电脑的鼠标和键盘，操作期间电脑前的人不能同时使用。',
+                  '在电脑前按 Esc 可以随时中止。',
+                ],
+                buttons: [
+                  { label: '允许这次任务', key: `${prefix}:${code}:allow`, style: 'primary' },
+                  { label: '拒绝', key: `${prefix}:${code}:deny`, style: 'danger' },
+                ],
+              };
         if (adapter.sendCard) prompt.handle = await adapter.sendCard(chatId, prompt.card);
         else
           await adapter.sendText(
@@ -222,7 +239,7 @@ export class ConnectorOutbox {
               prompt.card.title,
               ...prompt.card.lines,
               '',
-              `回复「同意 ${code}」允许一次，回复「拒绝 ${code}」拒绝。`,
+              `回复「同意 ${code}」${request.kind === 'computer_use' ? '允许' : '允许一次'}，回复「拒绝 ${code}」拒绝。`,
             ].join('\n'),
           );
       } else if (request.kind === 'user_input') {
@@ -251,12 +268,7 @@ export class ConnectorOutbox {
           );
       } else {
         prompt.decided = true;
-        await adapter.sendText(
-          chatId,
-          request.kind === 'vm_takeover'
-            ? `${bot} 需要你在电脑前接管工作电脑：${request.reason}`
-            : `${bot} 想操作这台电脑的屏幕，需要你在电脑前确认。`,
-        );
+        await adapter.sendText(chatId, `${bot} 需要你在电脑前接管工作电脑：${request.reason}`);
       }
     } catch (error) {
       this.host.journal('connector.prompt-error', { requestId: request.id, error: (error as Error).message });
@@ -271,7 +283,8 @@ export class ConnectorOutbox {
   private decide(prompt: Prompt, allow: boolean) {
     prompt.decided = true;
     try {
-      this.host.interactions.approve(prompt.requestId, allow);
+      if (prompt.kind === 'computer_use') this.host.interactions.decideComputerAccess(prompt.requestId, allow);
+      else this.host.interactions.approve(prompt.requestId, allow);
       return allow ? '已允许' : '已拒绝';
     } catch {
       return '已失效';
@@ -294,7 +307,7 @@ export class ConnectorOutbox {
       (item) => item.connectorId === connector.id && item.code === code && !item.decided,
     );
     if (!prompt) return '已失效';
-    if (kind === 'p' && prompt.kind === 'host_permission') {
+    if (kind === DECISIONS[prompt.kind]) {
       if (action.operator.id !== connector.owner?.id) return undefined;
       const result = this.decide(prompt, choice === 'allow');
       if (prompt.handle && prompt.card) void this.closePrompt(prompt, result);
@@ -325,7 +338,7 @@ export class ConnectorOutbox {
     const approval = APPROVE.exec(text) || DENY.exec(text);
     if (approval && message.sender.id === connector.owner?.id) {
       const code = approval[2]?.toUpperCase(),
-        permissions = open.filter((prompt) => prompt.kind === 'host_permission'),
+        permissions = open.filter((prompt) => DECISIONS[prompt.kind]),
         prompt = code
           ? permissions.find((item) => item.code === code)
           : permissions.length === 1
