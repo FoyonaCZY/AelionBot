@@ -995,3 +995,81 @@ test('successive compactions retain contiguous coverage and reopen from the pers
     reopened.close();
   }
 });
+
+test('a long run with a large-window model is reviewed from a digest that fits the review allowance', async (t) => {
+  const f = fixture(t);
+  f.store.data.model.contextTokens = 1_000_000;
+  const user = f.store.message(f.bot.id, 'user', '以后交付前先运行测试。', { runId: 'long-run' });
+  const messages: WireMessage[] = [{ role: 'user', content: user.content }];
+  // Many short steps: a digest sized by the window keeps them whole, well over the review's 100k input allowance.
+  for (let i = 0; i < 400; i++)
+    messages.push({ role: i % 2 ? 'user' : 'assistant', content: `步骤 ${i}：` + 'checked output line '.repeat(160) });
+  assert.ok(estimateRequest(messages, TOOLS).tokens > 150000);
+  const requests: number[] = [];
+  let digest = '';
+  const model = {
+    complete: async (history: WireMessage[], tools: typeof TOOLS) => {
+      requests.push(estimateRequest(history, tools).tokens);
+      digest = history[1].content || '';
+      return done('无需保存。');
+    },
+  } as unknown as ModelClient;
+  const worker = new LearningWorker(
+    f.storage,
+    f.memory,
+    f.skills,
+    model,
+    new ContextEngine(f.storage, model, () => {}),
+    () => {},
+    () => false,
+    () => [],
+    100000,
+  );
+  f.setWorker(worker);
+  const id = f.storage.enqueue(f.bot.id, 'long-run', {
+    messages,
+    tools: TOOLS,
+    sourceRefs: [user.id],
+    revision: 0,
+    model: f.store.data.model.model,
+  });
+  await worker.drain();
+  const job = f.storage.jobs(f.bot.id).find((job) => job.id === id);
+  assert.equal(job?.status, 'completed', String(job?.result));
+  assert.equal(requests.length, 1);
+  assert.ok(requests[0] <= 28000, `review request was ${requests[0]} tokens`);
+  // The most recent steps are kept, and the review is told the earlier ones can be looked up.
+  assert.match(digest, /^（较早的 \d+ 条记录未列出/);
+  assert.ok(digest.includes('步骤 399'));
+  // A finished job no longer holds its copy of the conversation.
+  assert.equal((f.storage.db.prepare('SELECT payload FROM review_jobs WHERE id=?').get(id) as any).payload, '{}');
+});
+
+test('only review jobs that can still run keep their payload, including those stored before the cleanup', (t) => {
+  const f = fixture(t);
+  const payload = { messages: [{ role: 'user', content: 'x'.repeat(1000) }], tools: [], sourceRefs: [], revision: 0 };
+  const superseded = f.storage.enqueue(f.bot.id, 'first', payload),
+    queued = f.storage.enqueue(f.bot.id, 'second', payload);
+  const stored = (id: string) =>
+    (f.storage.db.prepare('SELECT payload FROM review_jobs WHERE id=?').get(id) as { payload: string }).payload;
+  assert.equal(stored(superseded), '{}');
+  assert.equal(stored(queued), JSON.stringify(payload));
+  f.storage.jobStatus(queued, 'running', '', true);
+  assert.equal(stored(queued), JSON.stringify(payload));
+  f.storage.jobStatus(queued, 'queued', '等待前台任务结束');
+  assert.equal(stored(queued), JSON.stringify(payload));
+  // Jobs written by earlier versions kept their payload after they finished.
+  const now = new Date().toISOString();
+  f.storage.db
+    .prepare('INSERT INTO review_jobs VALUES(?,?,?,?,?,?,?,?,?)')
+    .run('legacy-failed', f.bot.id, 'old', 'failed', 1, JSON.stringify(payload), '达到预算', now, now);
+  f.storage.db.prepare("DELETE FROM meta WHERE key='review-payloads-pruned'").run();
+  const reopened = new CognitiveStore(f.store);
+  try {
+    assert.equal(stored('legacy-failed'), '{}');
+    assert.equal(stored(queued), JSON.stringify(payload));
+    assert.deepEqual(reopened.jobs()[0].payload, payload);
+  } finally {
+    reopened.close();
+  }
+});

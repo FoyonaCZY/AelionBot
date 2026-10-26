@@ -739,6 +739,7 @@ async function initialize() {
     () => Boolean(updatePreparing || harness?.busy || groupChats?.busy),
     () => providers.secrets(),
   );
+  cognition.onSlow = cognition.learning.onSlow = (source, ms) => slow?.(source, ms);
   agentPreviews = new AgentPreviews(store, artifacts, attachments, changed, host);
   const imageModelAccess = (botId: string) => providers.imageAccess(botId);
   const generalHarness = new Harness(

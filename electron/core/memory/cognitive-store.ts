@@ -66,6 +66,12 @@ export class CognitiveStore {
     )
       this.db.exec('ALTER TABLE history ADD COLUMN scope TEXT');
     this.db.prepare("UPDATE review_jobs SET status='queued' WHERE status='running'").run();
+    // A review's payload is a copy of its run's conversation, only needed until the review ends. Finished jobs kept
+    // theirs, hundreds of megabytes on a long profile; clear those once. jobStatus() clears them from now on.
+    if (this.get('review-payloads-pruned') !== '1') {
+      this.db.prepare(`UPDATE review_jobs SET payload='{}' WHERE status NOT IN ('queued','running')`).run();
+      this.set('review-payloads-pruned', '1');
+    }
     // Stamps once included the message's position: one message moved or removed early in the list re-indexed every
     // later one, over a minute on a long profile, on the main process. Older stamps are converted once.
     if (this.get('history-stamp') !== '2') {
@@ -511,7 +517,9 @@ export class CognitiveStore {
   enqueue(botId: string, runId: string, payload: unknown) {
     const now = new Date().toISOString();
     this.db
-      .prepare("UPDATE review_jobs SET status='superseded',updated_at=? WHERE bot_id=? AND status='queued'")
+      .prepare(
+        "UPDATE review_jobs SET status='superseded',payload='{}',updated_at=? WHERE bot_id=? AND status='queued'",
+      )
       .run(now, botId);
     const id = randomUUID();
     this.db
@@ -538,9 +546,12 @@ export class CognitiveStore {
     }));
   }
   jobStatus(id: string, status: string, result = '', increment = false) {
+    // Only a job that can still run needs its payload.
     this.db
-      .prepare('UPDATE review_jobs SET status=?,result=?,updated_at=?,attempts=attempts+? WHERE id=?')
-      .run(status, result, new Date().toISOString(), increment ? 1 : 0, id);
+      .prepare(
+        "UPDATE review_jobs SET status=?,result=?,updated_at=?,attempts=attempts+?,payload=CASE WHEN ? IN ('queued','running') THEN payload ELSE '{}' END WHERE id=?",
+      )
+      .run(status, result, new Date().toISOString(), increment ? 1 : 0, status, id);
   }
   reviewMessage(jobId: string, botId: string, role: string, content: string, tool?: string) {
     this.db

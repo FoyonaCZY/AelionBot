@@ -13,6 +13,8 @@ export class Cognition {
   readonly memory: MemoryService;
   readonly context: ContextEngine;
   readonly learning: LearningWorker;
+  /** Reports how long afterRun took on the main thread, for slow-operation diagnostics. */
+  onSlow?: (source: string, ms: number) => void;
   private closing = false;
   constructor(
     readonly store: Store,
@@ -47,6 +49,19 @@ export class Cognition {
   }
   afterRun(botId: string, runId: string, messages: WireMessage[] | undefined, tools: ToolDefinition[]) {
     if (this.closing) return;
+    const started = performance.now();
+    try {
+      this.indexAndQueueReview(botId, runId, messages, tools);
+    } finally {
+      this.onSlow?.('after-run', performance.now() - started);
+    }
+  }
+  private indexAndQueueReview(
+    botId: string,
+    runId: string,
+    messages: WireMessage[] | undefined,
+    tools: ToolDefinition[],
+  ) {
     this.storage.syncHistory(botId);
     const run = this.store.data.runs.find((run) => run.id === runId),
       request = [...this.store.data.messages]
