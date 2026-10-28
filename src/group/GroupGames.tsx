@@ -15,6 +15,7 @@ import { PRESETS, PRESET_IDS, isPresetId, type PresetId } from '../../shared/per
 import type { ModelProvider, ModelSelection } from '../../shared/types/core';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
+import { useSwitchMotion } from '../ui/motion';
 import { GameGlyph } from './GameGlyph';
 import { Select } from '../ui/Select';
 import { createPortal } from 'react-dom';
@@ -267,7 +268,9 @@ export function GroupGames({
   }, [groupId, omniscient]);
   const endedAt = match?.status === 'finished' ? match.endedAt : undefined;
   useEffect(() => onCardTime?.(endedAt), [endedAt, onCardTime]);
-  const dialog = useRef<HTMLDialogElement>(null);
+  const dialog = useRef<HTMLDialogElement>(null),
+    workspace = useRef<HTMLDivElement>(null);
+  useSwitchMotion(workspace, screen, ':scope > :not(.gg-storage-warning)');
   useEffect(() => {
     if (initialOpen) setOpen(true);
   }, [initialOpen]);
@@ -530,7 +533,7 @@ export function GroupGames({
         }}
         onClose={() => setOpen(false)}
       >
-        <div className="gg-workspace">
+        <div ref={workspace} className="gg-workspace">
           {screen !== 'table' && (
             <header className="gg-header">
               <div>

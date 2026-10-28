@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import type { UserProfile } from '../../shared/chat/user-profile';
 import { Icon } from '../ui/Icon';
 import { Emblem } from '../ui/Emblem';
+import { useSwitchMotion } from '../ui/motion';
 import { useI18n } from '../i18n';
 
 export type SettingsTab =
@@ -70,6 +71,7 @@ export function SettingsWindow({
   useEffect(() => {
     if (content.current) content.current.scrollTop = 0;
   }, [tab]);
+  useSwitchMotion(content, tab);
   const page =
     tab === 'profile'
       ? profilePage

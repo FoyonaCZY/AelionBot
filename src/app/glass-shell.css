@@ -476,14 +476,6 @@ html:active-view-transition * {
   background: linear-gradient(135deg, rgba(61, 55, 69, 0.94), rgba(38, 34, 44, 0.86)) !important;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .modal-backdrop.settings-backdrop {
-    /* backwards, not both: a forwards fill keeps the backdrop a compositing root, and the dialog's backdrop-filter
-       would then blur only the backdrop's own dim layer instead of the app behind it. */
-    animation: settings-backdrop-in 180ms ease backwards;
-  }
-}
-
 .modal.settings-modal {
   background: light-dark(#f4f4f5, #1f1d23) !important;
   border: 1px solid light-dark(#ffffff, #ffffff14) !important;
@@ -516,12 +508,6 @@ html:active-view-transition * {
 :root[data-theme='dark'] .modal.bot-profile-modal {
   background: light-dark(#f4f4f5, #1f1d23) !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
-}
-
-@keyframes settings-backdrop-in {
-  from {
-    opacity: 0;
-  }
 }
 
 .window-drag-strip {

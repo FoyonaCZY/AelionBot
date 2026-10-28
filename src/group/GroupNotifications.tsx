@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { GroupsView } from '../../shared/types/group-types';
 import { GroupAvatar } from './GroupAvatar';
 import { Icon } from '../ui/Icon';
+import { Presence } from '../ui/Presence';
 import { useI18n } from '../i18n';
 
 export function GroupNotifications({
@@ -32,31 +33,34 @@ export function GroupNotifications({
     const timer = setTimeout(() => setVisible(undefined), 6500);
     return () => clearTimeout(timer);
   }, [visible]);
-  const room = view?.rooms.find((room) => room.id === visible);
-  if (!room || room.id === selected) return null;
+  const room = view?.rooms.find((room) => room.id === visible && room.id !== selected);
   return (
-    <aside className="interaction-notification group-notification" role="status">
-      <button
-        className="interaction-notification-open"
-        onClick={() => {
-          setVisible(undefined);
-          onView(room.id);
-        }}
-      >
-        <GroupAvatar group={room} />
-        <span>
-          <strong>{room.name}</strong>
-          <small>{room.preview}</small>
-        </span>
-        <span className="notification-view">{t('查看')}</span>
-      </button>
-      <button
-        className="icon-button notification-close"
-        aria-label={t('关闭群聊通知')}
-        onClick={() => setVisible(undefined)}
-      >
-        <Icon name="close" size={16} />
-      </button>
-    </aside>
+    <Presence>
+      {room && (
+        <aside className="interaction-notification group-notification" role="status">
+          <button
+            className="interaction-notification-open"
+            onClick={() => {
+              setVisible(undefined);
+              onView(room.id);
+            }}
+          >
+            <GroupAvatar group={room} />
+            <span>
+              <strong>{room.name}</strong>
+              <small>{room.preview}</small>
+            </span>
+            <span className="notification-view">{t('查看')}</span>
+          </button>
+          <button
+            className="icon-button notification-close"
+            aria-label={t('关闭群聊通知')}
+            onClick={() => setVisible(undefined)}
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </aside>
+      )}
+    </Presence>
   );
 }

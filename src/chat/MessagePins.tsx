@@ -7,6 +7,7 @@ import {
   QUICK_PIN_EMOJIS,
   searchPinEmojis,
 } from '../../shared/chat/emoji-catalog';
+import { Presence } from '../ui/Presence';
 import { useI18n } from '../i18n';
 import './message-pins.css';
 
@@ -198,9 +199,11 @@ export function MessageActions({
   };
   useLayoutEffect(() => {
     if (!anchor || !menu.current) return;
-    const box = menu.current.getBoundingClientRect();
-    menu.current.style.left = `${Math.max(8, Math.min(anchor.left, window.innerWidth - box.width - 8))}px`;
-    menu.current.style.top = `${Math.max(44, Math.min(anchor.top, window.innerHeight - box.height - 8))}px`;
+    // Layout size, not the rendered box: the menu opens scaled down while it animates in.
+    const width = menu.current.offsetWidth,
+      height = menu.current.offsetHeight;
+    menu.current.style.left = `${Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8))}px`;
+    menu.current.style.top = `${Math.max(44, Math.min(anchor.top, window.innerHeight - height - 8))}px`;
   }, [anchor, expanded, query, category]);
   useEffect(() => {
     if (!anchor) return;
@@ -451,187 +454,208 @@ export function MessageActions({
           {error}
         </span>
       )}
-      {anchor &&
-        createPortal(
-          <div
-            ref={menu}
-            className={`message-context-menu ${expanded ? 'emoji-expanded' : ''}`}
-            role={expanded ? 'dialog' : 'menu'}
-            aria-label={expanded ? t('选择表情') : t('消息菜单')}
-            data-message-menu={messageId}
-            style={{ left: anchor.left, top: anchor.top }}
-            onContextMenu={(event) => event.preventDefault()}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                event.preventDefault();
-                event.stopPropagation();
-                dismiss(true);
-                return;
-              }
-              if (event.key === 'Tab') {
-                event.preventDefault();
-                if (!expanded) {
+      {createPortal(
+        <Presence>
+          {anchor && (
+            <div
+              ref={menu}
+              className={`message-context-menu ${expanded ? 'emoji-expanded' : ''}`}
+              role={expanded ? 'dialog' : 'menu'}
+              aria-label={expanded ? t('选择表情') : t('消息菜单')}
+              data-message-menu={messageId}
+              style={{ left: anchor.left, top: anchor.top }}
+              onContextMenu={(event) => event.preventDefault()}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  event.stopPropagation();
                   dismiss(true);
                   return;
                 }
-                const fields = Array.from(
-                    event.currentTarget.querySelectorAll<HTMLElement>('input,button:not(:disabled)'),
-                  ).filter((element) => element.tabIndex >= 0),
-                  index = fields.indexOf(document.activeElement as HTMLElement);
-                fields[(index + (event.shiftKey ? -1 : 1) + fields.length) % fields.length]?.focus();
-                return;
-              }
-              if (event.target instanceof HTMLInputElement) {
-                if (event.key === 'ArrowDown') {
+                if (event.key === 'Tab') {
                   event.preventDefault();
-                  grid.current?.querySelector<HTMLButtonElement>('button')?.focus();
+                  if (!expanded) {
+                    dismiss(true);
+                    return;
+                  }
+                  const fields = Array.from(
+                      event.currentTarget.querySelectorAll<HTMLElement>('input,button:not(:disabled)'),
+                    ).filter((element) => element.tabIndex >= 0),
+                    index = fields.indexOf(document.activeElement as HTMLElement);
+                  fields[(index + (event.shiftKey ? -1 : 1) + fields.length) % fields.length]?.focus();
+                  return;
                 }
-                return;
-              }
-              const inGrid = grid.current?.contains(document.activeElement),
-                buttons = Array.from(
-                  (inGrid ? grid.current! : event.currentTarget).querySelectorAll<HTMLButtonElement>(
-                    'button:not(:disabled)',
+                if (event.target instanceof HTMLInputElement) {
+                  if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    grid.current?.querySelector<HTMLButtonElement>('button')?.focus();
+                  }
+                  return;
+                }
+                const inGrid = grid.current?.contains(document.activeElement),
+                  buttons = Array.from(
+                    (inGrid ? grid.current! : event.currentTarget).querySelectorAll<HTMLButtonElement>(
+                      'button:not(:disabled)',
+                    ),
                   ),
-                ),
-                current = buttons.indexOf(document.activeElement as HTMLButtonElement);
-              if ((event.key === 'Enter' || event.key === ' ') && current >= 0) {
-                event.preventDefault();
-                buttons[current].click();
-                return;
-              }
-              const stride = inGrid && ['ArrowDown', 'ArrowUp'].includes(event.key) ? 7 : 1;
-              const next = ['ArrowRight', 'ArrowDown'].includes(event.key)
-                ? Math.min(buttons.length - 1, current + stride)
-                : ['ArrowLeft', 'ArrowUp'].includes(event.key)
-                  ? Math.max(0, current - stride)
-                  : event.key === 'Home'
-                    ? 0
-                    : event.key === 'End'
-                      ? buttons.length - 1
-                      : undefined;
-              if (next !== undefined) {
-                event.preventDefault();
-                buttons[next]?.focus();
-                buttons[next]?.scrollIntoView({ block: 'nearest' });
-              }
-            }}
-          >
-            {onPin && (
-              <>
-                <div className="message-emoji-quick" role="group" aria-label={t('常用表情')}>
-                  {QUICK_PIN_EMOJIS.map((emoji) => emojiButton(emoji))}
-                  <button
-                    type="button"
-                    className="message-emoji-more"
-                    role={expanded ? undefined : 'menuitem'}
-                    aria-label={t('更多表情')}
-                    aria-haspopup="dialog"
-                    aria-expanded={expanded}
-                    onClick={() => setExpanded((value) => !value)}
-                  >
-                    <svg
-                      width="21"
-                      height="21"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      aria-hidden="true"
+                  current = buttons.indexOf(document.activeElement as HTMLButtonElement);
+                if ((event.key === 'Enter' || event.key === ' ') && current >= 0) {
+                  event.preventDefault();
+                  buttons[current].click();
+                  return;
+                }
+                const stride = inGrid && ['ArrowDown', 'ArrowUp'].includes(event.key) ? 7 : 1;
+                const next = ['ArrowRight', 'ArrowDown'].includes(event.key)
+                  ? Math.min(buttons.length - 1, current + stride)
+                  : ['ArrowLeft', 'ArrowUp'].includes(event.key)
+                    ? Math.max(0, current - stride)
+                    : event.key === 'Home'
+                      ? 0
+                      : event.key === 'End'
+                        ? buttons.length - 1
+                        : undefined;
+                if (next !== undefined) {
+                  event.preventDefault();
+                  buttons[next]?.focus();
+                  buttons[next]?.scrollIntoView({ block: 'nearest' });
+                }
+              }}
+            >
+              {onPin && (
+                <>
+                  <div className="message-emoji-quick" role="group" aria-label={t('常用表情')}>
+                    {QUICK_PIN_EMOJIS.map((emoji) => emojiButton(emoji))}
+                    <button
+                      type="button"
+                      className="message-emoji-more"
+                      role={expanded ? undefined : 'menuitem'}
+                      aria-label={t('更多表情')}
+                      aria-haspopup="dialog"
+                      aria-expanded={expanded}
+                      onClick={() => setExpanded((value) => !value)}
                     >
-                      <path
-                        d="M20.5 13a8.5 8.5 0 1 1-9.5-9.5M8 14s1 3 4 3 4-3 4-3M8 9h.01M14 9h.01M19 2v6M16 5h6"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </button>
-                </div>
-                {expanded && (
-                  <div className="message-emoji-picker">
-                    <label className="message-emoji-search">
                       <svg
-                        width="16"
-                        height="16"
+                        width="21"
+                        height="21"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
-                        strokeWidth="1.7"
+                        strokeWidth="1.6"
                         aria-hidden="true"
                       >
-                        <circle cx="10.5" cy="10.5" r="6.5" />
-                        <path d="m16 16 4 4" />
+                        <path
+                          d="M20.5 13a8.5 8.5 0 1 1-9.5-9.5M8 14s1 3 4 3 4-3 4-3M8 9h.01M14 9h.01M19 2v6M16 5h6"
+                          strokeLinecap="round"
+                        />
                       </svg>
-                      <input
-                        type="search"
-                        aria-label={t('搜索表情')}
-                        placeholder={t('搜索表情')}
-                        value={query}
-                        onChange={(event) => setQuery(event.target.value)}
-                      />
-                    </label>
-                    <div className="message-emoji-categories" role="group" aria-label={t('表情分类')}>
-                      <button
-                        type="button"
-                        aria-label={t('全部表情')}
-                        title={t('全部表情')}
-                        aria-pressed={category === 'all' && !query}
-                        onClick={() => {
-                          setCategory('all');
-                          setQuery('');
-                        }}
-                      >
-                        ✦
-                      </button>
-                      {PIN_EMOJI_CATEGORIES.map((item) => (
+                    </button>
+                  </div>
+                  {expanded && (
+                    <div className="message-emoji-picker">
+                      <label className="message-emoji-search">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                          aria-hidden="true"
+                        >
+                          <circle cx="10.5" cy="10.5" r="6.5" />
+                          <path d="m16 16 4 4" />
+                        </svg>
+                        <input
+                          type="search"
+                          aria-label={t('搜索表情')}
+                          placeholder={t('搜索表情')}
+                          value={query}
+                          onChange={(event) => setQuery(event.target.value)}
+                        />
+                      </label>
+                      <div className="message-emoji-categories" role="group" aria-label={t('表情分类')}>
                         <button
-                          key={item.id}
                           type="button"
-                          aria-label={t(item.name)}
-                          title={t(item.name)}
-                          aria-pressed={category === item.id && !query}
+                          aria-label={t('全部表情')}
+                          title={t('全部表情')}
+                          aria-pressed={category === 'all' && !query}
                           onClick={() => {
-                            setCategory(item.id);
+                            setCategory('all');
                             setQuery('');
                           }}
                         >
-                          {item.icon}
+                          ✦
                         </button>
-                      ))}
+                        {PIN_EMOJI_CATEGORIES.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            aria-label={t(item.name)}
+                            title={t(item.name)}
+                            aria-pressed={category === item.id && !query}
+                            onClick={() => {
+                              setCategory(item.id);
+                              setQuery('');
+                            }}
+                          >
+                            {item.icon}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="message-emoji-label" aria-live="polite">
+                        {query
+                          ? t('搜索结果 · {count}', { count: options.length })
+                          : category === 'all'
+                            ? t('全部表情')
+                            : t(PIN_EMOJI_CATEGORIES.find((item) => item.id === category)?.name || '')}
+                      </div>
+                      <div
+                        ref={grid}
+                        className={`message-emoji-grid ${options.length ? '' : 'is-empty'}`}
+                        role="group"
+                        aria-label={t('表情列表')}
+                      >
+                        {options.length ? (
+                          options.map((item) => emojiButton(item.emoji, true))
+                        ) : (
+                          <span className="message-emoji-empty">{t('没有找到表情')}</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="message-emoji-label" aria-live="polite">
-                      {query
-                        ? t('搜索结果 · {count}', { count: options.length })
-                        : category === 'all'
-                          ? t('全部表情')
-                          : t(PIN_EMOJI_CATEGORIES.find((item) => item.id === category)?.name || '')}
-                    </div>
-                    <div
-                      ref={grid}
-                      className={`message-emoji-grid ${options.length ? '' : 'is-empty'}`}
-                      role="group"
-                      aria-label={t('表情列表')}
-                    >
-                      {options.length ? (
-                        options.map((item) => emojiButton(item.emoji, true))
-                      ) : (
-                        <span className="message-emoji-empty">{t('没有找到表情')}</span>
-                      )}
-                    </div>
-                  </div>
-                )}
-                <div className="message-menu-separator" role="separator" />
-              </>
-            )}
-            {onReply && (
+                  )}
+                  <div className="message-menu-separator" role="separator" />
+                </>
+              )}
+              {onReply && (
+                <button
+                  type="button"
+                  className="message-menu-action"
+                  role={expanded ? undefined : 'menuitem'}
+                  onClick={() => {
+                    dismiss();
+                    setHovered(false);
+                    onReply();
+                  }}
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    aria-hidden="true"
+                  >
+                    <path d="m9 5-6 6 6 6M3 11h11a7 7 0 0 1 7 7" />
+                  </svg>
+                  {t('回复')}
+                </button>
+              )}
               <button
                 type="button"
                 className="message-menu-action"
                 role={expanded ? undefined : 'menuitem'}
-                onClick={() => {
-                  dismiss();
-                  setHovered(false);
-                  onReply();
-                }}
+                onClick={() => void copy()}
               >
                 <svg
                   width="18"
@@ -642,34 +666,16 @@ export function MessageActions({
                   strokeWidth="1.6"
                   aria-hidden="true"
                 >
-                  <path d="m9 5-6 6 6 6M3 11h11a7 7 0 0 1 7 7" />
+                  <rect x="8" y="3" width="12" height="15" rx="2" />
+                  <path d="M16 21H5a2 2 0 0 1-2-2V8" />
                 </svg>
-                {t('回复')}
+                {t('复制')}
               </button>
-            )}
-            <button
-              type="button"
-              className="message-menu-action"
-              role={expanded ? undefined : 'menuitem'}
-              onClick={() => void copy()}
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                aria-hidden="true"
-              >
-                <rect x="8" y="3" width="12" height="15" rx="2" />
-                <path d="M16 21H5a2 2 0 0 1-2-2V8" />
-              </svg>
-              {t('复制')}
-            </button>
-          </div>,
-          document.body,
-        )}
+            </div>
+          )}
+        </Presence>,
+        document.body,
+      )}
     </>
   );
 }

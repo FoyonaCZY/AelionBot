@@ -10,6 +10,7 @@ import {
 } from '../../shared/types/image-types';
 import { Icon } from '../ui/Icon';
 import { Emblem } from '../ui/Emblem';
+import { useSwitchMotion } from '../ui/motion';
 import { ModelSelectionFields, validModelSelection } from './ModelSelectionFields';
 import { ContextCapacityInput } from './ContextCapacityInput';
 import { EditableSelect } from '../ui/EditableSelect';
@@ -64,7 +65,10 @@ export function ModelSettings({ state, onNotify }: { state: Snapshot; onNotify: 
   const [editing, setEditing] = useState<string>(providers[0]?.id || 'new'),
     [refreshing, setRefreshing] = useState<string[]>([]),
     [removing, setRemoving] = useState('');
-  const attempted = useRef(new Set<string>());
+  const attempted = useRef(new Set<string>()),
+    workspace = useRef<HTMLDivElement>(null);
+  useSwitchMotion(workspace, page, ':scope > :not([hidden], .model-settings-navigation)');
+  useSwitchMotion(workspace, editing, '.provider-editor');
   const refresh = async (id: string) => {
     setRefreshing((value) => [...new Set([...value, id])]);
     try {
@@ -112,7 +116,7 @@ export function ModelSettings({ state, onNotify }: { state: Snapshot; onNotify: 
     }
   };
   return (
-    <div className="model-settings-workspace">
+    <div ref={workspace} className="model-settings-workspace">
       <div className="model-settings-navigation" role="group" aria-label={t('模型设置')}>
         <button type="button" aria-pressed={page === 'assignments'} onClick={() => setPage('assignments')}>
           <Icon name="sliders" size={16} />
@@ -322,6 +326,7 @@ function ProviderEditor({
   const { t } = useI18n();
   const [tab, setTab] = useState<'connection' | 'models' | 'images' | 'advanced'>('connection');
   const form = useRef<HTMLFormElement>(null);
+  useSwitchMotion(form, tab, ':scope > .provider-editor-content:not([hidden])');
   const [parameters, setParameters] = useState<ModelParameters>({
     protocol: provider ? provider.protocol || 'chat' : 'responses',
     responsesTransport: provider?.responsesTransport,

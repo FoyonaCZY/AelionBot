@@ -1,5 +1,6 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
 import type { DesignerSnapshot, DesignSystemSummary } from '../../shared/types/designer-types';
+import { useSwitchMotion } from '../ui/motion';
 import { useI18n } from '../i18n';
 import { DesignSystemsTab } from './DesignSystemsTab';
 import { DesignFontsTab } from './DesignFontsTab';
@@ -25,7 +26,9 @@ export function DesignSettings({
 }) {
   const { t } = useI18n();
   const [section, setSection] = useState<Section>('systems');
-  const tabs = useRef<Array<HTMLButtonElement | null>>([]);
+  const tabs = useRef<Array<HTMLButtonElement | null>>([]),
+    panel = useRef<HTMLDivElement>(null);
+  useSwitchMotion(panel, section);
   const move = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
     event.preventDefault();
@@ -55,7 +58,7 @@ export function DesignSettings({
           </button>
         ))}
       </div>
-      <div role="tabpanel" id={'design-panel-' + section} aria-labelledby={'design-tab-' + section}>
+      <div ref={panel} role="tabpanel" id={'design-panel-' + section} aria-labelledby={'design-tab-' + section}>
         {section === 'systems' ? (
           <DesignSystemsTab systems={designer?.systems || NO_SYSTEMS} onNotify={onNotify} />
         ) : (

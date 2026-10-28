@@ -3,6 +3,7 @@ import { DiagnosticsDrawer, GameTopbar, useGameTable, type GameTableProps } from
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
+import { Presence } from '../ui/Presence';
 import { GameGlyph } from './GameGlyph';
 import type { GameView, GameRole } from '../../shared/types/game-types';
 import { BOARDS, ROLE_NAMES as roles } from '../../shared/games/game-boards';
@@ -290,7 +291,7 @@ export function WerewolfTable(props: GameTableProps) {
   const aliveOf = (test: (role: GameRole) => boolean) =>
     game.seats.filter((p) => p.alive && p.role && test(p.role)).length;
   const boardName = game.board ? translate(BOARDS[game.board].name) : translate('七人局');
-  const drawer = diagnostics && <DiagnosticsDrawer game={game} onClose={() => setDiagnostics(false)} />;
+  const drawer = <DiagnosticsDrawer game={game} open={diagnostics} onClose={() => setDiagnostics(false)} />;
 
   if (finished)
     return (
@@ -535,9 +536,11 @@ export function WerewolfTable(props: GameTableProps) {
         </aside>
       </div>
       {drawer}
-      {self?.role && !revealed && game.day === 1 && game.phase === 'night' && (
-        <RoleReveal seat={self} board={game.board} onClose={closeReveal} />
-      )}
+      <Presence>
+        {self?.role && !revealed && game.day === 1 && game.phase === 'night' && (
+          <RoleReveal seat={self} board={game.board} onClose={closeReveal} />
+        )}
+      </Presence>
     </div>
   );
 }

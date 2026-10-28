@@ -26,6 +26,7 @@ import type { PinInput } from '../../shared/chat/reactions';
 import { share } from '../../shared/state-sync';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
+import { Presence } from '../ui/Presence';
 import { MentionContent } from '../ui/MentionContent';
 import { PinThreadContext, usePinRefs, usePinThread } from '../preview/pin-thread';
 import type { FileItem } from '../ui/FileCard';
@@ -384,7 +385,9 @@ export function GroupConversation({
           <ComputerCardToggle />
         </div>
       </header>
-      {personaPanel && <GroupPersonaPanel members={members} onClose={() => setPersonaPanel(false)} />}
+      <Presence>
+        {personaPanel && <GroupPersonaPanel members={members} onClose={() => setPersonaPanel(false)} />}
+      </Presence>
       <div className="group-design-tasks">
         {state.designer?.sessions
           .filter(

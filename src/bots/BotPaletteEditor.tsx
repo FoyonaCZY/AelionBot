@@ -1,5 +1,6 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Avatar } from '../ui/Avatar';
+import { useSwitchMotion } from '../ui/motion';
 import { Select } from '../ui/Select';
 import {
   BOT_PALETTES,
@@ -45,6 +46,8 @@ function CharacterPicker({
     () => botCharacter(current || '')?.category || 'all',
   );
   const shown = BOT_CHARACTERS.filter((item) => category === 'all' || item.category === category);
+  const grid = useRef<HTMLDivElement>(null);
+  useSwitchMotion(grid, category);
   return (
     <>
       <div className="bot-character-bar">
@@ -62,7 +65,7 @@ function CharacterPicker({
           ))}
         </div>
       </div>
-      <div className="bot-palette-presets bot-character-grid" role="group" aria-label={t('形象')}>
+      <div ref={grid} className="bot-palette-presets bot-character-grid" role="group" aria-label={t('形象')}>
         {shown.map((item) => (
           <button
             type="button"
@@ -179,6 +182,8 @@ export function BotPaletteEditor({
   const key = botPaletteKey(palette),
     preset = BOT_PALETTES.find((item) => botPaletteKey(item) === key),
     kindLabel = t(KIND_LABELS[kind]);
+  const custom = useRef<HTMLDetailsElement>(null);
+  useSwitchMotion(custom, kind, '.bot-palette-presets');
   const selectPalette = (next: BotPalette) => {
     setEditVersion((version) => version + 1);
     onChange(next);
@@ -236,7 +241,7 @@ export function BotPaletteEditor({
       {open && (
         <div className="bot-palette-body" id={id}>
           <CharacterPicker current={character?.id} disabled={disabled} onSelect={selectPalette} />
-          <details className="bot-palette-custom-section" open={kind !== 'character'}>
+          <details ref={custom} className="bot-palette-custom-section" open={kind !== 'character'}>
             <summary>{t('自定义配色')}</summary>
             <div className="bot-palette-tabs" role="group" aria-label={t('配色类型')}>
               {(['solid', 'gradient', 'split'] as const).map((type) => (

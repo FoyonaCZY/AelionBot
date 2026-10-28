@@ -5,6 +5,7 @@ import type { PersonaAction, PersonaView } from '../../shared/types/persona-type
 import type { GameMbti } from '../../shared/games/game-personality';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
+import { useSwitchMotion } from '../ui/motion';
 import { useI18n } from '../i18n';
 import { PRESETS, PRESET_IDS } from '../../shared/persona/presets';
 import {
@@ -145,6 +146,9 @@ export function PersonaPage({
   const selectedBotId = member?.id;
   const selectedPreset = selectedBotId ? presets[selectedBotId] : undefined;
   const reviewing = !!view?.growthReview?.running;
+  const page = useRef<HTMLElement>(null);
+  useSwitchMotion(page, selectedBotId, ':scope > :is(.gp-detail, .gp-loading)');
+  useSwitchMotion(page, section, '.gp-layout :is(.gp-section, .gp-aside, .gp-settings):not([hidden])');
   useEffect(() => {
     if (!selectedBotId) return;
     let live = true,
@@ -219,7 +223,7 @@ export function PersonaPage({
         .join(language === 'en' ? ' · ' : '；')
     : '';
   return (
-    <main className="gp-page" style={{ '--gp-bot-color': color } as CSSProperties}>
+    <main ref={page} className="gp-page" style={{ '--gp-bot-color': color } as CSSProperties}>
       <nav className="gp-list" aria-label={t('群里的 Bot')}>
         {members.map((m) => (
           <button

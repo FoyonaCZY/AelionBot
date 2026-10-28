@@ -28,6 +28,8 @@ import { useI18n } from '../i18n';
 import { PreviewIcon } from './PreviewIcon';
 import { UnsavedDialog } from './UnsavedDialog';
 import { PinBubble, useWebPinBubble, type PinBubbleActions } from './PinBubble';
+import { useSwitchMotion } from '../ui/motion';
+import { Presence } from '../ui/Presence';
 import { pinNumber } from '../../shared/preview/preview-annotations';
 import './file-preview.css';
 import './file-preview-compact.css';
@@ -86,6 +88,8 @@ export function FilePreview({
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState(''),
     [retry, setRetry] = useState(0);
+  const content = useRef<HTMLDivElement>(null);
+  useSwitchMotion(content, index, ':scope > :not(.fp-gallery)', 'fade');
   const [exportState, setExportState] = useState<CanvasExportState>(),
     exportInFlight = useRef(false);
   const [chatWidth, setChatWidth] = useState(() => {
@@ -994,6 +998,7 @@ export function FilePreview({
                 </aside>
               )}
               <div
+                ref={content}
                 className={`fp-content ${draft ? 'has-editor-session' : ''}`}
                 data-compare={comparing ? 'on' : undefined}
               >
@@ -1146,49 +1151,53 @@ export function FilePreview({
                 />
               </div>
             )}
-            {domPending && (
-              <UnsavedDialog
-                saveLabel={web?.saveLabel}
-                count={1}
-                saving={domSaving || Boolean(web?.busy)}
-                error={domGuardError}
-                onCancel={() => setDomPending(undefined)}
-                onDiscard={() => {
-                  void webRef.current
-                    ?.discard()
-                    .then(() => {
-                      const proceed = domPending;
-                      setDomPending(undefined);
-                      proceed();
-                    })
-                    .catch((e) => setDomGuardError(e.message));
-                }}
-                onSave={() => {
-                  setDomSaving(true);
-                  void webRef.current
-                    ?.save()
-                    .then((saved) => {
-                      if (saved) {
+            <Presence>
+              {domPending && (
+                <UnsavedDialog
+                  saveLabel={web?.saveLabel}
+                  count={1}
+                  saving={domSaving || Boolean(web?.busy)}
+                  error={domGuardError}
+                  onCancel={() => setDomPending(undefined)}
+                  onDiscard={() => {
+                    void webRef.current
+                      ?.discard()
+                      .then(() => {
                         const proceed = domPending;
                         setDomPending(undefined);
                         proceed();
-                      } else setDomGuardError(t('修改尚未保存，可以继续编辑或发送给 Bot。'));
-                    })
-                    .catch((e) => setDomGuardError(e.message))
-                    .finally(() => setDomSaving(false));
-                }}
-              />
-            )}
-            {edits.pending && (
-              <UnsavedDialog
-                count={edits.pending.ids.length}
-                saving={edits.saving}
-                error={edits.guardError}
-                onCancel={edits.cancel}
-                onDiscard={edits.discardAndContinue}
-                onSave={() => void edits.saveAndContinue()}
-              />
-            )}
+                      })
+                      .catch((e) => setDomGuardError(e.message));
+                  }}
+                  onSave={() => {
+                    setDomSaving(true);
+                    void webRef.current
+                      ?.save()
+                      .then((saved) => {
+                        if (saved) {
+                          const proceed = domPending;
+                          setDomPending(undefined);
+                          proceed();
+                        } else setDomGuardError(t('修改尚未保存，可以继续编辑或发送给 Bot。'));
+                      })
+                      .catch((e) => setDomGuardError(e.message))
+                      .finally(() => setDomSaving(false));
+                  }}
+                />
+              )}
+            </Presence>
+            <Presence>
+              {edits.pending && (
+                <UnsavedDialog
+                  count={edits.pending.ids.length}
+                  saving={edits.saving}
+                  error={edits.guardError}
+                  onCancel={edits.cancel}
+                  onDiscard={edits.discardAndContinue}
+                  onSave={() => void edits.saveAndContinue()}
+                />
+              )}
+            </Presence>
           </section>
         </div>
       </PreviewLayoutContext.Provider>

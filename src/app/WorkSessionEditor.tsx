@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Bot, WorkSession } from '../../shared/types/core';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
 import { ipcErrorText } from '../ui/ipc-error';
+import { useSwitchMotion } from '../ui/motion';
 import { useI18n } from '../i18n';
 import './work-sessions.css';
 
@@ -46,6 +47,8 @@ export function WorkSessionEditor({
     [error, setError] = useState(''),
     [confirmDelete, setConfirmDelete] = useState(deleting),
     [ownerId, setOwnerId] = useState(bot.id);
+  const dialog = useRef<HTMLElement>(null);
+  useSwitchMotion(dialog, confirmDelete, ':scope > :not(header)');
   const choices = !session && bots && bots.length > 1 ? bots : undefined;
   const scope = session ? { kind: 'bot' as const, id: bot.id, sessionId: session.id } : undefined;
   const title = confirmDelete ? t('删除工作会话') : session ? t('工作会话设置') : t('新建工作会话');
@@ -96,6 +99,7 @@ export function WorkSessionEditor({
       }}
     >
       <section
+        ref={dialog}
         className="modal work-session-dialog"
         role="dialog"
         aria-modal="true"

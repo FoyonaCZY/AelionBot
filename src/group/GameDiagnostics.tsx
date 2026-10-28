@@ -2,7 +2,8 @@ import { ROLE_NAMES, PHASE_NAMES, ACTION_NAMES } from '../../shared/games/game-b
 import { tileName } from '../../shared/games/mahjong-rules';
 import { useI18n } from '../i18n';
 import { Select } from '../ui/Select';
-import { useEffect, useState } from 'react';
+import { useSwitchMotion } from '../ui/motion';
+import { useEffect, useRef, useState } from 'react';
 import type { GameTrace, GameView, GameAction } from '../../shared/types/game-types';
 const labels: Record<GameTrace['type'], string> = {
   created: '创建对局',
@@ -36,6 +37,8 @@ export function GameDiagnostics({ game }: { game: GameView }) {
     [error, setError] = useState(''),
     [seat, setSeat] = useState(''),
     [mode, setMode] = useState<'decisions' | 'technical'>('decisions');
+  const root = useRef<HTMLElement>(null);
+  useSwitchMotion(root, mode, '.wg-record-tabs ~ .wg-traces');
   const allowed = !game.humanId || game.status === 'finished';
   // Party games count rounds, not days and nights.
   const rounds = !!game.mode && game.mode !== 'werewolf';
@@ -336,7 +339,7 @@ export function GameDiagnostics({ game }: { game: GameView }) {
     return e.detail;
   }
   return (
-    <section className="wg-diagnostics" aria-label={t('运行记录')}>
+    <section ref={root} className="wg-diagnostics" aria-label={t('运行记录')}>
       <div className="gg-config-heading">
         <strong>{t('运行记录')}</strong>
         {allowed && (

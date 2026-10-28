@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Bot, IntegrationSource, McpServerView, Skill } from '../../shared/types/core';
 import { Icon } from '../ui/Icon';
+import { useSwitchMotion } from '../ui/motion';
 import { useI18n } from '../i18n';
 import Markdown from '../chat/MessageMarkdown';
 import { SkillControls } from './IntegrationSettings';
@@ -112,6 +113,8 @@ export function PluginDetails({
     [testResult, setTestResult] = useState(''),
     [signInError, setSignInError] = useState(''),
     [confirmRemove, setConfirmRemove] = useState(false);
+  const tabPanel = useRef<HTMLDivElement>(null);
+  useSwitchMotion(tabPanel, tab);
   useEffect(() => {
     if (!skill) return;
     let active = true;
@@ -237,21 +240,25 @@ export function PluginDetails({
           <p role="alert" className="computer-notice">
             {error}
           </p>
-        ) : tab === 'body' ? (
-          <div className="plugin-detail-body markdown">
-            <Markdown>{full?.body || skill.body}</Markdown>
-          </div>
-        ) : files.length ? (
-          <ul className="plugin-files">
-            {files.map((path) => (
-              <li key={path}>
-                <Icon name="file" size={14} />
-                <code>{path}</code>
-              </li>
-            ))}
-          </ul>
         ) : (
-          <p className="subtle">{t('这个技能只有 SKILL.md。')}</p>
+          <div ref={tabPanel} role="tabpanel">
+            {tab === 'body' ? (
+              <div className="plugin-detail-body markdown">
+                <Markdown>{full?.body || skill.body}</Markdown>
+              </div>
+            ) : files.length ? (
+              <ul className="plugin-files">
+                {files.map((path) => (
+                  <li key={path}>
+                    <Icon name="file" size={14} />
+                    <code>{path}</code>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="subtle">{t('这个技能只有 SKILL.md。')}</p>
+            )}
+          </div>
         )}
         {(full?.compatibility || skill.compatibility) && (
           <p className="subtle">

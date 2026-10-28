@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSwitchMotion } from '../ui/motion';
 import type {
   EditorCommand,
   EditorResult,
@@ -110,6 +111,8 @@ export function WebElementInspector({
     setError('');
   }, [selected?.id, selected?.html]);
   useEffect(() => setTab(initialTab), [initialTab]);
+  const panel = useRef<HTMLFieldSetElement>(null);
+  useSwitchMotion(panel, tab);
   const fontOptions = [
     { value: 'system-ui, sans-serif', label: t('系统默认') },
     { value: '"Microsoft YaHei", sans-serif', label: t('微软雅黑') },
@@ -161,7 +164,7 @@ export function WebElementInspector({
           </button>
         ))}
       </nav>
-      <fieldset disabled={busy}>
+      <fieldset ref={panel} disabled={busy}>
         {tab === 'tree' ? (
           <div className="web-element-tree">
             <TreeBranch command={command} selected={selected?.id} />

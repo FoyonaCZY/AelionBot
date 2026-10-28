@@ -3,6 +3,8 @@ import { Combobox } from '../ui/Combobox';
 import { useEffect, useRef, useState } from 'react';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
+import { useSwitchMotion } from '../ui/motion';
+import { Presence } from '../ui/Presence';
 import {
   localDateParts,
   nextTaskTime,
@@ -63,6 +65,8 @@ export function ScheduledTasks({
     [editing, setEditing] = useState<ScheduledTask | 'new'>(),
     [pending, setPending] = useState(''),
     [now, setNow] = useState(Date.now());
+  const list = useRef<HTMLDivElement>(null);
+  useSwitchMotion(list, filter);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(timer);
@@ -130,7 +134,7 @@ export function ScheduledTasks({
           ))}
         </div>
       )}
-      <div className="scheduled-list">
+      <div ref={list} className="scheduled-list">
         {visible.map((task) => {
           const running = taskExecuting(task),
             failed = Boolean(task.error) && !running;
@@ -199,16 +203,18 @@ export function ScheduledTasks({
           </div>
         )}
       </div>
-      {editing && target && (
-        <ScheduledTaskEditor
-          key={editing === 'new' ? 'new' : editing.id}
-          task={editing === 'new' ? undefined : editing}
-          live={editing === 'new' ? undefined : tasks.find((task) => task.id === editing.id)}
-          target={target}
-          targetName={targetName}
-          onClose={() => setEditing(undefined)}
-        />
-      )}
+      <Presence>
+        {editing && target && (
+          <ScheduledTaskEditor
+            key={editing === 'new' ? 'new' : editing.id}
+            task={editing === 'new' ? undefined : editing}
+            live={editing === 'new' ? undefined : tasks.find((task) => task.id === editing.id)}
+            target={target}
+            targetName={targetName}
+            onClose={() => setEditing(undefined)}
+          />
+        )}
+      </Presence>
     </section>
   );
 }

@@ -29,9 +29,11 @@ function ContextMenu({
   useLayoutEffect(() => {
     const element = menu.current;
     if (!element) return;
-    const box = element.getBoundingClientRect();
-    element.style.left = `${Math.max(8, Math.min(anchor.x, window.innerWidth - box.width - 8))}px`;
-    element.style.top = `${Math.max(8, Math.min(anchor.y, window.innerHeight - box.height - 8))}px`;
+    // Layout size, not the rendered box: the menu opens scaled down while it animates in.
+    const width = element.offsetWidth,
+      height = element.offsetHeight;
+    element.style.left = `${Math.max(8, Math.min(anchor.x, window.innerWidth - width - 8))}px`;
+    element.style.top = `${Math.max(8, Math.min(anchor.y, window.innerHeight - height - 8))}px`;
     element.querySelector<HTMLButtonElement>('button')?.focus();
   }, [anchor]);
   useEffect(() => {

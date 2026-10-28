@@ -104,7 +104,7 @@ export function MahjongTable(props: GameTableProps) {
   const specials = request?.options?.filter((o) => !o.id.startsWith('d:')) || [];
   const focused = focus ? discardOf(focus) : undefined;
   const total = (game.clock?.totalMs || 30000) / 1000;
-  const drawer = diagnostics && <DiagnosticsDrawer game={game} onClose={() => setDiagnostics(false)} />;
+  const drawer = <DiagnosticsDrawer game={game} open={diagnostics} onClose={() => setDiagnostics(false)} />;
   const win = table.win;
   const fan = win?.fans.reduce((sum, f) => sum + f.fan, 0) || 0;
   const nameOf = (id?: string) => {

@@ -119,7 +119,7 @@ export function UndercoverTable(props: GameTableProps) {
     if (feed.current) feed.current.scrollTop = feed.current.scrollHeight;
   }, [game.logs.length]);
   const total = request?.kind === 'describe' ? 90 : 45;
-  const drawer = diagnostics && <DiagnosticsDrawer game={game} onClose={() => setDiagnostics(false)} />;
+  const drawer = <DiagnosticsDrawer game={game} open={diagnostics} onClose={() => setDiagnostics(false)} />;
   if (finished)
     return (
       <div className="gg-table-root" data-period="finished">

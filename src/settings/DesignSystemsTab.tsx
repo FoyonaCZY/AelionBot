@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { DesignSystemSummary } from '../../shared/types/designer-types';
 import { Icon } from '../ui/Icon';
 import { ipcErrorText } from '../ui/ipc-error';
+import { useSwitchMotion } from '../ui/motion';
 import { useI18n } from '../i18n';
 
 /**
@@ -52,7 +53,9 @@ export function DesignSystemsTab({
     [category, setCategory] = useState(''),
     [importing, setImporting] = useState(false),
     [error, setError] = useState('');
-  const chips = useRef<HTMLDivElement>(null);
+  const chips = useRef<HTMLDivElement>(null),
+    grid = useRef<HTMLUListElement>(null);
+  useSwitchMotion(grid, category);
   const categories = useMemo(() => {
     const counts = new Map<string, number>();
     for (const s of systems) if (s.category) counts.set(s.category, (counts.get(s.category) || 0) + 1);
@@ -132,7 +135,7 @@ export function DesignSystemsTab({
         </p>
       )}
       {shown.length ? (
-        <ul className="design-system-grid">
+        <ul ref={grid} className="design-system-grid">
           {shown.map((s) => (
             <li key={s.id} className="design-system-card" title={s.description || undefined}>
               <Specimen system={s} />

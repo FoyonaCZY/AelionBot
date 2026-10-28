@@ -119,6 +119,7 @@ export function ConversationPane({
       ) : bot ? (
         <>
           <ConversationHeader
+            key={session ? 'session:' + session.id : bot.id}
             bot={bot}
             session={session}
             activity={avatarActivities[bot.id]}

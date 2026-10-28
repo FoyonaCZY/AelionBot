@@ -13,6 +13,7 @@ import {
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
 import { ipcErrorText } from '../ui/ipc-error';
+import { useSwitchMotion } from '../ui/motion';
 import { useI18n } from '../i18n';
 
 type Tab = 'basic' | 'pace' | 'decide';
@@ -159,7 +160,9 @@ export function GroupEditor({
     [error, setError] = useState(''),
     [pending, setPending] = useState(false),
     [deleting, setDeleting] = useState(false);
-  const root = useRef<HTMLElement>(null);
+  const root = useRef<HTMLElement>(null),
+    content = useRef<HTMLDivElement>(null);
+  useSwitchMotion(content, tab, ':scope > :not([hidden])');
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     root.current?.querySelector('input')?.focus();
@@ -248,7 +251,7 @@ export function GroupEditor({
               ))}
             </nav>
           )}
-          <div className="group-settings-content">
+          <div ref={content} className="group-settings-content">
             <div hidden={tab !== 'basic'}>
               <label className="group-name">
                 {t('群名称')}

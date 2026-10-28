@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { AttachmentScope } from '../../shared/types/attachment-types';
 import { AttachmentIcon } from '../files/Attachments';
 import { Icon } from '../ui/Icon';
+import { Presence } from '../ui/Presence';
 import { CompanionGlyph } from '../bots/CompanionCard';
 import { useI18n } from '../i18n';
 import type { WorkMode } from '../../shared/types/work-types';
@@ -121,62 +122,64 @@ export function ComposerTools({
           )}
         </div>
       )}
-      {open && (
-        <div className="composer-add-menu" role="menu" aria-label={t('添加到会话')}>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              close();
-              onAttach();
-            }}
-          >
-            <span className="composer-menu-icon">
-              <AttachmentIcon />
-            </span>
-            <span>{t('上传附件')}</span>
-          </button>
-          {!fixedDesignWorkspace && (
-            <>
-              <button type="button" role="menuitem" onClick={() => void folder()}>
-                <span className="composer-menu-icon">
-                  <Icon name="folder" />
-                </span>
-                <span>{workspaceDir ? t('更换工作目录') : t('选择工作目录')}</span>
-              </button>
-              <div className="composer-menu-divider" />
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  close();
-                  onCommand('plan');
-                }}
-              >
-                <span className="composer-menu-icon composer-menu-plan">
-                  <CompanionGlyph kind="plan" />
-                </span>
-                <span>{t('制定计划')}</span>
-                <kbd>/plan</kbd>
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  close();
-                  onCommand('goal');
-                }}
-              >
-                <span className="composer-menu-icon composer-menu-goal">
-                  <CompanionGlyph kind="goal" />
-                </span>
-                <span>{t('执行目标')}</span>
-                <kbd>/goal</kbd>
-              </button>
-            </>
-          )}
-        </div>
-      )}
+      <Presence>
+        {open && (
+          <div className="composer-add-menu" role="menu" aria-label={t('添加到会话')}>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                close();
+                onAttach();
+              }}
+            >
+              <span className="composer-menu-icon">
+                <AttachmentIcon />
+              </span>
+              <span>{t('上传附件')}</span>
+            </button>
+            {!fixedDesignWorkspace && (
+              <>
+                <button type="button" role="menuitem" onClick={() => void folder()}>
+                  <span className="composer-menu-icon">
+                    <Icon name="folder" />
+                  </span>
+                  <span>{workspaceDir ? t('更换工作目录') : t('选择工作目录')}</span>
+                </button>
+                <div className="composer-menu-divider" />
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    close();
+                    onCommand('plan');
+                  }}
+                >
+                  <span className="composer-menu-icon composer-menu-plan">
+                    <CompanionGlyph kind="plan" />
+                  </span>
+                  <span>{t('制定计划')}</span>
+                  <kbd>/plan</kbd>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    close();
+                    onCommand('goal');
+                  }}
+                >
+                  <span className="composer-menu-icon composer-menu-goal">
+                    <CompanionGlyph kind="goal" />
+                  </span>
+                  <span>{t('执行目标')}</span>
+                  <kbd>/goal</kbd>
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </Presence>
       {pending && (
         <span className="workspace-pending" role="status">
           {t('正在选择目录…')}

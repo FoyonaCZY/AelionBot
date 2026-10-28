@@ -142,7 +142,7 @@ export function DoudizhuTable(props: GameTableProps) {
     : game.phase === 'bid'
       ? translate('叫地主')
       : translate('底分 {bid} · {times} 倍', { bid: Math.max(1, table.bid), times: table.multiplier });
-  const drawer = diagnostics && <DiagnosticsDrawer game={game} onClose={() => setDiagnostics(false)} />;
+  const drawer = <DiagnosticsDrawer game={game} open={diagnostics} onClose={() => setDiagnostics(false)} />;
   return (
     <div className="gg-table-root cg-root" data-period={finished ? 'finished' : 'day'} data-game="doudizhu">
       <GameTopbar

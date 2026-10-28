@@ -1,6 +1,8 @@
+import { useRef } from 'react';
 import type { Bot, Snapshot } from '../../shared/types/core';
 import { SettingsSection, SettingsEmpty } from '../settings/SettingsWindow';
 import { Avatar } from '../ui/Avatar';
+import { useSwitchMotion } from '../ui/motion';
 import { useI18n } from '../i18n';
 
 /** The Memory settings tab: background learning, then the memories of the Bot picked from the row of avatars. */
@@ -21,6 +23,8 @@ export function MemorySettings({
 }) {
   const { t, language } = useI18n();
   const scopeBot = state.bots.find((item) => item.id === scope) || bot || state.bots[0];
+  const list = useRef<HTMLUListElement>(null);
+  useSwitchMotion(list, scopeBot?.id);
   const learning = state.cognition?.learning,
     lastLearning = state.cognition?.bots.find((item) => item.botId === scopeBot?.id)?.lastLearning;
   return (
@@ -74,7 +78,7 @@ export function MemorySettings({
           </div>
         )}
         {scopeBot?.memories.length ? (
-          <ul className="settings-card memory-list">
+          <ul ref={list} className="settings-card memory-list">
             {scopeBot.memories.map((value, i) => (
               <li key={i}>{value}</li>
             ))}

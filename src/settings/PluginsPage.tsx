@@ -17,6 +17,8 @@ import { PluginIcon, mcpStatusText, sinceText } from './plugin-visuals';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
 import { ipcErrorText } from '../ui/ipc-error';
+import { useSwitchMotion } from '../ui/motion';
+import { Presence } from '../ui/Presence';
 import { useI18n } from '../i18n';
 import './plugins.css';
 export type PluginFilter = 'all' | 'skills' | 'mcp' | 'connectors';
@@ -52,7 +54,9 @@ export function PluginsPage({
     [connectorError, setConnectorError] = useState(''),
     [appError, setAppError] = useState(''),
     heading = useRef<HTMLHeadingElement>(null),
-    search = useRef<HTMLInputElement>(null);
+    search = useRef<HTMLInputElement>(null),
+    content = useRef<HTMLDivElement>(null);
+  useSwitchMotion(content, filter, ':scope > :is(.plugins-section, .plugins-empty)');
   useEffect(() => heading.current?.focus({ preventScroll: true }), []);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -138,7 +142,7 @@ export function PluginsPage({
     connectedServers = plainServers.filter((server) => server.status === 'connected').length;
   return (
     <main className="plugins-page" aria-labelledby="plugins-heading">
-      <div className="plugins-content">
+      <div ref={content} className="plugins-content">
         <header className="plugins-header drag">
           <div className="plugins-title">
             <h1 id="plugins-heading" ref={heading} tabIndex={-1}>
@@ -428,95 +432,103 @@ export function PluginsPage({
           </div>
         )}
       </div>
-      {selected?.kind === 'connector' ? (
-        <ConnectorDetails
-          key={selected.id}
-          state={state}
-          connector={connectors.find((connector) => connector.id === selected.id)}
-          onClose={() => setSelected(undefined)}
-          onOpenSession={onOpenSession}
-        />
-      ) : selected?.kind === 'sources' && state.integrations ? (
-        <PluginDrawer label={t('来源与配置')} onClose={() => setSelected(undefined)}>
-          <header className="plugin-hero">
-            <span className="plugin-icon" style={{ width: 48, height: 48 }}>
-              <Icon name="folder" size={24} />
-            </span>
-            <div>
-              <h2>{t('来源与配置')}</h2>
-              <p>{t('AelionBot 从这些位置读取技能和 MCP 配置')}</p>
-            </div>
-          </header>
-          <div className="plugin-rows plugin-paths">
-            <div>
-              <span>
-                {t('共享技能')}
-                <code>{state.integrations.sharedSkillDir}</code>
+      <Presence>
+        {selected?.kind === 'connector' ? (
+          <ConnectorDetails
+            key={selected.id}
+            state={state}
+            connector={connectors.find((connector) => connector.id === selected.id)}
+            onClose={() => setSelected(undefined)}
+            onOpenSession={onOpenSession}
+          />
+        ) : selected?.kind === 'sources' && state.integrations ? (
+          <PluginDrawer label={t('来源与配置')} onClose={() => setSelected(undefined)}>
+            <header className="plugin-hero">
+              <span className="plugin-icon" style={{ width: 48, height: 48 }}>
+                <Icon name="folder" size={24} />
               </span>
-              <button
-                className="text-button"
-                disabled={busy}
-                onClick={() => void act(() => window.aelion.openIntegrationPath({ kind: 'shared-skills' }))}
-              >
-                {t('打开目录')}
-              </button>
+              <div>
+                <h2>{t('来源与配置')}</h2>
+                <p>{t('AelionBot 从这些位置读取技能和 MCP 配置')}</p>
+              </div>
+            </header>
+            <div className="plugin-rows plugin-paths">
+              <div>
+                <span>
+                  {t('共享技能')}
+                  <code>{state.integrations.sharedSkillDir}</code>
+                </span>
+                <button
+                  className="text-button"
+                  disabled={busy}
+                  onClick={() => void act(() => window.aelion.openIntegrationPath({ kind: 'shared-skills' }))}
+                >
+                  {t('打开目录')}
+                </button>
+              </div>
+              <div>
+                <span>
+                  {t('MCP 配置')}
+                  <code>{state.integrations.mcpFile}</code>
+                </span>
+                <button
+                  className="text-button"
+                  disabled={busy}
+                  onClick={() => void act(() => window.aelion.openIntegrationPath({ kind: 'mcp-config' }))}
+                >
+                  {t('打开配置')}
+                </button>
+              </div>
             </div>
-            <div>
-              <span>
-                {t('MCP 配置')}
-                <code>{state.integrations.mcpFile}</code>
-              </span>
-              <button
-                className="text-button"
-                disabled={busy}
-                onClick={() => void act(() => window.aelion.openIntegrationPath({ kind: 'mcp-config' }))}
-              >
-                {t('打开配置')}
-              </button>
-            </div>
-          </div>
-          <IntegrationSources sources={state.integrations.sources} busy={busy} act={act} />
-        </PluginDrawer>
-      ) : selected ? (
-        <PluginDetails
-          key={selected.kind + ':' + selected.id}
-          skill={selected.kind === 'skill' ? skills.find((skill) => skill.id === selected.id) : undefined}
-          server={selected.kind === 'mcp' ? servers.find((server) => server.id === selected.id) : undefined}
-          owner={botOf(skills.find((skill) => skill.id === selected.id)?.botId)}
-          sources={state.integrations?.sources || []}
-          busy={busy}
-          act={act}
-          onClose={() => setSelected(undefined)}
-        />
-      ) : null}
-      {adding === 'app' && (
-        <AppConnectorDialog
-          state={state}
-          onClose={() => setAdding(undefined)}
-          onAdded={(id) => {
-            setAdding(undefined);
-            setSelected({ kind: 'mcp', id });
-          }}
-        />
-      )}
-      {adding === 'mcp' && (
-        <McpSnippetDialog
-          busy={busy}
-          onClose={() => setAdding(undefined)}
-          onImport={(text) => window.aelion.importMcpSnippet(text)}
-        />
-      )}
-      {adding && adding !== 'menu' && adding !== 'mcp' && adding !== 'app' && (
-        <AddConnectorDialog
-          state={state}
-          initialPlatform={adding}
-          onClose={() => setAdding(undefined)}
-          onCreated={(id) => {
-            setAdding(undefined);
-            setSelected({ kind: 'connector', id });
-          }}
-        />
-      )}
+            <IntegrationSources sources={state.integrations.sources} busy={busy} act={act} />
+          </PluginDrawer>
+        ) : selected ? (
+          <PluginDetails
+            key={selected.kind + ':' + selected.id}
+            skill={selected.kind === 'skill' ? skills.find((skill) => skill.id === selected.id) : undefined}
+            server={selected.kind === 'mcp' ? servers.find((server) => server.id === selected.id) : undefined}
+            owner={botOf(skills.find((skill) => skill.id === selected.id)?.botId)}
+            sources={state.integrations?.sources || []}
+            busy={busy}
+            act={act}
+            onClose={() => setSelected(undefined)}
+          />
+        ) : null}
+      </Presence>
+      <Presence>
+        {adding === 'app' && (
+          <AppConnectorDialog
+            state={state}
+            onClose={() => setAdding(undefined)}
+            onAdded={(id) => {
+              setAdding(undefined);
+              setSelected({ kind: 'mcp', id });
+            }}
+          />
+        )}
+      </Presence>
+      <Presence>
+        {adding === 'mcp' && (
+          <McpSnippetDialog
+            busy={busy}
+            onClose={() => setAdding(undefined)}
+            onImport={(text) => window.aelion.importMcpSnippet(text)}
+          />
+        )}
+      </Presence>
+      <Presence>
+        {adding && adding !== 'menu' && adding !== 'mcp' && adding !== 'app' && (
+          <AddConnectorDialog
+            state={state}
+            initialPlatform={adding}
+            onClose={() => setAdding(undefined)}
+            onCreated={(id) => {
+              setAdding(undefined);
+              setSelected({ kind: 'connector', id });
+            }}
+          />
+        )}
+      </Presence>
     </main>
   );
 }
@@ -600,43 +612,45 @@ function AddMenu({
         {t('添加')}
         <Icon name="down" size={14} />
       </button>
-      {open && (
-        <div
-          className="plugins-add-menu"
-          role="menu"
-          aria-label={t('添加插件')}
-          onKeyDown={(event) => {
-            const controls = [...root.current!.querySelectorAll<HTMLButtonElement>('[role=menuitem]')],
-              at = controls.indexOf(document.activeElement as HTMLButtonElement);
-            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-              event.preventDefault();
-              controls[(at + (event.key === 'ArrowDown' ? 1 : controls.length - 1)) % controls.length]?.focus();
-            }
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              event.stopPropagation();
-              onOpen(false);
-              trigger.current?.focus();
-            }
-          }}
-        >
-          {items.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              role="menuitem"
-              disabled={item.id !== 'connector' && busy}
-              onClick={() => onPick(item.id)}
-            >
-              <span>
-                <Icon name={item.icon} size={16} />
-              </span>
-              <strong>{item.name}</strong>
-              <small>{item.note}</small>
-            </button>
-          ))}
-        </div>
-      )}
+      <Presence>
+        {open && (
+          <div
+            className="plugins-add-menu"
+            role="menu"
+            aria-label={t('添加插件')}
+            onKeyDown={(event) => {
+              const controls = [...root.current!.querySelectorAll<HTMLButtonElement>('[role=menuitem]')],
+                at = controls.indexOf(document.activeElement as HTMLButtonElement);
+              if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                controls[(at + (event.key === 'ArrowDown' ? 1 : controls.length - 1)) % controls.length]?.focus();
+              }
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                onOpen(false);
+                trigger.current?.focus();
+              }
+            }}
+          >
+            {items.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="menuitem"
+                disabled={item.id !== 'connector' && busy}
+                onClick={() => onPick(item.id)}
+              >
+                <span>
+                  <Icon name={item.icon} size={16} />
+                </span>
+                <strong>{item.name}</strong>
+                <small>{item.note}</small>
+              </button>
+            ))}
+          </div>
+        )}
+      </Presence>
     </div>
   );
 }

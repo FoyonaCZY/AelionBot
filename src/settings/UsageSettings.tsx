@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Select } from '../ui/Select';
 import { Icon } from '../ui/Icon';
+import { useSwitchMotion } from '../ui/motion';
 import type { Snapshot } from '../../shared/types/core';
 import {
   cacheHitRatio,
@@ -421,6 +422,8 @@ export function UsageSettings({ state }: { state: Snapshot }) {
     [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'totalTokens', dir: 'desc' });
   const revision = state.modelUsage?.at(-1)?.id,
     providerRevision = (state.providers || []).map((provider) => provider.id + provider.name).join('|');
+  const root = useRef<HTMLDivElement>(null);
+  useSwitchMotion(root, tab, '.usage-tab-panel');
 
   useEffect(() => {
     let active = true;
@@ -513,7 +516,7 @@ export function UsageSettings({ state }: { state: Snapshot }) {
   ];
 
   return (
-    <div className="usage-settings">
+    <div ref={root} className="usage-settings">
       <div className="usage-tabs-row">
         <div className="usage-tabs" role="tablist" aria-label={t('用量')}>
           <button

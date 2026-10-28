@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { GameAction, GameView } from '../../shared/types/game-types';
 import { translate } from '../../shared/i18n';
 import { Icon } from '../ui/Icon';
+import { Presence } from '../ui/Presence';
 import { GameDiagnostics } from './GameDiagnostics';
 import { GameGlyph } from './GameGlyph';
 import { GameTimer } from './GamePhaseStatus';
@@ -69,18 +70,22 @@ export function useGameTable({ game, onUpdate, onMutationStart, syncError }: Gam
   };
 }
 
-export function DiagnosticsDrawer({ game, onClose }: { game: GameView; onClose: () => void }) {
+export function DiagnosticsDrawer({ game, open, onClose }: { game: GameView; open: boolean; onClose: () => void }) {
   return (
-    <aside className="gg-drawer" aria-label={translate('运行记录')}>
-      <header>
-        <b>{translate('运行记录')}</b>
-        <span className="gg-spacer" />
-        <button className="icon-button" aria-label={translate('关闭运行记录')} onClick={onClose}>
-          <Icon name="close" size={16} />
-        </button>
-      </header>
-      <GameDiagnostics game={game} />
-    </aside>
+    <Presence>
+      {open && (
+        <aside className="gg-drawer" aria-label={translate('运行记录')}>
+          <header>
+            <b>{translate('运行记录')}</b>
+            <span className="gg-spacer" />
+            <button className="icon-button" aria-label={translate('关闭运行记录')} onClick={onClose}>
+              <Icon name="close" size={16} />
+            </button>
+          </header>
+          <GameDiagnostics game={game} />
+        </aside>
+      )}
+    </Presence>
   );
 }
 
@@ -149,26 +154,28 @@ export function GameTopbar({
           >
             <Icon name="more" size={17} />
           </button>
-          {menu && (
-            <div className="gg-menu-list" role="menu" onClick={() => setMenu(false)}>
-              <button role="menuitem" onClick={onDiagnostics}>
-                {translate('运行记录')}
-              </button>
-              {!game.humanId && (
-                <button role="menuitem" aria-pressed={omniscient} onClick={onOmniscient}>
-                  {translate(omniscient ? '切换到公共视角' : '切换到全知视角')}
+          <Presence>
+            {menu && (
+              <div className="gg-menu-list" role="menu" onClick={() => setMenu(false)}>
+                <button role="menuitem" onClick={onDiagnostics}>
+                  {translate('运行记录')}
                 </button>
-              )}
-              <button
-                role="menuitem"
-                className="is-danger"
-                disabled={busy || !!syncError}
-                onClick={() => setConfirmStop(true)}
-              >
-                {translate('结束对局')}
-              </button>
-            </div>
-          )}
+                {!game.humanId && (
+                  <button role="menuitem" aria-pressed={omniscient} onClick={onOmniscient}>
+                    {translate(omniscient ? '切换到公共视角' : '切换到全知视角')}
+                  </button>
+                )}
+                <button
+                  role="menuitem"
+                  className="is-danger"
+                  disabled={busy || !!syncError}
+                  onClick={() => setConfirmStop(true)}
+                >
+                  {translate('结束对局')}
+                </button>
+              </div>
+            )}
+          </Presence>
         </div>
       </div>
       {syncError && (

@@ -115,6 +115,7 @@ export function AppModals({
       }}
     >
       <section
+        key={modal}
         className={`modal ${modal === 'computer-setup' ? 'computer-setup-modal' : modal === 'settings' ? 'settings-modal' : modal === 'profile' || modal === 'new' ? 'bot-profile-modal' : modal === 'computer' ? 'computer-modal' : modal === 'screen' ? 'preview-modal' : modal === 'terminal' ? 'terminal-modal' : modal === 'files' ? 'file-browser-modal' : ''}`}
         role="dialog"
         aria-modal="true"

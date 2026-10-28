@@ -15,6 +15,8 @@ import { peerPending, peerStatusLabel } from '../../shared/types/peer-types';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
 import { time } from '../ui/format';
+import { useSwitchMotion } from '../ui/motion';
+import { Presence } from '../ui/Presence';
 import './peer-chats.css';
 import { StreamingReply } from '../chat/StreamingReply';
 import type { BotActivities } from '../bots/bot-activity';
@@ -169,6 +171,7 @@ export function PrivateChatWindow({
     [olderPending, setOlderPending] = useState(false);
   const owner = bots.find((bot) => bot.id === panel.ownerId),
     thread = view?.threads.find((thread) => thread.id === panel.threadId) || page?.thread;
+  useSwitchMotion(body, panel.ownerId + ':' + (panel.threadId || ''));
   useLayoutEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     root.current?.focus({ preventScroll: true });
@@ -536,42 +539,45 @@ export function PeerNotifications({
   const exchange = view?.exchanges.find((exchange) => exchange.id === visible),
     from = bots.find((bot) => bot.id === exchange?.fromBotId),
     other = bots.find((bot) => bot.id === exchange?.toBotId);
-  if (!exchange || !from) return null;
-  const failed = ['failed', 'cancelled', 'interrupted'].includes(exchange.status);
+  const failed = exchange && ['failed', 'cancelled', 'interrupted'].includes(exchange.status);
   return (
-    <aside
-      className="interaction-notification peer-notification"
-      role="status"
-      aria-live="polite"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false);
-      }}
-    >
-      <button
-        className="interaction-notification-open"
-        onClick={() => {
-          setVisible(undefined);
-          onView({ ownerId: from.id, threadId: exchange.threadId, exchangeId: exchange.id });
-        }}
-        aria-label={t('查看 {name} 收到的私聊回复', { name: from.name })}
-      >
-        <Avatar bot={from} size={32} />
-        <span>
-          <strong>{from.name}</strong>
-          <small>{failed ? t('私聊联络已停止') : t('收到 {name} 的回复', { name: other?.name || 'Bot' })}</small>
-        </span>
-        <span className="notification-view">{t('查看')}</span>
-      </button>
-      <button
-        className="icon-button notification-close"
-        aria-label={t('关闭私聊通知')}
-        onClick={() => setVisible(undefined)}
-      >
-        <Icon name="close" size={16} />
-      </button>
-    </aside>
+    <Presence>
+      {exchange && from && (
+        <aside
+          className="interaction-notification peer-notification"
+          role="status"
+          aria-live="polite"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+          onFocus={() => setPaused(true)}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false);
+          }}
+        >
+          <button
+            className="interaction-notification-open"
+            onClick={() => {
+              setVisible(undefined);
+              onView({ ownerId: from.id, threadId: exchange.threadId, exchangeId: exchange.id });
+            }}
+            aria-label={t('查看 {name} 收到的私聊回复', { name: from.name })}
+          >
+            <Avatar bot={from} size={32} />
+            <span>
+              <strong>{from.name}</strong>
+              <small>{failed ? t('私聊联络已停止') : t('收到 {name} 的回复', { name: other?.name || 'Bot' })}</small>
+            </span>
+            <span className="notification-view">{t('查看')}</span>
+          </button>
+          <button
+            className="icon-button notification-close"
+            aria-label={t('关闭私聊通知')}
+            onClick={() => setVisible(undefined)}
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </aside>
+      )}
+    </Presence>
   );
 }

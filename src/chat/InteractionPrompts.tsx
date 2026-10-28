@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Bot, InteractionAction, InteractionRequest } from '../../shared/types/core';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
+import { Presence } from '../ui/Presence';
 import { CompanionBadge } from '../bots/CompanionCard';
 import { useI18n } from '../i18n';
 import './interactions.css';
@@ -443,62 +444,65 @@ export function InteractionNotifications({
       request.id === visible &&
       (request.kind === 'host_permission' ? request.approval?.phase !== 'reviewing' : request.phase === 'waiting'),
   );
-  if (!request) return null;
-  const bot = bots.find((bot) => bot.id === request.botId);
+  const bot = request && bots.find((bot) => bot.id === request.botId);
   return (
-    <aside
-      className="interaction-notification companion-surface"
-      role="status"
-      aria-live="polite"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false);
-      }}
-    >
-      <button
-        className="interaction-notification-open"
-        onClick={() => {
-          setVisible(undefined);
-          onView(request);
-        }}
-        aria-label={t('查看 {name} 的{kind}', {
-          name: bot?.name || 'Bot',
-          kind: t(
-            request.kind === 'host_permission' || request.kind === 'computer_use'
-              ? '权限请求'
-              : request.kind === 'user_input'
-                ? '问题'
-                : '接管请求',
-          ),
-        })}
-      >
-        {bot && <Avatar bot={bot} size={34} activity="waiting" />}
-        <span>
-          <strong>{bot?.name || 'Bot'}</strong>
-          <small>
-            {request.kind === 'host_permission'
-              ? t('等待你的本机操作许可')
-              : request.kind === 'user_input'
-                ? t('有问题需要你回答')
-                : request.kind === 'computer_use'
-                  ? t('想操控这台电脑')
-                  : t('需要你接管工作电脑')}
-          </small>
-        </span>
-        <span className="notification-view">
-          {t('查看')}
-          <Icon name="arrow" size={11} />
-        </span>
-      </button>
-      <button
-        className="icon-button notification-close"
-        aria-label={t('关闭通知')}
-        onClick={() => setVisible(undefined)}
-      >
-        <Icon name="close" size={16} />
-      </button>
-    </aside>
+    <Presence>
+      {request && (
+        <aside
+          className="interaction-notification companion-surface"
+          role="status"
+          aria-live="polite"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+          onFocus={() => setPaused(true)}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false);
+          }}
+        >
+          <button
+            className="interaction-notification-open"
+            onClick={() => {
+              setVisible(undefined);
+              onView(request);
+            }}
+            aria-label={t('查看 {name} 的{kind}', {
+              name: bot?.name || 'Bot',
+              kind: t(
+                request.kind === 'host_permission' || request.kind === 'computer_use'
+                  ? '权限请求'
+                  : request.kind === 'user_input'
+                    ? '问题'
+                    : '接管请求',
+              ),
+            })}
+          >
+            {bot && <Avatar bot={bot} size={34} activity="waiting" />}
+            <span>
+              <strong>{bot?.name || 'Bot'}</strong>
+              <small>
+                {request.kind === 'host_permission'
+                  ? t('等待你的本机操作许可')
+                  : request.kind === 'user_input'
+                    ? t('有问题需要你回答')
+                    : request.kind === 'computer_use'
+                      ? t('想操控这台电脑')
+                      : t('需要你接管工作电脑')}
+              </small>
+            </span>
+            <span className="notification-view">
+              {t('查看')}
+              <Icon name="arrow" size={11} />
+            </span>
+          </button>
+          <button
+            className="icon-button notification-close"
+            aria-label={t('关闭通知')}
+            onClick={() => setVisible(undefined)}
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </aside>
+      )}
+    </Presence>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Bot, Snapshot } from '../../shared/types/core';
 import {
   CONNECTOR_PLATFORM_NAMES,
@@ -13,6 +13,7 @@ import {
 import { Select } from '../ui/Select';
 import { ConnectorLogo } from './ConnectorLogo';
 import { ipcErrorText } from '../ui/ipc-error';
+import { useSwitchMotion } from '../ui/motion';
 import { useI18n } from '../i18n';
 import './connectors.css';
 
@@ -105,6 +106,8 @@ export function AddConnectorDialog({
     [error, setError] = useState('');
   const setup = state.connectors?.setups.find((item) => item.id === setupId);
   const scanning = platform === 'weixin' || (platform === 'feishu' && method === 'scan');
+  const dialog = useRef<HTMLDivElement>(null);
+  useSwitchMotion(dialog, platform + ':' + method, ':scope > :is(.connector-scan, .connector-manual)');
   useEffect(() => {
     if (setup?.phase === 'done' && setup.connectorId) onCreated(setup.connectorId);
   }, [setup?.phase, setup?.connectorId]);
@@ -174,7 +177,12 @@ export function AddConnectorDialog({
         if (event.target === event.currentTarget && !pending) close();
       }}
     >
-      <div className="mcp-snippet-dialog connector-dialog" role="dialog" aria-labelledby="connector-dialog-title">
+      <div
+        ref={dialog}
+        className="mcp-snippet-dialog connector-dialog"
+        role="dialog"
+        aria-labelledby="connector-dialog-title"
+      >
         <h2 id="connector-dialog-title">{t('添加连接器')}</h2>
         <div className="connector-platforms" role="group" aria-label={t('平台')}>
           {(['feishu', 'wecom', 'weixin'] as const).map((item) => (

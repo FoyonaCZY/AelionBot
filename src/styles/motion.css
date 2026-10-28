@@ -1,0 +1,294 @@
+/*
+ * Page and component switches share one motion vocabulary: pages and conversations fade or rise in, dialogs pop
+ * from the centre, menus unfold from their trigger, drawers slide from their edge, and toasts and notices drift in.
+ * An overlay wrapped in Presence (src/ui/Presence.tsx) plays the reverse under [data-leaving] before it unmounts;
+ * content that switches in place replays the same curve through useSwitchMotion (src/ui/motion.ts).
+ *
+ * Motion uses translate and scale, never transform, so it composes with the transform an element is positioned by.
+ * Backdrops fade their color, never their opacity: an ancestor below full opacity becomes the backdrop root of the
+ * glass inside it, and the dialog would blur only the dim layer instead of the app behind it. What other code
+ * measures with getBoundingClientRect (the message list, popovers placed from their own size) only fades.
+ */
+:root {
+  --motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --motion-exit-ease: cubic-bezier(0.4, 0, 1, 1);
+  --motion-view: 220ms;
+  --motion-pop: 200ms;
+  --motion-menu: 160ms;
+  --motion-exit: 140ms;
+}
+
+.motion-presence {
+  display: contents;
+}
+.motion-presence[data-leaving] * {
+  pointer-events: none !important;
+}
+
+@keyframes motion-view-in {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+@keyframes motion-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes motion-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes motion-dim-in {
+  from {
+    background-color: transparent;
+  }
+}
+@keyframes motion-dim-out {
+  to {
+    background-color: transparent;
+  }
+}
+@keyframes motion-pop-in {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+    scale: 0.98;
+  }
+}
+@keyframes motion-pop-out {
+  to {
+    opacity: 0;
+    translate: 0 4px;
+    scale: 0.98;
+  }
+}
+@keyframes motion-menu-in {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+@keyframes motion-menu-out {
+  to {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+@keyframes motion-drawer-out {
+  to {
+    opacity: 0;
+    translate: 24px 0;
+  }
+}
+@keyframes motion-notice-in {
+  from {
+    opacity: 0;
+    translate: 14px 0;
+  }
+}
+@keyframes motion-notice-out {
+  to {
+    opacity: 0;
+    translate: 14px 0;
+  }
+}
+@keyframes motion-toast-in {
+  from {
+    opacity: 0;
+    translate: 0 10px;
+    scale: 0.98;
+  }
+}
+@keyframes motion-toast-out {
+  to {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* ---------- Pages and conversations ---------- */
+  .app-shell > .plugins-page {
+    animation: motion-view-in var(--motion-view) var(--motion-ease) backwards;
+  }
+  /* Back from the plugins page. The message list and the header remount with each conversation (keyed by Bot,
+     work session or group); the computer card is placed from where the list is measured, so it does not move. */
+  .app-shell[data-page='chat'] > .conversation,
+  .app-shell > .conversation > :is(.messages, .empty-workspace, .chat-header) {
+    animation: motion-fade-in var(--motion-view) ease backwards;
+  }
+  /* The computer card fades out when it is hidden (it fades in on its own, computer-card.css). */
+  :root .app-shell > .details.computer-details.is-closed {
+    opacity: 0;
+    transition:
+      opacity var(--motion-exit) ease,
+      display var(--motion-exit) allow-discrete;
+  }
+
+  /* ---------- Dialogs ---------- */
+  :is(
+    .modal-backdrop,
+    .peer-chat-layer,
+    .scheduled-layer,
+    .mcp-snippet-backdrop,
+    .plugin-drawer-layer,
+    .fp-unsaved-backdrop
+  ) {
+    animation: motion-dim-in var(--motion-pop) ease backwards;
+  }
+  :is(
+    .modal-backdrop > .modal,
+    .peer-chat-window,
+    .group-editor,
+    .scheduled-editor,
+    .mcp-snippet-dialog,
+    .fp-unsaved-dialog,
+    .gp-dialog[open]
+  ) {
+    animation: motion-pop-in var(--motion-pop) var(--motion-ease) backwards;
+  }
+  /* The work computer fills the window: it fades in place instead of popping. */
+  .modal-backdrop.computer-backdrop > .modal {
+    animation-name: motion-fade-in;
+  }
+  :is(.gg-dialog, .gp-dialog)[open]::backdrop {
+    animation: motion-dim-in var(--motion-pop) ease backwards;
+  }
+  .motion-presence[data-leaving]
+    :is(
+      .modal-backdrop,
+      .peer-chat-layer,
+      .scheduled-layer,
+      .mcp-snippet-backdrop,
+      .plugin-drawer-layer,
+      .fp-unsaved-backdrop
+    ),
+  .motion-presence[data-leaving] .gp-dialog[open]::backdrop {
+    animation: motion-dim-out var(--motion-exit) ease forwards;
+  }
+  .motion-presence[data-leaving]
+    :is(
+      .modal-backdrop > .modal,
+      .peer-chat-window,
+      .group-editor,
+      .scheduled-editor,
+      .mcp-snippet-dialog,
+      .fp-unsaved-dialog,
+      .gp-dialog[open]
+    ) {
+    animation: motion-pop-out var(--motion-exit) var(--motion-exit-ease) forwards;
+  }
+  .motion-presence[data-leaving] .modal-backdrop.computer-backdrop > .modal {
+    animation-name: motion-fade-out;
+  }
+  .motion-presence[data-leaving] :is(.plugin-drawer, .gg-drawer) {
+    animation: motion-drawer-out var(--motion-exit) var(--motion-exit-ease) forwards;
+  }
+  .motion-presence[data-leaving] .gg-reveal {
+    animation: motion-fade-out var(--motion-exit) ease forwards;
+  }
+  /* The AI games window stays mounted and closes with dialog.close(), so it leaves by transition (it opens with
+     the one in group-games.css). */
+  .gg-dialog:not([open]) {
+    opacity: 0;
+    scale: 0.985;
+    transition:
+      opacity var(--motion-exit) ease,
+      scale var(--motion-exit) var(--motion-exit-ease),
+      overlay var(--motion-exit) allow-discrete,
+      display var(--motion-exit) allow-discrete;
+  }
+  .gg-dialog:not([open])::backdrop {
+    background-color: transparent;
+    transition:
+      background-color var(--motion-exit) ease,
+      overlay var(--motion-exit) allow-discrete,
+      display var(--motion-exit) allow-discrete;
+  }
+
+  /* ---------- Menus and popovers ---------- */
+  :is(
+    .bot-context-menu,
+    .new-conversation-menu,
+    .composer-add-menu,
+    .command-picker,
+    .mention-picker,
+    .plugins-add-menu,
+    .message-context-menu,
+    .gg-menu-list,
+    .gp-panel,
+    .gg-seat-pop,
+    .context-usage-panel,
+    .pin-bubble
+  ) {
+    animation: motion-menu-in var(--motion-menu) var(--motion-ease) backwards;
+  }
+  .motion-presence[data-leaving]
+    :is(
+      .bot-context-menu,
+      .new-conversation-menu,
+      .composer-add-menu,
+      .command-picker,
+      .mention-picker,
+      .plugins-add-menu,
+      .message-context-menu,
+      .gg-menu-list,
+      .gp-panel,
+      .context-usage-panel
+    ) {
+    animation: motion-menu-out var(--motion-exit) var(--motion-exit-ease) forwards;
+  }
+  :is(.bot-context-menu, .new-conversation-menu, .message-context-menu) {
+    transform-origin: top left;
+  }
+  :is(.plugins-add-menu, .gg-menu-list, .gp-panel, .gg-seat-pop) {
+    transform-origin: top right;
+  }
+  :is(.composer-add-menu, .command-picker, .mention-picker) {
+    transform-origin: bottom left;
+  }
+  .context-usage-panel {
+    transform-origin: bottom right;
+  }
+  /* Popover-API menus live in the top layer and animate both ways without Presence. They are placed from their
+     own size as they open, so they only fade. */
+  :is(.fp-export-menu, .fp-open-menu, .preview-picker-popover, .work-menu-list, .aelion-combobox-list) {
+    opacity: 0;
+    transition:
+      opacity var(--motion-exit) ease,
+      overlay var(--motion-exit) allow-discrete,
+      display var(--motion-exit) allow-discrete;
+  }
+  :is(.fp-export-menu, .fp-open-menu, .preview-picker-popover, .work-menu-list, .aelion-combobox-list):popover-open {
+    opacity: 1;
+    transition-duration: var(--motion-menu);
+  }
+  @starting-style {
+    :is(.fp-export-menu, .fp-open-menu, .preview-picker-popover, .work-menu-list, .aelion-combobox-list):popover-open {
+      opacity: 0;
+    }
+  }
+
+  /* ---------- Toasts, notices and inline panels ---------- */
+  :is(.toast, .fp-notice) {
+    animation: motion-toast-in var(--motion-pop) var(--motion-ease) backwards;
+  }
+  .motion-presence[data-leaving] .toast {
+    animation: motion-toast-out var(--motion-exit) var(--motion-exit-ease) forwards;
+  }
+  .interaction-notification {
+    animation: motion-notice-in var(--motion-view) var(--motion-ease) backwards;
+  }
+  .motion-presence[data-leaving] .interaction-notification {
+    animation: motion-notice-out var(--motion-exit) var(--motion-exit-ease) forwards;
+  }
+  :is(.chat-search, .web-element-inspector) {
+    animation: motion-fade-in var(--motion-menu) ease backwards;
+  }
+  .bot-palette-body {
+    animation: motion-view-in var(--motion-view) var(--motion-ease) backwards;
+  }
+}

@@ -3,6 +3,7 @@ import { TRAITS, type Traits } from '../../shared/persona/persona-model';
 import type { PersonaView } from '../../shared/types/persona-types';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
+import { Presence } from '../ui/Presence';
 import { useI18n } from '../i18n';
 import { PRESETS } from '../../shared/persona/presets';
 import { PersonaPage } from './PersonaPage';
@@ -132,7 +133,9 @@ export function GroupPersonaPanel({ members, onClose }: { members: Member[]; onC
           );
         })}
       </ul>
-      {profile && <PersonaDialog members={members} botId={profile} onClose={() => setProfile('')} />}
+      <Presence>
+        {profile && <PersonaDialog members={members} botId={profile} onClose={() => setProfile('')} />}
+      </Presence>
     </aside>
   );
 }

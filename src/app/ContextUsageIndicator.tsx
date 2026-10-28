@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { ContextOverview, ContextPart } from '../../shared/chat/context-overview';
 import { CONTEXT_PARTS, foldContextParts } from '../../shared/chat/context-overview';
 import type { RequestMetrics } from '../../shared/chat/request-metrics';
+import { Presence } from '../ui/Presence';
 import { useI18n } from '../i18n';
 import './context-usage.css';
 
@@ -153,78 +154,81 @@ export function ContextUsageIndicator({
           />
         </svg>
       </button>
-      {open &&
-        createPortal(
-          <div
-            ref={panel}
-            className="context-usage-panel"
-            role="dialog"
-            aria-label={t('上下文占用')}
-            style={{ ...position, maxHeight: `calc(100vh - ${position.bottom + 12}px)` }}
-          >
-            <header>
-              <strong>{t('上下文容量')}</strong>
-              <span>
-                {overview ? `${number(overview.tokens)} / ${number(limit)}` : limit ? `— / ${number(limit)}` : '—'}
-              </span>
-            </header>
-            {metrics && (metrics.ttftMs !== undefined || metrics.tps !== undefined) && (
-              <div
-                className="context-usage-metrics"
-                title={t('TTFT：从模型请求发出到首个输出 Token。TPS：输出 Token ÷ 首 Token 到最后一个流事件的时间。')}
-              >
-                {metrics.ttftMs !== undefined && (
-                  <span>
-                    <b>TTFT</b> <strong>{seconds(metrics.ttftMs)}</strong> s
-                  </span>
-                )}
-                {metrics.ttftMs !== undefined && metrics.tps !== undefined && <span className="sep">·</span>}
-                {metrics.tps !== undefined && (
-                  <span>
-                    <b>TPS</b> <strong>{decimal(metrics.tps)}</strong> tok/s
-                  </span>
-                )}
+      {createPortal(
+        <Presence>
+          {open && (
+            <div
+              ref={panel}
+              className="context-usage-panel"
+              role="dialog"
+              aria-label={t('上下文占用')}
+              style={{ ...position, maxHeight: `calc(100vh - ${position.bottom + 12}px)` }}
+            >
+              <header>
+                <strong>{t('上下文容量')}</strong>
+                <span>
+                  {overview ? `${number(overview.tokens)} / ${number(limit)}` : limit ? `— / ${number(limit)}` : '—'}
+                </span>
+              </header>
+              {metrics && (metrics.ttftMs !== undefined || metrics.tps !== undefined) && (
+                <div
+                  className="context-usage-metrics"
+                  title={t('TTFT：从模型请求发出到首个输出 Token。TPS：输出 Token ÷ 首 Token 到最后一个流事件的时间。')}
+                >
+                  {metrics.ttftMs !== undefined && (
+                    <span>
+                      <b>TTFT</b> <strong>{seconds(metrics.ttftMs)}</strong> s
+                    </span>
+                  )}
+                  {metrics.ttftMs !== undefined && metrics.tps !== undefined && <span className="sep">·</span>}
+                  {metrics.tps !== undefined && (
+                    <span>
+                      <b>TPS</b> <strong>{decimal(metrics.tps)}</strong> tok/s
+                    </span>
+                  )}
+                </div>
+              )}
+              <div className="context-usage-total">
+                <div
+                  className="context-usage-bar"
+                  role="progressbar"
+                  aria-label={t('上下文容量')}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={percent === undefined ? undefined : Math.min(100, Math.round(percent))}
+                >
+                  {CONTEXT_PARTS.map((part) => (
+                    <span
+                      className={`context-part-${part}`}
+                      key={part}
+                      style={{
+                        width: overview && limit ? `${(parts[part] / Math.max(limit, overview.tokens)) * 100}%` : '0%',
+                      }}
+                    />
+                  ))}
+                </div>
+                <strong>{percent === undefined ? '—' : percentage(percent)}</strong>
               </div>
-            )}
-            <div className="context-usage-total">
-              <div
-                className="context-usage-bar"
-                role="progressbar"
-                aria-label={t('上下文容量')}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={percent === undefined ? undefined : Math.min(100, Math.round(percent))}
-              >
+              <div className="context-usage-parts">
                 {CONTEXT_PARTS.map((part) => (
-                  <span
-                    className={`context-part-${part}`}
-                    key={part}
-                    style={{
-                      width: overview && limit ? `${(parts[part] / Math.max(limit, overview.tokens)) * 100}%` : '0%',
-                    }}
-                  />
+                  <div key={part}>
+                    <span>
+                      <i className={`context-part-${part}`} />
+                      {t(labels[part])}
+                    </span>
+                    <span>
+                      {overview ? number(parts[part]) : '—'}{' '}
+                      <small>{overview && limit ? percentage((parts[part] / limit) * 100) : ''}</small>
+                    </span>
+                  </div>
                 ))}
               </div>
-              <strong>{percent === undefined ? '—' : percentage(percent)}</strong>
+              {onCompact && <CompactContext onCompact={onCompact} />}
             </div>
-            <div className="context-usage-parts">
-              {CONTEXT_PARTS.map((part) => (
-                <div key={part}>
-                  <span>
-                    <i className={`context-part-${part}`} />
-                    {t(labels[part])}
-                  </span>
-                  <span>
-                    {overview ? number(parts[part]) : '—'}{' '}
-                    <small>{overview && limit ? percentage((parts[part] / limit) * 100) : ''}</small>
-                  </span>
-                </div>
-              ))}
-            </div>
-            {onCompact && <CompactContext onCompact={onCompact} />}
-          </div>,
-          document.body,
-        )}
+          )}
+        </Presence>,
+        document.body,
+      )}
     </>
   );
 }

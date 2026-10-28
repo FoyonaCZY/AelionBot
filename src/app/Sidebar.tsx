@@ -12,6 +12,7 @@ import type { SettingsTab } from '../settings/SettingsWindow';
 import { Avatar } from '../ui/Avatar';
 import { time } from '../ui/format';
 import { Icon } from '../ui/Icon';
+import { Presence } from '../ui/Presence';
 import { conversationRows, type SessionRow } from './conversation-list';
 import { SidebarUpdate } from './SidebarUpdate';
 import { useI18n } from '../i18n';
@@ -142,26 +143,28 @@ export function Sidebar({
           >
             <Icon name="plus" />
           </button>
-          {newMenu && (
-            <div className="new-conversation-menu" role="menu">
-              <button role="menuitem" onClick={onNewBot}>
-                <span className="new-bot-icon" aria-hidden="true">
-                  <Avatar bot={{ name: t('新 Bot'), ...newBotPalette }} size={20} />
-                </span>
-                {t('新建 Bot')}
-              </button>
-              <button role="menuitem" onClick={onNewGroup}>
-                <Icon name="message" size={20} />
-                {t('创建群聊')}
-              </button>
-              {onNewSession && (
-                <button role="menuitem" onClick={onNewSession}>
-                  <Icon name="folder" size={20} />
-                  {t('新建工作会话')}
+          <Presence>
+            {newMenu && (
+              <div className="new-conversation-menu" role="menu">
+                <button role="menuitem" onClick={onNewBot}>
+                  <span className="new-bot-icon" aria-hidden="true">
+                    <Avatar bot={{ name: t('新 Bot'), ...newBotPalette }} size={20} />
+                  </span>
+                  {t('新建 Bot')}
                 </button>
-              )}
-            </div>
-          )}
+                <button role="menuitem" onClick={onNewGroup}>
+                  <Icon name="message" size={20} />
+                  {t('创建群聊')}
+                </button>
+                {onNewSession && (
+                  <button role="menuitem" onClick={onNewSession}>
+                    <Icon name="folder" size={20} />
+                    {t('新建工作会话')}
+                  </button>
+                )}
+              </div>
+            )}
+          </Presence>
         </div>
       </div>
       <label className="search">

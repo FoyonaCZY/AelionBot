@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Snapshot } from '../../shared/types/core';
 import {
   APP_CONNECTORS,
@@ -9,6 +9,7 @@ import {
 import { AppLogo } from './AppLogo';
 import { Icon } from '../ui/Icon';
 import { ipcErrorText } from '../ui/ipc-error';
+import { useSwitchMotion } from '../ui/motion';
 import { useI18n } from '../i18n';
 import './connectors.css';
 
@@ -73,6 +74,8 @@ export function AppConnectorDialog({
     onClose();
   };
   const google = picked?.auth === 'google';
+  const dialog = useRef<HTMLDivElement>(null);
+  useSwitchMotion(dialog, signingIn ? 'signing' : picked ? picked.id : '', ':scope > *');
   return (
     <div
       className="mcp-snippet-backdrop"
@@ -80,7 +83,12 @@ export function AppConnectorDialog({
         if (event.target === event.currentTarget && !pending) close();
       }}
     >
-      <div className="mcp-snippet-dialog connector-dialog app-dialog" role="dialog" aria-labelledby="app-dialog-title">
+      <div
+        ref={dialog}
+        className="mcp-snippet-dialog connector-dialog app-dialog"
+        role="dialog"
+        aria-labelledby="app-dialog-title"
+      >
         {signingIn ? (
           <div className="app-signing" role="status">
             <span className="connector-mark is-large">
