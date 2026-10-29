@@ -56,20 +56,10 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
 }
 
 function downloadLabel(copy: (typeof siteCopy)['zh-CN'], id: string) {
-  return id === 'windows-x64'
-    ? copy.downloadWindows
-    : id === 'mac-arm64'
-      ? copy.downloadMacArm
-      : id === 'mac-x64'
-        ? copy.downloadMacIntel
-        : copy.downloadAll;
+  return id === 'windows-x64' ? copy.downloadWindows : id === 'mac-arm64' ? copy.downloadMacArm : copy.downloadAll;
 }
 function downloadShort(copy: (typeof siteCopy)['zh-CN'], id: string) {
-  return id === 'windows-x64'
-    ? copy.downloadWindowsShort
-    : id === 'mac-arm64'
-      ? copy.downloadMacArmShort
-      : copy.downloadMacIntelShort;
+  return id === 'windows-x64' ? copy.downloadWindowsShort : copy.downloadMacArmShort;
 }
 
 function DownloadPanel({ copy }: { copy: (typeof siteCopy)['zh-CN'] }) {
@@ -89,7 +79,9 @@ function DownloadPanel({ copy }: { copy: (typeof siteCopy)['zh-CN'] }) {
       ? copy.downloadMobileHint
       : platform.os === 'linux'
         ? copy.downloadLinuxHint
-        : '';
+        : platform.os === 'mac' && platform.arch === 'x64'
+          ? copy.downloadMacIntelHint
+          : '';
   return (
     <div className="download-panel">
       <a

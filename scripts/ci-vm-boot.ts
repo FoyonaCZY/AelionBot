@@ -11,20 +11,20 @@ export function isKnownClockPanic(message: string) {
   return /IO-APIC \+ timer doesn't work/.test(message);
 }
 
-export function ciVmAccelerator(runtime: string, arch = process.arch): 'hvf' | 'tcg' {
+export function ciVmAccelerator(runtime: string): 'hvf' | 'tcg' {
   if (process.platform !== 'darwin') return 'tcg';
   const env: NodeJS.ProcessEnv = { ...process.env, QEMU_MODULE_DIR: join(runtime, 'lib', 'qemu') };
   delete env.DYLD_LIBRARY_PATH;
   delete env.DYLD_FALLBACK_LIBRARY_PATH;
   delete env.DYLD_INSERT_LIBRARIES;
-  const executable = qemuBinary(runtime, `qemu-system-${arch === 'arm64' ? 'aarch64' : 'x86_64'}`);
+  const executable = qemuBinary(runtime, 'qemu-system-aarch64');
   const result = spawnSync(
     executable,
     [
       '-L',
       qemuDataDir(runtime),
       '-machine',
-      arch === 'arm64' ? 'virt' : 'q35',
+      'virt',
       '-accel',
       'hvf',
       '-cpu',
@@ -52,7 +52,7 @@ export function ciVmAccelerator(runtime: string, arch = process.arch): 'hvf' | '
   return 'tcg';
 }
 
-// Disposable CI guests only. QEMU can fail its initial timer check on hosted Intel Macs.
+// Disposable CI guests only. QEMU x86 guests can fail their initial IO-APIC timer check.
 // Never retry tool calls or application work; this runs before the guest accepts commands.
 export async function startCiGuest(vm: VmController, onRetry: (message: string) => void = console.warn) {
   for (let attempt = 0; attempt < 3; attempt++) {

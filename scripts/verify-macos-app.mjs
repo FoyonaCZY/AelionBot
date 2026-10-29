@@ -7,16 +7,7 @@ if (process.platform !== 'darwin') throw Error('Mac app smoke test requires macO
 const root = resolve(import.meta.dirname, '..'),
   dir = join(tmpdir(), 'aelion-mac-smoke-' + randomUUID());
 mkdirSync(dir, { recursive: true });
-const executable = join(
-  root,
-  'release',
-  'github',
-  process.arch === 'arm64' ? 'mac-arm64' : 'mac',
-  'AelionBot.app',
-  'Contents',
-  'MacOS',
-  'AelionBot',
-);
+const executable = join(root, 'release', 'github', 'mac-arm64', 'AelionBot.app', 'Contents', 'MacOS', 'AelionBot');
 let app;
 try {
   app = await electron.launch({

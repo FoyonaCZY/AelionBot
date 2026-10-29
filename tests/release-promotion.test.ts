@@ -29,7 +29,7 @@ function fixture() {
           conclusion: 'success',
           steps: common.map((name) => ({ name, conclusion: 'success' })),
         },
-        ...['windows-x64', 'macos-arm64', 'macos-x64'].map((name) => ({
+        ...['windows-x64', 'macos-arm64'].map((name) => ({
           name,
           conclusion: 'success',
           steps: (name === 'windows-x64'
@@ -40,7 +40,7 @@ function fixture() {
       ],
     },
     artifacts: {
-      artifacts: ['AelionBot-windows-x64', 'AelionBot-macos-arm64', 'AelionBot-macos-x64'].map((name) => ({
+      artifacts: ['AelionBot-windows-x64', 'AelionBot-macos-arm64'].map((name) => ({
         name,
         expired: false,
         size_in_bytes: 100,
@@ -79,7 +79,7 @@ function validate(data: ReturnType<typeof fixture>, id = '1234', platforms = 'al
   });
   return output;
 }
-test('release promotion pins the source from a complete three-platform build', () => {
+test('release promotion pins the source from a complete Windows and Mac build', () => {
   assert.equal(validate(fixture()), 'sha=' + 'a'.repeat(40) + '\nrun_id=1234\n');
 });
 test('Windows-only promotion requires Windows tests and assets without requiring Mac jobs', () => {
@@ -108,11 +108,9 @@ test('release promotion rejects unfinished builds, foreign code and missing Mac 
     Object.assign(data.run, patch);
     assert.throws(() => validate(data), /successful release build/);
   }
-  for (const index of [2, 3]) {
-    const data = fixture();
-    data.jobs.jobs[index].steps.at(-1)!.conclusion = 'skipped';
-    assert.throws(() => validate(data), /Required checks did not pass/);
-  }
+  const unverifiedMac = fixture();
+  unverifiedMac.jobs.jobs[2].steps.at(-1)!.conclusion = 'skipped';
+  assert.throws(() => validate(unverifiedMac), /Required checks did not pass: macos-arm64/);
   const expired = fixture();
   expired.artifacts.artifacts[1].expired = true;
   assert.throws(() => validate(expired), /artifact missing/);

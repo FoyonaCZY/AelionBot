@@ -100,7 +100,7 @@ node dist-electron/cli.cjs "Fix the failing tests" --workspace . --model <model>
 2. Connect a model: add an API key, or point it at a local model. The app is free; model usage is billed by the service you choose.
 3. Hand a Bot a task. When the work grows, create a group and bring in partners.
 
-Windows 10 or later (64-bit), or macOS on Apple silicon or Intel. The work computer (Linux VM) needs about 4 GB of memory and tens of GB of disk; 16 GB of RAM or more is recommended.
+Windows 10 or later (64-bit), or macOS on Apple silicon. Intel Macs are not supported. The work computer (Linux VM) needs about 4 GB of memory and tens of GB of disk; 16 GB of RAM or more is recommended.
 
 ## In detail
 

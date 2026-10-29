@@ -66,11 +66,10 @@ test('Mac virtual machines choose native images, hardware accelerator and ARM fi
   mkdirSync(join(runtime, 'share', 'qemu'), { recursive: true });
   for (const name of ['edk2-aarch64-code.fd', 'edk2-arm-vars.fd'])
     writeFileSync(join(runtime, 'share', 'qemu', name), 'fixture');
-  const arm = vmPlatform('darwin', 'arm64'),
-    intel = vmPlatform('darwin', 'x64');
+  const arm = vmPlatform('darwin', 'arm64');
   assert.equal(arm.accelerator, 'hvf');
   assert.ok(arm.image.filename.includes('arm64'));
-  assert.ok(intel.image.filename.includes('amd64'));
+  assert.throws(() => vmPlatform('darwin', 'x64'));
   const args = vmMachineArgs(arm, runtime, join(runtime, 'vars.fd'));
   assert.ok(args.includes('host'));
   assert.ok(args.includes('virt'));

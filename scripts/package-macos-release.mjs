@@ -21,8 +21,8 @@ for (const key of [
   'APPLE_API_ISSUER',
 ])
   if (process.env[key] === '') delete process.env[key];
-if (process.platform !== 'darwin' || !['arm64', 'x64'].includes(arch))
-  throw Error('Build on the target macOS architecture');
+if (process.platform !== 'darwin' || arch !== 'arm64')
+  throw Error('Mac releases are built only on Apple silicon (arm64)');
 if (process.env.GITHUB_REF_TYPE === 'tag' && process.env.GITHUB_REF_NAME !== `v${pkg.version}`)
   throw Error('Tag/version mismatch');
 const output = join(root, 'release', 'github');
@@ -64,7 +64,7 @@ const { build, Platform, Arch } = require('electron-builder');
 // Keep the exception out of Developer ID builds.
 const signingEntitlements = signed ? 'build/entitlements.mac.plist' : 'build/entitlements.mac.adhoc.plist';
 await build({
-  targets: Platform.MAC.createTarget(['dmg', 'zip'], arch === 'arm64' ? Arch.arm64 : Arch.x64),
+  targets: Platform.MAC.createTarget(['dmg', 'zip'], Arch.arm64),
   publish: 'never',
   config: {
     directories: { output },
@@ -87,17 +87,15 @@ await build({
     },
   },
 });
-const app = join(output, arch === 'arm64' ? 'mac-arm64' : 'mac', 'AelionBot.app');
+const app = join(output, 'mac-arm64', 'AelionBot.app');
 if (!existsSync(app)) throw Error('Packaged app missing');
 execFileSync('/usr/bin/codesign', ['--verify', '--deep', '--strict', app], { stdio: 'inherit' });
-execFileSync(
-  '/usr/bin/lipo',
-  [join(app, 'Contents', 'MacOS', 'AelionBot'), '-verify_arch', arch === 'arm64' ? 'arm64' : 'x86_64'],
-  { stdio: 'inherit' },
-);
+execFileSync('/usr/bin/lipo', [join(app, 'Contents', 'MacOS', 'AelionBot'), '-verify_arch', 'arm64'], {
+  stdio: 'inherit',
+});
 verifyMacosLoader(app);
 const runtime = join(app, 'Contents', 'Resources', 'qemu'),
-  emulator = join(runtime, 'bin', `qemu-system-${arch === 'arm64' ? 'aarch64' : 'x86_64'}`);
+  emulator = join(runtime, 'bin', 'qemu-system-aarch64');
 const qemuEnv = { ...process.env, QEMU_MODULE_DIR: join(runtime, 'lib', 'qemu') };
 delete qemuEnv.DYLD_LIBRARY_PATH;
 delete qemuEnv.DYLD_FALLBACK_LIBRARY_PATH;

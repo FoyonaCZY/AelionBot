@@ -37,7 +37,7 @@ jobs:
           const {execFileSync}=require('node:child_process'),{appendFileSync}=require('node:fs');
           const id=process.env.BUILD_RUN_ID,repo=process.env.GITHUB_REPOSITORY;
           const platforms=process.env.BUILD_PLATFORMS||'all';if(!['all','windows'].includes(platforms))throw Error('Invalid release platforms');
-          const names=platforms==='windows'?['windows-x64']:['windows-x64','macos-arm64','macos-x64'];
+          const names=platforms==='windows'?['windows-x64']:['windows-x64','macos-arm64'];
           if(!/^\d+$/.test(id))throw Error('Invalid build run ID');
           const api=path=>JSON.parse(execFileSync('gh',['api',`repos/${repo}/${path}`],{encoding:'utf8'}));
           const run=api(`actions/runs/${id}`);

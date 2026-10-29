@@ -26,7 +26,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/src:ro" debian:bookworm-slim sh -ec 'apt-get -o Acquire::Retries=2 update && apt-get install -y --no-install-recommends python3 ca-certificates && python3 /src/scripts/verify-package-installer.py'
   # Tests, typecheck and the source audit run once on Linux, in parallel with packaging. Every commit on main has
-  # already passed the full test suite on Windows, Linux and both Macs in CI; repeating it inside each packaging job
+  # already passed the full test suite on Windows, Linux and macOS in CI; repeating it inside each packaging job
   # doubled release time and made one flaky runner block the whole release.
   verify:
     name: Verify source
@@ -69,7 +69,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(inputs.platforms == 'windows' && '[{"name":"windows-x64","os":"windows-latest","arch":"x64"}]' || '[{"name":"windows-x64","os":"windows-latest","arch":"x64"},{"name":"macos-arm64","os":"macos-15","arch":"arm64"},{"name":"macos-x64","os":"macos-15-intel","arch":"x64"}]') }}
+        include: ${{ fromJSON(inputs.platforms == 'windows' && '[{"name":"windows-x64","os":"windows-latest","arch":"x64"}]' || '[{"name":"windows-x64","os":"windows-latest","arch":"x64"},{"name":"macos-arm64","os":"macos-15","arch":"arm64"}]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: ${{ inputs.vm_smoke && 75 || 30 }}
     env:

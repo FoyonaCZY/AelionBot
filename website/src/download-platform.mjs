@@ -1,9 +1,8 @@
-export const downloadBuilds = ['windows-x64', 'mac-arm64', 'mac-x64'];
+export const downloadBuilds = ['windows-x64', 'mac-arm64'];
 
 const files = {
   'windows-x64': (version) => `AelionBot-Setup-${version}-x64.exe`,
   'mac-arm64': (version) => `AelionBot-${version}-mac-arm64.dmg`,
-  'mac-x64': (version) => `AelionBot-${version}-mac-x64.dmg`,
 };
 
 export function downloadHref(id, repository, version) {
@@ -12,13 +11,13 @@ export function downloadHref(id, repository, version) {
 }
 
 export function downloadIcon(id) {
-  return id === 'windows-x64' ? 'windows' : id === 'mac-arm64' || id === 'mac-x64' ? 'mac' : 'down';
+  return id === 'windows-x64' ? 'windows' : id === 'mac-arm64' ? 'mac' : 'down';
 }
 
 export function recommendDownload(platform) {
   let primary = 'releases';
   if (platform.os === 'windows') primary = 'windows-x64';
-  else if (platform.os === 'mac') primary = platform.arch === 'arm64' ? 'mac-arm64' : 'mac-x64';
+  else if (platform.os === 'mac' && platform.arch !== 'x64') primary = 'mac-arm64';
   return { primary, alternatives: downloadBuilds.filter((id) => id !== primary) };
 }
 

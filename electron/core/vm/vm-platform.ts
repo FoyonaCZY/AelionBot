@@ -5,7 +5,11 @@ import armImage from '../../../runtime/guest-image-arm64.json';
 export type GuestArch = 'x64' | 'arm64';
 type GuestImage = typeof x64Image & { provisionedWorkstation?: string };
 export function vmPlatform(platform: NodeJS.Platform = process.platform, arch: string = process.arch) {
-  if (!['x64', 'arm64'].includes(arch) || (platform === 'win32' && arch !== 'x64'))
+  if (
+    !['x64', 'arm64'].includes(arch) ||
+    (platform === 'win32' && arch !== 'x64') ||
+    (platform === 'darwin' && arch !== 'arm64')
+  )
     throw Error('此操作系统与 CPU 组合尚未提供工作电脑运行时');
   const guestArch = arch as GuestArch;
   const image: GuestImage = guestArch === 'arm64' ? armImage : x64Image;
@@ -58,7 +62,7 @@ export function vmMachineArgs(
     'q35',
     '-accel',
     accelerator,
-    ...(accelerator === 'hvf' ? ['-cpu', 'host'] : accelerator === 'tcg' ? ['-cpu', 'Nehalem'] : []),
+    ...(accelerator === 'tcg' ? ['-cpu', 'Nehalem'] : []),
     '-vga',
     'virtio',
   ];

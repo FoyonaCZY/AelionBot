@@ -18,16 +18,15 @@ const required = [
   'latest.yml',
 ];
 if (includeMac)
-  for (const arch of ['arm64', 'x64'])
-    required.push(
-      `AelionBot-${pkg.version}-mac-${arch}.dmg`,
-      `AelionBot-${pkg.version}-mac-${arch}.zip`,
-      `latest-mac-${arch}.yml`,
-      `mac-${arch}-verification.json`,
-    );
+  required.push(
+    `AelionBot-${pkg.version}-mac-arm64.dmg`,
+    `AelionBot-${pkg.version}-mac-arm64.zip`,
+    'latest-mac-arm64.yml',
+    'mac-arm64-verification.json',
+  );
 for (const file of required) if (!existsSync(join(directory, file))) throw Error('Release asset missing: ' + file);
-const mac = [];
-for (const manifest of ['latest.yml', ...(includeMac ? ['latest-mac-arm64.yml', 'latest-mac-x64.yml'] : [])]) {
+let macManifest;
+for (const manifest of ['latest.yml', ...(includeMac ? ['latest-mac-arm64.yml'] : [])]) {
   const info = parse(readFileSync(join(directory, manifest), 'utf8'));
   if (info.version !== pkg.version || !info.files?.length) throw Error('Release manifest version mismatch');
   for (const file of info.files) {
@@ -42,15 +41,12 @@ for (const manifest of ['latest.yml', ...(includeMac ? ['latest-mac-arm64.yml', 
     if (size !== file.size || hash.digest('base64') !== file.sha512)
       throw Error('Release asset integrity check failed: ' + name);
   }
-  if (manifest !== 'latest.yml') mac.push(info);
+  if (manifest !== 'latest.yml') macManifest = info;
 }
-if (includeMac) {
-  const merged = { ...mac[1], files: mac.flatMap((m) => m.files) };
-  writeFileSync(join(directory, 'latest-mac.yml'), stringify(merged));
-}
+if (includeMac) writeFileSync(join(directory, 'latest-mac.yml'), stringify(macManifest));
 const assets = [
   ...new Set([
-    ...required.filter((f) => !f.endsWith('-verification.json') && !/^latest-mac-(arm64|x64)\.yml$/.test(f)),
+    ...required.filter((f) => !f.endsWith('-verification.json') && f !== 'latest-mac-arm64.yml'),
     ...(includeMac ? ['latest-mac.yml'] : []),
     ...readdirSync(directory).filter((f) => f.endsWith('.blockmap') && required.includes(f.slice(0, -9))),
   ]),
@@ -100,4 +96,4 @@ const uploaded = JSON.parse(gh(['release', 'view', tag, '--json', 'assets']));
 for (const name of assets)
   if (!uploaded.assets.some((a) => a.name === name && a.size > 0)) throw Error('Upload did not complete: ' + name);
 gh(['release', 'edit', tag, '--draft=false', '--latest']);
-console.log(`Published ${tag} with ${includeMac ? 'Windows, macOS arm64 and macOS x64' : 'Windows'} assets`);
+console.log(`Published ${tag} with ${includeMac ? 'Windows and macOS arm64' : 'Windows'} assets`);

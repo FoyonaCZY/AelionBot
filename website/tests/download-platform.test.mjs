@@ -18,7 +18,7 @@ test('Chrome Windows x64 is recommended the Windows installer', () => {
     userAgentData: { platform: 'Windows', mobile: false, architecture: 'x86', bitness: '64' },
   });
   assert.deepEqual(platform, { os: 'windows', arch: 'x64' });
-  assert.deepEqual(recommendDownload(platform), { primary: 'windows-x64', alternatives: ['mac-arm64', 'mac-x64'] });
+  assert.deepEqual(recommendDownload(platform), { primary: 'windows-x64', alternatives: ['mac-arm64'] });
   assert.equal(
     downloadHref('windows-x64', repo, version),
     `${repo}/releases/download/v0.20.0/AelionBot-Setup-0.20.0-x64.exe`,
@@ -46,7 +46,7 @@ test('Mac Apple Silicon from client hints gets the ARM disk image', () => {
   assert.deepEqual(platform, { os: 'mac', arch: 'arm64' });
   const rec = recommendDownload(platform);
   assert.equal(rec.primary, 'mac-arm64');
-  assert.deepEqual(rec.alternatives, ['windows-x64', 'mac-x64']);
+  assert.deepEqual(rec.alternatives, ['windows-x64']);
   assert.equal(
     downloadHref(rec.primary, repo, version),
     `${repo}/releases/download/v0.20.0/AelionBot-0.20.0-mac-arm64.dmg`,
@@ -54,18 +54,14 @@ test('Mac Apple Silicon from client hints gets the ARM disk image', () => {
   assert.equal(downloadIcon(rec.primary), 'mac');
 });
 
-test('Mac Intel from client hints gets the Intel disk image', () => {
+test('Mac Intel from client hints is not offered a Mac disk image as the main button', () => {
   const platform = detectDownloadPlatform({
     userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36',
     platform: 'MacIntel',
     userAgentData: { platform: 'macOS', mobile: false, architecture: 'x86', bitness: '64' },
   });
   assert.deepEqual(platform, { os: 'mac', arch: 'x64' });
-  assert.equal(recommendDownload(platform).primary, 'mac-x64');
-  assert.equal(
-    downloadHref('mac-x64', repo, version),
-    `${repo}/releases/download/v0.20.0/AelionBot-0.20.0-mac-x64.dmg`,
-  );
+  assert.deepEqual(recommendDownload(platform), { primary: 'releases', alternatives: [...downloadBuilds] });
 });
 
 test('Safari on Apple Silicon uses the WebGL renderer because the UA still says MacIntel', () => {
@@ -83,12 +79,12 @@ test('Safari on Apple Silicon uses the WebGL renderer because the UA still says 
   );
   assert.equal(
     recommendDownload(detectDownloadPlatform({ ...hints, webglRenderer: 'Intel Iris Plus Graphics' })).primary,
-    'mac-x64',
+    'releases',
   );
   assert.equal(
     recommendDownload(detectDownloadPlatform(hints)).primary,
-    'mac-x64',
-    'unknown Mac prefers Intel because that disk image also runs on Apple Silicon via Rosetta',
+    'mac-arm64',
+    'unknown Mac gets the only Mac build',
   );
 });
 

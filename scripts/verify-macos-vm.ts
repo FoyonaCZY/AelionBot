@@ -9,7 +9,7 @@ const arch = process.arch,
   out = resolve('output'),
   data = resolve('.local', `mac-vm-${arch}`);
 mkdirSync(out, { recursive: true });
-const resources = arch === 'x64' ? { memoryMiB: 4096, cpuCount: 4 } : { memoryMiB: 3072, cpuCount: 2 };
+const resources = { memoryMiB: 3072, cpuCount: 2 };
 const accelerator = ciVmAccelerator(resolve('runtime/qemu'));
 if (accelerator !== 'hvf' && process.env.AELION_ALLOW_TCG_SMOKE !== '1')
   throw Error(
@@ -64,11 +64,7 @@ try {
   const identity = await step('verify guest architecture and user', () =>
     vm.execute('uname -m; id -u; pwd', 'mac-smoke'),
   );
-  if (
-    identity.exitCode !== 0 ||
-    !identity.stdout.includes(arch === 'arm64' ? 'aarch64' : 'x86_64') ||
-    !identity.stdout.includes('/work/mac-smoke')
-  )
+  if (identity.exitCode !== 0 || !identity.stdout.includes('aarch64') || !identity.stdout.includes('/work/mac-smoke'))
     throw Error('Guest architecture/workspace mismatch');
   // Hosted Mac runners use TCG: the first measured ARM package install took 33 minutes.
   // Allow the browser and the same restart/repair sequence used by ComputerSetup to finish.

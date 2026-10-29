@@ -100,7 +100,7 @@ node dist-electron/cli.cjs "修好失败的测试" --workspace . --model <模型
 2. 接入模型服务：填 API Key，或连接本地模型。应用免费，模型费用由所选服务收取。
 3. 交给 Bot 一件任务。工作变多时建一个群，把伙伴拉进来。
 
-Windows 10 及以上（64 位）或 macOS（Apple 芯片与 Intel）。工作电脑（Linux VM）约需 4 GB 内存和几十 GB 磁盘，电脑内存建议 16 GB 以上。
+Windows 10 及以上（64 位）或 macOS（Apple 芯片），不支持 Intel 芯片的 Mac。工作电脑（Linux VM）约需 4 GB 内存和几十 GB 磁盘，电脑内存建议 16 GB 以上。
 
 ## 功能细节
 

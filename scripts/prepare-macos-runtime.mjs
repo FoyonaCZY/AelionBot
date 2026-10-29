@@ -26,8 +26,8 @@ const run = (program, args, options = {}) =>
   execFileSync(program, args, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, ...options }).trim();
 const system = (path) => path.startsWith('/usr/lib/') || path.startsWith('/System/Library/');
 export async function prepareMacRuntime() {
-  if (process.platform !== 'darwin' || !['x64', 'arm64'].includes(process.arch))
-    throw Error('Mac runtime must be prepared on its native macOS architecture');
+  if (process.platform !== 'darwin' || process.arch !== 'arm64')
+    throw Error('Mac runtime must be prepared on Apple silicon (arm64)');
   const root = resolve(import.meta.dirname, '..'),
     destination = join(root, 'runtime', 'qemu'),
     staging = join(root, 'runtime', 'qemu-macos-staging');
@@ -47,8 +47,7 @@ export async function prepareMacRuntime() {
   mkdirSync(join(staging, 'lib'), { recursive: true });
   const prefix = run('brew', ['--prefix']),
     qemu = run('brew', ['--prefix', 'qemu']),
-    info = JSON.parse(run('brew', ['info', '--json=v2', 'qemu'])).formulae[0],
-    target = process.arch === 'arm64' ? 'aarch64' : 'x86_64';
+    info = JSON.parse(run('brew', ['info', '--json=v2', 'qemu'])).formulae[0];
   const jobs = [],
     known = new Map(),
     names = new Map();
@@ -62,7 +61,7 @@ export async function prepareMacRuntime() {
     jobs.push({ source, output });
     return output;
   }
-  const bins = [`qemu-system-${target}`, 'qemu-img'];
+  const bins = ['qemu-system-aarch64', 'qemu-img'];
   for (const name of bins) add(join(qemu, 'bin', name), join(staging, 'bin', name));
   const moduleRoot = join(qemu, 'lib', 'qemu');
   if (existsSync(moduleRoot))
@@ -126,7 +125,7 @@ export async function prepareMacRuntime() {
   for (const { output } of [...jobs].reverse()) {
     const bin = output.startsWith(join(staging, 'bin') + '/');
     run('/usr/bin/codesign', ['--force', '--sign', '-', ...(bin ? ['--entitlements', entitlements] : []), output]);
-    run('/usr/bin/lipo', [output, '-verify_arch', process.arch === 'arm64' ? 'arm64' : 'x86_64']);
+    run('/usr/bin/lipo', [output, '-verify_arch', 'arm64']);
   }
   for (const { output } of jobs)
     for (const lib of linkedLibraries(run('/usr/bin/otool', ['-L', output])))

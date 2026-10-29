@@ -9,7 +9,7 @@ import { createConnection, createServer as createTcpServer } from 'node:net';
 import { copyFileSync, existsSync, mkdirSync, openSync, closeSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
-import { spawn, execFile, execFileSync } from 'node:child_process';
+import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import ssh2 from 'ssh2';
 import { WebSocketServer } from 'ws';
@@ -430,17 +430,6 @@ export class VmController extends EventEmitter {
     if (!this.record) await this.prepare();
     return this.exclusive(async () => {
       this.checkArchitecture();
-      if (process.platform === 'darwin' && process.arch === 'x64') {
-        let translated = false;
-        try {
-          translated =
-            execFileSync('/usr/sbin/sysctl', ['-in', 'sysctl.proc_translated'], {
-              encoding: 'utf8',
-              stdio: ['ignore', 'pipe', 'ignore'],
-            }).trim() === '1';
-        } catch {}
-        if (translated) throw Error('当前运行的是 Intel 安装包，请为这台 Apple Silicon Mac 下载 ARM64 安装包');
-      }
       await this.refresh();
       if (this.stateValue.status === 'ready') return;
       if (processAlive(this.record?.pid)) throw new Error('检测到工作 VM 进程仍存在，暂不启动第二个实例；请检查日志。');

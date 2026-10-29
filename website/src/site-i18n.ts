@@ -16,13 +16,12 @@ export const siteCopy: Record<
     openNav: string;
     downloadWindows: string;
     downloadMacArm: string;
-    downloadMacIntel: string;
     downloadAll: string;
     downloadWindowsShort: string;
     downloadMacArmShort: string;
-    downloadMacIntelShort: string;
     downloadMobileHint: string;
     downloadLinuxHint: string;
+    downloadMacIntelHint: string;
     home: string;
     mainNav: string;
     footerNav: string;
@@ -84,13 +83,12 @@ export const siteCopy: Record<
     openNav: '打开导航',
     downloadWindows: '下载 Windows 版',
     downloadMacArm: '下载 Mac 版（Apple 芯片）',
-    downloadMacIntel: '下载 Mac 版（Intel）',
     downloadAll: '查看全部版本',
     downloadWindowsShort: 'Windows',
     downloadMacArmShort: 'Mac · Apple 芯片',
-    downloadMacIntelShort: 'Mac · Intel',
     downloadMobileHint: '这是桌面应用，请在电脑上下载安装。',
     downloadLinuxHint: '暂无 Linux 安装包，可下载 Windows 或 Mac 版。',
+    downloadMacIntelHint: 'Mac 版只支持 Apple 芯片，Intel 芯片的 Mac 无法使用。',
     home: 'AelionBot 首页',
     mainNav: '主导航',
     footerNav: '页脚导航',
@@ -155,13 +153,12 @@ export const siteCopy: Record<
     openNav: '開啟導覽',
     downloadWindows: '下載 Windows 版',
     downloadMacArm: '下載 Mac 版（Apple 晶片）',
-    downloadMacIntel: '下載 Mac 版（Intel）',
     downloadAll: '查看全部版本',
     downloadWindowsShort: 'Windows',
     downloadMacArmShort: 'Mac · Apple 晶片',
-    downloadMacIntelShort: 'Mac · Intel',
     downloadMobileHint: '這是桌面應用程式，請在電腦上下載安裝。',
     downloadLinuxHint: '暫無 Linux 安裝包，可下載 Windows 或 Mac 版。',
+    downloadMacIntelHint: 'Mac 版只支援 Apple 晶片，Intel 處理器的 Mac 無法使用。',
     home: 'AelionBot 首頁',
     mainNav: '主導覽',
     footerNav: '頁尾導覽',
@@ -226,13 +223,12 @@ export const siteCopy: Record<
     openNav: 'Open navigation',
     downloadWindows: 'Download for Windows',
     downloadMacArm: 'Download for Mac (Apple Silicon)',
-    downloadMacIntel: 'Download for Mac (Intel)',
     downloadAll: 'See all downloads',
     downloadWindowsShort: 'Windows',
     downloadMacArmShort: 'Mac · Apple Silicon',
-    downloadMacIntelShort: 'Mac · Intel',
     downloadMobileHint: 'This is a desktop app. Download it on a computer.',
     downloadLinuxHint: 'No Linux build yet. You can download Windows or Mac.',
+    downloadMacIntelHint: 'The Mac app requires Apple Silicon. Intel Macs are not supported.',
     home: 'AelionBot home',
     mainNav: 'Main navigation',
     footerNav: 'Footer navigation',
@@ -326,7 +322,8 @@ export const siteQuestions: Record<SiteLanguage, ReadonlyArray<{ question: strin
     },
     {
       question: '有 Mac 版本吗？',
-      answer: '有。下载区域会按这台电脑推荐 Windows、Apple 芯片或 Intel 安装包，也可以改选其他版本。',
+      answer:
+        '有，支持 Apple 芯片的 Mac，不支持 Intel 芯片的 Mac。下载区域会按这台电脑推荐安装包，也可以改选其他版本。',
     },
   ],
   'zh-TW': [
@@ -360,7 +357,8 @@ export const siteQuestions: Record<SiteLanguage, ReadonlyArray<{ question: strin
     },
     {
       question: '有 Mac 版本嗎？',
-      answer: '有。下載區域會按這台電腦推薦 Windows、Apple 晶片或 Intel 安裝包，也可以改選其他版本。',
+      answer:
+        '有，支援 Apple 晶片的 Mac，不支援 Intel 處理器的 Mac。下載區域會按這台電腦推薦安裝包，也可以改選其他版本。',
     },
   ],
   en: [
@@ -396,7 +394,7 @@ export const siteQuestions: Record<SiteLanguage, ReadonlyArray<{ question: strin
     {
       question: 'Is there a Mac version?',
       answer:
-        'Yes. The download section recommends Windows, Apple Silicon, or Intel based on this computer. Other builds are linked underneath.',
+        'Yes, for Macs with Apple Silicon. Intel Macs are not supported. The download section recommends a build for this computer, and other builds are linked underneath.',
     },
   ],
 };

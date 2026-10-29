@@ -8,7 +8,7 @@ AelionBot 的构建和运行依赖以下上游项目；第三方组件的许可�
 | electron-updater / NSIS | GitHub Release 检查、下载校验和 Windows 更新安装 | 固定依赖见 `pnpm-lock.yaml`；采用 electron-builder 生成的安装包与更新清单 |
 | 7-Zip | 构建时解压固定版本 QEMU 安装包 | 官方发布来源与 SHA-256 固定在 `scripts/runtime-archiver.mjs`；构建缓存不随源码或客户端分发 |
 | QEMU 11.1.0 | WHPX 固定 guest | [Windows 构建来源](https://qemu.weilnetz.de/w64/)；`runtime/qemu/aelion-runtime.json`；`COPYING*` 随运行时打包 |
-| QEMU / Homebrew 原生依赖 | Mac ARM64 / Intel 工作电脑，HVF 加速 | [Homebrew QEMU](https://formulae.brew.sh/formula/qemu)；每个包的 `qemu/aelion-runtime.json` 记录实际版本、来源及构建阶段 SHA-256；许可资料和构建配方位于 `qemu/licenses` |
+| QEMU / Homebrew 原生依赖 | Mac ARM64 工作电脑，HVF 加速 | [Homebrew QEMU](https://formulae.brew.sh/formula/qemu)；每个包的 `qemu/aelion-runtime.json` 记录实际版本、来源及构建阶段 SHA-256；许可资料和构建配方位于 `qemu/licenses` |
 | Debian 12 genericcloud | 固定 amd64 / ARM64 基础镜像 | [官方镜像目录](https://cloud.debian.org/images/cloud/bookworm/20260903-2590/)；版本和 SHA-512 固定在 `runtime/guest-image.json` 与 `runtime/guest-image-arm64.json` |
 | Google Chrome | 既有 Windows 工作电脑中的浏览器 | 保留此前安装的版本及许可记录；新建工作电脑不再依赖 Google 的安装包下载地址 |
 | Chromium | 新建工作电脑中的浏览器 | 通过现有 Debian 签名软件源安装；版本和许可保留在 guest 的包管理记录及 `/usr/share/doc` |

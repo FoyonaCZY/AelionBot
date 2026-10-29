@@ -12,16 +12,15 @@ const required = [
   `AelionBot-Setup-${pkg.version}-x64.exe.blockmap`,
   'latest.yml',
 ];
-for (const arch of ['arm64', 'x64'])
-  required.push(
-    `AelionBot-${pkg.version}-mac-${arch}.dmg`,
-    `AelionBot-${pkg.version}-mac-${arch}.zip`,
-    `latest-mac-${arch}.yml`,
-    `mac-${arch}-verification.json`,
-  );
+required.push(
+  `AelionBot-${pkg.version}-mac-arm64.dmg`,
+  `AelionBot-${pkg.version}-mac-arm64.zip`,
+  'latest-mac-arm64.yml',
+  'mac-arm64-verification.json',
+);
 for (const file of required) if (!existsSync(join(directory, file))) throw Error('Release asset missing: ' + file);
-const mac = [];
-for (const manifest of ['latest.yml', 'latest-mac-arm64.yml', 'latest-mac-x64.yml']) {
+let macManifest;
+for (const manifest of ['latest.yml', 'latest-mac-arm64.yml']) {
   const info = parse(readFileSync(join(directory, manifest), 'utf8'));
   if (info.version !== pkg.version || !info.files?.length) throw Error('Release manifest version mismatch');
   for (const file of info.files) {
@@ -36,12 +35,12 @@ for (const manifest of ['latest.yml', 'latest-mac-arm64.yml', 'latest-mac-x64.ym
     if (size !== file.size || hash.digest('base64') !== file.sha512)
       throw Error('Release asset integrity check failed: ' + name);
   }
-  if (manifest !== 'latest.yml') mac.push(info);
+  if (manifest !== 'latest.yml') macManifest = info;
 }
-writeFileSync(join(directory, 'latest-mac.yml'), stringify({ ...mac[1], files: mac.flatMap((m) => m.files) }));
+writeFileSync(join(directory, 'latest-mac.yml'), stringify(macManifest));
 const assets = [
   ...new Set([
-    ...required.filter((f) => !f.endsWith('-verification.json') && !/^latest-mac-(arm64|x64)\.yml$/.test(f)),
+    ...required.filter((f) => !f.endsWith('-verification.json') && f !== 'latest-mac-arm64.yml'),
     'latest-mac.yml',
     ...readdirSync(directory).filter((f) => f.endsWith('.blockmap') && required.includes(f.slice(0, -9))),
   ]),
