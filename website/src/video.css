@@ -1,0 +1,110 @@
+.tour {
+  padding-bottom: clamp(90px, 10vw, 140px);
+  display: grid;
+  gap: 48px;
+  scroll-margin-top: 80px;
+}
+.tour-frame {
+  margin: 0;
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+}
+.tour-poster,
+.tour-video {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 22px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  background: #000;
+  box-shadow: 0 40px 120px -40px rgba(120, 100, 230, 0.35);
+}
+.tour-poster {
+  display: block;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text);
+}
+.tour-poster::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(5, 6, 11, 0.5), rgba(5, 6, 11, 0.25) 70%);
+  transition: opacity 0.4s;
+}
+.tour-poster:hover::after {
+  opacity: 0.7;
+}
+.tour-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition:
+    transform 0.8s var(--ease),
+    filter 0.4s;
+}
+.tour-poster:hover img {
+  transform: scale(1.015);
+  filter: brightness(1.08);
+}
+.tour-play,
+.tour-label {
+  z-index: 1;
+}
+.tour-play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  padding-left: 4px;
+  background: rgba(16, 19, 29, 0.55);
+  border: 1px solid rgba(236, 233, 225, 0.36);
+  backdrop-filter: blur(14px);
+  transition:
+    transform 0.3s var(--ease),
+    background 0.3s;
+}
+.tour-poster:hover .tour-play {
+  transform: scale(1.06);
+  background: rgba(30, 34, 48, 0.75);
+}
+.tour-label {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 66px);
+  translate: -50% 0;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.6);
+}
+.tour-label small {
+  font-size: 12px;
+  color: rgba(238, 235, 228, 0.82);
+}
+.tour-poster:focus-visible {
+  outline-offset: 6px;
+}
+@media (max-width: 520px) {
+  .tour-poster,
+  .tour-video {
+    border-radius: 16px;
+  }
+  .tour-play {
+    width: 64px;
+    height: 64px;
+  }
+  .tour-label {
+    top: calc(50% + 50px);
+  }
+}

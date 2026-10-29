@@ -22,6 +22,12 @@ README 英文入口为根目录 `README.md`，中文为 `README.zh-CN.md`，两�
 
 Bot 主视觉和成果插画由网页直接绘制，滚动动效遵循系统的减少动态效果设置。下载、代码与反馈入口指向项目的 GitHub 页面。
 
+## 产品导览视频
+
+首页第一节之后是导览视频（`src/VideoSection.tsx`，文案在 `src/home-content.ts` 的 `tour`）。视频 `src/media/aelionbot-tour.mp4` 为 9 分 38 秒、1080p、H.264 + AAC，约 40 MB，中文解说并烧录中文字幕；封面 `aelionbot-tour-poster.webp`。页面只加载封面，访客点击播放后才请求视频。
+
+视频随网站构建打包（带内容哈希、长期缓存），所以替换时整个部署包要控制在接收端 50 MiB 的上限内；`audit:publish` 只对 `website/src/media/*.mp4` 放宽到 48 MB。更新视频时用较高的 CRF 重新压制（当前 CRF 29、`-tune animation`、音频 96 kbps），不要提交原始母版。
+
 ## 首页功能介绍
 
 首页以通用多 Agent 系统为主定位，先展示完整工作台、群聊分工与 Linux VM，再介绍每个 Bot 都内置的设计能力，最后是 Terminal-Bench 评测成绩。三种语言文案位于 `src/capability-content.ts`，展示组件是 `src/CapabilitySections.tsx`；评测区块的文案在 `src/benchmark-content.ts`，组件是 `src/BenchmarkSection.tsx`；主标题、FAQ 和下载文案在 `src/site-i18n.ts`；截图列表和界面功能标签在 `src/product-scenes.ts`。设计系统、工作电脑和群聊均使用真实组件截图，可点击放大。官网不打包完整设计资源库。

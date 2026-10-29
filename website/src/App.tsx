@@ -5,6 +5,7 @@ import { capabilityCopy } from './capability-content';
 import { homeCopy } from './home-content';
 import { ComputerArt, DesignArt, GroupChatArt, WorkspaceArt } from './Illustrations';
 import { Mark } from './Mark';
+import { VideoSection } from './VideoSection';
 import { readSiteLanguage, rememberSiteLanguage } from './locale.mjs';
 import { version } from '../../package.json';
 import { siteCopy, siteLanguages, siteQuestions, type SiteLanguage } from './site-i18n';
@@ -274,6 +275,8 @@ export default function App() {
             ))}
           </dl>
         </section>
+
+        <VideoSection copy={home.tour} />
 
         <section className="workspace shell" aria-labelledby="workspace-title">
           <div className="section-head centered" data-reveal>

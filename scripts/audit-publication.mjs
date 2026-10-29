@@ -73,7 +73,8 @@ if (!worktree) {
     }
     const size = Number(header[2]);
     // Match the old 6 MB git-show buffer: larger blobs are reported as unreadable, as before.
-    if (size <= 6 * 1024 * 1024) staged.set(file, out.subarray(end + 1, end + 1 + size));
+    if (size <= 6 * 1024 * 1024 || /^website\/src\/media\/[^/]+\.mp4$/.test(file))
+      staged.set(file, out.subarray(end + 1, end + 1 + size));
     at = end + 1 + size + 1;
   }
 }
@@ -92,7 +93,10 @@ for (const file of new Set(files)) {
   }
   contents.set(file, data);
   bytes += data.length;
-  if (data.length > 5 * 1024 * 1024) findings.push({ file, kind: 'large-file', bytes: data.length });
+  // The website's product tour is the one large file allowed in the repository; it ships with the site.
+  const tour = /^website\/src\/media\/[^/]+\.mp4$/.test(file);
+  if (data.length > (tour ? 48 * 1024 * 1024 : 5 * 1024 * 1024))
+    findings.push({ file, kind: 'large-file', bytes: data.length });
   if (
     !textExtensions.has(extname(file)) &&
     !['.gitignore', '.gitattributes', '.editorconfig', '.prettierignore', '.git-blame-ignore-revs', 'LICENSE'].includes(
@@ -106,7 +110,8 @@ for (const file of new Set(files)) {
       !/^src\/(?:[^/]+\/)*[^/]+\.(png|jpe?g|webp)$/i.test(file) &&
       !/^assets\/design-systems\/.+\.(png|jpe?g|webp|gif)$/i.test(file) &&
       !/^docs\/assets\/(?:screenshots|product)\/[^/]+\.(png|jpe?g|webp)$/i.test(file) &&
-      !/^website\/public\/blog-media\/(?:[^/]+\/)*[^/]+\.(png|jpe?g|webp|gif)$/i.test(file)
+      !/^website\/public\/blog-media\/(?:[^/]+\/)*[^/]+\.(png|jpe?g|webp|gif)$/i.test(file) &&
+      !/^website\/src\/media\/[^/]+\.(mp4|webp)$/i.test(file)
     )
       findings.push({ file, kind: 'unexpected-artifact' });
     continue;
