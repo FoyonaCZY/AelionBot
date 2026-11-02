@@ -10,6 +10,7 @@ import { validateChatInput } from '../electron/core/agent/chat-input';
 import { GroupChats } from '../electron/core/group/group-chats';
 import {
   BOT_PALETTES,
+  botAccentInk,
   botIdentity,
   botPaletteKey,
   normalizeBotPalette,
@@ -211,4 +212,9 @@ test('avatar SVG keeps the original silhouette, supports all paints, and rejects
   const copy = normalizeBotPalette(BOT_PALETTES.find((item) => item.avatarStyle)!);
   (copy.avatarStyle as Extract<BotAvatarStyle, { secondary: string }>).secondary = '#000000';
   assert.equal(JSON.stringify(BOT_PALETTES), before);
+});
+
+test('a surface in a Bot accent has white text unless the accent is too light for it', () => {
+  for (const dark of ['#000000', '#268bfa', '#e8601c', '#8b6bea']) assert.equal(botAccentInk(dark), '#ffffff');
+  for (const light of ['#ffffff', '#f5d90a', '#ed8c35']) assert.equal(botAccentInk(light), '#1b1b1d');
 });

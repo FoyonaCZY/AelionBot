@@ -61,7 +61,7 @@
   color: inherit;
 }
 .fp-code-text :is(.hljs-keyword, .hljs-selector-tag, .hljs-literal) {
-  color: #c4a2de;
+  color: #a2bcde;
 }
 .fp-code-text :is(.hljs-string, .hljs-regexp, .hljs-attr) {
   color: #abd1ad;
@@ -92,7 +92,7 @@
   padding: 7px 11px;
   border-radius: 7px;
   background: #2b2c32;
-  color: #c6bacf;
+  color: #c4c4c4;
   font-size: 12px;
   z-index: 4;
 }

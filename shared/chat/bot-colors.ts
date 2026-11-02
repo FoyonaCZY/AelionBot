@@ -155,6 +155,18 @@ export function displayBotPalette(value: { color?: string; avatarStyle?: unknown
     return { color: color.toLowerCase() };
   }
 }
+/**
+ * The text color for a surface filled with a Bot's accent: white while it reaches 3:1, which holds for most accents
+ * and is the look these surfaces want. Lighter accents, such as a pale orange or yellow, get dark text.
+ */
+export function botAccentInk(color: string) {
+  const channel = (at: number) => {
+    const value = parseInt(color.slice(at, at + 2), 16) / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+  return 1.05 / (luminance + 0.05) >= 3 ? '#ffffff' : '#1b1b1d';
+}
 export const botPaletteKey = (value: BotPalette) => JSON.stringify(displayBotPalette(value));
 export function randomBotPalette(previous?: BotPalette): BotPalette {
   const key = previous && botPaletteKey(previous),

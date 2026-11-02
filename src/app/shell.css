@@ -1,0 +1,586 @@
+/*
+ * The app's frame. It is flat: a light gray sidebar and a white conversation meet edge to edge, and only what floats
+ * over the conversation (the header's chips, the composer, menus, dialogs) has a shadow. Colour comes from the Bot:
+ * --bot-accent is set on the conversation (ConversationPane.tsx), and your own bubbles and the send button wear it.
+ * Blue (--ctl-accent) marks state in places that belong to no Bot: switches, focus, selected options.
+ */
+:root {
+  --surface-frame: light-dark(#f7f7f7, #1b1b1d);
+  --surface-float: light-dark(#fff, #2c2c2f);
+  --surface-line: light-dark(#ececec, #363639);
+  --surface-hover: light-dark(rgba(0, 0, 0, 0.045), rgba(255, 255, 255, 0.07));
+  --surface-selected: light-dark(rgba(0, 0, 0, 0.065), rgba(255, 255, 255, 0.1));
+  --float-shadow:
+    0 0 0 0.5px light-dark(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0.09)),
+    0 2px 6px light-dark(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.3)),
+    0 12px 32px -12px light-dark(rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0.6));
+  --float-shadow-sm:
+    0 0 0 0.5px light-dark(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0.09)),
+    0 1px 4px light-dark(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.35));
+}
+/* On the conversation too: a var() in a custom property resolves where it is declared, so :root alone would never
+   see the --bot-accent set further down. */
+:root,
+.app-shell > .conversation {
+  --user-bubble: var(--bot-accent, #2f80ed);
+  --user-bubble-ink: var(--bot-accent-ink, #fff);
+  --send-fill: var(--bot-accent, light-dark(#171717, #e8e8e8));
+  --send-ink: var(--bot-accent-ink, light-dark(#fff, #1b1b1d));
+}
+:root[data-theme='dark'] {
+  --conversation-canvas: #212123;
+  --conversation-edge: #212123;
+  --bubble-surface: #2e2e31;
+  --bubble-chip: #3a3a3e;
+  --bubble-block: #272729;
+}
+
+.app-shell {
+  background: var(--surface-frame);
+}
+.app-shell > .sidebar {
+  position: relative;
+  z-index: 20;
+  border-right: 0;
+  background: var(--surface-frame);
+}
+.app-shell > .conversation {
+  position: relative;
+  background: var(--conversation-canvas);
+}
+
+/* Across the top of the window so it can be moved by any empty spot; buttons and fields opt out on their own. */
+.window-drag-strip {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 40px;
+  -webkit-app-region: drag;
+  user-select: none;
+}
+/* Layers over the window take their whole area back from it, the top included. */
+:is(.modal-backdrop, .mcp-snippet-backdrop, .peer-chat-layer, .fp-unsaved-backdrop, .gg-dialog, .gp-dialog) {
+  -webkit-app-region: no-drag;
+}
+/* Beside a docked preview the whole 52 px band above the cards is free to move the window by. */
+body:has(.fp-panel[data-layout='docked']) .window-drag-strip {
+  height: 52px;
+}
+body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
+  display: none;
+}
+
+/* ---------- Sidebar ---------- */
+.app-shell .sidebar .sidebar-top {
+  min-height: 48px;
+  height: 48px;
+  padding: 0 16px 0 84px;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.app-shell:not([data-platform='darwin']) .sidebar .sidebar-top {
+  padding-left: 16px;
+}
+.app-shell .sidebar-top .icon-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-float);
+  box-shadow: var(--float-shadow-sm);
+  color: var(--text-secondary);
+}
+.app-shell .sidebar-top .icon-button:not(:disabled):hover {
+  background: var(--surface-float);
+  color: var(--text-ink);
+}
+.app-shell .sidebar .search {
+  margin: 0 12px 10px;
+  padding: 7px 11px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-selected);
+}
+.app-shell .sidebar .search:focus-within {
+  box-shadow: var(--ctl-focus);
+}
+.app-shell .sidebar .bot-list {
+  padding: 0 10px;
+}
+.app-shell .sidebar :is(.bot-item, .session-item) {
+  border-radius: 12px;
+  transition: background-color 0.14s;
+}
+.app-shell .sidebar .bot-item {
+  margin: 1px 0;
+  padding: 9px 8px;
+}
+.app-shell .sidebar .bot-line {
+  margin-bottom: 1px;
+}
+.app-shell .sidebar .bot-line strong {
+  font-weight: var(--weight-body);
+}
+:root .app-shell .sidebar .bot-preview {
+  color: var(--text-muted);
+}
+/* The time is detail: it comes up under the pointer, and takes no room from the name until then. */
+.app-shell .sidebar .bot-item:not(:hover, :focus-visible) .bot-line small {
+  display: none;
+}
+.app-shell .sidebar .group-avatar {
+  width: 36px;
+  height: 36px;
+}
+.app-shell .sidebar .group-item:not(:has(.bot-preview:not(:empty))) .bot-line {
+  margin-bottom: 0;
+}
+.app-shell .sidebar :is(.bot-item, .session-item):not(.selected):hover {
+  background: var(--surface-hover);
+}
+.app-shell .sidebar :is(.bot-item, .session-item).selected {
+  background: var(--surface-selected);
+}
+.app-shell .sidebar .bot-working {
+  left: 34px;
+  top: 34px;
+  border-color: var(--surface-frame);
+}
+.app-shell .sidebar .sidebar-bottom {
+  gap: 8px;
+  padding: 10px 14px 14px;
+}
+.app-shell .sidebar .sidebar-user {
+  gap: 9px;
+  padding: 5px 8px 5px 2px;
+  border-radius: 999px;
+  font-weight: var(--weight-body);
+}
+.sidebar-user > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.app-shell .sidebar .sidebar-user:hover {
+  background: var(--surface-hover);
+}
+.app-shell .sidebar-bottom .icon-button {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-float);
+  box-shadow: var(--float-shadow-sm);
+  color: var(--text-secondary);
+}
+.app-shell .sidebar-bottom .icon-button[aria-current='page'] {
+  color: var(--text-ink);
+  background: var(--surface-selected);
+  box-shadow: none;
+}
+.new-conversation-menu {
+  z-index: 120;
+  min-width: 190px;
+}
+
+/* ---------- Conversation header: the Bot's chip in the middle, actions at the end, the messages fading out under
+   both. It shares its 48 px band, and so its centre line, with the macOS traffic lights and the sidebar's buttons. */
+body:not(:has(.fp-panel[data-layout='docked'])) .app-shell > .conversation > .chat-header {
+  position: absolute;
+  z-index: 6;
+  top: 0;
+  right: 0;
+  left: 0;
+  --chip-axis-shift: calc(var(--column-reserve, 0px) - var(--conversation-caption-space, 0px));
+  display: grid;
+  /* The chip stands on the composer's centre line: the outer tracks take out what the floating cards reserve on the
+     right and what the native caption buttons take from the header's padding, whichever is larger. */
+  grid-template-columns:
+    max(0px, calc(var(--chip-axis-shift) * -1)) minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr)
+    max(0px, var(--chip-axis-shift));
+  align-items: center;
+  height: 48px;
+  min-height: 48px;
+  padding: 6px calc(16px + var(--conversation-caption-space, 0px)) 6px 16px;
+  border: 0;
+  background: linear-gradient(var(--conversation-edge) 70%, transparent);
+}
+body:not(:has(.fp-panel[data-layout='docked'])) .app-shell > .conversation > .messages {
+  padding-top: 56px;
+}
+.chat-heading {
+  display: flex;
+  align-items: center;
+  grid-column: 3;
+  min-width: 0;
+  max-width: min(100%, 360px);
+  gap: 2px;
+}
+body:not(:has(.fp-panel[data-layout='docked'])) :is(.chat-heading, .chat-header > .bot-heading) {
+  padding: 4px 14px 4px 4px;
+  border-radius: 999px;
+  background: var(--surface-float);
+  box-shadow: var(--float-shadow);
+}
+.chat-heading > :is(.bot-heading, .session-heading) {
+  min-width: 0;
+  padding-block: 0;
+}
+.chat-heading strong,
+.chat-header > .bot-heading strong {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+:root .chat-heading .bot-heading strong,
+:root .chat-header > .bot-heading strong {
+  font-size: var(--text-control);
+  font-weight: var(--weight-body);
+}
+.chat-header > .bot-heading {
+  grid-column: 3;
+  min-width: 0;
+  max-width: min(100%, 360px);
+}
+.chat-header > .bot-heading .group-avatar {
+  width: 28px;
+  height: 28px;
+}
+.chat-header .header-actions {
+  grid-column: 4 / 6;
+  justify-self: end;
+  gap: 4px;
+  min-width: 0;
+}
+.app-shell .chat-header .header-actions .icon-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+.chat-header .bot-model-button {
+  max-width: 160px;
+  padding: 5px 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-secondary);
+}
+.chat-header .bot-model-button:hover {
+  background: var(--surface-hover);
+}
+
+/* ---------- Messages ---------- */
+.message-row .bubble {
+  max-width: min(100%, 620px);
+  border-radius: 18px;
+  box-shadow: none;
+}
+.message-row.assistant:has(.message-code-block) .bubble {
+  width: min(100%, 620px);
+}
+/* Your bubbles wear the accent; everything written inside them follows the ink that reads on it. */
+:root :is(.message-row.user .bubble, .from-user .group-message-bubble, .peer-message.user .peer-bubble) {
+  --text-ink: var(--user-bubble-ink);
+  --text-secondary: var(--user-bubble-ink);
+  --text-muted: var(--user-bubble-ink);
+  --message-link: var(--user-bubble-ink);
+  --message-link-line: var(--user-bubble-ink);
+  --message-inline: rgba(255, 255, 255, 0.22);
+  background: var(--user-bubble);
+  color: var(--user-bubble-ink);
+  /* An accent close to the ground (a black Bot in the dark theme, a white one in the light) keeps its edge. */
+  box-shadow: inset 0 0 0 1px light-dark(rgba(0, 0, 0, 0.06), rgba(255, 255, 255, 0.14));
+}
+.message-row.user .bubble {
+  max-width: min(72%, 560px);
+}
+.message-row.user .bubble.is-media {
+  background: transparent;
+  box-shadow: none;
+}
+/* The scrollbar shows only while the pointer is over the messages. */
+.app-shell .messages:not(:hover) {
+  scrollbar-color: transparent transparent;
+}
+
+/* ---------- Composer: one pill that grows with the text; tools share its line while there is room ---------- */
+body:not(:has(.fp-panel[data-layout='docked'])) .floating-composer .composer {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 26px;
+  background: var(--surface-float);
+  box-shadow: var(--float-shadow);
+}
+body:not(:has(.fp-panel[data-layout='docked'])) .floating-composer .composer > * {
+  flex: 0 0 100%;
+  min-width: 0;
+}
+body:not(:has(.fp-panel[data-layout='docked'])) .floating-composer :is(.composer-bottom, .composer-tools) {
+  display: contents;
+}
+body:not(:has(.fp-panel[data-layout='docked'])) .floating-composer .composer .composer-editor {
+  order: 2;
+  flex: 1 1 260px;
+  /* One line of text is exactly as tall as the buttons beside it, on the same centre line (line-height: typography.css). */
+  min-height: 32px;
+  min-width: 0;
+  padding-block: calc((32px - 1.7em) / 2);
+}
+.floating-composer .composer-bottom > *,
+.floating-composer .composer-tools > * {
+  order: 3;
+}
+.app-shell .floating-composer .composer-tools .composer-plus {
+  order: 1;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+}
+.floating-composer .composer-tools .composer-plus > svg {
+  width: 19px;
+  height: 19px;
+}
+.app-shell .chat-search {
+  border: 0;
+  background: var(--ctl-fill);
+}
+.app-shell .chat-search {
+  border-radius: 999px;
+}
+.app-shell .chat-search:focus-within {
+  box-shadow: var(--ctl-focus);
+}
+.floating-composer .permission-mode > .aelion-select {
+  min-height: 32px;
+}
+.floating-composer .context-usage-slot {
+  min-height: 32px;
+}
+.floating-composer .send-button {
+  order: 4;
+  width: 32px;
+  height: 32px;
+}
+.send-button:not(:disabled) {
+  background: var(--send-fill);
+  color: var(--send-ink);
+}
+.send-button:not(:disabled):hover {
+  filter: brightness(0.94);
+}
+
+/* ---------- Dialogs: flat white sheets over a plain dim ---------- */
+:root .modal-backdrop {
+  background: light-dark(rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0.55));
+}
+:root .modal {
+  border: 0;
+  border-radius: 16px;
+  background: var(--surface-float);
+  box-shadow: var(--float-shadow);
+}
+.settings-modal .settings-card .settings-card,
+.bot-profile-modal .settings-card {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Bot profile: a title bar, the Bot in the middle of the sheet, and the actions pinned to the bottom. */
+.modal.bot-profile-modal {
+  display: flex;
+  flex-direction: column;
+  width: 460px;
+  padding: 0;
+  overflow: hidden;
+}
+.bot-profile-modal > header {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 10px 10px 10px 16px;
+  border-bottom: 1px solid var(--surface-line);
+}
+:root .bot-profile-modal > header h2 {
+  font-size: var(--text-control);
+  font-weight: var(--weight-label);
+}
+.bot-profile-modal > form {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.bot-profile-body {
+  flex: 1;
+  min-height: 0;
+  padding: 20px 16px 16px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.bot-profile-actions {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--surface-line);
+}
+.bot-profile-workspace {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 6px;
+}
+.bot-profile-workspace > div {
+  flex: 1;
+  min-width: 0;
+}
+:root .bot-profile-workspace h3 {
+  margin: 0 0 2px;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
+  color: var(--text-secondary);
+}
+.bot-profile-workspace code {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+  font: var(--weight-body) 12px var(--font-code);
+  color: var(--text-muted);
+}
+.bot-profile-workspace-error {
+  margin: 0 0 6px;
+  font-size: var(--text-caption);
+  color: var(--ctl-danger);
+}
+
+@media (forced-colors: active) {
+  :is(.chat-heading, .chat-header > .bot-heading, .floating-composer .composer) {
+    border: 1px solid CanvasText;
+  }
+}
+
+/* Opening or closing a docked preview is one surface change: cross-fade the old and new
+   layout instead of swapping the chat rail and panel abruptly. */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) {
+    animation: aelion-view-out 170ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+
+  ::view-transition-new(root) {
+    animation: aelion-view-in 200ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+}
+
+@keyframes aelion-view-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes aelion-view-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* While a view transition runs, Chromium can apply a backdrop-filter inside a captured element to the whole
+   snapshot once its cross-fade ends, blurring the entire conversation for the last ~100ms. Glass goes plain for
+   those few hundred milliseconds instead. */
+html:active-view-transition * {
+  backdrop-filter: none !important;
+}
+
+/* Preview layout morph: the conversation column narrows into the docked rail while the
+   preview panel grows out from the centre of the remaining space. */
+.app-shell > .conversation {
+  view-transition-name: conversation;
+}
+
+.app-shell > .sidebar {
+  view-transition-name: sidebar;
+}
+
+.fp-panel {
+  view-transition-name: preview;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-group(conversation) {
+    animation-duration: 380ms;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  ::view-transition-group(sidebar) {
+    animation-duration: 280ms;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  ::view-transition-group(preview) {
+    animation-duration: 380ms;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  ::view-transition-old(conversation),
+  ::view-transition-new(conversation) {
+    animation-duration: 300ms;
+  }
+
+  ::view-transition-old(sidebar) {
+    animation: aelion-sidebar-out 240ms ease both;
+  }
+
+  ::view-transition-new(sidebar) {
+    animation: aelion-sidebar-in 300ms 70ms ease both;
+  }
+
+  ::view-transition-new(preview) {
+    animation: aelion-preview-in 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    transform-origin: center;
+  }
+
+  ::view-transition-old(preview) {
+    animation: aelion-preview-out 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    transform-origin: center;
+  }
+}
+
+@keyframes aelion-sidebar-out {
+  to {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+}
+
+@keyframes aelion-sidebar-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+}
+
+@keyframes aelion-preview-in {
+  from {
+    opacity: 0;
+    transform: scale(0.93);
+  }
+}
+
+@keyframes aelion-preview-out {
+  to {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}

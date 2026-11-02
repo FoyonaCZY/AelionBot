@@ -65,7 +65,7 @@ export function WorkSessionEditor({
   };
   const chooseFolder = () =>
     run(async () => {
-      // An existing session takes the folder at once, as the composer's folder button does.
+      // An existing session takes the folder at once.
       const picked = scope ? await window.aelion.pickConversationWorkspace(scope) : await window.aelion.chooseFolder();
       if (picked) setFolder(picked);
     });

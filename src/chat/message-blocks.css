@@ -1,11 +1,11 @@
 .message-block {
   margin: 10px 0;
   padding: 12px 14px;
-  border: 1px solid light-dark(#e6e0ed, #494050);
+  border: 1px solid light-dark(#e7e7e7, #484848);
   border-radius: 14px;
-  background: light-dark(#fff, #25212b);
-  color: light-dark(#403a48, #ece5f3);
-  box-shadow: 0 1px 3px #21152e0a;
+  background: light-dark(#fff, #262626);
+  color: light-dark(#414141, #e5ebf3);
+  box-shadow: 0 1px 3px #15202e0a;
   font-size: calc(13px * var(--appearance-text-scale, 1));
   line-height: 1.5;
   white-space: normal;
@@ -38,7 +38,7 @@
   align-items: center;
   gap: 12px;
   margin-bottom: 4px;
-  color: light-dark(#8b8297, #b7a9c6);
+  color: light-dark(#8d8d8d, #b8b8b8);
   font-size: calc(12px * var(--appearance-text-scale, 1));
 }
 .message-chart-legend span {
@@ -56,11 +56,11 @@
   font-style: normal;
 }
 .message-block-chart text {
-  fill: light-dark(#8b8297, #b7a9c6);
+  fill: light-dark(#8d8d8d, #b8b8b8);
   font-size: 11px;
 }
 .chart-grid {
-  stroke: light-dark(#eee9f2, #3c3443);
+  stroke: light-dark(#eeeeee, #3c3c3c);
   stroke-width: 1;
 }
 .chart-line {
@@ -73,7 +73,7 @@
   opacity: 0.14;
 }
 .chart-dot {
-  fill: light-dark(#fff, #25212b);
+  fill: light-dark(#fff, #262626);
   stroke-width: 2;
 }
 .chart-bar {
@@ -92,11 +92,11 @@
 .message-metric {
   padding: 10px 11px;
   border-radius: 10px;
-  background: light-dark(#f6f3f9, #302b37);
+  background: light-dark(#f3f6f9, #313131);
 }
 .message-metric > span {
   display: block;
-  color: light-dark(#8b8297, #b7a9c6);
+  color: light-dark(#8d8d8d, #b8b8b8);
   font-size: calc(12px * var(--appearance-text-scale, 1));
 }
 .message-metric > strong {
@@ -109,7 +109,7 @@
 }
 .message-metric > small {
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#8b8297, #b7a9c6);
+  color: light-dark(#8d8d8d, #b8b8b8);
 }
 .message-metric > small[data-tone='up'] {
   color: light-dark(#4f8a6d, #9bd2be);
@@ -132,14 +132,14 @@
 .message-block-table th,
 .message-block-table td {
   padding: 7px 6px;
-  border-bottom: 1px solid light-dark(#eee9f2, #3c3443);
+  border-bottom: 1px solid light-dark(#eeeeee, #3c3c3c);
 }
 .message-block-table tr:last-child td {
   border-bottom: 0;
 }
 .message-block-table th {
   font-weight: 500;
-  color: light-dark(#8b8297, #b7a9c6);
+  color: light-dark(#8d8d8d, #b8b8b8);
 }
 .message-block-table th button {
   padding: 2px 0;
@@ -150,10 +150,10 @@
   cursor: pointer;
 }
 .message-block-table th button:hover {
-  color: light-dark(#403a48, #ece5f3);
+  color: light-dark(#414141, #e5ebf3);
 }
 .message-block-table td {
-  color: light-dark(#5d5568, #d8d0e2);
+  color: light-dark(#5f5f5f, #d9d9d9);
 }
 
 /* timeline */
@@ -176,7 +176,7 @@
   bottom: 0;
   left: 4px;
   width: 1px;
-  background: light-dark(#e6e0ed, #494050);
+  background: light-dark(#e7e7e7, #484848);
 }
 .message-block-timeline li:last-child {
   padding-bottom: 0;
@@ -191,14 +191,14 @@
   height: 9px;
   margin-top: 5px;
   border-radius: 50%;
-  background: light-dark(#c9c1d3, #5c5266);
+  background: light-dark(#cacaca, #5c5c5c);
 }
 .message-block-timeline li[data-state='done'] i {
   background: light-dark(#7e9f82, #9bd2be);
 }
 .message-block-timeline li[data-state='current'] i {
-  background: light-dark(#8570bd, #bcb2d8);
-  box-shadow: 0 0 0 3px light-dark(#efe9f8, #3a3344);
+  background: light-dark(#7091bd, #b2c2d8);
+  box-shadow: 0 0 0 3px light-dark(#e9f0f8, #3c3c3c);
 }
 .message-timeline-head {
   display: flex;
@@ -211,13 +211,13 @@
   font-weight: 600;
 }
 .message-timeline-head time {
-  color: light-dark(#93889e, #ae9dbd);
+  color: light-dark(#939393, #adadad);
   font-size: calc(12px * var(--appearance-text-scale, 1));
   white-space: nowrap;
 }
 .message-block-timeline p {
   margin: 2px 0 0;
-  color: light-dark(#7d7389, #b7a9c6);
+  color: light-dark(#7e7e7e, #b8b8b8);
   font-size: calc(12px * var(--appearance-text-scale, 1));
 }
 
@@ -243,7 +243,7 @@
 }
 .message-block-callout p {
   margin: 0;
-  color: light-dark(#5d5568, #d8d0e2);
+  color: light-dark(#5f5f5f, #d9d9d9);
 }
 
 /* pie */
@@ -283,7 +283,7 @@
 }
 .message-block-pie small {
   min-width: 34px;
-  color: light-dark(#93889e, #ae9dbd);
+  color: light-dark(#939393, #adadad);
   text-align: right;
 }
 
@@ -296,7 +296,7 @@
 .message-calculator-inputs label {
   display: grid;
   gap: 4px;
-  color: light-dark(#8b8297, #b7a9c6);
+  color: light-dark(#8d8d8d, #b8b8b8);
   font-size: calc(12px * var(--appearance-text-scale, 1));
 }
 .message-calculator-control {
@@ -304,9 +304,9 @@
   align-items: center;
   height: 32px;
   padding: 0 9px;
-  border: 1px solid light-dark(#e2dbe9, #4b4254);
+  border: 1px solid light-dark(#e2e2e2, #4b4b4b);
   border-radius: 8px;
-  background: light-dark(#fff, #1f1b24);
+  background: light-dark(#fff, #202020);
 }
 .message-calculator-control input {
   width: 100%;
@@ -321,7 +321,7 @@
 }
 .message-calculator-control em {
   margin-left: 4px;
-  color: light-dark(#a99fb4, #9c8fab);
+  color: light-dark(#aaaaaa, #9d9d9d);
   font-size: calc(12px * var(--appearance-text-scale, 1));
   font-style: normal;
 }
@@ -332,11 +332,11 @@
   gap: 16px;
   margin-top: 14px;
   padding-top: 12px;
-  border-top: 1px dashed light-dark(#e6e0ed, #494050);
+  border-top: 1px dashed light-dark(#e7e7e7, #484848);
 }
 .message-calculator-result > div > span {
   display: block;
-  color: light-dark(#8b8297, #b7a9c6);
+  color: light-dark(#8d8d8d, #b8b8b8);
   font-size: calc(12px * var(--appearance-text-scale, 1));
 }
 .message-calculator-result > div > strong {
@@ -361,11 +361,11 @@
   gap: 14px;
 }
 .message-calculator-result dt {
-  color: light-dark(#8b8297, #b7a9c6);
+  color: light-dark(#8d8d8d, #b8b8b8);
 }
 .message-calculator-result dd {
   margin: 0;
-  color: light-dark(#403a48, #ece5f3);
+  color: light-dark(#414141, #e5ebf3);
   font-weight: 500;
 }
 .message-calculator-actions {
@@ -379,8 +379,8 @@
   padding: 0 12px;
   border: 0;
   border-radius: 8px;
-  background: light-dark(#efe9f8, #3a3344);
-  color: light-dark(#5b4d72, #d8cae8);
+  background: light-dark(#e9f0f8, #3c3c3c);
+  color: light-dark(#606060, #cad7e8);
   font: inherit;
   font-size: calc(12px * var(--appearance-text-scale, 1));
   white-space: nowrap;
@@ -388,7 +388,7 @@
   cursor: pointer;
 }
 .message-calculator-actions button:hover:not(:disabled) {
-  background: light-dark(#e6dcf5, #453c52);
+  background: light-dark(#dce7f5, #474747);
 }
 .message-calculator-actions button:disabled {
   opacity: 0.6;
@@ -396,7 +396,7 @@
 }
 .message-calculator-actions p {
   margin: 0;
-  color: light-dark(#a99fb4, #9c8fab);
+  color: light-dark(#aaaaaa, #9d9d9d);
   font-size: calc(12px * var(--appearance-text-scale, 1));
   line-height: 1.45;
 }

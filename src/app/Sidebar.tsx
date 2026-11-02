@@ -8,7 +8,7 @@ import { friendlyError, readableContent } from '../../shared/chat/activity';
 import type { BotActivities } from '../bots/bot-activity';
 import type { BotMenuAnchor } from '../bots/BotContextMenu';
 import { GroupAvatar } from '../group/GroupAvatar';
-import type { SettingsTab } from '../settings/SettingsWindow';
+import { ProfileAvatar, type SettingsTab } from '../settings/SettingsWindow';
 import { Avatar } from '../ui/Avatar';
 import { time } from '../ui/format';
 import { Icon } from '../ui/Icon';
@@ -98,6 +98,9 @@ export function Sidebar({
       return next;
     });
   const search = query.trim().toLowerCase();
+  // The search field stays away until asked for; it also stays while it holds a query.
+  const [searching, setSearching] = useState(false),
+    searchShown = searching || Boolean(query);
   // What a chat's row says under its name: what waits on the user, what it is doing, or its last message.
   const preview = (botId: string, sessionId: string | undefined, last: SessionRow['last']) => {
     const pending = requests.find((request) => request.botId === botId && runSession(request.runId) === sessionId);
@@ -130,9 +133,17 @@ export function Sidebar({
   return (
     <aside className="sidebar">
       <div className="sidebar-top drag">
-        <span className="brand">
-          Aelion<span>Bot</span>
-        </span>
+        <button
+          className="icon-button"
+          aria-label={t('搜索')}
+          aria-expanded={searchShown}
+          onClick={() => {
+            if (searchShown) onQuery('');
+            setSearching(!searchShown);
+          }}
+        >
+          <Icon name="search" size={17} />
+        </button>
         <div className="new-menu-anchor no-drag">
           <button
             className="icon-button"
@@ -141,7 +152,7 @@ export function Sidebar({
             aria-expanded={newMenu}
             onClick={onToggleNewMenu}
           >
-            <Icon name="plus" />
+            <Icon name="plus" size={17} />
           </button>
           <Presence>
             {newMenu && (
@@ -167,10 +178,23 @@ export function Sidebar({
           </Presence>
         </div>
       </div>
-      <label className="search">
-        <Icon name="search" size={18} />
-        <input placeholder={t('搜索')} value={query} onChange={(event) => onQuery(event.target.value)} />
-      </label>
+      {searchShown && (
+        <label className="search">
+          <Icon name="search" size={16} />
+          <input
+            autoFocus
+            placeholder={t('搜索')}
+            value={query}
+            onChange={(event) => onQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                onQuery('');
+                setSearching(false);
+              }
+            }}
+          />
+        </label>
+      )}
       <div className="bot-list conversation-list" role="region" aria-label={t('会话列表')}>
         {rows
           .filter(
@@ -184,7 +208,7 @@ export function Sidebar({
               return (
                 <button
                   key={`group:${room.id}`}
-                  className={`bot-item group-item ${page === 'chat' && group?.id === room.id ? 'selected' : ''}`}
+                  className={`bot-item group-item ${group?.id === room.id ? 'selected' : ''}`}
                   data-group-id={room.id}
                   onClick={() => onOpenGroup(room.id)}
                 >
@@ -230,7 +254,7 @@ export function Sidebar({
               <div className={`bot-entry ${sessions.length ? 'has-sessions' : ''}`} key={`bot:${item.id}`}>
                 <div className="bot-head">
                   <button
-                    className={`bot-item ${page === 'chat' && !group && !session && bot?.id === item.id ? 'selected' : ''}`}
+                    className={`bot-item ${!group && !session && bot?.id === item.id ? 'selected' : ''}`}
                     data-bot-id={item.id}
                     aria-haspopup="menu"
                     aria-expanded={botMenu?.id === item.id && !botMenu.sessionId}
@@ -246,7 +270,7 @@ export function Sidebar({
                       }
                     }}
                   >
-                    <Avatar bot={item} activity={avatarActivities[item.id]} />
+                    <Avatar bot={item} size={36} activity={avatarActivities[item.id]} />
                     <span className="bot-copy">
                       <span className="bot-line">
                         <strong>{item.name}</strong>
@@ -285,7 +309,7 @@ export function Sidebar({
                       return (
                         <button
                           key={entry.id}
-                          className={`session-item ${page === 'chat' && !group && session?.id === entry.id ? 'selected' : ''} ${entry.archivedAt ? 'is-archived' : ''}`}
+                          className={`session-item ${!group && session?.id === entry.id ? 'selected' : ''} ${entry.archivedAt ? 'is-archived' : ''}`}
                           data-session-id={entry.id}
                           title={entry.name}
                           aria-haspopup="menu"
@@ -329,15 +353,20 @@ export function Sidebar({
           })}
       </div>
       <div className="sidebar-bottom">
-        <button className="sidebar-link" aria-current={page === 'plugins' ? 'page' : undefined} onClick={onPlugins}>
-          <Icon name="plugin" />
-          <span>{t('插件')}</span>
-        </button>
-        <button className="sidebar-link" onClick={() => onSettings()}>
-          <Icon name="settings" />
-          <span>{t('设置')}</span>
+        <button className="sidebar-link sidebar-user" aria-label={t('设置')} onClick={() => onSettings()}>
+          <ProfileAvatar name={state.userProfile?.displayName} size={32} />
+          <span>{state.userProfile?.displayName.trim() || t('设置')}</span>
         </button>
         <SidebarUpdate update={state.updates} onOpen={() => onSettings('about')} />
+        <button
+          className="icon-button"
+          aria-label={t('插件')}
+          title={t('插件')}
+          aria-current={page === 'plugins' ? 'page' : undefined}
+          onClick={onPlugins}
+        >
+          <Icon name="plugin" size={17} />
+        </button>
       </div>
     </aside>
   );

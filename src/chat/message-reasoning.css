@@ -13,26 +13,26 @@
   padding: 4px 8px 4px 6px;
   border-radius: 8px;
   font-size: calc(12.5px * var(--appearance-text-scale, 1));
-  color: light-dark(#8d8898, #aaa5b0);
+  color: light-dark(#909090, #ababab);
   transition:
     background 0.15s,
     color 0.15s;
 }
 .reasoning-toggle:not(:disabled):hover,
 .reasoning-toggle:focus-visible {
-  background: light-dark(#29282c12, #29262f);
-  color: light-dark(#5f5a69, #d0ccd4);
+  background: light-dark(#2a2a2a12, #2b2b2b);
+  color: light-dark(#626262, #d0d0d0);
   outline: none;
 }
 .reasoning-toggle:focus-visible {
-  box-shadow: 0 0 0 2px light-dark(#cbbfe2, #6d5f86);
+  box-shadow: 0 0 0 2px light-dark(#bfcee2, #737373);
 }
 .reasoning-toggle:disabled {
   cursor: default;
 }
 .reasoning-toggle > svg:first-child {
   flex: 0 0 auto;
-  color: light-dark(#a99bc4, #9d8fb8);
+  color: light-dark(#b0b0b0, #a3a3a3);
 }
 .reasoning-toggle > svg:last-child:not(:first-child) {
   opacity: 0.7;
@@ -42,7 +42,7 @@
   transform: rotate(90deg);
 }
 .reasoning-meta {
-  color: light-dark(#b3afbb, #86828c);
+  color: light-dark(#b5b5b5, #878787);
   font-variant-numeric: tabular-nums;
 }
 .reasoning-body {
@@ -62,7 +62,7 @@
   scrollbar-color: transparent transparent;
 }
 .reasoning-body:hover {
-  scrollbar-color: light-dark(rgba(41, 32, 58, 0.22), rgba(255, 255, 255, 0.22)) transparent;
+  scrollbar-color: light-dark(rgba(45, 45, 45, 0.22), rgba(255, 255, 255, 0.22)) transparent;
 }
 /* While streaming, only the newest three lines show and the oldest fades out. */
 .message-reasoning.is-live .reasoning-body {
@@ -77,7 +77,7 @@
   flex-shrink: 0;
 }
 .message-reasoning.is-live .reasoning-label {
-  background: linear-gradient(90deg, currentColor 0 35%, light-dark(#d4cfdc, #5a5561) 50%, currentColor 65% 100%) 0 0 /
+  background: linear-gradient(90deg, currentColor 0 35%, light-dark(#d6d6d6, #5b5b5b) 50%, currentColor 65% 100%) 0 0 /
     250% 100%;
   background-clip: text;
   -webkit-text-fill-color: transparent;

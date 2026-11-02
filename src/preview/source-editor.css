@@ -9,9 +9,9 @@
   outline: none;
 }
 .fp-editor-host .cm-tooltip {
-  background: #302b36;
-  color: #ded8e5;
-  border: 1px solid #554a60;
+  background: #313131;
+  color: #dfdfdf;
+  border: 1px solid #555555;
 }
 .fp-edit-toolbar {
   position: absolute;
@@ -23,10 +23,10 @@
   align-items: center;
   gap: 9px;
   padding: 7px 10px;
-  background: #29272f;
+  background: #2b2b2b;
   border: 1px solid #ffffff15;
   border-radius: 9px;
-  color: #c5bdce;
+  color: #c6c6c6;
   max-width: calc(100% - 24px);
   font-size: var(--text-caption);
   box-shadow: 0 3px 15px #0003;
@@ -43,12 +43,12 @@
   background: #ffffff0a;
 }
 .fp-edit-toolbar .fp-edit-save {
-  background: #75568e;
+  background: #727272;
   color: #fff;
 }
 .fp-edit-indicator {
   font-size: var(--text-caption);
-  color: #d6bbf0;
+  color: #bbd2f0;
   white-space: nowrap;
 }
 .fp-edit-dirty {
@@ -56,7 +56,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #c8a7e0;
+  background: #a7c0e0;
   margin-left: 8px;
 }
 .fp-edit-banner {
@@ -85,13 +85,13 @@
   pointer-events: auto;
 }
 .fp-unsaved-dialog {
-  background: #2a2630;
-  border: 1px solid #504458;
+  background: #2b2b2b;
+  border: 1px solid #4e4e4e;
   border-radius: 15px;
   padding: 24px;
   max-width: 420px;
   width: 100%;
-  color: #eee7f4;
+  color: #e7edf4;
   box-shadow: 0 16px 50px #0004;
 }
 .fp-unsaved-dialog h2 {
@@ -101,7 +101,7 @@
 }
 .fp-unsaved-dialog p {
   font-size: var(--text-control);
-  color: #c0b5ca;
+  color: #c0c0c0;
   line-height: 1.7;
   overflow-wrap: anywhere;
 }
@@ -114,14 +114,14 @@
 }
 .fp-unsaved-dialog button {
   padding: 8px 11px;
-  border: 1px solid #56485f;
+  border: 1px solid #545454;
   border-radius: 8px;
   color: inherit;
-  background: #37303f;
+  background: #383838;
   font-size: var(--text-caption);
 }
 .fp-unsaved-dialog button:last-child {
-  background: #806295;
+  background: #7c7c7c;
   border-color: transparent;
 }
 @media (max-width: 700px) {

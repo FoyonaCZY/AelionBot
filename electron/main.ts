@@ -1106,7 +1106,7 @@ async function initialize() {
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
     ...(process.platform === 'darwin'
       ? { trafficLightPosition: { x: 18, y: 18 } }
-      : // Transparent so the shell's gradient (and any modal backdrop) runs under the caption buttons.
+      : // Transparent so the shell's background (and any modal backdrop) runs under the caption buttons.
         { titleBarOverlay: { color: '#00000000', symbolColor: '#555555', height: 38 } }),
     webPreferences: {
       preload: join(__dirname, 'preload.cjs'),

@@ -1,63 +1,41 @@
-/* Controls: one look for the small parts that sit inside the app's glass and solid cards — buttons, fields and
-   selects, switches, tabs, menus, chips and list rows. Each component stylesheet still lays its control out; this
-   file only gives it its surface, so a page that draws a switch or a menu its own way still looks like the rest.
+/* Controls: one look for the small parts that sit on the app's flat surfaces — buttons, fields and selects, switches,
+   tabs, menus, chips and list rows. Each component stylesheet still lays its control out; this file only gives it its
+   surface, so a page that draws a switch or a menu its own way still looks like the rest.
 
-   - Fields, chips and quiet buttons are flat tinted fills (--ctl-fill) with no border; hover deepens the tint.
-   - Raised parts — the secondary button, the selected tab and the selected row — are a small pane of white glass
-     (--ctl-raised): a lit top edge, a hairline and a soft drop.
-   - The primary action is an ink capsule with the same lit edge; colour is kept for state (on, selected, focus).
-   - Menus and pickers are the floating glass of glass-shell.css: grain, sheen, a dense tint, rim and blur.
+   - Fields, chips and quiet buttons are flat gray fills (--ctl-fill) with no border; hover deepens the fill.
+   - The selected tab or row is a deeper gray (--ctl-raised), not a lifted pane. The secondary button is a gray capsule.
+   - The primary action is an ink capsule; blue is kept for state (on, selected, focus).
+   - Menus and pickers are white sheets with the floating shadow of shell.css.
 
    This file loads last (src/app/main.tsx) and is the one place controls get their surface, so where a component rule
    is more specific it uses !important. Layout properties (position, size, gap) stay with the component. */
 :root {
-  --ctl-accent: light-dark(#7458c4, #b9a5f0);
-  --ctl-accent-strong: light-dark(#6346b8, #c9b8f5);
-  --ctl-accent-soft: light-dark(rgba(116, 88, 196, 0.1), rgba(185, 165, 240, 0.16));
-  --ctl-accent-ring: light-dark(rgba(116, 88, 196, 0.3), rgba(185, 165, 240, 0.4));
-  --ctl-fill: light-dark(rgba(92, 72, 132, 0.065), rgba(255, 255, 255, 0.065));
-  --ctl-fill-hover: light-dark(rgba(92, 72, 132, 0.11), rgba(255, 255, 255, 0.1));
-  --ctl-fill-press: light-dark(rgba(92, 72, 132, 0.15), rgba(255, 255, 255, 0.14));
-  --ctl-line: light-dark(rgba(41, 32, 58, 0.08), rgba(255, 255, 255, 0.08));
-  --ctl-raised-shadow:
-    inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.12)),
-    0 0 0 0.5px light-dark(rgba(41, 32, 58, 0.12), rgba(0, 0, 0, 0.4)),
-    0 1px 2px light-dark(rgba(41, 32, 58, 0.07), rgba(0, 0, 0, 0.3)),
-    0 3px 10px -4px light-dark(rgba(41, 32, 58, 0.16), rgba(0, 0, 0, 0.45));
-  --ctl-on-ink: light-dark(#ffffff, #1e1b24);
-  --ctl-ink-shadow:
-    inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.9)),
-    inset 0 -1px 0 light-dark(rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.08)),
-    0 1px 2px light-dark(rgba(31, 24, 44, 0.18), rgba(0, 0, 0, 0.35)),
-    0 4px 12px -4px light-dark(rgba(31, 24, 44, 0.35), rgba(0, 0, 0, 0.5));
-  --ctl-danger: light-dark(#c2413b, #f0a29d);
-  --ctl-danger-soft: light-dark(rgba(194, 65, 59, 0.09), rgba(240, 162, 157, 0.14));
+  --ctl-accent: light-dark(#2f80ed, #7db4f7);
+  --ctl-accent-strong: light-dark(#1f6fdc, #9cc6f9);
+  --ctl-accent-soft: light-dark(rgba(47, 128, 237, 0.1), rgba(125, 180, 247, 0.16));
+  --ctl-accent-ring: light-dark(rgba(47, 128, 237, 0.3), rgba(125, 180, 247, 0.4));
+  --ctl-fill: light-dark(rgba(0, 0, 0, 0.045), rgba(255, 255, 255, 0.07));
+  --ctl-fill-hover: light-dark(rgba(0, 0, 0, 0.075), rgba(255, 255, 255, 0.11));
+  --ctl-fill-press: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.15));
+  --ctl-line: light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.09));
+  --ctl-raised: var(--surface-selected);
+  --ctl-raised-hover: var(--ctl-fill-hover);
+  --ctl-raised-shadow: 0 0 0 0 transparent;
+  --ctl-ink: light-dark(#171717, #ececec);
+  --ctl-ink-hover: light-dark(#333333, #ffffff);
+  --ctl-on-ink: light-dark(#ffffff, #1b1b1d);
+  --ctl-ink-shadow: 0 0 0 0 transparent;
+  --ctl-danger: light-dark(#d03b35, #f0a29d);
+  --ctl-danger-soft: light-dark(rgba(208, 59, 53, 0.09), rgba(240, 162, 157, 0.14));
+  --ctl-danger-fill: light-dark(#d03b35, #e6928c);
+  --ctl-switch-on: light-dark(#2f80ed, #5a9df2);
   --ctl-focus: 0 0 0 3px var(--ctl-accent-ring);
   --ctl-radius: 10px;
   --ctl-item-radius: 8px;
   --ctl-menu-radius: 14px;
   --ctl-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m7 10 5 5 5-5' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   accent-color: var(--ctl-accent);
-  scrollbar-color: light-dark(rgba(41, 32, 58, 0.2), rgba(255, 255, 255, 0.2)) transparent;
-}
-
-/* Gradients cannot go through light-dark(), so the raised, ink and danger fills switch with the theme here. */
-:root {
-  --ctl-raised: linear-gradient(180deg, #ffffff, rgba(255, 255, 255, 0.88));
-  --ctl-raised-hover: linear-gradient(180deg, #ffffff, #ffffff);
-  --ctl-ink: linear-gradient(180deg, #3a3642, #1f1d24);
-  --ctl-ink-hover: linear-gradient(180deg, #48434f, #2a2730);
-  --ctl-danger-fill: linear-gradient(180deg, #d4544d, #b93a34);
-  --ctl-switch-on: linear-gradient(180deg, #8a6fd6, #6a4fbf);
-}
-
-:root[data-theme='dark'] {
-  --ctl-raised: linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.08));
-  --ctl-raised-hover: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.11));
-  --ctl-ink: linear-gradient(180deg, #f6f3fa, #dcd6e4);
-  --ctl-ink-hover: linear-gradient(180deg, #ffffff, #e8e3ee);
-  --ctl-danger-fill: linear-gradient(180deg, #f3b0ab, #e6928c);
-  --ctl-switch-on: linear-gradient(180deg, #b7a2ee, #9c83e0);
+  scrollbar-color: light-dark(rgba(0, 0, 0, 0.2), rgba(255, 255, 255, 0.2)) transparent;
 }
 
 /* ---------- Focus ---------- */
@@ -67,7 +45,7 @@
 }
 
 /* ---------- Buttons ---------- */
-/* Primary: an ink capsule. Secondary (and the plain buttons on Bot cards): a raised capsule of white glass. The
+/* Primary: an ink capsule. Secondary (and the plain buttons on Bot cards): a gray capsule. The
    night game table sets these tokens again for its own colours (src/group/group-games.css). */
 :root
   :is(
@@ -101,7 +79,7 @@
 }
 
 :root :is(.secondary-button, .companion-button:not(.companion-primary, .companion-quiet), .bot-palette-random) {
-  background: var(--ctl-raised) !important;
+  background: var(--ctl-fill) !important;
   color: var(--text-ink) !important;
   box-shadow: var(--ctl-raised-shadow) !important;
 }
@@ -110,7 +88,7 @@
   :is(.secondary-button, .companion-button:not(.companion-primary, .companion-quiet), .bot-palette-random):not(
     :disabled
   ):hover {
-  background: var(--ctl-raised-hover) !important;
+  background: var(--ctl-fill-hover) !important;
 }
 
 :root .secondary-button.danger-text {
@@ -120,10 +98,7 @@
 :root .danger-button {
   background: var(--ctl-danger-fill) !important;
   color: light-dark(#fff, #2a1414) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.24),
-    0 1px 2px rgba(120, 30, 26, 0.2),
-    0 4px 12px -4px rgba(150, 40, 34, 0.4) !important;
+  box-shadow: none !important;
 }
 
 :root .danger-button:not(:disabled):hover {
@@ -210,7 +185,7 @@
 }
 
 :root :where(.aelion-select, .aelion-combobox .aelion-combobox-input, .editable-select input):disabled {
-  background-color: light-dark(rgba(92, 72, 132, 0.04), rgba(255, 255, 255, 0.04)) !important;
+  background-color: light-dark(rgba(102, 102, 102, 0.04), rgba(255, 255, 255, 0.04)) !important;
 }
 
 :root .aelion-select::picker-icon,
@@ -273,8 +248,8 @@
   ) {
   border: 0 !important;
   border-radius: 999px !important;
-  background: light-dark(rgba(92, 72, 132, 0.16), rgba(255, 255, 255, 0.16)) !important;
-  box-shadow: inset 0 1px 2px light-dark(rgba(41, 32, 58, 0.12), rgba(0, 0, 0, 0.35)) !important;
+  background: light-dark(rgba(102, 102, 102, 0.16), rgba(255, 255, 255, 0.16)) !important;
+  box-shadow: inset 0 1px 2px light-dark(rgba(45, 45, 45, 0.12), rgba(0, 0, 0, 0.35)) !important;
   transition:
     background 0.2s,
     box-shadow 0.2s !important;
@@ -290,9 +265,7 @@
     .settings-row.provider-hosted-row input[type='checkbox']:checked
   ) {
   background: var(--ctl-switch-on) !important;
-  box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.28),
-    inset 0 -1px 1px rgba(40, 20, 80, 0.18) !important;
+  box-shadow: none !important;
 }
 
 :root
@@ -304,11 +277,8 @@
     .scheduled-toggle-track::after,
     .settings-row.provider-hosted-row input[type='checkbox']::before
   ) {
-  background: linear-gradient(180deg, #ffffff, #f3f1f6) !important;
-  box-shadow:
-    0 0 0 0.5px rgba(41, 32, 58, 0.1),
-    0 1px 2px rgba(41, 32, 58, 0.2),
-    0 2px 5px rgba(41, 32, 58, 0.14) !important;
+  background: #fff !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22) !important;
   transition: transform 0.22s cubic-bezier(0.3, 1.4, 0.5, 1) !important;
 }
 
@@ -377,7 +347,7 @@
   padding: 3px;
   border-radius: 999px;
   background: var(--ctl-fill);
-  box-shadow: inset 0 1px 2px light-dark(rgba(41, 32, 58, 0.06), rgba(0, 0, 0, 0.25));
+  box-shadow: inset 0 1px 2px light-dark(rgba(45, 45, 45, 0.06), rgba(0, 0, 0, 0.25));
 }
 
 .settings-modal :is(.design-tabs, .model-settings-navigation) > button {
@@ -394,7 +364,7 @@
 /* ---------- Tabs ---------- */
 /* Tab rows were text with an underline. They are now capsules on the page: the current tab is raised, the rest show a
    tint on hover. The row keeps its own spacing to the content below; only the rule under it goes. */
-:root :is(.plugins-tabs, .plugin-tabs, .provider-editor-tabs, .usage-tabs, .bot-palette-tabs) {
+:root :is(.plugin-tabs, .provider-editor-tabs, .usage-tabs, .bot-palette-tabs) {
   gap: 4px !important;
   border-bottom: 0 !important;
 }
@@ -403,14 +373,7 @@
   border-bottom: 0 !important;
 }
 
-:root
-  :is(
-    .plugins-tabs > button:not(.plugins-tab-link),
-    .plugin-tabs button,
-    .provider-editor-tabs > button,
-    .usage-tabs .usage-tab,
-    .bot-palette-tabs button
-  ) {
+:root :is(.plugin-tabs button, .provider-editor-tabs > button, .usage-tabs .usage-tab, .bot-palette-tabs button) {
   align-items: center !important;
   padding: 5px 12px !important;
   border-radius: 999px !important;
@@ -421,20 +384,15 @@
 }
 
 :root
-  :is(
-    .plugins-tabs > button:not(.plugins-tab-link),
-    .plugin-tabs button,
-    .provider-editor-tabs > button,
-    .usage-tabs .usage-tab,
-    .bot-palette-tabs button
-  ):not(:disabled):hover {
+  :is(.plugin-tabs button, .provider-editor-tabs > button, .usage-tabs .usage-tab, .bot-palette-tabs button):not(
+    :disabled
+  ):hover {
   background: var(--ctl-fill);
   color: var(--text-ink);
 }
 
 :root
   :is(
-    .plugins-tabs > button[aria-current='true'],
     .plugin-tabs button[aria-selected='true'],
     .provider-editor-tabs > button[aria-pressed='true'],
     .usage-tabs .usage-tab.is-active,
@@ -442,7 +400,6 @@
   ),
 :root
   :is(
-    .plugins-tabs > button[aria-current='true'],
     .plugin-tabs button[aria-selected='true'],
     .provider-editor-tabs > button[aria-pressed='true'],
     .usage-tabs .usage-tab.is-active,
@@ -454,18 +411,12 @@
 }
 
 :root
-  :is(
-    .plugins-tabs > button,
-    .plugin-tabs button,
-    .provider-editor-tabs > button,
-    .usage-tabs .usage-tab,
-    .bot-palette-tabs button
-  )::after {
+  :is(.plugin-tabs button, .provider-editor-tabs > button, .usage-tabs .usage-tab, .bot-palette-tabs button)::after {
   display: none !important;
 }
 
 /* The counts inside tabs are small badges. */
-:root :is(.plugins-tabs > button > span, .plugin-tabs button span, .provider-editor-tabs > button > span) {
+:root :is(.plugin-tabs button span, .provider-editor-tabs > button > span) {
   min-width: 18px;
   padding: 0 6px;
   border-radius: 999px;
@@ -492,12 +443,8 @@
 :root .aelion-select::picker(select) {
   border: 0 !important;
   border-radius: var(--ctl-menu-radius) !important;
-  background: var(--glass-grain), var(--liquid-sheen), var(--glass-tint-strong) !important;
-  box-shadow:
-    var(--liquid-rim),
-    0 0 0 0.5px light-dark(rgba(41, 32, 58, 0.1), rgba(0, 0, 0, 0.5)),
-    var(--glass-float) !important;
-  backdrop-filter: var(--glass-blur) !important;
+  background: var(--surface-float) !important;
+  box-shadow: var(--float-shadow) !important;
 }
 
 :root .aelion-select::picker(select) {
@@ -559,44 +506,26 @@
 }
 
 /* ---------- Chips, tags and badges ---------- */
-:root
-  :is(
-    .plugin-chip,
-    .plugin-tag,
-    .model-count-badge,
-    .computer-details .scheduled-panel h2 > span,
-    .conversation-time > time
-  ) {
+:root :is(.plugin-chip, .plugin-tag, .model-count-badge, .computer-details .scheduled-panel h2 > span) {
   border: 0;
   border-radius: 999px;
   background: var(--ctl-fill);
 }
 
-/* The time between messages floats on the conversation like a small pane of glass. */
+/* The time between messages is quiet text on the conversation. */
 :root .conversation-time > time {
   padding: 2px 11px;
-  background: light-dark(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.06));
-  box-shadow:
-    inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.06)),
-    0 0 0 0.5px var(--ctl-line),
-    0 2px 6px -3px light-dark(rgba(41, 32, 58, 0.14), rgba(0, 0, 0, 0.4));
+  border: 0;
+  background: transparent;
 }
 
 :root .plugin-badge {
   border-color: transparent;
 }
 
-/* Chips that are buttons: the workspace in the composer and the model in the header. */
-:root :is(.composer-workspace, .bot-model-button) {
+/* The model in the header is a chip that is a button. */
+:root .bot-model-button {
   border-radius: 999px !important;
-}
-
-:root .composer-workspace .workspace-remove {
-  border-radius: 999px;
-}
-
-:root .composer-workspace .workspace-remove:hover {
-  background: var(--ctl-fill-hover);
 }
 
 /* ---------- List rows ---------- */
@@ -623,23 +552,6 @@
   box-shadow: var(--ctl-raised-shadow) !important;
 }
 
-/* Sidebar: the selected Bot, group or session is tinted with the accent; hover is a quiet fill. */
-.app-shell > .sidebar :is(.bot-item, .session-item, .group-item) {
-  border-radius: 12px;
-}
-
-.app-shell > .sidebar :is(.bot-item, .session-item, .group-item):not(.selected):hover {
-  background: var(--ctl-fill) !important;
-  box-shadow: none;
-  transform: none;
-}
-
-.app-shell > .sidebar :is(.bot-item, .session-item, .group-item).selected,
-:root[data-theme='dark'] .app-shell .sidebar :is(.bot-item, .session-item, .group-item).selected {
-  background: var(--ctl-accent-soft) !important;
-  box-shadow: none !important;
-}
-
 :root .computer-details .scheduled-row:hover {
   background: var(--ctl-fill);
 }
@@ -648,26 +560,6 @@
 :root .reasoning-toggle:not(:disabled):hover,
 :root .scheduled-card .scheduled-card-toggle:hover {
   background: var(--ctl-fill);
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  :root
-    :is(
-      .bot-context-menu,
-      .message-context-menu,
-      .new-conversation-menu,
-      .composer-add-menu,
-      .plugins-add-menu,
-      .work-menu-list,
-      .mention-picker,
-      .editable-select-options,
-      .aelion-combobox-list,
-      .context-usage-panel
-    ),
-  :root .aelion-select::picker(select) {
-    background: var(--card-solid) !important;
-    backdrop-filter: none !important;
-  }
 }
 
 /* ---------- Collapsible content ---------- */

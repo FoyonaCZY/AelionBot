@@ -1,6 +1,6 @@
 /* The canvas card under the computer card: a picture of the page, then one line of title and status. Its frame
    (line, radius, shadow, clipping) is shared with the computer card in computer-card.css; tones follow it:
-   line #e7e7e7 / #3e3945, fill #fff / #29262f. */
+   line #e7e7e7 / #3f3f3f, fill #fff / #2b2b2b. */
 .design-canvas-card {
   display: grid;
 }
@@ -12,15 +12,15 @@
   aspect-ratio: 16 / 10;
   padding: 0;
   border: 0;
-  border-bottom: 1px solid light-dark(#efefef, #3a3540);
-  background: light-dark(#f7f7f7, #25232a);
+  border-bottom: 1px solid light-dark(#efefef, #3b3b3b);
+  background: light-dark(#f7f7f7, #272727);
   color: inherit;
   font: inherit;
   overflow: hidden;
   cursor: pointer;
 }
 .design-canvas-stage:focus-visible {
-  outline: 2px solid light-dark(#7a5bb8, #a58abe);
+  outline: 2px solid light-dark(#5b83b8, #a4a4a4);
   outline-offset: -2px;
 }
 .design-canvas-stage[data-running]::after {
@@ -28,7 +28,7 @@
   position: absolute;
   inset: auto 0 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, light-dark(#7a5bb8, #a58abe), transparent);
+  background: linear-gradient(90deg, transparent, light-dark(#5b83b8, #a4a4a4), transparent);
   background-size: 200% 100%;
   animation: design-canvas-progress 1.4s linear infinite;
 }
@@ -51,14 +51,14 @@
 .design-canvas-stage:is([data-kind='ppt'], [data-kind='mobile']) .design-canvas-thumb {
   object-fit: contain;
   object-position: center;
-  background: light-dark(#f1f1f1, #1f1d23);
+  background: light-dark(#f1f1f1, #202020);
 }
 .design-canvas-empty {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
-  color: light-dark(#b7b4bc, #6b6672);
+  color: light-dark(#b8b8b8, #6c6c6c);
 }
 /* The only control on the picture, and only on hover or focus. */
 .design-canvas-expand {
@@ -70,9 +70,9 @@
   width: 24px;
   height: 24px;
   border-radius: 7px;
-  color: light-dark(#4a4750, #e2dfe6);
-  background: light-dark(#ffffffe6, #29262fe6);
-  box-shadow: 0 0 0 1px light-dark(#e7e7e7, #3e3945);
+  color: light-dark(#4c4c4c, #e3e3e3);
+  background: light-dark(#ffffffe6, #2b2b2be6);
+  box-shadow: 0 0 0 1px light-dark(#e7e7e7, #3f3f3f);
   opacity: 0;
   transition: opacity 0.12s;
 }
@@ -103,13 +103,13 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   font-size: calc(11.5px * var(--appearance-text-scale, 1));
-  color: light-dark(#7a7780, #b9b5bf);
+  color: light-dark(#7c7c7c, #bababa);
 }
 .design-canvas-accept {
   flex: none;
   height: 26px;
   padding: 0 10px;
-  border: 1px solid light-dark(#e2e2e2, #45404c);
+  border: 1px solid light-dark(#e2e2e2, #464646);
   border-radius: 8px;
   background: transparent;
   color: var(--text-ink);
@@ -118,7 +118,7 @@
   cursor: pointer;
 }
 .design-canvas-accept:hover:not(:disabled) {
-  background: light-dark(#f4f4f4, #302c36);
+  background: light-dark(#f4f4f4, #313131);
 }
 .design-canvas-close {
   display: grid;
@@ -130,15 +130,15 @@
   border: 0;
   border-radius: 7px;
   background: transparent;
-  color: light-dark(#8a8790, #a9a5af);
+  color: light-dark(#8c8c8c, #aaaaaa);
   cursor: pointer;
 }
 .design-canvas-close:hover {
   color: var(--text-ink);
-  background: light-dark(#ededed, #35303c);
+  background: light-dark(#ededed, #363636);
 }
 :is(.design-canvas-accept, .design-canvas-close):focus-visible {
-  outline: 2px solid light-dark(#7a5bb8, #a58abe);
+  outline: 2px solid light-dark(#5b83b8, #a4a4a4);
   outline-offset: 1px;
 }
 .design-canvas-error {

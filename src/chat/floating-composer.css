@@ -1,9 +1,9 @@
-/* The composer floats over the end of the conversation: 760 px at most, centred, with the message column at the same
+/* The composer floats over the end of the conversation: 860 px at most, centred, with the message column at the same
    width. Its wrapper is transparent, so replies scroll underneath beside it instead of being cut by a white block;
    each card inside (composer, prompts, work items) brings its own surface. */
 .conversation:has(> .floating-composer) {
   position: relative;
-  --composer-column: 760px;
+  --composer-column: 860px;
   --column-reserve: 0px;
 }
 :root .conversation:has(> .floating-composer) > .messages {
@@ -47,14 +47,6 @@
   background: linear-gradient(transparent, var(--conversation-edge) 55%);
   pointer-events: none;
 }
-.floating-composer .composer {
-  border-radius: 18px;
-  border-color: light-dark(#e3dfe9, #3e3945);
-  background: light-dark(#fff, #29262f);
-  box-shadow:
-    0 1px 2px light-dark(#0000000a, #00000033),
-    0 10px 30px -12px light-dark(#0000002e, #00000099);
-}
 /* Cards that sit above the composer float with it. */
 .floating-composer .work-items-panel,
 .floating-composer .live-work {
@@ -64,7 +56,7 @@
 .floating-composer .group-error,
 .floating-composer .group-permission {
   border-radius: 12px;
-  background: light-dark(#fff, #29262f);
+  background: light-dark(#fff, #2b2b2b);
   box-shadow: 0 6px 18px -12px light-dark(#00000033, #000000a6);
 }
 .floating-composer .group-error {
@@ -73,9 +65,7 @@
 
 /* The work computer card: the column and the composer centre in the space left of it. */
 @media (min-width: 901px) {
-  body:not(:has(.fp-panel[data-layout='docked']))
-    .app-shell[data-page='chat']:has(> .computer-details:not(.is-closed))
-    > .conversation {
+  body:not(:has(.fp-panel[data-layout='docked'])) .app-shell:has(> .computer-details:not(.is-closed)) > .conversation {
     --column-reserve: calc(var(--computer-card-width) + var(--computer-card-gap) * 2);
   }
 }

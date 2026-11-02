@@ -459,18 +459,17 @@ export function GroupGames({
   const editSeat = roster.find((s) => s.id === editing);
   return (
     <div className="gg-host">
-      <div className="gg-launch-row">
-        <button
-          className="gg-entry"
-          onClick={() => {
-            setScreen('select');
-            setOpen(true);
-          }}
-        >
-          <GameGlyph name="moon" size={15} />
-          {t('AI 游戏')}
-        </button>
-      </div>
+      <button
+        className="icon-button"
+        aria-label={t('AI 游戏')}
+        title={t('AI 游戏')}
+        onClick={() => {
+          setScreen('select');
+          setOpen(true);
+        }}
+      >
+        <GameGlyph name="dice" size={19} />
+      </button>
       {/* Only an unfinished match has a live card; a finished one is told by its result card in the timeline. */}
       {match &&
         match.status !== 'finished' &&

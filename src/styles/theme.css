@@ -2,8 +2,8 @@
   /* Declare both schemes in CSS so production light-dark() lowering has a scope.
      Setting colorScheme only from JavaScript leaves generated color variables unset. */
   color-scheme: light;
-  --appearance-line: light-dark(#e8e8ec, #403947);
-  --appearance-fill: light-dark(#f6f6f7, #29262f);
+  --appearance-line: light-dark(#eaeaea, #404040);
+  --appearance-fill: light-dark(#f7f7f7, #2b2b2b);
   --text-code: 13px;
   --message-leading: 1.8;
 }
@@ -12,12 +12,12 @@
    offer the choices take the same tokens. */
 :root,
 .appearance-canvas-swatch {
-  --conversation-canvas: light-dark(#f4f4f5, #202024);
-  --conversation-edge: light-dark(#f4f4f5, #202024);
-  --bubble-surface: light-dark(#fff, #302c37);
-  --bubble-lift: 0 1px 1.5px light-dark(#2a1f3a1c, #0000);
-  --bubble-chip: light-dark(#f1f1f3, #201e24b3);
-  --bubble-block: light-dark(#f6f6f7, #211f25);
+  --conversation-canvas: light-dark(#f5f5f5, #222222);
+  --conversation-edge: light-dark(#f5f5f5, #222222);
+  --bubble-surface: light-dark(#fff, #323232);
+  --bubble-lift: 0 1px 1.5px light-dark(#1f2b3a1c, #0000);
+  --bubble-chip: light-dark(#f2f2f2, #212121b3);
+  --bubble-block: light-dark(#f7f7f7, #222222);
 }
 :root:not([data-theme='dark'])[data-canvas='lilac'],
 .appearance-canvas-swatch[data-canvas='lilac'] {
@@ -59,40 +59,19 @@
 .appearance-canvas-swatch[data-canvas='white'] {
   --conversation-canvas: #fff;
   --conversation-edge: #fff;
-  --bubble-surface: #f2f1f5;
+  --bubble-surface: #f3f3f3;
   --bubble-lift: 0 0 0 0 #0000;
   --bubble-chip: #ffffffb3;
-  --bubble-block: #faf9fc;
+  --bubble-block: #f9fafc;
 }
 /* Theme belongs to the application chrome, never to document canvases or images. */
 :root[data-theme='dark'] {
   color-scheme: dark;
-  background: #202024;
-  color: #eeebf1;
+  background: #222222;
+  color: #eeeeee;
 }
 :root[data-theme='dark'] body {
-  background: #202024;
-}
-:root[data-theme='dark'] .sidebar {
-  background: #25232a;
-}
-:root[data-theme='dark'] :is(.conversation, .messages, .peer-chat-body, .composer-wrap, .computer-panel) {
-  background: #202024;
-}
-:root[data-theme='dark'] :is(.bubble, .group-message-bubble, .peer-bubble) {
-  background: #302c37;
-  color: #eee8f2;
-}
-:root[data-theme='dark']
-  :is(.message-row.user .bubble, .from-user .group-message-bubble, .peer-message.user .peer-bubble) {
-  background: #44374f;
-  color: #f0e8f7;
-}
-:root[data-theme='dark'] :is(.bot-item.selected, .search) {
-  background: #35303c;
-}
-:root[data-theme='dark'] .modal-backdrop {
-  background: #0008;
+  background: #222222;
 }
 :root[data-theme='dark'] .setup-mascot-floor {
   opacity: 0.65;
@@ -144,11 +123,12 @@
     --sidebar-width: 68px;
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   }
-  .sidebar-top {
-    padding: 12px 15px;
+  .app-shell .sidebar .sidebar-top {
+    padding: 34px 0 0;
+    height: auto;
+    flex-direction: column;
     justify-content: center;
   }
-  .sidebar-top .brand,
   .sidebar .search,
   .sidebar .bot-copy,
   .sidebar .group-row-copy {
@@ -161,17 +141,16 @@
   .sidebar .bot-list {
     padding: 0 6px;
   }
-  .sidebar .sidebar-bottom {
+  .app-shell .sidebar .sidebar-bottom {
+    flex-direction: column;
     padding: 8px;
   }
-  .sidebar .sidebar-link {
-    font-size: 0;
-    justify-content: center;
-    padding: 10px;
+  .sidebar .sidebar-link > span:last-child {
+    display: none;
   }
-  .sidebar .sidebar-link svg {
-    width: 20px;
-    height: 20px;
+  .app-shell .sidebar .sidebar-link {
+    justify-content: center;
+    padding: 2px;
   }
   .composer-wrap {
     padding-left: 12px;

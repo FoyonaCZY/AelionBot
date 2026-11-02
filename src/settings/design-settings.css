@@ -5,8 +5,8 @@
   --ds-ink: var(--text-ink);
   --ds-muted: var(--text-muted);
   --ds-field: var(--settings-card);
-  --ds-chip: light-dark(#e8e8eb, #2a2730);
-  --ds-paper: light-dark(#f7f5f1, #242228);
+  --ds-chip: light-dark(#eaeaea, #2c2c2c);
+  --ds-paper: light-dark(#f7f5f1, #252525);
   display: grid;
   gap: 16px;
 }
@@ -46,7 +46,7 @@
     box-shadow 0.15s;
 }
 .design-search:focus-within {
-  border-color: light-dark(#a68bcf, #8f7fb3);
+  border-color: light-dark(#8ba8cf, #999999);
   box-shadow: 0 0 0 3px var(--settings-accent-soft);
 }
 .settings-modal .design-search input {
@@ -176,10 +176,10 @@
   overflow: hidden;
   border-radius: 14px;
   background: var(--sp-bg, #fff);
-  color: var(--sp-fg, #1d1b20);
+  color: var(--sp-fg, #1e1e1e);
   box-shadow:
     inset 0 0 0 1px light-dark(#00000012, #ffffff14),
-    0 1px 2px #1d14281a;
+    0 1px 2px #141d281a;
 }
 /* The accent block, cut to the system's own corner: radius 0 stays square, a pill system becomes a disc. */
 .design-specimen-shape {
@@ -189,13 +189,13 @@
   width: 64%;
   aspect-ratio: 1;
   border-radius: min(50%, calc(var(--sp-radius, 8px) * 5));
-  background: var(--sp-accent, var(--sp-fg, #1d1b20));
+  background: var(--sp-accent, var(--sp-fg, #1e1e1e));
 }
 .design-specimen-shape.is-second {
   right: 30%;
   bottom: -10%;
   width: 26%;
-  background: var(--sp-second, var(--sp-fg, #1d1b20));
+  background: var(--sp-second, var(--sp-fg, #1e1e1e));
   box-shadow: 0 0 0 4px var(--sp-bg, #fff);
 }
 .design-specimen-glyph {

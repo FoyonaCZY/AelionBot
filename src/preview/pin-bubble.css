@@ -1,13 +1,13 @@
 /* A pin's comment bubble over a file preview. The web preview draws the same card in its own view
    (electron/windows/preview-feedback-overlay.ts); keep the two alike. */
 .pin-bubble {
-  --pin-ink: light-dark(#29282c, #e3e0e6);
-  --pin-ink2: light-dark(#4a4850, #c9c5cf);
-  --pin-muted: light-dark(#86838d, #9d99a5);
-  --pin-faint: light-dark(#aeabb5, #75717d);
-  --pin-line: light-dark(#e8e7ec, #3a3641);
-  --pin-surface: light-dark(#fff, #29262f);
-  --pin-fill: light-dark(#f3f2f5, #36323d);
+  --pin-ink: light-dark(#2a2a2a, #e3e3e3);
+  --pin-ink2: light-dark(#4c4c4c, #cacaca);
+  --pin-muted: light-dark(#888888, #9f9f9f);
+  --pin-faint: light-dark(#b0b0b0, #777777);
+  --pin-line: light-dark(#eaeaea, #3c3c3c);
+  --pin-surface: light-dark(#fff, #2b2b2b);
+  --pin-fill: light-dark(#f3f3f3, #383838);
   position: absolute;
   /* Above the pin layer, which takes the pointer while commenting. */
   z-index: 9;
@@ -19,7 +19,7 @@
   border-radius: 12px;
   box-shadow:
     0 1px 2px #0000000a,
-    0 16px 36px -14px #1f1a4552;
+    0 16px 36px -14px #1a2d4552;
   font-size: 13px;
   line-height: 1.6;
 }
@@ -46,7 +46,7 @@
   font-variant-numeric: tabular-nums;
 }
 .pin-dot.bot {
-  background: #8b6bea;
+  background: #6ea2e7;
   color: #fff;
 }
 .pin-dot.done {
@@ -59,7 +59,7 @@
 }
 .pin-dot.sent,
 .pin-dot.working {
-  background: #9c99a3;
+  background: #9e9e9e;
   color: #fff;
 }
 .pin-bubble-title {
@@ -127,7 +127,7 @@
   height: 18px;
   margin-top: 2px;
   border-radius: 50%;
-  background: #8b6bea;
+  background: #6ea2e7;
 }
 .pin-bubble footer {
   display: flex;
@@ -164,6 +164,6 @@
   font-weight: 600;
 }
 .pin-bubble button:focus-visible {
-  outline: 2px solid #8b6bea;
+  outline: 2px solid #6ea2e7;
   outline-offset: 1px;
 }

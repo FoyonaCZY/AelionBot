@@ -28,8 +28,8 @@
   width: 30px;
   height: 30px;
   border-radius: 10px;
-  background: light-dark(#ece5f5, #3b3148);
-  color: light-dark(#7a5c9e, #bda8d8);
+  background: light-dark(#e5ecf5, #3d3d3d);
+  color: light-dark(#7d7d7d, #a8bdd8);
 }
 .scheduled-card-heading {
   display: block;
@@ -79,7 +79,7 @@
   color: var(--text-muted);
 }
 .scheduled-card .scheduled-card-toggle:hover {
-  background: light-dark(#29282c0d, #ffffff0f);
+  background: light-dark(#2a2a2a0d, #ffffff0f);
   color: var(--text-secondary);
 }
 .scheduled-card-toggle > svg {

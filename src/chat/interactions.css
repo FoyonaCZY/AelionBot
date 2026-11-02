@@ -38,7 +38,7 @@
   line-height: 1.6;
   margin: 0;
   font-weight: var(--weight-body);
-  color: light-dark(#38383f, #dddae0);
+  color: light-dark(#3c3c3c, #dddddd);
   overflow-wrap: anywhere;
 }
 .conversation-request .request-status {
@@ -56,7 +56,7 @@
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: light-dark(#dedee3, #a29fa5) transparent;
+  scrollbar-color: light-dark(#e1e1e1, #a2a2a2) transparent;
 }
 .permission-reason {
   font-size: calc(12px * var(--appearance-text-scale, 1));
@@ -64,7 +64,7 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   margin: 0 0 15px;
-  color: light-dark(#62626b, #cdcad0);
+  color: light-dark(#676767, #cdcdcd);
 }
 .permission-scope {
   display: grid;
@@ -80,14 +80,14 @@
 }
 .permission-scope span {
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#7b7b83, #c5c2c8);
+  color: light-dark(#7f7f7f, #c5c5c5);
   flex: 0 0 56px;
 }
 .permission-scope code {
   font: var(--weight-body) calc(13px * var(--appearance-text-scale, 1))/1.7 var(--font-code);
   overflow-wrap: anywhere;
   min-width: 0;
-  color: light-dark(#62626b, #cdcad0);
+  color: light-dark(#676767, #cdcdcd);
 }
 .permission-content {
   margin-top: 14px;
@@ -97,23 +97,23 @@
   display: block;
   margin-bottom: 7px;
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#7b7b83, #c5c2c8);
+  color: light-dark(#7f7f7f, #c5c5c5);
 }
 .permission-content pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   padding: 10px 12px;
   border-radius: 8px;
-  background: light-dark(#f6f6f8, #211f25);
+  background: light-dark(#f7f7f7, #222222);
   font: var(--weight-body) calc(13px * var(--appearance-text-scale, 1))/1.8 var(--font-code);
-  color: light-dark(#44444d, #d8d5db);
+  color: light-dark(#494949, #d8d8d8);
   margin: 0;
 }
 .conversation-request > footer {
   justify-content: flex-end;
   margin-top: 15px;
   padding-top: 12px;
-  border-top: 1px solid light-dark(#eeeef1, #3e3945);
+  border-top: 1px solid light-dark(#f0f0f0, #3f3f3f);
 }
 .permission-card > footer {
   flex-direction: column;
@@ -134,16 +134,16 @@
   max-height: min(458px, 54dvh);
 }
 .permission-card .permission-always-button {
-  background: light-dark(#f7f4fc, #211f25);
-  border-color: light-dark(#cec3df, #3e3945);
-  color: light-dark(#6b518a, #c1b4d1);
+  background: light-dark(#f4f7fc, #222222);
+  border-color: light-dark(#c3cfdf, #3f3f3f);
+  color: light-dark(#6e6e6e, #c3c3c3);
   font-weight: var(--weight-label);
   box-shadow: none;
 }
 .permission-card .permission-always-button:not(:disabled):hover {
-  background: light-dark(#eee7f8, #232127);
-  border-color: light-dark(#b6a2d2, #3e3945);
-  color: light-dark(#60437f, #c2b3d1);
+  background: light-dark(#e7eef8, #242424);
+  border-color: light-dark(#a2b7d2, #3f3f3f);
+  color: light-dark(#435d7f, #c2c2c2);
 }
 .permission-always-scope {
   min-width: 0;
@@ -158,7 +158,7 @@
   gap: 3px 10px;
   min-width: 0;
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#7b7b83, #c5c2c8);
+  color: light-dark(#7f7f7f, #c5c5c5);
 }
 .permission-pattern > span {
   flex-shrink: 0;
@@ -170,11 +170,11 @@
   font: var(--weight-body) calc(13px * var(--appearance-text-scale, 1))/1.7 var(--font-code);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  color: light-dark(#62626b, #cdcad0);
+  color: light-dark(#676767, #cdcdcd);
 }
 .permission-pattern-scope {
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#7b7b83, #c5c2c8);
+  color: light-dark(#7f7f7f, #c5c5c5);
   line-height: 1.6;
 }
 .permission-error {
@@ -186,7 +186,7 @@
   overflow-wrap: anywhere;
 }
 .permission-content pre:focus-visible {
-  outline: 2px solid light-dark(#b29acb, #3e3945);
+  outline: 2px solid light-dark(#9aafcb, #3f3f3f);
   outline-offset: -2px;
 }
 .takeover-card .permission-reason:last-child {
@@ -201,11 +201,11 @@
   align-items: center;
   width: min(350px, calc(100vw - 32px));
   padding: 8px;
-  background: light-dark(#fff, #201e24);
-  border: 1px solid light-dark(#e7e7eb, #3e3945);
+  background: light-dark(#fff, #212121);
+  border: 1px solid light-dark(#e9e9e9, #3f3f3f);
   border-radius: 17px 17px 17px 7px;
-  box-shadow: 0 8px 28px #24242b10;
-  color: light-dark(#44444c, #d8d5db);
+  box-shadow: 0 8px 28px #28282810;
+  color: light-dark(#484848, #d8d8d8);
 }
 .interaction-notification-open {
   display: flex;
@@ -218,7 +218,7 @@
   text-align: left;
 }
 .interaction-notification-open:hover {
-  background: light-dark(#f6f6f8, #211f25);
+  background: light-dark(#f7f7f7, #222222);
 }
 .interaction-notification-open > span:not(.notification-view) {
   flex: 1;
@@ -237,14 +237,14 @@
   margin-top: 4px;
   font-size: calc(12px * var(--appearance-text-scale, 1));
   line-height: 1.6;
-  color: light-dark(#797981, #c5c2c8);
+  color: light-dark(#7d7d7d, #c5c5c5);
 }
 .interaction-notification .notification-view {
   display: flex;
   align-items: center;
   gap: 3px;
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#75717c, #c8c5cb);
+  color: light-dark(#777777, #c8c8c8);
   flex-shrink: 0;
 }
 .interaction-notification .notification-close {
@@ -252,11 +252,11 @@
   height: 25px;
   flex-shrink: 0;
   border-radius: 8px;
-  color: light-dark(#b3a5bf, #a9a2af);
+  color: light-dark(#b2b2b2, #a9a9a9);
 }
 .interaction-notification .notification-close:hover {
-  background: light-dark(#ede5f7, #232127);
-  color: light-dark(#9573b7, #c2b1d3);
+  background: light-dark(#e5edf7, #242424);
+  color: light-dark(#7390b7, #c2c2c2);
 }
 .bot-working.needs-user {
   background: light-dark(#d99b3a, #dabe93);
@@ -350,16 +350,16 @@
 }
 .question-option input {
   margin-top: 4px;
-  accent-color: var(--accent, light-dark(#8570bd, #bcb2d8));
+  accent-color: var(--accent, light-dark(#7091bd, #b2c2d8));
 }
 .question-card textarea {
   width: 100%;
   box-sizing: border-box;
   margin-top: 8px;
   padding: 10px 12px;
-  border: 1px solid var(--line, light-dark(#e6e3eb, #3e3945));
+  border: 1px solid var(--line, light-dark(#e7e7e7, #3f3f3f));
   border-radius: 10px;
-  background: var(--surface, light-dark(#fff, #201e24));
+  background: var(--surface, light-dark(#fff, #212121));
   color: inherit;
   font: inherit;
   resize: vertical;

@@ -3,7 +3,7 @@
 }
 .streaming-label {
   margin-left: 10px;
-  color: light-dark(#9aa0a8, #b9b6bc);
+  color: light-dark(#9aa0a8, #b9b9b9);
   font-size: calc(12px * var(--appearance-text-scale, 1));
   font-weight: var(--weight-body);
 }

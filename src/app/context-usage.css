@@ -7,16 +7,16 @@
   border: 0;
   border-radius: 7px;
   padding: 4px;
-  color: light-dark(#77727f, #b7b1c0);
+  color: light-dark(#797979, #b9b9b9);
   background: transparent;
   cursor: pointer;
 }
 .context-usage-trigger:hover,
 .context-usage-trigger[aria-expanded='true'] {
-  background: light-dark(#f1eef5, #302b37);
+  background: light-dark(#f2f2f2, #313131);
 }
 .context-usage-trigger:focus-visible {
-  outline: 2px solid #a991c8;
+  outline: 2px solid #91a9c8;
   outline-offset: 2px;
 }
 .context-usage-trigger svg {
@@ -27,7 +27,7 @@
   stroke-width: 3.5;
 }
 .context-ring-track {
-  stroke: light-dark(#e9e5ed, #433b4c);
+  stroke: light-dark(#e9e9e9, #444444);
 }
 .context-ring-value {
   stroke: currentColor;
@@ -41,11 +41,11 @@
   z-index: 1000;
   box-sizing: border-box;
   padding: 18px;
-  border: 1px solid light-dark(#e6e0ed, #494050);
+  border: 1px solid light-dark(#e7e7e7, #484848);
   border-radius: 15px;
-  background: light-dark(#fff, #25212b);
-  color: light-dark(#403a48, #ece5f3);
-  box-shadow: 0 8px 30px #21152e20;
+  background: light-dark(#fff, #262626);
+  color: light-dark(#414141, #e5ebf3);
+  box-shadow: 0 8px 30px #15202e20;
   overflow: auto;
   font-size: calc(13px * var(--appearance-text-scale, 1));
   line-height: 1.5;
@@ -62,7 +62,7 @@
 }
 .context-usage-panel header span {
   font-size: 12px;
-  color: light-dark(#8b8297, #b7a9c6);
+  color: light-dark(#8d8d8d, #b8b8b8);
   font-variant-numeric: tabular-nums;
 }
 .context-usage-metrics {
@@ -70,24 +70,24 @@
   align-items: baseline;
   gap: 6px;
   margin-top: 2px;
-  color: light-dark(#93889e, #b7a9c6);
+  color: light-dark(#939393, #b8b8b8);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .context-usage-metrics b {
-  color: light-dark(#7d7389, #c9bdd6);
+  color: light-dark(#7e7e7e, #cacaca);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.05em;
 }
 .context-usage-metrics strong {
-  color: light-dark(#5d5568, #ece5f3);
+  color: light-dark(#5f5f5f, #e5ebf3);
   font-size: 12px;
   font-weight: 600;
 }
 .context-usage-metrics .sep {
-  color: light-dark(#c5bccd, #5c5266);
+  color: light-dark(#c5c5c5, #5c5c5c);
   font-size: 10px;
 }
 .context-usage-total {
@@ -108,7 +108,7 @@
   height: 7px;
   overflow: hidden;
   border-radius: 9px;
-  background: light-dark(#f1eef5, #393140);
+  background: light-dark(#f2f2f2, #393939);
 }
 .context-usage-bar span {
   height: 100%;
@@ -140,7 +140,7 @@
   display: inline-block;
   min-width: 47px;
   text-align: right;
-  color: light-dark(#93889e, #ae9dbd);
+  color: light-dark(#939393, #adadad);
   font-size: 11px;
 }
 .context-compact {
@@ -149,23 +149,23 @@
   gap: 8px;
   margin-top: 16px;
   padding-top: 14px;
-  border-top: 1px solid light-dark(#eee9f2, #3c3443);
+  border-top: 1px solid light-dark(#eeeeee, #3c3c3c);
 }
 .context-compact input {
   min-width: 0;
   box-sizing: border-box;
   height: 30px;
   padding: 0 10px;
-  border: 1px solid light-dark(#e2dbe9, #4b4254);
+  border: 1px solid light-dark(#e2e2e2, #4b4b4b);
   border-radius: 8px;
-  background: light-dark(#fff, #1f1b24);
+  background: light-dark(#fff, #202020);
   color: inherit;
   font: inherit;
   font-size: 12px;
 }
 .context-compact input:focus-visible,
 .context-compact button:focus-visible {
-  outline: 2px solid #a991c8;
+  outline: 2px solid #91a9c8;
   outline-offset: 1px;
 }
 .context-compact button {
@@ -173,7 +173,7 @@
   padding: 0 12px;
   border: 0;
   border-radius: 8px;
-  background: light-dark(#f1eef5, #352e3d);
+  background: light-dark(#f2f2f2, #363636);
   color: inherit;
   font: inherit;
   font-size: 12px;
@@ -181,7 +181,7 @@
   white-space: nowrap;
 }
 .context-compact button:hover:not(:disabled) {
-  background: light-dark(#e8e2ef, #40384a);
+  background: light-dark(#e9e9e9, #414141);
 }
 .context-compact button:disabled,
 .context-compact input:disabled {
@@ -192,16 +192,16 @@
   grid-column: 1/-1;
   margin: 0;
   font-size: 12px;
-  color: light-dark(#8b8297, #b7a9c6);
+  color: light-dark(#8d8d8d, #b8b8b8);
 }
 .context-part-system {
-  background: #9d87bd;
+  background: #a2a2a2;
 }
 .context-part-conversation {
   background: #639aaf;
 }
 .context-part-skills {
-  background: #a787b1;
+  background: #9c9c9c;
 }
 .context-part-tools {
   background: #7e9f82;

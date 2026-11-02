@@ -215,15 +215,6 @@
 .designer-workspace .composer-plus {
   color: var(--bh-ink);
 }
-.designer-workspace .composer-workspace {
-  background: none;
-  border: 1px solid var(--design-line);
-  border-radius: 22px;
-  color: var(--bh-ink);
-}
-.designer-workspace .composer-workspace button {
-  padding: 5px 10px;
-}
 .designer-recent {
   margin-top: 25px;
 }

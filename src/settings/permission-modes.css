@@ -10,28 +10,28 @@
   min-height: 29px;
   padding: 4px 8px;
   gap: 6px;
-  border: 1px solid light-dark(#ececef, #3e3945);
+  border: 1px solid light-dark(#eeeeee, #3f3f3f);
   border-radius: 6px;
-  background-color: light-dark(#f7f7f8, #211f25);
+  background-color: light-dark(#f8f8f8, #222222);
   box-shadow: none;
-  color: light-dark(#65656e, #ccc9cf);
+  color: light-dark(#6a6a6a, #cccccc);
   font-size: calc(12px * var(--appearance-text-scale, 1));
   line-height: 1.5;
 }
 .permission-mode > .aelion-select:not(:disabled):hover {
-  border-color: light-dark(#dedee3, #3e3945);
-  background-color: light-dark(#f0f0f2, #222026);
-  color: light-dark(#393940, #dcd9df);
+  border-color: light-dark(#e1e1e1, #3f3f3f);
+  background-color: light-dark(#f1f1f1, #232323);
+  color: light-dark(#3d3d3d, #dcdcdc);
   box-shadow: none;
 }
 .permission-mode > .aelion-select:open {
-  border-color: light-dark(#d9d9df, #3e3945);
-  background-color: light-dark(#ededf0, #232127);
-  color: light-dark(#393940, #dcd9df);
+  border-color: light-dark(#dcdcdc, #3f3f3f);
+  background-color: light-dark(#efefef, #242424);
+  color: light-dark(#3d3d3d, #dcdcdc);
   box-shadow: none;
 }
 .permission-mode > .aelion-select:focus-visible {
-  outline: 2px solid light-dark(#b2b2bc, #3e3945);
+  outline: 2px solid light-dark(#b7b7b7, #3f3f3f);
   outline-offset: 2px;
   box-shadow: none;
 }
@@ -39,7 +39,7 @@
   flex-basis: 11px;
   width: 11px;
   height: 11px;
-  background: light-dark(#95959f, #38333f);
+  background: light-dark(#9a9a9a, #393939);
 }
 @supports (appearance: base-select) {
   .permission-mode > .aelion-select::picker(select) {
@@ -49,10 +49,10 @@
     right: anchor(right);
     margin: 7px 0;
     padding: 4px;
-    border: 1px solid light-dark(#e4e4e8, #3e3945);
+    border: 1px solid light-dark(#e6e6e6, #3f3f3f);
     border-radius: 7px;
-    background: light-dark(#fff, #201e24);
-    box-shadow: 0 5px 18px #20202712;
+    background: light-dark(#fff, #212121);
+    box-shadow: 0 5px 18px #24242412;
     font-size: calc(13px * var(--appearance-text-scale, 1));
   }
   .permission-mode > .aelion-select option {
@@ -64,20 +64,20 @@
     overflow-wrap: normal;
     font-size: calc(13px * var(--appearance-text-scale, 1));
     font-weight: var(--weight-body);
-    color: light-dark(#56565f, #d2cfd5);
+    color: light-dark(#5b5b5b, #d2d2d2);
   }
   .permission-mode > .aelion-select option:checked {
     background: transparent;
-    color: light-dark(#303038, #dfdce2);
+    color: light-dark(#343434, #dfdfdf);
     font-weight: var(--weight-body);
   }
   .permission-mode > .aelion-select option:hover,
   .permission-mode > .aelion-select option:focus-visible {
-    background: light-dark(#f2f2f5, #222026);
-    color: light-dark(#303038, #dfdce2);
+    background: light-dark(#f3f3f3, #232323);
+    color: light-dark(#343434, #dfdfdf);
   }
   .permission-mode > .aelion-select option::checkmark {
-    background: light-dark(#66666f, #38333f);
+    background: light-dark(#6b6b6b, #393939);
   }
 }
 .permission-mode-error {
@@ -87,10 +87,10 @@
   width: 260px;
   max-width: calc(100vw - 24px);
   padding: 10px 12px;
-  border: 1px solid light-dark(#e5dcdb, #3e3945);
+  border: 1px solid light-dark(#e5dcdb, #3f3f3f);
   border-radius: 8px;
-  background: light-dark(#fff, #201e24);
-  box-shadow: 0 4px 16px #24212b0d;
+  background: light-dark(#fff, #212121);
+  box-shadow: 0 4px 16px #2626260d;
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -110,7 +110,7 @@
   line-height: 1.65;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  color: light-dark(#8d7ea4, #c1b9cc);
+  color: light-dark(#919191, #c3c3c3);
   margin: 0 0 12px;
 }
 .approval-reviewing .request-status {

@@ -5,10 +5,10 @@
   display: flex;
   align-items: center;
   padding: 3px;
-  border: 1px solid light-dark(#e6e3ec, #453f4d);
+  border: 1px solid light-dark(#e8e8e8, #464646);
   border-radius: 11px;
-  background: light-dark(#fff, #2f2b36);
-  box-shadow: 0 5px 16px -5px light-dark(#1d14283d, #00000080);
+  background: light-dark(#fff, #313131);
+  box-shadow: 0 5px 16px -5px light-dark(#141d283d, #00000080);
   -webkit-app-region: no-drag;
   animation: message-actions-in 0.12s ease-out;
 }
@@ -21,15 +21,15 @@
   border: 0;
   border-radius: 7px;
   background: transparent;
-  color: light-dark(#6f6a79, #bcb9bf);
+  color: light-dark(#727272, #bcbcbc);
 }
 .message-hover-actions button:not(:disabled):hover,
 .message-hover-actions button[aria-pressed='true'] {
-  color: light-dark(#3f394a, #e3e0e6);
-  background: light-dark(#f2eff6, #3b3643);
+  color: light-dark(#424242, #e3e3e3);
+  background: light-dark(#f3f3f3, #3d3d3d);
 }
 .message-hover-actions button:focus-visible {
-  outline: 2px solid light-dark(#b7a7cd, #6d5f86);
+  outline: 2px solid light-dark(#bababa, #737373);
   outline-offset: -1px;
 }
 .message-hover-actions .message-hover-emoji {
@@ -41,7 +41,7 @@
   width: 1px;
   height: 16px;
   margin: 0 3px;
-  background: light-dark(#e6e3ec, #453f4d);
+  background: light-dark(#e8e8e8, #464646);
 }
 .message-quote {
   display: flex;
@@ -50,7 +50,7 @@
   min-width: 0;
   margin: 2px 0 6px;
   padding: 5px 10px;
-  border-left: 3px solid light-dark(#8f72b3, #a995c4);
+  border-left: 3px solid light-dark(#939393, #adadad);
   border-radius: 7px;
   background: color-mix(in srgb, currentColor 7%, transparent);
   white-space: normal;
@@ -67,7 +67,7 @@
 }
 .message-quote-author {
   display: block;
-  color: light-dark(#746485, #c2baca);
+  color: light-dark(#757575, #c2c2c2);
   font-size: calc(12px * var(--appearance-text-scale, 1));
   font-weight: var(--weight-body);
   overflow: hidden;
@@ -81,16 +81,16 @@
   overflow: hidden;
   overflow-wrap: anywhere;
   margin-top: 2px;
-  color: light-dark(#8b8294, #c0bdc3);
+  color: light-dark(#8b8b8b, #c0c0c0);
   font-size: calc(12px * var(--appearance-text-scale, 1));
   font-weight: var(--weight-body);
 }
 .message-quote-content:hover .message-quote-author {
-  color: light-dark(#574364, #c3b9ca);
+  color: light-dark(#545454, #c2c2c2);
 }
 .composer .message-quote.is-draft {
   margin: 2px 7px 9px;
-  background: light-dark(#f3f0f7, #222026);
+  background: light-dark(#f0f3f7, #232323);
   padding: 8px 10px;
   border-radius: 0 7px 7px 0;
 }
@@ -102,18 +102,18 @@
   height: 24px;
   padding: 0;
   border-radius: 5px;
-  color: light-dark(#968a9f, #bdbac0);
+  color: light-dark(#949494, #bdbdbd);
 }
 .message-quote-cancel:hover {
-  background: light-dark(#e7e0ef, #242228);
-  color: light-dark(#6b557e, #c3b8cc);
+  background: light-dark(#e0e7ef, #252525);
+  color: light-dark(#6a6a6a, #c2c2c2);
 }
 .conversation-time {
   display: flex;
   justify-content: center;
   width: 100%;
   margin: 22px 0 18px;
-  color: light-dark(#9a97a0, #bbb8be);
+  color: light-dark(#9c9c9c, #bbbbbb);
   font-size: calc(12px * var(--appearance-text-scale, 1));
   line-height: 1.6;
   font-weight: var(--weight-body);
@@ -122,7 +122,7 @@
 .conversation-time > time {
   padding: 1px 11px;
   border-radius: 999px;
-  background: light-dark(#29282c0f, #ffffff0d);
+  background: light-dark(#2a2a2a0f, #ffffff0d);
 }
 .messages > .conversation-time:first-child {
   margin-top: 3px;

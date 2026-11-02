@@ -11,7 +11,7 @@
   min-width: 0;
 }
 .chat-search:focus-within {
-  border-color: light-dark(#cbbfe2, #6d5f86);
+  border-color: light-dark(#bfcee2, #737373);
 }
 .chat-search input {
   width: 180px;
@@ -39,7 +39,7 @@
 }
 .chat-search-step:not(:disabled):hover,
 .chat-search-step:focus-visible {
-  background: light-dark(#eeeaf3, #35313b);
+  background: light-dark(#efefef, #363636);
   color: var(--text-secondary);
   outline: none;
 }
@@ -56,11 +56,11 @@
 }
 .messages .is-search-hit .bubble,
 .messages .run-step-note.is-search-hit {
-  box-shadow: 0 0 0 2px light-dark(#cbbfe2, #6d5f86);
+  box-shadow: 0 0 0 2px light-dark(#bfcee2, #737373);
 }
 @keyframes search-hit {
   from {
-    background: light-dark(#f1ecf8, #2f2a37);
+    background: light-dark(#ecf1f8, #313131);
   }
   to {
     background: transparent;

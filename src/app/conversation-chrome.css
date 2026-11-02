@@ -37,24 +37,9 @@
   flex-shrink: 0;
   white-space: nowrap;
 }
-.app-shell > .sidebar .sidebar-bottom .sidebar-link {
-  white-space: nowrap;
-  gap: 8px;
-  padding: 10px 8px;
-  margin-top: 0;
-}
 @media (max-width: 1250px) {
   .app-shell {
     --conversation-header-inline: 16px;
-  }
-}
-@media (max-width: 620px) {
-  .app-shell > .sidebar .sidebar-bottom {
-    flex-direction: column;
-  }
-  .app-shell > .sidebar .sidebar-link {
-    width: 100%;
-    flex: none;
   }
 }
 /* A docked preview owns the right-hand window controls; chat stays compact. */

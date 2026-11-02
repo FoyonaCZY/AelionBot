@@ -105,83 +105,9 @@
   letter-spacing: 2px;
 }
 
-/* The app catalog dialog: apps by group, then a short form for apps that need a token or a Google client. */
+/* Connecting an app from the plugins page: a short form where it needs a token or a Google client. */
 .app-dialog {
   width: min(680px, 100%);
-}
-.app-search {
-  width: 100%;
-  flex-shrink: 0;
-}
-.app-groups {
-  display: grid;
-  gap: 18px;
-  overflow-y: auto;
-  min-height: 0;
-  margin-inline: -4px;
-  padding: 2px 4px;
-}
-.app-groups h3 {
-  margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: var(--weight-label);
-  color: var(--plugin-muted);
-}
-.app-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
-  gap: 6px;
-}
-.app-option {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  min-width: 0;
-  padding: 9px 10px;
-  border: 1px solid var(--plugin-line);
-  border-radius: 12px;
-  background: var(--plugin-surface);
-  text-align: left;
-}
-.app-option:hover:not(:disabled) {
-  border-color: light-dark(#cfcdd6, #4a4652);
-  background: light-dark(#fafafb, #2e2b34);
-}
-.app-option-text {
-  display: grid;
-  flex: 1;
-  min-width: 0;
-}
-.app-option strong {
-  font-size: 13px;
-  font-weight: var(--weight-label);
-  color: var(--plugin-ink);
-}
-.app-option small {
-  font-size: 12px;
-  color: var(--plugin-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.app-option em {
-  flex-shrink: 0;
-  padding: 1px 7px;
-  border-radius: 6px;
-  background: var(--plugin-fill);
-  font-size: 11px;
-  font-style: normal;
-  color: var(--plugin-muted);
-}
-.app-option em.is-added {
-  background: light-dark(#e7f4ec, #26392f);
-  color: var(--plugin-good);
-}
-.app-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  align-self: flex-start;
 }
 .app-picked {
   display: flex;

@@ -22,7 +22,6 @@ import {
 } from '../../shared/types/attachment-types';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
-import { useLiquidGlass } from '../ui/liquid-glass';
 import { Presence } from '../ui/Presence';
 import { CompanionGlyph } from '../bots/CompanionCard';
 import { botIdentity, normalizeBotAvatarStyle, type BotPalette } from '../../shared/chat/bot-colors';
@@ -161,22 +160,17 @@ export function BotComposer({
   onStop,
   attachmentScope,
   workspaceDir,
-  workspaceInherited,
   permissionMode,
   contextOverview,
   contextCapacity,
   requestMetrics,
   liveRequest,
   contextControl,
-  fixedDesignWorkspace = false,
   designSessionId,
   placeholder,
-  extraTools,
 }: {
   placeholder?: string;
-  extraTools?: ReactNode;
   designSessionId?: string;
-  fixedDesignWorkspace?: boolean;
   contextControl?: ReactNode;
   contextOverview?: ContextOverview;
   contextCapacity?: number;
@@ -189,7 +183,6 @@ export function BotComposer({
   running: boolean;
   attachmentScope?: AttachmentScope;
   workspaceDir?: string;
-  workspaceInherited?: boolean;
   permissionMode?: HostPermissionMode;
   onChange: (draft: ComposerDraft) => void;
   onSend: () => void;
@@ -311,9 +304,9 @@ export function BotComposer({
       return [...uploaded, ...(await receiveEntries(prepared.entries, isCurrent))];
     });
   };
-  const applyDirectory = (entry: DroppedAttachment, action: 'attach' | 'workspace') =>
+  const attachDirectory = (entry: DroppedAttachment) =>
     ingest(async (isCurrent) => {
-      const result = await window.aelion.applyAttachmentDrop({ scope, ids: [entry.id], action });
+      const result = await window.aelion.applyAttachmentDrop({ scope, ids: [entry.id], action: 'attach' });
       if (isCurrent()) setDirectories((current) => current.filter((item) => item.id !== entry.id));
       return result.attachments;
     });
@@ -534,7 +527,6 @@ export function BotComposer({
         list.current.scrollTop = item.offsetTop + item.offsetHeight - list.current.clientHeight;
     }
   }, [active]);
-  useLiquidGlass(root);
   return (
     <div
       ref={root}
@@ -579,10 +571,7 @@ export function BotComposer({
             <div className="composer-directory-choice" key={entry.id}>
               <Icon name="folder" size={17} />
               <strong title={entry.name}>{entry.name}</strong>
-              <button type="button" disabled={uploading > 0} onClick={() => applyDirectory(entry, 'workspace')}>
-                {t('设为工作目录')}
-              </button>
-              <button type="button" disabled={uploading > 0} onClick={() => applyDirectory(entry, 'attach')}>
+              <button type="button" disabled={uploading > 0} onClick={() => attachDirectory(entry)}>
                 {t('打包为附件')}
               </button>
               <button
@@ -801,12 +790,7 @@ export function BotComposer({
       />
       <div className="composer-bottom">
         <ComposerTools
-          fixedDesignWorkspace={fixedDesignWorkspace}
           contextControl={contextControl}
-          scope={scope}
-          workspaceDir={workspaceDir}
-          workspaceInherited={workspaceInherited}
-          onFolderPicked={() => editor.current?.focus({ preventScroll: true })}
           onAttach={() =>
             ingest(async () => {
               const files = await window.aelion.pickAttachments(scope);
@@ -816,7 +800,6 @@ export function BotComposer({
           }
           onCommand={chooseCommand}
         />
-        {extraTools}
         {scope.kind === 'bot' && (
           <>
             <span className="context-usage-slot">
@@ -826,7 +809,7 @@ export function BotComposer({
                 capacity={contextCapacity}
                 metrics={requestMetrics}
                 onCompact={
-                  designSessionId || fixedDesignWorkspace
+                  designSessionId
                     ? undefined
                     : (focus) =>
                         window.aelion.compactContext({

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { EMPTY_USER_PROFILE, normalizeUserProfile, type UserProfile } from '../../shared/chat/user-profile';
-import { ProfileEmblem } from './SettingsWindow';
+import { ProfileAvatar } from './SettingsWindow';
 import { useI18n } from '../i18n';
 export function UserProfileSettings({
   profile,
@@ -38,7 +38,7 @@ export function UserProfileSettings({
     >
       <div className="profile-card">
         <div className="profile-identity">
-          <ProfileEmblem name={value.displayName} size={64} />
+          <ProfileAvatar name={value.displayName} size={64} />
           <div className="profile-identity-fields">
             <input
               className="profile-name"

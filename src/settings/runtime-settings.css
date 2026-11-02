@@ -1,6 +1,6 @@
 /* Runtime limits: one column of cards in the grammar every settings page uses (a section heading, a white card,
    rows with the words on the left and the control on the right), and a save bar that floats at the bottom of the
-   page as glass while anything is unsaved. Built from the settings tokens (settings.css). */
+   page while anything is unsaved. Built from the settings tokens (settings.css). */
 .runtime-settings {
   container: runtime / inline-size;
   min-width: 0;
@@ -169,12 +169,9 @@
 .runtime-fields:disabled {
   opacity: 0.7;
 }
-/* The save bar lies flat at the end of the page; once something is unsaved it lifts into floating glass that stays
-   in reach, like the composer over the conversation. */
+/* The save bar lies flat at the end of the page; once something is unsaved it lifts into a floating sheet that stays
+   in reach, like the composer over the conversation. Only then may the page pass under it: it has no ground before. */
 .runtime-actions {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -186,9 +183,11 @@
     box-shadow 0.2s;
 }
 .runtime-actions[data-dirty] {
-  background: var(--glass-grain), var(--liquid-sheen), var(--glass-tint-strong);
-  box-shadow: var(--liquid-rim), var(--glass-float);
-  backdrop-filter: var(--glass-blur);
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: var(--surface-float);
+  box-shadow: var(--float-shadow);
 }
 .runtime-reset {
   min-height: 34px;

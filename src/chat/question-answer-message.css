@@ -44,7 +44,7 @@
   padding-bottom: 0;
 }
 .question-answer-pair + .question-answer-pair {
-  border-top: 1px solid light-dark(#d9cee5, #62516f);
+  border-top: 1px solid light-dark(#ced8e5, #606060);
 }
 .question-answer-pair dt {
   margin: 0;

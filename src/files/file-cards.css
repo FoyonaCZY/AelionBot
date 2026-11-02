@@ -1,8 +1,8 @@
 .file-tile {
-  --file-surface: light-dark(#fff, #201e24);
-  --file-border: light-dark(#e5e5eb, #3e3945);
-  --file-title: light-dark(#36353e, #dddae0);
-  --file-muted: light-dark(#85838f, #c1bec4);
+  --file-surface: light-dark(#fff, #212121);
+  --file-border: light-dark(#e8e8e8, #3f3f3f);
+  --file-title: light-dark(#3a3a3a, #dddddd);
+  --file-muted: light-dark(#898989, #c1c1c1);
   display: flex;
   align-items: center;
   min-width: 0;
@@ -11,7 +11,7 @@
   border-radius: 12px;
   background: var(--file-surface);
   color: var(--file-title);
-  box-shadow: 0 1px 2px #26213703;
+  box-shadow: 0 1px 2px #2c2c2c03;
   overflow: hidden;
   transition:
     border-color 0.18s,
@@ -20,8 +20,8 @@
 }
 .file-tile:has(button:not(:disabled):hover),
 .file-tile:has(button:focus-visible) {
-  border-color: light-dark(#cecadc, #3e3945);
-  box-shadow: 0 3px 12px #26213708;
+  border-color: light-dark(#d3d3d3, #3f3f3f);
+  box-shadow: 0 3px 12px #2c2c2c08;
 }
 .file-tile-open {
   display: flex;
@@ -34,7 +34,7 @@
   color: inherit;
 }
 .file-tile button:focus-visible {
-  outline: 2px solid light-dark(#9783d7, #3e3945);
+  outline: 2px solid light-dark(#83a7d7, #3f3f3f);
   outline-offset: -3px;
   border-radius: 9px;
 }
@@ -80,8 +80,8 @@
   flex-shrink: 0;
 }
 .file-type-badge {
-  --file-ink: light-dark(#85818e, #c2bfc5);
-  --file-tint: light-dark(#f0eef3, #222026);
+  --file-ink: light-dark(#888888, #c2c2c2);
+  --file-tint: light-dark(#f1f1f1, #232323);
   position: relative;
   display: block;
   width: 34px;
@@ -118,49 +118,49 @@
   padding: 2px 4px;
   border-radius: 3px;
   background: var(--file-ink);
-  color: light-dark(#fff, #231f29);
+  color: light-dark(#fff, #242424);
   font:
     700 8px/1.1 Inter,
     'Segoe UI',
     sans-serif;
   letter-spacing: 0.2px;
-  box-shadow: 0 1px 2px #2621370a;
+  box-shadow: 0 1px 2px #2c2c2c0a;
 }
 .file-type-slides {
   --file-ink: light-dark(#ca7952, #e4bba8);
-  --file-tint: light-dark(#fcf0e8, #222026);
+  --file-tint: light-dark(#fcf0e8, #232323);
 }
 .file-type-pdf {
   --file-ink: light-dark(#d3636a, #e6aeb2);
-  --file-tint: light-dark(#fceef0, #222026);
+  --file-tint: light-dark(#fceef0, #232323);
 }
 .file-type-document {
   --file-ink: light-dark(#5888ca, #a7bfe0);
-  --file-tint: light-dark(#edf3fc, #222026);
+  --file-tint: light-dark(#edf3fc, #232323);
 }
 .file-type-sheet {
   --file-ink: light-dark(#4a9b7e, #acd4c6);
-  --file-tint: light-dark(#eaf6ef, #222026);
+  --file-tint: light-dark(#eaf6ef, #232323);
 }
 .file-type-code {
-  --file-ink: light-dark(#8871c5, #bcb0da);
-  --file-tint: light-dark(#f1edfb, #222026);
+  --file-ink: light-dark(#7195c5, #b0c2da);
+  --file-tint: light-dark(#edf3fb, #232323);
 }
 .file-type-image {
   --file-ink: light-dark(#529dab, #a7ccd3);
-  --file-tint: light-dark(#eaf6f7, #222026);
+  --file-tint: light-dark(#eaf6f7, #232323);
 }
 .file-type-archive {
   --file-ink: light-dark(#b18b4f, #d9c6a8);
-  --file-tint: light-dark(#faf4e8, #222026);
+  --file-tint: light-dark(#faf4e8, #232323);
 }
 .file-type-audio {
-  --file-ink: light-dark(#b575aa, #cfafc9);
-  --file-tint: light-dark(#f8edf6, #222026);
+  --file-ink: light-dark(#b575aa, #bfbfbf);
+  --file-tint: light-dark(#f8edf6, #232323);
 }
 .file-type-video {
   --file-ink: light-dark(#727fc1, #b3b9da);
-  --file-tint: light-dark(#eff0fb, #222026);
+  --file-tint: light-dark(#eff4fb, #232323);
 }
 .artifact-card {
   width: 320px;
@@ -175,18 +175,18 @@
   margin-right: 11px;
   border-radius: 8px;
   color: var(--file-muted);
-  background: light-dark(#f6f5f8, #211f25);
+  background: light-dark(#f7f7f7, #222222);
   transition:
     color 0.18s,
     background 0.18s;
 }
 .artifact-save:not(:disabled):hover {
-  color: light-dark(#7964b3, #bcb1d9);
-  background: light-dark(#ede8f7, #232127);
+  color: light-dark(#6486b3, #b1c2d9);
+  background: light-dark(#e8eff7, #242424);
 }
 .artifact-card:has(button:disabled) {
   box-shadow: none;
-  background: light-dark(#fafafa, #211f25);
+  background: light-dark(#fafafa, #222222);
 }
 @media (prefers-reduced-motion: reduce) {
   .file-tile,

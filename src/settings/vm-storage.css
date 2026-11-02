@@ -2,7 +2,7 @@
 .vm-storage-settings {
   --vm-system: light-dark(#727fc1, #9aa3d6);
   --vm-work: light-dark(#4a9b7e, #7cc3a8);
-  --vm-other: light-dark(#c4bfcb, #6e6876);
+  --vm-other: light-dark(#c5c5c5, #6f6f6f);
 }
 .vm-storage-scope[data-pressure='warning'] {
   color: light-dark(#a7742e, #e2b77a);
@@ -34,7 +34,7 @@
   height: 10px;
   overflow: hidden;
   border-radius: 6px;
-  background: light-dark(#29282c0f, #ffffff12);
+  background: light-dark(#2a2a2a0f, #ffffff12);
 }
 .vm-storage-bar > i {
   display: block;
@@ -122,7 +122,7 @@
 }
 .settings-modal .vm-storage-input input:focus-visible {
   outline: none;
-  border-color: light-dark(#a68bcf, #8f7fb3);
+  border-color: light-dark(#8ba8cf, #999999);
   background: var(--settings-card);
   box-shadow: 0 0 0 3px var(--settings-accent-soft);
 }

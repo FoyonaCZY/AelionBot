@@ -20,7 +20,7 @@
   background: var(--conversation-canvas);
   box-shadow:
     0 0 0 1px var(--settings-ring),
-    0 6px 18px -12px #1d142840;
+    0 6px 18px -12px #141d2840;
 }
 .appearance-preview-chat {
   display: flex;
@@ -43,7 +43,7 @@
   border-radius: 18px;
   background: var(--bubble-surface);
   box-shadow: var(--bubble-lift);
-  color: light-dark(#34313c, #dfdce2);
+  color: light-dark(#373737, #dfdfdf);
   font-family: var(--font-ui);
   font-size: var(--text-body);
   font-weight: var(--weight-body);
@@ -52,9 +52,8 @@
 }
 .appearance-preview-bubble.is-you {
   align-self: flex-end;
-  background: light-dark(#e3d7f4, #44374f);
-  color: light-dark(#2e2440, #f0e8f7);
-  box-shadow: none;
+  background: var(--user-bubble);
+  color: var(--user-bubble-ink);
 }
 .appearance-preview-reply > .appearance-preview-bubble {
   border-bottom-left-radius: 6px;
@@ -102,8 +101,8 @@
 }
 :is(.appearance-themes, .appearance-canvases) > button:hover > span:first-child {
   box-shadow:
-    0 0 0 1px #1d142826,
-    0 4px 12px -6px #1d142840;
+    0 0 0 1px #141d2826,
+    0 4px 12px -6px #141d2840;
 }
 :is(.appearance-themes, .appearance-canvases) > button[aria-pressed='true'] > span:first-child {
   box-shadow:
@@ -117,15 +116,15 @@
   height: 84px;
   overflow: hidden;
   border-radius: 11px;
-  background: #f4f4f5;
-  box-shadow: 0 0 0 1px #1d142817;
+  background: #f5f5f5;
+  box-shadow: 0 0 0 1px #141d2817;
 }
 .appearance-theme-swatch i {
   position: absolute;
   inset: 0 auto 0 0;
   width: 26%;
   background: #fff;
-  border-right: 1px solid #e8e8ec;
+  border-right: 1px solid #eaeaea;
 }
 .appearance-theme-swatch b,
 .appearance-theme-swatch em {
@@ -138,34 +137,34 @@
   top: 22px;
   width: 38%;
   background: #fff;
-  box-shadow: 0 1px 1.5px #2a1f3a1c;
+  box-shadow: 0 1px 1.5px #1f2b3a1c;
 }
 .appearance-theme-swatch em {
   right: 8%;
   top: 44px;
   width: 26%;
-  background: #e3d7f4;
+  background: #d7e4f4;
 }
 .appearance-theme-swatch.is-dark {
-  background: #202024;
+  background: #222222;
   box-shadow: 0 0 0 1px #ffffff17;
 }
 .appearance-theme-swatch.is-dark i {
-  background: #25232a;
-  border-color: #3a3541;
+  background: #272727;
+  border-color: #3b3b3b;
 }
 .appearance-theme-swatch.is-dark b {
-  background: #302c37;
+  background: #323232;
   box-shadow: none;
 }
 .appearance-theme-swatch.is-dark em {
-  background: #44374f;
+  background: #434343;
 }
 .appearance-theme-swatch.is-system {
-  background: linear-gradient(115deg, #f4f4f5 52%, #202024 52%);
+  background: linear-gradient(115deg, #f5f5f5 52%, #222222 52%);
 }
 .appearance-theme-swatch.is-system em {
-  background: #44374f;
+  background: #434343;
 }
 /* The conversation in small: its ground, one of the Bot's bubbles and one of yours. Tokens: theme.css. */
 .appearance-canvas-swatch {
@@ -175,7 +174,7 @@
   overflow: hidden;
   border-radius: 11px;
   background: var(--conversation-canvas);
-  box-shadow: 0 0 0 1px #1d142817;
+  box-shadow: 0 0 0 1px #141d2817;
 }
 .appearance-canvas-swatch i,
 .appearance-canvas-swatch b {
@@ -194,7 +193,7 @@
   right: 9px;
   bottom: 12px;
   width: 38%;
-  background: #e3d7f4;
+  background: #d7e4f4;
 }
 
 /* ---------- Rows inside the cards ---------- */
@@ -252,7 +251,7 @@
 }
 .settings-modal .appearance-control > input:focus-visible {
   outline: none;
-  border-color: light-dark(#a68bcf, #8f7fb3);
+  border-color: light-dark(#8ba8cf, #999999);
   background: var(--settings-card);
   box-shadow: 0 0 0 3px var(--settings-accent-soft);
 }

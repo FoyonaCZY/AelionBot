@@ -1,7 +1,7 @@
 .workspace-file-tree {
   min-width: 0;
   font-family: var(--font-ui);
-  color: light-dark(#51485c, #d0c9d9);
+  color: light-dark(#525252, #d1d1d1);
 }
 .workspace-file-tree > header {
   display: flex;
@@ -9,7 +9,7 @@
   justify-content: space-between;
   padding: 9px 11px 14px;
   font-size: var(--text-caption);
-  color: light-dark(#85768f, #9f93ac);
+  color: light-dark(#838383, #a0a0a0);
 }
 .workspace-file-tree > header button {
   display: grid;
@@ -20,7 +20,7 @@
   color: inherit;
 }
 .workspace-file-tree > header button:hover {
-  background: light-dark(#ede7f4, #35303c);
+  background: light-dark(#e7edf4, #363636);
 }
 .wft-list {
   list-style: none;
@@ -50,21 +50,21 @@
 }
 .wft-entry > svg {
   flex-shrink: 0;
-  color: light-dark(#97869f, #aaa0b4);
+  color: light-dark(#939393, #aaaaaa);
 }
 .wft-entry:hover {
-  background: light-dark(#f2edf7, #302b37);
+  background: light-dark(#edf1f7, #313131);
 }
 .wft-entry.is-current {
-  background: light-dark(#eae2f3, #44354f);
-  color: light-dark(#644d77, #e6d7f2);
+  background: light-dark(#e2e9f3, #424242);
+  color: light-dark(#626262, #d7e3f2);
 }
 .wft-chevron {
   display: grid;
   place-items: center;
   flex-shrink: 0;
   width: 11px;
-  color: light-dark(#9d92a5, #b1a5bf);
+  color: light-dark(#9c9c9c, #b2b2b2);
 }
 .wft-chevron.is-open {
   transform: rotate(90deg);
@@ -73,7 +73,7 @@
   padding: 10px 15px;
   font-size: var(--text-caption);
   line-height: 1.7;
-  color: light-dark(#8e8199, #b6a9c4);
+  color: light-dark(#8d8d8d, #b7b7b7);
   overflow-wrap: anywhere;
 }
 .wft-state button {
@@ -103,12 +103,12 @@
   width: 240px;
   flex-shrink: 0;
   border-right: 1px solid #ffffff12;
-  background: #242329;
+  background: #262626;
   min-height: 0;
   overflow: auto;
   padding: 103px 8px 18px;
   scrollbar-width: thin;
-  scrollbar-color: #504855 transparent;
+  scrollbar-color: #4f4f4f transparent;
 }
 .fp-session-file {
   display: block;
@@ -116,13 +116,13 @@
   padding: 9px 10px;
   text-align: left;
   font-size: var(--text-caption);
-  color: #bfb7c9;
+  color: #c0c0c0;
   border-radius: 6px;
   overflow-wrap: anywhere;
 }
 .fp-session-file[aria-current='page'] {
-  background: #403448;
-  color: #e3d8ed;
+  background: #3e3e3e;
+  color: #d8e1ed;
 }
 @media (max-width: 700px) {
   .fp-directory {

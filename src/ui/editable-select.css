@@ -20,20 +20,20 @@
   border: 0;
   border-radius: 7px;
   background: transparent;
-  color: light-dark(#777, #c8c5cb);
+  color: light-dark(#777, #c8c8c8);
   cursor: pointer;
 }
 .editable-select > button:hover {
-  background: light-dark(#00000008, #e0dbe608);
+  background: light-dark(#00000008, #e1e1e108);
 }
 .editable-select-options {
   position: fixed;
   z-index: 3000;
   box-sizing: border-box;
   overflow: auto;
-  border: 1px solid light-dark(#d8d8da, #3e3945);
+  border: 1px solid light-dark(#d9d9d9, #3f3f3f);
   border-radius: 10px;
-  background: light-dark(#fcfcfc, #201e24);
+  background: light-dark(#fcfcfc, #212121);
   box-shadow: 0 10px 30px #0002;
   padding: 5px;
   scrollbar-width: thin;
@@ -42,13 +42,13 @@
   min-height: 34px;
   padding: 8px 10px;
   border-radius: 6px;
-  color: light-dark(#333, #e0dde3);
+  color: light-dark(#333, #e0e0e0);
   font-size: calc(13px * var(--appearance-text-scale, 1));
   overflow-wrap: anywhere;
   cursor: pointer;
 }
 .editable-select-options > [role='option'].active {
-  background: light-dark(#eeeeef, #232127);
+  background: light-dark(#efefef, #242424);
 }
 .editable-select-options > [aria-selected='true'] {
   font-weight: var(--weight-body);

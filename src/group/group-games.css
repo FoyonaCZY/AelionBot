@@ -26,9 +26,8 @@
   height: min(760px, calc(100dvh - 48px));
   max-width: none;
   max-height: none;
-  background: var(--glass-grain), var(--liquid-sheen), var(--glass-tint-strong);
-  box-shadow: var(--liquid-rim), var(--card-shadow);
-  backdrop-filter: var(--glass-blur);
+  background: var(--surface-float);
+  box-shadow: var(--float-shadow);
   color: var(--gg-ink);
   overflow: hidden;
 }
@@ -53,7 +52,7 @@
 }
 @media (prefers-reduced-transparency: reduce) {
   .gg-dialog {
-    background: var(--card-solid);
+    background: var(--surface-float);
     backdrop-filter: none;
   }
 }
@@ -343,38 +342,9 @@
   transform: rotate(180deg);
 }
 
-/* ---------- the composer's entry ---------- */
+/* ---------- the entry in the group header ---------- */
 .gg-host {
   display: contents;
-}
-.gg-launch-row {
-  display: inline-flex;
-  margin-right: auto;
-}
-.composer-bottom:has(.gg-host) > .composer-tools {
-  margin-right: 0;
-}
-.gg-entry {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 11px 0 9px;
-  border-radius: 999px;
-  background: var(--ctl-fill);
-  color: var(--text-secondary);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
-  font-weight: var(--weight-label, 500);
-  transition:
-    background 0.15s,
-    color 0.15s;
-}
-.gg-entry:hover {
-  background: var(--ctl-fill-hover);
-  color: var(--text-ink);
-}
-.gg-entry .gg-glyph {
-  color: var(--ctl-accent);
 }
 
 /* ---------- cards in the group chat ---------- */
@@ -986,9 +956,8 @@
   width: 290px;
   padding: 14px;
   border-radius: 16px;
-  background: var(--glass-grain), var(--liquid-sheen), var(--glass-tint-strong);
-  box-shadow: var(--liquid-rim), var(--glass-float);
-  backdrop-filter: var(--glass-blur);
+  background: var(--surface-float);
+  box-shadow: var(--float-shadow);
 }
 .gg-seat-pop .gg-card-head {
   margin: 0;
@@ -1240,9 +1209,8 @@
   min-width: 180px;
   padding: 5px;
   border-radius: var(--ctl-menu-radius);
-  background: var(--glass-grain), var(--liquid-sheen), var(--glass-tint-strong);
-  box-shadow: var(--liquid-rim), var(--glass-float);
-  backdrop-filter: var(--glass-blur);
+  background: var(--surface-float);
+  box-shadow: var(--float-shadow);
 }
 .gg-table-root[data-period='night'] .gg-menu-list {
   background: linear-gradient(180deg, rgba(48, 43, 66, 0.94), rgba(34, 31, 48, 0.94));
@@ -1862,7 +1830,7 @@
   width: 320px;
   padding: 30px 26px 20px;
   border-radius: 24px;
-  background: var(--glass-grain), linear-gradient(170deg, rgba(48, 43, 70, 0.96), rgba(30, 27, 44, 0.96));
+  background: linear-gradient(170deg, rgba(48, 43, 70, 0.96), rgba(30, 27, 44, 0.96));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
     0 0 0 0.5px rgba(255, 255, 255, 0.08),
@@ -2133,8 +2101,8 @@
   flex-direction: column;
   width: min(460px, calc(100% - 16px));
   border-radius: 18px;
-  background: var(--glass-grain), var(--card-solid);
-  box-shadow: var(--liquid-rim), var(--glass-float);
+  background: var(--surface-float);
+  box-shadow: var(--float-shadow);
   color: var(--gg-ink);
   animation: gg-slide 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
 }

@@ -18,11 +18,11 @@
   border-radius: 10px;
   font-size: calc(11.5px * var(--appearance-text-scale, 1));
   font-variant-numeric: tabular-nums;
-  color: light-dark(#8b8c8e, #b8b5bb);
+  color: light-dark(#8b8c8e, #b8b8b8);
 }
 .session-toggle:hover:not(:disabled) {
-  background: light-dark(#dcdcdf, #2f2c34);
-  color: light-dark(#4b4b50, #e0dde3);
+  background: light-dark(#dedede, #303030);
+  color: light-dark(#4e4e4e, #e0e0e0);
 }
 .session-toggle:disabled {
   cursor: default;
@@ -47,18 +47,18 @@
   border-radius: 9px;
   text-align: left;
   font-size: calc(13px * var(--appearance-text-scale, 1));
-  color: light-dark(#55585c, #cfccd3);
+  color: light-dark(#55585c, #d0d0d0);
 }
 .session-item > svg {
   flex-shrink: 0;
-  color: light-dark(#9a9ba0, #8f8b95);
+  color: light-dark(#9a9ba0, #909090);
 }
 .session-item:hover {
-  background: light-dark(#f5f3f8, #232127);
+  background: light-dark(#f5f5f5, #242424);
 }
 .session-item.selected {
-  background: light-dark(#efedf3, #252329);
-  color: light-dark(#25282c, #f0edf3);
+  background: light-dark(#f0f0f0, #262626);
+  color: light-dark(#25282c, #f0f0f0);
 }
 .session-item.selected .session-name {
   font-weight: var(--weight-label);
@@ -73,7 +73,7 @@
 .session-item > small {
   flex-shrink: 0;
   font-size: calc(11.5px * var(--appearance-text-scale, 1));
-  color: light-dark(#9a9ba0, #a19da7);
+  color: light-dark(#9a9ba0, #a2a2a2);
 }
 .session-item.is-archived {
   opacity: 0.6;
@@ -134,7 +134,7 @@
   margin: 0;
   font-size: calc(13px * var(--appearance-text-scale, 1));
   font-weight: var(--weight-label);
-  color: light-dark(#3d4044, #e0dde3);
+  color: light-dark(#3d4044, #e0e0e0);
 }
 :root .modal .work-session-form input {
   width: 100%;
@@ -153,14 +153,14 @@
   min-width: 0;
   padding: 9px 12px;
   border-radius: 10px;
-  background: light-dark(#f2f2f4, #2a2730);
-  color: light-dark(#4b4b50, #d6d3da);
+  background: light-dark(#f3f3f3, #2c2c2c);
+  color: light-dark(#4e4e4e, #d6d6d6);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .work-session-folder-path.is-empty {
-  color: light-dark(#8b8c8e, #a9a6ad);
+  color: light-dark(#8b8c8e, #aaaaaa);
 }
 .work-session-folder > button {
   flex-shrink: 0;
@@ -184,7 +184,7 @@
   min-width: 0;
 }
 .chat-heading-separator {
-  color: light-dark(#b9b9bd, #6d6873);
+  color: light-dark(#bbbbbb, #6e6e6e);
 }
 .session-heading {
   display: flex;
@@ -193,10 +193,10 @@
   min-width: 0;
   padding: 5px 9px;
   border-radius: 9px;
-  color: light-dark(#4b4b50, #dcd8e0);
+  color: light-dark(#4e4e4e, #dcdcdc);
 }
 .session-heading:hover {
-  background: light-dark(#f0f0f2, #2a2730);
+  background: light-dark(#f1f1f1, #2c2c2c);
 }
 .session-heading strong {
   min-width: 0;
@@ -222,9 +222,9 @@
   gap: 10px;
   min-width: 0;
   padding: 9px 10px;
-  border: 1px solid light-dark(#e6e7e9, #3e3945);
+  border: 1px solid light-dark(#e6e7e9, #3f3f3f);
   border-radius: 11px;
-  background: light-dark(#fff, #242128);
+  background: light-dark(#fff, #252525);
   text-align: left;
   font-weight: normal;
   transition:
@@ -232,12 +232,12 @@
     background 0.12s;
 }
 .work-session-bot:hover:not(:disabled) {
-  border-color: light-dark(#c9c9ce, #57525e);
+  border-color: light-dark(#cccccc, #585858);
 }
 .work-session-bot.is-chosen {
-  border-color: light-dark(#25282c, #e4e1e7);
-  background: light-dark(#f6f6f7, #2c2931);
-  box-shadow: inset 0 0 0 1px light-dark(#25282c, #e4e1e7);
+  border-color: light-dark(#25282c, #e4e4e4);
+  background: light-dark(#f7f7f7, #2d2d2d);
+  box-shadow: inset 0 0 0 1px light-dark(#25282c, #e4e4e4);
 }
 .work-session-bot > strong {
   min-width: 0;
@@ -255,8 +255,8 @@
   height: 18px;
   margin-left: auto;
   border-radius: 50%;
-  background: light-dark(#25282c, #e4e1e7);
-  color: light-dark(#fff, #201e24);
+  background: light-dark(#25282c, #e4e4e4);
+  color: light-dark(#fff, #212121);
 }
 
 /* A Bot's archived sessions (ArchivedSessions.tsx): one row each, the name opens it. */
@@ -285,24 +285,24 @@
   border-radius: 9px;
   text-align: left;
   font-size: calc(13.5px * var(--appearance-text-scale, 1));
-  color: light-dark(#35383c, #e3e0e7);
+  color: light-dark(#35383c, #e3e3e3);
 }
 .archived-session-open:hover {
-  background: light-dark(#f5f3f8, #232127);
+  background: light-dark(#f5f5f5, #242424);
 }
 .archived-session-open > svg {
   flex-shrink: 0;
-  color: light-dark(#9a9ba0, #8f8b95);
+  color: light-dark(#9a9ba0, #909090);
 }
 .archived-session-open > small {
   flex-shrink: 0;
   font-size: calc(11.5px * var(--appearance-text-scale, 1));
-  color: light-dark(#9a9ba0, #a19da7);
+  color: light-dark(#9a9ba0, #a2a2a2);
 }
 .archived-session-list .secondary-button {
   flex-shrink: 0;
 }
 .archived-session-empty {
   margin: 4px 0 8px;
-  color: light-dark(#8b8c8e, #a19da7);
+  color: light-dark(#8b8c8e, #a2a2a2);
 }

@@ -187,8 +187,8 @@
   width: 100%;
   max-width: none;
   padding: 10px 14px;
-  border-top: 1px solid light-dark(#e3e5e9, #42424b);
-  background: light-dark(#fafafa, #252529);
+  border-top: 1px solid light-dark(#e3e5e9, #474747);
+  background: light-dark(#fafafa, #272727);
   color-scheme: light;
 }
 .fp-layer .fp-feedback {
@@ -196,9 +196,9 @@
   padding: 7px 8px 7px 12px;
   border-radius: 10px;
   box-shadow: none;
-  background: light-dark(#fff, #303038);
-  border-color: light-dark(#dfe2e8, #494951);
-  color: light-dark(#353945, #efedf5);
+  background: light-dark(#fff, #343434);
+  border-color: light-dark(#dfe2e8, #4d4d4d);
+  color: light-dark(#353945, #f1f1f1);
 }
 .fp-layer .fp-feedback textarea {
   min-height: 28px;
@@ -207,7 +207,7 @@
   line-height: 26px;
 }
 .fp-layer .fp-feedback textarea::placeholder {
-  color: light-dark(#9599a3, #aaa8b5);
+  color: light-dark(#9599a3, #afafaf);
 }
 .fp-layer .fp-feedback button {
   border-radius: 7px;
@@ -217,16 +217,16 @@
   color: light-dark(#fff, #202935);
 }
 .fp-layer .fp-feedback button:disabled {
-  background: light-dark(#eceef2, #44434d);
-  color: light-dark(#a0a5af, #848491);
+  background: light-dark(#eceef2, #484848);
+  color: light-dark(#a0a5af, #8b8b8b);
 }
 .fp-layer .fp-feedback-status {
   margin: 0 0 7px;
   padding: 5px 8px;
   border-radius: 6px;
-  background: light-dark(#fff, #303038);
+  background: light-dark(#fff, #343434);
   color: light-dark(#586370, #d5d9df);
-  border-color: light-dark(#e1e5ea, #494951);
+  border-color: light-dark(#e1e5ea, #4d4d4d);
   box-shadow: none;
   font-size: 11px;
   max-height: 70px;
@@ -273,15 +273,15 @@
 .fp-layer.is-expanded .fp-feedback {
   min-height: 52px;
   padding: 9px 10px 9px 18px;
-  border-color: light-dark(#e3dfe9, #3e3945);
+  border-color: light-dark(#e4e4e4, #3f3f3f);
   border-radius: 18px;
-  background: light-dark(#fff, #29262f);
+  background: light-dark(#fff, #2b2b2b);
   box-shadow:
     0 1px 2px light-dark(#0000000a, #00000033),
     0 10px 30px -12px light-dark(#0000002e, #00000099);
 }
 .fp-layer.is-expanded .fp-feedback:focus-within {
-  border-color: light-dark(#cfcfd3, #57525d);
+  border-color: light-dark(#d1d1d1, #585858);
 }
 .fp-layer.is-expanded .fp-feedback textarea {
   font-size: var(--text-control);
@@ -290,12 +290,12 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: light-dark(#171717, #e0dbe6);
-  color: light-dark(#fff, #202024);
+  background: light-dark(#171717, #e1e1e1);
+  color: light-dark(#fff, #222222);
 }
 .fp-layer.is-expanded .fp-feedback button:disabled {
-  background: light-dark(#ededed, #232127);
-  color: light-dark(#c0c0c0, #adaab0);
+  background: light-dark(#ededed, #242424);
+  color: light-dark(#c0c0c0, #adadad);
 }
 .fp-layer.is-expanded .fp-feedback-wrap:not(.is-captions) .fp-feedback-status {
   width: fit-content;
@@ -304,9 +304,9 @@
 }
 .fp-layer.is-expanded .fp-feedback-wrap:not(.is-captions) .fp-feedback-pins {
   padding: 6px 8px;
-  border: 1px solid light-dark(#e3dfe9, #3e3945);
+  border: 1px solid light-dark(#e4e4e4, #3f3f3f);
   border-radius: 12px;
-  background: light-dark(#fff, #29262f);
+  background: light-dark(#fff, #2b2b2b);
   box-shadow: 0 6px 18px -12px light-dark(#00000033, #000000a6);
 }
 @media (max-width: 700px) {

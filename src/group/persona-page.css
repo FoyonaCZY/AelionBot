@@ -267,7 +267,7 @@
   position: relative;
   height: 4px;
   border-radius: 999px;
-  background: light-dark(#ecebf0, #3b3641);
+  background: light-dark(#eeeeee, #3c3c3c);
 }
 .gp-dot {
   position: absolute;
@@ -486,7 +486,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: light-dark(#c6c1cc, #6c6477);
+  background: light-dark(#c7c7c7, #6e6e6e);
   box-shadow: 0 0 0 4px var(--gg-panel);
   z-index: 1;
 }
@@ -920,24 +920,24 @@
   align-items: stretch;
   gap: 8px;
   padding: 12px;
-  border: 1px solid light-dark(#e6e7e9, #3e3945);
+  border: 1px solid light-dark(#e6e7e9, #3f3f3f);
   border-radius: 10px;
-  background: light-dark(#fff, #201e24);
+  background: light-dark(#fff, #212121);
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
 .gp-preset:hover:not(:disabled) {
-  border-color: light-dark(#c9bcd8, #5a4f66);
+  border-color: light-dark(#cacaca, #5b5b5b);
 }
 .gp-preset:disabled {
   cursor: default;
   opacity: 0.6;
 }
 .gp-preset.is-on {
-  border-color: light-dark(#9177ac, #b9a3d0);
-  background: light-dark(#f3eff8, #2c2535);
+  border-color: light-dark(#929292, #a3b6d0);
+  background: light-dark(#eff3f8, #2d2d2d);
 }
 .gp-preset-name {
   display: flex;
@@ -945,7 +945,7 @@
   gap: 6px;
 }
 .gp-preset-intro {
-  color: light-dark(#6f7680, #bdbac0);
+  color: light-dark(#6f7680, #bdbdbd);
   font-size: calc(13px * var(--appearance-text-scale, 1));
   line-height: 1.5;
 }
@@ -957,7 +957,7 @@
 .gp-preset-phrases > span {
   padding: 1px 8px;
   border-radius: 999px;
-  background: light-dark(#f2f3f5, #2a2730);
+  background: light-dark(#f2f3f5, #2c2c2c);
   font-size: calc(12px * var(--appearance-text-scale, 1));
 }
 .gp-preset-sample {
@@ -965,17 +965,17 @@
   flex-direction: column;
   gap: 2px;
   padding-left: 8px;
-  border-left: 2px solid light-dark(#e6e7e9, #3e3945);
+  border-left: 2px solid light-dark(#e6e7e9, #3f3f3f);
   font-size: calc(12px * var(--appearance-text-scale, 1));
   line-height: 1.5;
 }
 .gp-preset-sample > span:first-child {
-  color: light-dark(#8a9099, #9d99a3);
+  color: light-dark(#8a9099, #9e9e9e);
 }
 .gp-preset-summary,
 .gp-preset-focus {
   margin: 10px 0 0;
-  color: light-dark(#6f7680, #bdbac0);
+  color: light-dark(#6f7680, #bdbdbd);
   font-size: calc(13px * var(--appearance-text-scale, 1));
 }
 .gp-preset-focus {

@@ -17,17 +17,17 @@
   min-width: 62px;
   min-height: 32px;
   padding: 6px 10px;
-  border: 1px solid light-dark(#d9e2da, #3e3945);
+  border: 1px solid light-dark(#d9e2da, #3f3f3f);
   border-radius: 8px;
-  background: light-dark(#e8eee9, #232127);
-  color: light-dark(#47564b, #d6d3d9);
+  background: light-dark(#e8eee9, #242424);
+  color: light-dark(#47564b, #d6d6d6);
   font-size: calc(12px * var(--appearance-text-scale, 1));
   font-weight: var(--weight-body);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 .sidebar-update:hover {
-  background: light-dark(#dce7df, #252329);
+  background: light-dark(#dce7df, #262626);
 }
 /* Update state inside the centered app card on the About page (settings.css). */
 .about-update-status {
@@ -49,12 +49,12 @@
   height: 5px;
   border-radius: 8px;
   overflow: hidden;
-  background: light-dark(#29282c14, #ffffff1a);
+  background: light-dark(#2a2a2a14, #ffffff1a);
 }
 .update-progress > div {
   height: 100%;
   border-radius: 8px;
-  background: var(--settings-accent-fill, light-dark(#7a5c9e, #a58abe));
+  background: var(--settings-accent-fill, light-dark(#7d7d7d, #a4a4a4));
   transition: width 0.15s;
 }
 .update-progress-detail {

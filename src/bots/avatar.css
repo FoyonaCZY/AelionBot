@@ -127,9 +127,9 @@
     transform: rotate(360deg);
   }
 }
-/* Dark theme: black hair, cloaks and helmets would melt into the page; a faint rim keeps the silhouette. */
-:root[data-theme='dark'] .avatar .avatar-character {
-  filter: drop-shadow(0 0 calc(var(--avatar-size, 44px) * 0.015) #a59fb0a6);
+/* Dark theme: black Bots, hair, cloaks and helmets would melt into the page; a faint rim keeps the silhouette. */
+:root[data-theme='dark'] .avatar .avatar-body {
+  filter: drop-shadow(0 0 calc(var(--avatar-size, 44px) * 0.015) #a8a8a8a6);
 }
 /* Character props: still while idle; they move while the Bot thinks (slow), works (quick) or waits for you. */
 .avatar .avatar-prop {

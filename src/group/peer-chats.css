@@ -9,7 +9,7 @@
   overflow: auto;
   width: 100%;
   padding: 1px 6px;
-  color: light-dark(#343434, #dfdce2);
+  color: light-dark(#343434, #dfdfdf);
   font-size: calc(13px * var(--appearance-text-scale, 1));
   line-height: 1.65;
   cursor: text;
@@ -17,7 +17,7 @@
 }
 .composer-editor[data-empty='true']:before {
   content: attr(data-placeholder);
-  color: light-dark(#aaa, #b5b2b8);
+  color: light-dark(#aaa, #b5b5b5);
   pointer-events: none;
 }
 .bot-mention {
@@ -27,9 +27,9 @@
   vertical-align: baseline;
   max-width: 100%;
   padding: 1px 6px 1px 3px;
-  background: light-dark(#eceef1, #232127);
+  background: light-dark(#eceef1, #242424);
   border-radius: 6px;
-  color: light-dark(#404750, #d8d5db);
+  color: light-dark(#404750, #d8d8d8);
   font-size: inherit;
   line-height: 1.55;
   white-space: nowrap;
@@ -53,8 +53,8 @@
   max-height: min(290px, 42vh);
   overflow: auto;
   padding: 5px;
-  background: light-dark(#fff, #201e24);
-  border: 1px solid light-dark(#e3e5e8, #3e3945);
+  background: light-dark(#fff, #212121);
+  border: 1px solid light-dark(#e3e5e8, #3f3f3f);
   border-radius: 13px;
   box-shadow: 0 8px 30px #0002;
 }
@@ -69,7 +69,7 @@
 }
 .mention-picker > button.active,
 .mention-picker > button:hover {
-  background: light-dark(#f0f1f3, #222026);
+  background: light-dark(#f0f1f3, #232323);
 }
 .mention-picker > button > span {
   min-width: 0;
@@ -83,19 +83,19 @@
   display: block;
   margin-top: 4px;
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#92979f, #bcb9bf);
+  color: light-dark(#92979f, #bcbcbc);
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
 }
 .mention-empty {
   padding: 18px 12px;
-  color: light-dark(#92979f, #bcb9bf);
+  color: light-dark(#92979f, #bcbcbc);
   font-size: calc(12px * var(--appearance-text-scale, 1));
 }
 .message-row.user .bot-mention,
 .group-message.from-user .bot-mention {
-  background: light-dark(#ffffff24, #201e2424);
+  background: light-dark(#ffffff24, #21212124);
   color: inherit;
   margin: 0 2px;
   font-weight: var(--weight-body);
@@ -106,7 +106,7 @@
   justify-content: center;
   gap: 9px;
   margin: 18px 0;
-  color: light-dark(#989da3, #bab7bd);
+  color: light-dark(#989da3, #bababa);
   font-size: calc(12px * var(--appearance-text-scale, 1));
   min-width: 0;
 }
@@ -121,25 +121,25 @@
   flex-wrap: wrap;
 }
 .peer-notice-open:hover {
-  background: light-dark(#f3f4f5, #222026);
+  background: light-dark(#f3f4f5, #232323);
 }
 .peer-notice-open > strong {
   font-weight: var(--weight-label);
-  color: light-dark(#7c838c, #c3c0c6);
+  color: light-dark(#7c838c, #c3c3c3);
 }
 .peer-notice-status {
-  color: light-dark(#a2a6ad, #b6b3b9);
+  color: light-dark(#a2a6ad, #b6b6b6);
 }
 .peer-notice-cancel {
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#939aa4, #bbb8be);
+  color: light-dark(#939aa4, #bbbbbb);
   padding: 4px;
   border-radius: 5px;
   white-space: nowrap;
 }
 .peer-notice-cancel:hover {
   color: light-dark(#b1554e, #e2b4b0);
-  background: light-dark(#fff1ef, #211f25);
+  background: light-dark(#fff1ef, #222222);
 }
 .peer-notice-error {
   max-width: 160px;
@@ -154,7 +154,7 @@
   z-index: 65;
   padding: 24px;
   padding-top: calc(env(titlebar-area-height, 38px) + 12px);
-  background: light-dark(#0004, #e0dbe644);
+  background: light-dark(#0004, #e1e1e144);
   display: grid;
   place-items: center;
 }
@@ -165,7 +165,7 @@
   display: flex;
   flex-direction: column;
   border-radius: 16px;
-  background: light-dark(#fff, #201e24);
+  background: light-dark(#fff, #212121);
   box-shadow: 0 15px 60px #0003;
   overflow: hidden;
   outline: 0;
@@ -175,7 +175,7 @@
   align-items: center;
   gap: 12px;
   padding: 17px 23px;
-  border-bottom: 1px solid light-dark(#ebedef, #3e3945);
+  border-bottom: 1px solid light-dark(#ebedef, #3f3f3f);
   flex-shrink: 0;
 }
 .peer-chat-header > h2 {
@@ -205,7 +205,7 @@
 }
 .peer-chat-header .readonly-badge {
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#a0a5ab, #b7b4ba);
+  color: light-dark(#a0a5ab, #b7b7b7);
   margin-left: auto;
 }
 .peer-chat-header > .icon-button:last-child {
@@ -220,13 +220,13 @@
   overflow-y: auto;
   padding: 20px 30px 28px;
   scrollbar-width: thin;
-  scrollbar-color: light-dark(#dedfe3, #a29fa5) transparent;
+  scrollbar-color: light-dark(#dedfe3, #a2a2a2) transparent;
 }
 .peer-chat-empty {
   display: grid;
   place-items: center;
   min-height: 180px;
-  color: light-dark(#a0a5ab, #b7b4ba);
+  color: light-dark(#a0a5ab, #b7b7b7);
   font-size: calc(12px * var(--appearance-text-scale, 1));
 }
 .peer-chat-history {
@@ -242,7 +242,7 @@
   text-align: left;
 }
 .peer-thread-row:hover {
-  background: light-dark(#f5f5f6, #222026);
+  background: light-dark(#f6f6f6, #232323);
 }
 .peer-thread-row > span {
   flex: 1;
@@ -259,11 +259,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: light-dark(#92979e, #bcb9bf);
+  color: light-dark(#92979e, #bcbcbc);
   font-size: calc(12px * var(--appearance-text-scale, 1));
 }
 .peer-thread-row time {
-  color: light-dark(#a1a5aa, #b7b4ba);
+  color: light-dark(#a1a5aa, #b7b7b7);
   font-size: calc(12px * var(--appearance-text-scale, 1));
   white-space: nowrap;
 }
@@ -286,14 +286,14 @@
   display: block;
   margin: 0 0 6px 13px;
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#8e819b, #bfbcc2);
+  color: light-dark(#8e8e8e, #bfbfbf);
   font-weight: var(--weight-body);
 }
 .peer-message .peer-bubble {
   min-width: 0;
   padding: 10px 14px;
   background: var(--bubble-surface);
-  color: light-dark(#34313c, #dfdce2);
+  color: light-dark(#373737, #dfdfdf);
   border-radius: 6px 18px 18px 18px;
   box-shadow: var(--bubble-lift);
   overflow-wrap: anywhere;
@@ -304,7 +304,7 @@
   display: block;
   margin: 6px 12px 0;
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#a2a6ad, #b6b3b9);
+  color: light-dark(#a2a6ad, #b6b6b6);
 }
 .peer-message small.failed,
 .peer-message small.cancelled,
@@ -314,7 +314,7 @@
 .peer-date {
   text-align: center;
   margin: 16px 0 26px;
-  color: light-dark(#a5a8ad, #b6b3b9);
+  color: light-dark(#a5a8ad, #b6b6b6);
   font-size: calc(12px * var(--appearance-text-scale, 1));
 }
 .peer-chat-load {
@@ -322,7 +322,7 @@
   margin: 0 auto 16px;
   padding: 6px 10px;
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#838c98, #c0bdc3);
+  color: light-dark(#838c98, #c0c0c0);
 }
 .interaction-notification.peer-notification {
   top: 54px;
@@ -387,27 +387,27 @@
 .peer-task-message {
   padding: 14px 16px;
   margin: 18px 0;
-  border: 1px solid light-dark(#e7e9ec, #3e3945);
+  border: 1px solid light-dark(#e7e9ec, #3f3f3f);
   border-radius: 13px;
-  background: light-dark(#f7f8f9, #211f25);
+  background: light-dark(#f7f8f9, #222222);
 }
 .peer-task-source {
   display: flex;
   align-items: center;
   gap: 7px;
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#78818d, #c3c0c6);
+  color: light-dark(#78818d, #c3c3c3);
   padding: 0;
 }
 .peer-task-source strong {
   font-weight: var(--weight-label);
-  color: light-dark(#55606e, #cfccd2);
+  color: light-dark(#55606e, #cfcfcf);
 }
 .peer-task-message > p {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: calc(13px * var(--appearance-text-scale, 1));
   line-height: 1.8;
-  color: light-dark(#454e59, #d6d3d9);
+  color: light-dark(#454e59, #d6d6d6);
   margin: 10px 0 0;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Avatar } from '../ui/Avatar';
 import { useSwitchMotion } from '../ui/motion';
 import { Select } from '../ui/Select';
@@ -164,11 +164,14 @@ export function BotPaletteEditor({
   onChange,
   name = 'Bot',
   disabled = false,
+  children,
 }: {
   value: BotPalette;
   onChange: (palette: BotPalette) => void;
   name?: string;
   disabled?: boolean;
+  /** What goes between the face and its colors: the Bot's name. */
+  children?: ReactNode;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false),
@@ -180,7 +183,6 @@ export function BotPaletteEditor({
     paint = style && style.kind !== 'character' ? style : undefined,
     character = style?.kind === 'character' ? botCharacter(style.character) : undefined;
   const key = botPaletteKey(palette),
-    preset = BOT_PALETTES.find((item) => botPaletteKey(item) === key),
     kindLabel = t(KIND_LABELS[kind]);
   const custom = useRef<HTMLDetailsElement>(null);
   useSwitchMotion(custom, kind, '.bot-palette-presets');
@@ -208,13 +210,24 @@ export function BotPaletteEditor({
   return (
     <section className="bot-palette-editor" aria-label={t('头像配色')}>
       <div className="bot-palette-summary">
-        <Avatar bot={{ name, ...palette }} size={60} />
-        <div>
-          <span>{character ? t('头像形象') : t('头像配色')}</span>
-          <strong>
-            {character ? t(character.name) : preset ? t(preset.name) : t('自定义{kind}', { kind: kindLabel })}
-          </strong>
-        </div>
+        <Avatar bot={{ name, ...palette }} size={88} />
+      </div>
+      {children}
+      <div className="bot-palette-quick" role="group" aria-label={t('纯色预设')}>
+        {BOT_PALETTES.filter((item) => !item.avatarStyle).map((item) => (
+          <button
+            type="button"
+            key={item.id}
+            title={t(item.name)}
+            aria-label={t('选择{name}配色', { name: t(item.name) })}
+            aria-pressed={key === botPaletteKey(item)}
+            disabled={disabled}
+            style={{ '--swatch': item.color } as CSSProperties}
+            onClick={() => selectPalette(normalizeBotPalette(item))}
+          />
+        ))}
+      </div>
+      <div className="bot-palette-actions">
         <button
           type="button"
           className="bot-palette-toggle"

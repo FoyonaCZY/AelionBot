@@ -1,12 +1,12 @@
 .companion-surface {
-  --companion-ink: light-dark(#303036, #e0dde3);
-  --companion-muted: light-dark(#797981, #c5c2c8);
-  --companion-line: light-dark(#e8e8ec, #3e3945);
-  background: light-dark(#fff, #201e24);
+  --companion-ink: light-dark(#333333, #e0e0e0);
+  --companion-muted: light-dark(#7d7d7d, #c5c5c5);
+  --companion-line: light-dark(#eaeaea, #3f3f3f);
+  background: light-dark(#fff, #212121);
   border: 1px solid var(--companion-line);
   border-radius: 20px 20px 20px 8px;
   color: var(--companion-ink);
-  box-shadow: 0 2px 8px #24242b04;
+  box-shadow: 0 2px 8px #28282804;
   animation: companion-arrive 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 .companion-badge {
@@ -17,7 +17,7 @@
   width: 44px;
   height: 44px;
   border-radius: 16px 20px 15px 19px;
-  background: light-dark(#eee7fc, #222026);
+  background: light-dark(#e8f0fb, #232323);
   isolation: isolate;
 }
 .companion-badge-symbol {
@@ -28,10 +28,10 @@
   bottom: -1px;
   width: 19px;
   height: 19px;
-  border: 2px solid light-dark(#fff, #3e3945);
+  border: 2px solid light-dark(#fff, #3f3f3f);
   border-radius: 7px;
-  background: light-dark(#f0eafa, #222026);
-  color: light-dark(#8568bf, #bdafda);
+  background: light-dark(#eaf1fa, #232323);
+  color: light-dark(#688ebf, #afc2da);
 }
 .companion-badge .avatar[data-activity='waiting'] .avatar-body {
   animation: companion-waiting 5.5s ease-in-out infinite;
@@ -40,18 +40,18 @@
   animation: avatar-blink 7.6s ease-in-out infinite;
 }
 .companion-goal {
-  background: light-dark(#eaeafc, #222026);
+  background: light-dark(#eaf2fc, #232323);
 }
 .companion-goal .companion-badge-symbol {
-  background: light-dark(#eeedfc, #222026);
-  color: light-dark(#7b71c7, #b7b2dd);
+  background: light-dark(#edf4fc, #232323);
+  color: light-dark(#7196c7, #b2c5dd);
 }
 .companion-permission .companion-badge-symbol {
-  background: light-dark(#fff2dc, #232127);
+  background: light-dark(#fff2dc, #242424);
   color: light-dark(#b38740, #ddc7a3);
 }
 .companion-takeover .companion-badge-symbol {
-  background: light-dark(#e9f3f6, #232127);
+  background: light-dark(#e9f3f6, #242424);
   color: light-dark(#5b94a5, #acc9d1);
 }
 .companion-status {
@@ -70,7 +70,7 @@
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: light-dark(#c4bccf, #b9b5be);
+  background: light-dark(#c6c6c6, #bababa);
   flex-shrink: 0;
 }
 .companion-surface .companion-button {
@@ -80,10 +80,10 @@
   gap: 6px;
   min-height: 32px;
   padding: 6px 12px;
-  border: 1px solid light-dark(#e4e4e8, #3e3945);
+  border: 1px solid light-dark(#e6e6e6, #3f3f3f);
   border-radius: 8px;
-  background: light-dark(#fff, #201e24);
-  color: light-dark(#63636b, #cdcad0);
+  background: light-dark(#fff, #212121);
+  color: light-dark(#676767, #cdcdcd);
   font-size: calc(12px * var(--appearance-text-scale, 1));
   font-weight: var(--weight-label);
   line-height: 1.5;
@@ -93,35 +93,35 @@
     border-color 0.15s;
 }
 .companion-surface .companion-button:not(:disabled):hover {
-  background: light-dark(#f6f6f8, #211f25);
-  border-color: light-dark(#d8d8de, #3e3945);
-  color: light-dark(#33333b, #dedbe1);
+  background: light-dark(#f7f7f7, #222222);
+  border-color: light-dark(#dbdbdb, #3f3f3f);
+  color: light-dark(#373737, #dedede);
 }
 .companion-surface .companion-primary {
-  background: light-dark(#34313b, #e0dbe6);
-  border-color: light-dark(#34313b, #3e3945);
-  color: light-dark(#fff, #231f29);
+  background: light-dark(#363636, #e1e1e1);
+  border-color: light-dark(#363636, #3f3f3f);
+  color: light-dark(#fff, #242424);
   box-shadow: none;
 }
 .companion-surface .companion-primary:not(:disabled):hover {
-  background: light-dark(#49454f, #e0dbe6);
-  border-color: light-dark(#49454f, #3e3945);
-  color: light-dark(#fff, #231f29);
+  background: light-dark(#4a4a4a, #e1e1e1);
+  border-color: light-dark(#4a4a4a, #3f3f3f);
+  color: light-dark(#fff, #242424);
 }
 .companion-surface .companion-button:not(:disabled):active {
-  background: light-dark(#eae9ed, #232127);
+  background: light-dark(#ebebeb, #242424);
 }
 .companion-surface .companion-primary:not(:disabled):active {
-  background: light-dark(#25222d, #e0dbe6);
+  background: light-dark(#282828, #e1e1e1);
 }
 .companion-surface .companion-quiet {
   border-color: transparent;
   background: transparent;
   box-shadow: none;
-  color: light-dark(#75757d, #c7c4ca);
+  color: light-dark(#797979, #c7c7c7);
 }
 .companion-surface button:focus-visible {
-  outline: 2px solid light-dark(#aa90e8, #3e3945);
+  outline: 2px solid light-dark(#90b6e8, #3f3f3f);
   outline-offset: 2px;
 }
 .companion-surface button:disabled {
@@ -141,7 +141,7 @@
 }
 @keyframes companion-status-pulse {
   50% {
-    box-shadow: 0 0 0 3px #9679d918;
+    box-shadow: 0 0 0 3px #79a3d918;
   }
 }
 @keyframes companion-waiting {

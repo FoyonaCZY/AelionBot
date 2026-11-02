@@ -3,11 +3,11 @@
   width: 420px;
   max-width: calc(100vw - 32px);
   padding: 32px;
-  border: 1px solid light-dark(#eeebf2, #3e3945);
+  border: 1px solid light-dark(#efefef, #3f3f3f);
   border-radius: 24px;
-  background: light-dark(#fff, #201e24);
-  color: light-dark(#35303e, #dedbe1);
-  box-shadow: 0 24px 100px #30223c18;
+  background: light-dark(#fff, #212121);
+  color: light-dark(#373737, #dedede);
+  box-shadow: 0 24px 100px #2f2f2f18;
 }
 .computer-setup-modal > header {
   position: absolute;
@@ -24,12 +24,12 @@
 .computer-setup-modal > header .icon-button {
   width: 28px;
   height: 28px;
-  color: light-dark(#aaa2b0, #b6b3b9);
+  color: light-dark(#a9a9a9, #b6b6b6);
   border-radius: 50%;
 }
 .computer-setup-modal > header .icon-button:hover {
-  background: light-dark(#f4f1f7, #222026);
-  color: light-dark(#62576f, #cfccd2);
+  background: light-dark(#f4f4f4, #232323);
+  color: light-dark(#636363, #cfcfcf);
 }
 .computer-setup {
   padding: 4px 0 0;
@@ -59,14 +59,14 @@
   width: 88px;
   height: 9px;
   border-radius: 50%;
-  background: light-dark(#f0ebf6, #222026);
+  background: light-dark(#ebf0f6, #232323);
 }
 .setup-mascot-spark {
   position: absolute;
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: light-dark(#ded3ec, #252329);
+  background: light-dark(#d3deec, #262626);
 }
 .setup-mascot-spark.spark-one {
   left: 17px;
@@ -77,7 +77,7 @@
   top: 70px;
   width: 4px;
   height: 4px;
-  background: light-dark(#cbdedc, #27252b);
+  background: light-dark(#cbdedc, #282828);
 }
 .setup-mascot-check {
   position: absolute;
@@ -88,9 +88,9 @@
   height: 23px;
   display: grid;
   place-items: center;
-  border: 3px solid light-dark(#fff, #3e3945);
+  border: 3px solid light-dark(#fff, #3f3f3f);
   border-radius: 50%;
-  background: light-dark(#b6d9cb, #29272d);
+  background: light-dark(#b6d9cb, #2a2a2a);
   color: light-dark(#355b4f, #b7cac4);
 }
 .computer-setup[data-state='working'] .setup-mascot > .avatar {
@@ -108,20 +108,20 @@
   font-weight: var(--weight-body);
   letter-spacing: -0.6px;
   margin: 0 0 11px;
-  color: light-dark(#35303e, #dedbe1);
+  color: light-dark(#373737, #dedede);
 }
 .setup-intro p {
   font-size: calc(12px * var(--appearance-text-scale, 1));
   line-height: 1.8;
   margin: 0;
-  color: light-dark(#968c9f, #bdbac0);
+  color: light-dark(#969696, #bdbdbd);
 }
 .setup-capabilities {
   display: flex;
   justify-content: center;
   gap: 19px;
   margin: 29px 0 31px;
-  color: light-dark(#95879f, #bebbc1);
+  color: light-dark(#939393, #bebebe);
 }
 .setup-capabilities span {
   display: flex;
@@ -139,16 +139,16 @@
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  color: light-dark(#8e809b, #c0bdc3);
+  color: light-dark(#8e8e8e, #c0c0c0);
   font-size: calc(12px * var(--appearance-text-scale, 1));
 }
 .setup-current-label > span:last-child {
-  color: light-dark(#b0a5ba, #a9a4ae);
+  color: light-dark(#b0b0b0, #a9a9a9);
   font-variant-numeric: tabular-nums;
 }
 .setup-progress {
   height: 3px;
-  background: light-dark(#eee9f3, #232127);
+  background: light-dark(#eeeeee, #242424);
   border-radius: 4px;
   overflow: hidden;
   width: 100%;
@@ -158,7 +158,7 @@
   display: block;
   height: 100%;
   border-radius: 4px;
-  background: light-dark(#ab94c6, #b8aec5);
+  background: light-dark(#94aac6, #bababa);
   transition: width 0.3s;
 }
 .setup-progress .indeterminate {
@@ -167,7 +167,7 @@
 }
 .setup-diagnostics {
   margin: 12px 0;
-  color: light-dark(#a79aaf, #b7b4ba);
+  color: light-dark(#a4a4a4, #b7b7b7);
   font-size: calc(12px * var(--appearance-text-scale, 1));
   text-align: left;
 }
@@ -181,7 +181,7 @@
   display: none;
 }
 .setup-diagnostics summary:hover {
-  color: light-dark(#786087, #c4b8cb);
+  color: light-dark(#747474, #c2c2c2);
 }
 .setup-diagnostics p {
   max-height: 100px;
@@ -192,12 +192,12 @@
   text-align: left;
   margin: 8px 0;
   padding: 12px;
-  background: light-dark(#f8f6fa, #211f25);
+  background: light-dark(#f8f8f8, #222222);
   border-radius: 10px;
 }
 .setup-diagnostics .setup-error {
   color: light-dark(#a46d65, #d6bab6);
-  background: light-dark(#faf6f4, #211f25);
+  background: light-dark(#faf6f4, #222222);
 }
 .setup-requirements {
   font-size: calc(12px * var(--appearance-text-scale, 1));
@@ -224,30 +224,30 @@
   box-shadow: none;
 }
 .setup-actions .primary-button {
-  background: light-dark(#82639e, #b9acc6);
-  color: light-dark(#fff, #231f29);
+  background: light-dark(#818181, #b9b9b9);
+  color: light-dark(#fff, #242424);
   min-width: 162px;
   border: 1px solid transparent;
 }
 .setup-actions .primary-button:hover {
-  background: light-dark(#73548f, #b9acc6);
+  background: light-dark(#727272, #b9b9b9);
 }
 .setup-actions .secondary-button {
-  background: light-dark(#f5f2f8, #222026);
+  background: light-dark(#f5f5f5, #232323);
   border: 1px solid transparent;
-  color: light-dark(#93839f, #bebbc1);
+  color: light-dark(#919191, #bebebe);
   min-width: 84px;
 }
 .setup-actions .secondary-button:hover {
-  background: light-dark(#eee8f4, #232127);
+  background: light-dark(#e8edf4, #242424);
 }
 .setup-actions .setup-background {
-  background: light-dark(#f0eaf7, #222026);
-  color: light-dark(#82649b, #c3b4cf);
+  background: light-dark(#eaf0f7, #232323);
+  color: light-dark(#808080, #c2c2c2);
   min-width: 200px;
 }
 .setup-actions .setup-background:hover {
-  background: light-dark(#e8dff2, #242228);
+  background: light-dark(#dfe7f2, #252525);
 }
 .setup-footnote {
   display: flex;
@@ -255,7 +255,7 @@
   justify-content: center;
   gap: 6px;
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#b0a5ba, #a9a4ae);
+  color: light-dark(#b0b0b0, #a9a9a9);
   line-height: 1.7;
   margin: 16px 0 0;
   position: relative;
@@ -273,11 +273,11 @@
   bottom: 20px;
   margin: 0;
   padding: 12px;
-  border: 1px solid light-dark(#eee9f3, #3e3945);
+  border: 1px solid light-dark(#eeeeee, #3f3f3f);
   border-radius: 10px;
-  background: light-dark(#fff, #201e24);
-  color: light-dark(#95869f, #bebbc1);
-  box-shadow: 0 5px 20px #3422410c;
+  background: light-dark(#fff, #212121);
+  color: light-dark(#939393, #bebebe);
+  box-shadow: 0 5px 20px #222f410c;
   text-align: left;
 }
 @keyframes setup-progress {

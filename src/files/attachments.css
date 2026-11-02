@@ -24,14 +24,14 @@
 /* A file in a message: what it holds on top (the first lines of a text file, otherwise its kind), its name below.
    The kind's color (--file-ink, file-cards.css) tints the top. */
 :where(.attachment-thumb) {
-  --file-ink: light-dark(#85818e, #c2bfc5);
+  --file-ink: light-dark(#888888, #c2c2c2);
 }
 .attachment-thumb {
   --file-title: var(--text-ink);
   --file-muted: var(--text-secondary);
   --thumb-surface: var(--bubble-surface);
-  --thumb-paper: light-dark(#fff, #3b3742);
-  --thumb-edge: light-dark(#2a1f3a0d, #ffffff0d);
+  --thumb-paper: light-dark(#fff, #3d3d3d);
+  --thumb-edge: light-dark(#1f2b3a0d, #ffffff0d);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -48,11 +48,11 @@
 }
 /* Inside a bubble the tile has no shadow to lift it, so it gets a line. */
 :is(.bubble, .group-message-bubble, .peer-bubble, .run-step-note):not(.is-media) .attachment-thumb {
-  --thumb-edge: light-dark(#e3deea, #453f4d);
+  --thumb-edge: light-dark(#e4e4e4, #464646);
 }
 .attachment-thumb:hover,
 .attachment-thumb:focus-within {
-  --thumb-edge: light-dark(#c6b5d6, #6d5f86);
+  --thumb-edge: light-dark(#c6c6c6, #737373);
 }
 .attachment-thumb-preview {
   position: relative;
@@ -69,7 +69,7 @@
   height: 46px;
   border-radius: 13px;
   background: var(--file-ink);
-  color: light-dark(#fff, #231f29);
+  color: light-dark(#fff, #242424);
 }
 .file-glyph > svg {
   width: 26px;
@@ -86,8 +86,8 @@
   border-radius: 5px 5px 0 0;
   background: var(--thumb-paper);
   box-shadow:
-    0 1px 4px #1d142826,
-    0 0 0 0.5px #1d14281f;
+    0 1px 4px #141d2826,
+    0 0 0 0.5px #141d281f;
   overflow: hidden;
 }
 .file-mini {
@@ -144,7 +144,7 @@
   color: var(--text-ink);
 }
 .file-mini.is-table td {
-  border-bottom: 1px solid light-dark(#ebe7f0, #4a4552);
+  border-bottom: 1px solid light-dark(#ececec, #4c4c4c);
 }
 .attachment-thumb-open {
   display: block;
@@ -163,7 +163,7 @@
   outline: none;
 }
 .attachment-thumb-open:focus-visible::before {
-  outline: 2px solid light-dark(#9783d7, #8f7fb3);
+  outline: 2px solid light-dark(#83a7d7, #999999);
   outline-offset: -2px;
 }
 :root .attachment-thumb .file-tile-name {
@@ -185,7 +185,7 @@
   border-radius: 50%;
   background: var(--thumb-surface);
   color: var(--text-secondary);
-  box-shadow: 0 1px 4px #1d142838;
+  box-shadow: 0 1px 4px #141d2838;
   opacity: 0;
   transition: opacity 0.15s;
 }
@@ -218,8 +218,8 @@
   margin: 0;
   overflow: hidden;
   border-radius: 12px;
-  border: 1px solid light-dark(#e6e0ec, #3a3540);
-  background: light-dark(#f3f0f6, #26232a);
+  border: 1px solid light-dark(#e6e6e6, #3b3b3b);
+  background: light-dark(#f3f3f3, #272727);
 }
 .chat-images.is-mosaic .chat-image {
   aspect-ratio: 4 / 3;
@@ -258,10 +258,10 @@
 }
 .chat-image.is-single .chat-image-open > img {
   object-fit: contain;
-  background: light-dark(#fff, #1c1a20);
+  background: light-dark(#fff, #1d1d1d);
 }
 .chat-image-placeholder {
-  background: linear-gradient(110deg, transparent 30%, light-dark(#faf8fc, #2c2931) 50%, transparent 70%) 0 0 / 200%
+  background: linear-gradient(110deg, transparent 30%, light-dark(#f8fafc, #2d2d2d) 50%, transparent 70%) 0 0 / 200%
     100%;
   animation: chat-image-shimmer 1.4s linear infinite;
 }
@@ -275,7 +275,7 @@
   inset: 0;
   display: grid;
   place-items: center;
-  background: #231e2a73;
+  background: #24242473;
   color: #fff;
   font-size: calc(20px * var(--appearance-text-scale, 1));
   font-weight: var(--weight-heading);
@@ -293,7 +293,7 @@
   max-width: calc(100% - 52px);
   padding: 1px 7px;
   border-radius: 6px;
-  background: #1e1a24a6;
+  background: #1f1f1fa6;
   color: #fff;
   font-size: calc(11px * var(--appearance-text-scale, 1));
   line-height: 1.6;
@@ -309,8 +309,8 @@
   width: 26px;
   height: 26px;
   border-radius: 7px;
-  background: light-dark(#ffffffeb, #201e24eb);
-  color: light-dark(#5d5864, #d6d2da);
+  background: light-dark(#ffffffeb, #212121eb);
+  color: light-dark(#5e5e5e, #d6d6d6);
   box-shadow: 0 1px 3px #0000001a;
 }
 .chat-image:hover :is(.chat-image-caption, .chat-image-save),
@@ -319,7 +319,7 @@
   pointer-events: auto;
 }
 .chat-image-open:focus-visible {
-  outline: 2px solid light-dark(#aa90e8, #8f7fb3);
+  outline: 2px solid light-dark(#90b6e8, #999999);
   outline-offset: -2px;
 }
 .message-row.user .chat-images {
@@ -359,8 +359,8 @@
   padding: 0;
   overflow: hidden;
   border-radius: 10px;
-  border: 1px solid light-dark(#e6e0ec, #3a3540);
-  background: light-dark(#f3f0f6, #26232a);
+  border: 1px solid light-dark(#e6e6e6, #3b3b3b);
+  background: light-dark(#f3f3f3, #272727);
 }
 .composer-thumb-open > img {
   display: block;
@@ -378,9 +378,9 @@
   height: 18px;
   padding: 0;
   border-radius: 50%;
-  background: light-dark(#3a3541, #d9d4df);
-  color: light-dark(#fff, #1f1c23);
-  border: 2px solid light-dark(#fff, #201e24);
+  background: light-dark(#3b3b3b, #dadada);
+  color: light-dark(#fff, #202020);
+  border: 2px solid light-dark(#fff, #212121);
 }
 @media (prefers-reduced-motion: reduce) {
   .chat-image-placeholder {
@@ -397,7 +397,7 @@
   max-width: 268px;
   border-radius: 9px;
   box-shadow: none;
-  --file-surface: light-dark(#faf9fc, #211f25);
+  --file-surface: light-dark(#f9fafc, #222222);
 }
 .attachment-tag .attachment-open {
   padding: 6px 9px;
@@ -428,11 +428,11 @@
   padding: 0;
   margin-right: 6px;
   border-radius: 6px;
-  color: light-dark(#98929f, #bcb9bf);
+  color: light-dark(#999999, #bcbcbc);
 }
 .attachment-remove:hover {
-  background: light-dark(#ece8f1, #232127);
-  color: light-dark(#61596d, #cfccd2);
+  background: light-dark(#ededed, #242424);
+  color: light-dark(#636363, #cfcfcf);
 }
 .composer-attachments {
   max-height: 132px;
@@ -441,20 +441,20 @@
 }
 .composer-attach {
   margin-right: auto !important;
-  color: light-dark(#8a9099, #bebbc1);
+  color: light-dark(#8a9099, #bebebe);
 }
 .composer-attach:hover {
-  color: light-dark(#343a43, #dddae0);
-  background: light-dark(#f1f2f4, #222026);
+  color: light-dark(#343a43, #dddddd);
+  background: light-dark(#f1f2f4, #232323);
 }
 .composer.is-dragging {
-  border-color: light-dark(#8e959f, #3e3945);
-  background: light-dark(#fafbfc, #211f25);
+  border-color: light-dark(#8e959f, #3f3f3f);
+  background: light-dark(#fafbfc, #222222);
 }
 .composer-uploading,
 .composer-attachment-error {
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#9298a1, #bbb8be);
+  color: light-dark(#9298a1, #bbbbbb);
   padding: 3px 9px 7px;
 }
 .composer-attachment-error {
@@ -464,7 +464,7 @@
   position: fixed;
   inset: 0;
   z-index: 180;
-  background: light-dark(#0006, #e0dbe666);
+  background: light-dark(#0006, #e1e1e166);
   display: grid;
   place-items: center;
   padding: 56px 30px 30px;
@@ -476,7 +476,7 @@
   width: min(1000px, 96vw);
   height: min(760px, 88vh);
   max-height: 100%;
-  background: light-dark(#fff, #201e24);
+  background: light-dark(#fff, #212121);
   border-radius: 15px;
   box-shadow: 0 20px 80px #0004;
   overflow: hidden;
@@ -486,7 +486,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  border-bottom: 1px solid light-dark(#edeef0, #3e3945);
+  border-bottom: 1px solid light-dark(#edeef0, #3f3f3f);
   padding: 16px 19px;
   flex-shrink: 0;
 }
@@ -503,11 +503,11 @@
 }
 .attachment-preview header small {
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#9a9fa7, #b9b6bc);
+  color: light-dark(#9a9fa7, #b9b9b9);
 }
 .attachment-preview header button {
   border-radius: 8px;
-  background: light-dark(#f1f2f3, #222026);
+  background: light-dark(#f1f2f3, #232323);
   padding: 8px 14px;
   font-size: calc(12px * var(--appearance-text-scale, 1));
 }
@@ -515,7 +515,7 @@
   background: transparent;
   font-size: calc(23px * var(--appearance-text-scale, 1));
   padding: 3px 8px;
-  color: light-dark(#858b94, #c0bdc3);
+  color: light-dark(#858b94, #c0c0c0);
 }
 .attachment-preview-body {
   display: flex;
@@ -538,7 +538,7 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font: var(--weight-body) calc(13px * var(--appearance-text-scale, 1))/1.7 var(--font-code);
-  color: light-dark(#454b54, #d7d4da);
+  color: light-dark(#454b54, #d7d7d7);
 }
 .attachment-preview-body iframe {
   border: 0;
@@ -546,7 +546,7 @@
   height: 100%;
 }
 .attachment-empty {
-  color: light-dark(#969ca5, #bab7bd);
+  color: light-dark(#969ca5, #bababa);
   text-align: center;
   font-size: calc(12px * var(--appearance-text-scale, 1));
 }
@@ -582,8 +582,8 @@
   align-items: center;
   gap: 9px;
   padding: 8px 10px;
-  border: 1px solid light-dark(#e1e2e5, #3e3945);
-  background: light-dark(#f7f7f8, #211f25);
+  border: 1px solid light-dark(#e1e2e5, #3f3f3f);
+  background: light-dark(#f8f8f8, #222222);
   border-radius: 12px;
   font-size: calc(12px * var(--appearance-text-scale, 1));
   flex-wrap: wrap;
@@ -599,9 +599,9 @@
 }
 .composer-directory-choice > button:not(.icon-button) {
   padding: 5px 9px;
-  border: 1px solid light-dark(#dedfe2, #3e3945);
+  border: 1px solid light-dark(#dedfe2, #3f3f3f);
   border-radius: 8px;
-  background: light-dark(#fff, #201e24);
+  background: light-dark(#fff, #212121);
   color: inherit;
   cursor: pointer;
   font: inherit;

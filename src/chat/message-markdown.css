@@ -1,13 +1,13 @@
 :root .markdown {
-  --message-line: light-dark(#e5e5e9, #3e3945);
-  --message-surface: light-dark(#f7f7f8, #211f25);
-  --message-ink: light-dark(#343840, #dddae0);
-  --message-muted: light-dark(#74747d, #c7c4ca);
-  --message-link: light-dark(#7051a8, #beaeda);
-  --message-link-line: light-dark(#cdbde7, #3e3945);
-  --message-inline: light-dark(#ededf0, #232127);
-  --code-comment: light-dark(#747980, #c6c3c9);
-  --code-keyword: light-dark(#88548f, #cab0cd);
+  --message-line: light-dark(#e7e7e7, #3f3f3f);
+  --message-surface: light-dark(#f8f8f8, #222222);
+  --message-ink: light-dark(#343840, #dddddd);
+  --message-muted: light-dark(#797979, #c7c7c7);
+  --message-link: light-dark(#5177a8, #aec1da);
+  --message-link-line: light-dark(#bdcfe7, #3f3f3f);
+  --message-inline: light-dark(#efefef, #242424);
+  --code-comment: light-dark(#747980, #c6c6c6);
+  --code-keyword: light-dark(#727272, #bfbfbf);
   --code-string: light-dark(#38715d, #b2cfc5);
   --code-function: light-dark(#426c9c, #acc1d9);
   --code-number: light-dark(#966039, #dbc0ac);
@@ -62,7 +62,7 @@
   width: 13px;
   height: 13px;
   margin: 0 0.6em 0 -1.45em;
-  accent-color: light-dark(#8a759f, #c2b8cd);
+  accent-color: light-dark(#8a8a8a, #c3c3c3);
   vertical-align: -1px;
 }
 :root .markdown blockquote {
@@ -156,9 +156,9 @@
   margin: 1em 0;
   overflow: hidden;
   border-radius: 12px;
-  background: var(--message-surface, light-dark(#f7f7f8, #211f25));
-  box-shadow: inset 0 0 0 1px var(--message-line, light-dark(#e5e5e9, #3e3945));
-  color: var(--message-ink, light-dark(#343840, #dddae0));
+  background: var(--message-surface, light-dark(#f8f8f8, #222222));
+  box-shadow: inset 0 0 0 1px var(--message-line, light-dark(#e7e7e7, #3f3f3f));
+  color: var(--message-ink, light-dark(#343840, #dddddd));
   text-align: left;
 }
 .message-code-header {
@@ -178,7 +178,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--message-muted, light-dark(#74747d, #c7c4ca));
+  color: var(--message-muted, light-dark(#797979, #c7c7c7));
   font: var(--weight-label) calc(11.5px * var(--appearance-text-scale, 1))/1.5 var(--font-ui);
   letter-spacing: 0.01em;
 }
@@ -195,7 +195,7 @@
   border: 0;
   border-radius: 999px;
   background: transparent;
-  color: var(--message-muted, light-dark(#74747d, #c7c4ca));
+  color: var(--message-muted, light-dark(#797979, #c7c7c7));
   font: var(--weight-label) calc(11.5px * var(--appearance-text-scale, 1))/1.5 var(--font-ui);
   cursor: pointer;
   transition:
@@ -203,7 +203,7 @@
     color 0.15s;
 }
 .message-code-copy:hover {
-  color: var(--message-ink, light-dark(#343840, #dddae0));
+  color: var(--message-ink, light-dark(#343840, #dddddd));
   background: var(--ctl-fill-hover);
 }
 .message-code-copy[data-status='copied'] {
@@ -231,10 +231,10 @@
   word-break: normal;
   tab-size: 4;
   scrollbar-width: thin;
-  scrollbar-color: light-dark(#cccbd2, #a8a5ab) transparent;
+  scrollbar-color: light-dark(#cfcfcf, #a8a8a8) transparent;
 }
 :root .message-code-block pre.message-code-scroll:focus-visible {
-  outline: 2px solid var(--message-link-line, light-dark(#cdbde7, #3e3945));
+  outline: 2px solid var(--message-link-line, light-dark(#bdcfe7, #3f3f3f));
   outline-offset: -2px;
 }
 :root .message-code-block pre.message-code-scroll code {
@@ -254,10 +254,10 @@
 }
 :is(.message-code-block, .detail-code) .hljs-comment,
 :is(.message-code-block, .detail-code) .hljs-quote {
-  color: var(--code-comment, light-dark(#747980, #c6c3c9));
+  color: var(--code-comment, light-dark(#747980, #c6c6c6));
 }
 :is(.message-code-block, .detail-code) :is(.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-doctag) {
-  color: var(--code-keyword, light-dark(#88548f, #cab0cd));
+  color: var(--code-keyword, light-dark(#727272, #bfbfbf));
 }
 :is(.message-code-block, .detail-code) :is(.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute) {
   color: var(--code-string, light-dark(#38715d, #b2cfc5));
@@ -297,8 +297,8 @@
   gap: 5px;
   width: 100%;
   min-height: 32px;
-  border-top: 1px solid var(--message-line, light-dark(#e5e5e9, #3e3945));
-  color: var(--message-muted, light-dark(#74747d, #c7c4ca));
+  border-top: 1px solid var(--message-line, light-dark(#e7e7e7, #3f3f3f));
+  color: var(--message-muted, light-dark(#797979, #c7c7c7));
   font: var(--weight-label) calc(12px * var(--appearance-text-scale, 1))/1.5 var(--font-ui);
   transition:
     background 0.15s,
@@ -306,7 +306,7 @@
 }
 .message-code-fold:hover {
   background: var(--ctl-fill);
-  color: var(--message-ink, light-dark(#343840, #dddae0));
+  color: var(--message-ink, light-dark(#343840, #dddddd));
 }
 .message-code-fold > svg {
   transition: transform 0.18s;
@@ -322,12 +322,12 @@
   margin: 1em 0;
   overflow: auto;
   border-radius: 12px;
-  box-shadow: inset 0 0 0 1px var(--message-line, light-dark(#e5e5e9, #3e3945));
+  box-shadow: inset 0 0 0 1px var(--message-line, light-dark(#e7e7e7, #3f3f3f));
   scrollbar-width: thin;
-  scrollbar-color: light-dark(#cccbd2, #a8a5ab) transparent;
+  scrollbar-color: light-dark(#cfcfcf, #a8a8a8) transparent;
 }
 .markdown-table-scroll:focus-visible {
-  outline: 2px solid var(--message-link-line, light-dark(#cdbde7, #3e3945));
+  outline: 2px solid var(--message-link-line, light-dark(#bdcfe7, #3f3f3f));
   outline-offset: 2px;
 }
 .markdown-table-scroll table {
@@ -343,14 +343,14 @@
   max-width: 30rem;
   padding: 9px 14px;
   border: 0;
-  border-bottom: 1px solid var(--message-line, light-dark(#e5e5e9, #3e3945));
+  border-bottom: 1px solid var(--message-line, light-dark(#e7e7e7, #3f3f3f));
   text-align: left;
   vertical-align: top;
   overflow-wrap: anywhere;
 }
 .markdown-table-scroll th {
-  background: var(--message-surface, light-dark(#f7f7f8, #211f25));
-  color: var(--message-muted, light-dark(#74747d, #c7c4ca));
+  background: var(--message-surface, light-dark(#f8f8f8, #222222));
+  color: var(--message-muted, light-dark(#797979, #c7c7c7));
   font-size: 0.92em;
   font-weight: var(--weight-label);
   white-space: nowrap;
@@ -359,7 +359,7 @@
   transition: background 0.12s;
 }
 .markdown-table-scroll tbody tr:hover {
-  background: color-mix(in srgb, var(--message-surface, light-dark(#f7f7f8, #211f25)) 70%, transparent);
+  background: color-mix(in srgb, var(--message-surface, light-dark(#f8f8f8, #222222)) 70%, transparent);
 }
 .markdown-table-scroll tr:last-child td {
   border-bottom: 0;

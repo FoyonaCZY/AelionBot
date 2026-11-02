@@ -1,8 +1,9 @@
 /* The right column as floating cards over the top right of the message list: the computer card, then the canvas.
-   Tones follow the sidebar and the conversation: line #e7e7e7 / hover #ededed, dark fill #29262f / line #3e3945. */
+   They sit below the conversation header, whose band the message list runs under. */
 .app-shell {
   --computer-card-width: 340px;
   --computer-card-gap: 16px;
+  --computer-card-inset: 48px;
 }
 @media (max-width: 1150px) {
   .app-shell {
@@ -13,10 +14,10 @@
 
 :root .app-shell > .details.computer-details {
   position: absolute;
-  top: calc(var(--computer-card-top, 70px) + var(--computer-card-gap));
+  top: calc(var(--computer-card-top, 0px) + var(--computer-card-inset));
   right: var(--computer-card-gap);
   width: var(--computer-card-width);
-  max-height: calc(var(--computer-card-space, 520px) - var(--computer-card-gap) * 2);
+  max-height: calc(var(--computer-card-space, 520px) - var(--computer-card-inset) - var(--computer-card-gap));
   /* Not a grid column any more, and no card itself: the cards inside stack and share its height. */
   display: flex;
   flex-direction: column;
@@ -32,12 +33,10 @@
   position: relative;
   flex: 0 1 auto;
   min-height: 0;
-  border: 1px solid light-dark(#e7e7e7, #3e3945);
-  border-radius: 14px;
-  background: light-dark(#fff, #29262f);
-  box-shadow:
-    0 1px 2px light-dark(#0000000a, #0000002e),
-    0 12px 32px -14px light-dark(#00000029, #00000080);
+  border: 0;
+  border-radius: 16px;
+  background: var(--surface-float);
+  box-shadow: var(--float-shadow);
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: thin;
@@ -45,7 +44,7 @@
 /* The canvas keeps its picture in view; the computer card gives way and scrolls first. */
 :root .app-shell > .details.computer-details > .design-canvas-card {
   flex-shrink: 0;
-  max-height: calc(var(--computer-card-space, 520px) - var(--computer-card-gap) * 2);
+  max-height: calc(var(--computer-card-space, 520px) - var(--computer-card-inset) - var(--computer-card-gap));
 }
 :root .app-shell > .details.computer-details > .computer-card {
   min-height: 120px;
@@ -53,8 +52,7 @@
 :root .app-shell > .details.computer-details > .computer-card[hidden] {
   display: none;
 }
-:root .app-shell > .details.computer-details.is-closed,
-:root .app-shell[data-page='plugins'] > .details.computer-details {
+:root .app-shell > .details.computer-details.is-closed {
   display: none;
 }
 @media (max-width: 900px) {
@@ -76,7 +74,7 @@
 /* While the card is shown, replies never run underneath it. The header and the composer keep the full width. */
 @media (min-width: 901px) {
   body:not(:has(.fp-panel[data-layout='docked']))
-    .app-shell[data-page='chat']:has(> .computer-details:not(.is-closed))
+    .app-shell:has(> .computer-details:not(.is-closed))
     > .conversation
     .messages {
     padding-right: calc(var(--computer-card-width) + var(--computer-card-gap) * 2);
@@ -93,12 +91,12 @@
   background: transparent;
 }
 .computer-details .computer-panel.is-online {
-  border-bottom: 1px solid light-dark(#e7e7e7, #3e3945);
-  background: #1d1d20;
+  border-bottom: 1px solid light-dark(#e7e7e7, #3f3f3f);
+  background: #1e1e1e;
 }
 .computer-details .computer-panel-screen,
 .computer-details .computer-panel-display .vnc-shell {
-  background: #1d1d20;
+  background: #1e1e1e;
 }
 /* Controls stay out of the picture until the card is hovered or focused. */
 .computer-details .computer-panel.is-online .computer-panel-settings,
@@ -135,24 +133,24 @@
   place-items: center;
   padding: 0;
   border: 0;
-  color: light-dark(#7a7780, #b9b5bf);
+  color: light-dark(#7c7c7c, #bababa);
   background: transparent;
 }
 .computer-card-close:hover {
   color: var(--text-ink);
-  background: light-dark(#ededed, #35303c);
+  background: light-dark(#ededed, #363636);
 }
 .computer-details .computer-panel.is-online .computer-panel-settings,
 .computer-details .computer-panel-expand,
 .computer-card-close.is-online {
   color: #fff;
-  background: #1d1d20a6;
+  background: #1e1e1ea6;
   backdrop-filter: blur(6px);
 }
 .computer-details .computer-panel.is-online .computer-panel-settings:hover,
 .computer-card-close.is-online:hover {
   color: #fff;
-  background: #1d1d20e0;
+  background: #1e1e1ee0;
 }
 
 /* Offline: the screen area keeps its 16:10 shape. */
@@ -178,7 +176,7 @@
 .computer-details .desktop-status {
   margin: 0;
   padding: 8px 14px;
-  border-bottom: 1px solid light-dark(#efefef, #3a3540);
+  border-bottom: 1px solid light-dark(#efefef, #3b3b3b);
 }
 
 /* ---------- Scheduled tasks: one line each ---------- */
@@ -196,7 +194,7 @@
   gap: 6px;
   font-size: calc(12.5px * var(--appearance-text-scale, 1));
   font-weight: var(--weight-label);
-  color: light-dark(#6a6770, #c2bfc5);
+  color: light-dark(#6c6c6c, #c2c2c2);
 }
 .computer-details .scheduled-panel h2 > span {
   min-width: 18px;
@@ -206,8 +204,8 @@
   display: inline-grid;
   place-items: center;
   font-size: calc(11.5px * var(--appearance-text-scale, 1));
-  background: light-dark(#ededed, #35303c);
-  color: light-dark(#6a6770, #c2bfc5);
+  background: light-dark(#ededed, #363636);
+  color: light-dark(#6c6c6c, #c2c2c2);
 }
 .computer-details .scheduled-add {
   width: 26px;
@@ -228,7 +226,7 @@
   border-radius: 9px;
 }
 .computer-details .scheduled-row:hover {
-  background: light-dark(#f4f4f4, #302c36);
+  background: light-dark(#f4f4f4, #313131);
 }
 .computer-details .scheduled-open {
   flex: 1;
@@ -279,7 +277,7 @@
   width: 26px;
   height: 15px;
   border-radius: 8px;
-  background: light-dark(#d9d9db, #49434f);
+  background: light-dark(#dadada, #494949);
   transition: background 0.15s;
 }
 .scheduled-toggle-track::after {
@@ -294,7 +292,7 @@
   transition: transform 0.15s;
 }
 .scheduled-toggle[aria-checked='true'] .scheduled-toggle-track {
-  background: light-dark(#7a5bb8, #a58abe);
+  background: light-dark(#5b83b8, #a4a4a4);
 }
 .scheduled-toggle[aria-checked='true'] .scheduled-toggle-track::after {
   transform: translateX(11px);
@@ -321,7 +319,7 @@
   height: 6px;
   border-radius: 50%;
   background: #3a9a68;
-  box-shadow: 0 0 0 2px light-dark(#fff, #202024);
+  box-shadow: 0 0 0 2px light-dark(#fff, #222222);
 }
 body:has(.fp-panel[data-layout='docked']) .computer-card-toggle {
   display: none;

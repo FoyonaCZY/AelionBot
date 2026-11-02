@@ -1,13 +1,7 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Snapshot } from '../../shared/types/core';
-import {
-  APP_CONNECTORS,
-  APP_CONNECTOR_GROUPS,
-  OAUTH_REDIRECT_URL,
-  type AppConnector,
-} from '../../shared/app-connectors';
+import { OAUTH_REDIRECT_URL, type AppConnector } from '../../shared/app-connectors';
 import { AppLogo } from './AppLogo';
-import { Icon } from '../ui/Icon';
 import { ipcErrorText } from '../ui/ipc-error';
 import { useSwitchMotion } from '../ui/motion';
 import { useI18n } from '../i18n';
@@ -15,21 +9,21 @@ import './connectors.css';
 
 const GOOGLE_GUIDE = 'https://developers.google.com/workspace/guides/configure-mcp-servers';
 
-/** Picks an app, collects a token or Google client where needed, then signs in in the browser. */
+/** Connects `app`: collects a token or Google client where needed, then signs in in the browser. */
 export function AppConnectorDialog({
   state,
+  app: picked,
   onClose,
   onAdded,
 }: {
   state: Snapshot;
+  app: AppConnector;
   onClose: () => void;
   /** With the app's server ID, once it is added and, where it needs one, signed in. */
   onAdded: (id: string) => void;
 }) {
   const { t } = useI18n();
-  const [query, setQuery] = useState(''),
-    [picked, setPicked] = useState<AppConnector>(),
-    [token, setToken] = useState(''),
+  const [token, setToken] = useState(''),
     [clientId, setClientId] = useState(''),
     [clientSecret, setClientSecret] = useState(''),
     [newClient, setNewClient] = useState(false),
@@ -37,10 +31,7 @@ export function AppConnectorDialog({
     [pending, setPending] = useState(false),
     [copied, setCopied] = useState(false),
     [error, setError] = useState('');
-  const servers = state.integrations?.servers || [],
-    hasGoogleClient = Boolean(state.integrations?.ownClients.includes('google')),
-    words = query.trim().toLowerCase();
-  const added = (app: AppConnector) => servers.find((server) => server.app === app.id);
+  const hasGoogleClient = Boolean(state.integrations?.ownClients.includes('google'));
   const run = async (operation: () => Promise<void>) => {
     setPending(true);
     setError('');
@@ -62,20 +53,21 @@ export function AppConnectorDialog({
       }
       onAdded(id);
     });
-  const pick = (app: AppConnector) => {
-    const existing = added(app);
-    if (existing) return onAdded(existing.id);
-    setError('');
-    if (app.auth === 'token' || (app.auth === 'google' && !hasGoogleClient)) setPicked(app);
-    else void connect(app);
-  };
   const close = () => {
     if (signingIn) void window.aelion.cancelMcpSignIn(signingIn.id);
     onClose();
   };
-  const google = picked?.auth === 'google';
+  const google = picked.auth === 'google',
+    usesToken = picked.auth === 'token';
+  // Nothing to ask for: go straight to connecting. This view stays for a failure, with the error and a way to retry.
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || usesToken || (google && !hasGoogleClient)) return;
+    started.current = true;
+    void connect(picked);
+  }, []);
   const dialog = useRef<HTMLDivElement>(null);
-  useSwitchMotion(dialog, signingIn ? 'signing' : picked ? picked.id : '', ':scope > *');
+  useSwitchMotion(dialog, signingIn ? 'signing' : picked.id, ':scope > *');
   return (
     <div
       className="mcp-snippet-backdrop"
@@ -100,12 +92,8 @@ export function AppConnectorDialog({
               {t('取消')}
             </button>
           </div>
-        ) : picked ? (
+        ) : (
           <>
-            <button type="button" className="text-button app-back" onClick={() => setPicked(undefined)}>
-              <Icon name="back" size={14} />
-              {t('全部应用')}
-            </button>
             <div className="app-picked">
               <span className="connector-mark is-large">
                 <AppLogo app={picked.id} size={30} />
@@ -183,6 +171,8 @@ export function AppConnectorDialog({
                   </>
                 )}
               </div>
+            ) : !usesToken ? (
+              <p className="app-note">{t('让 Bot 读写这些应用里的内容。在浏览器里登录，凭据加密保存在这台电脑上。')}</p>
             ) : (
               <div className="connector-manual">
                 <p className="app-note">
@@ -223,87 +213,22 @@ export function AppConnectorDialog({
                   pending ||
                   (google
                     ? (!hasGoogleClient || newClient) && (!clientId.trim() || !clientSecret.trim())
-                    : !token.trim())
+                    : usesToken && !token.trim())
                 }
                 onClick={() =>
                   void connect(
                     picked,
-                    google ? (!hasGoogleClient || newClient ? { clientId, clientSecret } : {}) : { token },
+                    google
+                      ? !hasGoogleClient || newClient
+                        ? { clientId, clientSecret }
+                        : {}
+                      : usesToken
+                        ? { token }
+                        : {},
                   )
                 }
               >
                 {google ? t('登录') : t('连接')}
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <h2 id="app-dialog-title">{t('连接应用')}</h2>
-            <p>{t('让 Bot 读写这些应用里的内容。在浏览器里登录，凭据加密保存在这台电脑上。')}</p>
-            <label className="plugins-search app-search">
-              <Icon name="search" size={15} />
-              <input
-                type="search"
-                aria-label={t('搜索应用')}
-                placeholder={t('搜索应用')}
-                value={query}
-                autoFocus
-                onChange={(event) => setQuery(event.target.value)}
-              />
-            </label>
-            {error && (
-              <p className="mcp-snippet-error" role="alert">
-                {error}
-              </p>
-            )}
-            <div className="app-groups">
-              {APP_CONNECTOR_GROUPS.map((group) => {
-                const apps = APP_CONNECTORS.filter(
-                  (app) =>
-                    app.group === group.id &&
-                    `${app.name} ${t(app.name)} ${t(app.description)}`.toLowerCase().includes(words),
-                );
-                if (!apps.length) return null;
-                return (
-                  <section key={group.id} aria-label={t(group.name)}>
-                    <h3>{t(group.name)}</h3>
-                    <div className="app-grid">
-                      {apps.map((app) => (
-                        <button
-                          key={app.id}
-                          type="button"
-                          className="app-option"
-                          disabled={pending}
-                          onClick={() => pick(app)}
-                        >
-                          <span className="connector-mark">
-                            <AppLogo app={app.id} size={22} />
-                          </span>
-                          <span className="app-option-text">
-                            <strong>{t(app.name)}</strong>
-                            <small>{t(app.description)}</small>
-                          </span>
-                          {added(app) ? (
-                            <em className="is-added">{t('已添加')}</em>
-                          ) : app.auth === 'token' ? (
-                            <em>{t('令牌')}</em>
-                          ) : app.auth === 'google' ? (
-                            <em>{t('自有客户端')}</em>
-                          ) : app.local ? (
-                            <em>{t('本机')}</em>
-                          ) : app.auth === 'none' ? (
-                            <em>{t('免登录')}</em>
-                          ) : null}
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-                );
-              })}
-            </div>
-            <div className="mcp-snippet-actions">
-              <button className="secondary-button" type="button" onClick={close}>
-                {t('关闭')}
               </button>
             </div>
           </>

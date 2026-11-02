@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Bot, McpServerView, Skill, Snapshot, WorkSession } from '../../shared/types/core';
 import {
   CONNECTOR_PLATFORM_NAMES,
@@ -12,7 +12,7 @@ import { ConnectorDetails } from './ConnectorDetails';
 import { ConnectorLogo } from './ConnectorLogo';
 import { AppConnectorDialog } from './AppConnectorDialog';
 import { AppLogo } from './AppLogo';
-import { APP_CONNECTORS } from '../../shared/app-connectors';
+import { APP_CONNECTORS, APP_CONNECTOR_GROUPS, type AppConnector } from '../../shared/app-connectors';
 import { PluginIcon, mcpStatusText, sinceText } from './plugin-visuals';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
@@ -21,14 +21,14 @@ import { useSwitchMotion } from '../ui/motion';
 import { Presence } from '../ui/Presence';
 import { useI18n } from '../i18n';
 import './plugins.css';
-export type PluginFilter = 'all' | 'skills' | 'mcp' | 'connectors';
+export type PluginFilter = 'all' | 'apps' | 'skills' | 'mcp' | 'connectors';
 type Selected = { kind: 'skill' | 'mcp' | 'connector' | 'sources'; id: string };
 type SkillGroup = { key: string; title: string; note: string; path?: string; bot?: Bot; skills: Skill[] };
 const PLATFORMS: ConnectorPlatform[] = ['feishu', 'wecom', 'weixin'];
-/** Apps shown on the empty "apps" card, to say what kind of thing can be connected. */
+/** Apps recommended on the overview, to say what kind of thing can be connected. */
 const FEATURED_APPS = ['notion', 'github', 'gmail', 'linear', 'supabase', 'figma-desktop'];
 const appOf = (server: McpServerView) => APP_CONNECTORS.find((app) => app.id === server.app);
-/** How many skills of a group the overview shows before "show more". */
+/** How many skills of a group the overview shows before "view all". */
 const OVERVIEW_SKILLS = 6;
 export function PluginsPage({
   state,
@@ -45,11 +45,12 @@ export function PluginsPage({
   onClose: () => void;
   onOpenSession: (session: WorkSession) => void;
 }) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const [query, setQuery] = useState(''),
     [filter, setFilter] = useState<PluginFilter>(initialFilter),
     [selected, setSelected] = useState<Selected>(),
-    [adding, setAdding] = useState<'menu' | 'mcp' | 'app' | ConnectorPlatform>(),
+    [adding, setAdding] = useState<'menu' | 'mcp' | ConnectorPlatform>(),
+    [connecting, setConnecting] = useState<AppConnector>(),
     [expanded, setExpanded] = useState<Set<string>>(new Set()),
     [connectorError, setConnectorError] = useState(''),
     [appError, setAppError] = useState(''),
@@ -59,16 +60,21 @@ export function PluginsPage({
   useSwitchMotion(content, filter, ':scope > :is(.plugins-section, .plugins-empty)');
   useEffect(() => heading.current?.focus({ preventScroll: true }), []);
   useEffect(() => {
+    if (content.current) content.current.scrollTop = 0;
+  }, [filter]);
+  // Escape closes the dialog once nothing inside it (a menu, a drawer, a query in the search field) has taken it.
+  const covered = Boolean(selected || adding || connecting);
+  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         search.current?.focus();
         search.current?.select();
-      }
+      } else if (event.key === 'Escape' && !event.defaultPrevented && !covered) onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [covered, onClose]);
   const words = query.trim().toLowerCase(),
     skills = state.skills,
     servers = state.integrations?.servers || [],
@@ -95,17 +101,32 @@ export function PluginsPage({
       .toLowerCase()
       .includes(words),
   );
-  const tabs: Array<{ id: PluginFilter; name: string; count?: number }> = [
-    { id: 'all', name: t('概览') },
-    { id: 'skills', name: t('技能'), count: skills.length },
-    { id: 'connectors', name: t('连接器'), count: apps.length + connectors.length },
-    { id: 'mcp', name: 'MCP', count: plainServers.length },
+  const addedApps = new Set(apps.map((server) => server.app));
+  const catalog = APP_CONNECTORS.filter(
+    (app) => !addedApps.has(app.id) && `${app.name} ${t(app.name)} ${t(app.description)}`.toLowerCase().includes(words),
+  );
+  const featured = FEATURED_APPS.flatMap((id) => catalog.find((app) => app.id === id) || []);
+  // Platforms still to connect; each has a row until it has a connector.
+  const openPlatforms = PLATFORMS.filter(
+    (platform) =>
+      !connectors.some((connector) => connector.platform === platform) &&
+      t(CONNECTOR_PLATFORM_NAMES[platform]).toLowerCase().includes(words),
+  );
+  const tabs: Array<{ id: PluginFilter; name: string }> = [
+    { id: 'all', name: t('全部') },
+    { id: 'apps', name: t('应用') },
+    { id: 'skills', name: t('技能') },
+    { id: 'connectors', name: t('消息渠道') },
+    { id: 'mcp', name: 'MCP' },
   ];
   const show = (kind: PluginFilter) => filter === 'all' || filter === kind,
+    // The overview recommends a few apps; the whole catalog shows under its own filter or for a search.
+    wholeCatalog = filter === 'apps' || Boolean(words),
     nothing =
       (!show('skills') || !shownSkills.length) &&
       (!show('mcp') || !shownServers.length) &&
-      (!show('connectors') || (!shownConnectors.length && !shownApps.length)),
+      (!show('apps') || (!shownApps.length && !catalog.length)) &&
+      (!show('connectors') || (!shownConnectors.length && !openPlatforms.length)),
     toggleExpanded = (key: string) =>
       setExpanded((current) => {
         const next = new Set(current);
@@ -141,15 +162,35 @@ export function PluginsPage({
   const usedSkills = skills.filter((skill) => skill.enabled ?? !skill.archived).length,
     connectedServers = plainServers.filter((server) => server.status === 'connected').length;
   return (
-    <main className="plugins-page" aria-labelledby="plugins-heading">
-      <div ref={content} className="plugins-content">
-        <header className="plugins-header drag">
-          <div className="plugins-title">
-            <h1 id="plugins-heading" ref={heading} tabIndex={-1}>
-              {t('插件')}
-            </h1>
-            <p>{t('给 Bot 加技能、接上外部工具，或者让它在飞书和微信里收消息。')}</p>
-          </div>
+    <div
+      className="plugins-layer"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section className="plugins-page" role="dialog" aria-modal="true" aria-labelledby="plugins-heading">
+        <button className="icon-button plugins-close" aria-label={t('返回聊天')} onClick={onClose}>
+          <Icon name="close" size={18} />
+        </button>
+        <header className="plugins-header">
+          <h1 id="plugins-heading" ref={heading} tabIndex={-1}>
+            {t('插件')}
+          </h1>
+          {apps.length > 0 && (
+            <button type="button" className="plugins-summary" onClick={() => setFilter('apps')}>
+              <span className="connector-add-logos">
+                {apps.slice(0, 3).map((server) => (
+                  <span className="connector-mark is-small" key={server.id}>
+                    <AppLogo app={server.app} size={14} />
+                  </span>
+                ))}
+              </span>
+              {t('已添加 {count} 个应用', { count: apps.length })}
+              <Icon name="chevron" size={12} />
+            </button>
+          )}
+        </header>
+        <div className="plugins-toolbar">
           <label className="plugins-search">
             <Icon name="search" size={16} />
             <input
@@ -166,7 +207,6 @@ export function PluginsPage({
                 }
               }}
             />
-            {!query && <kbd>Ctrl K</kbd>}
           </label>
           <AddMenu
             open={adding === 'menu'}
@@ -176,25 +216,30 @@ export function PluginsPage({
               if (kind === 'skills') {
                 setAdding(undefined);
                 void act(() => window.aelion.addIntegrationSource('skills'));
-              } else setAdding(kind === 'mcp' ? 'mcp' : kind === 'app' ? 'app' : 'feishu');
+              } else if (kind === 'app') {
+                setAdding(undefined);
+                setFilter('apps');
+                search.current?.focus();
+              } else setAdding(kind === 'mcp' ? 'mcp' : 'feishu');
             }}
           />
-          <button className="icon-button" aria-label={t('返回聊天')} onClick={onClose}>
-            <Icon name="close" size={20} />
-          </button>
-        </header>
+        </div>
         <nav className="plugins-tabs" aria-label={t('插件分类')}>
           {tabs.map((tab) => (
             <button key={tab.id} type="button" aria-current={filter === tab.id} onClick={() => setFilter(tab.id)}>
               {tab.name}
-              {tab.count !== undefined && <span>{tab.count}</span>}
             </button>
           ))}
           <span className="plugins-tabs-spacer" />
           {state.integrations && (
-            <button type="button" className="plugins-tab-link" onClick={() => setSelected({ kind: 'sources', id: '' })}>
+            <button
+              type="button"
+              className="plugins-tab-link"
+              title={t('来源与配置')}
+              aria-label={t('来源与配置')}
+              onClick={() => setSelected({ kind: 'sources', id: '' })}
+            >
               <Icon name="folder" size={15} />
-              {t('来源与配置')}
             </button>
           )}
           <button
@@ -208,104 +253,98 @@ export function PluginsPage({
             <Icon name="restart" size={15} />
           </button>
         </nav>
-        {show('connectors') && (shownApps.length > 0 || !words) && (
-          <section className="plugins-section" aria-labelledby="plugins-apps-title">
-            <div className="plugins-section-head">
-              <h2 id="plugins-apps-title">{t('应用')}</h2>
-              <span>{t('让 Bot 读写 Notion、GitHub、Google 等应用里的内容')}</span>
-            </div>
-            {appError && (
-              <p className="computer-notice" role="alert">
-                {appError}
-              </p>
-            )}
-            <div className="connector-grid">
-              {shownApps.map((server) => (
-                <AppCard
-                  key={server.id}
-                  server={server}
-                  busy={busy}
-                  act={act}
-                  onSignIn={() => signIn(server.id)}
-                  onOpen={() => setSelected({ kind: 'mcp', id: server.id })}
-                />
-              ))}
-              {!words && (
-                <button
-                  type="button"
-                  className="connector-card is-add"
-                  disabled={busy}
-                  onClick={() => setAdding('app')}
-                >
-                  <span className="connector-add-logos">
-                    {FEATURED_APPS.slice(0, apps.length ? 3 : 6).map((app) => (
-                      <span className="connector-mark is-small" key={app}>
-                        <AppLogo app={app} size={14} />
-                      </span>
-                    ))}
-                  </span>
-                  <strong>{t('连接应用')}</strong>
-                  <small>{t('{count} 个应用可选', { count: APP_CONNECTORS.length })}</small>
-                </button>
-              )}
-            </div>
-          </section>
-        )}
-        {show('connectors') && (shownConnectors.length > 0 || !words) && (
-          <section className="plugins-section" aria-labelledby="plugins-connectors-title">
-            <div className="plugins-section-head">
-              <h2 id="plugins-connectors-title">{t('消息渠道')}</h2>
-              <span>{t('在手机上给 Bot 发消息')}</span>
-              {state.connectors && connectors.length > 0 && (
-                <label className="plugins-head-switch">
-                  {t('关闭窗口后保持连接')}
-                  <PluginSwitch
-                    name={t('关闭窗口后保持连接')}
-                    enabled={state.connectors.keepRunning}
-                    disabled={false}
-                    onChange={() =>
-                      void connectorAct(() => window.aelion.setConnectorsKeepRunning(!state.connectors!.keepRunning))
-                    }
-                  />
-                </label>
-              )}
-            </div>
-            {connectorError && (
-              <p className="computer-notice" role="alert">
-                {connectorError}
-              </p>
-            )}
-            {connectors.length === 0 ? (
-              <div className="connector-empty">
-                <div>
-                  <strong>{t('在飞书、企业微信或微信里和 Bot 对话')}</strong>
-                  <p>
-                    {t(
-                      '连接后，私聊消息会交给 Bot 在这台电脑上处理；企业微信群里 @ 它的消息也可以。做完把结果和文件发回去，不需要公网地址。',
-                    )}
-                  </p>
-                </div>
-                <div className="connector-empty-platforms">
-                  {PLATFORMS.map((platform) => (
-                    <button
-                      key={platform}
-                      type="button"
-                      className="secondary-button"
-                      onClick={() => setAdding(platform)}
-                    >
-                      <span className="connector-mark is-small">
-                        <ConnectorLogo platform={platform} size={14} />
-                      </span>
-                      {t(CONNECTOR_PLATFORM_NAMES[platform])}
-                      {platform === 'weixin' && <span className="plugin-tag">{t('实验')}</span>}
-                    </button>
-                  ))}
-                </div>
+        <div ref={content} className="plugins-body">
+          {appError && (
+            <p className="computer-notice" role="alert">
+              {appError}
+            </p>
+          )}
+          {show('apps') && shownApps.length > 0 && (
+            <section className="plugins-section" aria-labelledby="plugins-apps-title">
+              <div className="plugins-section-head">
+                <h2 id="plugins-apps-title">{t('已连接')}</h2>
               </div>
-            ) : (
-              <div className="connector-grid">
+              <div className="plugin-grid">
+                {shownApps.map((server) => (
+                  <AppRow
+                    key={server.id}
+                    server={server}
+                    busy={busy}
+                    act={act}
+                    onSignIn={() => signIn(server.id)}
+                    onOpen={() => setSelected({ kind: 'mcp', id: server.id })}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+          {show('apps') && !wholeCatalog && featured.length > 0 && (
+            <section className="plugins-section" aria-labelledby="plugins-featured-title">
+              <div className="plugins-section-head">
+                <h2 id="plugins-featured-title">{t('为你推荐')}</h2>
+                <button type="button" className="plugins-section-link" onClick={() => setFilter('apps')}>
+                  {t('查看全部')}
+                </button>
+              </div>
+              <div className="plugin-grid">
+                {featured.map((app) => (
+                  <CatalogRow key={app.id} app={app} busy={busy} onConnect={() => setConnecting(app)} />
+                ))}
+              </div>
+            </section>
+          )}
+          {show('apps') &&
+            wholeCatalog &&
+            APP_CONNECTOR_GROUPS.map((group) => {
+              const shown = catalog.filter((app) => app.group === group.id);
+              if (!shown.length) return null;
+              return (
+                <section className="plugins-section" key={group.id} aria-label={t(group.name)}>
+                  <div className="plugins-section-head">
+                    <h2>{t(group.name)}</h2>
+                  </div>
+                  <div className="plugin-grid">
+                    {shown.map((app) => (
+                      <CatalogRow key={app.id} app={app} busy={busy} onConnect={() => setConnecting(app)} />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          {show('connectors') && (shownConnectors.length > 0 || openPlatforms.length > 0) && (
+            <section className="plugins-section" aria-labelledby="plugins-connectors-title">
+              <div className="plugins-section-head">
+                <h2 id="plugins-connectors-title">{t('消息渠道')}</h2>
+                <span>{t('在手机上给 Bot 发消息')}</span>
+                {state.connectors && connectors.length > 0 && (
+                  <label className="plugins-head-switch">
+                    {t('关闭窗口后保持连接')}
+                    <PluginSwitch
+                      name={t('关闭窗口后保持连接')}
+                      enabled={state.connectors.keepRunning}
+                      disabled={false}
+                      onChange={() =>
+                        void connectorAct(() => window.aelion.setConnectorsKeepRunning(!state.connectors!.keepRunning))
+                      }
+                    />
+                  </label>
+                )}
+              </div>
+              {connectorError && (
+                <p className="computer-notice" role="alert">
+                  {connectorError}
+                </p>
+              )}
+              {connectors.length === 0 && !words && (
+                <p className="plugins-section-note">
+                  {t(
+                    '连接后，私聊消息会交给 Bot 在这台电脑上处理；企业微信群里 @ 它的消息也可以。做完把结果和文件发回去，不需要公网地址。',
+                  )}
+                </p>
+              )}
+              <div className="plugin-grid">
                 {shownConnectors.map((connector) => (
-                  <ConnectorCard
+                  <ConnectorRow
                     key={connector.id}
                     connector={connector}
                     bot={botOf(connector.botId)}
@@ -320,69 +359,81 @@ export function PluginsPage({
                     }
                   />
                 ))}
-                {!words && (
-                  <button type="button" className="connector-card is-add" onClick={() => setAdding('feishu')}>
-                    <span className="connector-add-logos">
-                      {PLATFORMS.map((platform) => (
-                        <span className="connector-mark is-small" key={platform}>
-                          <ConnectorLogo platform={platform} size={14} />
-                        </span>
-                      ))}
-                    </span>
-                    <strong>{t('添加消息渠道')}</strong>
-                    <small>{t('飞书、企业微信或微信')}</small>
+                {openPlatforms.map((platform) => (
+                  <PluginRow
+                    key={platform}
+                    mark={
+                      <span className="connector-mark">
+                        <ConnectorLogo platform={platform} size={22} />
+                      </span>
+                    }
+                    name={
+                      <>
+                        {t(CONNECTOR_PLATFORM_NAMES[platform])}
+                        {platform === 'weixin' && <span className="plugin-tag">{t('实验')}</span>}
+                      </>
+                    }
+                  >
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      aria-label={t('连接 {name}', { name: t(CONNECTOR_PLATFORM_NAMES[platform]) })}
+                      onClick={() => setAdding(platform)}
+                    >
+                      {t('去连接')}
+                    </button>
+                  </PluginRow>
+                ))}
+              </div>
+            </section>
+          )}
+          {show('mcp') && shownServers.length > 0 && (
+            <section className="plugins-section" aria-labelledby="plugins-mcp-title">
+              <div className="plugins-section-head">
+                <h2 id="plugins-mcp-title">{t('MCP 服务')}</h2>
+                <span>
+                  {t('{count} 个 · {connected} 个已连接', { count: plainServers.length, connected: connectedServers })}
+                </span>
+              </div>
+              <div className="mcp-list">
+                {mcpGroups.map((group) =>
+                  group.length === 1 ? (
+                    <McpRow
+                      key={group[0].id}
+                      server={group[0]}
+                      busy={busy}
+                      act={act}
+                      onSignIn={() => signIn(group[0].id)}
+                      onOpen={() => setSelected({ kind: 'mcp', id: group[0].id })}
+                    />
+                  ) : (
+                    <McpGroup
+                      key={'group:' + group[0].name}
+                      servers={group}
+                      open={expanded.has('mcp:' + group[0].name)}
+                      onToggle={() => toggleExpanded('mcp:' + group[0].name)}
+                      busy={busy}
+                      act={act}
+                      onSignIn={signIn}
+                      onOpen={(id) => setSelected({ kind: 'mcp', id })}
+                    />
+                  ),
+                )}
+              </div>
+            </section>
+          )}
+          {show('skills') && shownSkills.length > 0 && (
+            <section className="plugins-section" aria-labelledby="plugins-skills-title">
+              <div className="plugins-section-head">
+                <h2 id="plugins-skills-title">{t('技能')}</h2>
+                <span>{t('{count} 个 · {enabled} 个启用', { count: skills.length, enabled: usedSkills })}</span>
+                {filter === 'all' && !words && (
+                  <button type="button" className="plugins-section-link" onClick={() => setFilter('skills')}>
+                    {t('查看全部')}
                   </button>
                 )}
               </div>
-            )}
-          </section>
-        )}
-        {show('mcp') && shownServers.length > 0 && (
-          <section className="plugins-section" aria-labelledby="plugins-mcp-title">
-            <div className="plugins-section-head">
-              <h2 id="plugins-mcp-title">{t('MCP 服务')}</h2>
-              <span>
-                {t('{count} 个 · {connected} 个已连接', { count: plainServers.length, connected: connectedServers })}
-              </span>
-            </div>
-            <div className="mcp-list">
-              {mcpGroups.map((group) =>
-                group.length === 1 ? (
-                  <McpRow
-                    key={group[0].id}
-                    server={group[0]}
-                    busy={busy}
-                    act={act}
-                    onSignIn={() => signIn(group[0].id)}
-                    onOpen={() => setSelected({ kind: 'mcp', id: group[0].id })}
-                  />
-                ) : (
-                  <McpGroup
-                    key={'group:' + group[0].name}
-                    servers={group}
-                    open={expanded.has('mcp:' + group[0].name)}
-                    onToggle={() => toggleExpanded('mcp:' + group[0].name)}
-                    busy={busy}
-                    act={act}
-                    onSignIn={signIn}
-                    onOpen={(id) => setSelected({ kind: 'mcp', id })}
-                  />
-                ),
-              )}
-            </div>
-          </section>
-        )}
-        {show('skills') && shownSkills.length > 0 && (
-          <section className="plugins-section" aria-labelledby="plugins-skills-title">
-            <div className="plugins-section-head">
-              <h2 id="plugins-skills-title">{t('技能')}</h2>
-              <span>{t('{count} 个 · {enabled} 个启用', { count: skills.length, enabled: usedSkills })}</span>
-            </div>
-            {skillGroups.map((group) => {
-              const limit = filter === 'all' && !words && !expanded.has('skills:' + group.key),
-                visible = limit ? group.skills.slice(0, OVERVIEW_SKILLS) : group.skills,
-                hidden = group.skills.length - OVERVIEW_SKILLS;
-              return (
+              {skillGroups.map((group) => (
                 <div className="skill-group" key={group.key}>
                   <h3>
                     <strong>{group.title}</strong>
@@ -390,48 +441,41 @@ export function PluginsPage({
                     <span>{group.note}</span>
                     {group.path && <code title={group.path}>{group.path}</code>}
                   </h3>
-                  <div className="skill-grid">
-                    {visible.map((skill) => (
-                      <SkillCard
-                        key={skill.id}
-                        skill={skill}
-                        owner={botOf(skill.botId)}
-                        busy={busy}
-                        since={(iso) => sinceText(iso, t, language)}
-                        onOpen={() => setSelected({ kind: 'skill', id: skill.id })}
-                        onToggle={(enabled) => void act(() => window.aelion.setSkillEnabled({ id: skill.id, enabled }))}
-                      />
-                    ))}
+                  <div className="plugin-grid">
+                    {(filter === 'all' && !words ? group.skills.slice(0, OVERVIEW_SKILLS) : group.skills).map(
+                      (skill) => (
+                        <SkillRow
+                          key={skill.id}
+                          skill={skill}
+                          owner={botOf(skill.botId)}
+                          busy={busy}
+                          onOpen={() => setSelected({ kind: 'skill', id: skill.id })}
+                          onToggle={(enabled) =>
+                            void act(() => window.aelion.setSkillEnabled({ id: skill.id, enabled }))
+                          }
+                        />
+                      ),
+                    )}
                   </div>
-                  {filter === 'all' && !words && hidden > 0 && (
-                    <button
-                      type="button"
-                      className="plugins-more"
-                      onClick={() => toggleExpanded('skills:' + group.key)}
-                    >
-                      {limit ? t('再显示 {count} 个', { count: hidden }) : t('收起')}
-                      <Icon name="down" size={14} />
-                    </button>
-                  )}
                 </div>
-              );
-            })}
-          </section>
-        )}
-        {nothing && (filter !== 'connectors' || words) && (
-          <div className="plugins-empty">
-            <span>
-              <Icon name={words ? 'search' : 'plugin'} size={24} />
-            </span>
-            <h2>{words ? t('没有找到相关插件') : t('暂无插件')}</h2>
-            {words && (
-              <button className="text-button" onClick={() => setQuery('')}>
-                {t('清除搜索')}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+              ))}
+            </section>
+          )}
+          {nothing && (
+            <div className="plugins-empty">
+              <span>
+                <Icon name={words ? 'search' : 'plugin'} size={24} />
+              </span>
+              <h2>{words ? t('没有找到相关插件') : t('暂无插件')}</h2>
+              {words && (
+                <button className="text-button" onClick={() => setQuery('')}>
+                  {t('清除搜索')}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
       <Presence>
         {selected?.kind === 'connector' ? (
           <ConnectorDetails
@@ -496,12 +540,14 @@ export function PluginsPage({
         ) : null}
       </Presence>
       <Presence>
-        {adding === 'app' && (
+        {connecting && (
           <AppConnectorDialog
+            key={connecting.id}
             state={state}
-            onClose={() => setAdding(undefined)}
+            app={connecting}
+            onClose={() => setConnecting(undefined)}
             onAdded={(id) => {
-              setAdding(undefined);
+              setConnecting(undefined);
               setSelected({ kind: 'mcp', id });
             }}
           />
@@ -517,7 +563,7 @@ export function PluginsPage({
         )}
       </Presence>
       <Presence>
-        {adding && adding !== 'menu' && adding !== 'mcp' && adding !== 'app' && (
+        {adding && adding !== 'menu' && adding !== 'mcp' && (
           <AddConnectorDialog
             state={state}
             initialPlatform={adding}
@@ -529,7 +575,7 @@ export function PluginsPage({
           />
         )}
       </Presence>
-    </main>
+    </div>
   );
 }
 type Translate = ReturnType<typeof useI18n>['t'];
@@ -603,7 +649,7 @@ function AddMenu({
       <button
         ref={trigger}
         type="button"
-        className="primary-button"
+        className="secondary-button"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => onOpen(!open)}
@@ -654,7 +700,72 @@ function AddMenu({
     </div>
   );
 }
-function ConnectorCard({
+/** One line of the catalog: a mark, a name with a line under it, and what can be done with it at the end. */
+function PluginRow({
+  mark,
+  name,
+  note,
+  noteTitle,
+  off = false,
+  pluginId,
+  onOpen,
+  children,
+}: {
+  mark: ReactNode;
+  name: ReactNode;
+  note?: ReactNode;
+  noteTitle?: string;
+  off?: boolean;
+  pluginId?: string;
+  /** Makes the whole row open the item's details; controls in `children` stay above it. */
+  onOpen?: () => void;
+  children?: ReactNode;
+}) {
+  return (
+    <article className={`plugin-row ${off ? 'is-off' : ''}`} data-plugin-id={pluginId}>
+      {mark}
+      <span className="plugin-row-text">
+        {onOpen ? (
+          <button type="button" className="plugin-open" onClick={onOpen}>
+            {name}
+          </button>
+        ) : (
+          <strong>{name}</strong>
+        )}
+        {note && <small title={noteTitle}>{note}</small>}
+      </span>
+      {children}
+    </article>
+  );
+}
+/** An app not added yet: its brand, what it is for, and the way to connect it. */
+function CatalogRow({ app, busy, onConnect }: { app: AppConnector; busy: boolean; onConnect: () => void }) {
+  const { t } = useI18n();
+  const name = t(app.name);
+  return (
+    <PluginRow
+      mark={
+        <span className="connector-mark">
+          <AppLogo app={app.id} size={22} />
+        </span>
+      }
+      name={name}
+      note={<span>{t(app.description)}</span>}
+      noteTitle={t(app.description)}
+    >
+      <button
+        type="button"
+        className="secondary-button"
+        aria-label={t('连接 {name}', { name })}
+        disabled={busy}
+        onClick={onConnect}
+      >
+        {t('去连接')}
+      </button>
+    </PluginRow>
+  );
+}
+function ConnectorRow({
   connector,
   bot,
   sessions,
@@ -670,44 +781,41 @@ function ConnectorCard({
   const { t, language } = useI18n();
   const name = t(CONNECTOR_PLATFORM_NAMES[connector.platform]);
   return (
-    <article className="connector-card" data-plugin-id={connector.id}>
-      <div className="connector-card-top">
+    <PluginRow
+      pluginId={connector.id}
+      mark={
         <span className="connector-mark">
           <ConnectorLogo platform={connector.platform} size={22} />
         </span>
-        <span className="connector-card-name">
-          <button type="button" className="plugin-open" onClick={onOpen}>
-            {name}
-          </button>
-          <small title={connector.account}>{connector.account}</small>
-        </span>
-        <PluginSwitch name={name} enabled={connector.enabled} disabled={false} onChange={onToggle} />
-      </div>
-      <p className="connector-card-state">
-        <StatusDot status={connector.status} />
-        <span>
-          {t(connectorStatusText(connector.status))}
-          {sessions > 0 && ' · ' + t('{count} 个会话', { count: sessions })}
-        </span>
-        {connector.pairings.length > 0 && (
-          <span className="plugin-badge">{t('{count} 个配对请求', { count: connector.pairings.length })}</span>
-        )}
-      </p>
-      <div className="connector-card-foot">
-        {bot && <Avatar bot={bot} size={18} />}
-        <span>{bot?.name}</span>
-        <span className="plugins-tabs-spacer" />
-        {connector.lastMessageAt && (
-          <time dateTime={connector.lastMessageAt}>
-            {t('{time}有消息', { time: sinceText(connector.lastMessageAt, t, language) })}
-          </time>
-        )}
-      </div>
-    </article>
+      }
+      name={name}
+      note={
+        <>
+          <StatusDot status={connector.status} />
+          <span>
+            {t(connectorStatusText(connector.status))}
+            {sessions > 0 && ' · ' + t('{count} 个会话', { count: sessions })}
+            {bot && ' · ' + bot.name}
+          </span>
+        </>
+      }
+      noteTitle={
+        connector.account +
+        (connector.lastMessageAt
+          ? ' · ' + t('{time}有消息', { time: sinceText(connector.lastMessageAt, t, language) })
+          : '')
+      }
+      onOpen={onOpen}
+    >
+      {connector.pairings.length > 0 && (
+        <span className="plugin-badge">{t('{count} 个配对请求', { count: connector.pairings.length })}</span>
+      )}
+      <PluginSwitch name={name} enabled={connector.enabled} disabled={false} onChange={onToggle} />
+    </PluginRow>
   );
 }
-/** An app from the catalog: its brand, whether it is signed in, and the sign-in button when it is not. */
-function AppCard({
+/** An app from the catalog that was added: whether it works, and the sign-in button when it is not signed in. */
+function AppRow({
   server,
   busy,
   act,
@@ -723,55 +831,47 @@ function AppCard({
   const { t } = useI18n();
   const app = appOf(server),
     name = app ? t(app.name) : server.name,
-    problem = server.status === 'needs-config' || server.status === 'error';
+    problem = server.status === 'needs-config' || server.status === 'error',
+    status =
+      t(mcpStatusText(server)) +
+      (server.toolCount !== undefined ? ' · ' + t('{count} 个工具', { count: server.toolCount }) : '');
   return (
-    <article className={`connector-card app-card ${server.enabled ? '' : 'is-off'}`} data-plugin-id={server.id}>
-      <div className="connector-card-top">
+    <PluginRow
+      pluginId={server.id}
+      off={!server.enabled}
+      mark={
         <span className="connector-mark">
           <AppLogo app={server.app} size={22} />
         </span>
-        <span className="connector-card-name">
-          <button type="button" className="plugin-open" onClick={onOpen}>
-            {name}
+      }
+      name={name}
+      note={
+        <>
+          <StatusDot status={server.login === 'signed-out' ? 'disabled' : server.status} />
+          <span className={problem && server.login !== 'signed-out' ? 'is-problem' : undefined}>{status}</span>
+        </>
+      }
+      noteTitle={status}
+      onOpen={onOpen}
+    >
+      {server.login === 'signing-in' ? (
+        <button type="button" className="text-button" onClick={() => void window.aelion.cancelMcpSignIn(server.id)}>
+          {t('取消')}
+        </button>
+      ) : (
+        server.login === 'signed-out' && (
+          <button type="button" className="secondary-button" title={t('登录后 Bot 才能使用')} onClick={onSignIn}>
+            {t('登录')}
           </button>
-          {app && <small title={t(app.description)}>{t(app.description)}</small>}
-        </span>
-        <PluginSwitch
-          name={name}
-          enabled={server.enabled}
-          disabled={busy || server.status === 'connecting'}
-          onChange={() => void act(() => window.aelion.setMcpEnabled({ id: server.id, enabled: !server.enabled }))}
-        />
-      </div>
-      <p className={`connector-card-state ${problem && server.login !== 'signed-out' ? 'is-problem' : ''}`}>
-        <StatusDot status={server.login === 'signed-out' ? 'disabled' : server.status} />
-        <span>
-          {t(mcpStatusText(server))}
-          {server.toolCount !== undefined && ' · ' + t('{count} 个工具', { count: server.toolCount })}
-        </span>
-      </p>
-      <div className="connector-card-foot">
-        {server.login === 'signing-in' ? (
-          <>
-            <span>{t('在浏览器里完成登录')}</span>
-            <span className="plugins-tabs-spacer" />
-            <button type="button" className="text-button" onClick={() => void window.aelion.cancelMcpSignIn(server.id)}>
-              {t('取消')}
-            </button>
-          </>
-        ) : server.login === 'signed-out' ? (
-          <>
-            <span>{t('登录后 Bot 才能使用')}</span>
-            <span className="plugins-tabs-spacer" />
-            <button type="button" className="secondary-button" onClick={onSignIn}>
-              {t('登录')}
-            </button>
-          </>
-        ) : (
-          <span>{server.login === 'signed-in' ? t('已登录') : app?.local ? t('在这台电脑上运行') : t('无需登录')}</span>
-        )}
-      </div>
-    </article>
+        )
+      )}
+      <PluginSwitch
+        name={name}
+        enabled={server.enabled}
+        disabled={busy || server.status === 'connecting'}
+        onChange={() => void act(() => window.aelion.setMcpEnabled({ id: server.id, enabled: !server.enabled }))}
+      />
+    </PluginRow>
   );
 }
 function McpRow({
@@ -794,14 +894,14 @@ function McpRow({
   const problem = server.status === 'needs-config' || server.status === 'error';
   return (
     <div className={`mcp-row ${server.enabled ? '' : 'is-off'}`} data-plugin-id={server.id}>
-      <PluginIcon server={server} />
+      <PluginIcon server={server} size={36} />
       <div className="mcp-row-main">
         <button type="button" className="plugin-open" onClick={onOpen}>
           {label || server.name}
         </button>
         <p className={problem ? 'is-problem' : undefined}>
           <StatusDot status={server.status} />
-          <span>
+          <span title={problem ? server.issue : undefined}>
             {t(mcpStatusText(server))}
             {problem && server.issue ? '：' + server.issue : ''}
           </span>
@@ -857,7 +957,7 @@ function McpGroup({
   return (
     <div className={`mcp-group ${open ? 'is-open' : ''}`}>
       <button type="button" className={`mcp-row ${on ? '' : 'is-off'}`} aria-expanded={open} onClick={onToggle}>
-        <PluginIcon server={servers[0]} />
+        <PluginIcon server={servers[0]} size={36} />
         <span className="mcp-row-main">
           <strong>
             {servers[0].name}
@@ -890,39 +990,31 @@ function McpGroup({
     </div>
   );
 }
-function SkillCard({
+function SkillRow({
   skill,
   owner,
   busy,
-  since,
   onOpen,
   onToggle,
 }: {
   skill: Skill;
   owner?: Bot;
   busy: boolean;
-  since: (iso: string) => string;
   onOpen: () => void;
   onToggle: (enabled: boolean) => void;
 }) {
-  const { t } = useI18n();
   const enabled = skill.enabled ?? !skill.archived;
   return (
-    <article className={`skill-card ${enabled ? '' : 'is-off'}`} data-plugin-id={skill.id}>
-      <PluginIcon skill={skill} owner={owner} />
-      <button type="button" className="plugin-open" title={skill.name} onClick={onOpen}>
-        {skill.name}
-      </button>
+    <PluginRow
+      pluginId={skill.id}
+      off={!enabled}
+      mark={<PluginIcon skill={skill} owner={owner} size={36} />}
+      name={skill.name}
+      note={<span>{skill.description}</span>}
+      noteTitle={skill.description}
+      onOpen={onOpen}
+    >
       <PluginSwitch name={skill.name} enabled={enabled} disabled={busy} onChange={() => onToggle(!enabled)} />
-      <p title={skill.description}>{skill.description}</p>
-      <small>
-        {!enabled
-          ? t('已停用')
-          : skill.readCount
-            ? t('用过 {count} 次', { count: skill.readCount }) +
-              (skill.lastReadAt ? ' · ' + since(skill.lastReadAt) : '')
-            : t('还没用过')}
-      </small>
-    </article>
+    </PluginRow>
   );
 }

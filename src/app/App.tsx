@@ -1,5 +1,5 @@
 import './conversation-chrome.css';
-import './glass-shell.css';
+import './shell.css';
 // Import order below decides the order of the bundled stylesheets (the cascade), so keep it when editing.
 import { usePreviewWorkbench } from '../preview/PreviewWorkbench';
 import { useAgentPreview } from '../preview/use-agent-preview';
@@ -403,17 +403,6 @@ function AppContent() {
             onPlugins={() => openPlugins()}
             onSettings={openSettings}
           />
-          {page === 'plugins' && (
-            <PluginsPage
-              key={pluginFilter}
-              initialFilter={pluginFilter}
-              state={state}
-              busy={busy || anyRunning}
-              act={act}
-              onClose={() => setPage('chat')}
-              onOpenSession={openSession}
-            />
-          )}
           <ConversationPane
             state={state}
             group={group}
@@ -468,6 +457,19 @@ function AppContent() {
             onError={setToast}
             onTaskModalChange={setTaskModalOpen}
           />
+          <Presence>
+            {page === 'plugins' && (
+              <PluginsPage
+                key={pluginFilter}
+                initialFilter={pluginFilter}
+                state={state}
+                busy={busy || anyRunning}
+                act={act}
+                onClose={() => setPage('chat')}
+                onOpenSession={openSession}
+              />
+            )}
+          </Presence>
           <Presence>
             {toast && (
               <div className="toast" role="status">
@@ -644,6 +646,7 @@ function AppContent() {
                       profile={profile}
                       busy={busy}
                       onSave={() => void act(() => saveProfile())}
+                      onCancel={() => setModal(null)}
                     />
                   )
                 }

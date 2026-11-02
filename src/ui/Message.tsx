@@ -1,17 +1,16 @@
-import { createContext, memo, useContext, useRef } from 'react';
+import { memo, useRef } from 'react';
 import { previewFeedbackDisplay } from '../../shared/preview/preview-feedback';
 import { MessageQuote } from '../chat/MessageQuote';
 import { MessageTime } from '../chat/ConversationTime';
 import { AttachmentList } from '../files/Attachments';
 import { attachmentSummary } from '../../shared/types/attachment-types';
-import type { Bot, ChatMessage } from '../../shared/types/core';
+import type { ChatMessage } from '../../shared/types/core';
 import { CONNECTOR_PLATFORM_NAMES } from '../../shared/types/connector-types';
 import { readableContent } from '../../shared/chat/activity';
 import { legacyQuestionAnswerData, readableQuestionAnswer } from '../../shared/chat/question-answers';
 import { QuestionAnswerMessage } from '../chat/QuestionAnswerMessage';
 import { MessageActions } from '../chat/MessagePins';
 import { ScheduledTriggerCard } from '../chat/ScheduledTrigger';
-import { Avatar } from './Avatar';
 import { MentionContent } from './MentionContent';
 import { usePinRefs } from '../preview/pin-thread';
 import { MessageReasoning } from '../chat/MessageReasoning';
@@ -47,10 +46,6 @@ const MemoMessage = memo(
 );
 type ReplyRef = { current?: (message: ChatMessage) => void };
 type Refs = { reply: ReplyRef; edit: ReplyRef };
-/** The Bot whose avatar stands beside its messages; the styles show it on the last message of a run of them. */
-export const MessageAvatarContext = createContext<Pick<Bot, 'id' | 'name' | 'color' | 'avatarStyle'> | undefined>(
-  undefined,
-);
 export function Message(props: MessageProps) {
   const reply = useRef<(message: ChatMessage) => void>(undefined),
     edit = useRef<(message: ChatMessage) => void>(undefined);
@@ -70,7 +65,6 @@ function MessageView({
 }: MessageProps & Refs) {
   const onReply = hasReply ? (value: ChatMessage) => reply.current?.(value) : undefined;
   const { t } = useI18n();
-  const avatar = useContext(MessageAvatarContext);
   const pins = usePinRefs(message.id);
   if (!showReasoning && message.reasoning) message = { ...message, reasoning: undefined };
   if (message.scheduled)
@@ -133,11 +127,6 @@ function MessageView({
         </div>
       )}
       <div className={`message-row ${message.role}`} data-message-id={message.id}>
-        {message.role === 'assistant' && avatar && (
-          <span className="message-avatar" aria-hidden="true">
-            <Avatar bot={avatar} size={30} />
-          </span>
-        )}
         {message.role === 'assistant' && <MessageReasoning reasoning={message.reasoning} />}
         {!bare && <AttachmentList files={images} only="images" />}
         <MessageActions

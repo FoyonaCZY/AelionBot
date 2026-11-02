@@ -370,6 +370,17 @@ export function GroupConversation({
           <span className="group-member-count">{t('{count} 人', { count: members.length + 1 })}</span>
         </button>
         <div className="header-actions no-drag">
+          <GroupGames
+            key={group.id}
+            groupId={group.id}
+            groupName={group.name}
+            members={members}
+            providers={state.providers}
+            defaultModel={state.defaultModel}
+            cardContainer={cardSlot}
+            onCardTime={setCardEndedAt}
+            onLatestMatch={setLatestGame}
+          />
           <button
             className="icon-button"
             aria-label={t('成员与性格')}
@@ -482,24 +493,10 @@ export function GroupConversation({
         <DraftComposer
           drafts={drafts}
           draftKey={group.id}
-          extraTools={
-            <GroupGames
-              key={group.id}
-              groupId={group.id}
-              groupName={group.name}
-              members={members}
-              providers={state.providers}
-              defaultModel={state.defaultModel}
-              cardContainer={cardSlot}
-              onCardTime={setCardEndedAt}
-              onLatestMatch={setLatestGame}
-            />
-          }
           workspaceDir={
             state.conversationWorkspaces?.[workspaceKey({ kind: 'group', id: group.id })] ||
             state.hostWorkspace?.workspaceDir
           }
-          workspaceInherited={!state.conversationWorkspaces?.[workspaceKey({ kind: 'group', id: group.id })]}
           attachmentScope={{ kind: 'group', id: group.id }}
           bot={group}
           bots={members}

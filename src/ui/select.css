@@ -6,10 +6,10 @@
   min-height: 38px;
   margin: 0;
   padding: 8px 34px 8px 12px;
-  border: 1px solid light-dark(#dedee5, #3e3945);
+  border: 1px solid light-dark(#e2e2e2, #3f3f3f);
   border-radius: 9px;
-  background: light-dark(#fff, #201e24);
-  color: light-dark(#393940, #dcd9df);
+  background: light-dark(#fff, #212121);
+  color: light-dark(#3d3d3d, #dcdcdc);
   font: var(--weight-body) calc(13px * var(--appearance-text-scale, 1))/1.5 var(--font-ui);
   text-align: left;
   outline: none;
@@ -30,30 +30,30 @@
 }
 .aelion-select:not(:disabled):hover,
 .aelion-combobox .aelion-combobox-input:not(:disabled):hover {
-  border-color: light-dark(#c3bdcf, #3e3945);
+  border-color: light-dark(#c6c6c6, #3f3f3f);
 }
 .aelion-select:focus-visible,
 .aelion-select:open,
 .aelion-combobox .aelion-combobox-input:focus-visible {
-  border-color: light-dark(#a68bcf, #3e3945);
-  box-shadow: 0 0 0 3px #8b6bea12;
+  border-color: light-dark(#8ba8cf, #3f3f3f);
+  box-shadow: 0 0 0 3px #6ea2e712;
   outline: none;
 }
 .aelion-select:disabled,
 .aelion-combobox .aelion-combobox-input:disabled {
-  background-color: light-dark(#f6f6f8, #211f25);
-  border-color: light-dark(#e6e6ea, #3e3945);
-  color: light-dark(#9a9aa3, #b9b6bc);
+  background-color: light-dark(#f7f7f7, #222222);
+  border-color: light-dark(#e8e8e8, #3f3f3f);
+  color: light-dark(#9f9f9f, #b9b9b9);
   cursor: not-allowed;
   opacity: 1;
   box-shadow: none;
 }
 .aelion-select option {
-  background: light-dark(#fff, #201e24);
-  color: light-dark(#393940, #dcd9df);
+  background: light-dark(#fff, #212121);
+  color: light-dark(#3d3d3d, #dcdcdc);
 }
 .aelion-select option:disabled {
-  color: light-dark(#a3a0aa, #b7b4ba);
+  color: light-dark(#a5a5a5, #b7b7b7);
 }
 @supports (appearance: base-select) {
   .aelion-select,
@@ -92,7 +92,7 @@
     width: 14px;
     height: 14px;
     margin-left: auto;
-    background: light-dark(#8d8996, #38333f);
+    background: light-dark(#909090, #393939);
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m7 10 5 5 5-5' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
       center/contain no-repeat;
     transition: transform 0.15s;
@@ -107,15 +107,15 @@
     max-height: min(320px, 65vh);
     margin: 5px 0;
     padding: 5px;
-    border: 1px solid light-dark(#e4e1e9, #3e3945);
+    border: 1px solid light-dark(#e5e5e5, #3f3f3f);
     border-radius: 11px;
-    background: light-dark(#fff, #201e24);
-    color: light-dark(#393940, #dcd9df);
-    box-shadow: 0 8px 28px #25202f14;
+    background: light-dark(#fff, #212121);
+    color: light-dark(#3d3d3d, #dcdcdc);
+    box-shadow: 0 8px 28px #28282814;
     overflow: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
-    scrollbar-color: light-dark(#dad6e1, #a9a7ac) transparent;
+    scrollbar-color: light-dark(#dcdcdc, #aaaaaa) transparent;
     font: var(--weight-body) calc(13px * var(--appearance-text-scale, 1))/1.5 var(--font-ui);
   }
   .aelion-select option {
@@ -133,19 +133,19 @@
   }
   .aelion-select option:hover,
   .aelion-select option:focus-visible {
-    background: light-dark(#f4f3f7, #222026);
+    background: light-dark(#f5f5f5, #232323);
   }
   .aelion-select option:checked {
-    background: light-dark(#f3effa, #222026);
-    color: light-dark(#695183, #c2b6cf);
+    background: light-dark(#eff4fa, #232323);
+    color: light-dark(#6a6a6a, #c3c3c3);
     font-weight: var(--weight-body);
   }
   .aelion-select option:checked:hover,
   .aelion-select option:checked:focus-visible {
-    background: light-dark(#ece5f6, #232127);
+    background: light-dark(#e5ecf6, #242424);
   }
   .aelion-select option:disabled {
-    color: light-dark(#a3a0aa, #b7b4ba);
+    color: light-dark(#a5a5a5, #b7b7b7);
     background: transparent;
     cursor: not-allowed;
   }
@@ -156,7 +156,7 @@
     width: 14px;
     height: 14px;
     margin-left: auto;
-    background: light-dark(#8b6bea, #b0a1da);
+    background: light-dark(#6ea2e7, #a1bada);
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m5 12 4 4L19 6' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
       center/contain no-repeat;
   }
@@ -175,7 +175,7 @@
   width: 14px;
   height: 14px;
   transform: translateY(-50%);
-  background: light-dark(#8d8996, #38333f);
+  background: light-dark(#909090, #393939);
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m7 10 5 5 5-5' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
     center/contain no-repeat;
   cursor: pointer;
@@ -194,15 +194,15 @@
   margin: 0;
   max-height: 272px;
   padding: 5px;
-  border: 1px solid light-dark(#e4e1e9, #3e3945);
+  border: 1px solid light-dark(#e5e5e5, #3f3f3f);
   border-radius: 11px;
-  background: light-dark(#fff, #201e24);
-  color: light-dark(#393940, #dcd9df);
-  box-shadow: 0 8px 28px #25202f14;
+  background: light-dark(#fff, #212121);
+  color: light-dark(#3d3d3d, #dcdcdc);
+  box-shadow: 0 8px 28px #28282814;
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: light-dark(#dad6e1, #a9a7ac) transparent;
+  scrollbar-color: light-dark(#dcdcdc, #aaaaaa) transparent;
   font: var(--weight-body) calc(13px * var(--appearance-text-scale, 1))/1.5 var(--font-ui);
 }
 .aelion-combobox-list:popover-open {
@@ -220,21 +220,21 @@
   cursor: pointer;
 }
 .aelion-combobox-option.is-active {
-  background: light-dark(#f4f3f7, #222026);
+  background: light-dark(#f5f5f5, #232323);
 }
 .aelion-combobox-option[aria-selected='true'] {
-  background: light-dark(#f3effa, #222026);
-  color: light-dark(#695183, #c2b6cf);
+  background: light-dark(#eff4fa, #232323);
+  color: light-dark(#6a6a6a, #c3c3c3);
 }
 .aelion-combobox-option[aria-selected='true'].is-active {
-  background: light-dark(#ece5f6, #232127);
+  background: light-dark(#e5ecf6, #242424);
 }
 .aelion-option-check {
   flex: 0 0 14px;
   width: 14px;
   height: 14px;
   margin-left: auto;
-  background: light-dark(#8b6bea, #b0a1da);
+  background: light-dark(#6ea2e7, #a1bada);
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m5 12 4 4L19 6' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
     center/contain no-repeat;
 }
@@ -242,7 +242,7 @@
   display: block;
   padding: 10px;
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#80808a, #c3c0c6);
+  color: light-dark(#858585, #c3c3c3);
 }
 @media (prefers-reduced-motion: reduce) {
   .aelion-select,

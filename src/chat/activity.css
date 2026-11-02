@@ -5,7 +5,7 @@
   width: min(82%, 680px);
 }
 .message-row.assistant .bubble.failed {
-  background: light-dark(#f9ecea, #222026);
+  background: light-dark(#f9ecea, #232323);
   color: light-dark(#89483d, #dab9b4);
 }
 
@@ -22,8 +22,8 @@
   gap: 12px;
   align-items: flex-start;
   padding: 15px 17px;
-  background: light-dark(#fbf9f6, #211f25);
-  border: 1px solid light-dark(#ede7df, #3e3945);
+  background: light-dark(#fbf9f6, #222222);
+  border: 1px solid light-dark(#ede7df, #3f3f3f);
   border-radius: 12px;
   margin: 9px 0 18px;
   max-width: 100%;
@@ -45,7 +45,7 @@
 .run-notice p {
   font-size: calc(12px * var(--appearance-text-scale, 1));
   line-height: 1.8;
-  color: light-dark(#9c8f81, #bfbcc2);
+  color: light-dark(#9c8f81, #bfbfbf);
   margin: 4px 0 0;
   overflow-wrap: anywhere;
 }
@@ -58,7 +58,7 @@
 .run-notice-actions button,
 .run-stopped button {
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#7d7367, #c9c6cc);
+  color: light-dark(#7d7367, #c9c9c9);
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -67,16 +67,16 @@
 }
 .run-notice-actions button:hover,
 .run-stopped button:hover {
-  color: light-dark(#333, #e0dde3);
+  color: light-dark(#333, #e0e0e0);
 }
 .run-notice-actions button + button {
-  color: light-dark(#a2998f, #bcb9bf);
+  color: light-dark(#a2998f, #bcbcbc);
 }
 .run-stopped {
   display: flex;
   gap: 12px;
   align-items: center;
-  color: light-dark(#969da6, #bab7bd);
+  color: light-dark(#969da6, #bababa);
   margin: 0 0 15px;
   font-size: calc(12px * var(--appearance-text-scale, 1));
   line-height: 1.8;
@@ -87,7 +87,7 @@
 .run-error-details {
   margin-top: 12px;
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#726a62, #ccc9cf);
+  color: light-dark(#726a62, #cccccc);
 }
 .run-error-details summary {
   cursor: pointer;
@@ -100,8 +100,8 @@
   max-height: 240px;
   overflow: auto;
   padding: 12px;
-  background: light-dark(#fff, #201e24);
-  border: 1px solid light-dark(#e9e4dc, #3e3945);
+  background: light-dark(#fff, #212121);
+  border: 1px solid light-dark(#e9e4dc, #3f3f3f);
   border-radius: 8px;
   font-size: calc(11px * var(--appearance-text-scale, 1));
   line-height: 1.6;

@@ -8,7 +8,7 @@
   flex-shrink: 0;
   border-radius: 28%;
   /* A hairline keeps the pale ground from dissolving into a white card. */
-  outline: 1px solid light-dark(#1d14280d, #ffffff14);
+  outline: 1px solid light-dark(#141d280d, #ffffff14);
   outline-offset: -1px;
 }
 .emblem.is-round {

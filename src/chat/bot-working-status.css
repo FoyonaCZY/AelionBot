@@ -21,7 +21,7 @@
   min-width: 0;
   font-size: calc(13px * var(--appearance-text-scale, 1));
   line-height: 1.75;
-  color: light-dark(#74707e, #c8c5cb);
+  color: light-dark(#777777, #c8c8c8);
 }
 .bot-working-copy > div[role='status'] {
   display: flex;
@@ -32,7 +32,7 @@
 .bot-working-name {
   display: block;
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#a29baa, #b8b5bb);
+  color: light-dark(#a3a3a3, #b8b8b8);
   margin-bottom: 2px;
 }
 .bot-working-label {
@@ -41,7 +41,7 @@
 }
 .bot-working-detail {
   font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#a19aa9, #b8b5bb);
+  color: light-dark(#a2a2a2, #b8b8b8);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

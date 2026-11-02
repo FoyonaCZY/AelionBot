@@ -4,19 +4,19 @@
  * the tool band and the caption strip take their own space above and below it.
  */
 .fp-layer.is-immersive {
-  --pv-bg: light-dark(#fff, #201e24);
-  --pv-stage: light-dark(#f3f2f5, #1a181e);
-  --pv-dot: light-dark(#dcd9e2, #2d2a33);
-  --pv-line: light-dark(#eeeef0, #34303b);
-  --pv-soft: light-dark(#f1f0f3, #2a2730);
-  --pv-hover: light-dark(#efeef2, #312d38);
-  --pv-raised: light-dark(#fff, #3a3542);
-  --pv-ink: light-dark(#34313c, #dfdce2);
-  --pv-title: light-dark(#24222a, #f1eef4);
-  --pv-muted: light-dark(#74777b, #a9a4b1);
-  --pv-accent: light-dark(#8f7fb3, #b3a4e0);
-  --pv-accent-soft: light-dark(#efeaf7, #332d40);
-  --pv-accent-ink: light-dark(#6a5a93, #d2c7ef);
+  --pv-bg: light-dark(#fff, #212121);
+  --pv-stage: light-dark(#f3f3f3, #1b1b1b);
+  --pv-dot: light-dark(#dedede, #2f2f2f);
+  --pv-line: light-dark(#efefef, #363636);
+  --pv-soft: light-dark(#f2f2f2, #2c2c2c);
+  --pv-hover: light-dark(#f0f0f0, #333333);
+  --pv-raised: light-dark(#fff, #3c3c3c);
+  --pv-ink: light-dark(#373737, #dfdfdf);
+  --pv-title: light-dark(#262626, #f1f1f1);
+  --pv-muted: light-dark(#74777b, #ababab);
+  --pv-accent: light-dark(#999999, #a4bee0);
+  --pv-accent-soft: light-dark(#eaf0f7, #373737);
+  --pv-accent-ink: light-dark(#777777, #c7d8ef);
   --fp-canvas: var(--pv-stage);
   --fp-ink: var(--pv-ink);
   --fp-muted: var(--pv-muted);
@@ -240,7 +240,7 @@
   background: var(--pv-bg);
   color: var(--pv-muted);
   color-scheme: inherit;
-  box-shadow: 0 6px 18px #2a223814;
+  box-shadow: 0 6px 18px #2d2d2d14;
 }
 .fp-layer.is-immersive .fp-workbench-tools .fp-tool-group + .fp-tool-group {
   padding-left: 4px;
@@ -262,8 +262,8 @@
   font-weight: 600;
 }
 .fp-layer.is-immersive .fp-workbench-tools .fp-save-dom {
-  background: light-dark(#181818, #e0dbe6);
-  color: light-dark(#fff, #231f29);
+  background: light-dark(#181818, #e1e1e1);
+  color: light-dark(#fff, #242424);
 }
 .fp-layer.is-immersive .fp-workbench-tools .fp-save-dom:disabled {
   background: var(--pv-soft);
@@ -286,9 +286,9 @@
   color: var(--pv-ink);
 }
 .fp-layer.is-immersive .fp-unsaved-dialog button:last-child {
-  background: light-dark(#181818, #e0dbe6);
+  background: light-dark(#181818, #e1e1e1);
   border-color: transparent;
-  color: light-dark(#fff, #231f29);
+  color: light-dark(#fff, #242424);
 }
 .fp-layer.is-immersive .fp-directory {
   background: var(--pv-bg);
@@ -338,9 +338,9 @@
   border-radius: 28px;
   background: #fff;
   box-shadow:
-    0 0 0 8px light-dark(#1c1c1e, #0e0e10),
+    0 0 0 8px light-dark(#1d1d1d, #0f0f0f),
     0 0 0 9px light-dark(#00000014, #ffffff14),
-    0 24px 50px #2a22382a;
+    0 24px 50px #2d2d2d2a;
 }
 .fp-layer.is-immersive[data-device='phone'] .web-preview-surface .web-preview-mirror {
   --fit: min(
@@ -446,8 +446,8 @@
   background: var(--pv-hover);
 }
 .fp-layer.is-immersive .fp-edit-toolbar .fp-edit-save {
-  background: light-dark(#181818, #e0dbe6);
-  color: light-dark(#fff, #231f29);
+  background: light-dark(#181818, #e1e1e1);
+  color: light-dark(#fff, #242424);
 }
 .fp-layer.is-immersive .fp-edit-toolbar .fp-edit-save:disabled {
   background: var(--pv-soft);

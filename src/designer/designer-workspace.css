@@ -727,8 +727,8 @@ body:has(.fp-panel[data-layout='docked']) .designer-task-brief p {
   color: #fff;
 }
 .designer-findings li[data-level='P2'] .designer-finding-level {
-  background: light-dark(#e3e1e6, #3a3741);
-  color: light-dark(#5f5c66, #b9b5c0);
+  background: light-dark(#e3e3e3, #3c3c3c);
+  color: light-dark(#616161, #bbbbbb);
 }
 .designer-finding-body {
   display: flex;
@@ -741,7 +741,7 @@ body:has(.fp-panel[data-layout='docked']) .designer-task-brief p {
   font-size: calc(12px * var(--appearance-text-scale, 1));
 }
 .designer-finding-body small {
-  color: light-dark(#77747d, #a8a4af);
+  color: light-dark(#797979, #aaaaaa);
   font-size: calc(11px * var(--appearance-text-scale, 1));
   line-height: 1.5;
 }
@@ -894,7 +894,7 @@ body:has(.fp-panel[data-layout='docked']) .designer-task-brief p {
   margin-left: auto;
   flex-shrink: 0;
   padding: 7px 10px;
-  border: 1px solid var(--designer-line, light-dark(#e5e2dc, #45414a));
+  border: 1px solid var(--designer-line, light-dark(#e5e2dc, #464646));
   border-radius: 8px;
   color: inherit;
   font-size: 12px;
@@ -905,9 +905,9 @@ body:has(.fp-panel[data-layout='docked']) .designer-task-brief p {
   line-height: 1;
 }
 .designer-header .designer-font-trigger:hover {
-  background: light-dark(#f0eee9, #37323b);
+  background: light-dark(#f0eee9, #373737);
 }
 .designer-header .designer-font-trigger:focus-visible {
-  outline: 2px solid light-dark(#867299, #baa1d1);
+  outline: 2px solid light-dark(#868686, #a1b6d1);
   outline-offset: 2px;
 }

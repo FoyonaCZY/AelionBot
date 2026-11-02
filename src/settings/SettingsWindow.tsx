@@ -1,7 +1,8 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import type { UserProfile } from '../../shared/chat/user-profile';
+import { DEFAULT_BOT_PALETTE } from '../../shared/chat/bot-colors';
 import { Icon } from '../ui/Icon';
-import { Emblem } from '../ui/Emblem';
+import { Avatar } from '../ui/Avatar';
 import { useSwitchMotion } from '../ui/motion';
 import { useI18n } from '../i18n';
 
@@ -35,22 +36,9 @@ const groups: ReadonlyArray<{ label: string; pages: ReadonlyArray<Page> }> = [
 ];
 const profilePage: Page = { id: 'profile', label: '个人资料', icon: 'user' };
 
-/** Hue of the accent, in the emblem's color space: your emblem is the purple your own bubbles are. */
-const YOUR_HUE = 305;
-/** Your emblem, drawn from the first letter of what Bots call you, so it holds still while you type the rest. */
-export function ProfileEmblem({ name, size = 36 }: { name?: string; size?: number }) {
-  return <Emblem seed={[...(name?.trim() || '')][0]?.toLocaleUpperCase() || ''} size={size} round hue={YOUR_HUE} />;
-}
-
-/** The app's mark (assets/icon.svg), shown at the top of the rail. */
-function BotMark({ size }: { size: number }) {
-  return (
-    <svg className="settings-me-mark" width={size} height={size} viewBox="0 0 60 60" aria-hidden="true">
-      <path d="M31 3C47 3 56 14 56 31C56 46 46 56 29 56C12 56 4 46 4 30C4 14 15 3 31 3Z" fill="#8b6bea" />
-      <ellipse cx="24" cy="26" rx="2.5" ry="5" fill="#fff" transform="rotate(-14 24 26)" />
-      <ellipse cx="36" cy="24" rx="2.5" ry="5" fill="#fff" transform="rotate(-14 36 24)" />
-    </svg>
-  );
+/** You, wherever the app shows you: the default Bot's face. */
+export function ProfileAvatar({ name, size = 36 }: { name?: string; size?: number }) {
+  return <Avatar bot={{ name: name?.trim() || '', ...DEFAULT_BOT_PALETTE }} size={size} />;
 }
 
 export function SettingsWindow({
@@ -85,7 +73,7 @@ export function SettingsWindow({
           aria-current={tab === 'profile' ? 'page' : undefined}
           onClick={() => onTabChange('profile')}
         >
-          <BotMark size={36} />
+          <ProfileAvatar name={profile?.displayName} size={36} />
           <span className="settings-me-copy">
             <strong>{profile?.displayName.trim() || t('个人资料')}</strong>
             {profile?.displayName.trim() && profile.role.trim() && <small>{profile.role.trim()}</small>}

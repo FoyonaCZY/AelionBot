@@ -12,16 +12,16 @@
 
 :root :is(.bubble, .group-message-bubble, .peer-bubble).markdown,
 :root :is(.bubble, .group-message-bubble, .peer-bubble) .markdown {
-  --message-line: light-dark(#e2dee8, #3e3945);
+  --message-line: light-dark(#e3e3e3, #3f3f3f);
   --message-surface: var(--bubble-block);
-  --message-link: light-dark(#755491, #c3b2d1);
-  --message-link-line: light-dark(#c6b5d6, #3e3945);
+  --message-link: light-dark(#727272, #c2c2c2);
+  --message-link-line: light-dark(#c6c6c6, #3f3f3f);
   --message-inline: var(--bubble-chip);
-  --code-comment: light-dark(#79717f, #c7c4ca);
+  --code-comment: light-dark(#787878, #c7c7c7);
 }
 /* Your own bubbles are tinted, so code in them sits on a wash of white instead. */
 :root .from-user .group-message-bubble.markdown {
-  --message-inline: light-dark(#ffffff8c, #201e24b3);
+  --message-inline: light-dark(#ffffff8c, #212121b3);
 }
 :root :is(.bubble, .group-message-bubble, .peer-bubble) :is(h1, h2, h3) {
   font-weight: var(--weight-heading);
@@ -33,42 +33,42 @@
   font-size: 1.04em;
 }
 :root :is(.bubble, .group-message-bubble, .peer-bubble) blockquote {
-  border-color: light-dark(#c5bacf, #3e3945);
+  border-color: light-dark(#c4c4c4, #3f3f3f);
 }
 :root :is(.bubble, .group-message-bubble, .peer-bubble) .message-code-block {
-  border-color: light-dark(#ece8f2, #3e3945);
+  border-color: light-dark(#ededed, #3f3f3f);
   box-shadow: none;
 }
 :root :is(.bubble, .group-message-bubble, .peer-bubble) .message-code-header {
   min-height: 35px;
   padding-left: 14px;
-  border-bottom-color: light-dark(#e9e4ee, #3e3945);
+  border-bottom-color: light-dark(#e9e9e9, #3f3f3f);
 }
 :root :is(.bubble, .group-message-bubble, .peer-bubble) pre.message-code-scroll {
   padding: 12px 14px 15px;
 }
 
 :root :is(.message-row, .group-message, .peer-message) .file-tile {
-  --file-surface: light-dark(#fff, #211f25);
-  --file-border: light-dark(#e0dce7, #3e3945);
-  --file-title: light-dark(#4a4053, #d8d5db);
-  --file-muted: light-dark(#85768f, #c3c0c6);
+  --file-surface: light-dark(#fff, #222222);
+  --file-border: light-dark(#e2e2e2, #3f3f3f);
+  --file-title: light-dark(#4a4a4a, #d8d8d8);
+  --file-muted: light-dark(#838383, #c3c3c3);
   border-radius: 10px;
   box-shadow: none;
 }
 :root
   :is(.message-row, .group-message, .peer-message)
   .file-tile:has(button:not(:disabled):hover, button:focus-visible) {
-  background: light-dark(#fff, #201e24);
-  border-color: light-dark(#cec3d9, #3e3945);
+  background: light-dark(#fff, #212121);
+  border-color: light-dark(#cecece, #3f3f3f);
   box-shadow: none;
 }
 :root :is(.message-row, .group-message, .peer-message) .bot-mention {
   background: var(--bubble-chip);
-  color: light-dark(#786183, #c4b9ca);
+  color: light-dark(#727272, #c2c2c2);
 }
 :root :is(.message-row.user, .group-message.from-user) .bot-mention {
-  background: light-dark(#ffffff77, #201e2477);
+  background: light-dark(#ffffff77, #21212177);
 }
 
 /* A reply of several blocks reads as a page: more room around it than a one-line message gets. */
@@ -107,33 +107,6 @@
 .messages > :is(.message-row.assistant, .run-message) + .message-row.assistant .bubble,
 .messages > :is(.message-row.assistant, .run-message) + .run-message > .message-row.assistant:first-child .bubble {
   border-top-left-radius: 6px;
-}
-
-/* In a Bot's own chat its avatar stands in a gutter left of its messages, beside the last one of each group. */
-.messages:not(.group-messages)
-  > :is(.message-row.assistant, .run-message, .message-artifacts, .artifact-list, .designer-task-card) {
-  padding-left: 40px;
-}
-.message-avatar {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  display: block;
-  width: 30px;
-  height: 30px;
-  pointer-events: none;
-}
-.run-message .message-row > .message-avatar {
-  left: -40px;
-}
-/* Reactions hang below the bubble; the avatar stays level with the bubble. */
-.message-row:has(> .message-pins) > .message-avatar {
-  bottom: 29px;
-}
-.messages
-  > :is(.message-row.assistant, .run-message):has(+ :is(.message-row.assistant:not(.reasoning-only), .run-message))
-  .message-avatar {
-  display: none;
 }
 
 /* The conversation can be narrow even in a wide window with side panels. */

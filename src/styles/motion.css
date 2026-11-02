@@ -111,12 +111,7 @@
 
 @media (prefers-reduced-motion: no-preference) {
   /* ---------- Pages and conversations ---------- */
-  .app-shell > .plugins-page {
-    animation: motion-view-in var(--motion-view) var(--motion-ease) backwards;
-  }
-  /* Back from the plugins page. The message list and the header remount with each conversation (keyed by Bot,
-     work session or group); the computer card is placed from where the list is measured, so it does not move. */
-  .app-shell[data-page='chat'] > .conversation,
+  /* The message list and the header remount with each conversation (keyed by Bot, work session or group). */
   .app-shell > .conversation > :is(.messages, .empty-workspace, .chat-header) {
     animation: motion-fade-in var(--motion-view) ease backwards;
   }
@@ -134,6 +129,7 @@
     .peer-chat-layer,
     .scheduled-layer,
     .mcp-snippet-backdrop,
+    .plugins-layer,
     .plugin-drawer-layer,
     .fp-unsaved-backdrop
   ) {
@@ -145,6 +141,7 @@
     .group-editor,
     .scheduled-editor,
     .mcp-snippet-dialog,
+    .plugins-page,
     .fp-unsaved-dialog,
     .gp-dialog[open]
   ) {
@@ -163,6 +160,7 @@
       .peer-chat-layer,
       .scheduled-layer,
       .mcp-snippet-backdrop,
+      .plugins-layer,
       .plugin-drawer-layer,
       .fp-unsaved-backdrop
     ),
@@ -176,6 +174,7 @@
       .group-editor,
       .scheduled-editor,
       .mcp-snippet-dialog,
+      .plugins-page,
       .fp-unsaved-dialog,
       .gp-dialog[open]
     ) {

@@ -1,102 +1,135 @@
-.app-shell[data-page='plugins'] > .conversation,
-.app-shell[data-page='plugins'] > .details {
-  display: none;
-}
-/* Plugins page: connectors as status cards, MCP as a list, skills as compact cards grouped by where they come from.
-   Details open in a drawer over the right side, so the list keeps its place. */
-.plugins-page {
-  grid-column: 2/-1;
-  position: relative;
-  min-width: 0;
-  min-height: 0;
-  overflow: auto;
-  background: light-dark(#fcfcfd, #202024);
-  --plugin-line: light-dark(#e8e8ec, #3a3641);
-  --plugin-line-soft: light-dark(#f0f0f2, #312e37);
-  --plugin-surface: light-dark(#fff, #29262f);
-  --plugin-fill: light-dark(#f3f2f5, #36323d);
-  --plugin-ink: light-dark(#29282c, #e3e0e6);
-  --plugin-muted: light-dark(#86838d, #9d99a5);
-  --plugin-faint: light-dark(#a9a6b0, #75717d);
-  --plugin-icon: light-dark(#5d5a64, #c9c5cf);
+/* Plugins: a dialog over the chat. The search and the filters stay put while the sections scroll under them; everything
+   in a section is a row of the same shape, in two columns. Details open in a drawer over the right side. */
+.plugins-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 40px 28px 28px;
+  background: light-dark(rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0.55));
+  -webkit-app-region: no-drag;
+  --plugin-line: var(--surface-line);
+  --plugin-line-soft: var(--surface-line);
+  --plugin-surface: var(--surface-float);
+  --plugin-fill: var(--ctl-fill);
+  --plugin-ink: var(--text-ink);
+  --plugin-muted: var(--text-muted);
+  --plugin-faint: light-dark(#ababab, #777777);
+  --plugin-icon: var(--text-secondary);
   --plugin-good: #3f9a6e;
   --plugin-warn: light-dark(#b9822f, #d9a75a);
   --plugin-warn-fill: light-dark(#fbf4e8, #3a3125);
   --plugin-warn-line: light-dark(#efdcbc, #57472e);
   --plugin-bad: light-dark(#c4554d, #e08a83);
 }
-.plugins-content {
-  max-width: 980px;
-  margin: auto;
-  padding: 0 40px 56px;
+.plugins-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(760px, 100%);
+  height: min(660px, 100%);
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--surface-float);
+  box-shadow: var(--float-shadow);
+  color: var(--text-ink);
+  container: plugins / inline-size;
+}
+.app-shell .plugins-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
 }
 .plugins-header {
   display: flex;
-  align-items: flex-start;
+  flex-shrink: 0;
+  align-items: center;
   gap: 12px;
-  /* Clears the native window buttons drawn over the top right on Windows and Linux. */
-  padding-top: max(30px, calc(env(titlebar-area-height, 0px) + 8px));
+  min-height: 56px;
+  padding: 10px 52px 8px 24px;
 }
-.plugins-title {
-  flex: 1;
-  min-width: 0;
-}
-.plugins-title h1 {
-  font-size: 24px;
-  font-weight: var(--weight-heading);
-  letter-spacing: -0.4px;
+.plugins-header h1 {
   margin: 0;
+  font-size: calc(16px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
   outline: none;
 }
-.plugins-title p {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: var(--plugin-muted);
+.plugins-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-left: auto;
+  padding: 3px 6px 3px 8px;
+  border-radius: 999px;
+  font-size: var(--text-caption);
+  font-weight: var(--weight-body);
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+.plugins-summary:hover {
+  background: var(--surface-hover);
+}
+.plugins-summary .connector-add-logos {
+  margin: 0;
+  gap: 0;
+}
+.plugins-summary .connector-mark + .connector-mark {
+  margin-left: -5px;
+}
+.connector-add-logos {
+  display: flex;
+}
+.plugins-toolbar {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  padding: 0 24px 12px;
 }
 .plugins-search {
   display: flex;
+  flex: 1;
   align-items: center;
   gap: 8px;
-  width: min(250px, 30vw);
+  min-width: 0;
   height: 36px;
-  padding: 0 10px;
-  border: 1px solid var(--plugin-line);
-  border-radius: 10px;
-  background: var(--plugin-surface);
-  color: var(--plugin-faint);
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--ctl-fill);
+  color: var(--text-muted);
 }
 .plugins-search:focus-within {
-  border-color: light-dark(#a9a6b0, #5c5765);
+  box-shadow: var(--ctl-focus);
 }
 .plugins-search input {
   flex: 1;
   min-width: 0;
   border: 0;
   background: none;
-  color: var(--plugin-ink);
+  color: var(--text-ink);
   font: inherit;
-  font-size: 13px;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
   outline: 0;
 }
 .plugins-search input::placeholder {
-  color: var(--plugin-faint);
-}
-.plugins-search kbd {
-  font: 11px var(--font-code);
-  color: var(--plugin-faint);
-  border: 1px solid var(--plugin-line);
-  border-radius: 5px;
-  padding: 0 5px;
-  white-space: nowrap;
+  color: var(--text-muted);
 }
 .plugins-add {
   position: relative;
+  flex-shrink: 0;
 }
-.plugins-add > .primary-button {
+.plugins-layer .plugins-add > .secondary-button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   height: 36px;
+  padding: 0 14px;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
 }
 .plugins-add-menu {
   position: absolute;
@@ -105,12 +138,6 @@
   z-index: 20;
   width: 300px;
   padding: 6px;
-  border: 1px solid var(--plugin-line);
-  border-radius: 14px;
-  background: var(--plugin-surface);
-  box-shadow:
-    0 18px 50px light-dark(#2a1f3a26, #0006),
-    0 2px 8px light-dark(#2a1f3a14, #0004);
 }
 .plugins-add-menu button {
   display: grid;
@@ -120,10 +147,6 @@
   padding: 10px;
   border-radius: 10px;
   text-align: left;
-}
-.plugins-add-menu button:is(:hover, :focus-visible) {
-  background: var(--plugin-fill);
-  outline: none;
 }
 .plugins-add-menu button > span {
   grid-row: 1 / span 2;
@@ -146,73 +169,163 @@
 }
 .plugins-tabs {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
-  gap: 22px;
-  margin-top: 20px;
-  border-bottom: 1px solid var(--plugin-line);
-}
-.plugins-tabs > button {
-  position: relative;
-  display: inline-flex;
-  align-items: baseline;
   gap: 6px;
-  padding: 9px 0 11px;
-  font-size: 13px;
-  color: var(--plugin-muted);
+  padding: 0 20px 12px 24px;
+  border-bottom: 1px solid var(--surface-line);
 }
-.plugins-tabs > button > span {
-  font-size: 11px;
-  color: var(--plugin-faint);
-  font-variant-numeric: tabular-nums;
+.plugins-tabs > button:not(.plugins-tab-link) {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--ctl-fill);
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-body);
+  white-space: nowrap;
+  color: var(--text-secondary);
 }
-.plugins-tabs > button[aria-current='true'] {
-  color: var(--plugin-ink);
+.plugins-tabs > button:not(.plugins-tab-link):hover {
+  background: var(--ctl-fill-hover);
 }
-.plugins-tabs > button[aria-current='true']::after {
-  content: '';
-  position: absolute;
-  inset: auto 0 -1px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--plugin-ink);
+.plugins-tabs > button[aria-current='true']:not(.plugins-tab-link),
+.plugins-tabs > button[aria-current='true']:not(.plugins-tab-link):hover {
+  background: var(--ctl-ink);
+  color: var(--ctl-on-ink);
 }
 .plugins-tabs-spacer {
   flex: 1;
 }
 .plugins-tabs > .plugins-tab-link {
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  font-weight: var(--weight-body);
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--text-muted);
 }
-.plugins-section {
-  margin-top: 30px;
+.plugins-tabs > .plugins-tab-link:not(:disabled):hover {
+  background: var(--surface-hover);
+  color: var(--text-ink);
+}
+.plugins-body {
+  flex: 1;
+  min-height: 0;
+  padding: 18px 24px 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.plugins-section + .plugins-section {
+  margin-top: 24px;
 }
 .plugins-section-head {
   display: flex;
-  align-items: center;
-  gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 12px;
+  align-items: center;
+  gap: 4px 10px;
+  margin-bottom: 8px;
 }
 .plugins-section-head h2 {
   margin: 0;
-  font-size: 15px;
-  font-weight: var(--weight-heading);
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-label);
 }
 .plugins-section-head > span {
-  font-size: 12px;
-  color: var(--plugin-muted);
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+.plugins-section-link {
+  margin-left: auto;
+  font-size: var(--text-caption);
+  font-weight: var(--weight-body);
+  color: var(--text-muted);
+}
+.plugins-section-link:hover {
+  color: var(--text-ink);
+}
+.plugins-section-note {
+  margin: 0 0 8px;
+  font-size: var(--text-caption);
+  line-height: 1.6;
+  color: var(--text-muted);
 }
 .plugins-head-switch {
-  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 9px;
+  margin-left: auto;
   font-size: 12px;
   color: var(--plugin-muted);
 }
-/* A whole card or row opens its details; the name button stretches over it, controls sit above. */
+/* A row: 56 px, with the hover fill reaching a little past the column so the marks stay on the page's left edge. */
+.plugin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 24px;
+  margin-inline: -8px;
+}
+@container plugins (max-width: 560px) {
+  .plugin-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.plugin-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 56px;
+  padding: 8px;
+  border-radius: 12px;
+  transition: background-color 0.14s;
+}
+.plugin-row:has(.plugin-open):hover {
+  background: var(--surface-hover);
+}
+.plugin-row-text {
+  display: grid;
+  flex: 1;
+  gap: 1px;
+  min-width: 0;
+}
+.plugin-row-text > strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.plugin-row-text > strong,
+.plugin-row-text > .plugin-open {
+  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-body);
+}
+.plugin-row-text > small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+.plugin-row-text > small > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.plugin-row-text > small > .is-problem {
+  color: var(--plugin-warn);
+}
+.plugin-row.is-off :is(.plugin-open, .connector-mark, .plugin-icon) {
+  opacity: 0.5;
+}
+.plugins-layer .plugin-row .secondary-button {
+  flex-shrink: 0;
+  padding: 4px 14px;
+  font-size: var(--text-caption);
+}
+/* A whole row opens its details; the name button stretches over it, controls sit above. */
 .plugin-open {
   display: block;
   max-width: 100%;
@@ -235,15 +348,12 @@
   outline: none;
 }
 .plugin-open:focus-visible::after {
-  outline: 2px solid #55a9e1;
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: -2px;
 }
-:is(.connector-card, .mcp-row, .skill-card) :is(.plugin-switch, .text-button) {
+:is(.plugin-row, .mcp-row) :is(.plugin-switch, .text-button, .secondary-button) {
   position: relative;
   z-index: 1;
-}
-:is(.connector-card, .mcp-row, .skill-card):hover {
-  border-color: light-dark(#dcdbe1, #48434f);
 }
 .plugin-icon {
   display: grid;
@@ -310,23 +420,23 @@
   padding: 2px;
   border: 0;
   border-radius: 999px;
-  background: light-dark(#e3e2e7, #3d3944);
+  background: light-dark(#e4e4e4, #3f3f3f);
   flex-shrink: 0;
 }
 .plugin-switch > span {
   width: 14px;
   height: 14px;
-  background: light-dark(#fff, #8f8b96);
+  background: light-dark(#fff, #919191);
   border-radius: 50%;
   box-shadow: 0 1px 2px #0000002e;
   transform: translateX(0);
   transition: transform 0.15s ease;
 }
 .plugin-switch[aria-checked='true'] {
-  background: light-dark(#29282c, #e0dbe6);
+  background: light-dark(#2a2a2a, #e1e1e1);
 }
 .plugin-switch[aria-checked='true'] > span {
-  background: light-dark(#fff, #231f29);
+  background: light-dark(#fff, #242424);
   transform: translateX(12px);
 }
 .plugin-switch:disabled {
@@ -337,7 +447,7 @@
   outline-offset: 3px;
 }
 
-/* Connectors */
+/* Marks */
 .connector-mark {
   display: grid;
   place-items: center;
@@ -345,7 +455,7 @@
   height: 36px;
   border-radius: 10px;
   background: #fff;
-  box-shadow: inset 0 0 0 1px light-dark(#e6e5ea, #fff0);
+  box-shadow: inset 0 0 0 1px light-dark(#e8e8e8, #fff0);
   flex-shrink: 0;
 }
 .connector-mark.is-small {
@@ -358,129 +468,10 @@
   height: 48px;
   border-radius: 13px;
 }
-.connector-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
-  gap: 12px;
-}
-.connector-card {
-  position: relative;
-  display: grid;
-  gap: 14px;
-  padding: 16px;
-  border: 1px solid var(--plugin-line);
-  border-radius: 14px;
-  background: var(--plugin-surface);
-  text-align: left;
-  min-width: 0;
-}
-.connector-card-top {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  min-width: 0;
-}
-.connector-card-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-}
-.connector-card-name .plugin-open {
-  font-size: 14px;
-  font-weight: var(--weight-heading);
-}
-.connector-card-name small {
-  display: block;
-  font-size: 12px;
-  color: var(--plugin-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.connector-card-state {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 22px;
-  margin: 0;
-  font-size: 12px;
-  color: var(--plugin-muted);
-}
-.connector-card-foot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--plugin-line-soft);
-  font-size: 12px;
-  color: var(--plugin-muted);
-}
-.connector-card-foot time {
-  white-space: nowrap;
-}
-.connector-card.is-add {
-  place-content: center;
-  justify-items: center;
-  gap: 8px;
-  min-height: 150px;
-  border-style: dashed;
-  background: transparent;
-  color: var(--plugin-muted);
-}
-.connector-card.is-add strong {
-  color: var(--plugin-ink);
-  font-weight: var(--weight-label);
-}
-.connector-card.is-add small {
-  font-size: 12px;
-}
-.connector-add-logos {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 4px;
-}
-.connector-empty {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 18px;
-  padding: 22px;
-  border: 1px dashed var(--plugin-line);
-  border-radius: 14px;
-}
-.connector-empty > div:first-child {
-  flex: 1 1 320px;
-}
-.connector-empty strong {
-  font-size: 14px;
-  font-weight: var(--weight-heading);
-}
-.connector-empty p {
-  margin: 4px 0 0;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--plugin-muted);
-}
-.connector-empty-platforms {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.connector-empty-platforms .secondary-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding-left: 7px;
-  background: var(--plugin-surface);
-  border-color: var(--plugin-line);
-}
 
 /* MCP */
 .mcp-list {
-  border: 1px solid var(--plugin-line);
-  border-radius: 14px;
-  background: var(--plugin-surface);
-  overflow: hidden;
+  margin-inline: -8px;
 }
 .mcp-row {
   position: relative;
@@ -488,41 +479,55 @@
   align-items: center;
   gap: 12px;
   width: 100%;
-  padding: 12px 16px;
-  border-top: 1px solid var(--plugin-line-soft);
+  min-height: 56px;
+  padding: 8px;
+  border-radius: 12px;
   text-align: left;
+  transition: background-color 0.14s;
 }
-.mcp-list > :first-child,
-.mcp-list > :first-child > .mcp-row:first-child {
-  border-top: 0;
+.mcp-row:hover {
+  background: var(--surface-hover);
 }
 .mcp-row-main {
   flex: 1;
   min-width: 0;
 }
+.mcp-row-main > p {
+  flex-wrap: nowrap;
+}
 .mcp-row-main > p,
 .mcp-row-line {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 4px 6px;
   margin: 2px 0 0;
   font-size: 12px;
   color: var(--plugin-muted);
 }
-.mcp-row-main > p > span:not(:nth-child(2)) {
+/* One line: a long problem shortens here, and reads in full in the details and on hover. */
+.mcp-row-main > p > span {
+  flex-shrink: 0;
   white-space: nowrap;
+}
+.mcp-row-main > p > span:nth-child(2) {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .mcp-row-main > p.is-problem > span:nth-child(2) {
   color: var(--plugin-warn);
-  overflow-wrap: anywhere;
 }
 .mcp-row-main > strong {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  font-weight: var(--weight-label);
+  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-body);
+}
+.mcp-row .plugin-open {
+  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  font-weight: var(--weight-body);
 }
 .mcp-row.is-off :is(.plugin-open, .mcp-row-main > strong) {
   color: var(--plugin-muted);
@@ -535,34 +540,26 @@
   transform: rotate(180deg);
 }
 .mcp-group > .mcp-row ~ .mcp-row {
-  padding-left: 58px;
-  background: light-dark(#fafafb, #26232b);
-}
-.mcp-group + *,
-.mcp-row + .mcp-group {
-  border-top: 1px solid var(--plugin-line-soft);
-}
-.mcp-group > .mcp-row:first-child {
-  border-top: 0;
+  padding-left: 56px;
 }
 
 /* Skills */
 .skill-group + .skill-group {
-  margin-top: 18px;
+  margin-top: 16px;
 }
 .skill-group > h3 {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 10px;
+  margin: 0 0 4px;
   font-size: 12px;
   font-weight: var(--weight-body);
   color: var(--plugin-muted);
   min-width: 0;
 }
 .skill-group > h3 strong {
-  color: var(--plugin-ink);
-  font-weight: var(--weight-label);
+  color: var(--text-secondary);
+  font-weight: var(--weight-body);
   white-space: nowrap;
 }
 .skill-group > h3 > span {
@@ -575,56 +572,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.skill-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
-  gap: 10px;
-}
-.skill-card {
-  position: relative;
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 6px 11px;
-  padding: 13px 14px;
-  border: 1px solid var(--plugin-line);
-  border-radius: 12px;
-  background: var(--plugin-surface);
-  min-width: 0;
-}
-.skill-card > p {
-  grid-column: 1 / -1;
-  margin: 0;
-  min-height: 3.1em;
-  font-size: 12px;
-  line-height: 1.55;
-  color: var(--plugin-muted);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.skill-card > small {
-  grid-column: 1 / -1;
-  font-size: 11px;
-  color: var(--plugin-faint);
-  font-variant-numeric: tabular-nums;
-}
-.skill-card.is-off :is(.plugin-open, p) {
-  color: var(--plugin-faint);
-}
-.skill-card.is-off .plugin-icon {
-  opacity: 0.5;
-}
-.plugins-more {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 10px;
-  font-size: 12px;
-  font-weight: var(--weight-body);
-  color: var(--plugin-muted);
 }
 .plugins-empty {
   display: flex;
@@ -654,7 +601,7 @@
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: light-dark(#1d1b2133, #00000059);
+  background: light-dark(#1e1e1e33, #00000059);
   -webkit-app-region: no-drag;
 }
 .plugin-drawer {
@@ -665,13 +612,10 @@
   width: min(520px, calc(100% - 20px));
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--plugin-line);
   border-radius: 16px;
   background: var(--plugin-surface);
   color: var(--plugin-ink);
-  box-shadow:
-    0 18px 50px light-dark(#2a1f3a26, #0006),
-    0 2px 8px light-dark(#2a1f3a14, #0004);
+  box-shadow: var(--float-shadow);
   outline: none;
   overflow: hidden;
   animation: plugin-drawer-in 0.18s ease-out;
@@ -1008,32 +952,8 @@
   letter-spacing: 1px;
   color: var(--plugin-ink);
 }
-.sidebar-bottom .sidebar-link[aria-current='page'] {
-  background: light-dark(#e8e8e8, #363636);
-  color: light-dark(#333, #ddd);
-  border-radius: 10px;
-}
-.sidebar-bottom .sidebar-link + .sidebar-link {
-  margin-top: 3px;
-}
-@media (max-width: 1050px) {
-  .plugins-content {
-    padding: 0 24px 40px;
-  }
-  .plugins-header {
-    flex-wrap: wrap;
-  }
-  .plugins-title {
-    flex-basis: 100%;
-  }
-  .plugins-search {
-    flex: 1;
-    width: auto;
-  }
-}
 @media (max-width: 600px) {
   .plugins-tabs {
-    gap: 14px;
     overflow-x: auto;
   }
   .plugin-facts {
@@ -1061,12 +981,6 @@
 .plugin-app-mark {
   border-radius: 9px;
 }
-.app-card.is-off .connector-mark {
-  opacity: 0.5;
-}
-.app-card .connector-card-foot .secondary-button {
-  padding-block: 4px;
-}
 .plugin-account {
   display: flex;
   align-items: center;
@@ -1087,11 +1001,4 @@
 .plugin-account small {
   font-size: 12px;
   color: var(--plugin-muted);
-}
-.app-card {
-  grid-template-columns: minmax(0, 1fr);
-  align-content: start;
-}
-.app-card .connector-card-foot {
-  min-height: 41px;
 }

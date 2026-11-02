@@ -1,6 +1,7 @@
-import type { RefObject } from 'react';
+import type { CSSProperties, RefObject } from 'react';
 import type { Bot, InteractionRequest, Snapshot, WorkSession } from '../../shared/types/core';
 import type { GroupSummary } from '../../shared/types/group-types';
+import { botAccentInk, displayBotPalette } from '../../shared/chat/bot-colors';
 import type { BotActivities } from '../bots/bot-activity';
 import { GroupConversation } from '../group/GroupConversation';
 import type { PeerPanel } from '../group/PeerChats';
@@ -84,8 +85,15 @@ export function ConversationPane({
 }) {
   const { t } = useI18n(),
     previewWorkbench = usePreviewWorkbench();
+  // A group belongs to no one Bot, so it keeps the default accent.
+  const accent = bot && !group ? displayBotPalette(bot).color : undefined;
   return (
-    <main className="conversation">
+    <main
+      className="conversation"
+      style={
+        accent ? ({ '--bot-accent': accent, '--bot-accent-ink': botAccentInk(accent) } as CSSProperties) : undefined
+      }
+    >
       {previewWorkbench?.info?.docked && (
         <PreviewBotSwitcher
           bots={state.bots}
