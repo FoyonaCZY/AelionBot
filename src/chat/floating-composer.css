@@ -34,19 +34,6 @@
   margin-right: auto;
   pointer-events: auto;
 }
-/* Only the strip below the composer fades into the page, so text never shows between it and the window edge. */
-.floating-composer::after {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  left: 50%;
-  bottom: 0;
-  width: min(var(--composer-column), calc(100% - 48px));
-  height: 34px;
-  transform: translateX(-50%);
-  background: linear-gradient(transparent, var(--conversation-edge) 55%);
-  pointer-events: none;
-}
 /* Cards that sit above the composer float with it. */
 .floating-composer .work-items-panel,
 .floating-composer .live-work {
