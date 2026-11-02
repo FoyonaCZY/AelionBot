@@ -73,8 +73,8 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
 
 /* ---------- Sidebar ---------- */
 .app-shell .sidebar .sidebar-top {
-  min-height: 48px;
-  height: 48px;
+  min-height: 60px;
+  height: 60px;
   padding: 0 16px 0 84px;
   justify-content: flex-end;
   gap: 8px;
@@ -185,7 +185,7 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
 }
 
 /* ---------- Conversation header: the Bot's chip in the middle, actions at the end, the messages fading out under
-   both. It shares its 48 px band, and so its centre line, with the macOS traffic lights and the sidebar's buttons. */
+   both. It shares its 60 px band, and so its centre line, with the macOS traffic lights and the sidebar's buttons. */
 body:not(:has(.fp-panel[data-layout='docked'])) .app-shell > .conversation > .chat-header {
   position: absolute;
   z-index: 6;
@@ -194,20 +194,20 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell > .conversation > .ch
   left: 0;
   --chip-axis-shift: calc(var(--column-reserve, 0px) - var(--conversation-caption-space, 0px));
   display: grid;
-  /* The chip stands on the composer's centre line: the outer tracks take out what the floating cards reserve on the
+  /* The chip's axis is the composer's centre line: the outer tracks take out what the floating cards reserve on the
      right and what the native caption buttons take from the header's padding, whichever is larger. */
   grid-template-columns:
     max(0px, calc(var(--chip-axis-shift) * -1)) minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr)
     max(0px, var(--chip-axis-shift));
   align-items: center;
-  height: 48px;
-  min-height: 48px;
+  height: 60px;
+  min-height: 60px;
   padding: 6px calc(16px + var(--conversation-caption-space, 0px)) 6px 16px;
   border: 0;
   background: linear-gradient(var(--conversation-edge) 70%, transparent);
 }
 body:not(:has(.fp-panel[data-layout='docked'])) .app-shell > .conversation > .messages {
-  padding-top: 56px;
+  padding-top: 68px;
 }
 .chat-heading {
   display: flex;
@@ -218,7 +218,9 @@ body:not(:has(.fp-panel[data-layout='docked'])) .app-shell > .conversation > .me
   gap: 2px;
 }
 body:not(:has(.fp-panel[data-layout='docked'])) :is(.chat-heading, .chat-header > .bot-heading) {
-  padding: 4px 14px 4px 4px;
+  padding: 6px 18px 6px 6px;
+  /* The actions weigh down the right end of the band, so the chip stands a little left of its axis to look centred. */
+  translate: calc(min(48px, 4vw) * -1) 0;
   border-radius: 999px;
   background: var(--surface-float);
   box-shadow: var(--float-shadow);

@@ -3,7 +3,7 @@
 .app-shell {
   --computer-card-width: 340px;
   --computer-card-gap: 16px;
-  --computer-card-inset: 48px;
+  --computer-card-inset: 60px;
 }
 @media (max-width: 1150px) {
   .app-shell {

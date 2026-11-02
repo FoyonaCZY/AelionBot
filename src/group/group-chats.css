@@ -474,15 +474,15 @@
   white-space: nowrap;
 }
 .interaction-notification.group-notification {
-  top: 54px;
+  top: 60px;
 }
 .app-shell:has(.interaction-notification:not(.peer-notification):not(.group-notification)) .group-notification,
 .app-shell:has(.peer-notification) .group-notification {
-  top: 126px;
+  top: 132px;
 }
 .app-shell:has(.interaction-notification:not(.peer-notification):not(.group-notification)):has(.peer-notification)
   .group-notification {
-  top: 198px;
+  top: 204px;
 }
 @media (max-width: 900px) {
   .group-message-copy {
@@ -615,7 +615,7 @@
 /* ---------- members and personality ---------- */
 .gp-panel {
   position: absolute;
-  top: 56px;
+  top: 62px;
   right: 12px;
   z-index: 20;
   width: min(420px, calc(100% - 24px));

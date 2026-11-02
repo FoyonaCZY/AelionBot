@@ -325,10 +325,10 @@
   color: light-dark(#838c98, #c0c0c0);
 }
 .interaction-notification.peer-notification {
-  top: 54px;
+  top: 60px;
 }
 .app-shell:has(.interaction-notification:not(.peer-notification):not(.group-notification)) .peer-notification {
-  top: 126px;
+  top: 132px;
 }
 .peer-chat-notice-error {
   color: light-dark(#b7655a, #dfb6b1);
