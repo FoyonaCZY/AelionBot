@@ -13,11 +13,17 @@ const withIntegrations =
     return handler(context, context.deps.integrations);
   };
 
+const runWorkspace = (deps: ToolContext['deps'], runId: string) =>
+  deps.store.data.runs.find((run) => run.id === runId)?.workspaceDir;
+
 export const MEMORY_HANDLERS: Record<string, ToolHandler> = {
-  history_search: ({ bot, args, options, deps }) => {
+  history_search: ({ bot, args, runId, options, deps }) => {
     if (!deps.cognition) throw new Error('历史检索尚未启用');
     // The asking conversation's own records come first: a work session finds its own work before other chats'.
-    return deps.cognition.storage.search(
+    const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : undefined),
+      since = text(args.since),
+      until = text(args.until);
+    return deps.cognition.deepSearch(
       bot.id,
       requiredText(args, 'query', 300),
       Number(args.limit) || 8,
@@ -26,6 +32,17 @@ export const MEMORY_HANDLERS: Record<string, ToolHandler> = {
         : options.sessionId
           ? 'session:' + options.sessionId
           : null,
+      {
+        ...(options.sessionId ? { sessionId: options.sessionId } : {}),
+        ...(options.groupOrigin ? { groupId: options.groupOrigin.groupId } : {}),
+        ...(runWorkspace(deps, runId) ? { workspaceDir: runWorkspace(deps, runId) } : {}),
+      },
+      {
+        ...(since ? { since } : {}),
+        ...(until ? { until } : {}),
+        ...(Array.isArray(args.kinds) ? { kinds: args.kinds.map(String) } : {}),
+        ...(args.includeToolOutput === true ? { includeToolOutput: true } : {}),
+      },
     );
   },
   history_read: ({ bot, args, deps }) => {

@@ -621,7 +621,7 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
         <div className="detail-collection">
           {arrayValue(value).map((item, index) => {
             const record = objectValue(item),
-              raw = textValue(record.excerpt || record.content),
+              raw = textValue(record.excerpt || record.content || record.text || record.summary),
               parsed = objectValue(parsedText(raw)),
               payload = objectValue(parsed.result || parsed);
             const text =
@@ -633,11 +633,15 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
                 <div className="detail-collection-title">
                   <Icon name={record.role === 'tool' ? 'terminal' : 'book'} size={15} />
                   <strong>
-                    {record.role === 'user'
-                      ? t('用户要求')
-                      : record.role === 'tool'
-                        ? toolOperation(textValue(record.tool)).label
-                        : t('历史答复')}
+                    {record.kind === 'fact'
+                      ? t('长期记忆')
+                      : record.kind === 'episode'
+                        ? textValue(record.title) || t('做过的事')
+                        : record.role === 'user'
+                          ? t('用户要求')
+                          : record.role === 'tool'
+                            ? toolOperation(textValue(record.tool)).label
+                            : t('历史答复')}
                   </strong>
                   {textValue(record.time) && (
                     <span className="detail-source">
@@ -813,12 +817,16 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
       <>
         <DetailHeader
           icon="book"
-          title={t('长期记忆已更新')}
-          meta={t('{count} 项', { count: arrayValue(result.memories).length })}
+          title={result.pending ? t('等你确认后才会使用') : t('长期记忆已更新')}
+          {...(textValue(result.scope)
+            ? { meta: textValue(result.scope) === 'user' ? t('所有 Bot') : t('仅此范围') }
+            : {})}
         />
-        <Section>
-          <DataView value={arrayValue(result.memories)} />
-        </Section>
+        {textValue(result.text) && (
+          <Section>
+            <p>{textValue(result.text)}</p>
+          </Section>
+        )}
       </>
     );
   if (tool === 'search_files' || tool === 'find_files' || tool === 'host_search_files' || tool === 'host_find_files') {

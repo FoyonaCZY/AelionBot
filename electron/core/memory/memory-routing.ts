@@ -7,6 +7,8 @@ type MemoryAction = 'add' | 'replace' | 'remove';
 export interface MemoryRoute {
   targetBotIds: string[];
   actionsByBot: Record<string, MemoryAction[]>;
+  /** Targets named in the request (「让猫娘记住」) rather than addressed as 「你」: what they keep is theirs alone. */
+  namedBotIds: string[];
 }
 const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function unquoted(value: string) {
@@ -40,6 +42,7 @@ export function memoryRoute(store: Store, source: ChatMessage): MemoryRoute | un
   )
     return;
   const targets = new Set<string>(),
+    named = new Set<string>(),
     grants = new Map<string, Set<MemoryAction>>(),
     blocked = new Set<string>();
   let found = false,
@@ -73,6 +76,7 @@ export function memoryRoute(store: Store, source: ChatMessage): MemoryRoute | un
     }
     found = true;
     ids = namedTargets(store, source, addressed);
+    let byName = ids.length > 0;
     if (!ids.length && /她|他|它|对方|那个\s*Bot|那个伙伴|\b(?:her|him|them)\b/i.test(addressed)) {
       const previous = store.data.peerExchanges
         .filter(
@@ -84,8 +88,13 @@ export function memoryRoute(store: Store, source: ChatMessage): MemoryRoute | un
         )
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
       if (previous) ids = [previous.toBotId];
+      byName = ids.length > 0;
     }
-    if (!ids.length && /你|您|\byou\b/i.test(addressed)) ids = hint.length ? hint : [source.botId];
+    if (!ids.length && /你|您|\byou\b/i.test(addressed)) {
+      byName = hint.length > 0;
+      ids = hint.length ? hint : [source.botId];
+    }
+    if (byName) for (const id of ids) named.add(id);
     if (!ids.length) ambiguous = true;
     for (const id of ids) targets.add(id);
     const denied = /(?:不要|不用|不必|无需|禁止|不准|别|do not|don't|not to)/i.test(head);
@@ -110,6 +119,7 @@ export function memoryRoute(store: Store, source: ChatMessage): MemoryRoute | un
     ? {
         targetBotIds: ambiguous ? [] : [...targets],
         actionsByBot: ambiguous ? {} : Object.fromEntries([...targets].map((id) => [id, [...(grants.get(id) || [])]])),
+        namedBotIds: ambiguous ? [] : [...named].filter((id) => targets.has(id)),
       }
     : undefined;
 }

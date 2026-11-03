@@ -45,6 +45,8 @@ export interface ContextInput {
   runId: string;
   system: WireMessage;
   prefixContext?: WireMessage[];
+  /** The long-term memory block of a context epoch: fixed until the next compaction, so it never breaks the prefix. */
+  memoryCore?: (epoch: number, stateKey: string) => WireMessage | undefined;
   dynamicContext?: WireMessage[];
   history: WireMessage[];
   tools: ToolDefinition[];
@@ -516,6 +518,10 @@ export class ContextEngine {
       await primeTokenCounts(messages);
       return estimateFor(messages);
     };
+    const memoryCore = (epoch: number) => {
+      const message = input.memoryCore?.(epoch, stateKey);
+      return message ? [message] : [];
+    };
     const build = (state: ContextHead, history: WireMessage[]) =>
       transcript.compose(
         {
@@ -523,6 +529,7 @@ export class ContextEngine {
           through: state.through,
           system: input.system,
           reference: [
+            ...memoryCore(state.revision),
             ...(input.prefixContext || []),
             ...(state.summary
               ? [
@@ -606,9 +613,9 @@ export class ContextEngine {
       request = build(head, view);
       estimate = await measure(request);
     }
-    await primeTokenCounts([input.system, ...(input.prefixContext || []), ...controls()]);
+    await primeTokenCounts([input.system, ...memoryCore(head.revision), ...(input.prefixContext || []), ...controls()]);
     const mandatory = estimateRequest(
-      [input.system, ...(input.prefixContext || []), ...controls()],
+      [input.system, ...memoryCore(head.revision), ...(input.prefixContext || []), ...controls()],
       input.tools,
       calibration,
     );

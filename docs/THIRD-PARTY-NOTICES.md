@@ -15,6 +15,8 @@ AelionBot 的构建和运行依赖以下上游项目；第三方组件的许可�
 | Thunar / LibreOffice / Arc / Adwaita | 文件管理、办公、桌面主题和图标 | 通过 Debian 软件源安装，对应版本和许可保留在 guest 的包管理记录及 `/usr/share/doc`；早期工作电脑中的 Papirus 主题保留其原许可记录 |
 | noVNC、React、ssh2、ws、react-markdown | 桌面显示、界面、SSH、WebSocket、Markdown | 确切版本见 `pnpm-lock.yaml`，许可文本随 npm 依赖保留 |
 | remark-gfm、fflate | Markdown 表格和目录 ZIP 附件 | 确切版本见 `pnpm-lock.yaml`，许可文本随 npm 运行依赖保留 |
+| ONNX Runtime Web、@huggingface/tokenizers | 记忆语义检索在本机运行小模型（WASM） | 固定版本见 `pnpm-lock.yaml`；[ONNX Runtime](https://github.com/microsoft/onnxruntime)，MIT；[tokenizers.js](https://github.com/huggingface/tokenizers.js)，Apache-2.0。许可见 `docs/licenses/onnxruntime.txt`、`docs/licenses/huggingface-tokenizers.txt` |
+| bge-small-zh-v1.5（int8 ONNX） | 记忆语义检索用的模型，用户开启后下载，不随包分发 | [BAAI/bge-small-zh-v1.5](https://huggingface.co/BAAI/bge-small-zh-v1.5)，MIT；ONNX 导出来自 [Xenova/bge-small-zh-v1.5](https://huggingface.co/Xenova/bge-small-zh-v1.5)。版本和 SHA-256 固定在 `electron/core/memory/memory-embedder.ts` |
 | PDF.js | PDF 与演示文稿预览 | 固定版本见 `pnpm-lock.yaml`；[上游项目](https://github.com/mozilla/pdf.js)，Apache-2.0 许可保留在 `docs/licenses/pdfjs-dist.txt` |
 | highlight.js | 消息代码块语法高亮 | 固定版本见 `pnpm-lock.yaml`；[上游项目](https://github.com/highlightjs/highlight.js)，BSD 3-Clause 许可保留在 `docs/licenses/highlight.js.txt` |
 | CodeMirror / Lezer | 预览页文本编辑、行号、高亮、撤销与键盘操作 | 固定版本见 `pnpm-lock.yaml`；MIT 许可见 `docs/licenses/codemirror.txt`、`docs/licenses/lezer-highlight.txt` |

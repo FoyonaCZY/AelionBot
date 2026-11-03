@@ -13,6 +13,7 @@ import { Message } from '../ui/Message';
 import { useI18n } from '../i18n';
 import './activity.css';
 import { OperationDenial } from './OperationDenial';
+import { RunMemory } from './RunMemory';
 import { RunProcess } from './RunProcess';
 
 export function RunMessage({
@@ -134,6 +135,7 @@ export function RunMessage({
           showReasoning={false}
         />
       )}
+      {isLast && run?.memory && !running && <RunMemory memory={run.memory} />}
     </div>
   );
 }

@@ -26,6 +26,7 @@ import type { HostApprovals } from '../core/host/host-approvals';
 import type { HostDesktop } from '../core/host/desktop/host-desktop';
 import type { UserTerminals } from '../core/host/user-terminals';
 import type { Cognition } from '../core/memory/cognition';
+import type { MemoryAdmin } from '../core/memory/memory-admin';
 import type { ModelClient } from '../core/model/model';
 import type { ModelProviders } from '../core/model/model-providers';
 import type { PeerChats } from '../core/peer/peer-chats';
@@ -62,6 +63,7 @@ export interface IpcContext {
   readonly hostDesktop: HostDesktop | undefined;
   readonly userTerminals: UserTerminals;
   readonly cognition: Cognition;
+  readonly memoryAdmin: MemoryAdmin;
   readonly designSystems: DesignSystems;
   readonly designStore: DesignStore;
   readonly designerFiles: DesignerFiles;

@@ -1,6 +1,6 @@
 import type { WireMessage } from '../../../shared/types/core';
 import { CognitiveStore, type ReviewJob } from './cognitive-store';
-import { MemoryService, knowledgeTextSafe } from './memory-service';
+import { knowledgeTextSafe } from './memory-service';
 import type { SkillLibrary } from '../extensions/skill-library';
 import { ModelClient, type ToolDefinition } from '../model/model';
 import { ContextEngine } from '../context/context-engine';
@@ -18,7 +18,6 @@ export interface ReviewPayload {
   model: string;
 }
 const REVIEW_TOOL_NAMES = new Set([
-  'memory',
   'skills_list',
   'skill_read',
   'skill_file_read',
@@ -27,22 +26,32 @@ const REVIEW_TOOL_NAMES = new Set([
   'history_read',
   'read_result',
 ]);
-export function shouldReview(request: string, toolCalls: number) {
-  if (
-    /(?:不要|不必|无需|禁止|不需要|不新增).{0,18}(?:记忆|技能|记住|沉淀|学习)|(?:这次|本次).{0,8}不(?:保存|沉淀)/.test(
-      request,
-    )
-  )
-    return false;
-  return toolCalls >= 3 || /(?:以后|记住|偏好|默认|更正|不要再|始终|总是)/.test(request);
+/** The user asked not to keep anything from this request. */
+export function learningOptOut(request: string) {
+  return /(?:不要|不必|无需|禁止|不需要|不新增).{0,18}(?:记忆|技能|记住|沉淀|学习)|(?:这次|本次).{0,8}不(?:保存|沉淀|记)|(?:don'?t|do not).{0,18}(?:remember|memorize|learn)/i.test(
+    request,
+  );
 }
-const REVIEW_INSTRUCTIONS = `当前任务是后台复盘，用户的前台工作已经结束。只提炼能跨任务复用的知识，允许什么都不保存。
-围绕任务类别编写技能，不以本次文件名或产物名命名。技能写清适用条件、输入、步骤、验证和已知限制，不写死 Bot UUID、合成示例金额或用户机器路径。没有实际运行过的方案不能写成已验证。
-记忆只保存用户明确的长期偏好、纠正，以及工具证实的稳定事实；不保存临时进度、猜测、秘密或权限。先核对偏好实际针对哪个 Bot：用户要求转告另一位 Bot 记住的内容属于对方，不能写入你自己的记忆；仅仅转发消息也不是你获得这条偏好的理由。跨任务的个人偏好（例如时区、回答方式）用 target=user；特定工作类别的规则写入技能，避免重复保存。工作知识使用 target=memory。写入必须通过 sourceRefs 引用提供的用户/成功工具消息 ID。更新已有记忆用 replace，oldContent 是已存在原文。不要把用户要求忘记的内容写回来。技能正文只写可复用验证规则，本次验收的具体数据、合计数值和通过数量留在 sourceRefs 对应记录里，不写成技能正文。
-你只能实际调用记忆、技能管理和历史读取工具。模型看到的其他工具定义用于缓存兼容，运行时会拒绝执行。不得操作电脑、运行脚本、调用 MCP、发送消息或扩大权限。只能维护后台复盘自己创建的技能，并且修改前必须先读取；用户创建或安装的技能、共享来源均保持只读。不要记录临时安装失败、短暂网络错误，或“某工具永远不可用”这样的负面结论。完成后简短返回，不向用户重复解释过程。`;
+/** A skill can only come out of real work: several tool steps in a run the user did not opt out of. */
+export function shouldReview(request: string, toolCalls: number) {
+  return toolCalls >= 3 && !learningOptOut(request);
+}
+const REVIEW_INSTRUCTIONS = `当前任务是后台复盘，用户的前台工作已经结束。只提炼能跨任务复用的流程，保存为技能，允许什么都不保存。长期记忆由别的过程负责，这里不用管。
+围绕任务类别编写技能，不以本次文件名或产物名命名。技能写清适用条件、输入、步骤、验证和已知限制，不写死 Bot UUID、合成示例金额或用户机器路径。没有实际运行过的方案不能写成已验证。技能正文只写可复用验证规则，本次验收的具体数据、合计数值和通过数量留在 sourceRefs 对应记录里，不写成技能正文。
+你只能调用技能管理和历史读取工具。不得操作电脑、运行脚本、调用 MCP、发送消息或扩大权限。只能维护后台复盘自己创建的技能，并且修改前必须先读取；用户创建或安装的技能、共享来源均保持只读。不要记录临时安装失败、短暂网络错误，或“某工具永远不可用”这样的负面结论。读取的额度有限：看够了就写，或者结束。完成后简短返回，不向用户重复解释过程。`;
 
-/** A review whose sources (with its instructions and tool definitions) exceed this is sent as a digest of them. */
-const REVIEW_REQUEST_TOKENS = 28000;
+/** A review reads a digest of its run this size at most; the budget below leaves room for several rounds of it. */
+const REVIEW_REQUEST_TOKENS = 12000;
+/** Once this share of the budget is spent, the review may only write what it has, not read further. */
+const REVIEW_READ_SHARE = 0.6;
+const REVIEW_READ_TOOLS = new Set([
+  'skills_list',
+  'skill_read',
+  'skill_file_read',
+  'history_search',
+  'history_read',
+  'read_result',
+]);
 export class LearningWorker {
   /** Reports how long the main-thread steps of starting a review took, for slow-operation diagnostics. */
   onSlow?: (source: string, ms: number) => void;
@@ -52,7 +61,6 @@ export class LearningWorker {
   private working?: Promise<void>;
   constructor(
     private storage: CognitiveStore,
-    private memory: MemoryService,
     private skills: SkillLibrary,
     private model: ModelClient,
     private context: ContextEngine,
@@ -73,9 +81,9 @@ export class LearningWorker {
   status() {
     return { enabled: this.enabled(), runningBotId: this.current?.job.botId, queued: this.storage.jobs().length };
   }
-  enqueue(botId: string, runId: string, payload: ReviewPayload) {
+  enqueue(botId: string, runId: string, payload: ReviewPayload, status: 'queued' | 'held' = 'queued') {
     if (!this.enabled()) return;
-    this.storage.enqueue(botId, runId, payload);
+    this.storage.enqueue(botId, runId, payload, status);
     this.schedule();
     this.changed();
   }
@@ -147,8 +155,7 @@ export class LearningWorker {
     let expectedRevision = payload.revision;
     const allowedRefs = new Set(payload.sourceRefs),
       reads = new Map<string, string>(),
-      changedTargets = new Set<string>(),
-      createdMemories = new Set<string>();
+      changedTargets = new Set<string>();
     let catalogRead = catalog.complete;
     const sourceMessages = this.storage.store.data.messages.filter(
       (message) => allowedRefs.has(message.id) && message.botId === job.botId,
@@ -163,18 +170,9 @@ export class LearningWorker {
         status: message.status,
         content: excerpt(message.content, 700),
       }));
-    const resolveRefs = (value: unknown, kind: 'user' | 'memory' | 'skill') => {
-      const minimum = kind === 'skill' ? 0 : Number(this.storage.get(`learn-after:${job.botId}`) || 0);
+    const resolveRefs = (value: unknown) => {
       const defaults = sourceMessages
-        .filter(
-          (message) =>
-            this.storage.store.data.messages.indexOf(message) >= minimum &&
-            (kind === 'user'
-              ? message.role === 'user'
-              : kind === 'skill'
-                ? message.role === 'tool' && message.status === 'done'
-                : message.role === 'user' || (message.role === 'tool' && message.status === 'done')),
-        )
+        .filter((message) => message.role === 'tool' && message.status === 'done')
         .map((message) => message.id);
       const requested = Array.isArray(value) && value.length ? value : defaults;
       return requested.map((ref) => {
@@ -184,25 +182,23 @@ export class LearningWorker {
         return id;
       });
     };
-    // Retain inherited definitions, updating pagination for reviews queued by older versions.
-    const tools = payload.tools.map((tool) => (tool.function.name === 'skills_list' ? SKILLS_LIST_TOOL : tool));
+    // Only what the review may call: the full tool list alone would take most of its budget on every request.
+    const tools = payload.tools
+      .filter((tool) => REVIEW_TOOL_NAMES.has(tool.function.name))
+      .map((tool) => (tool.function.name === 'skills_list' ? SKILLS_LIST_TOOL : tool));
     let history = structuredClone(payload.messages);
     const control: WireMessage = {
       role: 'system',
-      content: `${REVIEW_INSTRUCTIONS}\n${catalog.prompt}\n当前记忆：${this.memory.prompt(job.botId)}\n可引用来源：${JSON.stringify(source)}\nsourceRefs 优先使用上面的 S 编号，例如 ["S1","S2"]；也接受真实的消息 ID 或工具结果 ID。省略时程序会关联本次复盘的合适来源。用户偏好只能引用用户来源；技能必须引用成功工具来源。最多保存 3 项不同知识，但可以继续修正本次写入。`,
+      content: `${REVIEW_INSTRUCTIONS}\n${catalog.prompt}\n可引用来源：${JSON.stringify(source)}\nsourceRefs 优先使用上面的 S 编号，例如 ["S1","S2"]；也接受真实的消息 ID 或工具结果 ID。省略时程序会关联本次复盘的合适来源。技能必须引用成功工具来源。最多保存 3 项不同知识，但可以继续修正本次写入。`,
     };
     this.onSlow?.('review-prepare', performance.now() - started);
     await primeTokenCounts([...history, control]);
     started = performance.now();
-    // A digest request is never larger than a review sent whole may be. Sized by the window instead, a large window's
-    // digest alone outgrew the review's total input allowance below, so every review there failed before its first call.
+    // Always a digest, whatever the run's size or model: a review sent whole used up its budget before writing anything.
     const target = Math.min(budget.input, REVIEW_REQUEST_TOKENS),
-      digested =
-        estimateRequest([...history, control], tools).tokens > target ||
-        payload.model !== this.storage.store.modelFor(job.botId).model,
-      remaining = digested ? target - estimateRequest([control], tools).tokens - 500 : 0;
+      remaining = target - estimateRequest([control], tools).tokens - 500;
     this.onSlow?.('review-estimate', performance.now() - started);
-    if (digested) {
+    {
       const maxTokens = Math.max(800, Math.min(remaining, Math.floor(budget.input * 0.45)));
       let covered = history,
         digest = await summaryInput(covered, maxTokens);
@@ -224,11 +220,12 @@ export class LearningWorker {
     }
     history.push(control);
     let spent = 0;
+    const allowance = Math.min(100000, budget.capacity * 4);
     for (let iteration = 0; iteration < 16; iteration++) {
       if (signal.aborted) throw new Error('后台复盘已让出执行');
       if (expectedRevision !== this.storage.revision(job.botId)) throw new Error('知识已更新，旧复盘不再写入');
       const estimated = estimateRequest(history, tools).tokens;
-      if (estimated > budget.input || spent + estimated > Math.min(100000, budget.capacity * 4))
+      if (estimated > budget.input || spent + estimated > allowance)
         throw new Error('本次后台复盘达到预算，已有更新保留');
       const result = await this.model.complete(history, tools, signal, () => {}, {
         botId: job.botId,
@@ -258,39 +255,13 @@ export class LearningWorker {
           if (signal.aborted) throw new Error('后台复盘已让出执行');
           if (expectedRevision !== this.storage.revision(job.botId)) throw new Error('知识已更新，旧复盘不能写入');
           if (!REVIEW_TOOL_NAMES.has(call.function.name))
-            throw new Error(
-              '后台复盘禁止此工具。只可读取技能/历史，或使用 memory、skill_save 保存知识，不要重试该工具。',
-            );
+            throw new Error('后台复盘禁止此工具。只可读取技能/历史，或使用 skill_save 保存技能，不要重试该工具。');
+          if (REVIEW_READ_TOOLS.has(call.function.name) && spent > allowance * REVIEW_READ_SHARE)
+            throw new Error('读取额度已用完。现在用 skill_save 写下已有结论，或直接结束。');
           const args = JSON.parse(call.function.arguments);
           if (!args || typeof args !== 'object' || Array.isArray(args)) throw new Error('参数格式错误');
           const name = call.function.name;
-          if (name === 'memory') {
-            args.sourceRefs = resolveRefs(args.sourceRefs, args.target === 'user' ? 'user' : 'memory');
-            const old = String(args.oldContent || args.content || ''),
-              existing = this.storage
-                .memories(job.botId)
-                .find((fact) => fact.content === old || fact.content.includes(old)),
-              target = existing ? `memory:${existing.id}` : undefined;
-            if (
-              changedTargets.size >= 3 &&
-              (!target || !changedTargets.has(target)) &&
-              !(args.action === 'add' && existing?.content === args.content)
-            )
-              throw new Error('本次最多更新 3 项知识。可以继续修正或删除本次已经写入的内容。');
-            output = this.memory.apply(job.botId, job.runId, args, { expectedRevision, background: true, allowedRefs });
-            expectedRevision = this.storage.revision(job.botId);
-            const saved = output as any;
-            if (saved.saved) {
-              const key = `memory:${saved.id}`;
-              if (args.action === 'remove' && createdMemories.has(saved.id)) {
-                createdMemories.delete(saved.id);
-                changedTargets.delete(key);
-              } else {
-                changedTargets.add(key);
-                if (args.action === 'add') createdMemories.add(saved.id);
-              }
-            }
-          } else if (name === 'skills_list') {
+          if (name === 'skills_list') {
             catalogRead = true;
             output = this.skills
               .search(job.botId, String(args.query || ''), Number(args.limit) || 40, Number(args.offset) || 0)
@@ -318,7 +289,7 @@ export class LearningWorker {
             knowledgeTextSafe(`${skillName}\n${description}\n${body}`, this.secrets());
             if (/\/work\/[a-f0-9-]{36}|[A-Z]:\\Users\\|interop-[a-f0-9-]{16}/i.test(body))
               throw new Error('技能应使用参数化路径，不能固化本次临时环境');
-            const refs = resolveRefs(args.sourceRefs, 'skill');
+            const refs = resolveRefs(args.sourceRefs);
             if (!refs.length) throw new Error('技能更新需要成功工具来源，请检查可引用来源中的 S 编号');
             if (
               !refs.some((ref: string) =>

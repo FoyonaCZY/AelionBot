@@ -214,6 +214,7 @@ export function BotComposer({
     [dragging, setDragging] = useState(false),
     [directories, setDirectories] = useState<DroppedAttachment[]>([]);
   const importRevision = useRef(0);
+  const [memoryMode, setMemoryMode] = useState<'on' | 'read' | 'off'>();
   const scope: AttachmentScope = attachmentScope || { kind: 'bot', id: bot.id },
     hasContent = Boolean(draft.text.trim() || draft.attachments?.length);
   useEffect(() => {
@@ -226,6 +227,13 @@ export function BotComposer({
     return () => {
       importRevision.current++;
     };
+  }, [scope.kind, scope.id, scope.sessionId]);
+  useEffect(() => {
+    setMemoryMode(undefined);
+    if (scope.kind !== 'bot') return;
+    void window.aelion
+      .memoryConversationMode({ botId: scope.id, ...(scope.sessionId ? { sessionId: scope.sessionId } : {}) })
+      .then(setMemoryMode, () => {});
   }, [scope.kind, scope.id, scope.sessionId]);
   sendRef.current = () => {
     setUploadError('');
@@ -799,6 +807,21 @@ export function BotComposer({
             })
           }
           onCommand={chooseCommand}
+          {...(scope.kind === 'bot'
+            ? {
+                memoryMode,
+                onMemoryMode: () => {
+                  const mode = memoryMode === 'on' ? 'read' : 'on';
+                  void window.aelion
+                    .memoryConversationMode({
+                      botId: scope.id,
+                      ...(scope.sessionId ? { sessionId: scope.sessionId } : {}),
+                      mode,
+                    })
+                    .then(setMemoryMode, () => {});
+                },
+              }
+            : {})}
         />
         {scope.kind === 'bot' && (
           <>

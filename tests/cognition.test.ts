@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve, dirname, basename } from 'node:path';
 import { Store } from '../electron/core/storage/store';
 import { CognitiveStore } from '../electron/core/memory/cognitive-store';
-import { MemoryService } from '../electron/core/memory/memory-service';
+import { assertNotOneOff, MemoryService } from '../electron/core/memory/memory-service';
 import { ContextEngine } from '../electron/core/context/context-engine';
 import { LearningWorker, shouldReview } from '../electron/core/memory/learning-worker';
 import { SkillLibrary } from '../electron/core/extensions/skill-library';
@@ -276,10 +276,6 @@ test('replacing a fact with text another fact already holds merges them, and sna
     f.storage.memories(f.bot.id).map((fact) => fact.content),
     ['构建使用 pnpm，测试用 node --test。'],
   );
-  const duplicated = f.storage.memories(f.bot.id)[0];
-  f.storage.db
-    .prepare('INSERT INTO memory_facts VALUES(?,?,?,?,?,?,?)')
-    .run('legacy-copy', f.bot.id, 'memory', duplicated.content, '[]', duplicated.createdAt, duplicated.updatedAt);
   assert.equal(f.memory.prompt(f.bot.id).split('测试用 node --test').length - 1, 1);
 });
 test('a Bot created after startup keeps one copy of its memories across a restart', (t) => {
@@ -298,93 +294,79 @@ test('a Bot created after startup keeps one copy of its memories across a restar
     restarted.close();
   }
 });
-test('startup removes duplicated memories, keeping the sourced copy, and is idempotent', (t) => {
+test('startup moves bounded memories of earlier versions over once, without repeats and without sharing them', (t) => {
   const f = fixture(t);
-  f.store.message(f.bot.id, 'user', '记住报表颜色', { runId: 'memory' });
-  f.memory.apply(f.bot.id, 'memory', { action: 'add', content: '报表使用深蓝色。' });
-  const original = f.storage.memories(f.bot.id)[0];
-  assert.notEqual(original.sourceRefs.length, 0);
-  const insert = f.storage.db.prepare('INSERT INTO memory_facts VALUES(?,?,?,?,?,?,?)');
-  // An older unsourced copy and a whitespace variant of the sourced fact.
-  insert.run('legacy-old', f.bot.id, 'memory', original.content, '[]', '2000-01-01T00:00:00.000Z', original.updatedAt);
-  insert.run('legacy-space', f.bot.id, 'memory', ' 报表使用深蓝色。 ', '[]', original.createdAt, original.updatedAt);
-  // The old migration imported the state.json mirror, which flattens user facts, as 'memory'.
-  const other = f.store.createBot('另一个', '测试');
-  f.store.message(other.id, 'user', '记住称呼', { runId: 'memory' });
-  f.memory.apply(other.id, 'memory', { action: 'add', target: 'user', content: '称呼对方为 Wendy。' });
-  const preference = f.storage.memories(other.id)[0];
-  insert.run('legacy-user', other.id, 'memory', preference.content, '[]', preference.createdAt, preference.updatedAt);
-  const revision = f.storage.revision(f.bot.id),
-    otherRevision = f.storage.revision(other.id);
+  const human = f.store.message(f.bot.id, 'user', '报表使用深蓝色');
+  const insert = f.storage.db.prepare('INSERT INTO memory_facts VALUES(?,?,?,?,?,?,?)'),
+    at = '2026-01-01T00:00:00.000Z';
+  insert.run('sourced', f.bot.id, 'memory', '报表使用深蓝色。', JSON.stringify([human.id]), at, at);
+  // An older unsourced copy, a whitespace variant, and a fact about the user.
+  insert.run('legacy-old', f.bot.id, 'memory', '报表使用深蓝色。', '[]', '2000-01-01T00:00:00.000Z', at);
+  insert.run('legacy-space', f.bot.id, 'memory', ' 报表使用深蓝色。 ', '[]', at, at);
+  insert.run('about-user', f.bot.id, 'user', '称呼对方为小林。', '[]', at, at);
+  f.storage.db.prepare('INSERT INTO memory_tombstones VALUES(?,?)').run(f.bot.id, '不要留下这句话');
+  f.storage.db.prepare('DELETE FROM meta WHERE key=? OR key=?').run('memory-v2:' + f.bot.id, 'memory-v2-tombstones');
   f.storage.close();
-
   // Closed inside the test: the fixture deletes the directory afterwards, and Windows cannot remove an open database.
-  const restarted = new CognitiveStore(new Store(f.dir));
-  try {
-    const facts = restarted.memories(f.bot.id);
-    assert.deepEqual(
-      facts.map((fact) => [fact.id, fact.target]),
-      [[original.id, 'memory']],
-    );
-    assert.deepEqual(facts[0].sourceRefs, original.sourceRefs);
-    assert.deepEqual(
-      restarted.memories(other.id).map((fact) => [fact.id, fact.target]),
-      [[preference.id, 'user']],
-    );
-    assert.equal(restarted.revision(f.bot.id), revision + 1);
-    assert.equal(restarted.revision(other.id), otherRevision + 1);
-    assert.equal(restarted.dedupeMemories(), 0);
-    assert.equal(restarted.revision(f.bot.id), revision + 1);
-    // Startup mirroring (Cognition does this right after opening the store) then shows each fact once.
-    new MemoryService(restarted).mirror(f.bot.id);
-    assert.equal(readFileSync(join(f.dir, 'bots', f.bot.id, 'memories', 'MEMORY.md'), 'utf8'), '- 报表使用深蓝色。\n');
-  } finally {
-    restarted.close();
+  for (let start = 0; start < 2; start++) {
+    const restarted = new CognitiveStore(new Store(f.dir));
+    try {
+      const facts = restarted.items.list({ statuses: ['active'] });
+      assert.deepEqual(facts.map((item) => item.text).sort(), ['报表使用深蓝色。', '称呼对方为小林。'].sort());
+      assert.ok(facts.every((item) => item.scope === 'bot:' + f.bot.id));
+      assert.equal(facts.find((item) => item.text === '报表使用深蓝色。')?.origin, 'user_stated');
+      assert.deepEqual(
+        restarted.items.pending().map((item) => item.suggest?.scope),
+        ['user'],
+      );
+      // A forgotten sentence no longer exists as text, and is still recognized.
+      assert.equal((restarted.db.prepare('SELECT count(*) n FROM memory_tombstones').get() as any).n, 0);
+      assert.equal(restarted.items.tombstoned('bot:' + f.bot.id, '不要留下这句话'), true);
+      new MemoryService(restarted).mirror(f.bot.id);
+    } finally {
+      restarted.close();
+    }
   }
+  assert.match(readFileSync(join(f.dir, 'bots', f.bot.id, 'memories', 'MEMORY.md'), 'utf8'), /报表使用深蓝色/);
 });
-test('memory replacement is bounded, sourced and cannot be overwritten by a stale background review', (t) => {
+test('memories have no size limit, come with evidence, and what was forgotten is not learned again', (t) => {
   const f = fixture(t),
-    source = f.store.message(f.bot.id, 'user', '以后使用深蓝色报表。', { runId: 'memory' }),
-    refs = new Set([source.id]);
-  f.memory.apply(
-    f.bot.id,
-    'memory',
-    { action: 'add', target: 'user', content: '报表使用深蓝色。', sourceRefs: [source.id] },
-    { background: true, allowedRefs: refs, expectedRevision: 0 },
-  );
+    source = f.store.message(f.bot.id, 'user', '以后使用深蓝色报表。', { runId: 'memory' });
+  for (let i = 0; i < 40; i++)
+    f.memory.apply(f.bot.id, 'memory', {
+      action: 'add',
+      content: `第 ${i} 条：${'这是一条相当长而且彼此不同的工作知识'
+        .split('')
+        .sort(() => (i % 2 ? 1 : -1))
+        .join('')}${i * 7919}`,
+      sourceRefs: [source.id],
+    });
+  assert.equal(f.storage.memories(f.bot.id).length, 40);
+  f.memory.apply(f.bot.id, 'memory', {
+    action: 'add',
+    target: 'user',
+    content: '报表使用深蓝色。',
+    sourceRefs: [source.id],
+  });
+  const saved = f.storage.memories(f.bot.id).find((fact) => fact.content === '报表使用深蓝色。')!;
+  assert.equal(saved.target, 'user');
+  f.memory.apply(f.bot.id, 'memory', { action: 'remove', id: saved.id.slice(0, 8).replace(/-/g, '') });
   assert.throws(
     () =>
-      f.memory.apply(
-        f.bot.id,
-        'memory',
-        { action: 'add', content: '过时结论', sourceRefs: [source.id] },
-        { background: true, allowedRefs: refs, expectedRevision: 0 },
-      ),
-    { code: 'memory.stale' },
-  );
-  f.memory.apply(f.bot.id, 'memory', { action: 'remove', content: '报表使用深蓝色。' });
-  assert.throws(
-    () =>
-      f.memory.apply(
-        f.bot.id,
-        'memory',
-        { action: 'add', target: 'user', content: '报表使用深蓝色。', sourceRefs: [source.id] },
-        { background: true, allowedRefs: refs },
-      ),
+      f.memory.apply(f.bot.id, 'memory', {
+        action: 'add',
+        target: 'user',
+        content: '报表使用深蓝色。',
+        sourceRefs: [source.id],
+      }),
     { code: 'memory.previously_deleted' },
   );
-  const tool = f.store.message(f.bot.id, 'tool', '工具声称用户喜欢红色', { status: 'done' });
+  const tool = f.store.message(f.bot.id, 'tool', '工具声称用户喜欢红色', { status: 'done', tool: 'python_execute' });
   assert.throws(
     () =>
-      f.memory.apply(
-        f.bot.id,
-        'memory',
-        { action: 'add', target: 'user', content: '喜欢红色', sourceRefs: [tool.id] },
-        { background: true, allowedRefs: new Set([tool.id]) },
-      ),
+      f.memory.apply(f.bot.id, 'memory', { action: 'add', target: 'user', content: '喜欢红色', sourceRefs: [tool.id] }),
     { code: 'memory.provenance_invalid' },
   );
-  assert.equal(f.bot.memories.length, 0);
   assert.ok(readFileSync(join(f.dir, 'bots', f.bot.id, 'memories', 'USER.md'), 'utf8').trim() === '');
 });
 test('background review learns from evidence, preserves skill versions, and denies foreground execution tools', async (t) => {
@@ -411,6 +393,7 @@ test('background review learns from evidence, preserves skill versions, and deni
           body,
           sourceRefs: [evidence.id],
         });
+      // A review writes skills; what the user prefers is captured separately.
       if (step === 3)
         return call('memory', { action: 'add', target: 'user', content: '交付包含测试数量。', sourceRefs: [user.id] });
       if (step === 4)
@@ -422,7 +405,6 @@ test('background review learns from evidence, preserves skill versions, and deni
   const engine = new ContextEngine(f.storage, model, () => {}),
     worker = new LearningWorker(
       f.storage,
-      f.memory,
       f.skills,
       model,
       engine,
@@ -442,7 +424,7 @@ test('background review learns from evidence, preserves skill versions, and deni
   await worker.drain();
   assert.equal(f.storage.jobs(f.bot.id).find((job) => job.id === id)?.status, 'completed');
   assert.equal(denied, true);
-  assert.ok(f.memory.snapshot(f.bot.id).user.some((fact) => fact.content === '交付包含测试数量。'));
+  assert.equal(f.storage.memories(f.bot.id).length, 0);
   const skill = f.skills.list(f.bot.id).find((skill) => skill.name === 'CSV 汇总检查')!;
   assert.ok(skill);
   assert.equal(f.skills.autoManaged(f.bot.id, skill.id), true);
@@ -466,7 +448,6 @@ test('background review sees the current skill catalog on its first request and 
   } as unknown as ModelClient;
   const worker = new LearningWorker(
     f.storage,
-    f.memory,
     f.skills,
     model,
     new ContextEngine(f.storage, model, () => {}),
@@ -520,7 +501,6 @@ test('an Agent may read and improve a catalogued skill without a redundant list 
   } as unknown as ModelClient;
   const worker = new LearningWorker(
     f.storage,
-    f.memory,
     f.skills,
     model,
     new ContextEngine(f.storage, model, () => {}),
@@ -565,7 +545,6 @@ test('a catalog entry alone does not authorize overwriting an unread skill', asy
   } as unknown as ModelClient;
   const worker = new LearningWorker(
     f.storage,
-    f.memory,
     f.skills,
     model,
     new ContextEngine(f.storage, model, () => {}),
@@ -657,7 +636,6 @@ test('user-owned skills stay protected from automatic maintenance and explicit l
   } as unknown as ModelClient;
   const worker = new LearningWorker(
     f.storage,
-    f.memory,
     f.skills,
     model,
     new ContextEngine(f.storage, model, () => {}),
@@ -678,8 +656,9 @@ test('user-owned skills stay protected from automatic maintenance and explicit l
   assert.equal(protectedWrite, true);
   assert.equal(f.skills.fingerprint(f.bot.id, saved.id), before);
   assert.equal(shouldReview('只做这次验证，不新增记忆或技能。', 20), false);
-  assert.equal(shouldReview('以后请报告测试数量。', 0), true);
-  assert.equal(shouldReview('你好', 0), false);
+  assert.equal(shouldReview('以后请报告测试数量。', 0), false);
+  assert.equal(shouldReview('定期汇报，不要再发附件', 1), false);
+  assert.equal(shouldReview('把这个仓库的发布流程跑一遍', 5), true);
 });
 
 test('foreground work preempts a background model request and keeps the job queued without writes', async (t) => {
@@ -696,7 +675,6 @@ test('foreground work preempts a background model request and keeps the job queu
   } as unknown as ModelClient;
   const worker = new LearningWorker(
     f.storage,
-    f.memory,
     f.skills,
     model,
     new ContextEngine(f.storage, model, () => {}),
@@ -730,7 +708,7 @@ test('a knowledge change during inference rejects stale skill writes', async (t)
   const model = {
     complete: async () => {
       if (++step === 1) return call('skills_list', {});
-      f.memory.apply(f.bot.id, 'newer', { action: 'add', content: '较新的用户纠正' });
+      f.storage.bump(f.bot.id);
       return call('skill_save', {
         name: '过时技能',
         description: '不能保存',
@@ -741,7 +719,6 @@ test('a knowledge change during inference rejects stale skill writes', async (t)
   } as unknown as ModelClient;
   const worker = new LearningWorker(
     f.storage,
-    f.memory,
     f.skills,
     model,
     new ContextEngine(f.storage, model, () => {}),
@@ -792,22 +769,22 @@ test('a changed source prefix invalidates compaction instead of committing or se
   assert.equal(f.storage.head(f.bot.id).revision, 0);
 });
 
-test('review limits allow correcting its own writes instead of trapping a bad memory at the cap', async (t) => {
-  const f = fixture(t),
-    source = f.store.message(f.bot.id, 'user', '长期偏好：清晰、简短、包含验证。');
-  let step = 0;
+test('a review only offers tools it may call and stops reading once most of its budget is spent', async (t) => {
+  const f = fixture(t);
+  f.store.data.model.contextTokens = 8000;
+  const source = f.store.message(f.bot.id, 'tool', 'ok', { tool: 'python_execute', status: 'done' });
+  let offered: string[] = [],
+    refused = false,
+    step = 0;
   const model = {
-    complete: async () => {
-      step++;
-      if (step <= 3)
-        return call('memory', { action: 'add', target: 'user', content: `长期偏好 ${step}`, sourceRefs: [source.id] });
-      if (step === 4) return call('memory', { action: 'remove', content: '长期偏好 3', sourceRefs: [source.id] });
-      return done();
+    complete: async (messages: WireMessage[], tools: typeof TOOLS) => {
+      offered = tools.map((tool) => tool.function.name);
+      refused ||= messages.some((message) => message.role === 'tool' && message.content?.includes('读取额度已用完'));
+      return step++ < 12 ? call('history_search', { query: '流程' }) : done();
     },
   } as unknown as ModelClient;
   const worker = new LearningWorker(
     f.storage,
-    f.memory,
     f.skills,
     model,
     new ContextEngine(f.storage, model, () => {}),
@@ -817,34 +794,24 @@ test('review limits allow correcting its own writes instead of trapping a bad me
     100000,
   );
   f.setWorker(worker);
-  f.storage.enqueue(f.bot.id, 'correction', {
-    messages: [],
+  f.storage.enqueue(f.bot.id, 'budget', {
+    messages: [{ role: 'user', content: '跑一遍' }],
     tools: TOOLS,
     sourceRefs: [source.id],
     revision: 0,
     model: f.store.data.model.model,
   });
   await worker.drain();
-  assert.equal(f.storage.jobs(f.bot.id)[0].status, 'completed');
-  assert.equal(f.storage.memories(f.bot.id).length, 2);
-  assert.ok(!f.storage.memories(f.bot.id).some((fact) => fact.content === '长期偏好 3'));
+  assert.ok(offered.includes('skill_save'));
+  assert.ok(!offered.includes('exec_command') && !offered.includes('memory'));
+  assert.equal(refused, true);
 });
 
 test('skill lookup handles multiple query terms and transient test results do not become memory', (t) => {
   const f = fixture(t);
   f.skills.save(f.bot.id, '货币 CSV 汇总', '金额与整数分处理', '可复用流程');
   assert.ok(f.skills.search(f.bot.id, '货币 CSV 整数分').some((skill) => skill.name === '货币 CSV 汇总'));
-  const source = f.store.message(f.bot.id, 'tool', '4 tests passed', { tool: 'python_execute', status: 'done' });
-  assert.throws(
-    () =>
-      f.memory.apply(
-        f.bot.id,
-        'transient',
-        { action: 'add', content: '本次受控样例运行 4 项测试通过。', sourceRefs: [source.id] },
-        { background: true, allowedRefs: new Set([source.id]) },
-      ),
-    { code: 'memory.one_off_execution' },
-  );
+  assert.throws(() => assertNotOneOff('本次受控样例运行 4 项测试通过。'), { code: 'memory.one_off_execution' });
 });
 
 test('background review can read a registered external skill without a separate permission', async (t) => {
@@ -865,7 +832,6 @@ test('background review can read a registered external skill without a separate 
   } as unknown as ModelClient;
   const worker = new LearningWorker(
     f.storage,
-    f.memory,
     f.skills,
     model,
     new ContextEngine(f.storage, model, () => {}),
@@ -896,13 +862,9 @@ test('valid tool-result references resolve to their source messages without acce
     other = f.store.createBot('另一位', '隔离');
   assert.equal(f.storage.sourceMessage(f.bot.id, resultId)?.id, message.id);
   assert.equal(f.storage.sourceMessage(other.id, resultId), undefined);
-  f.memory.apply(
-    f.bot.id,
-    'references',
-    { action: 'add', content: 'CLI 返回成功状态。', sourceRefs: [resultId] },
-    { background: true, allowedRefs: new Set([message.id]) },
-  );
+  f.memory.apply(f.bot.id, 'references', { action: 'add', content: 'CLI 返回成功状态。', sourceRefs: [resultId] });
   assert.deepEqual(f.storage.memories(f.bot.id)[0].sourceRefs, [message.id]);
+  f.store.message(f.bot.id, 'user', '记住这两个路径的大小写', { runId: 'case' });
   f.memory.apply(f.bot.id, 'case', { action: 'add', content: '路径 /Reports 是区分大小写的目录。' });
   f.memory.apply(f.bot.id, 'case', { action: 'add', content: '路径 /reports 是区分大小写的目录。' });
   assert.equal(f.storage.memories(f.bot.id).length, 3);
@@ -930,7 +892,6 @@ test('background review reads the current registered skill rather than a stale a
   } as unknown as ModelClient;
   const worker = new LearningWorker(
     f.storage,
-    f.memory,
     f.skills,
     model,
     new ContextEngine(f.storage, model, () => {}),
@@ -1016,7 +977,6 @@ test('a long run with a large-window model is reviewed from a digest that fits t
   } as unknown as ModelClient;
   const worker = new LearningWorker(
     f.storage,
-    f.memory,
     f.skills,
     model,
     new ContextEngine(f.storage, model, () => {}),

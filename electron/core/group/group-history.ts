@@ -135,6 +135,7 @@ export async function prepareGroupContext(
     runId: string;
     system: WireMessage;
     prefixContext?: WireMessage[];
+    memoryCore?: (epoch: number, stateKey: string) => WireMessage | undefined;
     dynamicContext?: WireMessage[];
     history: WireMessage[];
     tools: ToolDefinition[];

@@ -76,6 +76,7 @@ import { abortable } from '../app/abortable';
 import type { BotMention } from '../../../shared/types/peer-types';
 import { peerPending, isPrivatePeerOrigin } from '../../../shared/types/peer-types';
 import { delegatedMemory, humanRunSource, memoryRoute } from '../memory/memory-routing';
+import { conversationKey } from '../memory/memory-scope';
 import { TOOLS } from './tools';
 import { workspacePath } from './tools/validation';
 import { GroupUpdated, InputUpdated } from './run-updates';
@@ -955,6 +956,11 @@ export class Harness {
       });
     if (options.groupOrigin && options.groupPersona?.trim())
       groupControls.push({ role: 'system', content: options.groupPersona.trim() });
+    const memoryWhere = () => ({
+      ...(sessionId ? { sessionId } : {}),
+      ...(options.groupOrigin ? { groupId: options.groupOrigin.groupId } : {}),
+      ...(run.workspaceDir ? { workspaceDir: run.workspaceDir } : {}),
+    });
     const initialDelegation = this.cognition ? delegatedMemory(this.store, bot.id, run.id) : undefined;
     if (initialDelegation)
       turnContext.content += memoryDelegationContext(
@@ -995,7 +1001,7 @@ export class Harness {
       turnContext.content += mainTaskContext(
         task.taskSource.name,
         task.human.content,
-        cognition ? cognition.memory.prompt(botId) : undefined,
+        cognition ? cognition.memory.prompt(botId, { workspaceDir: run.workspaceDir }) : undefined,
       );
       this.store.save();
       this.changed();
@@ -1080,6 +1086,18 @@ export class Harness {
       work.begin(run, options, source);
       if (work.forRun(run)) this.changed();
       for (const [id, failure] of this.ledger.failureMap(botId, run.id)) pendingFailures.set(id, failure);
+      // What this request calls to mind. A reaction is not a request, and a private exchange reads no shared memory.
+      if (this.cognition && !privateSessionId && !reactionMessage && !resumed) {
+        const scope = groupKey || (sessionId ? contextKey : undefined),
+          recalled = await abortable(controller.signal, () =>
+            this.cognition!.turnMemory(botId, run.id, scope ? `${botId}:${scope}` : botId, memoryWhere(), input),
+          );
+        if (recalled.text) turnContext.content += recalled.text;
+        if (recalled.recalled.length) {
+          run.memory = { recalled: recalled.recalled };
+          this.store.touch(run);
+        }
+      }
       if (run.workspaceDir) {
         reference.content += workspaceReference(run.workspaceDir);
         const conventions = projectConventions(run.workspaceDir);
@@ -1155,14 +1173,28 @@ export class Harness {
           .filter(Boolean)
           .join('\n');
         // The user profile already travels in the identity block of `system`; repeating it here doubled it.
+        const memoryService = this.cognition && !privateSessionId ? this.cognition.memory : undefined;
+        const memoryCore = memoryService
+          ? (epoch: number, stateKey: string): WireMessage | undefined => {
+              if (memoryService.mode(botId, conversationKey({ botId, ...memoryWhere() })) === 'off') return undefined;
+              const core = memoryService.frozenCore(
+                stateKey,
+                epoch,
+                memoryService.contextFor(botId, memoryWhere()),
+                this.store.modelFor(botId).contextTokens,
+              );
+              return core.text ? { role: 'system', content: core.text } : undefined;
+            }
+          : undefined;
         const references: WireMessage[] = [
-          {
-            role: 'system',
-            content:
-              this.cognition && !privateSessionId
-                ? this.cognition.memory.prompt(botId)
-                : `本次记忆快照：\n${this.store.bot(botId).memories.join('\n') || '暂无'}`,
-          },
+          ...(memoryCore
+            ? []
+            : [
+                {
+                  role: 'system' as const,
+                  content: `本次记忆快照：\n${this.store.bot(botId).memories.join('\n') || '暂无'}`,
+                },
+              ]),
           reference,
           {
             role: 'system',
@@ -1186,6 +1218,7 @@ export class Harness {
           runId: run.id,
           system,
           prefixContext: references,
+          ...(memoryCore ? { memoryCore } : {}),
           dynamicContext: [...groupControls, turnContext],
           history,
           tools: modelTools,
@@ -2247,6 +2280,7 @@ export class Harness {
     // Nothing is learned from a run the user took back.
     if (cognition && !run.retracted) cognition.afterRun(botId, run.id, state.lastRuntimeMessages, state.lastTools);
     else this.cognition?.learning.schedule();
+    this.cognition?.noteRun(botId, run.id);
     this.changed();
   }
   private async invokeNested(

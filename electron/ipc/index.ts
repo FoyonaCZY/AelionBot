@@ -11,6 +11,7 @@ import { registerGames } from './register-games';
 import { registerGroups } from './register-groups';
 import { registerIntegrations } from './register-integrations';
 import { registerConnectors } from './register-connectors';
+import { registerMemory } from './register-memory';
 import { registerModels } from './register-models';
 import { registerPeers } from './register-peers';
 import { registerPersona } from './register-persona';
@@ -26,6 +27,7 @@ export function registerIpc(ctx: IpcContext) {
   registerWebPreview(ctx);
   registerApp(ctx);
   registerChat(ctx);
+  registerMemory(ctx);
   registerSessions(ctx);
   registerModels(ctx);
   registerDecisions(ctx);

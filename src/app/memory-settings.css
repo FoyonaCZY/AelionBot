@@ -1,0 +1,183 @@
+/* The Memory settings tab, beyond the shared settings cards. */
+.memory-scope-mark {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: light-dark(#2a2a2a0f, #ffffff14);
+}
+.memory-filter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 10px;
+}
+.memory-filter input[type='search'] {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--settings-line);
+  border-radius: 8px;
+  background: var(--settings-card);
+  color: var(--text-ink);
+  font: inherit;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+}
+.memory-filter label {
+  white-space: nowrap;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+}
+.memory-rows,
+.memory-jobs {
+  margin: 0;
+  padding: 2px 16px;
+  list-style: none;
+}
+.memory-row {
+  padding: 12px 0;
+}
+.memory-row + .memory-row,
+.memory-jobs > li + li {
+  border-top: 1px solid var(--settings-line);
+}
+.memory-row.archived .memory-text {
+  color: var(--text-muted);
+}
+.memory-text {
+  margin: 0;
+  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.memory-text > svg {
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+.memory-row textarea {
+  display: block;
+  width: 100%;
+  min-height: 72px;
+  padding: 8px 10px;
+  border: 1px solid var(--settings-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-ink);
+  font: inherit;
+  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  line-height: 1.6;
+  resize: vertical;
+}
+.memory-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+}
+.memory-note {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+}
+.memory-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin-top: 5px;
+}
+.memory-detail {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: light-dark(#2a2a2a08, #ffffff0a);
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  line-height: 1.6;
+}
+.memory-detail blockquote {
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+.memory-detail cite {
+  display: block;
+  color: var(--text-muted);
+  font-style: normal;
+}
+.memory-detail ul {
+  margin: 0;
+  padding: 0;
+  color: var(--text-muted);
+  list-style: none;
+}
+.settings-modal .memory-totals {
+  margin: 0 16px;
+  padding: 10px 0 12px;
+  border-top: 1px solid var(--settings-line);
+}
+.memory-model {
+  display: grid;
+  gap: 8px;
+  margin: 0 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--settings-line);
+}
+.memory-model + .settings-switch-row {
+  border-top: 1px solid var(--settings-line);
+}
+.memory-transfer {
+  display: flex;
+  flex-shrink: 0;
+  gap: 12px;
+}
+.memory-jobs > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+}
+.memory-jobs small {
+  display: block;
+  color: var(--text-muted);
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+}
+.memory-timeline {
+  margin-top: 10px;
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+}
+.memory-timeline > summary {
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.memory-timeline ol {
+  max-height: 320px;
+  margin: 8px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.memory-timeline li {
+  padding: 8px 0;
+  border-top: 1px solid var(--settings-line);
+}
+.memory-timeline time {
+  display: block;
+  color: var(--text-muted);
+  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+}
+.memory-timeline strong {
+  font-weight: var(--weight-label);
+}
+.memory-timeline p {
+  margin: 2px 0 0;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}

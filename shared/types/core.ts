@@ -250,6 +250,11 @@ export interface RunRecord {
   groupOrigin?: GroupRunOrigin;
   groupTask?: boolean;
   groupUpdated?: boolean;
+  /** Long-term memories this run was reminded of, and those learned from its conversation afterwards. */
+  memory?: {
+    recalled?: import('./memory-types').MemoryRef[];
+    learned?: import('./memory-types').MemoryRef[];
+  };
 }
 export interface ModelConfig extends ModelParameters {
   supportsImages?: boolean;
@@ -414,7 +419,7 @@ export type InteractionRequest = { id: string; botId: string; runId: string; cre
 );
 export type InteractionAction = 'allow' | 'allow-always' | 'deny' | 'takeover' | 'resume' | 'cancel' | 'answer';
 interface CognitionView {
-  learning: { enabled: boolean; runningBotId?: string; queued: number };
+  learning: { enabled: boolean; runningBotId?: string; working?: boolean; queued: number };
   bots: Array<{
     botId: string;
     memoryRevision: number;
@@ -743,6 +748,32 @@ export interface AelionAPI {
   previewFile(input: { botId: string; path: string }): Promise<ArtifactPreview>;
   readToolResult(input: { botId: string; messageId: string }): Promise<unknown>;
   setBackgroundLearning(enabled: boolean): Promise<void>;
+  memoryOverview(): Promise<import('./memory-types').MemoryOverview>;
+  memoryList(query: import('./memory-types').MemoryListQuery): Promise<import('./memory-types').MemoryItem[]>;
+  memoryDetail(id: string): Promise<import('./memory-types').MemoryItemDetail>;
+  memoryUpdate(input: import('./memory-types').MemoryUpdateInput): Promise<import('./memory-types').MemoryItem>;
+  memoryForget(id: string): Promise<void>;
+  memoryConfirm(id: string): Promise<void>;
+  memoryReject(id: string): Promise<void>;
+  memoryTimeline(query: {
+    botId?: string;
+    before?: string;
+    limit?: number;
+  }): Promise<import('./memory-types').MemoryEpisode[]>;
+  memoryUndoJob(id: string): Promise<{ restored: number; skipped: number }>;
+  memorySetBotOptions(input: { botId: string; shareUser?: boolean; mode?: 'on' | 'read' | 'off' }): Promise<void>;
+  memoryBotOptions(botId: string): Promise<{ shareUser: boolean; mode: 'on' | 'read' | 'off' }>;
+  memoryConversationMode(input: {
+    botId: string;
+    sessionId?: string;
+    mode?: 'on' | 'read' | null;
+  }): Promise<'on' | 'read' | 'off'>;
+  setMemoryModel(selection: ModelSelection | null): Promise<void>;
+  memorySetEmbedding(enabled: boolean): Promise<void>;
+  memoryPastEstimate(): Promise<{ conversations: number; inputTokens: number }>;
+  memoryReadPast(): Promise<void>;
+  memoryExport(): Promise<string | null>;
+  memoryImport(scope: string): Promise<{ added: number } | null>;
   screenshot(id: string): Promise<string>;
   ensureComputerDesktop(botId: string): Promise<void>;
   setComputerControl(input: { botId: string; enabled: boolean }): Promise<void>;

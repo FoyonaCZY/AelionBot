@@ -36,6 +36,8 @@ const purposes: Record<string, string> = {
   foreground: '任务执行',
   permission_review: '权限审核',
   background_review: '后台整理',
+  memory_capture: '记忆提取',
+  memory_consolidate: '记忆整理',
   progress: '进度说明',
   greeting: '问候',
 };

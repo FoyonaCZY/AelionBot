@@ -103,6 +103,21 @@ await build({
   target: 'node24',
   external: ['quickjs-emscripten'],
 });
+// The local embedding model's thread. ONNX Runtime finds its WASM next to the module, so this one stays an ES module,
+// unpacked from the app archive with the WASM files beside it.
+await build({
+  entryPoints: ['./electron/core/memory/embedding-worker.ts'],
+  outfile: 'dist-electron/embedding/embedding-worker.mjs',
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  target: 'node24',
+  banner: {
+    js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);",
+  },
+});
+for (const file of ['ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm'])
+  cpSync(`node_modules/onnxruntime-web/dist/${file}`, `dist-electron/embedding/${file}`);
 await viteBuild({ base: './', build: { outDir: 'dist' } });
 
 for (const folder of ['cmaps', 'standard_fonts', 'wasm'])

@@ -11,7 +11,12 @@ export function ComposerTools({
   contextControl,
   onAttach,
   onCommand,
+  memoryMode,
+  onMemoryMode,
 }: {
+  /** Whether this conversation is learned from; absent where the setting does not apply. */
+  memoryMode?: 'on' | 'read' | 'off';
+  onMemoryMode?: () => void;
   contextControl?: ReactNode;
   onAttach: () => void;
   onCommand: (mode: WorkMode) => void;
@@ -115,6 +120,24 @@ export function ComposerTools({
               <span>{t('执行目标')}</span>
               <kbd>/goal</kbd>
             </button>
+            {memoryMode && memoryMode !== 'off' && (
+              <>
+                <div className="composer-menu-divider" />
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    close();
+                    onMemoryMode?.();
+                  }}
+                >
+                  <span className="composer-menu-icon">
+                    <Icon name="memory" size={16} />
+                  </span>
+                  <span>{memoryMode === 'on' ? t('这段对话不记入记忆') : t('这段对话恢复记忆')}</span>
+                </button>
+              </>
+            )}
           </div>
         )}
       </Presence>

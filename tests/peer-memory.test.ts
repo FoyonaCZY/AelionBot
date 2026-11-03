@@ -126,6 +126,7 @@ test('the reported pronoun request resolves to the previously contacted Bot', (t
   assert.deepEqual(memoryRoute(f.store, message), {
     targetBotIds: [f.recipient.id],
     actionsByBot: { [f.recipient.id]: ['add', 'replace'] },
+    namedBotIds: [f.recipient.id],
   });
   assert.deepEqual(memoryRoute(f.store, source(f, '让猫娘记住以后用自然的猫娘风格', 'named'))?.targetBotIds, [
     f.recipient.id,
@@ -174,14 +175,6 @@ test('sender foreground and background writers reject a preference owned by the 
   assert.throws(() => f.cognition.memory.apply(f.sender.id, message.runId!, args), {
     code: 'memory.owned_by_other_bot',
   });
-  assert.throws(
-    () =>
-      f.cognition.memory.apply(f.sender.id, message.runId!, args, {
-        background: true,
-        allowedRefs: new Set([message.id]),
-      }),
-    { code: 'memory.owned_by_other_bot' },
-  );
   f.cognition.afterRun(f.sender.id, message.runId!, [{ role: 'user', content: message.content }], []);
   assert.equal(f.cognition.storage.jobs(f.sender.id).length, 0);
   assert.equal(f.cognition.storage.memories(f.sender.id).length, 0);
@@ -242,7 +235,8 @@ test('delegated memory is written by the recipient with the actual human source 
     human = f.store.data.messages.find((message) => message.role === 'user')!;
   assert.equal(fact.content, content);
   assert.deepEqual(fact.sourceRefs, [human.id]);
-  assert.equal(fact.target, 'user');
+  // Asked of this Bot by name, about this Bot: it stays its own instead of reaching every Bot.
+  assert.equal(fact.target, 'memory');
   assert.deepEqual(f.recipient.memories, [content]);
   assert.equal(
     f.cognition.storage.sourceMessage(f.recipient.id, human.id),

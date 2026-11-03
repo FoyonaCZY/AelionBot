@@ -1,0 +1,37 @@
+.run-memory {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+}
+.run-memory > button {
+  padding: 2px 0;
+  color: inherit;
+}
+.run-memory > button:hover {
+  color: var(--text-secondary);
+}
+.run-memory ul {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.run-memory li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  line-height: 1.55;
+}
+.run-memory li > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.run-memory li > button {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+.run-memory li > button:hover {
+  color: var(--text-ink);
+}

@@ -78,6 +78,8 @@ interface Persisted {
   providers?: StoredProvider[];
   defaultModel?: ModelSelection;
   approvalModel?: ModelSelection;
+  /** Runs memory's background work when set; each Bot's own model otherwise. */
+  memoryModel?: ModelSelection;
   skills: Skill[];
   artifacts: Artifact[];
   skillFilesMigrated?: boolean;

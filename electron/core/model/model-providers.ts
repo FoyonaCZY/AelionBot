@@ -334,6 +334,18 @@ export class ModelProviders {
   setApproval(value: unknown) {
     this.commit({ approvalModel: this.selection(value) });
   }
+  setMemoryModel(value: unknown) {
+    this.commit({ memoryModel: this.selection(value) });
+  }
+  /** The model chosen for memory's background work, without the reasoning settings of chat models. */
+  memoryAccess() {
+    const selection = this.store.data.memoryModel;
+    if (!selection) return undefined;
+    return {
+      config: { ...this.config(undefined, selection), reasoningEffort: undefined, thinkingBudget: undefined },
+      key: this.key(undefined, selection),
+    };
+  }
   secrets() {
     return (this.store.data.providers || []).map((provider) => this.keyFor(provider)).filter(Boolean);
   }
@@ -450,9 +462,13 @@ export class ModelProviders {
     if (
       this.store.data.defaultModel?.providerId === id ||
       this.store.data.approvalModel?.providerId === id ||
+      this.store.data.memoryModel?.providerId === id ||
       this.using(id).length
     )
-      throw new AppError('provider.in_use', '此 Provider 仍被默认模型、自动审核模型或 Bot 使用，请先切换模型');
+      throw new AppError(
+        'provider.in_use',
+        '此 Provider 仍被默认模型、自动审核模型、记忆模型或 Bot 使用，请先切换模型',
+      );
     this.requests.get(id)?.controller.abort();
     this.requests.delete(id);
     this.commit({ providers: this.store.data.providers!.filter((provider) => provider.id !== id) });

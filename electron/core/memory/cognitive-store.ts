@@ -6,6 +6,10 @@ import type { Store } from '../storage/store';
 import type { ChatMessage } from '../../../shared/types/core';
 import { excerpt, resultDigest } from '../context/context-budget';
 import { AppError } from '../../../shared/errors';
+import { MemoryStore } from './memory-store';
+import { allOf, anyOf, queryTokens, searchTokens, signature } from './memory-text';
+import { sensitivity } from './memory-policy';
+import { botScope, conversationKey, groupScope } from './memory-scope';
 
 export interface ContextHead {
   revision: number;
@@ -40,6 +44,8 @@ const historyStamp = (status: string | null | undefined, content: string, scope?
 export const normalizedFact = (text: string) => text.trim().replace(/\s+/g, ' ');
 export class CognitiveStore {
   readonly db: DatabaseSync;
+  /** Long-term memory: facts, episodes, their history and index. */
+  readonly items: MemoryStore;
   private synced = new Map<string, { stamp: string; seq: number }>();
   constructor(readonly store: Store) {
     mkdirSync(store.dir, { recursive: true });
@@ -65,11 +71,16 @@ export class CognitiveStore {
       !(this.db.prepare('PRAGMA table_info(history)').all() as Array<{ name: string }>).some((c) => c.name === 'scope')
     )
       this.db.exec('ALTER TABLE history ADD COLUMN scope TEXT');
+    this.items = new MemoryStore(this.db);
+    this.db.exec(
+      "CREATE VIRTUAL TABLE IF NOT EXISTS history_words USING fts5(id UNINDEXED,bot_id UNINDEXED,tokens,tokenize='porter unicode61 remove_diacritics 2');",
+    );
+    this.items.recoverJobs();
     this.db.prepare("UPDATE review_jobs SET status='queued' WHERE status='running'").run();
     // A review's payload is a copy of its run's conversation, only needed until the review ends. Finished jobs kept
     // theirs, hundreds of megabytes on a long profile; clear those once. jobStatus() clears them from now on.
     if (this.get('review-payloads-pruned') !== '1') {
-      this.db.prepare(`UPDATE review_jobs SET payload='{}' WHERE status NOT IN ('queued','running')`).run();
+      this.db.prepare(`UPDATE review_jobs SET payload='{}' WHERE status NOT IN ('queued','running','held')`).run();
       this.set('review-payloads-pruned', '1');
     }
     // Stamps once included the message's position: one message moved or removed early in the list re-indexed every
@@ -102,7 +113,10 @@ export class CognitiveStore {
       if (!this.get(`memory-migrated:${bot.id}`)) {
         // Only a Bot from before memory_facts holds its memories solely in state.json. A Bot created since then
         // already has its facts here and `bot.memories` is merely their mirror; importing it again duplicated them.
-        if (!this.db.prepare('SELECT 1 FROM memory_facts WHERE bot_id=? LIMIT 1').get(bot.id)) {
+        if (
+          !this.db.prepare('SELECT 1 FROM memory_facts WHERE bot_id=? LIMIT 1').get(bot.id) &&
+          !this.db.prepare('SELECT 1 FROM mem_items WHERE scope=? LIMIT 1').get(botScope(bot.id))
+        ) {
           const seen = new Set<string>();
           for (const text of bot.memories) {
             const key = normalizedFact(text);
@@ -117,9 +131,151 @@ export class CognitiveStore {
         this.set(`memory-migrated:${bot.id}`, '1');
       }
     this.dedupeMemories();
+    this.migrateMemories();
     for (const bot of store.data.bots)
       if (bot.contextResetAt && this.get('context-reset:' + bot.id) !== bot.contextResetAt) this.clearBot(bot.id);
+    this.indexWordsOnce();
     this.syncHistory();
+    this.backfillEpisodes();
+  }
+  /**
+   * Moves facts from the bounded table of earlier versions into long-term memory. They stay private to their Bot,
+   * as they were: facts about the user are only suggested for sharing, for the user to confirm. The old rows stay
+   * readable for a version or two, so going back loses nothing. Forgotten texts become unreadable signatures.
+   */
+  private migrateMemories() {
+    if (!this.get('memory-v2-start')) this.set('memory-v2-start', new Date().toISOString());
+    const change = { actor: 'system' as const };
+    const messages = new Map(this.store.data.messages.map((message) => [message.id, message]));
+    for (const bot of this.store.data.bots) {
+      if (this.get('memory-v2:' + bot.id)) continue;
+      this.items.transaction(() => {
+        const rows = this.db
+          .prepare('SELECT * FROM memory_facts WHERE bot_id=? ORDER BY created_at,id')
+          .all(bot.id) as Array<{
+          id: string;
+          target: string;
+          content: string;
+          source_refs: string;
+          created_at: string;
+        }>;
+        for (const row of rows) {
+          const refs = JSON.parse(row.source_refs) as string[],
+            sources = refs
+              .map((id) => messages.get(id))
+              .filter((message): message is ChatMessage => Boolean(message))
+              .map((message) => ({ messageId: message.id, role: message.role, tool: message.tool, at: message.time }));
+          const item = this.items.create(
+            {
+              scope: botScope(bot.id),
+              kind: row.target === 'user' ? 'preference' : 'project',
+              text: row.content,
+              origin: sources.some((source) => source.role === 'user')
+                ? 'user_stated'
+                : sources.length
+                  ? 'tool_verified'
+                  : 'model_inferred',
+              sensitivity: sensitivity(row.content),
+              authorBot: bot.id,
+              sources,
+              recordedAt: row.created_at,
+            },
+            change,
+          );
+          if (row.target === 'user')
+            this.items.save(
+              { ...item, suggest: { scope: 'user', reason: '这条像是关于你的事实，可以让所有 Bot 都知道' } },
+              'suggest',
+              change,
+              false,
+            );
+        }
+        this.set('memory-v2:' + bot.id, '1');
+      });
+    }
+    if (this.get('memory-v2-tombstones') !== '1')
+      this.items.transaction(() => {
+        const add = this.db.prepare('INSERT INTO mem_tombstones VALUES(?,?,?,?)'),
+          at = new Date().toISOString();
+        for (const row of this.db.prepare('SELECT bot_id,fingerprint FROM memory_tombstones').all() as Array<{
+          bot_id: string;
+          fingerprint: string;
+        }>)
+          add.run(botScope(row.bot_id), signature(row.fingerprint), null, at);
+        this.db.exec('DELETE FROM memory_tombstones');
+        this.db.exec("UPDATE knowledge_events SET before_text=NULL WHERE kind='memory' AND action='remove'");
+        this.set('memory-v2-tombstones', '1');
+      });
+  }
+  private indexWordsOnce() {
+    if (this.get('history-words') === '1') return;
+    this.db.exec('BEGIN');
+    try {
+      const insert = this.db.prepare('INSERT INTO history_words VALUES(?,?,?)');
+      this.db.exec('DELETE FROM history_words');
+      for (const row of this.db
+        .prepare("SELECT id,bot_id,content FROM history WHERE role IN ('user','assistant') AND content<>''")
+        .all() as Array<{ id: string; bot_id: string; content: string }>)
+        insert.run(row.id, row.bot_id, searchTokens(row.content.slice(0, 2000)).join(' '));
+      this.set('history-words', '1');
+      this.db.exec('COMMIT');
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      throw error;
+    }
+  }
+  /** Summaries of compacted work, written before episodes existed, become episodes without calling a model. */
+  private backfillEpisodes() {
+    if (this.get('memory-v2-epochs') === '1') return;
+    for (const row of this.db.prepare('SELECT * FROM context_epochs ORDER BY created_at').all() as Array<{
+      id: string;
+      bot_id: string;
+      summary: string;
+      stats: string;
+      created_at: string;
+    }>) {
+      let scopeKey: string | undefined;
+      try {
+        scopeKey = JSON.parse(row.stats)?.scopeKey;
+      } catch {
+        /* An unreadable record counts as the main chat. */
+      }
+      this.recordEpoch({ id: row.id, botId: row.bot_id, scopeKey, summary: row.summary, at: row.created_at });
+    }
+    this.set('memory-v2-epochs', '1');
+  }
+  /**
+   * What a compaction summarized, kept as an episode. Summaries are written by a model from content that may have
+   * come from anywhere, so they never become facts.
+   */
+  recordEpoch(input: { id: string; botId: string; scopeKey?: string; summary: string; at: string }) {
+    if (!this.store.data.bots.some((bot) => bot.id === input.botId) || input.scopeKey?.startsWith('peer:')) return;
+    const group = /^group:([^:]+):/.exec(input.scopeKey || '')?.[1],
+      session = input.scopeKey?.startsWith('session:') ? input.scopeKey.slice('session:'.length) : undefined;
+    let summary: { goal?: unknown; done?: unknown; decisions?: unknown; pending?: unknown };
+    try {
+      summary = JSON.parse(input.summary);
+    } catch {
+      return;
+    }
+    const list = (value: unknown) =>
+      Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+    const goal = typeof summary.goal === 'string' ? summary.goal : '';
+    if (!goal) return;
+    this.items.addEpisode({
+      botId: input.botId,
+      scope: group ? groupScope(group) : botScope(input.botId),
+      conversation: conversationKey({ botId: input.botId, sessionId: session, groupId: group }),
+      title: goal,
+      summary: [...list(summary.done).slice(-3), ...list(summary.decisions).slice(-2)].join('；') || goal,
+      outcome: list(summary.pending).length ? 'partial' : 'done',
+      pending: list(summary.pending).slice(-3),
+      entities: [],
+      origin: 'compaction',
+      startedAt: input.at,
+      endedAt: input.at,
+      sourceKey: 'epoch:' + input.id,
+    });
   }
   /**
    * Removes repeated copies of a fact (same Bot and normalized text) that the old restart migration created.
@@ -248,6 +404,8 @@ export class CognitiveStore {
     const move = this.db.prepare('UPDATE history SET seq=? WHERE id=?'),
       remove = this.db.prepare('DELETE FROM history_fts WHERE id=?'),
       insert = this.db.prepare('INSERT INTO history_fts VALUES(?,?,?)'),
+      removeWords = this.db.prepare('DELETE FROM history_words WHERE id=?'),
+      insertWords = this.db.prepare('INSERT INTO history_words VALUES(?,?,?)'),
       deleteHistory = this.db.prepare('DELETE FROM history WHERE id=?');
     // The JSON store is authoritative: migration can move group runs out of private history.
     const entries = this.historyEntries(botId),
@@ -264,6 +422,7 @@ export class CognitiveStore {
         if (!current.has(id)) {
           deleteHistory.run(id);
           remove.run(id);
+          removeWords.run(id);
           this.synced.delete(id);
         }
       for (const id of current) if (!indexedIds.has(id)) this.synced.delete(id);
@@ -295,6 +454,9 @@ export class CognitiveStore {
           message.botId,
           `${message.tool || ''}\n${message.role === 'tool' ? resultDigest(message.content, 4000) : message.content}`,
         );
+        removeWords.run(message.id);
+        if ((message.role === 'user' || message.role === 'assistant') && message.content)
+          insertWords.run(message.id, message.botId, searchTokens(message.content.slice(0, 2000)).join(' '));
         this.synced.set(message.id, { stamp, seq });
       }
       this.db.exec('COMMIT');
@@ -304,44 +466,90 @@ export class CognitiveStore {
       throw error;
     }
   }
-  /** `here` is the conversation searching (null for the main chat): its records rank first among equals. */
-  search(botId: string, query: string, limit = 8, here: string | null = null) {
+  /**
+   * `here` is the conversation searching (null for the main chat): its records rank first among equals.
+   * Conversation text is matched by words, so a natural question finds it; tool output by literal fragments, and only
+   * when asked for or when the conversation itself has too little.
+   */
+  search(
+    botId: string,
+    query: string,
+    limit = 8,
+    here: string | null = null,
+    options: { since?: string; until?: string; includeToolOutput?: boolean } = {},
+  ) {
     this.store.bot(botId);
     this.syncHistory(botId);
     query = query.trim().slice(0, 300);
     if (!query) throw new Error('请输入要查找的历史内容');
     limit = Math.max(1, Math.min(20, limit));
-    // The trigram index cannot match terms shorter than three characters, which covers most Chinese words
-    // ("压缩 失败"). Those terms use LIKE; results are merged and ranked by how many terms they contain.
+    const pool = limit * 5,
+      inRange = (row: any) => {
+        if (!options.since && !options.until) return true;
+        const time = this.historyTime(row.id);
+        return (
+          Boolean(time) && (!options.since || time! >= options.since) && (!options.until || time! <= options.until)
+        );
+      };
+    const ranked = new Map<string, { row: any; score: number }>();
+    const merge = (rows: any[], weight: number) =>
+      rows.filter(inRange).forEach((row, rank) => {
+        const entry = ranked.get(row.id) || { row, score: 0 };
+        entry.score += weight / (30 + rank);
+        ranked.set(row.id, entry);
+      });
+    const words = queryTokens(query);
+    if (words.length)
+      merge(
+        this.db
+          .prepare(
+            'SELECT h.* FROM history_words f JOIN history h ON h.id=f.id WHERE history_words MATCH ? AND f.bot_id=? ORDER BY rank LIMIT ?',
+          )
+          // One unbroken name such as a path or a constant is one thing, not a choice between its parts.
+          .all(/^[!-~]+$/.test(query) && /[_./:-]/.test(query) ? allOf(words) : anyOf(words), botId, pool) as any[],
+        1,
+      );
+    // Words that were typed apart may be literal fragments, as may a whole query such as a path or an error text.
     const terms = [...new Set(query.split(/\s+/).filter(Boolean))].slice(0, 12),
       long = terms.filter((term) => [...term].length >= 3),
       short = terms.filter((term) => [...term].length < 3);
-    const found = new Map<string, any>(),
-      pool = limit * 5;
-    if (long.length)
-      for (const row of this.db
-        .prepare(
-          'SELECT h.* FROM history_fts f JOIN history h ON h.id=f.id WHERE history_fts MATCH ? AND h.bot_id=? ORDER BY rank LIMIT ?',
-        )
-        .all(long.map((term) => `"${term.replace(/"/g, '""')}"`).join(' OR '), botId, pool) as any[])
-        found.set(row.id, row);
-    if (short.length)
-      for (const row of this.db
-        .prepare(
-          `SELECT * FROM history WHERE bot_id=? AND (${short.map(() => "content LIKE ? ESCAPE '\\'").join(' OR ')}) ORDER BY seq DESC LIMIT ?`,
-        )
-        .all(botId, ...short.map((term) => `%${term.replace(/[\\%_]/g, '\\$&')}%`), pool) as any[])
-        if (!found.has(row.id)) found.set(row.id, row);
-    const score = (row: any) => {
+    if (options.includeToolOutput || ranked.size < limit) {
+      if (long.length)
+        merge(
+          this.db
+            .prepare(
+              'SELECT h.* FROM history_fts f JOIN history h ON h.id=f.id WHERE history_fts MATCH ? AND h.bot_id=? ORDER BY rank LIMIT ?',
+            )
+            .all(long.map((term) => `"${term.replace(/"/g, '""')}"`).join(' OR '), botId, pool) as any[],
+          options.includeToolOutput ? 1 : 0.6,
+        );
+      // Two-character terms in tool output have no index; scanning for them is only worth it when asked for.
+      if (options.includeToolOutput && short.length)
+        merge(
+          this.db
+            .prepare(
+              `SELECT * FROM history WHERE bot_id=? AND (${short.map(() => "content LIKE ? ESCAPE '\\'").join(' OR ')}) ORDER BY seq DESC LIMIT ?`,
+            )
+            .all(botId, ...short.map((term) => `%${term.replace(/[\\%_]/g, '\\$&')}%`), pool) as any[],
+          0.5,
+        );
+    }
+    const covered = (row: any) => {
       const text = String(row.content).toLowerCase();
       return terms.reduce((sum, term) => sum + (text.includes(term.toLowerCase()) ? 1 : 0), 0);
     };
-    const rows = [...found.values()]
-      .map((row, order) => ({ row, order, score: score(row) }))
+    const rows = [...ranked.values()]
+      .map((item, order) => ({
+        ...item,
+        order,
+        covered: covered(item.row),
+        spoken: item.row.role === 'user' ? 1 : item.row.role === 'assistant' ? 0.5 : 0,
+      }))
       .sort(
         (a, b) =>
-          b.score - a.score ||
+          b.covered - a.covered ||
           Number((b.row.scope ?? null) === here) - Number((a.row.scope ?? null) === here) ||
+          b.score + b.spoken * 0.01 - (a.score + a.spoken * 0.01) ||
           a.order - b.order,
       )
       .slice(0, limit)
@@ -471,24 +679,34 @@ export class CognitiveStore {
           JSON.stringify(input.anchors),
         );
       this.db.exec('COMMIT');
+      try {
+        this.recordEpoch({
+          id,
+          botId: input.botId,
+          scopeKey: (input.stats as { scopeKey?: string } | undefined)?.scopeKey,
+          summary: input.summary,
+          at: new Date().toISOString(),
+        });
+      } catch {
+        /* The timeline is a convenience; a compaction never fails over it. */
+      }
       return id;
     } catch (error) {
       this.db.exec('ROLLBACK');
       throw error;
     }
   }
+  /** The active facts a Bot holds itself and those about the user, oldest first. */
   memories(botId: string): MemoryFact[] {
     this.store.bot(botId);
-    return (
-      this.db.prepare('SELECT * FROM memory_facts WHERE bot_id=? ORDER BY created_at,id').all(botId) as any[]
-    ).map((row) => ({
-      id: row.id,
-      botId: row.bot_id,
-      target: row.target,
-      content: row.content,
-      sourceRefs: JSON.parse(row.source_refs),
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+    return this.items.list({ scopes: ['user', botScope(botId)], statuses: ['active'] }).map((item) => ({
+      id: item.id,
+      botId,
+      target: item.scope === 'user' ? 'user' : 'memory',
+      content: item.text,
+      sourceRefs: item.sources.flatMap((source) => (source.messageId ? [source.messageId] : [])),
+      createdAt: item.recordedAt,
+      updatedAt: item.updatedAt,
     }));
   }
   audit(
@@ -514,18 +732,26 @@ export class CognitiveStore {
         new Date().toISOString(),
       );
   }
-  enqueue(botId: string, runId: string, payload: unknown) {
+  /** `held` waits for the conversation to be read, which decides whether a skill review is worth running. */
+  enqueue(botId: string, runId: string, payload: unknown, status: 'queued' | 'held' = 'queued') {
     const now = new Date().toISOString();
     this.db
       .prepare(
-        "UPDATE review_jobs SET status='superseded',payload='{}',updated_at=? WHERE bot_id=? AND status='queued'",
+        "UPDATE review_jobs SET status='superseded',payload='{}',updated_at=? WHERE bot_id=? AND status IN ('queued','held')",
       )
       .run(now, botId);
     const id = randomUUID();
     this.db
       .prepare('INSERT INTO review_jobs VALUES(?,?,?,?,?,?,?,?,?)')
-      .run(id, botId, runId, 'queued', 0, JSON.stringify(payload), null, now, now);
+      .run(id, botId, runId, status, 0, JSON.stringify(payload), null, now, now);
     return id;
+  }
+  releaseReviews(botId: string, worthy: boolean) {
+    this.db
+      .prepare(
+        `UPDATE review_jobs SET status=?,payload=CASE WHEN ? THEN payload ELSE '{}' END,updated_at=? WHERE bot_id=? AND status='held'`,
+      )
+      .run(worthy ? 'queued' : 'skipped', worthy ? 1 : 0, new Date().toISOString(), botId);
   }
   jobs(botId?: string): ReviewJob[] {
     const rows = (
@@ -549,7 +775,7 @@ export class CognitiveStore {
     // Only a job that can still run needs its payload.
     this.db
       .prepare(
-        "UPDATE review_jobs SET status=?,result=?,updated_at=?,attempts=attempts+?,payload=CASE WHEN ? IN ('queued','running') THEN payload ELSE '{}' END WHERE id=?",
+        "UPDATE review_jobs SET status=?,result=?,updated_at=?,attempts=attempts+?,payload=CASE WHEN ? IN ('queued','running','held') THEN payload ELSE '{}' END WHERE id=?",
       )
       .run(status, result, new Date().toISOString(), increment ? 1 : 0, status, id);
   }
@@ -577,6 +803,7 @@ export class CognitiveStore {
       for (const table of [
         'history',
         'history_fts',
+        'history_words',
         'context_state',
         'context_pruning',
         'context_heads',
@@ -592,6 +819,7 @@ export class CognitiveStore {
         this.db
           .prepare(`DELETE FROM ${table} WHERE bot_id=? OR substr(bot_id,1,?)=? OR instr(bot_id,?)>0`)
           .run(botId, botId.length + 1, botId + ':', ':reset:' + botId + ':');
+      this.items.clearBot(botId);
       const resetAt = this.store.data.bots.find((b) => b.id === botId)?.contextResetAt;
       if (resetAt)
         this.db

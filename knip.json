@@ -9,6 +9,7 @@
     "electron/core/file-search-worker.ts",
     "electron/core/code-worker.ts",
     "electron/core/context/token-worker.ts",
+    "electron/core/memory/embedding-worker.ts",
     "scripts/*.{mjs,ts}",
     "tests/*.test.ts",
     "website/src/main.tsx",

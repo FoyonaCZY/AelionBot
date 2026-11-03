@@ -53,6 +53,9 @@ import { HostComputer, redactHost } from './core/host/host';
 import { HostApprovals, defaultPermissionReviewer, defaultApprovalModel } from './core/host/host-approvals';
 import { CommandPermissions } from './core/host/command-permissions';
 import { Cognition } from './core/memory/cognition';
+import { MemoryAdmin } from './core/memory/memory-admin';
+import { LocalEmbedder } from './core/memory/memory-embedder';
+import { compactOnce } from './core/memory/memory-maintenance';
 import { PeerChats } from './core/peer/peer-chats';
 import { GroupChats } from './core/group/group-chats';
 import { LayaRuntime } from './core/model/laya-runtime';
@@ -110,6 +113,8 @@ let userTerminals: UserTerminals;
 // Parses host commands for the permission policy only; never executes them.
 const powershellParser = new PowerShellParser();
 let cognition: Cognition;
+let memoryAdmin: MemoryAdmin;
+let embedder: LocalEmbedder | undefined;
 let peerChats: PeerChats | undefined;
 let groupChats: GroupChats | undefined;
 let games: GameRuntime | undefined;
@@ -278,7 +283,7 @@ function handle<M extends IpcMethod>(method: M, callback: IpcHandler<M>) {
 function beforeModelChange(botIds: string[]) {
   const busy = botIds.find((id) => updatePreparing || harness.isRunning(id));
   if (busy) throw new Error(`请等待 ${store.bot(busy).name} 的当前任务结束后修改模型`);
-  cognition.learning.preempt();
+  cognition.beforeRun();
   for (const id of botIds) {
     greetings?.cancel(id);
     persona?.cancelGrowthReview(id);
@@ -741,6 +746,9 @@ async function initialize() {
     },
   );
   startup.mark('services');
+  await compactOnce(join(store.dir, 'cognition.sqlite')).then((result) => {
+    if (result && !result.skipped) store.journal('memory.compact', result);
+  });
   cognition = new Cognition(
     store,
     model,
@@ -748,7 +756,23 @@ async function initialize() {
     changed,
     () => Boolean(updatePreparing || harness?.busy || groupChats?.busy),
     () => providers.secrets(),
+    undefined,
+    { memoryModel: () => providers.memoryAccess() },
   );
+  embedder = new LocalEmbedder(
+    store.dir,
+    join(__dirname, 'embedding', 'embedding-worker.mjs').replace('app.asar', 'app.asar.unpacked'),
+    (url, options) => net.fetch(url, options),
+    changed,
+    {
+      get: () => cognition.storage.get('memory-embedding') !== 'off',
+      set: (enabled) => cognition.storage.set('memory-embedding', enabled ? 'on' : 'off'),
+    },
+  );
+  cognition.useEmbedder(embedder);
+  memoryAdmin = new MemoryAdmin(cognition, () => providers.secrets());
+  memoryAdmin.embedder = embedder;
+  cognition.memory.onChanged = changed;
   cognition.onSlow = cognition.learning.onSlow = (source, ms) => slow?.(source, ms);
   agentPreviews = new AgentPreviews(store, artifacts, attachments, changed, host);
   const imageModelAccess = (botId: string) => providers.imageAccess(botId);
@@ -1058,7 +1082,7 @@ async function initialize() {
         assertUpdateDataOutsideApp(profileDir, dirname(process.execPath));
         updatePreparing = true;
         changed();
-        cognition.learning.preempt();
+        cognition.beforeRun();
         const resumeComputer = Boolean(vm.state.pid);
         try {
           if (vm.storage.snapshot().settings.reclaimAfterUpdate) {
@@ -1102,6 +1126,8 @@ async function initialize() {
     changed,
   );
   cognition.start();
+  // The model files are small and only ever downloaded; a slow start of the app is not worth them.
+  setTimeout(() => void embedder?.start(), 30000).unref();
   startup.mark('memory');
   nativeTheme.themeSource = normalizeAppearance(store.data.appearance).theme;
   window = new BrowserWindow({
@@ -1297,6 +1323,9 @@ async function initialize() {
     get cognition() {
       return cognition;
     },
+    get memoryAdmin() {
+      return memoryAdmin;
+    },
     get designSystems() {
       return designSystems;
     },
@@ -1406,6 +1435,7 @@ async function initialize() {
     closeWork: () => [
       harness.closeProcesses(),
       cognition.close(),
+      Promise.resolve(embedder?.close()),
       integrations.close(),
       connectors?.dispose() ?? Promise.resolve(),
     ],
