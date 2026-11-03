@@ -16,6 +16,7 @@ import { registerPeers } from './register-peers';
 import { registerPersona } from './register-persona';
 import { registerPreview } from './register-preview';
 import { registerTasks } from './register-tasks';
+import { registerTerminal } from './register-terminal';
 import { registerWebPreview } from './register-web-preview';
 import { registerWorkspace } from './register-workspace';
 import { registerSessions } from './register-sessions';
@@ -40,5 +41,6 @@ export function registerIpc(ctx: IpcContext) {
   registerGames(ctx);
   registerPersona(ctx);
   registerComputer(ctx);
+  registerTerminal(ctx);
   registerFiles(ctx);
 }

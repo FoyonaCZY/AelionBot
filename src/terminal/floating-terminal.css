@@ -1,0 +1,83 @@
+/* A dark panel in both themes, because the colours command-line programs print are chosen for a dark background. */
+.floating-terminal {
+  position: absolute;
+  /* Over the sidebar and the computer card, under dialogs. */
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 320px;
+  min-height: 180px;
+  max-width: calc(100% - 16px);
+  max-height: calc(100% - 16px);
+  overflow: hidden;
+  resize: both;
+  border-radius: 14px;
+  background: #1c1c1f;
+  /* The ring keeps the dark panel apart from the dark theme's page. */
+  box-shadow:
+    0 0 0 1px #ffffff1f,
+    var(--float-shadow);
+}
+.floating-terminal-bar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 6px 0 12px;
+  color: #a1a1aa;
+  font-size: var(--text-caption);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.floating-terminal-bar:active {
+  cursor: grabbing;
+}
+.floating-terminal-bar > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.app-shell .floating-terminal-bar .icon-button {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: transparent;
+  color: #a1a1aa;
+}
+.app-shell .floating-terminal-bar .icon-button:hover {
+  background: #ffffff1a;
+  color: #e4e4e7;
+}
+.floating-terminal-body {
+  flex: 1;
+  min-height: 0;
+  /* The bottom keeps clear of the corner the panel is resized from. */
+  padding: 2px 4px 12px 12px;
+}
+.floating-terminal-screen {
+  width: 100%;
+  height: 100%;
+}
+.terminal-toggle {
+  position: relative;
+}
+.terminal-toggle-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3a9a68;
+  box-shadow: 0 0 0 2px light-dark(#fff, #222222);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .floating-terminal {
+    animation: motion-fade-in var(--motion-view) ease backwards;
+  }
+}

@@ -40,6 +40,7 @@ import { ConversationInteractions } from '../chat/InteractionPrompts';
 import { GroupAvatar } from './GroupAvatar';
 import { GroupPersonaPanel, PersonaHoverCard } from './GroupPersonaPanel';
 import { ComputerCardToggle } from '../computer/ComputerCardToggle';
+import { TerminalToggle } from '../terminal/TerminalToggle';
 import { readScrollAnchor, restoreScrollAnchor, type ScrollAnchor } from '../app/scroll-anchor';
 import { useFloatingComposer } from '../chat/use-floating-composer';
 import { ipcErrorText } from '../ui/ipc-error';
@@ -393,6 +394,7 @@ export function GroupConversation({
           <button className="icon-button" aria-label={t('群聊设置')} onClick={onManage}>
             <Icon name="settings" />
           </button>
+          <TerminalToggle scope={{ kind: 'group', id: group.id }} />
           <ComputerCardToggle />
         </div>
       </header>

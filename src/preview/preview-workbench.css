@@ -52,12 +52,6 @@ body:has(.fp-panel[data-layout='docked']) {
     padding: 10px;
     min-width: 0;
   }
-  body:has(.fp-panel[data-layout='docked']) .bot-model-button {
-    font-size: 11px;
-  }
-  body:has(.fp-panel[data-layout='docked']) .connection-status {
-    font-size: 11px;
-  }
   body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .conversation {
     min-width: 0;
   }

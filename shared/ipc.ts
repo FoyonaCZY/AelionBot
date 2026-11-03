@@ -113,6 +113,11 @@ export const INVOKE_CHANNELS = {
   saveVmStorageSettings: 'vm:storage-save',
   reclaimVmStorage: 'vm:storage-reclaim',
   vmTerminal: 'vm:terminal',
+  // Floating terminal
+  openTerminal: 'terminal:open',
+  writeTerminal: 'terminal:write',
+  resizeTerminal: 'terminal:resize',
+  closeTerminal: 'terminal:close',
   screenshot: 'computer:screenshot',
   ensureComputerDesktop: 'computer:ensure',
   setComputerControl: 'computer:control',
@@ -196,6 +201,7 @@ export const GAME_CHANNELS = {
 
 export const EVENT_CHANNELS = {
   onEvent: 'app:event',
+  onTerminalEvent: 'terminal:event',
   onPreviewSave: 'web-preview:save',
   onPreviewEditor: 'web-preview:editor-event',
   onPreviewFeedbackInput: 'preview-feedback:input',

@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { createRequire } from 'node:module';
 import { spawn } from 'node:child_process';
 import { closeSync, existsSync, mkdtempSync, openSync, readSync, realpathSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -10,6 +9,7 @@ import type { HostComputer } from '../host/host';
 import type { Interactions } from '../agent/interactions';
 import type { VmController } from '../vm/vm';
 import { hostEnvironment, hostShell, stopHostProcess } from '../host/host-platform';
+import { spawnPty } from '../host/host-pty';
 import { approvalReason } from './approval-reason';
 import { boundedInteger, FileToolError, textPage } from './file-text';
 import { backoff } from '../model/model';
@@ -114,78 +114,7 @@ export class TerminalSessions {
         shell = hostShell(args.command, env),
         shellArgs = tty ? shell.args.filter((arg) => arg !== '-NonInteractive') : shell.args;
       if (tty) {
-        // node-pty rewrites its Mac spawn-helper path itself. Loading its JS from
-        // app.asar.unpacked on Mac would rewrite that path a second time.
-        const load = createRequire(join(this.runtimeDir, 'terminal-loader.cjs')),
-          resolved = load.resolve('node-pty'),
-          file = process.platform === 'win32' ? resolved.replace(/app\.asar([\\/])/, 'app.asar.unpacked$1') : resolved,
-          pty = load(file) as typeof import('node-pty');
-        const child = pty.spawn(shell.executable, shellArgs, {
-          name: 'xterm-256color',
-          cwd,
-          cols,
-          rows,
-          env: Object.fromEntries(
-            Object.entries(env).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
-          ),
-          useConpty: true,
-        });
-        // node-pty 1.1.0 leaves its ConPTY reader worker alive on natural exit.
-        // Release owned handles directly: public kill() enumerates an already exited
-        // console, starting an unnecessary helper and printing AttachConsole errors.
-        let released = false,
-          stopping = false;
-        const release = () => {
-          if (released) return;
-          released = true;
-          if (process.platform === 'win32') {
-            const agent = (child as any)._agent;
-            agent?._conoutSocketWorker?.dispose();
-            agent?._inSocket?.destroy();
-            try {
-              agent?._ptyNative?.kill(agent._pty, agent._useConptyDll);
-            } catch {}
-            agent?._outSocket?.destroy();
-          }
-        };
-        driver = {
-          write: (value) => child.write(value),
-          resize: (cols, rows) => child.resize(cols, rows),
-          onData: (fn) => child.onData(fn),
-          onExit: (fn) =>
-            child.onExit((event) => {
-              release();
-              fn(event.exitCode ?? -1);
-            }),
-          kill: () => {
-            if (stopping || released) return;
-            stopping = true;
-            if (process.platform === 'win32') {
-              const task = spawn(
-                join(env.SystemRoot || 'C:\\Windows', 'System32', 'taskkill.exe'),
-                ['/PID', String(child.pid), '/T', '/F'],
-                { windowsHide: true, stdio: 'ignore' },
-              );
-              task.on('error', release);
-              task.on('close', release);
-            } else {
-              try {
-                process.kill(-child.pid, 'SIGTERM');
-              } catch {
-                try {
-                  child.kill('SIGTERM');
-                } catch {}
-              }
-              const timer = setTimeout(() => {
-                if (!released)
-                  try {
-                    process.kill(-child.pid, 'SIGKILL');
-                  } catch {}
-              }, 1500);
-              timer.unref();
-            }
-          },
-        };
+        driver = spawnPty(this.runtimeDir, { executable: shell.executable, args: shellArgs, cwd, cols, rows, env });
       } else if (this.keepServices && args.purpose === 'service' && !args.stdin) {
         const log = join(mkdtempSync(join(tmpdir(), 'aelion-service-')), 'output.log'),
           out = openSync(log, 'a');

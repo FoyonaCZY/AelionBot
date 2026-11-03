@@ -219,13 +219,6 @@ textarea {
   gap: 12px;
   align-items: center;
 }
-.connection-status {
-  font-size: calc(12px * var(--appearance-text-scale, 1));
-  color: light-dark(#a0a2a5, #b8b8b8);
-}
-.connection-status.working {
-  color: light-dark(#259a75, #a1dcc9);
-}
 .messages {
   flex: 1;
   min-height: 0;
@@ -878,9 +871,6 @@ dd {
   .details {
     padding-left: 13px;
     padding-right: 13px;
-  }
-  .connection-status {
-    display: none;
   }
   .composer-hint {
     display: none;

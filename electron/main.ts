@@ -27,6 +27,8 @@ import { AgentPreviews } from './core/preview/agent-previews';
 import { normalizeAppearance, type AppearanceSettings } from '../shared/preview/appearance';
 import { createMacUpdater, macAutomaticUpdates } from './core/app/mac-updater';
 import { hostEnvironment } from './core/host/host-platform';
+import { spawnPty } from './core/host/host-pty';
+import { UserTerminals } from './core/host/user-terminals';
 import { RunPolicy } from './core/agent/runtime-policy';
 import { app, BrowserWindow, ipcMain, safeStorage, dialog, shell, Menu, nativeImage, nativeTheme, net } from 'electron';
 import { randomUUID } from 'node:crypto';
@@ -80,7 +82,7 @@ import type { Snapshot, StreamingReply } from '../shared/types/core';
 import { StateSync } from './core/app/state-sync';
 import { enableTokenWorker } from './core/context/token-counter';
 import { Shutdown } from './core/app/shutdown';
-import { IPC_CHANNELS, type IpcHandler, type IpcMethod } from '../shared/ipc';
+import { EVENT_CHANNELS, IPC_CHANNELS, type IpcHandler, type IpcMethod } from '../shared/ipc';
 import { registerIpc } from './ipc';
 
 installAelionUserAgent();
@@ -104,6 +106,7 @@ let host: HostComputer;
 let commandPermissions: CommandPermissions;
 let hostApprovals: HostApprovals;
 let hostDesktop: HostDesktop | undefined;
+let userTerminals: UserTerminals;
 // Parses host commands for the permission policy only; never executes them.
 const powershellParser = new PowerShellParser();
 let cognition: Cognition;
@@ -510,6 +513,13 @@ async function initialize() {
     },
     interactions,
   );
+  userTerminals = new UserTerminals({
+    spawn: (options) => spawnPty(__dirname, options),
+    env: { ...process.env },
+    emit: (event) => {
+      if (window && !window.isDestroyed()) window.webContents.send(EVENT_CHANNELS.onTerminalEvent, event);
+    },
+  });
   const bundledSkillDir = join(
     app.isPackaged ? join(process.resourcesPath, 'app.asar.unpacked') : app.getAppPath(),
     'assets',
@@ -1281,6 +1291,9 @@ async function initialize() {
     get hostDesktop() {
       return hostDesktop;
     },
+    get userTerminals() {
+      return userTerminals;
+    },
     get cognition() {
       return cognition;
     },
@@ -1381,6 +1394,7 @@ async function initialize() {
         () => groupChats?.dispose(),
         () => interactions.dispose(),
         () => hostDesktop?.dispose(),
+        () => userTerminals.dispose(),
         () => host.dispose(),
       ])
         try {

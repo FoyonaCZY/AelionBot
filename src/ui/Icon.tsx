@@ -129,6 +129,7 @@ export function Icon({ name, size = 20 }: { name: string; size?: number }) {
     ),
     send: <path d="m5 12 7-7 7 7M12 5v15" />,
     close: <path d="m6 6 12 12M18 6 6 18" />,
+    minus: <path d="M5 12h14" />,
     check: <path d="m5 12 4 4L19 6" />,
     alert: (
       <>

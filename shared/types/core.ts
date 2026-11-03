@@ -478,6 +478,7 @@ export interface CommandResult {
   exitCode: number;
   durationMs: number;
 }
+export type TerminalEvent = { type: 'data'; id: string; data: string } | { type: 'exit'; id: string; exitCode: number };
 export interface AelionAPI {
   games: GameAPI;
   toggleWindowZoom(): void;
@@ -569,6 +570,7 @@ export interface AelionAPI {
   }): Promise<void>;
   onWebPreview(callback: (state: import('../preview/web-preview').WebPreviewState) => void): () => void;
   onWebPreviewEscape(callback: (id: string) => void): () => void;
+  onTerminalEvent(callback: (event: TerminalEvent) => void): () => void;
   sendPreviewFeedback(
     input: import('../preview/preview-feedback').PreviewFeedbackInput,
   ): Promise<{ sent: true; attachmentId: string }>;
@@ -719,6 +721,14 @@ export interface AelionAPI {
   setBotModel(input: { botId: string; selection: ModelSelection | null }): Promise<void>;
   vmAction(action: 'prepare' | 'start' | 'stop' | 'restart' | 'repair-tools'): Promise<void>;
   vmTerminal(command: string): Promise<CommandResult>;
+  openTerminal(input: {
+    scope: import('./attachment-types').AttachmentScope;
+    cols: number;
+    rows: number;
+  }): Promise<{ id: string; cwd: string }>;
+  writeTerminal(input: { id: string; text: string }): Promise<void>;
+  resizeTerminal(input: { id: string; cols: number; rows: number }): Promise<void>;
+  closeTerminal(id: string): Promise<void>;
   listFiles(botId: string): Promise<Array<{ name: string; path: string; size: number; modifiedAt: string }>>;
   searchMentionFiles(input: {
     designSessionId?: string;

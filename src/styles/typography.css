@@ -106,16 +106,7 @@
   font-size: calc(16px * var(--appearance-text-scale, 1));
   font-weight: var(--weight-label);
 }
-:root
-  :is(
-    .bot-preview,
-    .connection-status,
-    .composer-hint,
-    .group-message-author,
-    .peer-message-author,
-    .message-quote-copy,
-    .bot-model-button
-  ) {
+:root :is(.bot-preview, .composer-hint, .group-message-author, .peer-message-author, .message-quote-copy) {
   font-size: var(--text-caption);
   font-weight: var(--weight-body);
   color: var(--text-secondary);

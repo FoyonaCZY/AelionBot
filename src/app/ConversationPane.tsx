@@ -4,6 +4,7 @@ import type { GroupSummary } from '../../shared/types/group-types';
 import { botAccentInk, displayBotPalette } from '../../shared/chat/bot-colors';
 import type { BotActivities } from '../bots/bot-activity';
 import { GroupConversation } from '../group/GroupConversation';
+import { FloatingTerminal } from '../terminal/FloatingTerminal';
 import type { PeerPanel } from '../group/PeerChats';
 import { PreviewBotSwitcher } from '../preview/PreviewBotSwitcher';
 import { usePreviewWorkbench } from '../preview/PreviewWorkbench';
@@ -171,6 +172,11 @@ export function ConversationPane({
             {t('创建 Bot')}
           </button>
         </div>
+      )}
+      {group ? (
+        <FloatingTerminal scope={{ kind: 'group', id: group.id }} />
+      ) : (
+        bot && <FloatingTerminal scope={{ kind: 'bot', id: bot.id, sessionId: session?.id }} />
       )}
     </main>
   );

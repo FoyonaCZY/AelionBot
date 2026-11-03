@@ -260,18 +260,6 @@ body:not(:has(.fp-panel[data-layout='docked'])) :is(.chat-heading, .chat-header 
   height: 32px;
   border-radius: 50%;
 }
-.chat-header .bot-model-button {
-  max-width: 160px;
-  padding: 5px 10px;
-  overflow: hidden;
-  border-radius: 999px;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  color: var(--text-secondary);
-}
-.chat-header .bot-model-button:hover {
-  background: var(--surface-hover);
-}
 
 /* ---------- Messages ---------- */
 .message-row .bubble {

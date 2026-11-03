@@ -523,11 +523,6 @@
   border-color: transparent;
 }
 
-/* The model in the header is a chip that is a button. */
-:root .bot-model-button {
-  border-radius: 999px !important;
-}
-
 /* ---------- List rows ---------- */
 /* Rows in the settings rail and the provider list: the selected one is raised, others tint on hover. */
 :root .settings-nav-item {

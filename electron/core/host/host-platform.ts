@@ -62,6 +62,20 @@ export function hostEnvironment(input: NodeJS.ProcessEnv = process.env, platform
     ].join(':');
   return env;
 }
+const windowsShell = (env: NodeJS.ProcessEnv, platform: NodeJS.Platform) =>
+  windowsPwsh(env, platform) ||
+  win32.join(
+    env.SystemRoot || env.SYSTEMROOT || 'C:\\Windows',
+    'System32',
+    'WindowsPowerShell',
+    'v1.0',
+    'powershell.exe',
+  );
+/** The shell a person types into: unlike hostShell it runs no command and loads the user's profile. */
+export function interactiveShell(env: NodeJS.ProcessEnv = process.env, platform = process.platform) {
+  if (platform === 'win32') return { executable: windowsShell(env, platform), args: ['-NoLogo'] };
+  return { executable: env.SHELL || (platform === 'darwin' ? '/bin/zsh' : '/bin/bash'), args: ['-l'] };
+}
 export function hostShell(command: string, env: NodeJS.ProcessEnv = process.env, platform = process.platform) {
   if (platform !== 'win32')
     return {
@@ -71,15 +85,7 @@ export function hostShell(command: string, env: NodeJS.ProcessEnv = process.env,
     };
   const script = `$ErrorActionPreference='Stop'\n$ProgressPreference='SilentlyContinue'\n[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)\n$OutputEncoding=[Console]::OutputEncoding\ntry{[Console]::Out.AutoFlush=$true}catch{}\ntry{[Console]::Error.AutoFlush=$true}catch{}\n$global:LASTEXITCODE=0\ntry {\n. {\n${command}\n}\nexit $LASTEXITCODE\n} catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }`;
   return {
-    executable:
-      windowsPwsh(env, platform) ||
-      win32.join(
-        env.SystemRoot || env.SYSTEMROOT || 'C:\\Windows',
-        'System32',
-        'WindowsPowerShell',
-        'v1.0',
-        'powershell.exe',
-      ),
+    executable: windowsShell(env, platform),
     args: [
       '-NoLogo',
       '-NoProfile',

@@ -22,6 +22,15 @@
 
 项目内编辑采用本地规则的设计参考了 [Claude Code 的权限模式](https://code.claude.com/docs/en/permission-modes) 和 [Gemini CLI 的写入策略](https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/policy/policies/write.toml)。本机权限模式是应用的执行审批层，不是操作系统沙箱。
 
+## 悬浮终端
+
+聊天右上角的终端按钮会打开一个悬浮终端，运行在这台电脑上，起始目录是当前会话的工作目录。每个会话有自己的终端。
+
+- 拖动标题栏移动，拖动右下角调整大小。
+- 隐藏后 shell 继续运行，按钮上的绿点表示它还在。点 × 或输入 `exit` 才会结束；退出应用时全部结束。
+- 这里输入的命令就是你自己在运行，不经过本机权限模式，Bot 也读不到这个终端。
+- 选中文字后按 Ctrl+C 复制，没有选中时 Ctrl+C 是中断；Ctrl+V 粘贴。
+
 ## 本机电脑控制
 
 在 设置 → 权限 打开“让 Bot 操作这台电脑上的应用”后，Bot 可以观察并操作这台 Windows 电脑上的应用窗口。它默认关闭，目前只支持 Windows。

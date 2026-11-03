@@ -24,6 +24,7 @@ import type { CommandPermissions } from '../core/host/command-permissions';
 import type { HostComputer } from '../core/host/host';
 import type { HostApprovals } from '../core/host/host-approvals';
 import type { HostDesktop } from '../core/host/desktop/host-desktop';
+import type { UserTerminals } from '../core/host/user-terminals';
 import type { Cognition } from '../core/memory/cognition';
 import type { ModelClient } from '../core/model/model';
 import type { ModelProviders } from '../core/model/model-providers';
@@ -59,6 +60,7 @@ export interface IpcContext {
   readonly commandPermissions: CommandPermissions;
   readonly hostApprovals: HostApprovals;
   readonly hostDesktop: HostDesktop | undefined;
+  readonly userTerminals: UserTerminals;
   readonly cognition: Cognition;
   readonly designSystems: DesignSystems;
   readonly designStore: DesignStore;
