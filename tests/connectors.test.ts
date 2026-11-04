@@ -226,10 +226,11 @@ test('connector messages run the Bot and its answer goes back; desktop input in 
     adapter = new FakeAdapter();
   store.data.model.model = 'fixture';
   let replies = 0;
+  const requests: string[] = [];
   const model = {
-    complete: async () =>
+    complete: async (...request: unknown[]) =>
       answer(
-        ++replies === 1
+        (requests.push(JSON.stringify(request)), ++replies) === 1
           ? '日程已经整理好了。'
           : replies === 2
             ? '群里安排好了。'
@@ -274,6 +275,7 @@ test('connector messages run the Bot and its answer goes back; desktop input in 
     credentials: { platform: 'wecom', botId: 'bot-1', secret: 'test-secret' },
   });
   connectors.saved.get(id)!.owner = { id: 'owner' };
+  store.data.userProfile = { displayName: '老板', role: '', background: '' };
   adapter.receive({ text: '整理日程' });
   await until(() => adapter.texts.length === 1);
   // Only the final answer is sent; while the Bot worked the chat showed the typing cue.
@@ -300,12 +302,29 @@ test('connector messages run the Bot and its answer goes back; desktop input in 
   adapter.receive({ text: '群友也问一句', isGroup: true, chatId: 'group-1', sender: { id: 'guest' } });
   await until(() => adapter.texts.length === 3);
   assert.deepEqual(adapter.texts[2], { chatId: 'group-1', text: '群友的问题答好了。' });
+  // WeCom reports only an ID: that is what the model has for this person, in place of the owner's profile.
+  const guestInput = store.data.messages.find((message) => message.content === '群友也问一句')!;
+  assert.deepEqual(guestInput.connector?.sender, { id: 'guest' });
+  assert.equal(guestInput.connector?.owner, false);
+  assert.match(chatInputText(guestInput), /发送人：guest。/);
+  assert.match(requests[2], /\\"displayName\\":\\"guest\\"/);
+  assert.match(requests[2], /发送人：guest。.*群友也问一句/);
+  assert.doesNotMatch(requests[2], /\\"displayName\\":\\"老板\\"/);
+  // Earlier messages keep who really sent them: the owner's in the group stay the owner's.
+  assert.match(requests[2], /\\"sender\\":\\"老板\\",\\"content\\":\\"群里安排一下/);
+  assert.match(requests[2], /\\"sender\\":\\"guest\\",\\"content\\":\\"群友也问一句/);
+  // The owner keeps the profile, in a private chat and in a group.
+  assert.equal(groupInput.connector?.owner, true);
+  assert.match(requests[0], /\\"displayName\\":\\"老板\\"/);
+  assert.match(requests[1], /\\"displayName\\":\\"老板\\"/);
 
   // The same session, written from the app: the Bot answers in the app only.
   queue.send({ botId: bot.id, sessionId: input.sessionId, message: '桌面上问一句' });
   await until(() => replies === 4 && !harness.busy);
   await settle();
   assert.equal(adapter.texts.length, 3);
+  // Written from the app, it is the owner again, whoever spoke before.
+  assert.match(requests[3], /\\"displayName\\":\\"老板\\"/);
 });
 
 test('approvals of connector runs go to the owner as cards; only the owner decides', async (t) => {

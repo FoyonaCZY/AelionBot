@@ -63,6 +63,7 @@ import { isGroupWorkTool } from '../../../shared/types/group-types';
 import { groupHistory, prepareGroupContext } from '../group/group-history';
 import { groupProtocolTool } from '../group/group-protocol-tools';
 import { chatInputText, validateChatInput } from './chat-input';
+import { connectorSenderLabel } from '../../../shared/types/connector-types';
 import { ReplyStreams, type StreamTarget } from './reply-streams';
 import { skillCatalog } from '../extensions/skill-catalog';
 import { Attachments } from '../attachments/attachments';
@@ -862,10 +863,23 @@ export class Harness {
     const showReasoning = !options.groupOrigin && !options.peerOrigin;
     this.changed();
     const modelConfig = this.store.modelFor(botId);
+    // In a connector chat the person being answered may not be the one the profile describes: whoever spoke last is
+    // described by what the platform reports about them. Only the connector's owner keeps the profile.
+    const speaker = sessionId
+      ? this.store.data.messages
+          .filter((message) => message.botId === botId && message.sessionId === sessionId && message.role === 'user')
+          .at(-1)?.connector
+      : undefined;
     const system: WireMessage = {
       role: 'system',
       content:
-        conversationIdentityPrompt(bot, this.store.data.userProfile, soulPromptBudget(modelConfig.contextTokens)) +
+        conversationIdentityPrompt(
+          bot,
+          speaker && !speaker.owner
+            ? { displayName: connectorSenderLabel(speaker.sender), role: '', background: '' }
+            : this.store.data.userProfile,
+          soulPromptBudget(modelConfig.contextTokens),
+        ) +
         harnessInstructions({
           botId,
           hostedWebSearch: Boolean(modelConfig.hostedWebSearch),
@@ -925,7 +939,12 @@ export class Harness {
         .slice(-8)
         .map((message) => ({
           messageId: message.id,
-          sender: message.role === 'user' ? this.store.data.userProfile?.displayName || '用户' : bot.name,
+          sender:
+            message.role !== 'user'
+              ? bot.name
+              : message.connector && !message.connector.owner
+                ? connectorSenderLabel(message.connector.sender)
+                : this.store.data.userProfile?.displayName || '用户',
           content: (message.content || attachmentSummary(message.attachments)).slice(0, 350),
           canPin:
             message.role === 'user' || (requiresReactionReply && message.id === reactionMessage?.reaction?.messageId),

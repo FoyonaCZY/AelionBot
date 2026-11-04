@@ -457,6 +457,7 @@ export class Connectors {
           messageId: message.messageId,
           ...(message.isGroup ? { isGroup: true } : {}),
           sender: { id: person.id, ...(record?.name || person.name ? { name: record?.name || person.name } : {}) },
+          ...(connector.owner ? { owner: isOwner } : {}),
         },
       });
     } catch (error) {

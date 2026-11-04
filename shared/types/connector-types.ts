@@ -74,7 +74,12 @@ export interface MessageConnectorSource {
   /** Sent in a group chat, where the reply is visible to every member. */
   isGroup?: boolean;
   sender: ConnectorPerson;
+  /** Whether the sender is the connector's owner, the person the user profile describes. Absent while it has none. */
+  owner?: boolean;
 }
+/** What to call a connector message's sender: the name if the platform gave one. WeCom reports only an ID. */
+export const connectorSenderLabel = (sender: ConnectorPerson) =>
+  sender.name?.replace(/\s+/g, ' ').trim().slice(0, 80) || sender.id;
 type ConnectorCredentials =
   { platform: 'feishu'; appId: string; appSecret: string } | { platform: 'wecom'; botId: string; secret: string };
 export interface ConnectorCreateInput {
