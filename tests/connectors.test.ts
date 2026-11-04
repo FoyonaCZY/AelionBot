@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { Readable } from 'node:stream';
 import assert from 'node:assert/strict';
 import { createCipheriv, randomBytes } from 'node:crypto';
 import { once } from 'node:events';
@@ -722,7 +723,8 @@ test('the WeChat adapter long-polls, keeps its cursor and replies with the conte
 test('the Feishu adapter maps channel messages and shows work as a typing reaction', async (t) => {
   const handlers: Record<string, (value: any) => any> = {},
     sent: Array<{ to: string; input: any }> = [],
-    reactions: string[] = [];
+    reactions: string[] = [],
+    downloads: any[] = [];
   const channel = {
     connect: async () => {},
     disconnect: async () => {},
@@ -740,7 +742,18 @@ test('the Feishu adapter maps channel messages and shows work as a typing reacti
       return 'r1';
     },
     removeReaction: async (messageId: string, reactionId: string) => void reactions.push(`-${messageId}:${reactionId}`),
-    downloadResource: async () => Buffer.from('img'),
+    rawClient: {
+      im: {
+        v1: {
+          messageResource: {
+            get: async (payload: any) => {
+              downloads.push(payload);
+              return { getReadableStream: () => Readable.from([Buffer.from('im'), Buffer.from('g')]) };
+            },
+          },
+        },
+      },
+    },
   };
   const sdk = { createLarkChannel: () => channel, LoggerLevel: { error: 0 } } as unknown as LarkSdk;
   const statuses: string[] = [],
@@ -762,13 +775,51 @@ test('the Feishu adapter maps channel messages and shows work as a typing reacti
     resources: [{ type: 'image', fileKey: 'img_1' }],
     createTime: 1760000000000,
   });
+  await until(() => messages.length === 1);
   assert.equal(messages[0].text, '看图');
   assert.equal((await messages[0].resources[0].fetch(AbortSignal.timeout(1000))).bytes.toString(), 'img');
+  assert.deepEqual(downloads.at(-1), { path: { message_id: 'om_2', file_key: 'img_1' }, params: { type: 'image' } });
+  // A burst is one message to the hub, yet each resource downloads through the message it came in.
+  const burst = (messageId: string, content: string, resources: object[], senderId = 'ou_1') =>
+    handlers.message({
+      messageId,
+      chatId: 'oc_1',
+      chatType: 'p2p',
+      senderId,
+      content,
+      resources,
+      createTime: 1760000000000,
+    });
+  burst('om_3', '<image key="img_2"/>', [{ type: 'image', fileKey: 'img_2' }]);
+  burst('om_4', '<file key="file_1"/>', [{ type: 'file', fileKey: 'file_1', fileName: 'a.docx' }]);
+  burst('om_5', '<audio key="audio_1"/>', [{ type: 'audio', fileKey: 'audio_1' }]);
+  burst('om_6', '说明', [{ type: 'image', fileKey: 'img_2' }]);
+  await until(() => messages.length === 2);
+  assert.equal(messages[1].messageId, 'om_6');
+  assert.equal(messages[1].text, '说明');
+  assert.equal(messages[1].resources.length, 3);
+  for (const resource of messages[1].resources) await resource.fetch(AbortSignal.timeout(1000));
+  assert.deepEqual(downloads.slice(-3), [
+    { path: { message_id: 'om_3', file_key: 'img_2' }, params: { type: 'image' } },
+    { path: { message_id: 'om_4', file_key: 'file_1' }, params: { type: 'file' } },
+    { path: { message_id: 'om_5', file_key: 'audio_1' }, params: { type: 'file' } },
+  ]);
+  // Two people in one chat stay two messages.
+  burst('om_7', '甲', [], 'ou_a');
+  burst('om_8', '乙', [], 'ou_b');
+  await until(() => messages.length === 4);
+  assert.deepEqual(
+    messages
+      .slice(-2)
+      .map((message) => message.text)
+      .sort(),
+    ['乙', '甲'],
+  );
   // The typing cue is a reaction on the latest message, added once and removed at the end.
   await adapter.typing('oc_1', true);
   await adapter.typing('oc_1', true);
   await adapter.typing('oc_1', false);
-  assert.deepEqual(reactions, ['+om_2:Typing', '-om_2:r1']);
+  assert.deepEqual(reactions, ['+om_8:Typing', '-om_8:r1']);
   await adapter.sendText('oc_1', '最终答复');
   assert.deepEqual(sent.at(-1), { to: 'oc_1', input: { markdown: '最终答复' } });
   const card = feishuCard({
@@ -779,6 +830,10 @@ test('the Feishu adapter maps channel messages and shows work as a typing reacti
   assert.equal(card.schema, '2.0');
   assert.match(JSON.stringify(card), /"behaviors":\[\{"type":"callback","value":\{"key":"p:AB12:allow"\}\}\]/);
   assert.doesNotMatch(JSON.stringify(feishuCard({ title: '请求', lines: [], buttons: [] }, '已允许')), /column_set/);
+  // Stopping delivers what is still held.
+  burst('om_9', '最后一句', []);
+  await adapter.stop();
+  assert.equal(messages.at(-1)?.text, '最后一句');
 });
 
 test('Feishu QR setup creates a connector owned by the person who scanned', async (t) => {

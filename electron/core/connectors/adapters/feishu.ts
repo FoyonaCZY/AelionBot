@@ -32,7 +32,18 @@ interface LarkChannel {
   updateCard(messageId: string, card: object): Promise<void>;
   addReaction(messageId: string, emojiType: string): Promise<string>;
   removeReaction(messageId: string, reactionId: string): Promise<void>;
-  downloadResource(fileKey: string, type: 'image' | 'file'): Promise<Buffer>;
+  rawClient: {
+    im: {
+      v1: {
+        messageResource: {
+          get(payload: {
+            path: { message_id: string; file_key: string };
+            params: { type: 'image' | 'file' };
+          }): Promise<{ getReadableStream(): AsyncIterable<Buffer> }>;
+        };
+      };
+    };
+  };
 }
 export interface LarkSdk {
   createLarkChannel(options: object): LarkChannel;
@@ -54,6 +65,13 @@ export const loadLarkSdk = (runtimeDir: string) =>
 
 const RETRY_MS = 30_000;
 const IMAGE_FILE = /\.(png|jpe?g|gif|webp|bmp)$/i;
+/** Messages someone sends in a burst (a picture and its caption, a long paste Feishu split) reach the Bot as one. */
+const BURST = { delayMs: 600, longChars: 1000, longDelayMs: 2000, maxMessages: 8, maxChars: 4000 };
+interface Burst {
+  messages: LarkMessage[];
+  timer?: ReturnType<typeof setTimeout>;
+  flush(): void;
+}
 
 /** Card JSON 2.0: a header, Markdown lines and a row of buttons. */
 export function feishuCard(card: ConnectorCard, result?: string) {
@@ -91,6 +109,7 @@ export class FeishuAdapter implements ConnectorAdapter {
   /** The latest message per chat, which carries the typing reaction. */
   private latest = new Map<string, string>();
   private cues = new Map<string, Promise<{ messageId: string; reactionId: string } | undefined>>();
+  private bursts = new Map<string, Burst>();
   private stopped = false;
   private retry?: ReturnType<typeof setTimeout>;
   constructor(
@@ -115,13 +134,15 @@ export class FeishuAdapter implements ConnectorAdapter {
         handshakeTimeoutMs: 20_000,
         // Access, groups and sessions are decided by the hub, which sees every message.
         policy: { dmMode: 'open', requireMention: false },
+        // Its merging keeps only the last message's ID, and a resource downloads only through its own (see gather).
+        safety: { batch: { text: { delayMs: 0 } } },
       });
     } catch (error) {
       handlers.status('error', (error as Error).message);
       return;
     }
     this.channel = channel;
-    channel.on('message', (message) => handlers.message(this.inbound(channel, message)));
+    channel.on('message', (message) => this.gather(channel, handlers, message));
     channel.on('cardAction', async (event) => {
       const key = (event.action.value as { key?: unknown } | undefined)?.key;
       if (typeof key !== 'string') return;
@@ -146,30 +167,69 @@ export class FeishuAdapter implements ConnectorAdapter {
       this.retry = setTimeout(() => void this.connect(handlers), RETRY_MS);
     }
   }
-  private inbound(channel: LarkChannel, message: LarkMessage): InboundMessage {
+  /** Holds one person's messages for a moment, so that a burst reaches the hub as one message. */
+  private gather(channel: LarkChannel, handlers: AdapterHandlers, message: LarkMessage) {
+    const key = message.chatId + '\0' + message.senderId;
+    let burst = this.bursts.get(key);
+    if (!burst) {
+      const opened: Burst = {
+        messages: [],
+        flush: () => {
+          clearTimeout(opened.timer);
+          this.bursts.delete(key);
+          handlers.message(this.inbound(channel, opened.messages));
+        },
+      };
+      burst = opened;
+      this.bursts.set(key, burst);
+    }
+    clearTimeout(burst.timer);
+    burst.messages.push(message);
+    const chars = burst.messages.reduce((total, item) => total + item.content.length, 0);
+    if (burst.messages.length >= BURST.maxMessages || chars >= BURST.maxChars) return burst.flush();
+    burst.timer = setTimeout(burst.flush, chars >= BURST.longChars ? BURST.longDelayMs : BURST.delayMs);
+  }
+  private inbound(channel: LarkChannel, messages: LarkMessage[]): InboundMessage {
+    const message = messages[messages.length - 1];
     this.latest.set(message.chatId, message.messageId);
+    const seen = new Set<string>();
     return {
       messageId: message.messageId,
       chatId: message.chatId,
       isGroup: message.chatType !== 'p2p',
       sender: { id: message.senderId, ...(message.senderName ? { name: message.senderName } : {}) },
       // Media arrive as resources; their inline placeholders carry nothing for the Bot.
-      text: message.content.replace(/<(image|file|audio|video|sticker|media)\b[^>]*\/?>/g, '').trim(),
-      resources: message.resources.flatMap((resource) =>
-        resource.type === 'sticker'
-          ? []
-          : [
-              {
-                kind: resource.type,
-                name: resource.fileName,
-                fetch: async () => ({
+      text: messages
+        .map((item) => item.content.replace(/<(image|file|audio|video|sticker|media)\b[^>]*\/?>/g, '').trim())
+        .filter(Boolean)
+        .join('\n\n'),
+      resources: messages.flatMap((item) =>
+        item.resources.flatMap((resource) => {
+          if (resource.type === 'sticker' || seen.has(resource.fileKey)) return [];
+          seen.add(resource.fileKey);
+          return [
+            {
+              kind: resource.type,
+              name: resource.fileName,
+              fetch: async () => {
+                // What a person sent downloads through its message; the plain image and file APIs only serve what
+                // the Bot uploaded itself. Audio and video count as files here.
+                const response = await channel.rawClient.im.v1.messageResource.get({
+                  path: { message_id: item.messageId, file_key: resource.fileKey },
+                  params: { type: resource.type === 'image' ? 'image' : 'file' },
+                });
+                const chunks: Buffer[] = [];
+                for await (const chunk of response.getReadableStream()) chunks.push(chunk);
+                return {
                   name:
                     resource.fileName ||
                     `${resource.type}-${resource.fileKey.slice(-8)}${resource.type === 'image' ? '.png' : ''}`,
-                  bytes: await channel.downloadResource(resource.fileKey, resource.type === 'image' ? 'image' : 'file'),
-                }),
+                  bytes: Buffer.concat(chunks),
+                };
               },
-            ],
+            },
+          ];
+        }),
       ),
       sentAt: Number(message.createTime) || Date.now(),
     };
@@ -181,6 +241,7 @@ export class FeishuAdapter implements ConnectorAdapter {
   async stop() {
     this.stopped = true;
     clearTimeout(this.retry);
+    for (const burst of this.bursts.values()) burst.flush();
     const channel = this.channel;
     this.channel = undefined;
     await channel?.disconnect().catch(() => {});
