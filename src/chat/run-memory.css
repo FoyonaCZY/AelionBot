@@ -4,8 +4,26 @@
   font-size: calc(12px * var(--appearance-text-scale, 1));
 }
 .run-memory > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 2px 0;
   color: inherit;
+}
+.run-memory > button[aria-expanded='true'] > svg:last-child {
+  transform: rotate(90deg);
+}
+.run-memory-detail {
+  margin-top: 6px;
+  padding: 0 0 2px 12px;
+  border-left: 2px solid var(--surface-line);
+}
+.run-memory-detail > p {
+  margin: 10px 0 4px;
+  font-size: calc(11px * var(--appearance-text-scale, 1));
+}
+.run-memory-detail > p:first-child {
+  margin-top: 0;
 }
 .run-memory > button:hover {
   color: var(--text-secondary);
