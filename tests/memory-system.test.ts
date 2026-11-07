@@ -479,6 +479,17 @@ test('parseCapture tolerates a fence around the JSON', () => {
   assert.deepEqual(parseCapture('```json\n{"memories":[]}\n```'), { memories: [] });
   assert.throws(() => parseCapture('没有 JSON'));
 });
+// Resolve the model-visible reference by content: equal timestamps do not guarantee an insertion order.
+function consolidationRef(messages: WireMessage[], item: { text: string }) {
+  const line = messages
+    .at(-1)
+    ?.content?.split('\n')
+    .find((line) => line.endsWith('] ' + item.text));
+  const ref = line?.match(/^F\d+ /)?.[0].trim();
+  assert.ok(ref, `Missing consolidation input: ${item.text}`);
+  return ref;
+}
+
 test('consolidation works by operations on records, keeps the lowest trust, and can be undone whole', async (t) => {
   const f = fixture(t);
   const scope = 'bot:' + f.bot.id,
@@ -489,20 +500,22 @@ test('consolidation works by operations on records, keeps the lowest trust, and 
     keep = fact(f, '生产环境在北京', { origin: 'user_explicit' }),
     tool = fact(f, '生产环境在上海', { origin: 'tool_verified' }),
     shared = fact(f, '用户的时区是 UTC+1');
-  const plan = {
-    merge: [{ ids: ['F7', 'F6'], text: '仓库用 pnpm 安装依赖' }],
-    split: [{ id: 'F5', texts: ['发版只改 version', '提交信息写进文件'] }],
-    archive: [
-      { id: 'F4', reason: '已过时' },
-      { id: 'F3', reason: '模型想归档用户明确说的话' },
-    ],
-    supersede: [{ old: 'F3', new: 'F2' }],
-    rescope: [{ id: 'F1', to: 'user', reason: '关于用户本人' }],
-  };
   const consolidator = new MemoryConsolidator(
     f.storage,
     f.memory,
-    modelReturning(() => JSON.stringify(plan)),
+    modelReturning((messages) => {
+      const ref = (item: { text: string }) => consolidationRef(messages, item);
+      return JSON.stringify({
+        merge: [{ ids: [ref(a), ref(b)], text: '仓库用 pnpm 安装依赖' }],
+        split: [{ id: ref(long), texts: ['发版只改 version', '提交信息写进文件'] }],
+        archive: [
+          { id: ref(gone), reason: '已过时' },
+          { id: ref(keep), reason: '模型想归档用户明确说的话' },
+        ],
+        supersede: [{ old: ref(keep), new: ref(tool) }],
+        rescope: [{ id: ref(shared), to: 'user', reason: '关于用户本人' }],
+      });
+    }),
     () => undefined,
     () => [],
   );
@@ -547,7 +560,9 @@ test('undoing a consolidation leaves a fact the user changed afterwards as it is
   const consolidator = new MemoryConsolidator(
     f.storage,
     f.memory,
-    modelReturning(() => JSON.stringify({ archive: [{ id: 'F2', reason: '过时' }] })),
+    modelReturning((messages) =>
+      JSON.stringify({ archive: [{ id: consolidationRef(messages, item), reason: '过时' }] }),
+    ),
     () => undefined,
     () => [],
   );
