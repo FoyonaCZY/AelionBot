@@ -41,6 +41,7 @@ import {
 } from './model-content-policy';
 import { ResponsesTransport, websocketEnabled, type TransportStats } from './responses-transport';
 import { recoverTextToolCalls } from './text-tool-calls';
+import { isOpenCodeEndpoint } from './opencode';
 export interface ToolDefinition {
   type: 'function';
   function: { name: string; description: string; parameters: Record<string, unknown> };
@@ -228,11 +229,22 @@ export class ModelClient {
     onText: (text: string) => void = () => {},
     options: CompletionOptions = {},
   ): Promise<Completion> {
-    let result = await this.request(messages, tools, signal, onText, options);
+    // Conversation identity must survive model/purpose changes and retries, including paused server-tool turns.
+    // Calls without a conversation (such as connection tests) get their own ID rather than sharing one globally.
+    const scope = options.cacheScope || options.botId,
+      sessionId = scope ? promptCacheKey('opencode', scope, 'session') : randomUUID();
+    let result = await this.request(messages, tools, signal, onText, options, sessionId);
     // Claude pauses long server-tool turns; sending the paused content back as the assistant turn resumes it.
     for (let resumed = 0; result.finishReason === 'pause_turn'; resumed++) {
       if (resumed >= MAX_PAUSE_RESUMES) throw Error('模型服务端工具多次暂停仍未完成，请缩小搜索范围后重试');
-      const next = await this.request([...messages, assistantMessage(result)], tools, signal, onText, options);
+      const next = await this.request(
+        [...messages, assistantMessage(result)],
+        tools,
+        signal,
+        onText,
+        options,
+        sessionId,
+      );
       result = mergePausedTurn(result, next);
     }
     return recoverTextToolCalls(result, tools);
@@ -243,6 +255,7 @@ export class ModelClient {
     signal: AbortSignal,
     onText: (text: string) => void,
     options: CompletionOptions,
+    sessionId: string,
   ): Promise<Completion> {
     let timing = new RequestTiming();
     let cfg = options.config || this.getConfig(options.botId);
@@ -381,6 +394,7 @@ export class ModelClient {
             cfg.protocol === 'responses' && !this.noCacheKey.has(featureKey) ? cacheKey : undefined,
             cacheKey,
           );
+          if (cfg.opencode || isOpenCodeEndpoint(cfg.baseUrl)) request.headers['x-opencode-session'] = sessionId;
           requestCache = this.cacheDiagnostics.record(
             cacheKey || promptCacheKey(featureKey, 'unscoped', options.purpose || 'foreground'),
             request.body,

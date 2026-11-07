@@ -50,6 +50,8 @@ export interface ModelProvider extends ModelParameters {
   id: string;
   name: string;
   baseUrl: string;
+  /** Automatically detected from the Base URL. */
+  opencode?: boolean;
   hasKey: boolean;
   models: ProviderModel[];
   modelsUpdatedAt?: string;
@@ -258,6 +260,7 @@ export interface RunRecord {
 }
 export interface ModelConfig extends ModelParameters {
   supportsImages?: boolean;
+  opencode?: boolean;
   baseUrl: string;
   model: string;
   hasKey: boolean;

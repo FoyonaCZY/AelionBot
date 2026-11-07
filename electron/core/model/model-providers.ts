@@ -11,6 +11,7 @@ import { imageCapability } from './model-vision';
 import { reasoningEffort as cleanReasoning } from '../../../shared/chat/reasoning';
 import { modelFetch, prewarmModelEndpoint, disposeModelHttp } from './model-http';
 import { AppError } from '../../../shared/errors';
+import { isOpenCodeEndpoint } from './opencode';
 
 export function modelParameters(input: ModelParameters): ModelParameters {
   const {
@@ -436,6 +437,7 @@ export class ModelProviders {
       id: previous?.id || randomUUID(),
       name,
       baseUrl,
+      ...(isOpenCodeEndpoint(baseUrl) ? { opencode: true } : {}),
       models: connectionChanged ? [] : previous.models,
       ...(!connectionChanged
         ? {

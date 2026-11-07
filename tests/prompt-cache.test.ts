@@ -431,9 +431,85 @@ test('Chat requests use stable opaque affinity headers without adding unsupporte
   assert.notEqual(keys[0], keys[2]);
   assert.match(keys[0], /^aelion-[a-f0-9]{48}$/);
   assert.equal(api.headers[0]['x-session-id'], keys[0]);
+  assert.ok(api.headers.every((header) => header['x-opencode-session'] === undefined));
   assert.ok(api.requests.every((body) => body.prompt_cache_key === undefined));
   assert.ok(records.every((record) => record.requestCache?.sessionAffinitySent));
 });
+
+test('OpenCode session headers survive retries, new clients and model/purpose changes while isolating conversations', async (t) => {
+  const api = await endpoint(t, (body) =>
+    body.prompt_cache_key
+      ? { status: 400, body: { error: { message: 'unsupported prompt_cache_key' } } }
+      : { body: reply },
+  );
+  let cfg: ModelConfig = { ...config, baseUrl: api.url, opencode: true };
+  const client = () => {
+    const model = new ModelClient(
+      () => cfg,
+      () => '',
+    );
+    t.after(() => model.dispose());
+    return model;
+  };
+  const model = client(),
+    messages: WireMessage[] = [{ role: 'user', content: 'hi' }];
+  await model.complete(messages, [], signal(), undefined, {
+    cacheScope: 'session:one',
+    runId: 'first',
+    retries: 0,
+  });
+  assert.equal(api.headers.length, 2);
+  cfg = { ...cfg, model: 'another-model' };
+  await model.complete(messages, [], signal(), undefined, {
+    cacheScope: 'session:one',
+    runId: 'second',
+    purpose: 'summary',
+    retries: 0,
+  });
+  await client().complete(messages, [], signal(), undefined, { cacheScope: 'session:one', retries: 0 });
+  const sameSession = api.headers.map((header) => header['x-opencode-session']);
+  assert.ok(sameSession.every((id) => id === sameSession[0]));
+  assert.match(sameSession[0], /^aelion-[a-f0-9]{48}$/);
+  const ids: string[] = [];
+  for (const options of [{ cacheScope: 'session:two' }, { botId: 'bot:one' }, { botId: 'bot:two' }, {}, {}]) {
+    await model.complete(messages, [], signal(), undefined, { ...options, retries: 0 });
+    ids.push(api.headers.at(-1)['x-opencode-session']);
+  }
+  assert.equal(new Set([sameSession[0], ...ids]).size, 6);
+  assert.ok(ids.every(Boolean));
+});
+
+for (const protocol of ['chat', 'responses', 'anthropic'] as const)
+  test(`existing OpenCode ${protocol} endpoints send session headers without a stored provider flag`, async (t) => {
+    const headers: Headers[] = [];
+    t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+      headers.push(new Headers(init.headers));
+      if (protocol === 'anthropic') {
+        const events = [
+          { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+          { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'ok' } },
+          { type: 'message_delta', delta: { stop_reason: headers.length === 1 ? 'pause_turn' : 'end_turn' } },
+          { type: 'message_stop' },
+        ];
+        return new Response(events.map((event) => 'data: ' + JSON.stringify(event) + '\n\n').join(''), {
+          headers: { 'content-type': 'text/event-stream' },
+        });
+      }
+      return Response.json(
+        protocol === 'chat' ? { choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] } : reply,
+      );
+    });
+    const model = new ModelClient(
+      () => ({ ...config, protocol, baseUrl: 'https://opencode.ai/zen/v1' }),
+      () => 'fixture-key',
+    );
+    t.after(() => model.dispose());
+    await model.complete([{ role: 'user', content: 'hi' }], [], signal());
+    assert.equal(headers.length, protocol === 'anthropic' ? 2 : 1);
+    const id = headers[0].get('x-opencode-session');
+    assert.ok(id);
+    assert.ok(headers.every((header) => header.get('x-opencode-session') === id));
+  });
 
 test('Anthropic history breakpoints use complete parallel tool transactions', () => {
   const cfg = { ...config, protocol: 'anthropic' as const },

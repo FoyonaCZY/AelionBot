@@ -779,6 +779,7 @@ export class Store {
       thinkingBudget: catalog?.thinkingBudget ?? provider?.thinkingBudget,
       fallbackModel: provider?.fallbackModel,
       baseUrl: provider?.baseUrl || '',
+      opencode: provider?.opencode,
       hasKey: Boolean(provider?.encryptedKey),
       providerName: provider?.name,
       ...(!provider ? { issue: '所选 Provider 不存在，请重新选择模型' } : {}),

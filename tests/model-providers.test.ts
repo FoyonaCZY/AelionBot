@@ -27,6 +27,46 @@ import type { WireMessage } from '../shared/types/core';
 import { protocolRequest } from '../electron/core/model/model-protocol';
 import { hostedGeneratedImages } from '../electron/core/tools/hosted-tools';
 import { TOOLS } from '../electron/core/agent/harness';
+import { isOpenCodeEndpoint } from '../electron/core/model/opencode';
+
+test('OpenCode providers are detected from normalized hosts and updated when the endpoint changes', (t) => {
+  const f = fixture(t),
+    providers = f.router();
+  for (const [index, baseUrl] of [
+    'opencode.ai/zen/v1',
+    'https://OPENCODE.AI/go/v1',
+    'https://api.opencode.ai/inference/go/openai/v1',
+    'https://opencode.ai./zen/v1',
+  ].entries()) {
+    const provider = providers.save({ name: `OpenCode ${index}`, baseUrl });
+    assert.equal(provider.opencode, true);
+    assert.equal(isOpenCodeEndpoint(provider.baseUrl), true);
+    providers.setDefault({ providerId: provider.id, model: 'fixture', contextTokens: 32000 });
+    assert.equal(providers.config().opencode, true);
+    const reopened = new Store(f.dir);
+    try {
+      assert.equal(reopened.modelFor().opencode, true);
+    } finally {
+      reopened.close();
+    }
+    const updated = providers.save({
+      id: provider.id,
+      name: provider.name,
+      baseUrl: 'https://other.example/v1',
+    });
+    assert.equal(updated.opencode, undefined);
+    assert.equal(providers.config().opencode, undefined);
+  }
+  for (const [index, baseUrl] of [
+    'https://notopencode.ai/v1',
+    'https://opencode.ai.example/v1',
+    'https://example.com/opencode.ai/v1',
+  ].entries()) {
+    assert.equal(isOpenCodeEndpoint(baseUrl), false);
+    assert.equal(providers.save({ name: `Other ${index}`, baseUrl }).opencode, undefined);
+  }
+  assert.equal(isOpenCodeEndpoint('invalid'), false);
+});
 
 test('provider reasoning migrates once to independent Bot settings and the default reviewer', (t) => {
   const f = fixture(t),
