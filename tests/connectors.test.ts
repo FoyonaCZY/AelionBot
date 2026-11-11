@@ -79,7 +79,7 @@ function fixture(t: test.TestContext, overrides: Partial<ConnectorDeps> = {}) {
     store = new Store(dir),
     bot = store.data.bots[0],
     adapter = new FakeAdapter(),
-    sent: Array<{ sessionId: string; message: string; attachmentIds: string[] }> = [],
+    sent: Array<Parameters<ConnectorDeps['send']>[0]> = [],
     modes: Array<{ sessionId: string; mode: HostPermissionMode }> = [],
     interactions = new Interactions(() => connectors.interactionsChanged());
   store.data.model.model = 'fixture';
@@ -203,6 +203,72 @@ test('a manual connector pairs its first sender as owner, then routes their mess
   );
   await connectors.remove(id);
   assert.equal(session.connector, undefined, 'removing a connector leaves its sessions as ordinary ones');
+});
+
+test('several WeCom bots connect side by side, each answering as its own Bot', async (t) => {
+  const adapters = new Map<string, FakeAdapter>();
+  const { store, bot, connectors, sent } = fixture(t, {
+    createAdapter: (connector) => {
+      const adapter = new FakeAdapter('wecom');
+      adapters.set(connector.account, adapter);
+      return adapter;
+    },
+  });
+  const other = store.createBot('设计师', '做设计');
+  const first = connectors.add({
+    botId: bot.id,
+    permissionMode: 'ask',
+    credentials: { platform: 'wecom', botId: 'bot-a', secret: 'secret-a' },
+  });
+  const second = connectors.add({
+    botId: other.id,
+    permissionMode: 'full',
+    credentials: { platform: 'wecom', botId: 'bot-b', secret: 'secret-b' },
+  });
+  assert.deepEqual(
+    connectors.snapshot().connectors.map((item) => [item.account, item.botId, item.status]),
+    [
+      ['bot-a', bot.id, 'connected'],
+      ['bot-b', other.id, 'connected'],
+    ],
+  );
+  const a = adapters.get('bot-a')!,
+    b = adapters.get('bot-b')!;
+
+  // Each bot pairs on its own: being let in through one does not open the other.
+  a.receive({ text: '你好' });
+  await until(() => a.texts.length === 1);
+  await connectors.decidePairing({ id: first, code: /配对码：(\d{6})/.exec(a.texts[0].text)![1], allow: true });
+  b.receive({ text: '你好' });
+  await until(() => b.texts.length === 1);
+  assert.match(b.texts[0].text, /配对码/);
+  assert.equal(sent.length, 0);
+  await connectors.decidePairing({ id: second, code: /配对码：(\d{6})/.exec(b.texts[0].text)![1], allow: true });
+
+  a.receive({ text: '写周报' });
+  b.receive({ text: '画个图标' });
+  await until(() => sent.length === 2);
+  const routed = Object.fromEntries(
+    sent.map((input) => {
+      const session = store.data.workSessions!.find((item) => item.id === input.sessionId)!;
+      return [input.message, [session.botId, session.connector?.connectorId, input.connector.connectorId]];
+    }),
+  );
+  assert.deepEqual(routed, { 写周报: [bot.id, first, first], 画个图标: [other.id, second, second] });
+
+  // Commands answer through the bot they came in on, about that bot's Bot.
+  b.receive({ text: '/status' });
+  await until(() => b.texts.some((item) => item.text.startsWith('设计师：')));
+  assert.ok(!a.texts.some((item) => item.text.includes('设计师')));
+
+  // Switching one off leaves the other running.
+  connectors.update({ id: second, enabled: false });
+  b.receive({ text: '还在吗' });
+  a.receive({ text: '还在' });
+  await until(() => sent.length === 3);
+  await settle();
+  assert.equal(sent.length, 3);
+  assert.equal(sent[2].message, '还在');
 });
 
 test('group messages only reach the Bot on WeCom, which pushes them for @mentions', async (t) => {

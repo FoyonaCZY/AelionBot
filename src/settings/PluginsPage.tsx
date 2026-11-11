@@ -7,7 +7,7 @@ import {
 } from '../../shared/types/connector-types';
 import { IntegrationSources, McpSnippetDialog } from './IntegrationSettings';
 import { PluginDetails, PluginDrawer, PluginSwitch, StatusDot } from './PluginDetails';
-import { AddConnectorDialog, connectorStatusText } from './AddConnectorDialog';
+import { AddConnectorDialog, connectorName, connectorStatusText } from './AddConnectorDialog';
 import { ConnectorDetails } from './ConnectorDetails';
 import { ConnectorLogo } from './ConnectorLogo';
 import { AppConnectorDialog } from './AppConnectorDialog';
@@ -106,6 +106,8 @@ export function PluginsPage({
     (app) => !addedApps.has(app.id) && `${app.name} ${t(app.name)} ${t(app.description)}`.toLowerCase().includes(words),
   );
   const featured = FEATURED_APPS.flatMap((id) => catalog.find((app) => app.id === id) || []);
+  // Another connector most likely joins the platform added last, such as a WeCom bot for another Bot.
+  const nextPlatform: ConnectorPlatform = connectors.at(-1)?.platform || 'feishu';
   // Platforms still to connect; each has a row until it has a connector.
   const openPlatforms = PLATFORMS.filter(
     (platform) =>
@@ -220,7 +222,7 @@ export function PluginsPage({
                 setAdding(undefined);
                 setFilter('apps');
                 search.current?.focus();
-              } else setAdding(kind === 'mcp' ? 'mcp' : 'feishu');
+              } else setAdding(kind === 'mcp' ? 'mcp' : nextPlatform);
             }}
           />
         </div>
@@ -329,6 +331,17 @@ export function PluginsPage({
                     />
                   </label>
                 )}
+                {connectors.length > 0 && (
+                  <button
+                    type="button"
+                    className="plugins-section-link plugins-section-add"
+                    aria-label={t('添加连接器')}
+                    onClick={() => setAdding(nextPlatform)}
+                  >
+                    <Icon name="plus" size={13} />
+                    {t('添加')}
+                  </button>
+                )}
               </div>
               {connectorError && (
                 <p className="computer-notice" role="alert">
@@ -347,6 +360,7 @@ export function PluginsPage({
                   <ConnectorRow
                     key={connector.id}
                     connector={connector}
+                    name={connectorName(connector, state, t)}
                     bot={botOf(connector.botId)}
                     sessions={
                       (state.workSessions || []).filter((s) => s.connector?.connectorId === connector.id).length
@@ -767,19 +781,22 @@ function CatalogRow({ app, busy, onConnect }: { app: AppConnector; busy: boolean
 }
 function ConnectorRow({
   connector,
+  name,
   bot,
   sessions,
   onOpen,
   onToggle,
 }: {
   connector: ConnectorView;
+  /** Names the Bot too when the platform has several connectors; the note then leaves it out. */
+  name: string;
   bot?: Bot;
   sessions: number;
   onOpen: () => void;
   onToggle: () => void;
 }) {
   const { t, language } = useI18n();
-  const name = t(CONNECTOR_PLATFORM_NAMES[connector.platform]);
+  const botInName = Boolean(bot) && name !== t(CONNECTOR_PLATFORM_NAMES[connector.platform]);
   return (
     <PluginRow
       pluginId={connector.id}
@@ -795,7 +812,7 @@ function ConnectorRow({
           <span>
             {t(connectorStatusText(connector.status))}
             {sessions > 0 && ' · ' + t('{count} 个会话', { count: sessions })}
-            {bot && ' · ' + bot.name}
+            {bot && !botInName && ' · ' + bot.name}
           </span>
         </>
       }

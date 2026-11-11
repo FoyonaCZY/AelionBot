@@ -4,6 +4,7 @@ import {
   CONNECTOR_PLATFORM_NAMES,
   type ConnectorPlatform,
   type ConnectorStatus,
+  type ConnectorView,
 } from '../../shared/types/connector-types';
 import {
   DEFAULT_HOST_PERMISSION_MODE,
@@ -29,6 +30,22 @@ export function connectorStatusText(status: ConnectorStatus) {
           : status === 'disabled'
             ? '已停用'
             : '连接失败';
+}
+
+/** A connector's name: its platform, then the Bot it answers as once that platform has several connectors. */
+export function connectorName(connector: ConnectorView, state: Snapshot, t: (key: string) => string) {
+  const name = t(CONNECTOR_PLATFORM_NAMES[connector.platform]),
+    bot = state.bots.find((item) => item.id === connector.botId),
+    several = (state.connectors?.connectors || []).filter((item) => item.platform === connector.platform).length > 1;
+  return several && bot ? `${name} · ${bot.name}` : name;
+}
+
+/** The Bot a new connector starts with: one the platform does not reach yet, as another WeCom bot is for another Bot. */
+function freeBot(state: Snapshot, platform: ConnectorPlatform) {
+  const taken = new Set(
+    (state.connectors?.connectors || []).filter((item) => item.platform === platform).map((item) => item.botId),
+  );
+  return (state.bots.find((bot) => !taken.has(bot.id)) || state.bots[0])?.id || '';
 }
 
 /** The Bot and permission mode a new connector uses. */
@@ -96,7 +113,8 @@ export function AddConnectorDialog({
   const { t } = useI18n();
   const [platform, setPlatform] = useState<ConnectorPlatform>(initialPlatform),
     [method, setMethod] = useState<'scan' | 'manual'>('scan'),
-    [botId, setBotId] = useState(state.bots[0]?.id || ''),
+    [botId, setBotId] = useState(() => freeBot(state, initialPlatform)),
+    [botPicked, setBotPicked] = useState(false),
     [mode, setMode] = useState<HostPermissionMode>(DEFAULT_HOST_PERMISSION_MODE),
     [first, setFirst] = useState(''),
     [second, setSecond] = useState(''),
@@ -194,6 +212,7 @@ export function AddConnectorDialog({
               onClick={() => {
                 reset();
                 setPlatform(item);
+                if (!botPicked) setBotId(freeBot(state, item));
               }}
             >
               <ConnectorLogo platform={item} size={16} />
@@ -207,7 +226,10 @@ export function AddConnectorDialog({
           botId={botId}
           mode={mode}
           disabled={pending || Boolean(setupId)}
-          onBot={setBotId}
+          onBot={(id) => {
+            setBotId(id);
+            setBotPicked(true);
+          }}
           onMode={setMode}
         />
         {platform === 'feishu' && (
@@ -279,6 +301,11 @@ export function AddConnectorDialog({
                   <li>{t('在企业微信“工作台 → 智能机器人”创建机器人，切换到 API 模式，连接方式选“使用长连接”。')}</li>
                   <li>{t('把 BotID 和 Secret 填在下面并添加。')}</li>
                   <li>{t('在企业微信里给机器人发一条消息，按提示在这里确认配对码。')}</li>
+                  <li>
+                    {t(
+                      '一个机器人只交给一个 Bot 回复。想让更多 Bot 在企业微信里回复，就为每个 Bot 各建一个机器人，分别添加。',
+                    )}
+                  </li>
                 </>
               )}
             </ol>

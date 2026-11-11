@@ -2644,6 +2644,8 @@ export const en: Record<string, string> = {
     'In WeCom, go to “Workbench → AI Bots”, create a bot, switch to API mode and choose “Persistent connection”.',
   '在企业微信里给机器人发一条消息，按提示在这里确认配对码。':
     'Send the bot a message in WeCom, then confirm the pairing code here.',
+  '一个机器人只交给一个 Bot 回复。想让更多 Bot 在企业微信里回复，就为每个 Bot 各建一个机器人，分别添加。':
+    'Each WeCom bot is answered by one Bot. To have more Bots reply in WeCom, create a WeCom bot for each and add it here.',
   '在飞书开放平台创建企业自建应用，添加“机器人”能力。':
     'On the Feishu Open Platform, create a custom app and add the “Bot” capability.',
   填写凭证: 'Enter credentials',

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Snapshot, WorkSession } from '../../shared/types/core';
-import { CONNECTOR_PLATFORM_NAMES, type ConnectorView } from '../../shared/types/connector-types';
+import type { ConnectorView } from '../../shared/types/connector-types';
 import { HOST_PERMISSION_MODES, type HostPermissionMode } from '../../shared/types/permission-types';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
@@ -8,7 +8,7 @@ import { Select } from '../ui/Select';
 import { ipcErrorText } from '../ui/ipc-error';
 import { useI18n } from '../i18n';
 import { PluginDrawer, PluginSwitch, StatusDot } from './PluginDetails';
-import { connectorStatusText } from './AddConnectorDialog';
+import { connectorName, connectorStatusText } from './AddConnectorDialog';
 import { ConnectorLogo } from './ConnectorLogo';
 import { sinceText } from './plugin-visuals';
 
@@ -44,7 +44,7 @@ export function ConnectorDetails({
         <p className="subtle">{t('这个连接器已被删除。')}</p>
       </PluginDrawer>
     );
-  const name = t(CONNECTOR_PLATFORM_NAMES[connector.platform]),
+  const name = connectorName(connector, state, t),
     sessions = (state.workSessions || [])
       .filter((session) => session.connector?.connectorId === connector.id)
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),

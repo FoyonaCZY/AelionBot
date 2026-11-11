@@ -243,6 +243,15 @@
 .plugins-section-link:hover {
   color: var(--text-ink);
 }
+.plugins-section-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+/* After the keep-running switch, which already takes the free space. */
+.plugins-head-switch + .plugins-section-add {
+  margin-left: 10px;
+}
 .plugins-section-note {
   margin: 0 0 8px;
   font-size: var(--text-caption);
