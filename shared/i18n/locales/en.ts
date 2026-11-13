@@ -269,6 +269,7 @@ export const en: Record<string, string> = {
   输入: 'Input',
   输出: 'Output',
   缓存命中率: 'Cache hit rate',
+  平均每次请求: 'Average per request',
   工作区: 'Workspace',
   系统: 'System',
   筛选: 'Filter',

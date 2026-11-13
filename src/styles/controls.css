@@ -369,10 +369,6 @@
   border-bottom: 0 !important;
 }
 
-:root .usage-tabs-row {
-  border-bottom: 0 !important;
-}
-
 :root :is(.plugin-tabs button, .provider-editor-tabs > button, .usage-tabs .usage-tab, .bot-palette-tabs button) {
   align-items: center !important;
   padding: 5px 12px !important;

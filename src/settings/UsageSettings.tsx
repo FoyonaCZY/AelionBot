@@ -32,6 +32,8 @@ const dateLabel = (value: string) => {
     ? value
     : date.toLocaleDateString(currentLanguage(), { month: 'short', day: 'numeric' });
 };
+/** A bucket's key as people read it: days as "11月8日", hours and months as they are. */
+const bucketLabel = (key: string) => (/^\d{4}-\d{2}-\d{2}$/.test(key) ? dateLabel(key) : key);
 const purposes: Record<string, string> = {
   foreground: '任务执行',
   permission_review: '权限审核',
@@ -77,8 +79,16 @@ function sortValue(row: UsageGroup, key: SortKey) {
   if (key === 'hit') return row.inputReports && row.cacheReports ? cacheHitRatio(row) : -1;
   return row[key];
 }
+/** A round step that splits 0..maximum into about three gridlines: 1, 2, 2.5 or 5 times a power of ten. */
+function niceStep(maximum: number) {
+  const raw = maximum / 3,
+    magnitude = 10 ** Math.floor(Math.log10(raw)),
+    fraction = raw / magnitude;
+  return (fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 2.5 ? 2.5 : fraction <= 5 ? 5 : 10) * magnitude;
+}
 
-function UsageTimeline({
+/** One column per bucket from a single baseline; the hovered or focused column darkens and the header reads it out. */
+function UsageColumns({
   buckets,
   metric,
   onSelect,
@@ -95,115 +105,101 @@ function UsageTimeline({
     onSelect?.(index === undefined ? undefined : buckets[index]);
   };
   const width = 700,
-    height = 206,
-    left = 47,
-    right = 14,
-    top = 18,
-    bottom = 31,
+    height = 196,
+    left = 48,
+    right = 4,
+    top = 10,
+    bottom = 28,
     plotWidth = width - left - right,
-    plotHeight = height - top - bottom;
+    plotHeight = height - top - bottom,
+    base = top + plotHeight;
   const maximum = Math.max(1, ...buckets.map((row) => metricValue(row, metric) || 0)),
-    step = 10 ** Math.floor(Math.log10(maximum)) / 5,
-    ceiling = Math.ceil(maximum / step) * step;
-  const x = (index: number) => left + ((index + 0.5) * plotWidth) / Math.max(1, buckets.length),
+    step = niceStep(maximum),
+    ceiling = Math.ceil(maximum / step) * step,
+    ticks = Array.from({ length: Math.round(ceiling / step) + 1 }, (_, index) => index * step);
+  const slot = plotWidth / Math.max(1, buckets.length),
+    barWidth = Math.max(1.5, Math.min(24, slot - Math.max(2, slot * 0.28))),
     y = (value: number) => top + plotHeight * (1 - value / ceiling);
-  const points = buckets.map((row, index) => {
-      const value = metricValue(row, metric);
-      return value === undefined ? null : { x: x(index), y: y(value) };
-    }),
-    runs: Array<Array<{ x: number; y: number }>> = [];
-  let run: Array<{ x: number; y: number }> = [];
-  for (const point of points) {
-    if (!point) {
-      if (run.length) runs.push(run);
-      run = [];
-    } else run.push(point);
-  }
-  if (run.length) runs.push(run);
-  const line = (points: Array<{ x: number; y: number }>) => {
-    let path = `M${points[0].x},${points[0].y}`;
-    for (let index = 1; index < points.length; index++) {
-      const previous = points[index - 1],
-        current = points[index],
-        middle = (previous.x + current.x) / 2;
-      path += ` C${middle},${previous.y} ${middle},${current.y} ${current.x},${current.y}`;
-    }
-    return path;
+  const column = (index: number, value: number) => {
+    const x = left + index * slot + (slot - barWidth) / 2,
+      top = y(value),
+      radius = Math.min(4, barWidth / 2, base - top);
+    if (base - top < 0.5) return '';
+    return `M${x},${base}V${top + radius}Q${x},${top} ${x + radius},${top}H${x + barWidth - radius}Q${x + barWidth},${top} ${x + barWidth},${top + radius}V${base}Z`;
   };
-  const path = runs.map(line).join(' '),
-    area = runs
-      .filter((points) => points.length > 1)
-      .map((points) => `${line(points)} L${points.at(-1)!.x},${height - bottom} L${points[0].x},${height - bottom} Z`)
-      .join(' ');
-  const selectedRow = selected === undefined ? undefined : buckets[selected],
-    selectedValue = selectedRow ? metricValue(selectedRow, metric) : undefined;
   const labelIndices = [
     ...new Set([0, 0.25, 0.5, 0.75, 1].map((fraction) => Math.round((buckets.length - 1) * fraction))),
   ].filter((index) => index >= 0 && index < buckets.length);
   return (
-    <div className="usage-timeline">
+    <div className="usage-columns">
       <svg
         viewBox={`0 0 ${width} ${height}`}
         role="group"
         aria-label={t('{metric}时间趋势', { metric: t(metricNames[metric]) })}
         onMouseLeave={() => select(undefined)}
       >
-        {[0, 0.5, 1].map((fraction) => (
-          <g key={fraction}>
+        {ticks.map((value) => (
+          <g key={value}>
             <line
-              className="usage-grid"
+              className={value ? 'usage-grid' : 'usage-baseline'}
               x1={left}
               x2={width - right}
-              y1={y(ceiling * fraction)}
-              y2={y(ceiling * fraction)}
-              strokeDasharray={fraction ? '3 5' : undefined}
+              y1={y(value)}
+              y2={y(value)}
             />
-            <text x={left - 9} y={y(ceiling * fraction) + 4} textAnchor="end" className="usage-axis">
-              {compact(ceiling * fraction)}
+            <text x={left - 10} y={y(value) + 4} textAnchor="end" className="usage-axis">
+              {compact(value)}
             </text>
           </g>
         ))}
-        {area && <path className="usage-area" d={area} />}
-        <path className="usage-line" d={path} fill="none" strokeWidth="2.25" strokeLinejoin="round" />
-        {buckets.length === 1 && metricValue(buckets[0], metric) !== undefined && (
-          <circle className="usage-point" cx={x(0)} cy={y(metricValue(buckets[0], metric)!)} r={4} />
-        )}
-        {selected !== undefined && selectedValue !== undefined && (
-          <g>
+        {buckets.map((row, index) => {
+          const value = metricValue(row, metric);
+          return value === undefined ? (
             <line
-              className="usage-cursor"
-              x1={x(selected)}
-              x2={x(selected)}
-              y1={top}
-              y2={height - bottom}
-              strokeDasharray="3 4"
+              key={row.key}
+              className="usage-column-missing"
+              x1={left + index * slot + slot / 2}
+              x2={left + index * slot + slot / 2}
+              y1={base - 6}
+              y2={base}
             />
-            <circle className="usage-point" cx={x(selected)} cy={y(selectedValue)} r={4} strokeWidth={2} />
-          </g>
-        )}
+          ) : (
+            <path
+              key={row.key}
+              className={`usage-column${selected === index ? ' is-selected' : ''}`}
+              d={column(index, value)}
+            />
+          );
+        })}
         {labelIndices.map((index) => (
           <text
             key={index}
-            x={x(index)}
-            y={height - 8}
-            textAnchor={index === 0 ? 'start' : index === buckets.length - 1 ? 'end' : 'middle'}
+            x={left + index * slot + slot / 2}
+            y={height - 6}
+            textAnchor={
+              labelIndices.length > 1 && index === 0
+                ? 'start'
+                : labelIndices.length > 1 && index === buckets.length - 1
+                  ? 'end'
+                  : 'middle'
+            }
             className="usage-axis"
           >
-            {buckets[index].key}
+            {bucketLabel(buckets[index].key)}
           </text>
         ))}
         {buckets.map((row, index) => (
           <rect
             key={row.key}
-            x={left + (index * plotWidth) / buckets.length}
+            className="usage-column-hit"
+            x={left + index * slot}
             y={top}
-            width={plotWidth / buckets.length}
+            width={slot}
             height={plotHeight}
-            fill="transparent"
             tabIndex={index === (selected ?? 0) ? 0 : -1}
             role="button"
             aria-label={t('{key}，{metric} {value}，{count} 次请求', {
-              key: row.key,
+              key: bucketLabel(row.key),
               metric: t(metricNames[metric]),
               value: metricValue(row, metric) === undefined ? t('未返回') : number(row[metric]),
               count: row.requests,
@@ -225,18 +221,12 @@ function UsageTimeline({
           />
         ))}
       </svg>
-      <p className="usage-sr-only" aria-live="polite">
-        {selectedRow
-          ? `${selectedRow.key} ${t(metricNames[metric])} ${
-              selectedValue === undefined ? t('未返回用量') : number(selectedValue)
-            } ${t('{count} 次请求', { count: selectedRow.requests })}`
-          : ''}
-      </p>
     </div>
   );
 }
 
-function UsageHero({ totals }: { totals: UsageTotals }) {
+/** The headline: total tokens, what they are made of, and the request counts beside them. */
+function UsageSummary({ totals, period }: { totals: UsageTotals; period: string }) {
   const { t } = useI18n();
   const totalReported = totals.reportedRequests > 0 || !totals.requests,
     inputReported = totals.inputReports > 0 || !totals.requests,
@@ -246,92 +236,84 @@ function UsageHero({ totals }: { totals: UsageTotals }) {
     cached = cacheReported ? Math.min(totals.cachedTokens, totals.inputTokens) : 0,
     input = inputReported ? totals.inputTokens : 0,
     output = outputReported ? totals.outputTokens : 0,
-    barTotal = totalReported ? totals.totalTokens || input + output : input + output,
     newInput = Math.max(0, input - cached),
     composition = inputReported && cacheReported && outputReported,
-    cacheShare = composition && barTotal > 0 ? (cached / barTotal) * 100 : 0,
-    newShare = composition && barTotal > 0 ? (newInput / barTotal) * 100 : 0,
-    outputShare = composition && barTotal > 0 ? (output / barTotal) * 100 : 0,
-    hit = inputReported && cacheReported ? cacheHitRatio(totals) : 0,
-    avg = totalReported && totals.requests ? compact(totals.totalTokens / totals.requests) : '—',
-    failure = totals.requests ? `${((totals.failedRequests / totals.requests) * 100).toFixed(1)}%` : '—';
-
+    whole = cached + newInput + output;
+  const parts = [
+    { key: 'cache', label: t('缓存输入'), value: cached, reported: cacheReported },
+    { key: 'new', label: t('新增输入'), value: newInput, reported: inputReported },
+    { key: 'output', label: t('输出'), value: output, reported: outputReported },
+  ];
+  const share = (value: number) => (whole > 0 ? (value / whole) * 100 : 0);
+  const failureRate = totals.requests ? `${((totals.failedRequests / totals.requests) * 100).toFixed(1)}%` : '—';
   return (
-    <section className="usage-hero">
-      <div className="usage-hero-main">
-        <div className="usage-hero-kicker">{t('总 tokens')}</div>
+    <section className="usage-summary">
+      <div className="usage-summary-total">
+        <span className="usage-label">
+          {t('总 tokens')} · {period}
+        </span>
         <div className="usage-hero-number">
           <strong>{totalReported ? total.value : '—'}</strong>
           {totalReported && total.unit && <span>{total.unit}</span>}
         </div>
-        <div
-          className="usage-river"
-          role="img"
-          aria-label={`${t('缓存输入')} ${cacheReported ? compact(cached) : '—'}，${t('新增输入')} ${
-            inputReported ? compact(newInput) : '—'
-          }，${t('输出')} ${outputReported ? compact(output) : '—'}`}
-        >
-          <i className="is-cache" style={{ width: `${cacheShare}%` }} />
-          <i className="is-new" style={{ width: `${newShare}%` }} />
-          <i className="is-output" style={{ width: `${outputShare}%` }} />
-        </div>
-        <dl className="usage-river-legend">
-          <div>
-            <dt>
-              <i className="usage-legend-dot is-cache" />
-              {t('缓存输入')}
-            </dt>
-            <dd>{cacheReported ? compact(cached) : '—'}</dd>
-          </div>
-          <div>
-            <dt>
-              <i className="usage-legend-dot is-new" />
-              {t('新增输入')}
-            </dt>
-            <dd>{inputReported ? compact(newInput) : '—'}</dd>
-          </div>
-          <div>
-            <dt>
-              <i className="usage-legend-dot is-output" />
-              {t('输出')}
-            </dt>
-            <dd>{outputReported ? compact(output) : '—'}</dd>
-          </div>
-        </dl>
-        <div className="usage-hero-foot">
-          <span>
-            <strong>{number(totals.requests)}</strong> {t('次请求')}
-          </span>
-          <i className="usage-dot" aria-hidden="true" />
-          <span className="usage-is-bad">
-            <strong>{number(totals.failedRequests)}</strong> {t('次失败')}
-          </span>
-          <i className="usage-dot" aria-hidden="true" />
-          <span>
-            {t('输入合计')} <strong>{inputReported ? compact(totals.inputTokens) : '—'}</strong>
-          </span>
-        </div>
       </div>
-
-      <aside className="usage-hero-side">
-        <div className="usage-cache-stat">
-          <span>{t('缓存命中率')}</span>
-          <strong>{inputReported && cacheReported ? `${(hit * 100).toFixed(1)}%` : '—'}</strong>
+      {composition && whole > 0 && (
+        <div
+          className="usage-mix"
+          role="img"
+          aria-label={parts.map((part) => `${part.label} ${compact(part.value)}`).join('，')}
+        >
+          {parts.map(
+            (part) =>
+              part.value > 0 && <i key={part.key} className={`is-${part.key}`} style={{ flexGrow: part.value }} />,
+          )}
         </div>
-        <div className="usage-cache-track" aria-hidden="true">
-          <i style={{ width: `${Math.max(0, Math.min(100, hit * 100))}%` }} />
+      )}
+      <dl className="usage-mix-legend">
+        {parts.map((part) => (
+          <div key={part.key}>
+            <dt>
+              <i className={`usage-swatch is-${part.key}`} aria-hidden="true" />
+              {part.label}
+            </dt>
+            <dd>
+              {part.reported ? compact(part.value) : '—'}
+              {composition && whole > 0 && <small>{share(part.value).toFixed(1)}%</small>}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <dl className="usage-stats">
+        <div>
+          <dt>{t('请求')}</dt>
+          <dd>{number(totals.requests)}</dd>
+          <dd className={`usage-stat-note${totals.failedRequests ? ' is-bad' : ''}`}>
+            {t('{count} 次失败', { count: number(totals.failedRequests) })} · {failureRate}
+          </dd>
         </div>
-        <dl className="usage-cache-stats">
-          <div>
-            <dt>{t('平均 / 请求')}</dt>
-            <dd>{avg}</dd>
-          </div>
-          <div>
-            <dt>{t('失败率')}</dt>
-            <dd>{failure}</dd>
-          </div>
-        </dl>
-      </aside>
+        <div>
+          <dt>{t('缓存命中率')}</dt>
+          <dd>{inputReported && cacheReported ? percent(totals) : '—'}</dd>
+          <dd className="usage-stat-note">
+            {t('输入合计')} {inputReported ? compact(totals.inputTokens) : '—'}
+          </dd>
+        </div>
+        <div>
+          <dt>{t('平均每次请求')}</dt>
+          <dd>
+            {totalReported && totals.reportedRequests ? compact(totals.totalTokens / totals.reportedRequests) : '—'}
+          </dd>
+          <dd className="usage-stat-note">tokens</dd>
+        </div>
+      </dl>
+      {totals.missingUsage > 0 && (
+        <p className="usage-missing">
+          <Icon name="info" size={14} />
+          {t('{count} 次请求未返回 token 用量（可能包括失败或超时请求），不代表零消耗。', {
+            count: totals.missingUsage,
+          })}
+        </p>
+      )}
     </section>
   );
 }
@@ -356,15 +338,14 @@ function UsageRankList({
   const rows = expanded ? groups : groups.slice(0, 5),
     maximum = Math.max(1, ...groups.map((row) => row.totalTokens));
   return (
-    <section className="usage-rank-card">
-      <header className="usage-rank-head">
-        <h3>{title}</h3>
-      </header>
+    <section className="usage-card usage-rank-card">
+      <h3>{title}</h3>
       {rows.length ? (
         <div className="usage-rank-list">
-          {rows.map((row, index) => {
+          {rows.map((row) => {
             const isActive = model ? active === row.model : active === row.providerId,
-              share = total > 0 ? (row.totalTokens / total) * 100 : 0;
+              share = total > 0 ? (row.totalTokens / total) * 100 : 0,
+              name = model ? row.model || row.name : row.name;
             return (
               <button
                 key={row.key}
@@ -377,23 +358,15 @@ function UsageRankList({
                   name: model ? `${row.model} · ${row.name}` : row.name,
                 })}
               >
-                <span className="usage-rank-number">{String(index + 1).padStart(2, '0')}</span>
-                <span className="usage-rank-main">
-                  <span className="usage-rank-name">
-                    {!model && <i className={`usage-provider-dot p${(index % 4) + 1}`} />}
-                    <span title={model ? row.model || row.name : row.name}>
-                      {model ? row.model || row.name : row.name}
-                    </span>
-                    <small>{model ? row.name : `${share.toFixed(1)}%`}</small>
-                  </span>
-                  <span className="usage-rank-track">
-                    <i style={{ width: `${(row.totalTokens / maximum) * 100}%` }} />
-                  </span>
+                <span className="usage-rank-name" title={name}>
+                  <span>{name}</span>
+                  <small>{model ? row.name : t('{count} 次请求', { count: number(row.requests) })}</small>
                 </span>
-                <span className="usage-rank-value">
-                  {row.reportedRequests ? compact(row.totalTokens) : '—'}
-                  <small>{model ? `${share.toFixed(1)}%` : t('{count} 次请求', { count: number(row.requests) })}</small>
+                <span className="usage-rank-value">{row.reportedRequests ? compact(row.totalTokens) : '—'}</span>
+                <span className="usage-rank-track" aria-hidden="true">
+                  <i style={{ width: `${(row.totalTokens / maximum) * 100}%` }} />
                 </span>
+                <span className="usage-rank-share">{share.toFixed(1)}%</span>
               </button>
             );
           })}
@@ -470,7 +443,10 @@ export function UsageSettings({ state }: { state: Snapshot }) {
     setHovered(undefined);
     setQuery({ ...range(30), granularity: 'day' });
   };
-  const totals = JSON.stringify(report?.query) === JSON.stringify(query) ? report?.totals : undefined;
+  // While a new range or filter loads, the last result stays on screen, dimmed, so nothing jumps.
+  const stale = Boolean(report) && JSON.stringify(report?.query) !== JSON.stringify(query),
+    totals = report?.totals,
+    filtered = Boolean(query.providerId || query.model || query.purpose);
   const period =
     preset === 'custom'
       ? `${dateLabel(query.from)} – ${dateLabel(query.to)}`
@@ -519,7 +495,7 @@ export function UsageSettings({ state }: { state: Snapshot }) {
 
   return (
     <div ref={root} className="usage-settings">
-      <div className="usage-tabs-row">
+      <div className="usage-toolbar">
         <div className="usage-tabs" role="tablist" aria-label={t('用量')}>
           <button
             type="button"
@@ -543,7 +519,7 @@ export function UsageSettings({ state }: { state: Snapshot }) {
           </button>
         </div>
         <div className="usage-range-row">
-          <div className="usage-range" role="group" aria-label={t('用量时间范围')}>
+          <div className="usage-segmented" role="group" aria-label={t('用量时间范围')}>
             {[
               ['1', t('今天')],
               ['7', t('{count} 天', { count: 7 })],
@@ -560,17 +536,17 @@ export function UsageSettings({ state }: { state: Snapshot }) {
                 {label}
               </button>
             ))}
+            <button
+              type="button"
+              className={`usage-segment-icon${preset === 'custom' ? ' is-active' : ''}`}
+              aria-label={t('自定义')}
+              aria-pressed={preset === 'custom'}
+              title={t('自定义')}
+              onClick={() => applyPreset('custom')}
+            >
+              <Icon name="clock" size={15} />
+            </button>
           </div>
-          <button
-            type="button"
-            className={`usage-icon-button${preset === 'custom' ? ' is-active' : ''}`}
-            aria-label={t('自定义')}
-            aria-pressed={preset === 'custom'}
-            title={t('自定义')}
-            onClick={() => applyPreset('custom')}
-          >
-            <Icon name="clock" size={16} />
-          </button>
           <button
             type="button"
             className="usage-icon-button"
@@ -578,13 +554,12 @@ export function UsageSettings({ state }: { state: Snapshot }) {
             title={t('刷新')}
             onClick={() => setRefresh((value) => value + 1)}
           >
-            <Icon name="restart" size={16} />
+            <Icon name="restart" size={15} />
           </button>
         </div>
       </div>
 
       <div className="usage-filter-row">
-        <span className="usage-filter-label">{t('筛选')}</span>
         <label className="usage-filter">
           <span>Provider</span>
           <Select
@@ -631,9 +606,11 @@ export function UsageSettings({ state }: { state: Snapshot }) {
             ))}
           </Select>
         </label>
-        <button type="button" className="usage-reset" onClick={reset}>
-          {t('重置筛选')}
-        </button>
+        {(filtered || preset !== '30') && (
+          <button type="button" className="usage-reset" onClick={reset}>
+            {t('重置筛选')}
+          </button>
+        )}
       </div>
 
       {preset === 'custom' && (
@@ -647,7 +624,7 @@ export function UsageSettings({ state }: { state: Snapshot }) {
               onChange={(event) => update({ from: event.target.value })}
             />
           </label>
-          <span>—</span>
+          <span aria-hidden="true">–</span>
           <label>
             {t('结束日期')}
             <input
@@ -661,197 +638,188 @@ export function UsageSettings({ state }: { state: Snapshot }) {
       )}
 
       {error ? (
-        <div className="usage-error" role="alert">
+        <div className="usage-card usage-error" role="alert">
           {error}
         </div>
       ) : !totals ? (
         <div className="usage-loading" role="status">
           <span className="usage-sr-only">{t('正在统计用量…')}</span>
-          <div className="usage-skeleton-grid">
-            <div className="usage-skeleton" />
-            <div className="usage-skeleton" />
-          </div>
+          <div className="usage-skeleton" />
           <div className="usage-skeleton is-wide" />
-          <div className="usage-skeleton-grid">
-            <div className="usage-skeleton is-tall" />
-            <div className="usage-skeleton is-tall" />
-          </div>
         </div>
       ) : !totals.requests ? (
-        <div className="usage-empty">
+        <div className={`usage-card usage-empty${stale ? ' is-stale' : ''}`}>
           <span className="usage-empty-icon" aria-hidden="true">
             <Icon name="chart" size={22} />
           </span>
           <h3>{t('这段时间还没有用量记录')}</h3>
-          <button type="button" className="primary-button" onClick={reset}>
-            {t('最近 30 天')}
-          </button>
+          {(filtered || preset !== '30') && (
+            <button type="button" className="secondary-button" onClick={reset}>
+              {t('重置筛选')}
+            </button>
+          )}
+        </div>
+      ) : tab === 'overview' ? (
+        <div
+          id="usage-overview-panel"
+          role="tabpanel"
+          className={`usage-tab-panel${stale ? ' is-stale' : ''}`}
+          aria-busy={stale}
+        >
+          <UsageSummary totals={totals} period={period} />
+          <section className="usage-card usage-chart-card">
+            <header className="usage-chart-head">
+              <h3>{t('用量趋势')}</h3>
+              <div className="usage-chart-controls">
+                <div className="usage-segmented is-small" role="group" aria-label={t('用量图表指标')}>
+                  {(Object.keys(metricShortNames) as Metric[]).map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className={metric === value ? 'is-active' : ''}
+                      aria-pressed={metric === value}
+                      onClick={() => setMetric(value)}
+                    >
+                      {t(metricShortNames[value])}
+                    </button>
+                  ))}
+                </div>
+                <Select
+                  className="usage-granularity"
+                  aria-label={t('用量时间粒度')}
+                  value={query.granularity}
+                  onChange={(event) => update({ granularity: event.target.value as UsageQuery['granularity'] })}
+                >
+                  <option
+                    value="hour"
+                    disabled={new Date(query.to).getTime() - new Date(query.from).getTime() > 30 * 86400000}
+                  >
+                    {t('按小时')}
+                  </option>
+                  <option value="day">{t('按天')}</option>
+                  <option value="month">{t('按月')}</option>
+                </Select>
+              </div>
+            </header>
+            <p className="usage-readout" aria-live="polite">
+              {hovered ? (
+                <>
+                  <strong>{hoveredValue === undefined ? t('未返回用量') : compact(hoveredValue)}</strong>
+                  <span>
+                    {bucketLabel(hovered.key)} · {t('{count} 次请求', { count: number(hovered.requests) })}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <strong>{chartValues.length ? compact(chartTotal) : '—'}</strong>
+                  <span>
+                    {t(metricNames[metric])} · {t('本周期')}
+                  </span>
+                  {peak && (
+                    <span className="usage-readout-peak">
+                      {t('峰值')} {compact(peak.value)} · {bucketLabel(peak.key)}
+                    </span>
+                  )}
+                </>
+              )}
+            </p>
+            <UsageColumns buckets={report!.buckets} metric={metric} onSelect={setHovered} />
+          </section>
+          <div className="usage-split">
+            <UsageRankList
+              title={t('按 Provider')}
+              groups={report!.byProvider}
+              total={totals.totalTokens}
+              active={query.providerId}
+              onChoose={(row) => update({ providerId: row.providerId, model: undefined })}
+            />
+            <UsageRankList
+              title={t('按模型')}
+              groups={report!.byModel}
+              total={totals.totalTokens}
+              active={query.model}
+              model
+              onChoose={(row) => update({ providerId: row.providerId, model: row.model })}
+            />
+          </div>
         </div>
       ) : (
-        <>
-          {totals.missingUsage > 0 && (
-            <p className="usage-missing">
-              {t('{count} 次请求未返回 token 用量（可能包括失败或超时请求），不代表零消耗。', {
-                count: totals.missingUsage,
-              })}
-            </p>
-          )}
-          {tab === 'overview' ? (
-            <div id="usage-overview-panel" role="tabpanel" className="usage-tab-panel">
-              <UsageHero totals={totals} />
-              <section className="usage-chart-card">
-                <header className="usage-chart-head">
-                  <div className="usage-chart-title">
-                    <h3>{t('用量趋势')}</h3>
-                    <span className="usage-chart-period">{period}</span>
-                  </div>
-                  <div className="usage-chart-controls">
-                    <div className="usage-metric-seg" role="group" aria-label={t('用量图表指标')}>
-                      {(Object.keys(metricShortNames) as Metric[]).map((value) => (
-                        <button
-                          key={value}
-                          type="button"
-                          className={metric === value ? 'is-active' : ''}
-                          aria-pressed={metric === value}
-                          onClick={() => setMetric(value)}
+        <div
+          id="usage-detail-panel"
+          role="tabpanel"
+          className={`usage-tab-panel${stale ? ' is-stale' : ''}`}
+          aria-busy={stale}
+        >
+          <section className="usage-card usage-ledger-card">
+            <header className="usage-ledger-head">
+              <h3>{t('模型明细')}</h3>
+              <label className="usage-search">
+                <Icon name="search" size={14} />
+                <input
+                  type="search"
+                  value={search}
+                  placeholder={t('搜索模型或 Provider')}
+                  aria-label={t('搜索模型或 Provider')}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+              </label>
+            </header>
+            {tableRows.length ? (
+              <div className="usage-table-scroll">
+                <table className="usage-ledger">
+                  <caption className="usage-sr-only">{t('模型明细')}</caption>
+                  <thead>
+                    <tr>
+                      {columns.map((column) => (
+                        <th
+                          key={column.key}
+                          scope="col"
+                          aria-sort={
+                            sort.key === column.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'
+                          }
                         >
-                          {t(metricShortNames[value])}
-                        </button>
+                          <button
+                            type="button"
+                            className="usage-sort-button"
+                            onClick={() =>
+                              setSort((value) => ({
+                                key: column.key,
+                                dir: value.key === column.key && value.dir === 'desc' ? 'asc' : 'desc',
+                              }))
+                            }
+                          >
+                            {column.label}
+                            <Icon name="down" size={12} />
+                          </button>
+                        </th>
                       ))}
-                    </div>
-                    <Select
-                      className="usage-granularity"
-                      aria-label={t('用量时间粒度')}
-                      value={query.granularity}
-                      onChange={(event) => update({ granularity: event.target.value as UsageQuery['granularity'] })}
-                    >
-                      <option
-                        value="hour"
-                        disabled={new Date(query.to).getTime() - new Date(query.from).getTime() > 30 * 86400000}
-                      >
-                        {t('按小时')}
-                      </option>
-                      <option value="day">{t('按天')}</option>
-                      <option value="month">{t('按月')}</option>
-                    </Select>
-                  </div>
-                </header>
-                <div className="usage-chart-summary">
-                  {hovered ? (
-                    <>
-                      <strong>{hovered.key}</strong>
-                      <span>{t(metricNames[metric])}</span>
-                      <b>{hoveredValue === undefined ? t('未返回用量') : compact(hoveredValue)}</b>
-                      <span>{t('{count} 次请求', { count: hovered.requests })}</span>
-                    </>
-                  ) : (
-                    <>
-                      <strong>{chartValues.length ? compact(chartTotal) : '—'}</strong>
-                      <span>{t('本周期')}</span>
-                      {peak && (
-                        <span className="usage-chart-peak">
-                          {t('峰值')} {compact(peak.value)} · {peak.key}
-                        </span>
-                      )}
-                    </>
-                  )}
-                </div>
-                <UsageTimeline buckets={report!.buckets} metric={metric} onSelect={setHovered} />
-              </section>
-              <div className="usage-split">
-                <UsageRankList
-                  title={t('按 Provider')}
-                  groups={report!.byProvider}
-                  total={totals.totalTokens}
-                  active={query.providerId}
-                  onChoose={(row) => update({ providerId: row.providerId, model: undefined })}
-                />
-                <UsageRankList
-                  title={t('按模型')}
-                  groups={report!.byModel}
-                  total={totals.totalTokens}
-                  active={query.model}
-                  model
-                  onChoose={(row) => update({ providerId: row.providerId, model: row.model })}
-                />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tableRows.map((row) => (
+                      <tr key={row.key}>
+                        <td>
+                          <span className="usage-model-cell">
+                            <strong title={row.model || row.name}>{row.model || row.name}</strong>
+                            {row.model && <small>{row.name}</small>}
+                          </span>
+                        </td>
+                        <td>{row.reportedRequests ? compact(row.totalTokens) : '—'}</td>
+                        <td>{number(row.requests)}</td>
+                        <td>{row.inputReports ? compact(row.inputTokens) : '—'}</td>
+                        <td>{row.outputReports ? compact(row.outputTokens) : '—'}</td>
+                        <td>{row.cacheReports ? compact(row.cachedTokens) : '—'}</td>
+                        <td>{row.inputReports && row.cacheReports ? percent(row) : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </div>
-          ) : (
-            <div id="usage-detail-panel" role="tabpanel" className="usage-tab-panel">
-              <section className="usage-ledger-card">
-                <header className="usage-ledger-head">
-                  <h3>{t('模型明细')}</h3>
-                  <label className="usage-search">
-                    <Icon name="search" size={14} />
-                    <input
-                      type="search"
-                      value={search}
-                      placeholder={t('搜索模型或 Provider')}
-                      aria-label={t('搜索模型或 Provider')}
-                      onChange={(event) => setSearch(event.target.value)}
-                    />
-                  </label>
-                </header>
-                {tableRows.length ? (
-                  <div className="usage-table-scroll">
-                    <table className="usage-ledger">
-                      <caption className="usage-sr-only">{t('模型明细')}</caption>
-                      <thead>
-                        <tr>
-                          {columns.map((column) => (
-                            <th
-                              key={column.key}
-                              scope="col"
-                              aria-sort={
-                                sort.key === column.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'
-                              }
-                            >
-                              <button
-                                type="button"
-                                className="usage-sort-button"
-                                onClick={() =>
-                                  setSort((value) => ({
-                                    key: column.key,
-                                    dir: value.key === column.key && value.dir === 'desc' ? 'asc' : 'desc',
-                                  }))
-                                }
-                              >
-                                {column.label}
-                                <Icon name="down" size={12} />
-                              </button>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tableRows.map((row) => (
-                          <tr key={row.key}>
-                            <td>
-                              <span className="usage-model-cell">
-                                <strong>{row.model || row.name}</strong>
-                                {row.model && <small>{row.name}</small>}
-                              </span>
-                            </td>
-                            <td>{row.reportedRequests ? compact(row.totalTokens) : '—'}</td>
-                            <td>{number(row.requests)}</td>
-                            <td>{row.inputReports ? compact(row.inputTokens) : '—'}</td>
-                            <td>{row.outputReports ? compact(row.outputTokens) : '—'}</td>
-                            <td>{row.cacheReports ? compact(row.cachedTokens) : '—'}</td>
-                            <td>{row.inputReports && row.cacheReports ? percent(row) : '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="usage-ledger-empty">
-                    <strong>{t('没有匹配的模型')}</strong>
-                  </div>
-                )}
-              </section>
-            </div>
-          )}
-        </>
+            ) : (
+              <div className="usage-ledger-empty">{t('没有匹配的模型')}</div>
+            )}
+          </section>
+        </div>
       )}
     </div>
   );
