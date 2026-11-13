@@ -28,6 +28,9 @@ import { botIdentity, normalizeBotAvatarStyle, type BotPalette } from '../../sha
 import { botAvatarDataUrl } from '../bots/bot-avatar';
 import { useI18n } from '../i18n';
 import { PreviewAnnotationChips } from '../preview/PreviewAnnotationChips';
+import { useVoiceInput } from '../speech/use-voice-input';
+import { useSpeechAvailable } from '../speech/speech-availability';
+import '../speech/speech.css';
 
 export interface ComposerDraft {
   reply?: MessageReply;
@@ -214,7 +217,6 @@ export function BotComposer({
     [dragging, setDragging] = useState(false),
     [directories, setDirectories] = useState<DroppedAttachment[]>([]);
   const importRevision = useRef(0);
-  const [memoryMode, setMemoryMode] = useState<'on' | 'read' | 'off'>();
   const scope: AttachmentScope = attachmentScope || { kind: 'bot', id: bot.id },
     hasContent = Boolean(draft.text.trim() || draft.attachments?.length);
   useEffect(() => {
@@ -228,13 +230,7 @@ export function BotComposer({
       importRevision.current++;
     };
   }, [scope.kind, scope.id, scope.sessionId]);
-  useEffect(() => {
-    setMemoryMode(undefined);
-    if (scope.kind !== 'bot') return;
-    void window.aelion
-      .memoryConversationMode({ botId: scope.id, ...(scope.sessionId ? { sessionId: scope.sessionId } : {}) })
-      .then(setMemoryMode, () => {});
-  }, [scope.kind, scope.id, scope.sessionId]);
+
   sendRef.current = () => {
     setUploadError('');
     onSend();
@@ -392,6 +388,25 @@ export function BotComposer({
     setActive(0);
     setQuery({ start, end: caret, text: word });
   };
+  const voiceInput = useSpeechAvailable('input');
+  const voice = useVoiceInput({
+    onText: (text) => {
+      const root = editor.current;
+      if (!root) return;
+      // Spoken text lands where the caret was, or at the end when the editor had no focus.
+      if (!root.contains(getSelection()?.anchorNode || null)) {
+        root.focus({ preventScroll: true });
+        const range = document.createRange();
+        range.selectNodeContents(root);
+        range.collapse(false);
+        getSelection()?.removeAllRanges();
+        getSelection()?.addRange(range);
+      }
+      const before = read(root).text;
+      insert(before && !/\s$/.test(before) ? ' ' + text : text);
+    },
+    onError: setUploadError,
+  });
   const insert = (text: string) => {
     const root = editor.current,
       selection = getSelection();
@@ -807,21 +822,6 @@ export function BotComposer({
             })
           }
           onCommand={chooseCommand}
-          {...(scope.kind === 'bot'
-            ? {
-                memoryMode,
-                onMemoryMode: () => {
-                  const mode = memoryMode === 'on' ? 'read' : 'on';
-                  void window.aelion
-                    .memoryConversationMode({
-                      botId: scope.id,
-                      ...(scope.sessionId ? { sessionId: scope.sessionId } : {}),
-                      mode,
-                    })
-                    .then(setMemoryMode, () => {});
-                },
-              }
-            : {})}
         />
         {scope.kind === 'bot' && (
           <>
@@ -845,6 +845,53 @@ export function BotComposer({
             </span>
             <PermissionModePicker scope={scope} mode={permissionMode} />
           </>
+        )}
+        {voiceInput && (
+          <span className={`composer-voice is-${voice.phase}`}>
+            {voice.phase === 'recording' && (
+              <>
+                <button
+                  type="button"
+                  className="icon-button composer-voice-cancel"
+                  aria-label={t('取消录音')}
+                  title={t('取消录音')}
+                  onClick={voice.cancel}
+                >
+                  <Icon name="close" size={14} />
+                </button>
+                <span className="composer-voice-time" role="timer">
+                  {Math.floor(voice.seconds / 60)}:{String(voice.seconds % 60).padStart(2, '0')}
+                </span>
+              </>
+            )}
+            <button
+              type="button"
+              className="icon-button composer-voice-button"
+              aria-label={
+                voice.phase === 'recording'
+                  ? t('说完了，转成文字')
+                  : voice.phase === 'transcribing'
+                    ? t('正在识别…')
+                    : t('语音输入')
+              }
+              title={
+                voice.phase === 'recording'
+                  ? t('说完了，转成文字')
+                  : voice.phase === 'transcribing'
+                    ? t('正在识别…')
+                    : t('语音输入')
+              }
+              aria-pressed={voice.phase === 'recording'}
+              disabled={voice.phase === 'transcribing'}
+              onClick={() => (voice.phase === 'recording' ? voice.finish() : void voice.start())}
+            >
+              {voice.phase === 'transcribing' ? (
+                <span className="composer-voice-spinner" />
+              ) : (
+                <Icon name="mic" size={18} />
+              )}
+            </button>
+          </span>
         )}
         {running && hasContent && (
           <button className="icon-button" aria-label={t('停止任务')} onClick={onStop}>

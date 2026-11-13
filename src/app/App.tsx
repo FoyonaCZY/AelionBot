@@ -29,6 +29,7 @@ import { useWindowDimming } from './window-dimming';
 import { I18nProvider, useI18n } from '../i18n';
 import { botConversation } from './bot-conversation';
 import { useAppSnapshot } from './use-app-snapshot';
+import { useSpeechSettingsSync } from '../speech/speech-availability';
 import { useBotChat } from './use-bot-chat';
 import { useBotProfile } from './use-bot-profile';
 import { useComputerControl, type TakeoverRequest } from './use-computer-control';
@@ -65,6 +66,7 @@ function AppContent() {
   const profile = useBotProfile();
   const [toast, setToast] = useToast();
   const { state, selected, setSelected } = useAppSnapshot(setToast);
+  useSpeechSettingsSync(state?.speech);
   const [query, setQuery] = useState('');
   const drafts = useDrafts(),
     groupDrafts = useDrafts();

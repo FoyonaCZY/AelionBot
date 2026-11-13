@@ -98,7 +98,7 @@ test('attachment authorization cannot be bypassed with another attachment ID', a
   const service = new VideoFrames(
     {} as HostComputer,
     {
-      videoReference: () => {
+      storedFile: () => {
         throw Error('cannot read unreceived attachment');
       },
     } as unknown as Attachments,

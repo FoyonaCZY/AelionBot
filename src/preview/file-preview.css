@@ -285,6 +285,9 @@
   background: #000;
   box-shadow: 0 12px 32px #0003;
 }
+.fp-video-stage audio {
+  width: min(100%, 480px);
+}
 .fp-loading {
   width: 24px;
   height: 24px;

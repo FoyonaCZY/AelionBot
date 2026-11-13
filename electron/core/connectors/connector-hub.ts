@@ -25,6 +25,7 @@ import { ConnectorStore, connectorView, type SecretCodec, type StoredConnector }
 import { FeishuAdapter, type LarkSdk } from './adapters/feishu';
 import { WecomAdapter } from './adapters/wecom';
 import { WeixinAdapter, type WeixinCredentials } from './adapters/weixin';
+import type { SpeechService } from '../speech/speech-service';
 
 export interface ConnectorDeps {
   store: Store;
@@ -49,6 +50,8 @@ export interface ConnectorDeps {
   /** Whether a session already has its own mode; the connector default fills only the missing ones. */
   hasPermission?(sessionId: string): boolean;
   interactions: OutboxHost['interactions'];
+  /** Speech chosen in settings, for voice messages; absent where the app was wired without it. */
+  speech?: Pick<SpeechService, 'available' | 'transcribe' | 'voiceMessage'>;
   changed(): void;
   lark(): LarkSdk;
   /** Replaces the platform adapters in tests. */
@@ -87,6 +90,10 @@ export class Connectors {
         return running?.status === 'connected' ? running.adapter : undefined;
       },
       bytes: (id) => deps.attachments.bytes(id),
+      voice: (botId, text, signal) =>
+        deps.store.data.speech?.connectorVoiceReplies && deps.speech
+          ? deps.speech.voiceMessage(text, signal, botId)
+          : Promise.resolve(undefined),
       interactions: deps.interactions,
       journal: (type, payload) => deps.store.journal(type, payload),
     });
@@ -424,13 +431,25 @@ export class Connectors {
     if (Date.now() - message.sentAt > STALE_MS)
       await this.say(adapter, message.chatId, '刚上线，看到你之前发的消息了，现在开始处理。');
     const files: AttachmentUpload[] = [],
-      notes: string[] = [];
+      notes: string[] = [],
+      spoken: string[] = [];
     for (const resource of message.resources)
       try {
         const file = await resource.fetch(AbortSignal.timeout(120_000));
+        // A voice message reaches the Bot as what was said, when speech recognition is set up.
+        if (resource.kind === 'audio' && this.deps.speech?.available('input'))
+          try {
+            const { text } = await this.deps.speech.transcribe(file.bytes, AbortSignal.timeout(180_000));
+            spoken.push(text ? `（语音）${text}` : '（语音里没有识别到说话）');
+            continue;
+          } catch (error) {
+            notes.push(`（语音没能转成文字：${(error as Error).message}，原音频作为附件收下）`);
+          }
         files.push({ name: file.name, bytes: file.bytes });
       } catch (error) {
-        notes.push(`（有一个${resource.kind === 'image' ? '图片' : '文件'}没能收下：${(error as Error).message}）`);
+        notes.push(
+          `（有一个${resource.kind === 'image' ? '图片' : resource.kind === 'audio' ? '语音' : '文件'}没能收下：${(error as Error).message}）`,
+        );
       }
     let attachmentIds: string[] = [];
     if (files.length)
@@ -442,7 +461,7 @@ export class Connectors {
         notes.push(`（附件没能收下：${(error as Error).message}）`);
       }
     const quoted = message.quoted ? `> ${message.quoted.split('\n').slice(0, 6).join('\n> ')}\n\n` : '';
-    let text = quoted + [message.text, ...notes].filter(Boolean).join('\n');
+    let text = quoted + [message.text, ...spoken, ...notes].filter(Boolean).join('\n');
     if (text.length > MESSAGE_CHARS) text = text.slice(0, MESSAGE_CHARS) + '\n（消息过长，后面的内容没有收下）';
     if (!text.trim() && !attachmentIds.length) return;
     try {
@@ -458,6 +477,7 @@ export class Connectors {
           ...(message.isGroup ? { isGroup: true } : {}),
           sender: { id: person.id, ...(record?.name || person.name ? { name: record?.name || person.name } : {}) },
           ...(connector.owner ? { owner: isOwner } : {}),
+          ...(spoken.length ? { voice: true } : {}),
         },
       });
     } catch (error) {

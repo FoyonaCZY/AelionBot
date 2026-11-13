@@ -14,6 +14,7 @@ import { appConnectorFor } from '../../../shared/app-connectors';
 import { backgroundProvider, type McpAuthStore, type OwnClient } from './mcp-auth';
 import { mcpContext, type McpContextOptions, type McpServerState, type NativeRoute } from './mcp-native';
 import { deepseekTransport } from './deepseek-tools';
+import { FILE_BRIDGE_META, type FileBridge } from './mcp-files';
 
 type Transport = StdioClientTransport | StreamableHTTPClientTransport | SSEClientTransport | InMemoryTransport;
 interface Connection {
@@ -35,6 +36,8 @@ export interface McpAuth {
   ownClient(url: string): OwnClient | undefined;
 }
 const SIGN_IN_ISSUE = '需要登录';
+/** Recognizing a long document or recording takes minutes; servers in this app stop on their own deadlines. */
+const BUILTIN_TOOL_TIMEOUT = 10 * 60000;
 /** Servers the person can sign in to: remote ones whose config does not already send credentials. */
 function canSignIn(config: McpConfig) {
   return (
@@ -445,12 +448,23 @@ export class McpRuntime {
       },
     };
   }
+  /** What a tool of a server inside this app exchanges as files; undefined for every other server. */
+  fileBridge(id: string, name: string): FileBridge | undefined {
+    const config = this.find(id);
+    if (!appConnectorFor(config.url)?.builtin) return;
+    const tool = this.connections.get(config.id)?.tools.find((item) => item.name === name),
+      bridge = tool?._meta?.[FILE_BRIDGE_META];
+    return bridge && typeof bridge === 'object' && Array.isArray((bridge as FileBridge).inputs)
+      ? (bridge as FileBridge)
+      : undefined;
+  }
   async call(
     id: string,
     name: string,
     args: Record<string, unknown>,
     signal: AbortSignal,
     expectedFingerprint?: string,
+    meta?: Record<string, unknown>,
   ) {
     const config = this.find(id),
       connection = await this.connect(config.id);
@@ -468,10 +482,12 @@ export class McpRuntime {
       name,
     );
     try {
-      const result = await connection.client.callTool({ name, arguments: args }, undefined, {
-        signal,
-        timeout: config.toolTimeout,
-      });
+      const builtin = Boolean(appConnectorFor(config.url)?.builtin);
+      const result = await connection.client.callTool(
+        { name, arguments: args, ...(builtin && meta ? { _meta: meta } : {}) },
+        undefined,
+        { signal, timeout: builtin ? BUILTIN_TOOL_TIMEOUT : config.toolTimeout },
+      );
       if (JSON.stringify(result).length > 16 * 1024 * 1024) throw new Error('MCP_RESULT_LIMIT');
       const safe = redactMcp(result, config) as any;
       const images: ScreenReference[] = [];

@@ -339,7 +339,7 @@ export const APP_CONNECTORS: AppConnector[] = [
   {
     id: 'deepseek',
     name: 'DeepSeek',
-    description: '用 DeepSeek 搜索网页和读取网页正文',
+    description: '用 DeepSeek 搜索和读取网页、识别文档和图片里的文字',
     group: 'reference',
     url: 'https://api.deepseek.com/v1/tools',
     auth: 'token',

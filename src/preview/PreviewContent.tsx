@@ -86,6 +86,14 @@ export function PreviewContent({
     );
   }
   if (value.kind === 'image') return <ImagePreview src={value.dataUrl!} name={item.name} />;
+  if (value.kind === 'audio')
+    return (
+      <div className="fp-video-stage">
+        <audio src={value.dataUrl} controls preload="metadata" aria-label={item.name}>
+          {t('当前环境无法播放此音频，可保存原文件后收听。')}
+        </audio>
+      </div>
+    );
   if (value.kind === 'video')
     return (
       <div className="fp-video-stage">

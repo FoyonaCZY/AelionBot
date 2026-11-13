@@ -9,7 +9,7 @@ export const IMAGE_QUALITIES = ['auto', 'low', 'medium', 'high'] as const;
 export type ImageQuality = (typeof IMAGE_QUALITIES)[number];
 
 /** Closed set of recovery actions. Every image failure carries exactly one; callers branch on this, never on wording or HTTP status. */
-export const IMAGE_NEXT_STEPS = [
+const IMAGE_NEXT_STEPS = [
   'revise-request',
   'switch-model',
   'open-settings',
@@ -30,7 +30,7 @@ interface ImageCapabilities {
   seed: boolean;
 }
 export interface ImageProtocolInfo {
-  id: ImageProtocol | 'auto';
+  id: ImageProtocol;
   label: string;
   hint: string;
   endpoint: string;
@@ -41,6 +41,28 @@ export function asImageProtocol(value: unknown): ImageProtocol | undefined {
   return typeof value === 'string' && (IMAGE_PROTOCOLS as readonly string[]).includes(value)
     ? (value as ImageProtocol)
     : undefined;
+}
+/**
+ * The protocol of a provider that has not chosen one: Gemini's own for Gemini providers and image models named like
+ * Gemini's, the OpenAI Images API for everything else.
+ */
+export function defaultImageProtocol(chatProtocol?: string, model = ''): ImageProtocol {
+  const name = model.trim().toLowerCase();
+  return chatProtocol === 'gemini' ||
+    ((name.startsWith('gemini') || name.startsWith('imagen') || name.includes('nano-banana')) &&
+      !name.includes('embedding'))
+    ? 'gemini-images'
+    : 'openai-images';
+}
+/** Accepts the pre-0.28 route values so an existing install keeps its learned protocol. */
+const LEGACY_ROUTES: Record<string, ImageProtocol> = {
+  openai: 'openai-images',
+  gemini: 'gemini-images',
+  responses: 'responses-images',
+};
+export function migrateImageRoute(value: unknown): ImageProtocol | undefined {
+  if (typeof value === 'string' && LEGACY_ROUTES[value]) return LEGACY_ROUTES[value];
+  return asImageProtocol(value);
 }
 export function asImageAspect(value: unknown): ImageAspect | undefined {
   return typeof value === 'string' && (IMAGE_ASPECTS as readonly string[]).includes(value)
@@ -89,10 +111,7 @@ export const IMAGE_NEXT_STEP_GUIDANCE: Record<ImageNextStep, string> = {
   unsupported: '不要重试。改用占位图或纯 CSS/SVG 构图完成设计。',
   'contact-support': '不要重试。改用占位图完成排版，并把失败如实写进回复。',
 };
-/** Only a protocol mismatch justifies probing another adapter in `auto` mode. Auth, billing and policy failures are terminal. */
-export function probesNextProtocol(nextStep: ImageNextStep) {
-  return nextStep === 'switch-model' || nextStep === 'unsupported';
-}
+
 export function retryableImageFailure(nextStep: ImageNextStep) {
   return nextStep === 'retry-later';
 }

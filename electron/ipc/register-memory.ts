@@ -1,6 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { dialog } from 'electron';
-import { conversationKey } from '../core/memory/memory-scope';
 import { AppError } from '../../shared/errors';
 import type { IpcContext } from './context';
 
@@ -44,15 +43,7 @@ export function registerMemory(ctx: IpcContext) {
     shareUser: ctx.cognition.memory.sharesUser(String(botId)),
     mode: ctx.cognition.memory.mode(String(botId)),
   }));
-  // A conversation's own setting: 「not this conversation」 without changing the Bot's.
-  handle('memoryConversationMode', (input) => {
-    const botId = String(input?.botId || ''),
-      sessionId = typeof input?.sessionId === 'string' ? input.sessionId : undefined,
-      key = conversationKey({ botId, ...(sessionId ? { sessionId } : {}) });
-    ctx.store.bot(botId);
-    if (input?.mode !== undefined) ctx.cognition.memory.setMode(key, input.mode);
-    return ctx.cognition.memory.mode(botId, key);
-  });
+
   handle('setMemoryModel', (selection) => {
     ctx.providers.setMemoryModel(selection);
     ctx.changed();

@@ -1,3 +1,5 @@
+import { FILE_INPUTS_META, type BridgedFile } from '../../../extensions/mcp-files';
+import { namedFile } from './attachments';
 import { boundedInteger } from '../../../tools/file-text';
 import type { PrefixHandler } from '../context';
 import { requiredText } from '../validation';
@@ -5,21 +7,35 @@ import { MCP_NATIVE_PREFIX } from '../../../extensions/mcp-native';
 import type { McpRuntime } from '../../../extensions/mcp-runtime';
 import type { ToolContext } from '../context';
 
+/** The files a tool inside this app reads, as stored copies of attachments the run may use. */
+async function bridgedInputs(context: ToolContext, inputs: string[], args: Record<string, unknown>) {
+  const files: Record<string, BridgedFile> = {};
+  for (const key of inputs) {
+    if (args[key] === undefined) continue;
+    const file = await namedFile(context, args[key], '让插件读取本机文件');
+    files[key] = { ...context.deps.attachments.storedFile(context.bot.id, file.id), mime: file.mime, size: file.size };
+  }
+  return files;
+}
+
 /** Checks one tool call, asks for approval where the server or permission mode needs it, then runs it. */
 async function callTool(
   mcp: McpRuntime,
-  { bot, signal, runId, deps }: ToolContext,
+  context: ToolContext,
   server: string,
   toolName: string,
   input: Record<string, unknown>,
 ) {
+  const { bot, signal, runId, deps } = context;
   const inspection = await mcp.inspectCall(server, toolName, input, Boolean(deps.interactions?.hasHostPolicy));
   if (inspection.permission) {
     if (!deps.interactions) throw new Error('此 MCP 操作需要用户确认');
     await deps.interactions.permission(bot.id, runId, inspection.permission, signal);
   }
   signal.throwIfAborted();
-  return mcp.call(server, toolName, input, signal, inspection.fingerprint);
+  const bridge = mcp.fileBridge(server, toolName);
+  const meta = bridge && { [FILE_INPUTS_META]: await bridgedInputs(context, bridge.inputs, input) };
+  return mcp.call(server, toolName, input, signal, inspection.fingerprint, meta);
 }
 
 export const MCP_HANDLER: PrefixHandler = {

@@ -16,11 +16,14 @@ export function registerBots(ctx: IpcContext) {
       imageModel = input.imageModel ? ctx.providers.selection(input.imageModel) : undefined,
       reasoningEffort = cleanReasoning(
         input.reasoningEffort === undefined ? ctx.store.data.defaultModel?.reasoningEffort : input.reasoningEffort,
-      );
+      ),
+      voice = typeof input.voice === 'string' ? input.voice.trim() : '';
+    if (voice.length > 120 || /[\u0000-\u001f]/.test(voice)) throw new Error('音色名称无效');
     const bot = ctx.store.createBot(input.name, input.soul, input.color, input.avatarStyle, {
       model,
       imageModel,
       reasoningEffort,
+      ...(voice ? { voice } : {}),
     });
     ctx.changed();
     void ctx.greetings?.greet(bot.id);

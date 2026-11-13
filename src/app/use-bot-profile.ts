@@ -19,7 +19,8 @@ export function useBotProfile() {
     [soul, setSoul] = useState('');
   const [model, setModel] = useState<ModelSelection | null>(null),
     [imageModel, setImageModel] = useState<ModelSelection | null>(null);
-  const [reasoning, setReasoning] = useState('');
+  const [reasoning, setReasoning] = useState(''),
+    [voice, setVoice] = useState('');
   const shuffleNewPalette = () => setNewBotPalette(randomBotPalette(newBotPalette));
   const startNew = (defaultReasoning: string) => {
     setName('');
@@ -27,6 +28,7 @@ export function useBotProfile() {
     setModel(null);
     setImageModel(null);
     setReasoning(defaultReasoning);
+    setVoice('');
   };
   const startEdit = (target: Bot) => {
     setEditingId(target.id);
@@ -35,6 +37,7 @@ export function useBotProfile() {
     setModel(target.model ? { ...target.model } : null);
     setImageModel(target.imageModel ? { ...target.imageModel } : null);
     setReasoning(target.reasoningEffort || '');
+    setVoice(target.voice || '');
     setPalette(displayBotPalette(target));
   };
   const save = async (input: { creating: boolean; onCreated: (id: string) => void }) => {
@@ -45,6 +48,7 @@ export function useBotProfile() {
         model,
         imageModel,
         reasoningEffort: reasoning || null,
+        voice: voice.trim() || null,
         ...newBotPalette,
       });
       input.onCreated(created.id);
@@ -56,6 +60,7 @@ export function useBotProfile() {
         model,
         imageModel,
         reasoningEffort: reasoning || null,
+        voice: voice.trim() || null,
         color: palette.color,
         avatarStyle: palette.avatarStyle ?? null,
       });
@@ -72,6 +77,8 @@ export function useBotProfile() {
     setImageModel,
     reasoning,
     setReasoning,
+    voice,
+    setVoice,
     newBotPalette,
     setNewBotPalette,
     palette,

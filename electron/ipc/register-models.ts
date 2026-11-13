@@ -31,6 +31,33 @@ export function registerModels(ctx: IpcContext) {
       clearTimeout(timer);
     }
   });
+  handle('setSpeech', (settings) => {
+    ctx.providers.setSpeech(settings);
+  });
+  handle('transcribeSpeech', async (input) => {
+    const audio = input?.audio;
+    if (!(audio instanceof Uint8Array) || !audio.length) throw new Error('没有录到声音');
+    const controller = new AbortController(),
+      timer = setTimeout(() => controller.abort(new Error('语音识别超时')), 5 * 60000);
+    try {
+      return { text: (await ctx.speech.transcribe(Buffer.from(audio), controller.signal)).text };
+    } finally {
+      clearTimeout(timer);
+    }
+  });
+  handle('synthesizeSpeech', async (input) => {
+    const text = typeof input?.text === 'string' ? input.text : '';
+    if (text.length > 20000) throw new Error('一次朗读的文字太长');
+    const botId = typeof input?.botId === 'string' ? ctx.store.bot(input.botId).id : undefined;
+    const controller = new AbortController(),
+      timer = setTimeout(() => controller.abort(new Error('语音合成超时')), 3 * 60000);
+    try {
+      const audio = await ctx.speech.synthesize(text, controller.signal, botId);
+      return { audio: new Uint8Array(audio.bytes), mime: audio.mime };
+    } finally {
+      clearTimeout(timer);
+    }
+  });
   handle('queryUsage', (input) => usageReport(ctx.store.data.modelUsage || [], ctx.providers.list(), input));
   handle('saveProvider', async (input) => {
     ctx.beforeModelChange(input?.id ? ctx.providers.using(String(input.id)) : []);

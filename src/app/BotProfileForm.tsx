@@ -6,6 +6,8 @@ import { isStarterText, soulPresets } from '../../shared/chat/soul-presets';
 import { BotPaletteEditor } from '../bots/BotPaletteEditor';
 import { ModelSelectionFields, validModelSelection } from '../settings/ModelSelectionFields';
 import { ipcErrorText } from '../ui/ipc-error';
+import { EditableSelect } from '../ui/EditableSelect';
+import { defaultSpeechProtocol, speechProtocolInfo } from '../../shared/types/speech-types';
 import { useI18n } from '../i18n';
 import type { BotProfile } from './use-bot-profile';
 
@@ -27,6 +29,9 @@ export function BotProfileForm({
 }) {
   const { t, language } = useI18n();
   const { name, setName, soul, setSoul, newBotPalette, setNewBotPalette } = profile;
+  const voiceProvider = state.providers?.find((item) => item.id === state.speech?.output?.providerId),
+    voiceInfo =
+      voiceProvider && speechProtocolInfo(voiceProvider.speechProtocol || defaultSpeechProtocol(voiceProvider.baseUrl));
   const soulId = useId(),
     fileInput = useRef<HTMLInputElement>(null),
     [soulIssue, setSoulIssue] = useState('');
@@ -215,6 +220,26 @@ export function BotProfileForm({
             disabled={busy || (modal === 'profile' && profileRunning)}
           />
         </div>
+        {voiceInfo && (
+          <div className="bot-profile-model">
+            <h3>{t('朗读音色')}</h3>
+            <p className="settings-note">{t('朗读这个 Bot 的回复、发送语音消息时使用。')}</p>
+            <div className="settings-card">
+              <label className="settings-row">
+                <span>{t('音色')}</span>
+                <EditableSelect
+                  label={t('朗读音色')}
+                  value={profile.voice}
+                  onChange={profile.setVoice}
+                  options={voiceInfo.voices.map((voice) => voice.id)}
+                  placeholder={state.speech?.output?.voice || t('使用默认音色')}
+                  maxLength={120}
+                  disabled={busy}
+                />
+              </label>
+            </div>
+          </div>
+        )}
       </div>
       <div className="bot-profile-actions">
         <button type="button" className="secondary-button" disabled={busy} onClick={onCancel}>

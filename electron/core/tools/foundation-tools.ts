@@ -126,6 +126,28 @@ export const FOUNDATION_TOOLS: ToolDefinition[] = [
     ['prompt'],
   ),
   tool(
+    'transcribe_audio',
+    '用设置里选择的语音识别，把录音或视频里的语音转成文字。file 填已收到的 attachmentId，或文件 path（工作目录相对路径；用户本机绝对路径可加 location=host）。支持 WAV、MP3、M4A、AAC、FLAC、Ogg、Opus、WebM、MP4 等常见格式，最长 1 小时、25 MB。较长的录音分段识别，每段前标出开始时间；不区分说话人。',
+    {
+      file: {
+        type: 'object',
+        properties: {
+          attachmentId: text,
+          path: text,
+          location: { type: 'string', enum: ['vm', 'host'] },
+        },
+        additionalProperties: false,
+      },
+    },
+    ['file'],
+  ),
+  tool(
+    'text_to_speech',
+    '用设置里选择的语音合成，以当前 Bot 的音色把文字读成语音，保存为音频附件并附在本次回复中。Markdown 按口语读法处理，代码块不朗读；长文会分段合成后拼成一个文件。只在用户想听语音或需要音频文件时调用。',
+    { text: { ...text, minLength: 1, maxLength: 20000 }, filename: { ...text, maxLength: 80 } },
+    ['text'],
+  ),
+  tool(
     'tool_search',
     '按名称或用途搜索当前可用内置工具和已启用 MCP 服务，返回匹配工具及参数定义。MCP 结果通过 mcp_call 调用。不会启用新服务。',
     { query: { ...text, minLength: 1, maxLength: 300 }, limit: integer(1, 20), includeMcp: { type: 'boolean' } },

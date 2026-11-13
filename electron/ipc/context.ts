@@ -29,6 +29,7 @@ import type { Cognition } from '../core/memory/cognition';
 import type { MemoryAdmin } from '../core/memory/memory-admin';
 import type { ModelClient } from '../core/model/model';
 import type { ModelProviders } from '../core/model/model-providers';
+import type { SpeechService } from '../core/speech/speech-service';
 import type { PeerChats } from '../core/peer/peer-chats';
 import type { AgentPreviews } from '../core/preview/agent-previews';
 import type { TaskScheduler } from '../core/scheduler/task-scheduler';
@@ -52,6 +53,7 @@ export interface IpcContext {
   readonly generalHarness: Harness;
   readonly model: ModelClient;
   readonly providers: ModelProviders;
+  readonly speech: SpeechService;
   readonly artifacts: ArtifactService;
   readonly attachments: Attachments;
   readonly integrations: Integrations;

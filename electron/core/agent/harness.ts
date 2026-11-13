@@ -279,6 +279,10 @@ export class Harness {
   ) {
     this.imageModel = access;
   }
+  private speech?: import('../speech/speech-service').SpeechService;
+  setSpeech(service: import('../speech/speech-service').SpeechService) {
+    this.speech = service;
+  }
   // Headless runs have no work computer and nobody to answer questions: hide VM-only and ask-user tools.
   private headless = false;
   setHeadless(value: boolean) {
@@ -2173,6 +2177,8 @@ export class Harness {
         (!['open_preview', 'preview_mark'].includes(t.function.name) || Boolean(this.previews)) &&
         (t.function.name !== 'view_image' || Boolean(this.host?.options.imagePreview)) &&
         (t.function.name !== 'generate_image' || Boolean(this.imageModel?.(botId))) &&
+        (t.function.name !== 'transcribe_audio' || Boolean(this.speech?.available('input'))) &&
+        (t.function.name !== 'text_to_speech' || Boolean(this.speech?.available('output'))) &&
         (!['request_user_input', 'user_input_wait'].includes(t.function.name) || Boolean(this.interactions)) &&
         (work.forRun(run)?.status !== 'planning' || PLANNING_TOOLS.has(t.function.name)) &&
         (t.function.name !== 'chat_pin' || (!options.groupOrigin && !options.peerOrigin)) &&
@@ -2420,6 +2426,7 @@ export class Harness {
       previews: this.previews,
       design: this.design,
       imageModel: this.imageModel,
+      speech: this.speech,
       changed: () => this.changed(),
       callableTools: (runId) => this.callableTools.get(runId),
       pendingTasks: (botId, runId) => [

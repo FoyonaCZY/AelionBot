@@ -47,6 +47,8 @@ export interface ConnectorAdapter {
   stop(): Promise<void>;
   sendText(chatId: string, text: string): Promise<void>;
   sendFile(chatId: string, file: { name: string; bytes: Buffer }): Promise<void>;
+  /** A voice message, Ogg Opus; absent where the platform takes none from bots. */
+  sendVoice?(chatId: string, voice: { bytes: Buffer; durationMs: number }): Promise<void>;
   /** Absent where the platform has no buttons; the hub then asks for a text reply. */
   sendCard?(chatId: string, card: ConnectorCard): Promise<string | undefined>;
   /** Replaces a sent card with a decided state (its buttons removed). */

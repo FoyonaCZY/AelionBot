@@ -64,7 +64,7 @@ export const INVOKE_CHANNELS = {
   memoryUndoJob: 'memory:undo-job',
   memorySetBotOptions: 'memory:bot-options-set',
   memoryBotOptions: 'memory:bot-options',
-  memoryConversationMode: 'memory:conversation-mode',
+
   setMemoryModel: 'memory:model',
   memorySetEmbedding: 'memory:embedding',
   memoryPastEstimate: 'memory:past-estimate',
@@ -106,6 +106,9 @@ export const INVOKE_CHANNELS = {
   setBotModel: 'models:bot',
   imageProtocols: 'image:protocols',
   testImageModel: 'image:test',
+  setSpeech: 'speech:settings',
+  transcribeSpeech: 'speech:transcribe',
+  synthesizeSpeech: 'speech:synthesize',
   queryUsage: 'usage:query',
   // Attachments
   pickAttachments: 'attachments:pick',

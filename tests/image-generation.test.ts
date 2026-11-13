@@ -6,25 +6,18 @@ import {
   imageBytesFromGeneration,
   imageExtension,
   imageMediaType,
-  migrateImageRoute,
   probeImageModel,
+  resolvedImageProtocol,
 } from '../electron/core/image/image-generation';
-import {
-  autoProtocolOrder,
-  geminiImageUrl,
-  imageAdapter,
-  imageProtocolCatalog,
-  openAiSize,
-} from '../electron/core/image/image-protocols';
+import { geminiImageUrl, imageAdapter, imageProtocolCatalog, openAiSize } from '../electron/core/image/image-protocols';
 import {
   ImageGenerationError,
   classifyImageResponse,
   classifyImageTransport,
   scrubImageDetail,
 } from '../electron/core/image/image-errors';
-import { aspectDimensions, IMAGE_NEXT_STEPS, probesNextProtocol } from '../shared/types/image-types';
+import { aspectDimensions, defaultImageProtocol, migrateImageRoute } from '../shared/types/image-types';
 import { ModelClient } from '../electron/core/model/model';
-import type { ImageProtocol } from '../shared/types/image-types';
 
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -32,18 +25,7 @@ const png = Buffer.from(
 );
 const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0]);
 const signal = () => new AbortController().signal;
-const routeStore = () => {
-  const map = new Map<string, ImageProtocol>();
-  return {
-    map,
-    routes: {
-      get: (key: string) => map.get(key),
-      set: (key: string, protocol: ImageProtocol) => {
-        map.set(key, protocol);
-      },
-    },
-  };
-};
+
 async function listen(handler: Parameters<typeof createServer>[1], after: (fn: () => void) => void) {
   const server = createServer(handler);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -64,37 +46,32 @@ const client = (baseUrl: string, after: (fn: () => void) => void) => {
 
 test('the protocol catalog stays declarative and every adapter is reachable', () => {
   const catalog = imageProtocolCatalog();
-  assert.equal(catalog[0].id, 'auto');
-  for (const info of catalog.slice(1)) {
-    if (info.id === 'auto') throw new Error('auto 只能是目录第一项');
+  for (const info of catalog) {
     const adapter = imageAdapter(info.id);
     assert.equal(adapter.id, info.id);
     assert.ok(adapter.label && adapter.hint, `${info.id} 需要说明文案`);
   }
   assert.deepEqual(
     catalog.map((info) => info.id),
-    ['auto', 'openai-images', 'gemini-images', 'responses-images', 'sd-webui'],
+    ['openai-images', 'gemini-images', 'responses-images', 'sd-webui'],
   );
   assert.equal(imageAdapter('gemini-images').capabilities.reference, true);
   assert.equal(imageAdapter('responses-images').capabilities.reference, false);
   assert.equal(imageAdapter('sd-webui').capabilities.negativePrompt, true);
 });
 
-test('auto probing prefers the configured chat protocol and never offers hosted generation off Responses', () => {
-  assert.deepEqual(autoProtocolOrder('dall-e-3', 'chat'), ['openai-images', 'gemini-images']);
-  assert.deepEqual(autoProtocolOrder('gemini-2.5-flash-image', 'chat'), ['gemini-images', 'openai-images']);
-  assert.deepEqual(autoProtocolOrder('imagen-3.0-generate-002', 'gemini'), ['gemini-images', 'openai-images']);
-  assert.deepEqual(autoProtocolOrder('gpt-image-1', 'responses'), [
-    'responses-images',
-    'openai-images',
-    'gemini-images',
-  ]);
-  // A remembered route wins the first slot without dropping the rest of the probe order.
-  assert.deepEqual(autoProtocolOrder('gemini-2.5-flash-image', 'chat', 'openai-images'), [
-    'openai-images',
-    'gemini-images',
-  ]);
-  assert.ok(!autoProtocolOrder('gpt-image-1', 'chat').includes('responses-images'));
+test('a provider without a chosen protocol uses what an older version learned, or the default', () => {
+  assert.equal(defaultImageProtocol('chat', 'dall-e-3'), 'openai-images');
+  assert.equal(defaultImageProtocol('chat', 'gemini-2.5-flash-image'), 'gemini-images');
+  assert.equal(defaultImageProtocol('gemini', 'imagen-3.0-generate-002'), 'gemini-images');
+  assert.equal(defaultImageProtocol('responses', 'gpt-image-1'), 'openai-images');
+  const config = { providerId: 'p', baseUrl: 'https://x/v1', model: 'seedream', protocol: 'chat' as const };
+  assert.equal(resolvedImageProtocol(config), 'openai-images');
+  const learned = {
+    get: (key: string) => (key === 'p|https://x/v1|seedream' ? ('gemini-images' as const) : undefined),
+  };
+  assert.equal(resolvedImageProtocol(config, learned), 'gemini-images');
+  assert.equal(resolvedImageProtocol({ ...config, imageProtocol: 'sd-webui' }, learned), 'sd-webui');
 });
 
 test('aspect ratios map to real dimensions and to each provider size menu', () => {
@@ -195,8 +172,6 @@ test('every failure maps to exactly one closed-set next step', () => {
   assert.equal(classifyImageResponse(404, '', true).nextStep, 'switch-model');
   assert.equal(classifyImageResponse(503, '', true).nextStep, 'retry-later');
   assert.equal(classifyImageTransport(new Error('fetch failed')), 'retry-later');
-  // Only a protocol mismatch justifies spending another request on a different endpoint.
-  assert.deepEqual(IMAGE_NEXT_STEPS.filter(probesNextProtocol), ['switch-model', 'unsupported']);
 });
 
 test('a failure carries a user sentence, a next step, and agent guidance without leaking credentials', () => {
@@ -308,7 +283,7 @@ test('Responses providers keep using hosted generation bytes and forward the siz
   assert.equal(forwarded.hostedImageSize, '1024x1536');
 });
 
-test('auto mode probes past a protocol mismatch and then reuses the working route', async (t) => {
+test('a protocol mismatch is reported instead of trying another endpoint', async (t) => {
   const hits = { generations: 0, gemini: 0 };
   const baseUrl = await listen(
     (req, res) => {
@@ -326,25 +301,21 @@ test('auto mode probes past a protocol mismatch and then reuses the working rout
     },
     (fn) => t.after(fn),
   );
-  const { map, routes } = routeStore();
-  const input = {
-    model: client(baseUrl, (fn) => t.after(fn)),
-    config: { baseUrl, model: 'seedream-' + Date.now(), protocol: 'chat' as const, contextTokens: 8000, hasKey: true },
-    key: '',
-    job: { prompt: 'a red square' },
-    signal: signal(),
-    routes,
-  };
-  assert.equal((await generateModelImage(input)).protocol, 'gemini-images');
+  await assert.rejects(
+    generateModelImage({
+      model: client(baseUrl, (fn) => t.after(fn)),
+      config: { baseUrl, model: 'seedream', protocol: 'chat', contextTokens: 8000, hasKey: true },
+      key: '',
+      job: { prompt: 'a red square' },
+      signal: signal(),
+    }),
+    (error: unknown) => error instanceof ImageGenerationError && error.nextStep === 'switch-model',
+  );
   assert.equal(hits.generations, 1);
-  assert.equal(hits.gemini, 1);
-  assert.equal([...map.values()][0], 'gemini-images');
-  await generateModelImage(input);
-  assert.equal(hits.generations, 1, 'a remembered route must not re-probe the failing endpoint');
-  assert.equal(hits.gemini, 2);
+  assert.equal(hits.gemini, 0);
 });
 
-test('auto mode stops at a terminal failure instead of billing the next endpoint', async (t) => {
+test('a billing failure stops instead of billing another endpoint', async (t) => {
   const hits = { generations: 0, gemini: 0 };
   const baseUrl = await listen(
     (req, res) => {

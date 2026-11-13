@@ -223,7 +223,7 @@ export class FeishuAdapter implements ConnectorAdapter {
                 return {
                   name:
                     resource.fileName ||
-                    `${resource.type}-${resource.fileKey.slice(-8)}${resource.type === 'image' ? '.png' : ''}`,
+                    `${resource.type}-${resource.fileKey.slice(-8)}${resource.type === 'image' ? '.png' : resource.type === 'audio' ? '.opus' : ''}`,
                   bytes: Buffer.concat(chunks),
                 };
               },
@@ -256,6 +256,9 @@ export class FeishuAdapter implements ConnectorAdapter {
         ? { image: { source: file.bytes } }
         : { file: { source: file.bytes, fileName: file.name } },
     );
+  }
+  async sendVoice(chatId: string, voice: { bytes: Buffer; durationMs: number }) {
+    await this.connected().send(chatId, { audio: { source: voice.bytes, duration: voice.durationMs } });
   }
   async sendCard(chatId: string, card: ConnectorCard) {
     return (await this.connected().send(chatId, { card: feishuCard(card) })).messageId;

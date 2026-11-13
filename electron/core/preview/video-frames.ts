@@ -62,7 +62,7 @@ export class VideoFrames {
     signal.throwIfAborted();
     if (Boolean(args.path) === Boolean(args.attachmentId)) throw Error('请提供 path 或 attachmentId，不能同时提供');
     const request = videoFrameRequest(args as VideoFrameRequest);
-    const source = args.attachmentId ? this.attachments.videoReference(botId, String(args.attachmentId)) : undefined;
+    const source = args.attachmentId ? this.attachments.storedFile(botId, String(args.attachmentId)) : undefined;
     const path = source?.path || (await this.host.videoFile(botId, runId, args, signal, workspace)),
       name = source?.name || basename(path);
     if (!/\.(mp4|webm|mov|m4v|mkv|avi|ogv)$/i.test(name)) throw Error('请选择视频文件；推荐 MP4 或 WebM');

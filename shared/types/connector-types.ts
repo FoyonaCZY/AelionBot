@@ -76,6 +76,8 @@ export interface MessageConnectorSource {
   sender: ConnectorPerson;
   /** Whether the sender is the connector's owner, the person the user profile describes. Absent while it has none. */
   owner?: boolean;
+  /** The message was spoken: a voice message turned into text, which may be answered by voice too. */
+  voice?: boolean;
 }
 /** What to call a connector message's sender: the name if the platform gave one. WeCom reports only an ID. */
 export const connectorSenderLabel = (sender: ConnectorPerson) =>

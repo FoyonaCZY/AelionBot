@@ -1,4 +1,5 @@
 import { hostedSearchProtocol } from '../../../shared/types/model-types';
+import { migrateImageRoute } from '../../../shared/types/image-types';
 import { normalizeSoul } from '../../../shared/chat/bot-soul';
 import { defaultBotName, defaultSoul, upgradedLegacySoul } from '../../../shared/chat/soul-presets';
 import { repairToolHistory } from '../tools/tool-history';
@@ -80,6 +81,7 @@ interface Persisted {
   approvalModel?: ModelSelection;
   /** Runs memory's background work when set; each Bot's own model otherwise. */
   memoryModel?: ModelSelection;
+  speech?: import('../../../shared/types/speech-types').SpeechSettings;
   skills: Skill[];
   artifacts: Artifact[];
   skillFilesMigrated?: boolean;
@@ -194,6 +196,17 @@ export class Store {
       bot.soul = upgradedLegacySoul(bot.soul) || bot.soul;
     }
     this.data.imageGenerationRoutes ||= {};
+    // Providers no longer detect their image protocol; one that learned a single protocol that way keeps it as its choice.
+    for (const provider of this.data.providers || []) {
+      if (provider.imageProtocol) continue;
+      const learned = new Set(
+        Object.entries(this.data.imageGenerationRoutes)
+          .filter(([key]) => key.startsWith(provider.id + '|'))
+          .map(([, value]) => migrateImageRoute(value))
+          .filter(Boolean),
+      );
+      if (learned.size === 1) provider.imageProtocol = [...learned][0];
+    }
     this.data.workItems ||= [];
     this.data.workSessions ||= [];
     this.data.conversationWorkspaces ||= {};
@@ -691,7 +704,7 @@ export class Store {
     soul: string,
     color?: string,
     avatarStyle?: BotAvatarStyle | null,
-    modelOptions?: Pick<Bot, 'model' | 'imageModel' | 'reasoningEffort'>,
+    modelOptions?: Pick<Bot, 'model' | 'imageModel' | 'reasoningEffort' | 'voice'>,
   ): Bot {
     const cleanSoul = normalizeSoul(soul);
     if (!name.trim() || name.length > 80 || cleanSoul === undefined) throw new Error('请填写有效的名称与 SOUL.md');

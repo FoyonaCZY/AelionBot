@@ -141,6 +141,9 @@ function MessageView({
               : undefined
           }
           onEdit={hasEdit ? () => edit.current?.(message) : undefined}
+          speakAs={
+            message.role === 'assistant' && displayContent && message.status !== 'running' ? message.botId : undefined
+          }
           bubbleClassName={`bubble ${answer ? 'question-answer-bubble' : ''} ${message.status === 'failed' ? 'failed' : ''} ${bare ? 'is-media' : ''}`}
           after={bare ? undefined : <AttachmentList files={message.attachments} only="files" />}
           onPin={

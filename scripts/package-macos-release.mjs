@@ -77,6 +77,7 @@ await build({
       icon: 'assets/icon.png',
       artifactName: 'AelionBot-${version}-mac-${arch}.${ext}',
       minimumSystemVersion: '15.0',
+      extendInfo: { NSMicrophoneUsageDescription: 'AelionBot 用麦克风录下你说的话，转成文字发给 Bot。' },
       identity: signed ? undefined : '-',
       hardenedRuntime: true,
       entitlements: signingEntitlements,

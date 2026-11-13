@@ -1,6 +1,8 @@
 import { generateModelImage, storeImageRoutes } from '../../../image/image-generation';
 import { imageFileName, imageJobFromArgs, imageReferences } from '../../../image/image-tool';
 import type { ToolHandler } from '../context';
+import { attachmentName } from '../../../attachments/attachments';
+import { attachToReply, namedFile } from './attachments';
 
 export const MEDIA_HANDLERS: Record<string, ToolHandler> = {
   open_preview: ({ bot, args, signal, runId, deps }) => {
@@ -16,7 +18,8 @@ export const MEDIA_HANDLERS: Record<string, ToolHandler> = {
     if (!deps.host) throw Error('本机图像工具不可用');
     return deps.host.viewImage(bot.id, runId, args, signal, workspace);
   },
-  generate_image: async ({ bot, args, signal, runId, deps }) => {
+  generate_image: async (context) => {
+    const { bot, args, signal, runId, deps } = context;
     const access = deps.imageModel?.(bot.id);
     if (!access) throw Error('这个 Bot 没有配置生图模型');
     const job = imageJobFromArgs(args, access.config, (ids) =>
@@ -32,12 +35,7 @@ export const MEDIA_HANDLERS: Record<string, ToolHandler> = {
       runId,
       routes: storeImageRoutes(deps.store),
     });
-    const file = deps.attachments.importForBot(bot.id, imageFileName(args.filename, mediaType), bytes);
-    const run = deps.store.data.runs.find((item) => item.id === runId && item.botId === bot.id);
-    if (run)
-      run.attachments = deps.attachments.forBot(bot.id, [
-        ...new Set([...(run.attachments || []), file].map((item) => item.id)),
-      ]);
+    const file = attachToReply(context, imageFileName(args.filename, mediaType), bytes);
     return {
       attachmentId: file.id,
       name: file.name,
@@ -45,6 +43,33 @@ export const MEDIA_HANDLERS: Record<string, ToolHandler> = {
       mediaType,
       protocol,
       ...(job.aspect ? { aspect: job.aspect } : {}),
+    };
+  },
+  transcribe_audio: async (context) => {
+    const { args, signal, deps } = context;
+    if (!deps.speech?.available('input')) throw Error('还没有设置语音识别');
+    const file = await namedFile(context, args.file, '识别本机录音');
+    const { text, seconds } = await deps.speech.transcribe(deps.attachments.bytes(file.id), signal);
+    return {
+      attachmentId: file.id,
+      name: file.name,
+      seconds: Math.round(seconds),
+      text: text || '（没有识别到语音）',
+    };
+  },
+  text_to_speech: async (context) => {
+    const { bot, args, signal, deps } = context;
+    if (!deps.speech?.available('output')) throw Error('还没有设置语音合成');
+    const audio = await deps.speech.synthesize(String(args.text || ''), signal, bot.id),
+      extension = audio.mime === 'audio/mpeg' ? '.mp3' : '.wav',
+      stem = String(args.filename || 'speech').replace(/\.(mp3|wav)$/i, ''),
+      file = attachToReply(context, attachmentName(stem + extension), audio.bytes);
+    deps.store.save();
+    return {
+      attachmentId: file.id,
+      name: file.name,
+      bytes: file.size,
+      delivery: '音频已附在本次最终回复中，不用再次附加。',
     };
   },
   video_frames: ({ bot, args, signal, runId, deps }) => {

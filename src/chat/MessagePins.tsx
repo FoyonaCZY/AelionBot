@@ -9,7 +9,11 @@ import {
 } from '../../shared/chat/emoji-catalog';
 import { Presence } from '../ui/Presence';
 import { useI18n } from '../i18n';
+import { Icon } from '../ui/Icon';
+import { speak, stopSpeaking, useSpeaking } from '../speech/speech-player';
+import { useSpeechAvailable } from '../speech/speech-availability';
 import './message-pins.css';
+import '../speech/speech.css';
 
 /** Reactions one click away on the hover toolbar; the rest are in the picker next to them. */
 const HOVER_PIN_EMOJIS = [QUICK_PIN_EMOJIS[0], QUICK_PIN_EMOJIS[2], QUICK_PIN_EMOJIS[3]];
@@ -76,12 +80,15 @@ export function MessageActions({
   onPin,
   onReply,
   onEdit,
+  speakAs,
   bubbleClassName,
   after,
   children,
 }: {
   messageId: string;
   content: string;
+  /** The Bot whose voice reads this message aloud; absent for messages that are not read. */
+  speakAs?: string;
   pins?: MessagePin[];
   onPin?: (input: PinInput) => Promise<unknown>;
   onReply?: () => void;
@@ -106,6 +113,10 @@ export function MessageActions({
   const toolbar = useRef<HTMLDivElement>(null),
     hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
     copiedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const speechOutput = useSpeechAvailable('output'),
+    reading = useSpeaking(),
+    readable = Boolean(speechOutput && speakAs && content.trim()),
+    readingThis = reading?.key === messageId ? reading.phase : undefined;
   const hasToolbar = Boolean(onPin || onReply || onEdit || content.trim());
   const showToolbar = () => {
     clearTimeout(hoverTimer.current);
@@ -420,6 +431,25 @@ export function MessageActions({
                 >
                   <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4ZM13.5 6.5l4 4" />
                 </svg>
+              </button>
+            )}
+            {readable && (
+              <button
+                type="button"
+                aria-label={readingThis ? t('停止朗读') : t('朗读')}
+                title={readingThis ? t('停止朗读') : t('朗读')}
+                aria-pressed={Boolean(readingThis)}
+                onClick={() =>
+                  readingThis
+                    ? stopSpeaking()
+                    : speak(messageId, content, { botId: speakAs, onError: (message) => setError(message) })
+                }
+              >
+                {readingThis === 'loading' ? (
+                  <span className="speak-button-spinner" />
+                ) : (
+                  <Icon name={readingThis ? 'stop' : 'speaker'} size={17} />
+                )}
               </button>
             )}
             {content.trim() && (

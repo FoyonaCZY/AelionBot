@@ -262,6 +262,19 @@ print(json.dumps(files,ensure_ascii=False))`;
       const bytes = await this.read(botId, path, 30 * 1024 * 1024);
       return { kind: 'video', dataUrl: `data:${videoTypes[extension]};base64,${bytes.toString('base64')}` };
     }
+    const audioTypes: Record<string, string> = {
+      '.wav': 'audio/wav',
+      '.mp3': 'audio/mpeg',
+      '.m4a': 'audio/mp4',
+      '.aac': 'audio/aac',
+      '.flac': 'audio/flac',
+      '.ogg': 'audio/ogg',
+      '.opus': 'audio/ogg',
+    };
+    if (audioTypes[extension]) {
+      const bytes = await this.read(botId, path, 30 * 1024 * 1024);
+      return { kind: 'audio', dataUrl: `data:${audioTypes[extension]};base64,${bytes.toString('base64')}` };
+    }
     if (!isText && !imageTypes[extension] && extension !== '.pdf') return { kind: 'unsupported' };
     const bytes = await this.read(botId, path, isText ? 2 * 1024 * 1024 : 15 * 1024 * 1024);
     if (imageTypes[extension])

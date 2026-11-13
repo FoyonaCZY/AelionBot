@@ -624,6 +624,7 @@ const GroupMessageRow = memo(function GroupMessageRow({
             bubbleClassName={`group-message-bubble markdown ${bare ? 'is-media' : ''}`}
             onReply={() => actions.reply(message, formatted.content, author)}
             onPin={actions.pin}
+            speakAs={message.sender.kind === 'bot' && formatted.content ? message.sender.id : undefined}
             after={bare ? undefined : <AttachmentList files={message.attachments} only="files" />}
           >
             {message.reply && <MessageQuote reply={message.reply} />}

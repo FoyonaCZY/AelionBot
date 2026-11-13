@@ -1,6 +1,19 @@
 import type React from 'react';
 export function Icon({ name, size = 20 }: { name: string; size?: number }) {
   const shapes: Record<string, React.ReactNode> = {
+    mic: (
+      <>
+        <rect x="9" y="3" width="6" height="11" rx="3" />
+        <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+      </>
+    ),
+    speaker: (
+      <>
+        <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4v-5Z" />
+        <path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" />
+      </>
+    ),
+    stop: <rect x="6.5" y="6.5" width="11" height="11" rx="2" />,
     plugin: (
       <path d="M9 3H5a2 2 0 0 0-2 2v4h2a3 3 0 0 1 0 6H3v4a2 2 0 0 0 2 2h4v-2a3 3 0 0 1 6 0v2h4a2 2 0 0 0 2-2v-4h-2a3 3 0 0 1 0-6h2V5a2 2 0 0 0-2-2h-4v2a3 3 0 0 1-6 0V3Z" />
     ),

@@ -7,6 +7,12 @@ import { modelEndpoint } from './model';
 import { redactHost } from '../host/host';
 import { hostedSearchProtocol, type ModelParameters } from '../../../shared/types/model-types';
 import { asImageAspect, asImageProtocol, asImageQuality } from '../../../shared/types/image-types';
+import {
+  asSpeechProtocol,
+  defaultSpeechProtocol,
+  type SpeechSelection,
+  type SpeechSettings,
+} from '../../../shared/types/speech-types';
 import { imageCapability } from './model-vision';
 import { reasoningEffort as cleanReasoning } from '../../../shared/chat/reasoning';
 import { modelFetch, prewarmModelEndpoint, disposeModelHttp } from './model-http';
@@ -26,7 +32,10 @@ export function modelParameters(input: ModelParameters): ModelParameters {
     imageProtocol,
     imageAspect,
     imageQuality,
+    speechProtocol,
   } = input;
+  if (speechProtocol !== undefined && !asSpeechProtocol(speechProtocol))
+    throw new AppError('provider.speech_protocol_invalid', '语音协议无效');
   if (responsesTransport !== undefined && !['auto', 'http', 'websocket'].includes(responsesTransport))
     throw Error('Responses 连接方式无效');
   if (protocol !== undefined && !['chat', 'responses', 'anthropic', 'gemini'].includes(protocol))
@@ -68,6 +77,7 @@ export function modelParameters(input: ModelParameters): ModelParameters {
     ...(image !== 'auto' ? { imageProtocol: image } : {}),
     ...(asImageAspect(imageAspect) ? { imageAspect: asImageAspect(imageAspect) } : {}),
     ...(asImageQuality(imageQuality) && imageQuality !== 'auto' ? { imageQuality: asImageQuality(imageQuality) } : {}),
+    ...(speechProtocol ? { speechProtocol } : {}),
   };
 }
 function providerModelEntry(input: unknown): ProviderModel {
@@ -347,6 +357,49 @@ export class ModelProviders {
       key: this.key(undefined, selection),
     };
   }
+  private speechSelection(value: unknown, label: string): SpeechSelection | undefined {
+    if (value === null || value === undefined) return undefined;
+    if (typeof value !== 'object') throw new AppError('speech.selection_invalid', `${label}设置无效`);
+    const input = value as SpeechSelection,
+      providerId = text(input.providerId, 'Provider', 80),
+      provider = this.provider(providerId),
+      protocol = provider.speechProtocol || defaultSpeechProtocol(provider.baseUrl),
+      model = typeof input.model === 'string' ? input.model.trim() : '',
+      voice = typeof input.voice === 'string' ? input.voice.trim() : '';
+    if (protocol !== 'deepseek-tools' && !model) throw new AppError('speech.model_required', `请填写${label}模型`);
+    if (model.length > 256 || /[\u0000-\u001f]/.test(model) || voice.length > 120 || /[\u0000-\u001f]/.test(voice))
+      throw new AppError('speech.selection_invalid', `${label}设置无效`);
+    return { providerId, model: protocol === 'deepseek-tools' ? '' : model, ...(voice ? { voice } : {}) };
+  }
+  setSpeech(value: unknown) {
+    const input = (value && typeof value === 'object' ? value : {}) as SpeechSettings,
+      recognition = this.speechSelection(input.input, '语音识别'),
+      synthesis = this.speechSelection(input.output, '语音合成');
+    this.commit({
+      speech: {
+        ...(recognition ? { input: recognition } : {}),
+        ...(synthesis ? { output: synthesis } : {}),
+        ...(input.connectorVoiceReplies ? { connectorVoiceReplies: true } : {}),
+      },
+    });
+  }
+  /**
+   * The endpoint, key and model for recognition or synthesis, or undefined when none is chosen. A Bot's own voice
+   * replaces the default one.
+   */
+  speechAccess(kind: 'input' | 'output', botId?: string) {
+    const selection = this.store.data.speech?.[kind];
+    const provider = selection && this.store.data.providers?.find((item) => item.id === selection.providerId);
+    if (!selection || !provider) return undefined;
+    const voice = (botId && this.store.data.bots.find((bot) => bot.id === botId)?.voice) || selection.voice;
+    return {
+      protocol: provider.speechProtocol || defaultSpeechProtocol(provider.baseUrl),
+      baseUrl: provider.baseUrl,
+      key: this.keyFor(provider),
+      model: selection.model,
+      ...(voice ? { voice } : {}),
+    };
+  }
   secrets() {
     return (this.store.data.providers || []).map((provider) => this.keyFor(provider)).filter(Boolean);
   }
@@ -465,11 +518,13 @@ export class ModelProviders {
       this.store.data.defaultModel?.providerId === id ||
       this.store.data.approvalModel?.providerId === id ||
       this.store.data.memoryModel?.providerId === id ||
+      this.store.data.speech?.input?.providerId === id ||
+      this.store.data.speech?.output?.providerId === id ||
       this.using(id).length
     )
       throw new AppError(
         'provider.in_use',
-        '此 Provider 仍被默认模型、自动审核模型、记忆模型或 Bot 使用，请先切换模型',
+        '此 Provider 仍被默认模型、自动审核模型、记忆模型、语音或 Bot 使用，请先切换模型',
       );
     this.requests.get(id)?.controller.abort();
     this.requests.delete(id);

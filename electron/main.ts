@@ -22,6 +22,8 @@ import { renderCanvasExport } from './windows/canvas-export-renderer';
 import { WebPreviewBrowser } from './windows/web-preview';
 import { protocol } from 'electron';
 import { VideoInspector } from './windows/video-inspector';
+import { AudioCodecWindow } from './windows/audio-codecs';
+import { SpeechService } from './core/speech/speech-service';
 import { VideoFrames } from './core/preview/video-frames';
 import { AgentPreviews } from './core/preview/agent-previews';
 import { normalizeAppearance, type AppearanceSettings } from '../shared/preview/appearance';
@@ -102,6 +104,8 @@ let providers: ModelProviders;
 let computer: ComputerController;
 let artifacts: ArtifactService;
 let videoInspector: VideoInspector;
+let audioCodecs: AudioCodecWindow | undefined;
+let speech: SpeechService;
 let attachments: Attachments;
 let integrations: Integrations;
 let interactions: Interactions;
@@ -202,6 +206,7 @@ function snapshot(): Snapshot {
     providers: providers.list(),
     defaultModel: store.data.defaultModel,
     approvalModel: store.data.approvalModel,
+    speech: store.data.speech,
     botModels: Object.fromEntries(store.data.bots.map((bot) => [bot.id, providers.config(bot.id)])),
     vm: vm.state,
     skills: integrations ? integrations.skills.all() : store.data.skills,
@@ -790,6 +795,9 @@ async function initialize() {
     attachments,
   );
   generalHarness.setImageModel(imageModelAccess);
+  audioCodecs = new AudioCodecWindow(join(app.getAppPath(), 'assets', 'audio-codecs.html'));
+  speech = new SpeechService(providers, audioCodecs);
+  generalHarness.setSpeech(speech);
   hostDesktop = new HostDesktop({
     driver: new WindowsDesktopHelper(),
     imageDir: computer.imageDir,
@@ -976,6 +984,7 @@ async function initialize() {
     codec: secretCodec,
     version: app.getVersion(),
     attachments,
+    speech,
     send: ({ connector, ...input }) => chatPins!.send(input, connector),
     cancel: (botId, sessionId) => {
       chatPins?.cancel(botId, sessionId);
@@ -1293,6 +1302,9 @@ async function initialize() {
     get providers() {
       return providers;
     },
+    get speech() {
+      return speech;
+    },
     get artifacts() {
       return artifacts;
     },
@@ -1416,6 +1428,7 @@ async function initialize() {
         () => model?.dispose(),
         () => harness.disposeTools(),
         () => videoInspector?.dispose(),
+        () => audioCodecs?.dispose(),
         () => webPreview?.close(),
         () => chatPins?.dispose(),
         () => tray?.dispose(),

@@ -5,9 +5,17 @@ import { hostedSearchProtocol, type ModelParameters, type ModelProtocol } from '
 import {
   IMAGE_ASPECTS,
   IMAGE_QUALITIES,
+  defaultImageProtocol,
   type ImageProtocol,
   type ImageProtocolInfo,
 } from '../../shared/types/image-types';
+import {
+  SPEECH_PROTOCOL_CATALOG,
+  defaultSpeechProtocol,
+  speechProtocolInfo,
+  type SpeechProtocol,
+} from '../../shared/types/speech-types';
+import { SpeechAssignments } from './SpeechSettings';
 import { Icon } from '../ui/Icon';
 import { Emblem } from '../ui/Emblem';
 import { useSwitchMotion } from '../ui/motion';
@@ -101,6 +109,8 @@ export function ModelSettings({ state, onNotify }: { state: Snapshot; onNotify: 
     editor &&
     (state.defaultModel?.providerId === editor.id ||
       state.approvalModel?.providerId === editor.id ||
+      state.speech?.input?.providerId === editor.id ||
+      state.speech?.output?.providerId === editor.id ||
       state.bots.some((bot) => bot.model?.providerId === editor.id)),
   );
   const remove = async () => {
@@ -164,6 +174,7 @@ export function ModelSettings({ state, onNotify }: { state: Snapshot; onNotify: 
               onNotify={onNotify}
             />
           </section>
+          <SpeechAssignments providers={providers} settings={state.speech || {}} onNotify={onNotify} />
         </div>
         {!providers.length && (
           <button
@@ -324,7 +335,7 @@ function ProviderEditor({
   onSaved: (provider: ModelProvider, close?: boolean) => void;
 }) {
   const { t } = useI18n();
-  const [tab, setTab] = useState<'connection' | 'models' | 'images' | 'advanced'>('connection');
+  const [tab, setTab] = useState<'connection' | 'models' | 'images' | 'speech' | 'advanced'>('connection');
   const form = useRef<HTMLFormElement>(null);
   useSwitchMotion(form, tab, ':scope > .provider-editor-content:not([hidden])');
   const [parameters, setParameters] = useState<ModelParameters>({
@@ -338,6 +349,7 @@ function ProviderEditor({
     imageProtocol: provider?.imageProtocol,
     imageAspect: provider?.imageAspect,
     imageQuality: provider?.imageQuality,
+    speechProtocol: provider?.speechProtocol,
   });
   const [name, setName] = useState(provider?.name || ''),
     [baseUrl, setBaseUrl] = useState(provider?.baseUrl || ''),
@@ -354,6 +366,8 @@ function ProviderEditor({
         name,
         baseUrl,
         ...parameters,
+        imageProtocol,
+        speechProtocol,
         apiKey: clearKey ? null : apiKey || undefined,
       });
       setName(saved.name);
@@ -371,12 +385,14 @@ function ProviderEditor({
   const protocols = useImageProtocols();
   // Hosted generation only exists on a Responses provider; drop it from the menu and from state when the chat protocol moves away.
   const imageOptions = protocols.filter((info) => info.id !== 'responses-images' || responses);
-  const imageProtocol = (
+  // A provider that never chose shows the protocol it uses; saving keeps that choice.
+  const imageProtocol =
     parameters.imageProtocol && imageOptions.some((info) => info.id === parameters.imageProtocol)
       ? parameters.imageProtocol
-      : 'auto'
-  ) as ImageProtocol;
+      : defaultImageProtocol(parameters.protocol);
   const imageInfo = imageOptions.find((info) => info.id === imageProtocol);
+  const speechProtocol = parameters.speechProtocol || defaultSpeechProtocol(baseUrl),
+    speechInfo = speechProtocolInfo(speechProtocol);
   const capabilities = capabilityLabels(imageInfo, t);
   return (
     <form
@@ -418,7 +434,7 @@ function ProviderEditor({
             disabled={used || disabled || pending || removing}
             title={
               used
-                ? t('请先切换使用此 Provider 的默认模型、审核模型或 Bot 模型')
+                ? t('请先切换使用此 Provider 的默认模型、审核模型、语音或 Bot 模型')
                 : t('删除 Provider {name}', { name: provider.name })
             }
             aria-label={t('删除 Provider {name}', { name: provider.name })}
@@ -434,6 +450,7 @@ function ProviderEditor({
             { id: 'connection', label: t('连接') },
             { id: 'models', label: t('模型'), count: provider?.models.length },
             { id: 'images', label: t('生图') },
+            { id: 'speech', label: t('语音') },
             { id: 'advanced', label: t('高级') },
           ] as const
         ).map((item) => (
@@ -590,6 +607,31 @@ function ProviderEditor({
               ))}
             </Select>
           </label>
+        </div>
+      </div>
+      <div className="provider-editor-content" data-provider-panel="speech" hidden={tab !== 'speech'}>
+        <div className="settings-card provider-image-card">
+          <label className="settings-row">
+            <span>{t('语音协议')}</span>
+            <Select
+              aria-label={t('语音协议')}
+              value={speechProtocol}
+              disabled={disabled || pending}
+              onChange={(e) => setParameters({ ...parameters, speechProtocol: e.target.value as SpeechProtocol })}
+            >
+              {SPEECH_PROTOCOL_CATALOG.map((info) => (
+                <option key={info.id} value={info.id}>
+                  {t(info.label)}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <p className="provider-model-note">
+            {t('语音识别')}：{speechInfo.endpoints.input}
+            <br />
+            {t('语音合成')}：{speechInfo.endpoints.output}
+          </p>
+          <p className="provider-image-capabilities">{t(speechInfo.hint)}</p>
         </div>
       </div>
       <div className="provider-editor-content" data-provider-panel="advanced" hidden={tab !== 'advanced'}>

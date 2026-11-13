@@ -93,6 +93,8 @@ export interface Bot {
   memories: string[];
   model?: ModelSelection;
   imageModel?: ModelSelection;
+  /** The voice its replies are read in; the default voice of speech synthesis otherwise. */
+  voice?: string;
   reasoningEffort?: string;
 }
 export interface BotUpdateInput {
@@ -101,6 +103,7 @@ export interface BotUpdateInput {
   soul: string;
   model?: ModelSelection | null;
   imageModel?: ModelSelection | null;
+  voice?: string | null;
   reasoningEffort?: string | null;
   color?: string;
   avatarStyle?: import('../chat/bot-colors').BotAvatarStyle | null;
@@ -163,7 +166,7 @@ export interface Artifact {
   urlLocation?: 'host' | 'vm';
 }
 export interface ArtifactPreview {
-  kind: 'text' | 'markdown' | 'html' | 'image' | 'video' | 'pdf' | 'web' | 'unsupported';
+  kind: 'text' | 'markdown' | 'html' | 'image' | 'video' | 'audio' | 'pdf' | 'web' | 'unsupported';
   web?: import('../preview/web-preview').WebPreviewSource;
   content?: string;
   dataUrl?: string;
@@ -462,6 +465,7 @@ export interface Snapshot {
   providers?: ModelProvider[];
   defaultModel?: ModelSelection;
   approvalModel?: ModelSelection;
+  speech?: import('./speech-types').SpeechSettings;
   botModels?: Record<string, ModelConfig>;
   vm: VmState;
   skills: Skill[];
@@ -648,6 +652,7 @@ export interface AelionAPI {
     model?: ModelSelection | null;
     imageModel?: ModelSelection | null;
     reasoningEffort?: string | null;
+    voice?: string | null;
   }): Promise<Bot>;
   deleteBot(id: string): Promise<void>;
   createWorkSession(input: { botId: string; name: string; workspaceDir?: string }): Promise<WorkSession>;
@@ -726,6 +731,11 @@ export interface AelionAPI {
   removeProvider(id: string): Promise<void>;
   setDefaultModel(selection: ModelSelection | null): Promise<void>;
   setApprovalModel(selection: ModelSelection | null): Promise<void>;
+  setSpeech(settings: import('./speech-types').SpeechSettings): Promise<void>;
+  /** Text of a recording made in the app, with the chosen speech recognition. */
+  transcribeSpeech(input: { audio: Uint8Array; name?: string }): Promise<{ text: string }>;
+  /** Speech of a text with the chosen synthesis, in the Bot's voice when one is given. */
+  synthesizeSpeech(input: { text: string; botId?: string }): Promise<{ audio: Uint8Array; mime: string }>;
   setBotModel(input: { botId: string; selection: ModelSelection | null }): Promise<void>;
   vmAction(action: 'prepare' | 'start' | 'stop' | 'restart' | 'repair-tools'): Promise<void>;
   vmTerminal(command: string): Promise<CommandResult>;
@@ -766,11 +776,7 @@ export interface AelionAPI {
   memoryUndoJob(id: string): Promise<{ restored: number; skipped: number }>;
   memorySetBotOptions(input: { botId: string; shareUser?: boolean; mode?: 'on' | 'read' | 'off' }): Promise<void>;
   memoryBotOptions(botId: string): Promise<{ shareUser: boolean; mode: 'on' | 'read' | 'off' }>;
-  memoryConversationMode(input: {
-    botId: string;
-    sessionId?: string;
-    mode?: 'on' | 'read' | null;
-  }): Promise<'on' | 'read' | 'off'>;
+
   setMemoryModel(selection: ModelSelection | null): Promise<void>;
   memorySetEmbedding(enabled: boolean): Promise<void>;
   memoryPastEstimate(): Promise<{ conversations: number; inputTokens: number }>;

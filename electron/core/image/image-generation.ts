@@ -4,34 +4,26 @@ import { validateModelEndpoint } from '../model/model';
 import { modelFetch } from '../model/model-http';
 import {
   asImageProtocol,
-  probesNextProtocol,
+  defaultImageProtocol,
+  migrateImageRoute,
   retryableImageFailure,
   type ImageProtocol,
 } from '../../../shared/types/image-types';
-import { autoProtocolOrder, imageAdapter, type ImageJob, type ImagePlan } from './image-protocols';
+import { imageAdapter, type ImageJob, type ImagePlan } from './image-protocols';
 import { ImageGenerationError, classifyImageResponse, classifyImageTransport } from './image-errors';
 
 export type { ImageJob };
 
 const MAX_IMAGE_BYTES = 24 * 1024 * 1024;
 
-/** Routes are remembered per provider+endpoint+model so `auto` probes once, not on every call. */
+/**
+ * Protocols that versions with automatic detection learned per provider+endpoint+model. A provider that never chose
+ * a protocol keeps using what was learned for it.
+ */
 export type ImageRouteStore = {
   get(key: string): ImageProtocol | undefined;
-  set(key: string, protocol: ImageProtocol): void;
 };
-const remembered = new Map<string, ImageProtocol>();
 
-/** Accepts the pre-0.28 route values so an existing install keeps its learned protocol. */
-const LEGACY_ROUTES: Record<string, ImageProtocol> = {
-  openai: 'openai-images',
-  gemini: 'gemini-images',
-  responses: 'responses-images',
-};
-export function migrateImageRoute(value: unknown): ImageProtocol | undefined {
-  if (typeof value === 'string' && LEGACY_ROUTES[value]) return LEGACY_ROUTES[value];
-  return asImageProtocol(value);
-}
 function imageRouteKey(config: Pick<ModelConfig, 'providerId' | 'baseUrl' | 'model'>) {
   return `${config.providerId || ''}|${(config.baseUrl || '').replace(/\/$/, '')}|${config.model}`;
 }
@@ -39,13 +31,7 @@ export function storeImageRoutes(store: {
   data: { imageGenerationRoutes?: Record<string, string> };
   save(): void;
 }): ImageRouteStore {
-  return {
-    get: (key) => migrateImageRoute(store.data.imageGenerationRoutes?.[key]),
-    set: (key, protocol) => {
-      store.data.imageGenerationRoutes = { ...store.data.imageGenerationRoutes, [key]: protocol };
-      store.save();
-    },
-  };
+  return { get: (key) => migrateImageRoute(store.data.imageGenerationRoutes?.[key]) };
 }
 
 /** Sniffs the container so the asset is saved with a truthful extension instead of a guessed one. */
@@ -211,43 +197,41 @@ export interface GenerateImageResult {
   mediaType: string;
 }
 
+/** The protocol a generation uses: the provider's choice, what an older version learned, or the default. */
+export function resolvedImageProtocol(
+  config: Pick<ModelConfig, 'providerId' | 'baseUrl' | 'model' | 'protocol' | 'imageProtocol'>,
+  routes?: ImageRouteStore,
+): ImageProtocol {
+  return (
+    asImageProtocol(config.imageProtocol) ||
+    routes?.get(imageRouteKey(config)) ||
+    defaultImageProtocol(config.protocol, config.model)
+  );
+}
+
 /**
- * Resolves the protocol, generates once, and remembers what worked.
- * `auto` probes the adapter list; a configured protocol never probes.
- * Only a protocol mismatch advances the probe — auth, billing and policy failures stop immediately
- * so a failed attempt is never repeated against another endpoint that would bill again.
+ * Generates once with the resolved protocol. A busy service gets one more try; other failures, which may already
+ * have been billed, are not repeated.
  */
 export async function generateModelImage(input: GenerateImageInput & { job: ImageJob }): Promise<GenerateImageResult> {
   const job = { ...input.job, prompt: input.job.prompt.trim() };
   if (!job.prompt) throw new ImageGenerationError('revise-request', { subject: 'prompt', detail: '请填写生图提示' });
-  const configured = asImageProtocol(input.config.imageProtocol) || 'auto';
-  const key = imageRouteKey(input.config);
-  const known = input.routes?.get(key) || remembered.get(key);
-  const order =
-    configured === 'auto' ? autoProtocolOrder(input.config.model, input.config.protocol, known) : [configured];
-  let last: ImageGenerationError | undefined;
-  for (const protocol of order) {
+  const protocol = resolvedImageProtocol(input.config, input.routes);
+  for (let attempt = 0; ; attempt++) {
     input.signal.throwIfAborted();
-    for (let attempt = 0; ; attempt++) {
-      try {
-        const bytes = await runPlan(protocol, job, input, input.signal);
-        remembered.set(key, protocol);
-        input.routes?.set(key, protocol);
-        return { bytes, protocol, mediaType: imageMediaType(bytes) };
-      } catch (error) {
-        if (input.signal.aborted) throw error;
-        const failure =
-          error instanceof ImageGenerationError
-            ? error.withProtocol(protocol)
-            : new ImageGenerationError('contact-support', { protocol, detail: (error as Error).message });
-        if (retryableImageFailure(failure.nextStep) && attempt === 0) continue;
-        last = failure;
-        if (!probesNextProtocol(failure.nextStep)) throw failure;
-        break;
-      }
+    try {
+      const bytes = await runPlan(protocol, job, input, input.signal);
+      return { bytes, protocol, mediaType: imageMediaType(bytes) };
+    } catch (error) {
+      if (input.signal.aborted) throw error;
+      const failure =
+        error instanceof ImageGenerationError
+          ? error.withProtocol(protocol)
+          : new ImageGenerationError('contact-support', { protocol, detail: (error as Error).message });
+      if (retryableImageFailure(failure.nextStep) && attempt === 0) continue;
+      throw failure;
     }
   }
-  throw last || new ImageGenerationError('switch-model', { detail: '没有可用的生图协议' });
 }
 
 /** Settings-time connection check: generates one small image so the resolved protocol is proven, not guessed. */

@@ -23,6 +23,7 @@ import type { Interactions } from '../interactions';
 import type { HarnessRunOptions, PeerGateway } from '../peer-runtime-types';
 import type { DesignWork } from '../../designer/design-work';
 import { AppError } from '../../../../shared/errors';
+import type { SpeechService } from '../../speech/speech-service';
 
 /** The Harness collaborators tool handlers may use; optional ones depend on how the app was wired. */
 export interface ToolDeps {
@@ -52,6 +53,8 @@ export interface ToolDeps {
   /** Local design tasks; absent when the app was wired without them. */
   design?: DesignWork;
   imageModel?: (botId: string) => { config: ModelConfig; key: string } | undefined;
+  /** Speech recognition and synthesis chosen in settings; absent where the app was wired without them. */
+  speech?: SpeechService;
   changed(): void;
   /** Tools callable in this run, as offered to the model. */
   callableTools(runId: string): ToolDefinition[] | undefined;

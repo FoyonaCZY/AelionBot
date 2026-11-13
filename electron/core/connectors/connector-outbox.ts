@@ -16,6 +16,8 @@ export interface OutboxHost {
   /** The adapter of a running connector. */
   adapter(id: string): ConnectorAdapter | undefined;
   bytes(attachmentId: string): Buffer;
+  /** A reply as a voice message, when voice replies are on and the reply is short enough to listen to. */
+  voice(botId: string, text: string, signal: AbortSignal): Promise<{ bytes: Buffer; durationMs: number } | undefined>;
   interactions: {
     snapshot(): InteractionRequest[];
     approve(id: string, allow: boolean): void;
@@ -30,6 +32,8 @@ interface Tracked {
   chatId: string;
   botId: string;
   typingAt: number;
+  /** The person spoke; the answer may be spoken back. */
+  voice?: boolean;
 }
 interface Prompt {
   requestId: string;
@@ -72,7 +76,11 @@ export class ConnectorOutbox {
       this.relayedInput(options) ||
       this.host.store.data.messages.filter((message) => options.inputMessageIds?.includes(message.id));
     if (!inputs.some((message) => message.connector || message.scheduled)) return;
-    return { connectorId: session.connector.connectorId, chatId: session.connector.chatId };
+    return {
+      connectorId: session.connector.connectorId,
+      chatId: session.connector.chatId,
+      voice: inputs.some((message) => message.connector?.voice),
+    };
   }
   /**
    * For the final reply to a private message to another Bot: the input of the run that sent it. The reply arrives
@@ -96,14 +104,14 @@ export class ConnectorOutbox {
       onStarted: (id) => {
         options.onStarted?.(id);
         runId = id;
-        this.begin(id, botId, origin.connectorId, origin.chatId);
+        this.begin(id, botId, origin.connectorId, origin.chatId, origin.voice);
       },
     }).finally(() => {
       if (runId) void this.complete(runId);
     });
   }
-  private begin(runId: string, botId: string, connectorId: string, chatId: string) {
-    this.runs.set(runId, { runId, connectorId, chatId, botId, typingAt: 0 });
+  private begin(runId: string, botId: string, connectorId: string, chatId: string, voice: boolean) {
+    this.runs.set(runId, { runId, connectorId, chatId, botId, typingAt: 0, ...(voice ? { voice } : {}) });
     this.timer ??= setInterval(() => this.tick(), TICK_MS);
     this.timer.unref?.();
     this.tick();
@@ -162,6 +170,14 @@ export class ConnectorOutbox {
     } catch (error) {
       this.host.journal('connector.reply-error', { runId, error: (error as Error).message });
     }
+    // Spoken to, the Bot answers by voice as well; the text above stays for reading and searching.
+    if (tracked.voice && adapter.sendVoice && run?.status === 'completed' && answerText)
+      try {
+        const voice = await this.host.voice(tracked.botId, answerText, AbortSignal.timeout(180_000));
+        if (voice) await adapter.sendVoice(tracked.chatId, voice);
+      } catch (error) {
+        this.host.journal('connector.voice-error', { runId, error: (error as Error).message });
+      }
     for (const file of answers.flatMap((message) => message.attachments || [])) {
       try {
         await adapter.sendFile(tracked.chatId, { name: file.name, bytes: this.host.bytes(file.id) });

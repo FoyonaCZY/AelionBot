@@ -263,40 +263,7 @@ export function imageAdapter(protocol: ImageProtocol) {
   if (!adapter) throw Error('未知的生图协议');
   return adapter;
 }
-/** Descriptors for the settings UI, including the `auto` entry that has no wire format of its own. */
+/** Descriptors for the settings UI. */
 export function imageProtocolCatalog(): ImageProtocolInfo[] {
-  return [
-    {
-      id: 'auto',
-      label: '自动检测',
-      hint: '首次生图时依次尝试并记住可用的协议。明确选择协议可以省去这次探测。',
-      endpoint: '',
-      capabilities: { aspect: true, size: true, quality: true, reference: true, negativePrompt: true, seed: true },
-    },
-    ...ADAPTERS.map(({ id, label, hint, endpoint, capabilities }) => ({ id, label, hint, endpoint, capabilities })),
-  ];
-}
-/** Probe order for `auto`. A configured chat protocol is the best first guess; the model name only breaks ties. */
-export function autoProtocolOrder(model: string, chatProtocol?: string, known?: ImageProtocol): ImageProtocol[] {
-  const name = (model || '').trim().toLowerCase(),
-    ordered: ImageProtocol[] = [];
-  const looksGemini =
-    (name.startsWith('gemini') || name.startsWith('imagen') || name.includes('nano-banana')) &&
-    !name.includes('embedding');
-  const guesses: Array<ImageProtocol | undefined> = [
-    known,
-    looksGemini ? 'gemini-images' : undefined,
-    chatProtocol === 'gemini' ? 'gemini-images' : undefined,
-    chatProtocol === 'responses' ? 'responses-images' : undefined,
-    'openai-images',
-    'gemini-images',
-    'responses-images',
-  ];
-  for (const guess of guesses) {
-    if (!guess || ordered.includes(guess)) continue;
-    // Hosted Responses generation only exists on a Responses provider.
-    if (guess === 'responses-images' && chatProtocol !== 'responses') continue;
-    ordered.push(guess);
-  }
-  return ordered;
+  return ADAPTERS.map(({ id, label, hint, endpoint, capabilities }) => ({ id, label, hint, endpoint, capabilities }));
 }

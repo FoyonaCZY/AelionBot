@@ -6,7 +6,7 @@ import type { MemoryKind, MemoryOrigin, MemorySensitivity } from '../../../share
 
 /** Tools whose results carry content from outside: webpages, services, files from others, screens, other Bots. */
 const EXTERNAL_TOOL =
-  /^(?:web_|mcp_|mcp__|attachment_read|computer|host_computer|view_image|video_frames|bot_|bots_list|group_read|groups_|read_result|skill_read|skill_file_read|delegation_receipt)/;
+  /^(?:web_|mcp_|mcp__|attachment_read|computer|host_computer|view_image|video_frames|transcribe_audio|bot_|bots_list|group_read|groups_|read_result|skill_read|skill_file_read|delegation_receipt)/;
 export const externalTool = (name?: string) => Boolean(name && EXTERNAL_TOOL.test(name));
 /** Local tools whose successful results are evidence of the environment: commands run, files read or written. */
 const LOCAL_EVIDENCE = new Set([

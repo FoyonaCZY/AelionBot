@@ -5,6 +5,7 @@ import type { ModelProvider, ModelSelection } from '../../shared/types/core';
 import { EditableSelect } from '../ui/EditableSelect';
 import { REASONING_PROTOCOLS, reasoningPresets } from '../../shared/chat/reasoning';
 import { useI18n } from '../i18n';
+import { defaultImageProtocol } from '../../shared/types/image-types';
 
 export function validModelSelection(value: ModelSelection | null, providers: ModelProvider[]) {
   return (
@@ -230,7 +231,7 @@ export function ModelSelectionFields({
               return (
                 <>
                   <p className="model-catalog-note">
-                    {t('生图协议')}：{provider?.imageProtocol || t('自动检测')}
+                    {t('生图协议')}：{provider?.imageProtocol || defaultImageProtocol(provider?.protocol, value?.model)}
                     {aspect ? ` · ${aspect}` : ''}
                     {quality ? ` · ${quality}` : ''}
                     {entry && !entry.imageOutput ? ` · ${t('未标记为生图模型')}` : ''}

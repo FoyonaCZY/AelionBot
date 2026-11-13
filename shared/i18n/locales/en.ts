@@ -56,7 +56,6 @@ export const en: Record<string, string> = {
   默认质量: 'Default quality',
   可用于生图: 'Use for image generation',
   '跟随 Provider': 'Follow provider',
-  自动检测: 'Auto-detect',
   未标记为生图模型: 'not marked for image generation',
   支持: 'Supports',
   画幅: 'aspect',
@@ -450,8 +449,8 @@ export const en: Record<string, string> = {
   审核模型正在审核操作: 'The approval model is reviewing the operation',
   '普通项目读写直接放行，敏感、越界操作和 MCP 调用由审核模型审核':
     'Ordinary project reads and writes are allowed directly; sensitive or out-of-scope operations and MCP calls are reviewed by the approval model',
-  '请先切换使用此 Provider 的默认模型、审核模型或 Bot 模型':
-    'First switch the default, approval, or Bot models using this Provider',
+  '请先切换使用此 Provider 的默认模型、审核模型、语音或 Bot 模型':
+    'First switch the default, approval, speech, or Bot models using this Provider',
   '添加 MCP': 'Add MCP',
   '连接模型服务超时，准备重试': 'Connection to model service timed out; preparing to retry',
   连接模型服务超时: 'Connection to model service timed out',
@@ -751,6 +750,8 @@ export const en: Record<string, string> = {
     'This format cannot be previewed directly; save it and open it locally.',
   '当前环境无法播放此视频，可保存原文件后查看。':
     'This video cannot be played here; save the original file to view it.',
+  '当前环境无法播放此音频，可保存原文件后收听。':
+    'This audio cannot be played here; save the original file to listen to it.',
   '预览内容已截断，可保存原文件查看全部内容。': 'The preview is truncated; save the original file to view all content.',
   未保存的修改: 'Unsaved changes',
   '要保存修改吗？': 'Save your changes?',
@@ -2878,7 +2879,8 @@ export const en: Record<string, string> = {
   '查询 Mercury 的账户和交易': 'Look up Mercury accounts and transactions',
   查最新的库和框架文档: 'Look up current library and framework docs',
   '了解 GitHub 开源仓库的结构和用法': 'Learn how GitHub repositories are built and used',
-  '用 DeepSeek 搜索网页和读取网页正文': 'Search the web and read pages with DeepSeek',
+  '用 DeepSeek 搜索和读取网页、识别文档和图片里的文字':
+    'Search and read the web, and recognize text in documents and images, with DeepSeek',
   '用 Exa 搜索网页和抓取内容': 'Search the web and fetch pages with Exa',
   搜索微软官方文档和代码示例: 'Search Microsoft docs and code samples',
   '搜索 AWS 官方文档和区域信息': 'Search AWS docs and regional availability',
@@ -3226,8 +3228,6 @@ export const en: Record<string, string> = {
   '记住了 {count} 条': 'Remembered {count}',
   这条不对: 'This is wrong',
   '操作失败，可以到设置的记忆页处理': 'That failed. You can handle it on the Memory settings page.',
-  这段对话不记入记忆: 'Keep this conversation out of memory',
-  这段对话恢复记忆: 'Resume memory for this conversation',
   等你确认后才会使用: 'Used after you confirm it',
   '所有 Bot': 'All Bots',
   仅此范围: 'This scope only',
@@ -3251,4 +3251,44 @@ export const en: Record<string, string> = {
   本次记住: 'Remembered this time',
   本次用到: 'Used in this reply',
   记忆整理: 'Memory consolidation',
+  语音: 'Speech',
+  语音协议: 'Speech protocol',
+  语音识别: 'Speech recognition',
+  语音合成: 'Speech synthesis',
+  'OpenAI Audio': 'OpenAI Audio',
+  'Chat Completions 音频': 'Chat Completions audio',
+  'DeepSeek 工具接口': 'DeepSeek tool endpoints',
+  'OpenAI，以及硅基流动、Groq、本地 Whisper 服务等兼容 /audio 接口的服务。':
+    'OpenAI, and services with compatible /audio endpoints such as SiliconFlow, Groq and local Whisper servers.',
+  '小米 MiMo、阿里云百炼 Qwen3-ASR 等把音频放在对话请求里的服务。':
+    'Services that carry audio in chat requests, such as Xiaomi MiMo and Alibaba Cloud Qwen3-ASR.',
+  'DeepSeek 的语音识别和语音合成，不需要填写模型。':
+    "DeepSeek's speech recognition and synthesis; no model name needed.",
+  '语音识别 Provider': 'Speech recognition Provider',
+  '语音合成 Provider': 'Speech synthesis Provider',
+  语音识别模型: 'Speech recognition model',
+  语音合成模型: 'Speech synthesis model',
+  默认音色: 'Default voice',
+  服务默认: 'Service default',
+  '用于输入框的语音输入、IM 语音消息和 Bot 转写录音。':
+    'Used for voice input in the composer, voice messages from chat apps, and Bots transcribing recordings.',
+  '用语音回复 IM 里的语音消息': 'Answer voice messages from chat apps by voice',
+  '收到语音消息时，除了文字再发一条语音（目前支持飞书）':
+    'When a voice message arrives, send a voice reply as well as text (Feishu for now)',
+  '你好，我是你的 AelionBot。这是语音合成的试听。': 'Hi, I am your AelionBot. This is a speech synthesis sample.',
+  试听: 'Play sample',
+  停止试听: 'Stop sample',
+  '正在合成…': 'Synthesizing…',
+  取消录音: 'Cancel recording',
+  '说完了，转成文字': 'Done, turn into text',
+  '正在识别…': 'Recognizing…',
+  语音输入: 'Voice input',
+  '没能打开麦克风，请检查系统的麦克风权限': 'Could not open the microphone; check the system microphone permission',
+  '没有听清说了什么，请再说一次': 'Could not make out what was said; please try again',
+  朗读: 'Read aloud',
+  停止朗读: 'Stop reading',
+  朗读音色: 'Reading voice',
+  '朗读这个 Bot 的回复、发送语音消息时使用。': "Used to read this Bot's replies aloud and for its voice messages.",
+  音色: 'Voice',
+  使用默认音色: 'Use the default voice',
 };

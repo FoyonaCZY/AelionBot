@@ -1,0 +1,67 @@
+/* Voice input beside the send button, and reading a reply aloud. */
+.composer-voice {
+  order: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  transition: background 0.18s;
+}
+.composer-voice.is-recording {
+  padding-left: 4px;
+  background: var(--ctl-danger-soft);
+}
+:root .composer-voice .composer-voice-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+}
+:root .composer-voice .composer-voice-button:hover:not(:disabled) {
+  color: light-dark(#6593d0, #aac1e0);
+  background: light-dark(#eaf1fa, #232323);
+}
+:root .composer-voice.is-recording .composer-voice-button,
+:root .composer-voice.is-recording .composer-voice-button:hover:not(:disabled) {
+  color: #fff;
+  background: var(--ctl-danger-fill);
+  animation: composer-voice-pulse 1.4s ease-in-out infinite;
+}
+:root .composer-voice .composer-voice-cancel {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: var(--ctl-danger);
+}
+.composer-voice-time {
+  min-width: 34px;
+  color: var(--ctl-danger);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.composer-voice-spinner,
+.speak-button-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: speech-spin 0.8s linear infinite;
+}
+@keyframes composer-voice-pulse {
+  50% {
+    box-shadow: 0 0 0 5px var(--ctl-danger-soft);
+  }
+}
+@keyframes speech-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .composer-voice.is-recording .composer-voice-button,
+  .composer-voice-spinner,
+  .speak-button-spinner {
+    animation: none;
+  }
+}

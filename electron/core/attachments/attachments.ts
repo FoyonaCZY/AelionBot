@@ -26,6 +26,13 @@ const mimeTypes: Record<string, string> = {
   '.mkv': 'video/x-matroska',
   '.avi': 'video/x-msvideo',
   '.ogv': 'video/ogg',
+  '.wav': 'audio/wav',
+  '.mp3': 'audio/mpeg',
+  '.m4a': 'audio/mp4',
+  '.aac': 'audio/aac',
+  '.flac': 'audio/flac',
+  '.ogg': 'audio/ogg',
+  '.opus': 'audio/ogg',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
@@ -355,6 +362,9 @@ export class Attachments {
       return { kind: 'image', dataUrl: `data:${file.mime};base64,${this.bytes(id).toString('base64')}` };
     if (file.mime.startsWith('video/'))
       return { kind: 'video', dataUrl: `data:${file.mime};base64,${this.bytes(id).toString('base64')}` };
+    // Files received before audio had a type are stored as octet streams; their name still says what they are.
+    const audio = [file.mime, mimeTypes[extname(file.name).toLowerCase()]].find((type) => type?.startsWith('audio/'));
+    if (audio) return { kind: 'audio', dataUrl: `data:${audio};base64,${this.bytes(id).toString('base64')}` };
     if (file.mime === 'application/pdf')
       return { kind: 'pdf', dataUrl: `data:application/pdf;base64,${this.bytes(id).toString('base64')}` };
     const text = this.text(file),
@@ -384,7 +394,7 @@ export class Attachments {
     if (!this.vm) throw new Error('启动工作电脑后，即可预览此文档。');
     return officePreview(this.vm, botId, extension, this.bytes(id));
   }
-  videoReference(botId: string, id: string) {
+  storedFile(botId: string, id: string) {
     this.forBot(botId, [id]);
     this.bytes(id);
     const file = this.file(id);
