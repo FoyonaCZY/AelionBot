@@ -178,6 +178,8 @@ export function ComputerDetails({
           }
           targetName={group?.name || (bot && session ? `${bot.name} / ${session.name}` : bot?.name || '')}
           tasks={state.scheduledTasks || []}
+          connectors={state.connectors?.connectors}
+          webhookOrigin={state.automationWebhook}
           onError={onError}
           onModalChange={onTaskModalChange}
         />

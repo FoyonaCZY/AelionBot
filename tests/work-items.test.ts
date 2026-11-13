@@ -230,14 +230,9 @@ test('/plan persists a pending checklist, exposes only read tools, and executes 
         assert.ok(tools.some((t) => t.function.name === 'plan_update'));
         assert.ok(
           !tools.some((t) =>
-            [
-              'exec_command',
-              'file_write',
-              'goal_set',
-              'bot_send_message',
-              'scheduled_task_create',
-              'mcp_call',
-            ].includes(t.function.name),
+            ['exec_command', 'file_write', 'goal_set', 'bot_send_message', 'automation_create', 'mcp_call'].includes(
+              t.function.name,
+            ),
           ),
         );
         return response([call('plan_update', plan())]);

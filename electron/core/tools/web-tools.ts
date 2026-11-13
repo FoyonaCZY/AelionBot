@@ -80,8 +80,20 @@ export interface WebDocument {
   contentType: string;
 }
 export type WebLoader = (url: string, signal: AbortSignal) => Promise<WebDocument>;
-async function loadPublicPage(value: string, signal: AbortSignal): Promise<WebDocument> {
+export interface PublicRequest {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+}
+/**
+ * One HTTP request to a public address. Every hop is resolved first and refused when any address is local or private,
+ * and the connection goes to the address that was checked, so DNS cannot be switched to a local one in between.
+ * GET and HEAD follow redirects; other methods return them.
+ */
+export async function requestPublic(value: string, init: PublicRequest, signal: AbortSignal) {
   let url = publicWebUrl(value);
+  const method = (init.method || 'GET').toUpperCase(),
+    follow = method === 'GET' || method === 'HEAD';
   const combined = AbortSignal.any([signal, AbortSignal.timeout(20000)]);
   for (let redirects = 0; redirects <= 5; redirects++) {
     combined.throwIfAborted();
@@ -95,9 +107,10 @@ async function loadPublicPage(value: string, signal: AbortSignal): Promise<WebDo
         const req = (url.protocol === 'https:' ? httpsRequest : httpRequest)(
           url,
           {
+            method,
             signal: combined,
             family: selected.family,
-            headers: requestHeaders(),
+            headers: { ...requestHeaders(), ...init.headers },
             lookup: ((_host: any, _options: any, done: any) => done(null, selected.address, selected.family)) as any,
           },
           (res) => {
@@ -118,23 +131,19 @@ async function loadPublicPage(value: string, signal: AbortSignal): Promise<WebDo
           },
         );
         req.on('error', reject);
-        req.end();
+        req.end(init.body);
       },
     );
-    if ([301, 302, 303, 307, 308].includes(response.status) && response.headers.location) {
+    if (follow && [301, 302, 303, 307, 308].includes(response.status) && response.headers.location) {
       url = publicWebUrl(new URL(response.headers.location, url).href);
       continue;
     }
-    if (response.status < 200 || response.status >= 300)
-      throw new FileToolError('WEB_HTTP_ERROR', `网页返回 HTTP ${response.status}`);
     let bytes = response.bytes;
     const encoding = response.headers['content-encoding'];
     if (encoding === 'gzip') bytes = gunzipSync(bytes, { maxOutputLength: LIMIT });
     else if (encoding === 'deflate') bytes = inflateSync(bytes, { maxOutputLength: LIMIT });
     else if (encoding === 'br') bytes = brotliDecompressSync(bytes, { maxOutputLength: LIMIT });
-    const contentType = String(response.headers['content-type'] || 'text/html');
-    if (!/text\/|json|xml/.test(contentType))
-      throw new FileToolError('WEB_UNSUPPORTED_CONTENT', '该地址不是文本网页，请通过附件或下载工具处理');
+    const contentType = String(response.headers['content-type'] || '');
     const charset = /charset\s*=\s*["']?([^\s;"']+)/i.exec(contentType)?.[1] || 'utf-8';
     let body: string;
     try {
@@ -142,9 +151,18 @@ async function loadPublicPage(value: string, signal: AbortSignal): Promise<WebDo
     } catch {
       body = bytes.toString('utf8');
     }
-    return { url: url.href, body, contentType };
+    return { url: url.href, status: response.status, contentType, body };
   }
   throw new FileToolError('WEB_REDIRECT_LIMIT', '网页重定向次数过多');
+}
+async function loadPublicPage(value: string, signal: AbortSignal): Promise<WebDocument> {
+  const response = await requestPublic(value, {}, signal);
+  if (response.status < 200 || response.status >= 300)
+    throw new FileToolError('WEB_HTTP_ERROR', `网页返回 HTTP ${response.status}`);
+  const contentType = response.contentType || 'text/html';
+  if (!/text\/|json|xml/.test(contentType))
+    throw new FileToolError('WEB_UNSUPPORTED_CONTENT', '该地址不是文本网页，请通过附件或下载工具处理');
+  return { url: response.url, body: response.body, contentType };
 }
 export function extractWebPage(document: WebDocument) {
   if (!/html/i.test(document.contentType))

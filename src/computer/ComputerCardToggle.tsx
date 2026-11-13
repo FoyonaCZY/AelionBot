@@ -7,7 +7,7 @@ export function ComputerCardToggle() {
   const { t } = useI18n();
   const { open, online } = useComputerCard();
   if (open) return null;
-  const label = t('显示工作电脑和定时任务');
+  const label = t('显示工作电脑和自动化');
   return (
     <button
       type="button"

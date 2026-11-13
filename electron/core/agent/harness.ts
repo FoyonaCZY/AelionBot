@@ -135,7 +135,6 @@ const HEADLESS_HIDDEN_TOOLS = new Set([
   'attachment_save',
   'request_user_input',
   'user_input_wait',
-  'message_block',
 ]);
 const privateTools = new Set([
   'bots_list',
@@ -903,12 +902,11 @@ export class Harness {
           peers: Boolean(this.peers),
           groups: Boolean(this.groups),
           chatPin: !options.peerOrigin && !options.groupOrigin && !this.disabledTools.has('chat_pin'),
-          // Headless runs hide it, and small-context models only see COMPACT_TOOLS outside private sessions.
-          messageBlocks:
+          // Only the app shows them; small-context models keep their prompt short outside private sessions.
+          richReplies:
             !options.peerOrigin &&
             !options.groupOrigin &&
             !this.headless &&
-            !this.disabledTools.has('message_block') &&
             (modelConfig.contextTokens >= 32000 || Boolean(privateSessionId)),
           history: Boolean(cognition) && !this.disabledTools.has('history_search'),
           web: !this.disabledTools.has('web_read'),
@@ -2139,7 +2137,7 @@ export class Harness {
           ? TOOLS.filter((t) => privateTools.has(t.function.name) && (!t.function.name.startsWith('bot') || this.peers))
           : TOOLS.filter(
               (t) =>
-                (!t.function.name.startsWith('scheduled_') || this.scheduler) &&
+                (!t.function.name.startsWith('automation') || this.scheduler) &&
                 t.function.name !== 'start_main_task' &&
                 (!(t.function.name.startsWith('bot_') || t.function.name === 'bots_list') || this.peers) &&
                 (t.function.name !== 'memory' ||
@@ -2182,7 +2180,6 @@ export class Harness {
         (!['request_user_input', 'user_input_wait'].includes(t.function.name) || Boolean(this.interactions)) &&
         (work.forRun(run)?.status !== 'planning' || PLANNING_TOOLS.has(t.function.name)) &&
         (t.function.name !== 'chat_pin' || (!options.groupOrigin && !options.peerOrigin)) &&
-        (t.function.name !== 'message_block' || (!options.groupOrigin && !options.peerOrigin)) &&
         (!t.function.name.startsWith('design_') ||
           (Boolean(this.host && this.interactions) &&
             !this.headless &&

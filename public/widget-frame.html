@@ -1,0 +1,107 @@
+<!doctype html>
+<!--
+  The frame a ```widget fence in a Bot's reply runs in. The app loads it in a sandboxed iframe without
+  allow-same-origin, so it has an opaque origin and cannot reach the app; this policy forbids any network or
+  external file. The app sends the widget's HTML and the theme; the frame reports its height and follow-ups the
+  widget suggests through aelion.prompt().
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:"
+    />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --aelion-text: #2a2a2a;
+        --aelion-muted: #7a7a7a;
+        --aelion-surface: #ffffff;
+        --aelion-border: #ececec;
+        --aelion-accent: #4f7fc2;
+        --aelion-font: 'Inter Variable', 'Noto Sans SC Variable', 'Segoe UI', 'Microsoft YaHei UI', sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        overflow: hidden;
+      }
+      body {
+        color: var(--aelion-text);
+        font: 14px/1.6 var(--aelion-font);
+        overflow-wrap: anywhere;
+      }
+      #root {
+        display: flow-root;
+      }
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+        color: inherit;
+      }
+      img,
+      svg,
+      canvas {
+        max-width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      (() => {
+        const root = document.getElementById('root');
+        let rendered = false,
+          lastHeight = 0,
+          lastPrompt = 0;
+        const send = (message) => parent.postMessage(message, '*');
+        const height = () => {
+          const next = Math.ceil(root.getBoundingClientRect().height);
+          if (next !== lastHeight) {
+            lastHeight = next;
+            send({ type: 'aelion-widget-height', height: next });
+          }
+        };
+        window.aelion = Object.freeze({
+          /** Puts a follow-up into the user's composer; the user decides whether to send it. */
+          prompt(text) {
+            const now = Date.now();
+            if (now - lastPrompt < 800) return;
+            lastPrompt = now;
+            send({ type: 'aelion-widget-prompt', text: String(text ?? '').slice(0, 2000) });
+          },
+        });
+        window.addEventListener('message', (event) => {
+          if (event.source !== parent || rendered) return;
+          const data = event.data;
+          if (!data || data.type !== 'aelion-widget-render' || typeof data.html !== 'string') return;
+          rendered = true;
+          for (const [name, value] of Object.entries(data.theme || {}))
+            if (/^--aelion-[a-z]+$/.test(name) && typeof value === 'string')
+              document.documentElement.style.setProperty(name, value);
+          if (data.scheme === 'dark' || data.scheme === 'light') document.documentElement.style.colorScheme = data.scheme;
+          root.innerHTML = data.html;
+          // Scripts set through innerHTML do not run; each is replaced by a copy that does, in order.
+          for (const old of root.querySelectorAll('script')) {
+            const script = document.createElement('script');
+            for (const attribute of old.attributes) script.setAttribute(attribute.name, attribute.value);
+            script.textContent = old.textContent;
+            old.replaceWith(script);
+          }
+          new ResizeObserver(height).observe(root);
+          height();
+        });
+        window.addEventListener('error', (event) => send({ type: 'aelion-widget-error', message: String(event.message) }));
+        send({ type: 'aelion-widget-ready' });
+      })();
+    </script>
+  </body>
+</html>

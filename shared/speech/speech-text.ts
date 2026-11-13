@@ -1,9 +1,10 @@
 // Text to read aloud: a reply's Markdown reduced to what a person would say, in pieces a speech service takes.
+import { visualsAsText } from '../chat/message-blocks';
 
 /** Markdown as it reads: code and tables are named rather than spelled out, links read as their text. */
 export function spokenText(markdown: string) {
   return (
-    markdown
+    visualsAsText(markdown)
       .replace(/```[\s\S]*?(```|$)/g, '\n（代码略）\n')
       .replace(/<[^>\n]+>/g, ' ')
       .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')

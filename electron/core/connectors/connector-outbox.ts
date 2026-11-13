@@ -8,7 +8,7 @@ import type { Store } from '../storage/store';
 import type { ConnectorAdapter, ConnectorCard, InboundAction, InboundMessage } from './connector-adapter';
 import type { StoredConnector } from './connector-store';
 import { permissionSummary } from './format';
-import { stripBlockMarkers } from '../../../shared/chat/message-blocks';
+import { stripBlockMarkers, visualsAsText } from '../../../shared/chat/message-blocks';
 
 export interface OutboxHost {
   store: Store;
@@ -157,7 +157,8 @@ export class ConnectorOutbox {
     if (run?.status === 'cancelled') return;
     // Blocks are app-only; a connector chat gets their plain-text fallbacks instead of placement markers.
     const answerText = answers
-      .map((message) => stripBlockMarkers(message.content))
+      // Charts and widgets are app-only; a chat gets what they say as text.
+      .map((message) => visualsAsText(stripBlockMarkers(message.content)))
       // An answer that is only files carries a placeholder line; the files speak for themselves.
       .filter((content, index) => content && !(content === '已附上文件。' && answers[index].attachments?.length))
       .join('\n\n');

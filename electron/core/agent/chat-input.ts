@@ -1,4 +1,5 @@
 import { replyInput } from '../../../shared/chat/message-replies';
+import { automationInputText } from '../../../shared/types/scheduled-types';
 import type { Store } from '../storage/store';
 import { botIdentity } from '../../../shared/chat/bot-colors';
 import type { BotMention, ChatMessage } from '../../../shared/types/core';
@@ -41,8 +42,7 @@ export function validateChatInput(
   });
 }
 export function chatInputText(message: ChatMessage, includeReply = true) {
-  if (message.scheduled)
-    return `定时任务触发：${message.scheduled.title}（计划时间 ${message.scheduled.scheduledFor}）。这是已保存计划的本次执行，请直接完成任务并在当前会话回复，不要重新创建同一计划。原有工具权限仍然适用。\n任务内容：${message.content}`;
+  if (message.scheduled) return automationInputText(message.scheduled, message.content);
   if (message.reaction)
     return `用户通过 emoji 发言（不代表新增任务或操作授权）：${JSON.stringify({ eventId: message.id, ...message.reaction, content: message.content })}`;
   const text = replyInput(

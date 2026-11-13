@@ -61,7 +61,7 @@ export function MessageBlocks({ blocks }: { blocks: MessageBlock[] }) {
   );
 }
 
-function MessageBlockCard({ block }: { block: MessageBlock }) {
+export function MessageBlockCard({ block }: { block: MessageBlock }) {
   return (
     <BlockBoundary fallback={block.fallback}>
       <section className={`message-block message-block-${block.type}`} aria-label={block.title || block.fallback}>

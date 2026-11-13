@@ -4,7 +4,7 @@ import { SCHEDULED_TOOLS } from '../../tools/scheduled-tools';
 import { GROUP_PROTOCOL_TOOLS } from '../../group/group-protocol-tools';
 import { SKILLS_LIST_TOOL } from '../../extensions/skill-catalog';
 import { ATTACHMENT_TOOLS } from './definitions/attachments';
-import { MESSAGE_BLOCK_TOOLS } from './definitions/blocks';
+
 import { CHAT_TOOLS, GROUP_READ_TOOLS } from './definitions/chat';
 import { COMPUTER_TOOLS, HOST_COMPUTER_TOOLS, PYTHON_SESSION_TOOLS } from './definitions/computer';
 import { DELEGATION_TOOLS, PEER_TOOLS } from './definitions/delegation';
@@ -43,5 +43,4 @@ export const TOOLS: ToolDefinition[] = [
   PLAN_UPDATE_TOOL,
   ...DESIGN_TOOLS,
   ...HOST_COMPUTER_TOOLS,
-  ...MESSAGE_BLOCK_TOOLS,
 ];

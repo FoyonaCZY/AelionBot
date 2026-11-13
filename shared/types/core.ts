@@ -457,6 +457,8 @@ export interface Snapshot {
   modelUsage?: UsageRecord[];
   updates?: UpdateState;
   scheduledTasks?: ScheduledTask[];
+  /** The local origin automation webhooks are called on, while the app listens. */
+  automationWebhook?: string;
   workSessions?: WorkSession[];
   bots: Bot[];
   messages: ChatMessage[];

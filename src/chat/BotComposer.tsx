@@ -30,6 +30,7 @@ import { useI18n } from '../i18n';
 import { PreviewAnnotationChips } from '../preview/PreviewAnnotationChips';
 import { useVoiceInput } from '../speech/use-voice-input';
 import { useSpeechAvailable } from '../speech/speech-availability';
+import { WIDGET_PROMPT_EVENT } from './MessageVisual';
 import '../speech/speech.css';
 
 export interface ComposerDraft {
@@ -388,25 +389,34 @@ export function BotComposer({
     setActive(0);
     setQuery({ start, end: caret, text: word });
   };
+  /** Text from outside the keyboard lands where the caret was, or at the end when the editor had no focus. */
+  const place = (text: string) => {
+    const root = editor.current;
+    if (!root) return;
+    if (!root.contains(getSelection()?.anchorNode || null)) {
+      root.focus({ preventScroll: true });
+      const range = document.createRange();
+      range.selectNodeContents(root);
+      range.collapse(false);
+      getSelection()?.removeAllRanges();
+      getSelection()?.addRange(range);
+    }
+    const before = read(root).text;
+    insert(before && !/\s$/.test(before) ? ' ' + text : text);
+  };
+  const placeRef = useRef(place);
+  placeRef.current = place;
+  // A widget in a reply suggests a follow-up; the person reads it here and decides whether to send it.
+  useEffect(() => {
+    const receive = (event: Event) => {
+      const text = (event as CustomEvent<unknown>).detail;
+      if (typeof text === 'string' && text) placeRef.current(text);
+    };
+    window.addEventListener(WIDGET_PROMPT_EVENT, receive);
+    return () => window.removeEventListener(WIDGET_PROMPT_EVENT, receive);
+  }, []);
   const voiceInput = useSpeechAvailable('input');
-  const voice = useVoiceInput({
-    onText: (text) => {
-      const root = editor.current;
-      if (!root) return;
-      // Spoken text lands where the caret was, or at the end when the editor had no focus.
-      if (!root.contains(getSelection()?.anchorNode || null)) {
-        root.focus({ preventScroll: true });
-        const range = document.createRange();
-        range.selectNodeContents(root);
-        range.collapse(false);
-        getSelection()?.removeAllRanges();
-        getSelection()?.addRange(range);
-      }
-      const before = read(root).text;
-      insert(before && !/\s$/.test(before) ? ' ' + text : text);
-    },
-    onError: setUploadError,
-  });
+  const voice = useVoiceInput({ onText: place, onError: setUploadError });
   const insert = (text: string) => {
     const root = editor.current,
       selection = getSelection();

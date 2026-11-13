@@ -46,7 +46,7 @@ import { attachmentSummary } from '../../../shared/types/attachment-types';
 import { Store } from '../storage/store';
 import type { HarnessRunOptions } from '../agent/peer-runtime-types';
 import type { GroupGateway } from './group-runtime-types';
-import type { ScheduledTrigger } from '../../../shared/types/scheduled-types';
+import { automationInputText, type ScheduledTrigger } from '../../../shared/types/scheduled-types';
 import { AppError } from '../../../shared/errors';
 
 interface Runner {
@@ -1175,10 +1175,7 @@ export class GroupChats implements GroupGateway {
     const room = this.room(id);
     required(prompt, '任务内容', 8000);
     if (room.messages.some((message) => message.scheduled?.occurrenceId === scheduled.occurrenceId)) return;
-    const round = this.newRound(
-      room,
-      `定时任务「${scheduled.title}」的本次执行（计划时间 ${scheduled.scheduledFor}）：${prompt}\n这是已保存计划的触发，请直接完成本次任务，不要重新创建同一计划。原有工具权限仍然适用。`,
-    );
+    const round = this.newRound(room, automationInputText(scheduled, prompt));
     this.append(room, system, prompt, round, undefined, 'message', undefined, { scheduled });
     this.touch();
   }

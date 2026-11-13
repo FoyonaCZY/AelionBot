@@ -50,6 +50,10 @@ export interface ConnectorDeps {
   /** Whether a session already has its own mode; the connector default fills only the missing ones. */
   hasPermission?(sessionId: string): boolean;
   interactions: OutboxHost['interactions'];
+  /** Automations waiting for connector messages. */
+  automations?: {
+    connectorMessage(input: { connectorId: string; platform: string; sender: string; text: string }): void;
+  };
   /** Speech chosen in settings, for voice messages; absent where the app was wired without it. */
   speech?: Pick<SpeechService, 'available' | 'transcribe' | 'voiceMessage'>;
   changed(): void;
@@ -464,6 +468,16 @@ export class Connectors {
     let text = quoted + [message.text, ...spoken, ...notes].filter(Boolean).join('\n');
     if (text.length > MESSAGE_CHARS) text = text.slice(0, MESSAGE_CHARS) + '\n（消息过长，后面的内容没有收下）';
     if (!text.trim() && !attachmentIds.length) return;
+    try {
+      this.deps.automations?.connectorMessage({
+        connectorId: connector.id,
+        platform: CONNECTOR_PLATFORM_NAMES[connector.platform],
+        sender: record?.name || person.name || person.id,
+        text: [message.text, ...spoken].filter(Boolean).join('\n'),
+      });
+    } catch {
+      /* An automation's problem must not keep the message from the Bot. */
+    }
     try {
       this.deps.send({
         botId: connector.botId,

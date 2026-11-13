@@ -97,7 +97,6 @@ interface CalculatorBlock extends BlockBase {
 export type MessageBlock = ChartBlock | MetricsBlock | TableBlock | TimelineBlock | CalloutBlock | CalculatorBlock;
 
 const BLOCK_MARKER = /\[\[block:([A-Za-z0-9_-]+)\]\]/g;
-export const blockMarker = (id: string) => `[[block:${id}]]`;
 export const stripBlockMarkers = (content: string) =>
   content
     .replace(BLOCK_MARKER, '')
@@ -564,4 +563,114 @@ export function createMessageBlock(input: unknown, id: string, createdAt: string
   } as MessageBlock;
   if (JSON.stringify(block).length > MAX_BLOCK_BYTES) fail('block', '内容超过 64 KB');
   return block;
+}
+
+// Blocks written in the reply itself: a fenced block whose language names the type and whose body is the spec as
+// JSON, with an optional "title". ```widget fences hold an HTML fragment shown in a sandboxed frame.
+
+/** Fence languages that show as something other than code. */
+export const VISUAL_FENCES: readonly string[] = ['widget', ...BLOCK_TYPES];
+const VISUAL_FENCE = /^```(widget|chart|metrics|table|timeline|callout|calculator)[ \t]*\n([\s\S]*?)^```[ \t]*$/gm;
+
+/** A data fence as a block: its spec checked as message_block checked it, and a text version for chat apps. */
+export function inlineBlock(type: string, source: string, id = 'inline'): MessageBlock {
+  let value: unknown;
+  try {
+    value = JSON.parse(source);
+  } catch {
+    fail(type, '内容不是有效的 JSON');
+  }
+  const { title, spec, ...rest } = asObject(value, type);
+  // Both {"title", ...spec} and {"title", "spec": {...}} are accepted.
+  const body =
+    spec && typeof spec === 'object' && !Object.keys(rest).length ? spec : { ...rest, ...(spec ? { spec } : {}) };
+  const block = createMessageBlock(
+    {
+      type,
+      spec: body,
+      fallback: type,
+      ...(typeof title === 'string' && title.trim() ? { title: title.trim().slice(0, 120) } : {}),
+    },
+    id,
+    '',
+  );
+  block.fallback = blockText(block).slice(0, 600) || type;
+  return block;
+}
+
+const round = (value: number) => (Number.isFinite(value) ? String(Math.round(value * 100) / 100) : '');
+/** What a block says, as plain text. */
+function blockText(block: MessageBlock): string {
+  const head = block.title ? block.title + '：' : '';
+  switch (block.type) {
+    case 'chart': {
+      const { categories, series, unit } = block.spec;
+      return (
+        head +
+        categories
+          .map(
+            (category, index) =>
+              category +
+              ' ' +
+              series.map((item) => (series.length > 1 ? item.name + ' ' : '') + (item.values[index] ?? '—')).join('，'),
+          )
+          .join('；') +
+        (unit ? `（${unit}）` : '')
+      );
+    }
+    case 'metrics':
+      return (
+        head +
+        block.spec.items.map((item) => `${item.label} ${item.value}${item.delta ? `（${item.delta}）` : ''}`).join('；')
+      );
+    case 'table':
+      return [
+        head + block.spec.columns.map((column) => column.label).join(' | '),
+        ...block.spec.rows.map((row) => row.map((cell) => (cell === null ? '' : String(cell))).join(' | ')),
+      ].join('\n');
+    case 'timeline':
+      return (
+        head + block.spec.items.map((item) => [item.time, item.title, item.detail].filter(Boolean).join(' ')).join('\n')
+      );
+    case 'callout':
+      return [block.spec.title || block.title, block.spec.text].filter(Boolean).join('：');
+    case 'calculator': {
+      const primary = calculate(block.spec).outputs[0];
+      return (
+        head +
+        (primary ? `${primary.label} ${round(primary.value)}${primary.unit || ''}` : '') +
+        (block.spec.note ? `。${block.spec.note}` : '')
+      );
+    }
+  }
+}
+
+/** The visible text of a widget's HTML, or a pointer to the app when it has none. */
+export function widgetText(html: string) {
+  const text = html
+    .replace(/<(script|style|svg)\b[\s\S]*?<\/(script|style|svg)>/gi, ' ')
+    .replace(/<br\s*\/?>|<\/(p|div|li|h[1-6]|tr|section|article)>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ *\n[ \n]*/g, '\n')
+    .trim();
+  return text ? text.slice(0, 1500) : '（这里有一个图示，请在 AelionBot 里查看）';
+}
+
+/** A reply with its visual fences replaced by plain text, for chat apps and reading aloud. */
+export function visualsAsText(content: string) {
+  return content.replace(VISUAL_FENCE, (_match, type: string, body: string) => {
+    if (type === 'widget') return widgetText(body);
+    try {
+      return blockText(inlineBlock(type, body));
+    } catch {
+      return '';
+    }
+  });
 }

@@ -1,7 +1,7 @@
 import { unregisteredTool, type PrefixHandler, type ToolContext, type ToolHandler } from '../context';
 import { TOOLS } from '../index';
 import { ATTACHMENT_HANDLERS } from './attachments';
-import { MESSAGE_BLOCK_HANDLERS } from './blocks';
+
 import { CHAT_HANDLERS, GROUP_HANDLER } from './chat';
 import { COMPUTER_HANDLERS } from './computer';
 import { DELEGATION_HANDLERS } from './delegation';
@@ -29,7 +29,7 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
   ...DELEGATION_HANDLERS,
   ...PLANNING_HANDLERS,
   ...ATTACHMENT_HANDLERS,
-  ...MESSAGE_BLOCK_HANDLERS,
+
   ...CHAT_HANDLERS,
   ...MEMORY_HANDLERS,
   ...SKILL_HANDLERS,

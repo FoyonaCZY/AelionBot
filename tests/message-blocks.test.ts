@@ -1,22 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
   calculate,
   createMessageBlock,
   evaluateFormula,
+  inlineBlock,
   messageBlockSegments,
   stripBlockMarkers,
   stripBlockPlacements,
+  visualsAsText,
+  widgetText,
   type CalculatorSpec,
 } from '../shared/chat/message-blocks';
-import { Store } from '../electron/core/storage/store';
-import { Harness } from '../electron/core/agent/harness';
-import type { ModelClient } from '../electron/core/model/model';
-import type { VmController } from '../electron/core/vm/vm';
 
 const stamp = '2026-01-01T00:00:00.000Z';
 const make = (input: Record<string, unknown>) => createMessageBlock(input, randomUUID(), stamp);
@@ -184,53 +180,43 @@ test('a placement marker without any stored block never reaches the reader', () 
   assert.equal(stripBlockPlacements('正文里的 [[block:rates]] 只是文字'), '正文里的 [[block:rates]] 只是文字');
 });
 
-test('the message_block tool stores one block on the run for the final answer', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'aelion-blocks-')),
-    store = new Store(dir),
-    bot = store.data.bots[0];
-  store.data.model.model = 'fixture';
-  let calls = 0;
-  const model = {
-    complete: async (messages: Array<{ role: string; content?: string }>) => {
-      calls++;
-      if (calls === 1)
-        return {
-          content: '先放一个指标块。',
-          calls: [
-            {
-              id: randomUUID(),
-              type: 'function' as const,
-              function: {
-                name: 'message_block',
-                arguments: JSON.stringify({
-                  type: 'metrics',
-                  title: '全年关键指标',
-                  spec: { items: [{ label: '全年营收', value: '6,860 万', delta: '+18.2%', tone: 'up' }] },
-                  fallback: '全年营收 6,860 万元，同比 +18.2%',
-                }),
-              },
-            },
-          ],
-          finishReason: 'tool_calls',
-        };
-      const toolMessage = messages.find((message) => message.role === 'tool');
-      const id = JSON.parse(toolMessage!.content || '{}').id;
-      return { content: `结论：全年营收 6,860 万元。\n[[block:${id}]]`, calls: [], finishReason: 'stop' };
-    },
-  } as unknown as ModelClient;
-  const harness = new Harness(store, {} as VmController, model, () => {});
-  t.after(async () => {
-    harness.streams.dispose();
-    rmSync(dir, { recursive: true, force: true });
-  });
-  await harness.run(bot.id, '看一下全年营收');
-  const run = store.data.runs[0];
-  assert.equal(calls, 2);
-  assert.equal(run.blocks?.length, 1);
-  assert.equal(run.blocks?.[0].type, 'metrics');
-  assert.match(
-    store.data.messages.find((message) => message.role === 'assistant' && message.content.includes('[[block:'))!
-      .content,
-    /\[\[block:[A-Za-z0-9_-]+\]\]/,
+test('blocks written as fences in a reply are checked like stored blocks and read as plain text', () => {
+  const metrics = inlineBlock(
+    'metrics',
+    JSON.stringify({
+      title: '全年关键指标',
+      items: [{ label: '全年营收', value: '6,860 万', delta: '+18.2%', tone: 'up' }],
+    }),
   );
+  assert.equal(metrics.type, 'metrics');
+  assert.equal(metrics.title, '全年关键指标');
+  assert.equal(metrics.fallback, '全年关键指标：全年营收 6,860 万（+18.2%）');
+  // A wrapped spec works too; a broken one names the problem.
+  assert.equal(inlineBlock('callout', '{"spec":{"tone":"info","text":"注意"}}').type, 'callout');
+  assert.throws(() => inlineBlock('chart', '{"chartType":"bar"'), /JSON/);
+  assert.throws(() => inlineBlock('chart', '{"chartType":"radar","categories":[],"series":[]}'), /chartType/);
+  const reply = [
+    '结论在前。',
+    '```table',
+    '{"columns":[{"label":"等级"},{"label":"定位"}],"rows":[["Gold","基础权益"],["Infinite","高端"]]}',
+    '```',
+    '```widget',
+    '<style>.card{color:red}</style><div class="card"><b>Visa</b> Infinite</div><script>alert(1)</script>',
+    '```',
+    '```js',
+    'console.log(1)',
+    '```',
+  ].join('\n');
+  assert.equal(
+    visualsAsText(reply),
+    [
+      '结论在前。',
+      '等级 | 定位\nGold | 基础权益\nInfinite | 高端',
+      'Visa Infinite',
+      '```js',
+      'console.log(1)',
+      '```',
+    ].join('\n'),
+  );
+  assert.equal(widgetText('<svg><text>x</text></svg>'), '（这里有一个图示，请在 AelionBot 里查看）');
 });

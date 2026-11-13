@@ -60,7 +60,9 @@ test('authority and denial rules are stated once, and tool-dependent lines follo
   assert.ok(!bare.includes('selected with @'));
 });
 
-test('message block guidance appears only when message_block is offered', () => {
-  assert.ok(!harnessInstructions(interactive).includes('message_block'));
-  assert.equal(count(harnessInstructions({ ...interactive, messageBlocks: true }), 'message_block'), 1);
+test('visual fence guidance appears only where replies are shown in the app', () => {
+  assert.ok(!harnessInstructions(interactive).includes('```widget'));
+  const rich = harnessInstructions({ ...interactive, richReplies: true });
+  assert.equal(count(rich, '```widget'), 1);
+  assert.equal(count(rich, '```chart'), 1);
 });

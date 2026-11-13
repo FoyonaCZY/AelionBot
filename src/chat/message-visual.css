@@ -1,0 +1,45 @@
+/* Visual fences in replies: a sandboxed widget frame, and the placeholder while one is being written. */
+.message-widget {
+  margin: 10px 0;
+}
+.message-widget iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  /* Same scheme as the frame's document, or the browser paints an opaque backdrop behind it. */
+  background: transparent;
+}
+.message-widget-error {
+  margin: 4px 0 0;
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  color: var(--text-muted);
+}
+.message-visual-pending {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+  padding: 14px 16px;
+  border: 1px dashed var(--surface-line);
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+}
+.message-visual-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: message-visual-spin 0.8s linear infinite;
+}
+@keyframes message-visual-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .message-visual-spinner {
+    animation: none;
+  }
+}

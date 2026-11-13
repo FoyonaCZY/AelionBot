@@ -72,7 +72,12 @@ function MessageView({
       <>
         <MessageTime id={message.id} time={message.time} />
         <div className="scheduled-trigger" data-message-id={message.id}>
-          <ScheduledTriggerCard title={message.scheduled.title} content={message.content} time={message.time} />
+          <ScheduledTriggerCard
+            title={message.scheduled.title}
+            content={message.content}
+            time={message.time}
+            signal={message.scheduled.signal}
+          />
         </div>
       </>
     );

@@ -67,6 +67,10 @@ import { Connectors } from './core/connectors/connector-hub';
 import { loadLarkSdk } from './core/connectors/adapters/feishu';
 import { BackgroundTray } from './windows/background-tray';
 import { TaskScheduler } from './core/scheduler/task-scheduler';
+import { CodeOrchestrator } from './core/tools/code-orchestrator';
+import { checkAutomationScript } from './core/automation/automation-scripts';
+import { AutomationWebhooks } from './core/automation/automation-webhooks';
+import { AutomationWatchers } from './core/automation/automation-watchers';
 import { groupPending } from '../shared/types/group-types';
 import { peerPending } from '../shared/types/peer-types';
 import { BotGreetings } from './core/agent/bot-greetings';
@@ -127,6 +131,9 @@ let laya: LayaRuntime | undefined;
 let layaFeature: LayaFeature | undefined;
 let chatPins: ChatPinQueue | undefined;
 let scheduler: TaskScheduler | undefined;
+let automationWebhooks: AutomationWebhooks | undefined;
+let automationWatchers: AutomationWatchers | undefined;
+let automationCode: CodeOrchestrator | undefined;
 let greetings: BotGreetings | undefined;
 let connectors: Connectors | undefined;
 let tray: BackgroundTray | undefined;
@@ -198,6 +205,7 @@ function snapshot(): Snapshot {
     conversationWorkspaces: store.data.conversationWorkspaces,
     updates: appUpdates?.snapshot(),
     scheduledTasks: store.data.scheduledTasks,
+    automationWebhook: automationWebhooks?.origin(),
     workSessions: store.data.workSessions,
     bots: store.data.bots,
     messages: store.data.messages,
@@ -985,6 +993,7 @@ async function initialize() {
     version: app.getVersion(),
     attachments,
     speech,
+    automations: { connectorMessage: (input) => scheduler?.connectorMessage(input) },
     send: ({ connector, ...input }) => chatPins!.send(input, connector),
     cancel: (botId, sessionId) => {
       chatPins?.cancel(botId, sessionId);
@@ -1051,8 +1060,36 @@ async function initialize() {
         else groupChats!.schedule(target.id, prompt, trigger);
       },
     },
-    changed,
+    () => {
+      changed();
+      // Folders follow the automations: added, removed, paused or pointed elsewhere.
+      if (scheduler) automationWatchers?.sync(scheduler.watchedFolders());
+    },
+    Date.now,
+    {
+      checkScript: (code, state, signal) => checkAutomationScript(automationCode!, code, state, signal),
+      approveFolder: (botId, runId, path, signal) =>
+        interactions.permission(
+          botId,
+          runId,
+          { operation: 'read_file', path, reason: '监视这个文件夹，有文件变化时触发自动化' },
+          signal,
+        ),
+      webhookOrigin: () => automationWebhooks?.origin(),
+    },
   );
+  const automations = scheduler;
+  automationCode = new CodeOrchestrator(__dirname);
+  automationWatchers = new AutomationWatchers(
+    (id, paths) => automations.folderChanged(id, paths),
+    (id, error) => automations.triggerFailed(id, error),
+  );
+  automationWatchers.sync(automations.watchedFolders());
+  automationWebhooks = new AutomationWebhooks({
+    find: (id, token) => automations.webhook(id, token),
+    fire: (id, signal) => automations.fire(id, signal),
+  });
+  void automationWebhooks.start().then(changed);
   harness.setTaskScheduler(scheduler);
   let pendingLaunch: UpdateLaunchContext | undefined;
   const updateBlocked = () => {
@@ -1416,6 +1453,9 @@ async function initialize() {
       for (const close of [
         () => appUpdates?.dispose(),
         () => scheduler?.dispose(),
+        () => automationWatchers?.dispose(),
+        () => automationWebhooks?.stop(),
+        () => automationCode?.dispose(),
         () => greetings?.dispose(),
         () => {
           for (const bot of store.data.bots) harness.cancel(bot.id);

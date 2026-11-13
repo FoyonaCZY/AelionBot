@@ -263,23 +263,26 @@ test('a task the Bot schedules in a work session belongs to it, runs in it and g
   const signal = new AbortController().signal,
     inSession = run('s1'),
     inMain = run();
-  const task = scheduler.invoke(
+  const task = (await scheduler.invoke(
     bot.id,
     inSession.id,
-    'scheduled_task_create',
+    'automation_create',
     {
       title: '发布检查',
       prompt: '检查发布进度',
-      schedule: { kind: 'once', at: new Date(clock + 60_000).toISOString(), timeZone: 'Asia/Shanghai' },
+      trigger: {
+        kind: 'schedule',
+        schedule: { kind: 'once', at: new Date(clock + 60_000).toISOString(), timeZone: 'Asia/Shanghai' },
+      },
     },
     signal,
     {},
-  ) as any;
+  )) as any;
   assert.deepEqual(task.target, { kind: 'bot', id: bot.id, sessionId: 's1' });
   // Each chat sees and manages only its own tasks.
-  assert.deepEqual(scheduler.invoke(bot.id, inMain.id, 'scheduled_tasks_list', {}, signal, {}), []);
-  assert.equal((scheduler.invoke(bot.id, inSession.id, 'scheduled_tasks_list', {}, signal, {}) as any[]).length, 1);
-  assert.throws(() => scheduler.invoke(bot.id, inMain.id, 'scheduled_task_delete', { id: task.id }, signal, {}), {
+  assert.deepEqual(await scheduler.invoke(bot.id, inMain.id, 'automations_list', {}, signal, {}), []);
+  assert.equal(((await scheduler.invoke(bot.id, inSession.id, 'automations_list', {}, signal, {})) as any[]).length, 1);
+  await assert.rejects(scheduler.invoke(bot.id, inMain.id, 'automation_delete', { id: task.id }, signal, {}), {
     code: 'schedule.target_mismatch',
   });
   store.data.runs = [];

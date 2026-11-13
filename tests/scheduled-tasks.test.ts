@@ -231,7 +231,7 @@ test('restart does not replay a claimed occurrence but delivers an overdue unsta
   assert.equal(again.data.messages.length, 2);
 });
 
-test('a Bot can manage only its current conversation tasks and identical group creation is deduplicated', (t) => {
+test('a Bot can manage only its current conversation tasks and identical group creation is deduplicated', async (t) => {
   const f = fixture(t),
     groupId = randomUUID(),
     stamp = new Date(f.now).toISOString();
@@ -260,20 +260,20 @@ test('a Bot can manage only its current conversation tasks and identical group c
   };
   const direct = run(f.bot.id),
     peer = run(f.other.id),
-    args = { title: '周报', prompt: '整理本周进度', schedule: daily },
+    args = { title: '周报', prompt: '整理本周进度', trigger: { kind: 'schedule', schedule: daily } },
     signal = new AbortController().signal;
-  const task = f.scheduler.invoke(f.bot.id, direct.id, 'scheduled_task_create', args, signal, {}) as any;
-  assert.deepEqual(f.scheduler.invoke(f.other.id, peer.id, 'scheduled_tasks_list', {}, signal, {}), []);
-  assert.throws(() => f.scheduler.invoke(f.other.id, peer.id, 'scheduled_task_delete', { id: task.id }, signal, {}), {
+  const task = (await f.scheduler.invoke(f.bot.id, direct.id, 'automation_create', args, signal, {})) as any;
+  assert.deepEqual(await f.scheduler.invoke(f.other.id, peer.id, 'automations_list', {}, signal, {}), []);
+  await assert.rejects(f.scheduler.invoke(f.other.id, peer.id, 'automation_delete', { id: task.id }, signal, {}), {
     code: 'schedule.target_mismatch',
   });
   const a = run(f.bot.id, true),
     b = run(f.other.id, true);
-  const first = f.scheduler.invoke(f.bot.id, a.id, 'scheduled_task_create', args, signal, {}) as any,
-    second = f.scheduler.invoke(f.other.id, b.id, 'scheduled_task_create', args, signal, {}) as any;
+  const first = (await f.scheduler.invoke(f.bot.id, a.id, 'automation_create', args, signal, {})) as any,
+    second = (await f.scheduler.invoke(f.other.id, b.id, 'automation_create', args, signal, {})) as any;
   assert.equal(first.id, second.id);
   assert.equal(first.target.kind, 'group');
-  assert.throws(() => f.scheduler.invoke(f.bot.id, a.id, 'scheduled_task_create', args, AbortSignal.abort(), {}), {
+  await assert.rejects(f.scheduler.invoke(f.bot.id, a.id, 'automation_create', args, AbortSignal.abort(), {}), {
     code: 'schedule.run_ended',
   });
   assert.equal(f.scheduler.list().length, 2);
@@ -284,13 +284,13 @@ test('a scheduled direct task goes through the real chat queue and tools, replie
   let executions = 0;
   const model = {
     complete: async (messages: WireMessage[], tools: ToolDefinition[]) => {
-      assert.ok(tools.some((tool) => tool.function.name === 'scheduled_task_create'));
+      assert.ok(tools.some((tool) => tool.function.name === 'automation_create'));
       assert.match(
         messages
           .filter((message) => message.role === 'system')
           .map((message) => message.content || '')
           .join('\n'),
-        /不要重新创建同一计划/,
+        /不要重新创建同一自动化/,
       );
       return executions ? answer('定时核对已完成') : call('exec_command', { command: 'check-work', location: 'vm' });
     },
@@ -360,10 +360,13 @@ test('model-created schedules in a group broadcast to its members and publish th
       if (creating) {
         if (id !== f.bot.id) return answer('[群聊静默]');
         if (!f.store.data.scheduledTasks.length)
-          return call('scheduled_task_create', {
+          return call('automation_create', {
             title: '群定时核对',
             prompt: '请各自核对工作成果',
-            schedule: { kind: 'once', at: new Date(f.now + 1000).toISOString(), timeZone: zone },
+            trigger: {
+              kind: 'schedule',
+              schedule: { kind: 'once', at: new Date(f.now + 1000).toISOString(), timeZone: zone },
+            },
           });
         return answer('群定时任务已创建');
       }
@@ -526,7 +529,7 @@ test('human input takes priority while scheduled tasks remain separate queued ru
   queue.send({ botId: f.bot.id, message: '先回答我的新问题' });
   await until(() => requests.length === 2 && !harness.busy && !queue.hasPending(f.bot.id));
   assert.equal(requests[0], '先回答我的新问题');
-  assert.match(requests[1], /定时任务触发/);
+  assert.match(requests[1], /自动化「[^」]+」触发（定时/);
   const inputs = f.store.data.messages.filter((message) => message.role === 'user');
   assert.notEqual(inputs[0].runId, inputs[1].runId);
 });
