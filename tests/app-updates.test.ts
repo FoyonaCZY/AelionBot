@@ -140,16 +140,22 @@ test('automatic checks retry a network failure and do not overlap manual checks'
   assert.equal(f.driver.checks, 3);
   assert.equal(f.service.snapshot().latestVersion, '0.4.1');
   await advance(t, UPDATE_CHECK_INTERVAL_MS);
-  assert.equal(f.driver.checks, 3);
+  assert.equal(f.driver.checks, 4);
+  assert.equal(f.service.snapshot().phase, 'available');
+  assert.equal(f.service.snapshot().latestVersion, '0.4.1');
   assert.equal(f.driver.downloads, 0);
 });
 
-test('automatic polling preserves available, failed, downloading and ready updates', async (t) => {
+test('automatic polling keeps known updates while checking them again, and pauses during download and install', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const f = fixture(t);
   f.service.startAutomaticChecks();
   await advance(t, UPDATE_CHECK_START_DELAY_MS);
   assert.equal(f.service.snapshot().phase, 'available');
+  await advance(t, UPDATE_CHECK_INTERVAL_MS);
+  assert.equal(f.driver.checks, 2);
+  assert.equal(f.service.snapshot().phase, 'available');
+  assert.equal(f.service.snapshot().latestVersion, '0.4.1');
   const held = deferred<string[]>();
   f.driver.download = () => held.promise;
   const downloading = f.service.download();
@@ -158,13 +164,13 @@ test('automatic polling preserves available, failed, downloading and ready updat
   await advance(t, UPDATE_CHECK_INTERVAL_MS);
   assert.equal(f.service.snapshot().phase, 'downloading');
   assert.equal(f.service.snapshot().progress?.percent, 47);
-  assert.equal(f.driver.checks, 1);
+  assert.equal(f.driver.checks, 2);
   held.reject(Error('network unavailable'));
   await downloading;
   await advance(t, UPDATE_CHECK_INTERVAL_MS);
   assert.equal(f.service.snapshot().phase, 'error');
   assert.equal(f.service.snapshot().latestVersion, '0.4.1');
-  assert.equal(f.driver.checks, 1);
+  assert.equal(f.driver.checks, 3);
   f.driver.download = async () => {
     f.driver.emit('update-downloaded', f.driver.info);
     return ['setup.exe'];
@@ -172,15 +178,72 @@ test('automatic polling preserves available, failed, downloading and ready updat
   await f.service.download();
   await advance(t, UPDATE_CHECK_INTERVAL_MS);
   assert.equal(f.service.snapshot().phase, 'downloaded');
-  assert.equal(f.driver.checks, 1);
+  assert.equal(f.driver.checks, 4);
   assert.equal(f.driver.installs, 0);
   const preparing = deferred<void>();
   f.control.prepare = () => preparing.promise;
   const installing = f.service.install();
   await advance(t, UPDATE_CHECK_INTERVAL_MS);
   assert.equal(f.service.snapshot().phase, 'installing');
-  assert.equal(f.driver.checks, 1);
+  assert.equal(f.driver.checks, 4);
   preparing.resolve();
+  await installing;
+  assert.equal(f.driver.installs, 1);
+});
+
+test('a release published after an update was found replaces it, and a downloaded one is fetched again', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const f = fixture(t);
+  f.service.startAutomaticChecks();
+  await advance(t, UPDATE_CHECK_START_DELAY_MS);
+  assert.equal(f.service.snapshot().latestVersion, '0.4.1');
+  // A failing quiet check changes nothing on screen.
+  f.driver.check = async () => {
+    f.driver.emit('error', Error('network unavailable'));
+    throw Error('network unavailable');
+  };
+  await advance(t, UPDATE_CHECK_INTERVAL_MS);
+  assert.equal(f.service.snapshot().phase, 'available');
+  assert.equal(f.service.snapshot().error, undefined);
+  f.driver.check = async () => {
+    f.driver.emit('update-available', f.driver.info);
+    return { updateInfo: f.driver.info };
+  };
+  f.driver.info = { version: '0.4.2', releaseNotes: '更新的说明' };
+  await advance(t, UPDATE_CHECK_INTERVAL_MS);
+  assert.equal(f.service.snapshot().phase, 'available');
+  assert.equal(f.service.snapshot().latestVersion, '0.4.2');
+  assert.equal(f.service.snapshot().releaseNotes, '更新的说明');
+  assert.equal(f.driver.downloads, 0);
+  await f.service.download();
+  assert.equal(f.service.snapshot().phase, 'downloaded');
+  f.driver.info = { version: '0.4.3', releaseNotes: '最新说明' };
+  await advance(t, UPDATE_CHECK_INTERVAL_MS);
+  await advance(t, 0);
+  assert.equal(f.driver.downloads, 2);
+  assert.equal(f.service.snapshot().phase, 'downloaded');
+  assert.equal(f.service.snapshot().latestVersion, '0.4.3');
+  await f.service.install();
+  assert.equal(f.driver.installs, 1);
+  assert.deepEqual(f.events.includes('prepared'), true);
+});
+
+test('installing waits for a quiet check and then installs the newest download', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const f = fixture(t);
+  f.service.startAutomaticChecks();
+  await advance(t, UPDATE_CHECK_START_DELAY_MS);
+  await f.service.download();
+  const held = deferred<unknown>();
+  f.driver.check = () => held.promise;
+  await advance(t, UPDATE_CHECK_INTERVAL_MS);
+  assert.equal(f.driver.checks, 2);
+  const installing = f.service.install();
+  await Promise.resolve();
+  assert.equal(f.driver.installs, 0);
+  assert.equal(f.service.snapshot().phase, 'downloaded');
+  f.driver.emit('update-not-available', {});
+  held.resolve({ checked: true });
   await installing;
   assert.equal(f.driver.installs, 1);
 });

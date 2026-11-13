@@ -58,6 +58,10 @@ export class AppUpdates {
   private cancelled = false;
   private disposed = false;
   private automaticTimer?: ReturnType<typeof setTimeout>;
+  /** A quiet check for a release newer than the one already found; see recheck(). */
+  private rechecking?: Promise<void>;
+  private quiet = false;
+  private redownload = false;
   constructor(
     private driver: UpdateDriver,
     version: string,
@@ -73,6 +77,7 @@ export class AppUpdates {
       ...(driver.manualInstall ? { manualInstall: true } : {}),
     };
     driver.on('update-available', (info) => {
+      if (this.quiet) return this.replace(info);
       if (this.state.phase !== 'checking') return;
       this.set({
         phase: 'available',
@@ -113,7 +118,7 @@ export class AppUpdates {
       if (this.cancelled) this.set({ phase: 'available', progress: undefined, error: undefined });
     });
     driver.on('error', (error) => {
-      if (!this.cancelled && !this.disposed) {
+      if (!this.cancelled && !this.disposed && !this.quiet) {
         const installing = this.state.phase === 'installing';
         this.set({ phase: 'error', progress: undefined, error: updateError(error) });
         if (installing) void hooks.recoverInstall().catch(() => {});
@@ -149,8 +154,55 @@ export class AppUpdates {
     this.operation = pending;
     return pending;
   }
-  check() {
+  /** A release newer than the known one replaces it; a downloaded installer of the old one is replaced by downloading the new. */
+  private replace(info: { version?: string; releaseName?: unknown; releaseNotes?: unknown }) {
+    if (!info?.version || info.version === this.state.latestVersion) return;
+    this.redownload = this.state.phase === 'downloaded' && !this.driver.manualInstall;
+    this.set({
+      phase: 'available',
+      latestVersion: info.version,
+      releaseName: typeof info.releaseName === 'string' ? info.releaseName.slice(0, 160) : undefined,
+      releaseNotes: notes(info.releaseNotes),
+      checkedAt: new Date().toISOString(),
+      progress: undefined,
+      error: undefined,
+    });
+  }
+  /**
+   * Checks again while an update is already known, so someone who waits before updating gets the newest release rather
+   * than updating twice. Nothing on screen changes unless a newer release turns up; failures are ignored.
+   */
+  private recheck() {
+    if (this.rechecking) return this.rechecking;
+    this.quiet = true;
+    this.redownload = false;
+    let checking: Promise<unknown>;
+    try {
+      checking = this.driver.checkForUpdates();
+    } catch (error) {
+      checking = Promise.reject(error);
+    }
+    const pending = checking
+      .then(
+        () => {},
+        () => {},
+      )
+      .finally(() => {
+        this.quiet = false;
+        if (this.rechecking === pending) this.rechecking = undefined;
+        if (this.redownload && !this.disposed) {
+          this.redownload = false;
+          void Promise.resolve()
+            .then(() => this.download())
+            .catch(() => {});
+        }
+      });
+    this.rechecking = pending;
+    return pending;
+  }
+  check(): Promise<void> | undefined {
     if (this.state.phase === 'unsupported') throw new Error('请在发行版中检查更新');
+    if (this.rechecking) return this.rechecking.then(() => this.check());
     if (this.operation || this.state.phase === 'installing') return this.operation;
     this.set({ latestVersion: undefined, releaseName: undefined, releaseNotes: undefined });
     return this.perform('checking', async () => {
@@ -162,14 +214,11 @@ export class AppUpdates {
     if (this.disposed || this.automaticTimer || this.state.phase === 'unsupported') return;
     const poll = async () => {
       try {
-        // Keep a discovered update and any download/installation under user control.
-        if (
-          !this.disposed &&
-          !this.operation &&
-          !this.state.latestVersion &&
-          ['idle', 'current', 'error'].includes(this.state.phase)
-        )
-          await this.check();
+        // Downloading and installing stay under the user's control; a known update is only checked for a newer one.
+        if (this.disposed || this.operation) return;
+        if (!this.state.latestVersion && ['idle', 'current', 'error'].includes(this.state.phase)) await this.check();
+        else if (this.state.latestVersion && ['available', 'downloaded', 'error'].includes(this.state.phase))
+          await this.recheck();
       } finally {
         if (!this.disposed) {
           this.automaticTimer = setTimeout(() => void poll(), UPDATE_CHECK_INTERVAL_MS);
@@ -180,7 +229,8 @@ export class AppUpdates {
     this.automaticTimer = setTimeout(() => void poll(), UPDATE_CHECK_START_DELAY_MS);
     this.automaticTimer.unref?.();
   }
-  download() {
+  download(): Promise<void> {
+    if (this.rechecking) return this.rechecking.then(() => this.download());
     if (this.driver.manualInstall)
       throw new AppError('update.manual_install_required', '此 Mac 预览版请从 GitHub Release 下载更新');
     if (this.operation) return this.operation;
@@ -200,6 +250,7 @@ export class AppUpdates {
   }
   async install() {
     if (this.disposed) throw new AppError('app.disposing', '客户端正在退出');
+    if (this.rechecking) await this.rechecking;
     if (this.operation) return;
     if (this.state.phase !== 'downloaded' || !this.state.latestVersion)
       throw new AppError('update.not_downloaded', '更新包尚未下载完成');
