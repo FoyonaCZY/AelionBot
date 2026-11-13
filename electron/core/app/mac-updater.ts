@@ -3,18 +3,10 @@ import { MacUpdater, CancellationToken } from 'electron-updater';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { UpdateDriver } from './app-updates';
+import { compareVersions } from '../../../shared/version';
 import { build, version as appVersion } from '../../../package.json';
 const releaseRepository = `${build.publish.owner}/${build.publish.repo}`;
-const semver = (value: string) => /^v?(\d+)\.(\d+)\.(\d+)$/.exec(value)?.slice(1).map(Number);
-export function newerVersion(candidate: string, current: string) {
-  const a = semver(candidate),
-    b = semver(current);
-  if (!a || !b) return false;
-  for (let i = 0; i < 3; i++) {
-    if (a[i] !== b[i]) return a[i] > b[i];
-  }
-  return false;
-}
+export const newerVersion = (candidate: string, current: string) => compareVersions(candidate, current) > 0;
 export function macAutomaticUpdates(resources: string) {
   try {
     const data = JSON.parse(readFileSync(join(resources, 'mac-release.json'), 'utf8'));

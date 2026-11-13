@@ -456,6 +456,8 @@ export interface Snapshot {
   runtime?: RuntimeSettings;
   modelUsage?: UsageRecord[];
   updates?: UpdateState;
+  /** Release notes to show once after updating: those after `from` up to `version`, or only `version`'s. */
+  whatsNew?: { from?: string; version: string };
   scheduledTasks?: ScheduledTask[];
   /** The local origin automation webhooks are called on, while the app listens. */
   automationWebhook?: string;
@@ -618,6 +620,7 @@ export interface AelionAPI {
   cancelUpdateDownload(): Promise<void>;
   installUpdate(): Promise<void>;
   openUpdateRelease(): Promise<void>;
+  dismissWhatsNew(): Promise<void>;
   resumeChat(input: { botId: string; runId: string }): Promise<void>;
   pickAttachments(scope: AttachmentScope): Promise<Attachment[]>;
   prepareAttachmentDrop(input: { scope: AttachmentScope; files: File[] }): Promise<PreparedAttachmentDrop>;

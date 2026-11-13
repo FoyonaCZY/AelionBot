@@ -162,6 +162,7 @@ export const INVOKE_CHANNELS = {
   cancelUpdateDownload: 'updates:cancel',
   installUpdate: 'updates:install',
   openUpdateRelease: 'updates:open-release',
+  dismissWhatsNew: 'updates:dismiss-whats-new',
   // Integrations, skills and MCP
   refreshIntegrations: 'integrations:refresh',
   addIntegrationSource: 'integrations:add-source',

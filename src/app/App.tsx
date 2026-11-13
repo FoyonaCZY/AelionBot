@@ -45,6 +45,7 @@ import { useShared } from '../ui/use-shared';
 import { WorkSessionEditor } from './WorkSessionEditor';
 import { ArchivedSessions } from './ArchivedSessions';
 import { Presence } from '../ui/Presence';
+import { WhatsNew } from './WhatsNew';
 
 export default function App() {
   return (
@@ -666,6 +667,15 @@ function AppContent() {
                 screen={screen}
                 openPreview={files.openPreview}
                 setToast={setToast}
+              />
+            )}
+          </Presence>
+          <Presence>
+            {!modal && state.whatsNew && (
+              <WhatsNew
+                from={state.whatsNew.from}
+                version={state.whatsNew.version}
+                onClose={() => void window.aelion.dismissWhatsNew().catch(() => {})}
               />
             )}
           </Presence>

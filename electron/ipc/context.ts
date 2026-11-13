@@ -91,4 +91,5 @@ export interface IpcContext {
   beforeModelChange(botIds: string[]): void;
   afterModelChange(): void;
   saveAppearance(value: unknown): void;
+  dismissWhatsNew(): void;
 }

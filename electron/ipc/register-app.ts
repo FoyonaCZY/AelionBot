@@ -34,6 +34,7 @@ export function registerApp(ctx: IpcContext) {
   handle('cancelUpdateDownload', () => ctx.appUpdates!.cancel());
   handle('installUpdate', () => ctx.appUpdates!.install());
   handle('openUpdateRelease', () => shell.openExternal(`https://github.com/${UPDATE_REPOSITORY}/releases/latest`));
+  handle('dismissWhatsNew', () => ctx.dismissWhatsNew());
   handle('prepareDiagnostics', () => ctx.diagnostics!.prepare());
   handle('exportDiagnostics', async (id) => {
     const report = ctx.diagnostics!.archive(id),

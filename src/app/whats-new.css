@@ -1,0 +1,63 @@
+/* The notes after an update: a wider dialog whose body scrolls between a fixed header and button row. */
+.modal.whats-new-modal {
+  width: min(640px, calc(100vw - 48px));
+  max-height: min(760px, calc(100vh - 70px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 22px;
+}
+
+.whats-new-modal > header {
+  align-items: flex-start;
+  flex: 0 0 auto;
+  margin-bottom: 8px;
+}
+
+.whats-new-range {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: calc(13px * var(--appearance-text-scale, 1));
+}
+
+.whats-new-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  margin: 0 -28px;
+  padding: 0 28px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.whats-new-release {
+  padding: 16px 0 4px;
+}
+
+.whats-new-release + .whats-new-release {
+  border-top: 1px solid var(--surface-line, light-dark(#ececec, #333));
+}
+
+.whats-new-release > h3 {
+  margin: 0 0 2px;
+  color: var(--text-ink);
+  font-size: calc(17px * var(--appearance-text-scale, 1));
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.whats-new-release .markdown h3 {
+  margin: 14px 0 4px;
+  color: var(--text-secondary);
+  font-size: calc(14px * var(--appearance-text-scale, 1));
+  font-weight: 600;
+}
+
+.whats-new-release .markdown > :first-child {
+  margin-top: 0;
+}
+
+.whats-new-modal .dialog-actions {
+  flex: 0 0 auto;
+  margin-top: 16px;
+}

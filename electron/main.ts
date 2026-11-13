@@ -75,6 +75,7 @@ import { groupPending } from '../shared/types/group-types';
 import { peerPending } from '../shared/types/peer-types';
 import { BotGreetings } from './core/agent/bot-greetings';
 import { AppUpdates } from './core/app/app-updates';
+import { markReleaseNotesSeen, pendingWhatsNew, type WhatsNew } from './core/app/whats-new';
 import { Diagnostics } from './core/app/diagnostics';
 import { slowOperations, watchEventLoop } from './core/app/slow-operations';
 import { StartupTimer } from './core/app/startup-timer';
@@ -150,6 +151,7 @@ protocol.registerSchemesAsPrivileged([
 ]);
 let webPreview: WebPreviewBrowser | undefined;
 let appUpdates: AppUpdates | undefined;
+let whatsNew: WhatsNew | undefined;
 let diagnostics: Diagnostics | undefined;
 let agentPreviews: AgentPreviews | undefined;
 process.on('uncaughtExceptionMonitor', (error, origin) => diagnostics?.record('process.' + origin, error));
@@ -204,6 +206,7 @@ function snapshot(): Snapshot {
     workItems: store.data.workItems,
     conversationWorkspaces: store.data.conversationWorkspaces,
     updates: appUpdates?.snapshot(),
+    whatsNew,
     scheduledTasks: store.data.scheduledTasks,
     automationWebhook: automationWebhooks?.origin(),
     workSessions: store.data.workSessions,
@@ -330,6 +333,12 @@ async function initialize() {
     if (!process.env.AELION_DATA_DIR) throw error;
   }
   const savedLaunch = process.env.AELION_DATA_DIR ? undefined : launchContext;
+  if (app.isPackaged)
+    try {
+      whatsNew = pendingWhatsNew(profileDir, app.getVersion(), launchContext?.targetVersion);
+    } catch (error) {
+      console.warn('无法读取已看过的更新说明：', (error as Error).message);
+    }
   const dataDir = process.env.AELION_DATA_DIR
     ? resolve(process.env.AELION_DATA_DIR)
     : savedLaunch?.dataDir || (app.isPackaged ? profileDir : resolve('.local/app'));
@@ -1445,6 +1454,12 @@ async function initialize() {
     beforeModelChange,
     afterModelChange,
     saveAppearance,
+    dismissWhatsNew: () => {
+      if (!whatsNew) return;
+      markReleaseNotesSeen(profileDir, whatsNew.version);
+      whatsNew = undefined;
+      changed();
+    },
   });
   const shutdown = new Shutdown({
     stop: () => {
