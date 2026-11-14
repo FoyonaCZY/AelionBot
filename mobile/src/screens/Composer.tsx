@@ -1,7 +1,7 @@
 // The message box: + for photos and files (a panel where the keyboard would be), the field with the microphone, and
 // one round button to send or to stop the Bot. Voice is transcribed by the computer's speech service and lands in the
 // field to be read before sending. Written while the computer is offline, text waits on the phone.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { Attachment } from '../../../shared/types/attachment-types';
 import { useI18n } from '../../../src/i18n';
 import { connection, useConnection } from '../connection';
@@ -39,9 +39,7 @@ export function Composer({
   const [panel, setPanel] = useState(false);
   const [sending, setSending] = useState(false);
   const field = useRef<HTMLTextAreaElement>(null);
-  const camera = useRef<HTMLInputElement>(null),
-    photos = useRef<HTMLInputElement>(null),
-    files = useRef<HTMLInputElement>(null);
+  const pickers = useId();
   const recorder = useVoice((transcript) => setText((value) => (value ? value + ' ' : '') + transcript));
   const online = status === 'ready';
   useEffect(() => {
@@ -51,9 +49,12 @@ export function Composer({
     node.style.height = Math.min(node.scrollHeight, 160) + 'px';
   }, [text]);
 
-  const add = (list: FileList | null) => {
+  const add = (input: HTMLInputElement) => {
+    const list = Array.from(input.files || []);
+    // Cleared, so picking the same photo again still counts as a change.
+    input.value = '';
     setPanel(false);
-    for (const file of Array.from(list || []).slice(0, 10)) {
+    for (const file of list.slice(0, 10)) {
       const key = crypto.randomUUID();
       const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined;
       setDrafts((items) => [...items, { key, name: file.name, preview }]);
@@ -211,39 +212,50 @@ export function Composer({
       {panel && (
         <div className="c-panel">
           <div className="c-tiles">
-            <button onClick={() => camera.current?.click()}>
+            {/* Labels, so the tap reaches the file input itself: some home screen apps ignore a picker opened from
+                script. The inputs stay outside the panel, which may close before the picker answers. */}
+            <label htmlFor={pickers + 'camera'}>
               <I name="camera" size={26} />
               {t('拍照')}
-            </button>
-            <button onClick={() => photos.current?.click()}>
+            </label>
+            <label htmlFor={pickers + 'photos'}>
               <I name="photo" size={26} />
               {t('照片')}
-            </button>
-            <button onClick={() => files.current?.click()}>
+            </label>
+            <label htmlFor={pickers + 'files'}>
               <I name="file" size={26} />
               {t('文件')}
-            </button>
+            </label>
           </div>
           <p className="c-panel-note">{t('单个文件不超过 25 MB；大照片会先压缩再发送。')}</p>
         </div>
       )}
       <input
-        ref={camera}
+        id={pickers + 'camera'}
+        className="c-picker"
         type="file"
         accept="image/*"
         capture="environment"
-        hidden
-        onChange={(event) => add(event.target.files)}
+        tabIndex={-1}
+        onChange={(event) => add(event.target)}
       />
       <input
-        ref={photos}
+        id={pickers + 'photos'}
+        className="c-picker"
         type="file"
         accept="image/*,video/*"
         multiple
-        hidden
-        onChange={(event) => add(event.target.files)}
+        tabIndex={-1}
+        onChange={(event) => add(event.target)}
       />
-      <input ref={files} type="file" multiple hidden onChange={(event) => add(event.target.files)} />
+      <input
+        id={pickers + 'files'}
+        className="c-picker"
+        type="file"
+        multiple
+        tabIndex={-1}
+        onChange={(event) => add(event.target)}
+      />
     </>
   );
 }

@@ -1066,8 +1066,10 @@ li:last-child .h-row-text {
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
-.c-tiles button {
+.c-tiles label {
   height: 88px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   display: grid;
   place-items: center;
   align-content: center;
@@ -1079,6 +1081,17 @@ li:last-child .h-row-text {
 }
 .c-tiles svg {
   color: var(--ink);
+}
+.c-tiles label:active {
+  background: var(--fill-2);
+}
+/* Out of sight but not display: none, so a tap on its label opens the picker everywhere. */
+.c-picker {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 .c-panel-note {
   margin: 12px 4px 6px;
@@ -1632,4 +1645,12 @@ li:last-child .h-row-text {
   margin: 0;
   text-align: center;
   font-size: 15px;
+}
+.w-scan-error {
+  position: relative;
+  max-width: 100%;
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.7;
+  overflow-wrap: anywhere;
 }

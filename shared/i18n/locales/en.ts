@@ -3514,8 +3514,9 @@ export const en: Record<string, string> = {
   断开这台电脑: 'Disconnect this computer',
   '连接经过端到端加密，中继只转发密文。': 'Connections are end-to-end encrypted; the relay only forwards ciphertext.',
   '中继：{host}': 'Relay: {host}',
-  '无法打开相机，请在系统设置里允许，或改用粘贴链接':
-    'The camera is not available. Allow it in settings, or paste the link instead.',
+  '相机权限被拒绝。请在系统设置里允许，或改用粘贴链接':
+    'Camera access was denied. Allow it in settings, or paste the link instead.',
+  '无法打开相机，可以改用粘贴链接': 'The camera could not be opened. You can paste the link instead.',
   '对准电脑上“手机访问”里的二维码': 'Point at the QR code under “Phone access” on your computer',
   '在电脑上点“允许”': 'Click “Allow” on your computer',
   '正在连接“{name}”': 'Connecting to “{name}”',

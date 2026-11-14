@@ -28,18 +28,35 @@ export function takeLinkFromAddress() {
 function Scanner({ onFound, onClose }: { onFound: (link: PairingLink) => void; onClose: () => void }) {
   const { t } = useI18n();
   const video = useRef<HTMLVideoElement>(null);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<{ name: string; message: string }>();
   useEffect(() => {
     if (!video.current) return;
     const scan = scanPairing(video.current, onFound);
-    scan.started.catch(() => setFailed(true));
+    scan.started.catch((error: unknown) =>
+      setFailed({
+        name: (error as Error)?.name || 'Error',
+        message: String((error as Error)?.message || error).slice(0, 160),
+      }),
+    );
     return scan.stop;
   }, []);
   return (
     <div className="w-scanner">
       <video ref={video} playsInline muted />
       <div className="w-frame" />
-      <p>{failed ? t('无法打开相机，请在系统设置里允许，或改用粘贴链接') : t('对准电脑上“手机访问”里的二维码')}</p>
+      <p>
+        {!failed
+          ? t('对准电脑上“手机访问”里的二维码')
+          : failed.name === 'NotAllowedError'
+            ? t('相机权限被拒绝。请在系统设置里允许，或改用粘贴链接')
+            : t('无法打开相机，可以改用粘贴链接')}
+      </p>
+      {/* The browser's own words, untranslated: what to quote when reporting the problem. */}
+      {failed && (
+        <small className="w-scan-error">
+          {failed.name}: {failed.message}
+        </small>
+      )}
       <button className="x-btn is-white" onClick={onClose}>
         {t('取消')}
       </button>

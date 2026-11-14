@@ -147,8 +147,9 @@ export function scanPairing(video: HTMLVideoElement, found: (link: PairingLink) 
     clearTimeout(timer);
     for (const track of stream?.getTracks() || []) track.stop();
   };
-  const started = navigator.mediaDevices
-    .getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+  // Some browsers' home screen modes have no navigator.mediaDevices: that becomes a failed start, not a crash.
+  const started = Promise.resolve()
+    .then(() => navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false }))
     .then(async (media) => {
       if (stopped) return media.getTracks().forEach((track) => track.stop());
       stream = media;
