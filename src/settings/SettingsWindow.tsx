@@ -7,7 +7,17 @@ import { useSwitchMotion } from '../ui/motion';
 import { useI18n } from '../i18n';
 
 export type SettingsTab =
-  'appearance' | 'profile' | 'runtime' | 'model' | 'design' | 'usage' | 'memory' | 'computer' | 'permissions' | 'about';
+  | 'appearance'
+  | 'profile'
+  | 'runtime'
+  | 'model'
+  | 'design'
+  | 'usage'
+  | 'memory'
+  | 'computer'
+  | 'remote'
+  | 'permissions'
+  | 'about';
 type Page = { id: SettingsTab; label: string; icon: string };
 /**
  * The pages, in the groups the rail shows them in. The rail stays neutral: line icons and one
@@ -28,6 +38,7 @@ const groups: ReadonlyArray<{ label: string; pages: ReadonlyArray<Page> }> = [
       { id: 'appearance', label: '外观', icon: 'appearance' },
       { id: 'runtime', label: '运行', icon: 'sliders' },
       { id: 'computer', label: '电脑', icon: 'computer' },
+      { id: 'remote', label: '手机访问', icon: 'phone' },
       { id: 'permissions', label: '权限', icon: 'shield' },
       { id: 'usage', label: '用量', icon: 'chart' },
       { id: 'about', label: '关于', icon: 'info' },

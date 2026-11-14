@@ -6,6 +6,7 @@
     "electron/preload.ts",
     "electron/windows/web-preview-preload.ts",
     "electron/windows/preview-feedback-preload.ts",
+    "electron/windows/remote-direct-preload.ts",
     "electron/core/file-search-worker.ts",
     "electron/core/code-worker.ts",
     "electron/core/context/token-worker.ts",
@@ -15,7 +16,9 @@
     "website/src/main.tsx",
     "website/src/blog/client.ts",
     "website/scripts/*.mjs",
-    "website/blog/*.mjs"
+    "website/blog/*.mjs",
+    "mobile/src/sw.ts",
+    "relay/src/main.ts"
   ],
   "project": [
     "src/**/*.{ts,tsx}",
@@ -26,7 +29,9 @@
     "website/src/**/*.{ts,tsx,mjs}",
     "website/scripts/**/*.mjs",
     "website/blog/**/*.mjs",
-    "website/tests/**/*.mjs"
+    "website/tests/**/*.mjs",
+    "mobile/src/**/*.{ts,tsx}",
+    "relay/src/**/*.ts"
   ],
   "ignoreDependencies": ["@fontsource-variable/*", "markdown-it", "@larksuiteoapi/node-sdk"]
 }

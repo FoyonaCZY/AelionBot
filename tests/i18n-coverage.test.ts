@@ -59,7 +59,7 @@ test('every literal translation key used in the code exists in both tables', () 
   // `t(` misses every branch but the first, which is how untranslated English copy survived.
   const literalKey = /\b(?:t|translate)\s*\(([^()]{0,600}?)'((?:\\.|[^'\\])*)'/g;
   const missing: string[] = [];
-  for (const file of [...walk('src'), ...walk('electron')]) {
+  for (const file of [...walk('src'), ...walk('electron'), ...walk('mobile/src')]) {
     const text = readFileSync(join(root, file), 'utf8');
     for (const match of text.matchAll(literalKey)) {
       const key = match[2].replace(/\\'/g, "'");

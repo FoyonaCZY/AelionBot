@@ -11,6 +11,7 @@ import { registerGames } from './register-games';
 import { registerGroups } from './register-groups';
 import { registerIntegrations } from './register-integrations';
 import { registerConnectors } from './register-connectors';
+import { registerRemote } from './register-remote';
 import { registerMemory } from './register-memory';
 import { registerModels } from './register-models';
 import { registerPeers } from './register-peers';
@@ -35,6 +36,7 @@ export function registerIpc(ctx: IpcContext) {
   registerWorkspace(ctx);
   registerIntegrations(ctx);
   registerConnectors(ctx);
+  registerRemote(ctx);
   registerBots(ctx);
   registerAttachments(ctx);
   registerDesign(ctx);

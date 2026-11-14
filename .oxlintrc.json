@@ -40,7 +40,9 @@
     "output/**",
     ".local/**",
     "assets/**",
-    "website/dist/**"
+    "website/dist/**",
+    "mobile/dist/**",
+    "relay/dist/**"
   ],
   "overrides": [
     {

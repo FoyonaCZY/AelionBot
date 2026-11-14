@@ -182,6 +182,15 @@ Windows 10 及以上（64 位）或 macOS（Apple 芯片），不支持 Intel �
 </details>
 
 <details>
+<summary><strong>手机访问</strong></summary>
+
+<br>
+
+在「设置 → 手机访问」打开后扫码配对，手机就能像用聊天应用一样使用电脑上的 Bot：看它们在做什么、发消息和照片、语音输入、批准操作、接管工作电脑，需要你时收到推送。手机端是网页应用（PWA），添加到主屏幕后使用，不需要安装 App。连接经过中继，端到端加密；也可以自己部署中继，见 [relay/README.md](relay/README.md)。
+
+</details>
+
+<details>
 <summary><strong>AI 游戏</strong></summary>
 
 <br>

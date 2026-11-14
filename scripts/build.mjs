@@ -24,6 +24,16 @@ await build({
   target: 'node22',
   external: ['electron'],
 });
+// Phones' direct connections are answered in a hidden window with this preload (electron/windows/remote-direct.ts).
+await build({
+  entryPoints: ['electron/windows/remote-direct-preload.ts'],
+  outfile: 'dist-electron/remote-direct-preload.cjs',
+  bundle: true,
+  platform: 'node',
+  format: 'cjs',
+  target: 'node22',
+  external: ['electron'],
+});
 await build({
   entryPoints: ['./electron/main.ts'],
   outfile: 'dist-electron/main.cjs',

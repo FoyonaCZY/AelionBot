@@ -182,6 +182,15 @@ Add a Feishu, WeCom or WeChat (experimental) connector on the Plugins page and c
 </details>
 
 <details>
+<summary><strong>Phone access</strong></summary>
+
+<br>
+
+Turn it on in Settings → Phone access and scan the QR code: your phone then works with the Bots on your computer like a chat app. See what they are doing, send messages and photos, dictate, approve actions, take over the work computer, and get a push notification when a Bot needs you. The phone app is a web app (PWA) added to the home screen; there is nothing to install from an app store. Connections go through a relay and are end-to-end encrypted; you can host your own relay, see [relay/README.md](relay/README.md).
+
+</details>
+
+<details>
 <summary><strong>AI games</strong></summary>
 
 <br>

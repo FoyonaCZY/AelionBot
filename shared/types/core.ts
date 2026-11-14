@@ -478,6 +478,7 @@ export interface Snapshot {
   dataDir: string;
   integrations?: IntegrationsView;
   connectors?: ConnectorsView;
+  remote?: import('./remote-types').RemoteView;
   interactions?: InteractionRequest[];
   cognition?: CognitionView;
   peers?: PeerView;
@@ -794,6 +795,12 @@ export interface AelionAPI {
   setComputerFullscreen(enabled: boolean): Promise<void>;
   setWindowDimmed(enabled: boolean, color?: string): Promise<void>;
   respondInteraction(input: { id: string; action: InteractionAction; answers?: Record<string, string> }): Promise<void>;
+  /** Settings → 手机访问. */
+  saveRemoteSettings(input: import('./remote-types').RemoteSettingsInput): Promise<void>;
+  startRemotePairing(): Promise<void>;
+  cancelRemotePairing(): Promise<void>;
+  decideRemotePairing(input: { allow: boolean }): Promise<void>;
+  removeRemoteDevice(id: string): Promise<void>;
   setCommandPermissionEnabled(input: { id: string; enabled: boolean }): Promise<void>;
   removeCommandPermission(id: string): Promise<void>;
   setHostComputerEnabled(enabled: boolean): Promise<void>;

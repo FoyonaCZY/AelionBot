@@ -1,0 +1,6 @@
+{
+  // The phone app: browser APIs only.
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": { "types": ["vite/client"] },
+  "include": ["src", "../types", "../src/types"]
+}

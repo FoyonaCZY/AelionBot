@@ -1,0 +1,86 @@
+.remote-status.is-online {
+  color: light-dark(#1f8a5b, #6fd3a2);
+}
+.remote-status.is-error {
+  color: light-dark(#b4462f, #f0a090);
+}
+.remote-note {
+  margin: 8px 2px 0;
+  font-size: var(--text-caption);
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.remote-pairing {
+  margin-bottom: 12px;
+  padding: 16px !important;
+}
+.remote-qr {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.remote-qr img {
+  width: 184px;
+  height: 184px;
+  flex: none;
+  border-radius: 12px;
+  background: #fff;
+}
+.remote-qr strong {
+  font-size: 14px;
+}
+.remote-qr p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.remote-qr-actions {
+  display: flex;
+  gap: 16px;
+  margin-top: 10px;
+}
+.remote-qr .text-button {
+  padding-left: 0;
+}
+.remote-request {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.remote-request > svg {
+  flex: none;
+  color: light-dark(#c06a1c, #f0b070);
+}
+.remote-request p {
+  flex: 1;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.remote-request-actions {
+  display: flex;
+  gap: 8px;
+}
+.remote-device {
+  justify-content: flex-start !important;
+}
+.remote-device > .settings-row-copy {
+  flex: 1;
+}
+.remote-device > svg {
+  color: var(--text-secondary);
+}
+.remote-relay-footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--settings-line);
+}
+.remote-relay-footer small {
+  flex: 1;
+  font-size: var(--text-caption);
+  line-height: 1.6;
+  color: var(--text-muted);
+}

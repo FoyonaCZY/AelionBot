@@ -6,6 +6,7 @@ import { DesignSettings } from '../settings/DesignSettings';
 import { RuntimeSettings } from '../settings/RuntimeSettings';
 import { UsageSettings } from '../settings/UsageSettings';
 import { SettingsWindow, type SettingsTab } from '../settings/SettingsWindow';
+import { RemoteSettings } from '../settings/RemoteSettings';
 import { CommandPermissionsSettings } from '../settings/CommandPermissionsSettings';
 import { HostComputerSettings } from '../settings/HostComputerSettings';
 import { UserProfileSettings } from '../settings/UserProfileSettings';
@@ -195,6 +196,7 @@ export function AppModals({
                 <CommandPermissionsSettings rules={state.commandPermissions || []} busy={busy} act={act} />
               </>
             )}
+            {settingsTab === 'remote' && <RemoteSettings view={state.remote} onNotify={setToast} />}
             {settingsTab === 'about' && <AboutSettings update={state.updates} onNotify={setToast} />}
           </SettingsWindow>
         )}

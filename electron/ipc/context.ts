@@ -17,6 +17,7 @@ import type { DesignSystems } from '../core/designer/design-systems';
 import type { DesignerFiles } from '../core/designer/designer-files';
 import type { Integrations } from '../core/extensions/integrations';
 import type { Connectors } from '../core/connectors/connector-hub';
+import type { RemoteHub } from '../core/remote/remote-hub';
 import type { GameRuntime } from '../core/games/runtime';
 import type { PersonaService } from '../core/persona/persona-service';
 import type { GroupChats } from '../core/group/group-chats';
@@ -58,6 +59,7 @@ export interface IpcContext {
   readonly attachments: Attachments;
   readonly integrations: Integrations;
   readonly connectors: Connectors | undefined;
+  readonly remote: RemoteHub | undefined;
   readonly interactions: Interactions;
   readonly host: HostComputer;
   readonly commandPermissions: CommandPermissions;

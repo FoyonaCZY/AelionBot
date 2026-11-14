@@ -14,6 +14,12 @@ export function Icon({ name, size = 20 }: { name: string; size?: number }) {
       </>
     ),
     stop: <rect x="6.5" y="6.5" width="11" height="11" rx="2" />,
+    phone: (
+      <>
+        <rect x="6.5" y="2.5" width="11" height="19" rx="2.5" />
+        <path d="M10.5 18.5h3" />
+      </>
+    ),
     plugin: (
       <path d="M9 3H5a2 2 0 0 0-2 2v4h2a3 3 0 0 1 0 6H3v4a2 2 0 0 0 2 2h4v-2a3 3 0 0 1 6 0v2h4a2 2 0 0 0 2-2v-4h-2a3 3 0 0 1 0-6h2V5a2 2 0 0 0-2-2h-4v2a3 3 0 0 1-6 0V3Z" />
     ),

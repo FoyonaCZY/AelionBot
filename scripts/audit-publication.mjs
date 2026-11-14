@@ -24,6 +24,7 @@ const contents = new Map(),
     '.mjs',
     '.cjs',
     '.json',
+    '.webmanifest',
     '.md',
     '.html',
     '.txt',
@@ -111,7 +112,9 @@ for (const file of new Set(files)) {
       !/^assets\/design-systems\/.+\.(png|jpe?g|webp|gif)$/i.test(file) &&
       !/^docs\/assets\/(?:screenshots|product)\/[^/]+\.(png|jpe?g|webp)$/i.test(file) &&
       !/^website\/public\/blog-media\/(?:[^/]+\/)*[^/]+\.(png|jpe?g|webp|gif)$/i.test(file) &&
-      !/^website\/src\/media\/[^/]+\.(mp4|webp)$/i.test(file)
+      !/^website\/src\/media\/[^/]+\.(mp4|webp)$/i.test(file) &&
+      // The phone app's home screen icons.
+      !/^mobile\/public\/[^/]+\.png$/.test(file)
     )
       findings.push({ file, kind: 'unexpected-artifact' });
     continue;

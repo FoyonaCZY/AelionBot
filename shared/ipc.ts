@@ -188,6 +188,12 @@ export const INVOKE_CHANNELS = {
   reconnectConnector: 'connectors:reconnect',
   decideConnectorPairing: 'connectors:pairing',
   setConnectorsKeepRunning: 'connectors:keep-running',
+  // Phone access
+  saveRemoteSettings: 'remote:settings',
+  startRemotePairing: 'remote:pairing-start',
+  cancelRemotePairing: 'remote:pairing-cancel',
+  decideRemotePairing: 'remote:pairing-decide',
+  removeRemoteDevice: 'remote:device-remove',
   // Experimental local decision model
   installLaya: 'laya:install',
   selectLaya: 'laya:select',

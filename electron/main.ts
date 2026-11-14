@@ -32,7 +32,20 @@ import { hostEnvironment } from './core/host/host-platform';
 import { spawnPty } from './core/host/host-pty';
 import { UserTerminals } from './core/host/user-terminals';
 import { RunPolicy } from './core/agent/runtime-policy';
-import { app, BrowserWindow, ipcMain, safeStorage, dialog, shell, Menu, nativeImage, nativeTheme, net } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  safeStorage,
+  dialog,
+  shell,
+  Menu,
+  nativeImage,
+  nativeTheme,
+  net,
+  powerMonitor,
+  powerSaveBlocker,
+} from 'electron';
 import { randomUUID } from 'node:crypto';
 import { join, resolve, dirname } from 'node:path';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -66,6 +79,8 @@ import { ChatPinQueue } from './core/agent/chat-pins';
 import { Connectors } from './core/connectors/connector-hub';
 import { loadLarkSdk } from './core/connectors/adapters/feishu';
 import { BackgroundTray } from './windows/background-tray';
+import { RemoteHub } from './core/remote/remote-hub';
+import { DirectWindow } from './windows/remote-direct';
 import { TaskScheduler } from './core/scheduler/task-scheduler';
 import { CodeOrchestrator } from './core/tools/code-orchestrator';
 import { checkAutomationScript } from './core/automation/automation-scripts';
@@ -138,6 +153,10 @@ let automationCode: CodeOrchestrator | undefined;
 let greetings: BotGreetings | undefined;
 let connectors: Connectors | undefined;
 let tray: BackgroundTray | undefined;
+let remote: RemoteHub | undefined;
+let directWindow: DirectWindow | undefined;
+/** Keeps the computer awake while phones may connect (a powerSaveBlocker id). */
+let awakeBlocker: number | undefined;
 /** API keys and connector credentials, encrypted with the system key store. */
 const secretCodec = {
   encrypt: (value: string) => {
@@ -226,6 +245,7 @@ function snapshot(): Snapshot {
     dataDir: store.dir,
     integrations: integrations?.snapshot(),
     connectors: connectors?.snapshot(),
+    remote: remote?.view(),
     interactions: interactions?.snapshot() || [],
     cognition: cognition?.view(),
     peers: peerChats?.snapshot(),
@@ -266,6 +286,7 @@ function sendState() {
 function changed() {
   if (exiting) return;
   stateTimer ??= setTimeout(sendState, Math.max(0, lastStateAt + STATE_INTERVAL_MS - Date.now()));
+  remote?.changed();
   chatPins?.wake();
   peerChats?.wake();
   groupChats?.wake();
@@ -273,16 +294,21 @@ function changed() {
 // Streaming text changes only the live replies. A pending push already carries them, together with the messages a
 // finished reply became, so the renderer swaps one for the other in a single render.
 function streamsChanged() {
-  if (exiting || stateTimer) return;
+  if (exiting) return;
+  remote?.streamsChanged();
+  if (stateTimer) return;
   if (window && !window.isDestroyed()) {
     const streamingReplies = liveStreams();
     stateSync.sentStreams(streamingReplies);
     window.webContents.send('app:event', { type: 'streams', streamingReplies });
   }
 }
+/** The IPC handlers by method. Phones reach an allowlisted few of them through RemoteHub (see remoteCall). */
+const handlers = new Map<IpcMethod, (...args: unknown[]) => unknown>();
 // Renderer arguments are untrusted at runtime; the contract types only describe what the preload sends.
 function handle<M extends IpcMethod>(method: M, callback: IpcHandler<M>) {
   const channel = IPC_CHANNELS[method];
+  handlers.set(method, callback as (...args: unknown[]) => unknown);
   ipcMain.handle(channel, async (event, ...args: Parameters<IpcHandler<M>>) => {
     if (!window || event.sender.id !== window.webContents.id || event.senderFrame !== window.webContents.mainFrame)
       throw new Error('不受信任的调用来源');
@@ -295,6 +321,25 @@ function handle<M extends IpcMethod>(method: M, callback: IpcHandler<M>) {
       throw error;
     }
   });
+}
+/** A handler called on a phone's behalf; its arguments are as untrusted as the renderer's. */
+async function remoteCall(method: IpcMethod, ...args: unknown[]) {
+  const callback = handlers.get(method);
+  if (!callback) throw new Error('不支持的操作');
+  if (updatePreparing) throw new Error('正在准备安装更新，请稍候');
+  try {
+    return await callback(...args);
+  } catch (error) {
+    diagnostics?.record('remote.' + method, error);
+    throw error;
+  }
+}
+function keepAwake(on: boolean) {
+  if (on && awakeBlocker === undefined) awakeBlocker = powerSaveBlocker.start('prevent-app-suspension');
+  else if (!on && awakeBlocker !== undefined) {
+    powerSaveBlocker.stop(awakeBlocker);
+    awakeBlocker = undefined;
+  }
 }
 function beforeModelChange(botIds: string[]) {
   const busy = botIds.find((id) => updatePreparing || harness.isRunning(id));
@@ -515,12 +560,16 @@ async function initialize() {
   diagnostics.record('app.started', `AelionBot ${app.getVersion()} (${process.platform} ${process.arch})`);
   slow = slowOperations((source, message) => diagnostics?.record(source, message));
   store.onWrite = (mode, ms) => slow?.('state-write', ms, mode);
-  store.onTouched = (entries) => stateSync.markEdited(entries);
+  store.onTouched = (entries) => {
+    stateSync.markEdited(entries);
+    remote?.markEdited(entries);
+  };
   // A settled message or run edited in place must be touched (tests enforce it). One edited without it reaches the
   // renderer once the store's sweep finds it; note it so the edit can be found and fixed.
   let editedReportedAt = 0;
   store.onEdited = (entries) => {
     const missed = stateSync.markEdited(entries);
+    remote?.markEdited(entries);
     changed();
     if (missed && Date.now() - editedReportedAt > 600_000) {
       editedReportedAt = Date.now();
@@ -1030,6 +1079,31 @@ async function initialize() {
     quit: () => app.quit(),
   });
   tray.refresh();
+  directWindow = new DirectWindow(join(__dirname, 'remote-direct-preload.cjs'));
+  remote = new RemoteHub({
+    store,
+    dataDir,
+    codec: secretCodec,
+    version: app.getVersion(),
+    call: remoteCall,
+    streams: liveStreams,
+    interactions: () => interactions.snapshot(),
+    computer,
+    vmStatus: () => vm.state.status,
+    groups: () => groupChats?.snapshot(),
+    speech: () => ({ input: speech.available('input'), output: speech.available('output') }),
+    attachments,
+    permissionMode: (scope) => hostApprovals.modeForScope(scope),
+    idleSeconds: () => powerMonitor.getSystemIdleTime(),
+    keepAwake,
+    direct: directWindow,
+    changed: () => {
+      changed();
+      tray?.refresh();
+    },
+  });
+  remote.start();
+  powerMonitor.on('resume', () => remote?.wake());
   harness.setGroupGateway(groupChats);
   groupChats.start();
   scheduler = new TaskScheduler(
@@ -1231,7 +1305,7 @@ async function initialize() {
   };
   window.on('close', (event) => {
     // With connectors running, closing the window hides it; the tray brings it back or quits.
-    if (!exiting && connectors?.keepRunning) {
+    if (!exiting && (connectors?.keepRunning || remote?.enabled)) {
       event.preventDefault();
       window?.hide();
       tray?.refresh();
@@ -1410,6 +1484,9 @@ async function initialize() {
     get connectors() {
       return connectors;
     },
+    get remote() {
+      return remote;
+    },
     get scheduler() {
       return scheduler;
     },
@@ -1486,6 +1563,8 @@ async function initialize() {
         () => audioCodecs?.dispose(),
         () => webPreview?.close(),
         () => chatPins?.dispose(),
+        () => remote?.stop(),
+        () => directWindow?.dispose(),
         () => tray?.dispose(),
         () => peerChats?.dispose(),
         () => groupChats?.dispose(),
