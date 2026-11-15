@@ -223,8 +223,11 @@ body:has(.fp-panel[data-layout='docked']) {
     line-height: 1.6;
   }
 
+  /* The composer floats over the messages here too, so it brings its own surface. */
   body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .composer {
     border-radius: 13px;
+    background: var(--surface-float);
+    box-shadow: var(--float-shadow);
   }
 
   body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .permission-mode,
