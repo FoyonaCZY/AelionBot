@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { WebSocket } from 'ws';
 import { startRelay } from '../relay/src/relay';
 import { RemoteHub, type RemoteDeps } from '../electron/core/remote/remote-hub';
+import { homeView } from '../electron/core/remote/remote-view';
 import type { DirectHandlers } from '../electron/core/remote/direct';
 import { Store } from '../electron/core/storage/store';
 import { RemoteClient, type ClientStatus, type SocketLike } from '../shared/remote/client';
@@ -279,4 +280,56 @@ test('a phone moves to a direct connection without losing order, and back to the
   await until(() => statuses.filter((status) => status === 'ready').length > readyBefore);
   assert.equal(client.direct, false);
   assert.ok((await client.call('home.subscribe')).bots.length > 0);
+});
+
+test('the home list tells a Bot’s main chat and its work sessions apart', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'aelion-remote-view-')),
+    store = new Store(dir);
+  t.after(() => {
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+  const now = new Date().toISOString();
+  store.data.bots.push({ id: 'v1', name: '研究助手', soul: '', color: '#8b6bea', createdAt: now, memories: [] });
+  store.message('v1', 'assistant', '主聊天的回答');
+  store.data.workSessions = [{ id: 's1', botId: 'v1', name: '价格复核', createdAt: now, updatedAt: now }];
+  const started = new Date(Date.now() - 60_000).toISOString();
+  store.data.runs.push({
+    id: 'r1',
+    botId: 'v1',
+    sessionId: 's1',
+    status: 'running',
+    startedAt: started,
+    modelCalls: 1,
+    toolCalls: 0,
+  });
+  const sources = {
+    store,
+    name: '家里的电脑',
+    streams: [],
+    computer: { desktops: {} },
+    vmStatus: 'stopped',
+    speech: { input: false, output: false },
+  };
+
+  // The session works; the main chat only has its answer.
+  let home = homeView({ ...sources, interactions: [] });
+  let bot = home.bots.find((item) => item.id === 'v1')!;
+  assert.equal(bot.main?.last?.text, '主聊天的回答');
+  assert.equal(bot.main?.state, undefined);
+  assert.ok(bot.state);
+  let session = home.sessions.find((item) => item.id === 's1')!;
+  assert.ok(session.state && session.state !== 'waiting');
+  assert.equal(session.since, started);
+
+  // A request in the session waits there, not in the main chat.
+  home = homeView({
+    ...sources,
+    interactions: [{ id: 'q1', botId: 'v1', runId: 'r1', createdAt: now, kind: 'computer_use', phase: 'waiting' }],
+  });
+  bot = home.bots.find((item) => item.id === 'v1')!;
+  session = home.sessions.find((item) => item.id === 's1')!;
+  assert.equal(session.state, 'waiting');
+  assert.equal(session.activity, undefined);
+  assert.equal(bot.main?.state, undefined);
 });

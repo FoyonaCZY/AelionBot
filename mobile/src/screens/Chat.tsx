@@ -1,33 +1,108 @@
-// One chat with a Bot: header with the chat switcher, the timeline, and the composer or a request waiting on the user.
+// One chat with a Bot: the header with the chat switcher, the timeline, and under it what the Bot is doing with the
+// composer, or a request waiting on the user. A new session is only a screen until its first message creates it.
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { conversationTimeline } from '../../../shared/chat/activity';
+import { conversationTimeline, liveBotStep, runSteps, type TimelineItem } from '../../../shared/chat/activity';
 import type { RemoteBot } from '../../../shared/remote/protocol';
+import type { ChatMessage, RunRecord } from '../../../shared/types/core';
 import { Avatar } from '../../../src/ui/Avatar';
 import { useI18n } from '../../../src/i18n';
 import { connection, useConnection } from '../connection';
 import { RequestDock } from '../requests';
-import { back, chatPath, go, useEdgeBack } from '../router';
+import { back, chatPath, go, newSessionPath, useEdgeBack } from '../router';
 import { useChat } from '../use-chat';
 import { I } from '../icons';
-import { ConnectionBanner, Sheet, Spinner, timeLabel, toast } from '../ui';
+import { ConnectionBanner, Sheet, Spinner, dayLabel, elapsedLabel, timeLabel, toast, useNow } from '../ui';
 import { Composer } from './Composer';
-import { NoteView, RunView, UserBubble, type PressTarget } from './chat-parts';
+import { NoteView, RunView, UserBubble, type AnswerAction, type PressTarget } from './chat-parts';
 
 const fallbackBot = (id: string): RemoteBot => ({ id, name: '', color: '#8b6bea', time: '' });
+const tint = (color: string) => ({ '--bot': color }) as React.CSSProperties;
+/** Scrolled further than this from the newest message: offer the way back. */
+const AWAY_PX = 400;
+/** A pause this long between messages gets a time above the next one. */
+const GAP_MS = 60 * 60_000;
 
-export function Chat({ botId, sessionId }: { botId: string; sessionId?: string }) {
+const itemTime = (item: TimelineItem) => (item.kind === 'message' ? item.message.time : item.messages[0]?.time);
+/** Whether a time goes above this item: the first one, a new day, or after a long pause. */
+function startsSpan(item: TimelineItem, previous?: TimelineItem) {
+  const time = itemTime(item);
+  if (!time) return false;
+  const before = previous && itemTime(previous);
+  if (!before) return true;
+  return (
+    new Date(time).toDateString() !== new Date(before).toDateString() || Date.parse(time) - Date.parse(before) > GAP_MS
+  );
+}
+
+/** A new session's name: its first message, shortened. */
+function sessionName(message: string) {
+  const line = message.split('\n').find((item) => item.trim()) || '';
+  const text = line.replace(/\s+/g, ' ').trim();
+  return text.length > 30 ? text.slice(0, 30) + '…' : text;
+}
+
+/** What the Bot is doing, above the composer and always in view: the step, how long, its computer, stop. */
+function RunStrip({
+  bot,
+  run,
+  messages,
+  computer,
+  onJump,
+  onStop,
+}: {
+  bot: RemoteBot;
+  run: RunRecord;
+  messages: ChatMessage[];
+  computer: boolean;
+  onJump: () => void;
+  onStop: () => void;
+}) {
+  const { t } = useI18n();
+  const now = useNow();
+  const step = liveBotStep(messages, run);
+  const steps = runSteps(messages).length;
+  if (!step) return null;
+  return (
+    <div className="c-strip" style={tint(bot.color)}>
+      <button className="c-strip-main" onClick={onJump}>
+        <Avatar bot={bot} size={26} activity={step.phase === 'working' ? 'working' : 'thinking'} />
+        <span className="c-strip-text">
+          <b className="x-shimmer">{step.label + (step.detail ? ' ' + step.detail : '')}</b>
+          <small>
+            {[steps ? t('第 {count} 步', { count: steps + 1 }) : '', elapsedLabel(run.startedAt, now)]
+              .filter(Boolean)
+              .join(' · ')}
+          </small>
+        </span>
+      </button>
+      {computer && (
+        <button className="c-strip-pc" aria-label={t('工作电脑')} onClick={() => go('#/computer/' + bot.id)}>
+          <I name="computer" size={18} />
+        </button>
+      )}
+      <button className="c-strip-stop" aria-label={t('停止')} onClick={onStop}>
+        <I name="stop" size={18} />
+      </button>
+    </div>
+  );
+}
+
+export function Chat({ botId, sessionId, fresh }: { botId: string; sessionId?: string; fresh?: boolean }) {
   const { t } = useI18n();
   const { home, queue } = useConnection();
-  const { view, error, more, loadingMore } = useChat(botId, sessionId);
+  const { view, error, more, loadingMore } = useChat(botId, sessionId, !fresh);
   const bot = home?.bots.find((item) => item.id === botId) || fallbackBot(botId);
   const session = sessionId ? home?.sessions.find((item) => item.id === sessionId) : undefined;
-  const request = home?.requests.find(
-    (item) => item.botId === botId && !item.groupId && (item.sessionId || undefined) === sessionId,
-  );
+  const request = fresh
+    ? undefined
+    : home?.requests.find(
+        (item) => item.botId === botId && !item.groupId && (item.sessionId || undefined) === sessionId,
+      );
   const [sheet, setSheet] = useState<'chats' | 'menu' | 'permission' | 'automations'>();
   const [press, setPress] = useState<PressTarget>();
   const [selecting, setSelecting] = useState<string>();
   const [reply, setReply] = useState<{ messageId: string; text: string }>();
+  const [away, setAway] = useState(false);
   const timeline = useMemo(() => (view ? conversationTimeline(view.messages) : []), [view?.messages]);
   const runs = useMemo(() => new Map((view?.runs || []).map((run) => [run.id, run])), [view?.runs]);
   // A run that started but has written nothing yet still shows its live status.
@@ -35,9 +110,13 @@ export function Chat({ botId, sessionId }: { botId: string; sessionId?: string }
     const shown = new Set(timeline.filter((item) => item.kind === 'run').map((item) => item.id));
     return (view?.runs || []).filter((run) => run.status === 'running' && !shown.has(run.id));
   }, [timeline, view?.runs]);
-  const running = Boolean(
-    view?.runs.some((run) => run.status === 'running') ||
-    view?.messages.some((message) => message.inputState === 'queued'),
+  const liveRun = useMemo(
+    () => [...(view?.runs || [])].reverse().find((run) => run.status === 'running'),
+    [view?.runs],
+  );
+  const liveMessages = useMemo(
+    () => (liveRun ? (view?.messages || []).filter((message) => message.runId === liveRun.id) : []),
+    [liveRun, view?.messages],
   );
   const queued = queue.filter((item) => item.botId === botId && (item.sessionId || undefined) === sessionId);
   const scroller = useRef<HTMLDivElement>(null),
@@ -58,10 +137,42 @@ export function Chat({ botId, sessionId }: { botId: string; sessionId?: string }
     anchor.current = scroller.current.scrollHeight - scroller.current.scrollTop;
     void more();
   };
+  const jump = () => {
+    const node = scroller.current;
+    if (!node) return;
+    stick.current = true;
+    setAway(false);
+    node.scrollTo({ top: node.scrollHeight, behavior: 'smooth' });
+  };
+  const stop = () =>
+    void connection
+      .call('chat.stop', { botId, ...(sessionId ? { sessionId } : {}) })
+      .catch((failure: Error) => toast(failure.message));
   const sessions = (home?.sessions || []).filter((item) => item.botId === botId);
   const automations = (home?.automations || []).filter(
     (item) => item.target.kind === 'bot' && item.target.id === botId,
   );
+  const desktop = home?.computer.desktops[botId]?.status;
+  const usesComputer = desktop === 'ready' || desktop === 'starting';
+
+  // A session started here is created once, even if sending its first message has to be tried again.
+  const created = useRef<string | undefined>(undefined);
+  const startSession = async (message: string, files: string[]) => {
+    if (created.current) return created.current;
+    const name = sessionName(message) || files[0] || t('新会话');
+    const made = await connection.call('session.create', { botId, name: name.slice(0, 80) });
+    created.current = made.id;
+    return made.id;
+  };
+
+  const act = (action: AnswerAction, target: PressTarget) => {
+    if (action === 'copy') void navigator.clipboard.writeText(target.text).then(() => toast(t('已复制')));
+    else if (action === 'speak') void readAloud(target.text, botId).catch((failure: Error) => toast(failure.message));
+    else if (action === 'quote') setReply(target);
+    else setPress(target);
+  };
+  const empty = fresh || (view && !timeline.length && !silentRuns.length && !queued.length);
+  const lastIndex = liveRun || request ? -1 : timeline.length - 1;
 
   return (
     <div
@@ -71,26 +182,39 @@ export function Chat({ botId, sessionId }: { botId: string; sessionId?: string }
     >
       <header className="c-nav">
         <button className="x-round" aria-label={t('返回')} onClick={back}>
-          <I name="back" size={26} stroke={2.2} />
+          <I name="back" size={25} stroke={2.2} />
         </button>
-        <button className="c-title" onClick={() => setSheet('chats')}>
-          <b>{bot.name}</b>
-          <small>
-            {session?.name || t('主聊天')}
-            <I name="down" size={14} stroke={2.2} />
-          </small>
+        <button className="c-who" style={tint(bot.color)} onClick={() => setSheet('chats')}>
+          <Avatar bot={bot} size={30} activity={request ? 'waiting' : liveRun ? 'working' : 'idle'} />
+          <span>
+            <b>{bot.name}</b>
+            <small>
+              <span>{fresh ? t('新会话') : session?.name || t('主聊天')}</span>
+              <I name="down" size={13} stroke={2.4} />
+            </small>
+          </span>
+        </button>
+        <button
+          className="x-round"
+          aria-label={t('新会话')}
+          disabled={fresh}
+          onClick={() => go(newSessionPath(botId), true)}
+        >
+          <I name="compose" size={21} />
         </button>
         <button className="x-round" aria-label={t('更多')} onClick={() => setSheet('menu')}>
-          <I name="more" size={24} />
+          <I name="more" size={23} />
         </button>
       </header>
       <ConnectionBanner />
       <div
-        className={'c-scroll' + (request ? ' has-dock' : '')}
+        className="c-scroll"
         ref={scroller}
         onScroll={(event) => {
           const node = event.currentTarget;
-          stick.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80;
+          const distance = node.scrollHeight - node.scrollTop - node.clientHeight;
+          stick.current = distance < 80;
+          setAway(distance > AWAY_PX);
           if (node.scrollTop < 160) loadMore();
         }}
       >
@@ -99,39 +223,41 @@ export function Chat({ botId, sessionId }: { botId: string; sessionId?: string }
             {loadingMore ? <Spinner small /> : t('更早的消息')}
           </button>
         )}
-        {!view && !error && (
+        {!fresh && !view && !error && (
           <div className="c-loading">
             <Spinner />
           </div>
         )}
         {error && <p className="c-error">{error}</p>}
-        {view && !timeline.length && !silentRuns.length && (
-          <div className="c-empty" style={{ '--bot': bot.color } as React.CSSProperties}>
+        {empty && (
+          <div className="c-empty" style={tint(bot.color)}>
             <Avatar bot={bot} size={64} />
-            <p>{t('给 {name} 发消息，它会在电脑上开始工作。', { name: bot.name })}</p>
+            <b>{t('有什么要{name}做的？', { name: bot.name })}</b>
           </div>
         )}
-        {timeline.map((item) =>
-          item.kind === 'message' ? (
-            item.message.role === 'user' ? (
-              <UserBubble key={item.id} message={item.message} bot={bot} onPress={setPress} />
+        {timeline.map((item, index) => (
+          <div key={item.kind === 'run' ? item.segmentId : item.id} className="c-item">
+            {startsSpan(item, timeline[index - 1]) && <div className="c-day">{dayLabel(itemTime(item)!)}</div>}
+            {item.kind === 'message' ? (
+              item.message.role === 'user' ? (
+                <UserBubble message={item.message} onPress={setPress} />
+              ) : (
+                <NoteView message={item.message} onPress={setPress} onAction={index === lastIndex ? act : undefined} />
+              )
             ) : (
-              <NoteView key={item.id} message={item.message} onPress={setPress} />
-            )
-          ) : (
-            <RunView
-              key={item.segmentId}
-              messages={item.messages}
-              run={runs.get(item.id)}
-              isLast={item.isLast}
-              bot={bot}
-              streams={view!.streams}
-              waiting={request?.runId === item.id ? request.kind : undefined}
-              onPress={setPress}
-              onComputer={() => go('#/computer/' + botId)}
-            />
-          ),
-        )}
+              <RunView
+                messages={item.messages}
+                run={runs.get(item.id)}
+                isLast={item.isLast}
+                bot={bot}
+                streams={view!.streams}
+                waiting={request?.runId === item.id ? request.kind : undefined}
+                onPress={setPress}
+                onAction={index === lastIndex ? act : undefined}
+              />
+            )}
+          </div>
+        ))}
         {silentRuns.map((run) => (
           <RunView
             key={run.id}
@@ -145,7 +271,7 @@ export function Chat({ botId, sessionId }: { botId: string; sessionId?: string }
           />
         ))}
         {queued.map((item) => (
-          <div key={item.id} className="c-user is-queued" style={{ '--bot': bot.color } as React.CSSProperties}>
+          <div key={item.id} className="c-user is-queued">
             <div className="c-bubble">{item.text}</div>
             <small className="c-user-note">
               {t('电脑上线后发送')} ·{' '}
@@ -158,89 +284,121 @@ export function Chat({ botId, sessionId }: { botId: string; sessionId?: string }
       </div>
       {request ? (
         <div className="c-foot">
+          {away && (
+            <button className="c-jump" aria-label={t('到最新')} onClick={jump}>
+              <I name="arrowDown" size={18} stroke={2.2} />
+            </button>
+          )}
           <RequestDock request={request} onComputer={() => go('#/computer/' + botId)} />
         </div>
       ) : (
         <Composer
           scope={{ kind: 'bot', id: botId, ...(sessionId ? { sessionId } : {}) }}
-          running={running}
-          onStop={() =>
-            void connection
-              .call('chat.stop', { botId, ...(sessionId ? { sessionId } : {}) })
-              .catch((failure: Error) => toast(failure.message))
-          }
           reply={reply}
           onClearReply={() => setReply(undefined)}
           placeholder={t('发消息')}
+          startSession={fresh ? startSession : undefined}
+          onSent={(id) => {
+            if (fresh && id) go(chatPath(botId, id), true);
+            else jump();
+          }}
+          above={
+            <>
+              {away && (
+                <button className="c-jump" aria-label={t('到最新')} onClick={jump}>
+                  <I name="arrowDown" size={18} stroke={2.2} />
+                </button>
+              )}
+              {liveRun && (
+                <RunStrip
+                  bot={bot}
+                  run={liveRun}
+                  messages={liveMessages}
+                  computer={usesComputer}
+                  onJump={jump}
+                  onStop={stop}
+                />
+              )}
+            </>
+          }
         />
       )}
 
       {sheet === 'chats' && (
         <Sheet onClose={() => setSheet(undefined)}>
-          <div className="s-head" style={{ '--bot': bot.color } as React.CSSProperties}>
-            <Avatar bot={bot} size={44} activity={bot.state === 'working' ? 'working' : 'idle'} />
+          <div className="s-head" style={tint(bot.color)}>
+            <Avatar bot={bot} size={40} activity={bot.state === 'working' ? 'working' : 'idle'} />
             <b>{bot.name}</b>
+            <button
+              className="s-new-chip"
+              onClick={() => {
+                setSheet(undefined);
+                if (!fresh) go(newSessionPath(botId), true);
+              }}
+            >
+              <I name="plus" size={17} stroke={2.2} />
+              {t('新会话')}
+            </button>
           </div>
-          <ul className="s-list">
+          <ul className="s-list" style={tint(bot.color)}>
             <li>
               <button
-                className={'s-row' + (!sessionId ? ' is-current' : '')}
+                className={'s-row' + (!sessionId && !fresh ? ' is-current' : '')}
                 onClick={() => {
                   setSheet(undefined);
-                  if (sessionId) go(chatPath(botId), true);
+                  if (sessionId || fresh) go(chatPath(botId), true);
                 }}
               >
                 <span className="s-text">
                   <b>{t('主聊天')}</b>
+                  {bot.main?.last && <small>{bot.main.last.text}</small>}
                 </span>
-                {!sessionId && <I name="check" size={20} stroke={2.2} />}
+                {bot.main?.state && bot.main.state !== 'waiting' ? (
+                  <span className="h-run">
+                    <i />
+                  </span>
+                ) : (
+                  !sessionId && !fresh && <I name="check" size={20} stroke={2.2} />
+                )}
               </button>
             </li>
-            {sessions.map((item) => (
-              <li key={item.id}>
-                <button
-                  className={'s-row' + (item.id === sessionId ? ' is-current' : '')}
-                  onClick={() => {
-                    setSheet(undefined);
-                    if (item.id !== sessionId) go(chatPath(botId, item.id), true);
-                  }}
-                >
-                  <span className="s-text">
-                    <b>{item.name}</b>
-                    <small className={item.working ? 'x-shimmer' : ''}>
-                      {item.working ? t('正在工作…') : item.last?.text || ''}
-                    </small>
-                  </span>
-                  {item.id === sessionId ? (
-                    <I name="check" size={20} stroke={2.2} />
-                  ) : (
-                    <time>{timeLabel(item.time)}</time>
-                  )}
-                </button>
-              </li>
-            ))}
+            {sessions.map((item) => {
+              const working = (item.state && item.state !== 'waiting') || (!item.state && item.working);
+              return (
+                <li key={item.id}>
+                  <button
+                    className={'s-row' + (item.id === sessionId ? ' is-current' : '')}
+                    onClick={() => {
+                      setSheet(undefined);
+                      if (item.id !== sessionId) go(chatPath(botId, item.id), true);
+                    }}
+                  >
+                    <span className="s-text">
+                      <b>{item.name}</b>
+                      <small className={working ? 'x-shimmer' : ''}>
+                        {item.state === 'waiting'
+                          ? t('等你批准')
+                          : working
+                            ? item.activity
+                              ? item.activity.label + (item.activity.detail ? ' ' + item.activity.detail : '')
+                              : t('正在工作…')
+                            : item.last?.text || ''}
+                      </small>
+                    </span>
+                    {working ? (
+                      <span className="h-run">
+                        <i />
+                      </span>
+                    ) : item.id === sessionId ? (
+                      <I name="check" size={20} stroke={2.2} />
+                    ) : (
+                      <time>{timeLabel(item.time)}</time>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
-          <button
-            className="s-new"
-            onClick={async () => {
-              setSheet(undefined);
-              try {
-                const now = new Date();
-                const created = await connection.call('session.create', {
-                  botId,
-                  name: t('手机上的会话 {time}', {
-                    time: `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
-                  }),
-                });
-                go(chatPath(botId, created.id), true);
-              } catch (failure) {
-                toast((failure as Error).message);
-              }
-            }}
-          >
-            <I name="plus" size={20} stroke={2} />
-            {t('新会话')}
-          </button>
         </Sheet>
       )}
 
@@ -266,19 +424,21 @@ export function Chat({ botId, sessionId }: { botId: string; sessionId?: string }
                 {automations.length > 0 && <em>{automations.length}</em>}
               </button>
             </li>
-            <li>
-              <button onClick={() => setSheet('permission')}>
-                <I name="shield" size={22} />
-                {t('本机操作权限')}
-                <em>
-                  {view?.permission === 'ask'
-                    ? t('每次询问')
-                    : view?.permission === 'full'
-                      ? t('完全放行')
-                      : t('自动审批')}
-                </em>
-              </button>
-            </li>
+            {view && (
+              <li>
+                <button onClick={() => setSheet('permission')}>
+                  <I name="shield" size={22} />
+                  {t('本机操作权限')}
+                  <em>
+                    {view.permission === 'ask'
+                      ? t('每次询问')
+                      : view.permission === 'full'
+                        ? t('完全放行')
+                        : t('自动审批')}
+                  </em>
+                </button>
+              </li>
+            )}
             {sessionId && (
               <li>
                 <button
@@ -392,7 +552,7 @@ export function Chat({ botId, sessionId }: { botId: string; sessionId?: string }
           <div className="m-press-menu" onClick={(event) => event.stopPropagation()}>
             <button
               onClick={() => {
-                void navigator.clipboard.writeText(press.text).then(() => toast(t('已复制')));
+                act('copy', press);
                 setPress(undefined);
               }}
             >
@@ -402,9 +562,8 @@ export function Chat({ botId, sessionId }: { botId: string; sessionId?: string }
             {home?.speech.output && (
               <button
                 onClick={() => {
-                  const text = press.text;
+                  act('speak', press);
                   setPress(undefined);
-                  void readAloud(text, botId).catch((failure: Error) => toast(failure.message));
                 }}
               >
                 {t('朗读')}
@@ -413,7 +572,7 @@ export function Chat({ botId, sessionId }: { botId: string; sessionId?: string }
             )}
             <button
               onClick={() => {
-                setReply({ messageId: press.messageId, text: press.text });
+                act('quote', press);
                 setPress(undefined);
               }}
             >

@@ -26,6 +26,8 @@ interface ConnectionState {
   /** While offline: when the computer was last connected. */
   since?: string;
   welcome?: Welcome;
+  /** Frames travel over a direct connection on the same network instead of through the relay. */
+  direct: boolean;
   home?: HomeView;
   queue: QueuedMessage[];
 }
@@ -42,7 +44,7 @@ function deviceName() {
 const DIRECT_BACKOFF_MS = 10 * 60_000;
 
 class Connection {
-  state: ConnectionState = { loaded: false, computers: [], status: 'none', queue: [] };
+  state: ConnectionState = { loaded: false, computers: [], status: 'none', direct: false, queue: [] };
   private readonly listeners = new Set<() => void>();
   private readonly handlers = new Map<string, Set<(data: unknown) => void>>();
   private readonly streamHandlers = new Map<number, (data: Uint8Array) => void>();
@@ -109,7 +111,11 @@ class Connection {
 
   private async status(client: RemoteClient, status: ClientStatus, since?: string) {
     if (client !== this.client) return;
-    this.set({ status, since: status === 'offline' ? since || this.state.since : this.state.since });
+    this.set({
+      status,
+      direct: client.direct,
+      since: status === 'offline' ? since || this.state.since : this.state.since,
+    });
     if (status === 'pending') void this.call('device.update', { name: deviceName() }).catch(() => {});
     if (status !== 'ready') return;
     const computer = this.state.computer;
@@ -142,6 +148,7 @@ class Connection {
         client,
         relay: this.state.computer!.relay,
         broke: () => (this.directBrokeAt = Date.now()),
+        opened: () => this.client === client && this.set({ direct: true }),
         call: (method, params) => client.call(method, ...([params] as never)),
         onCandidate: (handler) => this.on('direct.candidate', (data) => handler(data as RTCIceCandidateInit)),
       }).catch(() => {});

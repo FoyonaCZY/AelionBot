@@ -17,37 +17,41 @@ function apply(view: ChatView, delta: ChatDelta): ChatView {
   };
 }
 
-export function useChat(botId: string, sessionId?: string) {
+/** With `open` false: a chat that does not exist yet (a new session before its first message). */
+export function useChat(botId: string, sessionId?: string, open = true) {
   const key = chatKey(botId, sessionId);
   const [view, setView] = useState<ChatView>();
   const [error, setError] = useState<string>();
   const [loadingMore, setLoadingMore] = useState(false);
   useEffect(() => {
+    if (!open) return;
     let alive = true;
     setView(undefined);
     setError(undefined);
-    const open = () =>
+    const load = () =>
       connection.call('chat.open', { botId, ...(sessionId ? { sessionId } : {}) }).then(
         (opened) => alive && setView(opened),
         (failure: Error) => alive && setError(failure.message),
       );
-    if (connection.state.status === 'ready') void open();
-    const offReady = connection.on('ready', () => void open());
+    if (connection.state.status === 'ready') void load();
+    const offReady = connection.on('ready', () => void load());
     const offChat = connection.on('chat', (data) => {
       const delta = data as ChatDelta;
       if (alive && delta.key === key) setView((current) => (current ? apply(current, delta) : current));
     });
     connection.presence(key);
     markSeen('bot:' + botId);
+    markSeen('chat:' + key);
     return () => {
       alive = false;
       offReady();
       offChat();
       markSeen('bot:' + botId);
+      markSeen('chat:' + key);
       connection.presence(null);
       if (connection.state.status === 'ready') void connection.call('chat.close').catch(() => {});
     };
-  }, [key]);
+  }, [key, open]);
   const more = useCallback(async () => {
     if (!view?.hasMore || loadingMore) return;
     setLoadingMore(true);

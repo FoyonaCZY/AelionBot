@@ -1,99 +1,196 @@
-// The list of Bots, like a messaging app: what each one is doing, requests waiting on top, groups below.
+// The list of Bots, like a messaging app: the computer in use on top, requests waiting first, each Bot with today's
+// work sessions under it, groups below.
 import { useState } from 'react';
-import type { RemoteBot } from '../../../shared/remote/protocol';
+import { chatKey, type RemoteBot, type RemoteLane, type RemoteSessionRow } from '../../../shared/remote/protocol';
 import { Avatar } from '../../../src/ui/Avatar';
 import { useI18n } from '../../../src/i18n';
 import { connection, useConnection } from '../connection';
 import { RequestCard } from '../requests';
-import { chatPath, go } from '../router';
+import { chatPath, go, newSessionPath } from '../router';
 import { lastSeen } from '../storage';
 import { I } from '../icons';
-import { ConnectionBanner, Sheet, Spinner, timeLabel, toast } from '../ui';
+import { Sheet, Spinner, elapsedLabel, timeLabel, useNow } from '../ui';
 
+type T = (key: string, values?: Record<string, string | number>) => string;
 const tint = (color: string) => ({ '--bot': color }) as React.CSSProperties;
+/** Sessions shown under a Bot at most; the rest are in the chat's switcher. */
+const SESSIONS_SHOWN = 4;
 
-function BotRow({ bot, unread }: { bot: RemoteBot; unread: boolean }) {
+/** When the user last read a chat; before per-chat marks existed, any chat of the Bot counted. */
+function seenAt(seen: Record<string, string>, botId: string, sessionId?: string) {
+  return seen['chat:' + chatKey(botId, sessionId)] || seen['bot:' + botId] || '';
+}
+const unreadLane = (lane: RemoteLane, seen: string) =>
+  Boolean(!lane.state && lane.last && !lane.last.fromUser && lane.last.time > seen);
+
+/** A chat's line: what it waits for or is doing, otherwise its last message. */
+function laneLine(lane: RemoteLane, t: T) {
+  if (lane.state === 'waiting') return { text: t('等你批准'), className: 'is-waiting' };
+  if (lane.state)
+    return {
+      text: lane.activity
+        ? lane.activity.label + (lane.activity.detail ? ' ' + lane.activity.detail : '')
+        : t('正在工作…'),
+      className: 'x-shimmer',
+    };
+  return { text: lane.last ? (lane.last.fromUser ? t('你：') : '') + lane.last.text : '', className: '' };
+}
+
+function Running({ since, now }: { since?: string; now: number }) {
+  return (
+    <span className="h-run">
+      <i />
+      {since && elapsedLabel(since, now)}
+    </span>
+  );
+}
+
+function SessionRow({ session, unread, now }: { session: RemoteSessionRow; unread: boolean; now: number }) {
   const { t } = useI18n();
-  const line =
-    bot.state === 'waiting'
-      ? t('等你批准')
-      : bot.activity
-        ? bot.activity.label + (bot.activity.detail ? ' ' + bot.activity.detail : '')
-        : bot.last
-          ? (bot.last.fromUser ? t('你：') : '') + bot.last.text
-          : '';
+  // Older desktops only say whether a session works.
+  const lane: RemoteLane = session.working && !session.state ? { ...session, state: 'thinking' } : session;
+  const line = laneLine(lane, t);
   return (
     <li>
-      <button className="h-row" style={tint(bot.color)} onClick={() => go(chatPath(bot.id, bot.sessionId))}>
+      <button className="h-session" onClick={() => go(chatPath(session.botId, session.id))}>
+        <i className="h-branch" />
+        <span className="h-session-text">
+          <b>{session.name}</b>
+          <span className={line.className}>{line.text}</span>
+        </span>
+        {lane.state && lane.state !== 'waiting' ? (
+          <Running since={lane.since} now={now} />
+        ) : (
+          <>
+            <time>{timeLabel(session.time)}</time>
+            {unread && <i className="h-dot" />}
+          </>
+        )}
+      </button>
+    </li>
+  );
+}
+
+function BotRow({
+  bot,
+  sessions,
+  seen,
+  now,
+}: {
+  bot: RemoteBot;
+  sessions: RemoteSessionRow[];
+  seen: Record<string, string>;
+  now: number;
+}) {
+  const { t } = useI18n();
+  // The row is the main chat when the desktop says what it does; older desktops describe the Bot's newest chat.
+  const lane: RemoteLane = bot.main || bot;
+  const line = laneLine(lane, t);
+  const unread = unreadLane(lane, seenAt(seen, bot.id, bot.main ? undefined : bot.sessionId));
+  return (
+    <li className="h-item" style={tint(bot.color)}>
+      <button className="h-row" onClick={() => go(chatPath(bot.id, bot.main ? undefined : bot.sessionId))}>
         <Avatar
           bot={bot}
-          size={54}
-          activity={bot.state === 'working' ? 'working' : bot.state === 'thinking' ? 'thinking' : 'idle'}
+          size={48}
+          activity={
+            bot.state === 'working'
+              ? 'working'
+              : bot.state === 'thinking'
+                ? 'thinking'
+                : bot.state === 'waiting'
+                  ? 'waiting'
+                  : 'idle'
+          }
         />
         <span className="h-row-text">
           <span className="h-row-top">
             <b>{bot.name}</b>
-            <time>{timeLabel(bot.time)}</time>
+            {bot.main && lane.state && lane.state !== 'waiting' ? (
+              <Running since={lane.since} now={now} />
+            ) : (
+              lane.last && <time>{timeLabel(lane.time)}</time>
+            )}
           </span>
           <span className="h-row-bottom">
-            <span className={'h-line' + (bot.state ? ' is-' + (bot.state === 'waiting' ? 'waiting' : 'working') : '')}>
-              {line}
-            </span>
+            <span className={'h-line ' + line.className}>{line.text}</span>
             {unread && <i className="h-dot" />}
           </span>
         </span>
       </button>
+      {sessions.length > 0 && (
+        <ul className="h-sessions">
+          {sessions.map((session) => (
+            <SessionRow
+              key={session.id}
+              session={session}
+              unread={unreadLane(session, seenAt(seen, bot.id, session.id))}
+              now={now}
+            />
+          ))}
+        </ul>
+      )}
     </li>
   );
 }
 
 export function Home() {
   const { t } = useI18n();
-  const { home, status, computer, computers } = useConnection();
+  const { home, status, since, direct, computer, computers } = useConnection();
   const [sheet, setSheet] = useState<'computers' | 'new'>();
   const seen = lastSeen();
   const bots = home?.bots || [];
   const botsById = new Map(bots.map((bot) => [bot.id, bot]));
-  const startSession = async (botId: string) => {
-    setSheet(undefined);
-    try {
-      const now = new Date();
-      const session = await connection.call('session.create', {
-        botId,
-        name: t('手机上的会话 {time}', {
-          time: `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
-        }),
-      });
-      go(chatPath(botId, session.id));
-    } catch (error) {
-      toast((error as Error).message);
-    }
-  };
+  // Under each Bot: sessions that work, wait or were active today.
+  const today = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
+  const shown = (botId: string) =>
+    (home?.sessions || [])
+      .filter(
+        (session) =>
+          session.botId === botId &&
+          (session.state ||
+            session.working ||
+            session.time >= today ||
+            unreadLane(session, seenAt(seen, botId, session.id))),
+      )
+      .slice(0, SESSIONS_SHOWN);
+  const running = Boolean(
+    bots.some((bot) => bot.main?.since) || home?.sessions.some((session) => session.since && session.state),
+  );
+  const now = useNow(running);
+  const line =
+    status === 'ready'
+      ? t('已连接') + (direct ? ' · ' + t('同一网络直连') : '')
+      : status === 'offline' && since
+        ? t('离线 · 最后在线 {time}', { time: timeLabel(since) })
+        : status === 'error'
+          ? t('连不上中继，正在重试…')
+          : statusText(status, t);
   return (
     <div className="h-screen">
-      <div className="h-nav">
+      <header className="h-bar">
         <button className="x-round" aria-label={t('设置')} onClick={() => go('#/settings')}>
-          <I name="settings" size={22} />
+          <I name="settings" size={22} stroke={1.7} />
+        </button>
+        <button className={'h-pc is-' + status} onClick={() => setSheet('computers')}>
+          <b>
+            <span>{computer?.name}</span>
+            <I name="down" size={15} stroke={2.4} />
+          </b>
+          <small>
+            <i />
+            {line}
+          </small>
         </button>
         <button
           className="x-round"
           aria-label={t('新会话')}
-          disabled={status !== 'ready'}
-          onClick={() => setSheet('new')}
+          disabled={status !== 'ready' || !bots.length}
+          onClick={() => (bots.length === 1 ? go(newSessionPath(bots[0].id)) : setSheet('new'))}
         >
-          <I name="compose" size={23} />
+          <I name="compose" size={22} />
         </button>
-      </div>
-      <div className="h-title">
-        <h1>AelionBot</h1>
-        <button className={'h-pc is-' + status} onClick={() => setSheet('computers')}>
-          <i />
-          {computer?.name}
-          {status === 'offline' && ' · ' + t('离线')}
-          <I name="down" size={16} stroke={2} />
-        </button>
-      </div>
-      <ConnectionBanner />
+      </header>
       {status === 'connecting' && !home && (
         <div className="h-loading">
           <Spinner />
@@ -109,21 +206,15 @@ export function Home() {
       ))}
       <ul className="h-list">
         {bots.map((bot) => (
-          <BotRow
-            key={bot.id}
-            bot={bot}
-            unread={Boolean(
-              !bot.state && bot.last && !bot.last.fromUser && bot.last.time > (seen['bot:' + bot.id] || ''),
-            )}
-          />
+          <BotRow key={bot.id} bot={bot} sessions={shown(bot.id)} seen={seen} now={now} />
         ))}
         {(home?.groups || []).map((group) => (
-          <li key={group.id}>
+          <li key={group.id} className="h-item">
             <button className="h-row" onClick={() => go('#/group/' + group.id)}>
               <span className="h-group">
                 {group.members.slice(0, 4).map((id) => {
                   const member = botsById.get(id);
-                  return member ? <Avatar key={id} bot={member} size={25} /> : null;
+                  return member ? <Avatar key={id} bot={member} size={22} /> : null;
                 })}
               </span>
               <span className="h-row-text">
@@ -132,7 +223,7 @@ export function Home() {
                   <time>{timeLabel(group.time)}</time>
                 </span>
                 <span className="h-row-bottom">
-                  <span className={'h-line' + (group.active ? ' is-working' : '')}>{group.line}</span>
+                  <span className={'h-line' + (group.active ? ' x-shimmer' : '')}>{group.line}</span>
                   {group.unread > 0 && <em>{group.unread}</em>}
                 </span>
               </span>
@@ -142,7 +233,6 @@ export function Home() {
       </ul>
       {sheet === 'computers' && (
         <Sheet onClose={() => setSheet(undefined)}>
-          <div className="s-title">{t('电脑')}</div>
           <ul className="s-list">
             {computers.map((item) => (
               <li key={item.room}>
@@ -153,10 +243,12 @@ export function Home() {
                     if (item.room !== computer?.room) void connection.select(item.room);
                   }}
                 >
-                  <I name="computer" size={22} />
+                  <span className="s-icon">
+                    <I name="computer" size={20} />
+                  </span>
                   <span className="s-text">
                     <b>{item.name}</b>
-                    <small>{item.room === computer?.room ? statusText(status, t) : t('点一下切换')}</small>
+                    <small>{item.room === computer?.room ? line : t('点一下切换')}</small>
                   </span>
                   {item.room === computer?.room && <I name="check" size={20} stroke={2.2} />}
                 </button>
@@ -175,7 +267,13 @@ export function Home() {
           <ul className="s-list">
             {bots.map((bot) => (
               <li key={bot.id}>
-                <button className="s-row" onClick={() => void startSession(bot.id)}>
+                <button
+                  className="s-row"
+                  onClick={() => {
+                    setSheet(undefined);
+                    go(newSessionPath(bot.id));
+                  }}
+                >
                   <Avatar bot={bot} size={36} />
                   <span className="s-text">
                     <b>{bot.name}</b>

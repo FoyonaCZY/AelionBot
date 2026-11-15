@@ -19,6 +19,7 @@ import type {
   HomeView,
   RecentFile,
   RemoteBot,
+  RemoteLane,
   RemoteLast,
   RemoteRequest,
   RemoteSessionRow,
@@ -99,18 +100,38 @@ export function homeView(sources: ViewSources): HomeView {
     (run) => run.status === 'running' && !run.groupOrigin && !isPrivatePeerOrigin(run.peerOrigin),
   );
   const requests = sources.interactions.map((request) => locateRequest(request, runs));
-  const sessions = (store.data.workSessions || []).filter((session) => !session.archivedAt);
-  const sessionRows: RemoteSessionRow[] = sessions.map((session) => {
-    const message = latest.get('session:' + session.id);
+  /** What one chat of a Bot is doing: a request waiting in it, or its newest run in progress. */
+  const lane = (botId: string, sessionId: string | undefined, message: ChatMessage | undefined, created: string) => {
+    const run = running
+      .filter((item) => item.botId === botId && item.sessionId === sessionId)
+      .sort((a, b) => time(b.startedAt) - time(a.startedAt))[0];
+    const request = requests.find(
+      (item) => item.botId === botId && !item.groupId && (item.sessionId || undefined) === sessionId,
+    );
+    const step = run ? liveBotStep(runningTool.has(run.id) ? [runningTool.get(run.id)!] : [], run) : undefined;
+    const state: RemoteLane['state'] = request
+      ? 'waiting'
+      : step
+        ? step.phase === 'working'
+          ? 'working'
+          : 'thinking'
+        : undefined;
     return {
-      id: session.id,
-      botId: session.botId,
-      name: session.name,
       ...(message ? { last: last(message) } : {}),
-      time: message && time(message.time) > time(session.updatedAt) ? message.time : session.updatedAt,
-      ...(running.some((run) => run.sessionId === session.id) ? { working: true } : {}),
-    };
-  });
+      time: message && time(message.time) > time(created) ? message.time : created,
+      ...(state ? { state } : {}),
+      ...(step && !request ? { activity: { label: step.label, ...(step.detail ? { detail: step.detail } : {}) } } : {}),
+      ...(run ? { since: run.startedAt } : {}),
+    } satisfies RemoteLane;
+  };
+  const sessions = (store.data.workSessions || []).filter((session) => !session.archivedAt);
+  const sessionRows: RemoteSessionRow[] = sessions.map((session) => ({
+    id: session.id,
+    botId: session.botId,
+    name: session.name,
+    ...lane(session.botId, session.id, latest.get('session:' + session.id), session.updatedAt),
+    ...(running.some((run) => run.sessionId === session.id) ? { working: true } : {}),
+  }));
   const bots: RemoteBot[] = store.data.bots.map((bot) => {
     const lanes = [
       { sessionId: undefined as string | undefined, message: latest.get(bot.id) },
@@ -149,6 +170,7 @@ export function homeView(sources: ViewSources): HomeView {
           ? run.startedAt
           : newest?.message?.time || bot.createdAt,
       ...(sessionId ? { sessionId } : {}),
+      main: lane(bot.id, undefined, latest.get(bot.id), bot.createdAt),
     };
   });
   bots.sort((a, b) => Number(Boolean(b.state)) - Number(Boolean(a.state)) || time(b.time) - time(a.time));

@@ -5,8 +5,10 @@ import { connection } from './connection';
 import { App } from './app';
 import { takeLinkFromAddress } from './screens/Welcome';
 import { go } from './router';
+import { applyTheme } from './theme';
 import './mobile.css';
 
+applyTheme();
 startI18n();
 takeLinkFromAddress();
 

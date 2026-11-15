@@ -106,6 +106,49 @@ export function timeLabel(iso?: string) {
   });
 }
 
+/** Above messages in a chat: 今天 09:24, 昨天 18:02, 11月12日 08:30. */
+export function dayLabel(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const now = new Date(),
+    today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const language = currentLanguage() === 'zh-CN' ? 'zh-CN' : currentLanguage() === 'zh-TW' ? 'zh-TW' : 'en';
+  const time = date.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit', hour12: false });
+  if (date.getTime() >= today) return translate('今天') + ' ' + time;
+  if (date.getTime() >= today - 86_400_000) return translate('昨天') + ' ' + time;
+  return (
+    date.toLocaleDateString(language, {
+      month: 'numeric',
+      day: 'numeric',
+      ...(date.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}),
+    }) +
+    ' ' +
+    time
+  );
+}
+
+/** How long a run has been going: 0:42, 12:05, 1:03:20. */
+export function elapsedLabel(since: string, now: number) {
+  const seconds = Math.max(0, Math.floor((now - Date.parse(since)) / 1000));
+  if (!Number.isFinite(seconds)) return '';
+  const pad = (value: number) => String(value).padStart(2, '0');
+  const hours = Math.floor(seconds / 3600),
+    minutes = Math.floor((seconds % 3600) / 60);
+  return hours ? `${hours}:${pad(minutes)}:${pad(seconds % 60)}` : `${minutes}:${pad(seconds % 60)}`;
+}
+
+/** The current time, every second while `active`: for running timers. */
+export function useNow(active = true) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!active) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [active]);
+  return now;
+}
+
 /** What the connection is doing, when it is not simply connected. */
 export function ConnectionBanner() {
   const { status, since, computer } = useConnection();

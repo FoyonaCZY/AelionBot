@@ -1,10 +1,12 @@
 // Screens are hash routes, so the relay or any static host can serve the app without server-side routing:
-// #/ home, #/chat/<bot>[/<session>], #/group/<id>, #/computer/<bot>, #/files/<bot>, #/settings, #/pair.
+// #/ home, #/chat/<bot>[/<session>], #/new/<bot> (a session not started yet), #/group/<id>, #/computer/<bot>,
+// #/files/<bot>, #/settings, #/pair.
 import { useEffect, useState } from 'react';
 
 export type Route =
   | { name: 'home' }
   | { name: 'chat'; botId: string; sessionId?: string }
+  | { name: 'new'; botId: string }
   | { name: 'group'; id: string }
   | { name: 'computer'; botId: string }
   | { name: 'files'; botId: string }
@@ -25,6 +27,7 @@ function parseRoute(hash: string): Route {
     });
   const [name, first, second] = parts;
   if (name === 'chat' && first) return { name, botId: first, ...(second ? { sessionId: second } : {}) };
+  if (name === 'new' && first) return { name, botId: first };
   if (name === 'group' && first) return { name, id: first };
   if (name === 'computer' && first) return { name, botId: first };
   if (name === 'files' && first) return { name, botId: first };
@@ -34,6 +37,7 @@ function parseRoute(hash: string): Route {
 
 export const chatPath = (botId: string, sessionId?: string) =>
   '#/chat/' + encodeURIComponent(botId) + (sessionId ? '/' + encodeURIComponent(sessionId) : '');
+export const newSessionPath = (botId: string) => '#/new/' + encodeURIComponent(botId);
 
 /** Screens opened inside the app; going back past the first one (a notification opened the app on a chat) leads home. */
 let depth = 0;

@@ -13,6 +13,8 @@ export async function tryDirect(input: {
   relay: string;
   /** The direct connection broke after it was in use. */
   broke(): void;
+  /** Frames now travel over it. */
+  opened(): void;
   call<M extends RemoteMethod>(method: M, params: RemoteParams<M>): Promise<RemoteResult<M>>;
   onCandidate(handler: (candidate: RTCIceCandidateInit) => void): () => void;
 }) {
@@ -37,6 +39,7 @@ export async function tryDirect(input: {
     if ((pc.sctp?.maxMessageSize ?? FRAME_LIMIT) < FRAME_LIMIT) return close();
     opened = true;
     input.client.attachDirect({ send: (frame) => channel.send(frame as Uint8Array<ArrayBuffer>), close });
+    input.opened();
   };
   channel.onmessage = (event) => input.client.receiveDirect(new Uint8Array(event.data as ArrayBuffer));
   channel.onclose = () => {

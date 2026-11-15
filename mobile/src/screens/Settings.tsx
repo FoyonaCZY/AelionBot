@@ -1,4 +1,4 @@
-// The phone's settings: computers, notifications, Face ID, this phone's name, disconnecting.
+// The phone's settings: computers, appearance, notifications, Face ID, disconnecting.
 import { useState } from 'react';
 import type { NotifyPrefs } from '../../../shared/remote/protocol';
 import { useI18n } from '../../../src/i18n';
@@ -7,12 +7,14 @@ import { disablePush, enablePush, enableVerify, isIos, isStandalone, pushSupport
 import { back, go, useEdgeBack } from '../router';
 import { I } from '../icons';
 import { statusText } from './Home';
+import { setThemeChoice, themeChoice } from '../theme';
 import { timeLabel, toast } from '../ui';
 
 export function Settings() {
   const { t } = useI18n();
   const { computers, computer, status, welcome, since } = useConnection();
   const [busy, setBusy] = useState(false);
+  const [theme, setTheme] = useState(themeChoice);
   const edge = useEdgeBack();
   const device = welcome?.device;
   const ready = status === 'ready';
@@ -87,6 +89,30 @@ export function Settings() {
             </button>
           </li>
         </ul>
+
+        <div className="st-title">{t('外观')}</div>
+        <div className="st-seg" role="radiogroup" aria-label={t('外观')}>
+          {(
+            [
+              ['system', t('跟随系统')],
+              ['light', t('浅色')],
+              ['dark', t('深色')],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              role="radio"
+              aria-checked={theme === value}
+              className={theme === value ? 'is-on' : ''}
+              onClick={() => {
+                setThemeChoice(value);
+                setTheme(value);
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         <div className="st-title">{t('通知')}</div>
         <ul className="st-list">

@@ -7,7 +7,7 @@ import { Avatar } from '../../src/ui/Avatar';
 import { useI18n } from '../../src/i18n';
 import { connection } from './connection';
 import { I } from './icons';
-import { toast } from './ui';
+import { timeLabel, toast } from './ui';
 
 function describeRequest(request: RemoteRequest, t: (key: string) => string) {
   if (request.kind === 'host_permission') {
@@ -48,41 +48,43 @@ export function RequestCard({ request, bot, onOpen }: { request: RemoteRequest; 
   return (
     <div className="h-ask" style={bot ? ({ '--bot': bot.color } as React.CSSProperties) : undefined}>
       <button className="h-ask-head" onClick={onOpen}>
-        {bot && <Avatar bot={bot} size={26} activity="waiting" />}
+        {bot && <Avatar bot={bot} size={24} activity="waiting" />}
         <span className="h-ask-text">
           <b>{bot?.name}</b> {text.title}
         </span>
-        <I name="right" size={16} />
+        <time>{timeLabel(request.createdAt)}</time>
       </button>
       {text.main && (text.code ? <code>{text.main}</code> : <p>{text.main}</p>)}
-      {text.quick ? (
-        <div className="x-pair">
-          <button
-            className="x-btn"
-            disabled={busy}
-            onClick={() => {
-              setBusy(true);
-              void respond(request.id, 'deny').finally(() => setBusy(false));
-            }}
-          >
-            {t('拒绝')}
+      <div className="h-ask-actions">
+        {text.quick ? (
+          <>
+            <button
+              className="x-pill"
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                void respond(request.id, 'deny').finally(() => setBusy(false));
+              }}
+            >
+              {t('拒绝')}
+            </button>
+            <button
+              className="x-pill is-primary"
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                void respond(request.id, 'allow').finally(() => setBusy(false));
+              }}
+            >
+              {t('允许')}
+            </button>
+          </>
+        ) : (
+          <button className="x-pill is-primary" onClick={onOpen}>
+            {request.kind === 'user_input' ? t('去回答') : t('去处理')}
           </button>
-          <button
-            className="x-btn is-primary"
-            disabled={busy}
-            onClick={() => {
-              setBusy(true);
-              void respond(request.id, 'allow').finally(() => setBusy(false));
-            }}
-          >
-            {t('允许')}
-          </button>
-        </div>
-      ) : (
-        <button className="x-btn is-wide" onClick={onOpen}>
-          {request.kind === 'user_input' ? t('去回答') : t('去处理')}
-        </button>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -109,8 +111,9 @@ export function RequestDock({ request, onComputer }: { request: RemoteRequest; o
       </span>
       <b>{text.title}</b>
       {request.kind === 'host_permission' && (
-        <button className="x-link" onClick={() => setDetails(!details)}>
+        <button className="c-dock-more" onClick={() => setDetails(!details)}>
           {details ? t('收起') : t('详情')}
+          <I name={details ? 'fold' : 'down'} size={14} stroke={2.2} />
         </button>
       )}
     </div>

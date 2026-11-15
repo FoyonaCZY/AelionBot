@@ -149,14 +149,26 @@ export interface RemoteLast {
   fromUser: boolean;
   time: string;
 }
+/** working: running a tool; thinking: running otherwise; waiting: a request is waiting for the user. */
+type RemoteState = 'working' | 'thinking' | 'waiting';
+/** One chat as a line in a list: its last message, and what it is doing now. */
+export interface RemoteLane {
+  last?: RemoteLast;
+  /** Last activity in the chat. */
+  time: string;
+  state?: RemoteState;
+  /** What it is doing now, while it works. */
+  activity?: { label: string; detail?: string };
+  /** When the run in progress started. */
+  since?: string;
+}
 export interface RemoteBot {
   id: string;
   name: string;
   color: string;
   avatarStyle?: BotAvatarStyle;
-  /** working: running a tool; thinking: running otherwise; waiting: a request is waiting for the user. */
-  state?: 'working' | 'thinking' | 'waiting';
-  /** What it is doing now, while it works. */
+  /** In any of its chats. */
+  state?: RemoteState;
   activity?: { label: string; detail?: string };
   /** The last message in any of its chats. */
   last?: RemoteLast;
@@ -164,13 +176,13 @@ export interface RemoteBot {
   time: string;
   /** The chat that activity was in, so the list opens the right one. */
   sessionId?: string;
+  /** The main chat alone, so the list can show work sessions under it (absent from older desktops). */
+  main?: RemoteLane;
 }
-export interface RemoteSessionRow {
+export interface RemoteSessionRow extends RemoteLane {
   id: string;
   botId: string;
   name: string;
-  last?: RemoteLast;
-  time: string;
   working?: boolean;
 }
 interface RemoteGroupRow {

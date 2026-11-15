@@ -1,7 +1,8 @@
-// The message box: + for photos and files (a panel where the keyboard would be), the field with the microphone, and
-// one round button to send or to stop the Bot. Voice is transcribed by the computer's speech service and lands in the
-// field to be read before sending. Written while the computer is offline, text waits on the phone.
-import { useEffect, useId, useRef, useState } from 'react';
+// The message box, one rounded field: + for photos and files (a panel where the keyboard would be), the text, and the
+// microphone or, once there is something to send, the send button. Voice is transcribed by the computer's speech
+// service and lands in the field to be read before sending. Written while the computer is offline, text waits on the
+// phone.
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import type { Attachment } from '../../../shared/types/attachment-types';
 import { useI18n } from '../../../src/i18n';
 import { connection, useConnection } from '../connection';
@@ -24,13 +25,23 @@ export function Composer({
   reply,
   onClearReply,
   placeholder,
+  above,
+  startSession,
+  onSent,
 }: {
   scope: { kind: 'bot' | 'group'; id: string; sessionId?: string };
+  /** With `onStop`: an empty field offers to stop instead of the microphone. */
   running?: boolean;
   onStop?: () => void;
   reply?: { messageId: string; text: string };
   onClearReply?: () => void;
   placeholder: string;
+  /** Shown over the field: what the Bot is doing, the way back to the newest message. */
+  above?: ReactNode;
+  /** A session that does not exist yet: created with the first message, which this returns its id for. */
+  startSession?: (message: string, files: string[]) => Promise<string>;
+  /** After a message went out, with the session it went to. */
+  onSent?: (sessionId?: string) => void;
 }) {
   const { t } = useI18n();
   const { status, home } = useConnection();
@@ -75,6 +86,7 @@ export function Composer({
     if (!canSend) return;
     const message = text.trim();
     if (!online) {
+      if (startSession) return toast(t('电脑上线后才能开始新会话'));
       if (scope.kind !== 'bot') return toast(t('电脑离线，群聊消息要等它上线再发'));
       if (ready.length) return toast(t('电脑离线，只能先保存文字'));
       await connection.enqueue({
@@ -95,17 +107,28 @@ export function Composer({
           ...(attachmentIds.length ? { attachmentIds } : {}),
           ...(reply ? { replyToMessageId: reply.messageId } : {}),
         });
-      else
+      let sessionId = scope.sessionId;
+      if (scope.kind === 'bot') {
+        sessionId =
+          scope.sessionId ||
+          (startSession
+            ? await startSession(
+                message,
+                ready.map((item) => item.name),
+              )
+            : undefined);
         await connection.call('chat.send', {
           botId: scope.id,
-          ...(scope.sessionId ? { sessionId: scope.sessionId } : {}),
+          ...(sessionId ? { sessionId } : {}),
           message,
           ...(attachmentIds.length ? { attachmentIds } : {}),
           ...(reply ? { replyToMessageId: reply.messageId } : {}),
         });
+      }
       setText('');
       setDrafts([]);
       onClearReply?.();
+      onSent?.(sessionId);
     } catch (error) {
       toast((error as Error).message);
     } finally {
@@ -116,6 +139,7 @@ export function Composer({
   if (recorder.recording || recorder.transcribing)
     return (
       <div className="c-foot">
+        {above}
         <div className="c-voice">
           <button className="c-plus" aria-label={t('取消')} onClick={recorder.cancel}>
             <I name="close" size={20} />
@@ -144,7 +168,8 @@ export function Composer({
 
   return (
     <>
-      <div className={'c-foot' + (panel ? ' is-raised' : '')}>
+      <div className="c-foot">
+        {above}
         {reply && (
           <div className="c-reply">
             <span>{reply.text.slice(0, 80)}</span>
@@ -154,59 +179,56 @@ export function Composer({
           </div>
         )}
         <div className="c-composer">
-          <button className="c-plus" aria-label={t('添加图片或文件')} onClick={() => setPanel(!panel)}>
-            <I name={panel ? 'close' : 'plus'} size={24} stroke={2} />
-          </button>
-          <div className={'c-field' + (drafts.length ? ' has-files' : '')}>
-            {drafts.length > 0 && (
-              <div className="c-drafts">
-                {drafts.map((item) => (
-                  <span key={item.key} className={'c-draft' + (item.failed ? ' is-failed' : '')}>
-                    {item.preview ? (
-                      <img src={item.preview} alt="" />
-                    ) : (
-                      <span className="c-draft-name">{item.name}</span>
-                    )}
-                    {!item.attachment && !item.failed && (
-                      <span className="c-draft-wait">
-                        <Spinner small />
-                      </span>
-                    )}
-                    <button
-                      aria-label={t('移除')}
-                      onClick={() => setDrafts((items) => items.filter((entry) => entry.key !== item.key))}
-                    >
-                      <I name="close" size={11} stroke={2.6} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-            <div className="c-field-row">
-              <textarea
-                ref={field}
-                rows={1}
-                value={text}
-                placeholder={online ? placeholder : t('电脑上线后发送')}
-                onChange={(event) => setText(event.target.value)}
-                onFocus={() => setPanel(false)}
-              />
-              {!text && home?.speech.input && online && (
-                <button className="c-mic" aria-label={t('语音输入')} onClick={recorder.start}>
-                  <I name="mic" size={22} />
-                </button>
-              )}
+          {drafts.length > 0 && (
+            <div className="c-drafts">
+              {drafts.map((item) => (
+                <span key={item.key} className={'c-draft' + (item.failed ? ' is-failed' : '')}>
+                  {item.preview ? <img src={item.preview} alt="" /> : <span className="c-draft-name">{item.name}</span>}
+                  {!item.attachment && !item.failed && (
+                    <span className="c-draft-wait">
+                      <Spinner small />
+                    </span>
+                  )}
+                  <button
+                    aria-label={t('移除')}
+                    onClick={() => setDrafts((items) => items.filter((entry) => entry.key !== item.key))}
+                  >
+                    <I name="close" size={11} stroke={2.6} />
+                  </button>
+                </span>
+              ))}
             </div>
+          )}
+          <div className="c-composer-row">
+            <button className="c-plus" aria-label={t('添加图片或文件')} onClick={() => setPanel(!panel)}>
+              <I name={panel ? 'close' : 'plus'} size={22} stroke={2} />
+            </button>
+            <textarea
+              ref={field}
+              rows={1}
+              value={text}
+              placeholder={online ? placeholder : t('电脑上线后发送')}
+              onChange={(event) => setText(event.target.value)}
+              onFocus={() => setPanel(false)}
+            />
+            {canSend || sending ? (
+              <button className="c-send" aria-label={t('发送')} disabled={sending} onClick={() => void send()}>
+                {sending ? <Spinner small /> : <I name="up" size={20} stroke={2.4} />}
+              </button>
+            ) : running && onStop ? (
+              <button className="c-send" aria-label={t('停止')} onClick={onStop}>
+                <I name="stop" size={20} />
+              </button>
+            ) : (
+              !text &&
+              home?.speech.input &&
+              online && (
+                <button className="c-mic" aria-label={t('语音输入')} onClick={recorder.start}>
+                  <I name="mic" size={21} />
+                </button>
+              )
+            )}
           </div>
-          {canSend ? (
-            <button className="c-send" aria-label={t('发送')} onClick={() => void send()}>
-              {sending ? <Spinner small /> : <I name="up" size={22} stroke={2.4} />}
-            </button>
-          ) : running && onStop ? (
-            <button className="c-send" aria-label={t('停止')} onClick={onStop}>
-              <I name="stop" size={22} />
-            </button>
-          ) : null}
         </div>
       </div>
       {panel && (

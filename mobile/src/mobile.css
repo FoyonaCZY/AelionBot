@@ -1,15 +1,20 @@
-/* AelionBot on the phone: a neutral ground, the Bot's color only on what belongs to the Bot. System fonts, 17px body. */
+/* AelionBot on the phone: a neutral ground, the Bot's color only on what belongs to the Bot. System fonts, 16px body. */
 :root {
   --bg: #ffffff;
   --raised: #ffffff;
+  --card: #f4f4f6;
   --fill: #f2f2f4;
-  --fill-2: #e7e7ea;
-  --sep: rgba(60, 60, 67, 0.13);
-  --ink: #111111;
-  --ink-2: #77777c;
-  --ink-3: #ababaf;
-  --primary: #111111;
+  --fill-2: #e5e5e9;
+  --bubble: #efeff2;
+  --line: #dcdce0;
+  --sep: rgba(60, 60, 67, 0.12);
+  --ink: #0f0f10;
+  --ink-2: #6f6f75;
+  --ink-3: #a3a3a9;
+  --primary: #0f0f10;
   --on-primary: #ffffff;
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.1);
+  --grouped: #f2f2f4;
   --wait: #d97a1e;
   --ok: #26a269;
   --danger: #d6453a;
@@ -18,7 +23,7 @@
   --font-ui:
     -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', 'Segoe UI', Roboto, sans-serif;
   --font-code: ui-monospace, 'SF Mono', Menlo, 'Roboto Mono', monospace;
-  --text-body: 17px;
+  --text-body: 16px;
   --text-control: 15px;
   --text-caption: 13px;
   --weight-body: 400;
@@ -29,20 +34,44 @@
   --text-muted: var(--ink-3);
   color-scheme: light;
 }
+/* Dark: with the system, unless the user chose a theme in settings (data-theme on <html>). */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0e0e0f;
-    --raised: #1c1c1e;
-    --fill: #1c1c1e;
-    --fill-2: #2c2c2e;
-    --sep: rgba(84, 84, 88, 0.45);
-    --ink: #f2f2f2;
-    --ink-2: #8e8e93;
-    --ink-3: #5a5a5e;
-    --primary: #f2f2f2;
-    --on-primary: #111111;
+  :root:not([data-theme='light']) {
+    --bg: #0b0b0c;
+    --raised: #1b1b1d;
+    --card: #161618;
+    --fill: #1c1c1f;
+    --fill-2: #2b2b2f;
+    --bubble: #242427;
+    --line: #2e2e32;
+    --sep: rgba(255, 255, 255, 0.08);
+    --ink: #ececee;
+    --ink-2: #8c8c92;
+    --ink-3: #55555b;
+    --primary: #ececee;
+    --on-primary: #0b0b0c;
+    --shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
+    --grouped: #0b0b0c;
     color-scheme: dark;
   }
+}
+:root[data-theme='dark'] {
+  --bg: #0b0b0c;
+  --raised: #1b1b1d;
+  --card: #161618;
+  --fill: #1c1c1f;
+  --fill-2: #2b2b2f;
+  --bubble: #242427;
+  --line: #2e2e32;
+  --sep: rgba(255, 255, 255, 0.08);
+  --ink: #ececee;
+  --ink-2: #8c8c92;
+  --ink-3: #55555b;
+  --primary: #ececee;
+  --on-primary: #0b0b0c;
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
+  --grouped: #0b0b0c;
+  color-scheme: dark;
 }
 * {
   box-sizing: border-box;
@@ -58,7 +87,7 @@ body {
   overflow: hidden;
   background: var(--bg);
   color: var(--ink);
-  font: 17px/1.45 var(--font-ui);
+  font: 16px/1.45 var(--font-ui);
   -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;
   overscroll-behavior: none;
@@ -139,6 +168,21 @@ pre {
 }
 .x-btn.is-wide {
   width: 100%;
+}
+.x-pill {
+  height: 36px;
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--fill-2);
+  font-size: 15px;
+  font-weight: 600;
+}
+.x-pill.is-primary {
+  background: var(--primary);
+  color: var(--on-primary);
 }
 .x-link {
   font-size: 15px;
@@ -284,6 +328,28 @@ small.x-shimmer {
   transform: translateX(-50%);
   animation: x-fade 0.2s ease-out;
 }
+.x-failed {
+  height: 100%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  padding: 0 32px;
+  text-align: center;
+}
+.x-failed b {
+  font-size: 18px;
+  font-weight: 600;
+}
+.x-failed small {
+  max-width: 100%;
+  font-size: 13px;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.x-failed .x-btn {
+  margin-top: 8px;
+}
 .x-banner {
   margin: 4px 16px 8px;
   padding: 9px 14px;
@@ -304,41 +370,58 @@ small.x-shimmer {
   padding: var(--safe-top) 0 var(--safe-bottom);
   -webkit-overflow-scrolling: touch;
 }
-.h-nav {
-  height: 44px;
-  display: flex;
-  justify-content: space-between;
+.h-bar {
+  height: 54px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
   padding: 0 8px;
 }
-.h-title {
-  padding: 0 20px 12px;
-}
-.h-title h1 {
-  margin: 0;
-  font-size: 34px;
-  line-height: 1.2;
-  font-weight: 700;
-  letter-spacing: -0.4px;
-}
+/* The computer in use, like the model switcher at the top of a chat app. */
 .h-pc {
+  justify-self: center;
+  max-width: 100%;
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  padding: 2px 8px;
+}
+.h-pc b {
+  max-width: 100%;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  margin-top: 2px;
-  font-size: 15px;
+  gap: 3px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.h-pc b span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.h-pc b svg {
+  flex: none;
   color: var(--ink-2);
 }
-.h-pc i {
-  width: 8px;
-  height: 8px;
+.h-pc small {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.h-pc small i {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--ink-3);
 }
-.h-pc.is-ready i {
+.h-pc.is-ready small i {
   background: var(--ok);
 }
-.h-pc.is-connecting i,
-.h-pc.is-handshake i {
+.h-pc.is-connecting small i,
+.h-pc.is-handshake small i {
   background: var(--wait);
 }
 .h-loading {
@@ -347,64 +430,91 @@ small.x-shimmer {
   padding: 40px;
 }
 .h-ask {
-  margin: 4px 16px 12px;
-  padding: 14px 16px 16px;
-  border-radius: 24px;
-  background: var(--fill);
+  margin: 4px 14px 10px;
+  padding: 12px 14px;
+  border-radius: 20px;
+  background: var(--card);
 }
 .h-ask-head {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 16px;
+  gap: 8px;
+  font-size: 15px;
   color: var(--ink-2);
 }
 .h-ask-head > .h-ask-text {
   flex: 1;
+  min-width: 0;
 }
 .h-ask-head b {
   font-weight: 600;
   color: var(--ink);
 }
+.h-ask-head time {
+  font-size: 13px;
+  color: var(--ink-3);
+}
 .h-ask code,
 .h-ask p {
   display: block;
-  margin: 12px 0 14px;
-  font-size: 16px;
+  margin: 10px 0 12px;
+  font-size: 15px;
+  line-height: 1.45;
   color: var(--ink);
   overflow-wrap: anywhere;
 }
-.h-ask .x-btn {
-  height: 46px;
-  background: var(--raised);
+.h-ask code {
+  max-height: 4.4em;
+  overflow: hidden;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: var(--bg);
+  font-size: 14px;
 }
-.h-ask .x-btn.is-primary {
+.h-ask-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.h-ask .x-pill {
+  background: var(--bg);
+}
+.h-ask .x-pill.is-primary {
   background: var(--primary);
+}
+.h-item {
+  position: relative;
+}
+.h-item::after {
+  content: '';
+  position: absolute;
+  left: 78px;
+  right: 0;
+  bottom: 0;
+  border-bottom: 0.5px solid var(--sep);
+}
+.h-item:last-child::after {
+  display: none;
 }
 .h-row {
   width: 100%;
-  height: 80px;
+  height: 72px;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 0 20px;
+  gap: 12px;
+  padding: 0 18px;
 }
-.h-row:active {
+.h-row:active,
+.h-session:active {
   background: var(--fill);
 }
 .h-row-text {
   flex: 1;
   min-width: 0;
-  height: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  align-content: center;
   gap: 3px;
-  border-bottom: 0.5px solid var(--sep);
-}
-li:last-child .h-row-text {
-  border-bottom: 0;
 }
 .h-row-top,
 .h-row-bottom {
@@ -418,12 +528,14 @@ li:last-child .h-row-text {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 600;
 }
-.h-row-top time {
-  font-size: 15px;
-  color: var(--ink-2);
+.h-row-top time,
+.h-session time {
+  font-size: 13px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
 }
 .h-line {
   flex: 1;
@@ -431,11 +543,8 @@ li:last-child .h-row-text {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 15px;
+  font-size: 14.5px;
   color: var(--ink-2);
-}
-.h-line.is-working {
-  color: var(--ink);
 }
 .h-line.is-waiting {
   color: var(--wait);
@@ -449,24 +558,116 @@ li:last-child .h-row-text {
   background: var(--bot, #8b6bea);
 }
 .h-row-bottom em {
-  min-width: 22px;
-  height: 22px;
-  padding: 0 7px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
   display: grid;
   place-items: center;
-  border-radius: 11px;
+  border-radius: 10px;
   background: var(--primary);
   color: var(--on-primary);
-  font: 600 13px/1 var(--font-ui);
+  font: 600 12px/1 var(--font-ui);
 }
 .h-group {
-  width: 54px;
-  height: 54px;
+  width: 48px;
+  height: 48px;
   flex: none;
   display: grid;
-  grid-template-columns: repeat(2, 25px);
-  gap: 4px;
+  grid-template-columns: repeat(2, 22px);
+  gap: 3px;
   place-content: center;
+}
+/* Today's work sessions hang under their Bot, as in the desktop sidebar. */
+.h-sessions {
+  margin-top: -10px;
+  padding-bottom: 6px;
+}
+.h-sessions li {
+  position: relative;
+}
+.h-sessions li::before {
+  content: '';
+  position: absolute;
+  left: 42px;
+  top: 0;
+  bottom: 0;
+  border-left: 1.5px solid var(--line);
+}
+.h-sessions li:last-child::before {
+  display: none;
+}
+.h-branch {
+  position: absolute;
+  left: 42px;
+  top: 0;
+  width: 26px;
+  height: 21px;
+  border-left: 1.5px solid var(--line);
+  border-bottom: 1.5px solid var(--line);
+  border-bottom-left-radius: 10px;
+  pointer-events: none;
+}
+.h-session {
+  width: 100%;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px 0 78px;
+}
+.h-session-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.h-session-text b {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 15px;
+  font-weight: 500;
+}
+.h-session-text span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.h-session-text span.is-waiting {
+  color: var(--wait);
+}
+.h-session .x-shimmer,
+.h-line.x-shimmer {
+  background-image: linear-gradient(90deg, var(--ink-2) 0 35%, var(--ink-3) 50%, var(--ink-2) 65% 100%);
+}
+/* A run in progress: a dot in the Bot's color and how long it has been going. */
+.h-run {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.h-run i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--bot, var(--ink-2));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bot, var(--ink-2)) 22%, transparent);
+  animation: h-pulse 1.6s ease-in-out infinite;
+}
+@keyframes h-pulse {
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--bot, var(--ink-2)) 10%, transparent);
+  }
 }
 
 /* ---------- Sheets' content ---------- */
@@ -483,17 +684,45 @@ li:last-child .h-row-text {
 }
 .s-head b {
   flex: 1;
-  font-size: 20px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 19px;
+  font-weight: 600;
+}
+.s-new-chip {
+  height: 34px;
+  flex: none;
+  padding: 0 14px 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  background: var(--fill);
+  font-size: 14.5px;
   font-weight: 600;
 }
 .s-row {
   width: 100%;
-  min-height: 56px;
+  min-height: 58px;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
-  border-radius: 18px;
+  padding: 9px 12px;
+  border-radius: 16px;
+}
+.s-icon {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--fill-2);
+}
+.s-row .h-run {
+  margin-right: 4px;
 }
 .s-row.is-current {
   background: var(--fill);
@@ -505,19 +734,22 @@ li:last-child .h-row-text {
   gap: 2px;
 }
 .s-text b {
-  font-size: 17px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 16px;
   font-weight: 500;
 }
 .s-text small {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 14px;
+  font-size: 13.5px;
   color: var(--ink-2);
 }
 .s-row time {
-  font-size: 14px;
-  color: var(--ink-2);
+  font-size: 13px;
+  color: var(--ink-3);
 }
 .s-new {
   width: 100%;
@@ -592,8 +824,8 @@ li:last-child .h-row-text {
   position: relative;
   z-index: 10;
   flex: none;
-  height: calc(var(--safe-top) + 50px);
-  padding: var(--safe-top) 6px 0;
+  height: calc(var(--safe-top) + 54px);
+  padding: var(--safe-top) 4px 0;
   display: flex;
   align-items: center;
   background: var(--bg);
@@ -602,7 +834,7 @@ li:last-child .h-row-text {
   content: '';
   position: absolute;
   inset: 100% 0 auto;
-  height: 16px;
+  height: 14px;
   background: linear-gradient(var(--bg), transparent);
   pointer-events: none;
 }
@@ -615,6 +847,7 @@ li:last-child .h-row-text {
 .c-nav.is-dark::after {
   display: none;
 }
+/* Centered title of the other screens. */
 .c-title {
   flex: 1;
   min-width: 0;
@@ -627,7 +860,7 @@ li:last-child .h-row-text {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 600;
 }
 .c-title small {
@@ -637,13 +870,50 @@ li:last-child .h-row-text {
   max-width: 100%;
   overflow: hidden;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--ink-2);
+}
+/* A chat's title: the Bot and which of its chats, opening the chat switcher. */
+.c-who {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding-left: 2px;
+}
+.c-who > span {
+  min-width: 0;
+  display: grid;
+}
+.c-who b {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.c-who small {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.c-who small span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.c-who small svg {
+  flex: none;
 }
 .c-scroll {
   flex: 1;
   overflow: auto;
-  padding: 6px 20px 24px;
+  padding: 4px 18px 18px;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
@@ -661,38 +931,45 @@ li:last-child .h-row-text {
   font-size: 14px;
   color: var(--ink-2);
 }
-.c-empty {
-  display: grid;
-  justify-items: center;
-  gap: 14px;
-  padding: 18vh 24px 0;
+.c-day {
+  margin: 10px 0 12px;
   text-align: center;
-  color: var(--ink-2);
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.c-empty {
+  min-height: 100%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 16px;
+  padding: 0 32px 60px;
+  text-align: center;
+}
+.c-empty b {
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.35;
 }
 .c-user {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 6px;
-  margin: 20px 0 16px;
+  margin: 18px 0 12px;
 }
 .c-bubble {
-  max-width: 82%;
-  padding: 10px 16px;
-  border-radius: 22px;
-  background: color-mix(in srgb, var(--bot, #8b6bea) 14%, var(--bg));
-  font-size: 17px;
-  line-height: 1.45;
+  max-width: 80%;
+  padding: 9px 14px;
+  border-radius: 20px;
+  background: var(--bubble);
+  font-size: 16px;
+  line-height: 1.5;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   -webkit-touch-callout: none;
   user-select: none;
   -webkit-user-select: none;
-}
-@media (prefers-color-scheme: dark) {
-  .c-bubble {
-    background: color-mix(in srgb, var(--bot, #8b6bea) 30%, var(--bg));
-  }
 }
 .c-user.is-queued .c-bubble {
   opacity: 0.6;
@@ -704,38 +981,58 @@ li:last-child .h-row-text {
 .c-run {
   margin: 4px 0 8px;
 }
-.c-answer {
-  font-size: 17px;
-  line-height: 1.6;
-  --message-leading: 1.6;
+/* The phone's reading size, stated over the desktop's Markdown rules (`:root .markdown …` would win otherwise). */
+:root .c-answer.markdown {
+  font-size: 16px;
+  line-height: 1.7;
+  --message-leading: 1.7;
+  color: var(--ink);
   overflow-wrap: anywhere;
   -webkit-touch-callout: none;
   user-select: none;
   -webkit-user-select: none;
 }
-.c-answer p {
-  margin: 0 0 14px;
+:root .c-answer.markdown p {
+  margin: 0 0 10px;
 }
-.c-answer :is(h1, h2, h3, h4) {
-  margin: 18px 0 8px;
-  font-size: 18px;
-  line-height: 1.4;
+:root .c-answer.markdown :is(h1, h2, h3, h4, h5, h6) {
+  margin: 20px 0 6px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.45;
 }
-.c-answer :is(ul, ol) {
-  margin: 0 0 14px;
-  padding-left: 22px;
+:root .c-answer.markdown :is(ul, ol) {
+  margin: 0 0 10px;
+  padding-left: 1.25em;
 }
-.c-answer ul {
+:root .c-answer.markdown ul {
   list-style: disc;
 }
-.c-answer ol {
+:root .c-answer.markdown ol {
   list-style: decimal;
 }
-.c-answer :not(pre) > code {
-  font-size: 15px;
+:root .c-answer.markdown li {
+  margin: 3px 0;
+  padding-left: 0.1em;
+}
+:root .c-answer.markdown li::marker {
+  color: var(--ink-3);
+}
+:root .c-answer.markdown li > p {
+  margin: 0;
+}
+:root .c-answer.markdown :not(pre) > code {
+  font-size: 14px;
   padding: 1px 5px;
   border-radius: 6px;
   background: var(--fill);
+  box-shadow: none;
+}
+:root .c-answer.markdown > :first-child {
+  margin-top: 0;
+}
+:root .c-answer.markdown > :last-child {
+  margin-bottom: 0;
 }
 .c-answer a {
   color: inherit;
@@ -744,12 +1041,12 @@ li:last-child .h-row-text {
   text-decoration-color: var(--ink-3);
 }
 .c-answer .markdown-table-scroll {
-  margin: 0 0 14px;
+  margin: 0 0 12px;
   overflow-x: auto;
 }
 .c-answer table {
   border-collapse: collapse;
-  font-size: 15px;
+  font-size: 14.5px;
 }
 .c-answer :is(th, td) {
   padding: 8px 12px 8px 0;
@@ -763,14 +1060,32 @@ li:last-child .h-row-text {
   padding: 14px 12px 8px;
   border: 0;
   border-radius: 18px;
-  background: var(--fill);
+  background: var(--card);
 }
-.c-answer.is-streaming {
-  opacity: 0.92;
+.c-answer + .c-answer,
+.c-progress + .c-answer {
+  margin-top: 10px;
+}
+/* While the reply is written: a dot where the next words appear. */
+.c-answer.is-streaming > p:last-child::after,
+.c-answer.is-streaming > :is(ul, ol):last-child > li:last-child::after {
+  content: '';
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-left: 5px;
+  border-radius: 50%;
+  background: var(--ink);
+  vertical-align: 1px;
+  animation: c-blink 1.2s ease-in-out infinite;
+}
+.c-progress.markdown {
+  margin: 2px 0 8px;
+  color: var(--ink-2);
 }
 .c-note {
   margin: 10px 0;
-  font-size: 14px;
+  font-size: 13.5px;
   line-height: 1.5;
   color: var(--ink-2);
   text-align: center;
@@ -780,55 +1095,54 @@ li:last-child .h-row-text {
   font-size: 15px;
   color: var(--danger);
 }
+/* Under the newest answer: what the long press offers, in reach. */
+.c-actions {
+  display: flex;
+  gap: 2px;
+  margin: 2px 0 6px -8px;
+}
+.c-actions button {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--ink-2);
+}
+.c-actions button:active {
+  background: var(--fill);
+}
 .c-process {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   margin: 2px 0 8px;
   padding: 4px 0;
-  font-size: 14px;
-  color: var(--ink-3);
-}
-.c-live {
-  position: relative;
-  display: flex;
-  align-items: center;
-  margin: 4px 0 6px;
-}
-.c-live-row {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 6px 0;
-}
-.c-live-text {
-  min-width: 0;
-  display: grid;
-  gap: 1px;
-}
-.c-live-text b {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: 16px;
-  font-weight: 500;
-}
-.c-live-text small {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--ink-2);
 }
-.c-live-pc {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border-radius: 14px;
-  background: var(--fill);
+.c-process-dot {
+  width: 8px;
+  height: 8px;
+  margin: 0 3px;
+  border-radius: 50%;
+  background: var(--bot, var(--ink-2));
+  animation: c-blink 1.2s ease-in-out infinite;
+}
+.c-wait {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 8px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.c-wait i {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--wait);
 }
 .c-steps {
   margin: 0 0 12px 4px;
@@ -836,7 +1150,7 @@ li:last-child .h-row-text {
   border-left: 2px solid var(--fill-2);
   display: grid;
   gap: 8px;
-  font-size: 15px;
+  font-size: 14.5px;
   line-height: 1.45;
   color: var(--ink-2);
 }
@@ -928,17 +1242,86 @@ li:last-child .h-row-text {
 
 /* Composer */
 .c-foot {
+  position: relative;
+  z-index: 10;
   flex: none;
-  padding: 8px 12px var(--safe-bottom);
+  padding: 6px 10px var(--safe-bottom);
   background: var(--bg);
+}
+/* Back to the newest message, when the user has scrolled up. */
+.c-jump {
+  position: absolute;
+  z-index: 20;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--raised);
+  box-shadow:
+    0 0 0 0.5px var(--sep),
+    var(--shadow);
+  transform: translateX(-50%);
+  animation: x-fade 0.2s ease-out;
+}
+/* While a Bot works: one strip above the field, always in view. */
+.c-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 6px 6px 6px 10px;
+  border-radius: 20px;
+  background: var(--card);
+  box-shadow: inset 0 0 0 0.5px var(--sep);
+}
+.c-strip-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.c-strip-text {
+  min-width: 0;
+  display: grid;
+}
+.c-strip-text b {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+.c-strip-text small {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.c-strip-pc,
+.c-strip-stop {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--fill-2);
+  color: var(--ink);
 }
 .c-reply {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 4px 8px 56px;
+  margin: 0 4px 8px;
   padding: 8px 12px;
-  border-left: 3px solid var(--bot, var(--fill-2));
+  border-left: 3px solid var(--fill-2);
   border-radius: 10px;
   background: var(--fill);
   font-size: 14px;
@@ -950,66 +1333,63 @@ li:last-child .h-row-text {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+/* +, the text and the microphone or send button in one rounded field. */
 .c-composer {
+  border-radius: 26px;
+  background: var(--fill);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .c-composer {
+    box-shadow: inset 0 0 0 0.5px var(--sep);
+  }
+}
+:root[data-theme='dark'] .c-composer {
+  box-shadow: inset 0 0 0 0.5px var(--sep);
+}
+.c-composer-row {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
+  gap: 2px;
+  padding: 6px;
 }
 .c-plus,
+.c-mic,
 .c-send {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   flex: none;
   display: grid;
   place-items: center;
   border-radius: 50%;
 }
-.c-plus {
-  background: var(--fill);
+.c-mic {
+  color: var(--ink-2);
 }
 .c-send {
   background: var(--primary);
   color: var(--on-primary);
 }
-.c-field {
+.c-composer textarea {
   flex: 1;
   min-width: 0;
-  min-height: 44px;
-  border-radius: 22px;
-  background: var(--fill);
-}
-.c-field-row {
-  display: flex;
-  align-items: flex-end;
-  padding: 0 6px 0 16px;
-}
-.c-field textarea {
-  flex: 1;
-  min-height: 44px;
+  min-height: 40px;
   max-height: 160px;
-  padding: 11px 0;
+  padding: 9px 4px;
   border: 0;
   background: none;
-  font-size: 17px;
+  font-size: 16px;
   line-height: 22px;
   outline: none;
   resize: none;
 }
-.c-field textarea::placeholder {
+.c-composer textarea::placeholder {
   color: var(--ink-3);
-}
-.c-mic {
-  width: 36px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  color: var(--ink-2);
 }
 .c-drafts {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding: 8px 8px 0;
+  padding: 10px 10px 0;
 }
 .c-draft {
   position: relative;
@@ -1099,16 +1479,17 @@ li:last-child .h-row-text {
   color: var(--ink-2);
 }
 .c-voice {
-  height: 56px;
+  height: 52px;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 0 6px;
-  border-radius: 28px;
+  border-radius: 26px;
   background: var(--fill);
 }
-.c-voice .c-plus {
-  background: transparent;
+.c-voice .c-send {
+  width: 40px;
+  height: 40px;
 }
 .c-rec-dot {
   width: 9px;
@@ -1153,12 +1534,12 @@ li:last-child .h-row-text {
 
 /* A request in place of the composer. */
 .c-dock {
-  padding: 18px 18px 16px;
-  border-radius: 30px;
+  padding: 14px;
+  border-radius: 26px;
   background: var(--raised);
   box-shadow:
-    0 0 0 0.5px var(--sep),
-    0 10px 40px rgba(0, 0, 0, 0.12);
+    inset 0 0 0 0.5px var(--sep),
+    0 -8px 30px rgba(0, 0, 0, 0.06);
   animation: x-rise 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .c-dock-head {
@@ -1168,7 +1549,7 @@ li:last-child .h-row-text {
 }
 .c-dock-head b {
   flex: 1;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 600;
 }
 .c-dock-icon {
@@ -1176,33 +1557,49 @@ li:last-child .h-row-text {
   height: 34px;
   display: grid;
   place-items: center;
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--wait) 14%, var(--raised));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--wait) 14%, transparent);
   color: var(--wait);
 }
+.c-dock-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
 .c-dock-text {
-  margin: 12px 0 14px;
+  margin: 12px 0;
   font-size: 15px;
   line-height: 1.5;
   color: var(--ink-2);
 }
 .c-cmd {
   display: block;
-  margin: 14px 0 16px;
-  padding: 14px 16px;
-  border-radius: 16px;
+  margin: 12px 0;
+  padding: 11px 14px;
+  border-radius: 14px;
   background: var(--fill);
-  font-size: 16px;
+  font-size: 15px;
+  line-height: 1.4;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   max-height: 30vh;
   overflow: auto;
 }
+/* Allow is the wider one: where the thumb lands. */
+.c-dock .x-pair {
+  grid-template-columns: 1fr 1.6fr;
+}
+.c-dock .x-btn {
+  height: 48px;
+  font-size: 16px;
+}
 .c-details {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 6px 12px;
-  margin: -4px 2px 16px;
+  margin: -2px 2px 14px;
   font-size: 14px;
 }
 .c-details dt {
@@ -1433,12 +1830,7 @@ li:last-child .h-row-text {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--fill);
-}
-@media (prefers-color-scheme: dark) {
-  .st-screen {
-    background: var(--bg);
-  }
+  background: var(--grouped);
 }
 .st-screen .c-nav {
   background: transparent;
@@ -1461,6 +1853,26 @@ li:last-child .h-row-text {
   border-radius: 18px;
   overflow: hidden;
   background: var(--raised);
+}
+.st-seg {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  padding: 3px;
+  border-radius: 14px;
+  background: var(--raised);
+}
+.st-seg button {
+  height: 38px;
+  border-radius: 11px;
+  text-align: center;
+  font-size: 15px;
+  color: var(--ink-2);
+}
+.st-seg button.is-on {
+  background: var(--fill-2);
+  color: var(--ink);
+  font-weight: 600;
 }
 .st-row {
   width: 100%;
@@ -1503,10 +1915,6 @@ li:last-child .h-row-text {
 }
 .st-row .s-text small {
   white-space: normal;
-}
-.c-progress {
-  margin: 2px 0 8px;
-  color: var(--ink-2);
 }
 .st-note {
   margin: 12px 6px 24px;

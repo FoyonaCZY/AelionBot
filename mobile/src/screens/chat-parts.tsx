@@ -16,8 +16,8 @@ import {
 import { streamingReplyText } from '../../../shared/chat/streaming';
 import MessageMarkdown from '../../../src/chat/MessageMarkdown';
 import { MessageBlockContent, hasBlockMarkers } from '../../../src/chat/MessageBlocks';
-import { Avatar } from '../../../src/ui/Avatar';
 import { useI18n } from '../../../src/i18n';
+import { useConnection } from '../connection';
 import { I } from '../icons';
 import { openFile, useFileUrl } from '../files';
 import { toast, useLongPress } from '../ui';
@@ -70,20 +70,14 @@ export interface PressTarget {
   text: string;
   messageId: string;
 }
+/** What the row under the newest answer does; the long press offers the same. */
+export type AnswerAction = 'copy' | 'speak' | 'quote' | 'more';
 
-export function UserBubble({
-  message,
-  bot,
-  onPress,
-}: {
-  message: ChatMessage;
-  bot: RemoteBot;
-  onPress: (target: PressTarget) => void;
-}) {
+export function UserBubble({ message, onPress }: { message: ChatMessage; onPress: (target: PressTarget) => void }) {
   const { t } = useI18n();
   const press = useLongPress(() => onPress({ text: message.content, messageId: message.id }));
   return (
-    <div className="c-user" style={tint(bot.color)}>
+    <div className="c-user">
       <Files files={message.attachments} />
       {message.content.trim() && (
         <div className="c-bubble" {...press}>
@@ -120,6 +114,39 @@ function Answer({
   );
 }
 
+/** Under the newest answer: copy, read aloud, quote, and the rest of the long-press menu. */
+function AnswerActions({
+  message,
+  onAction,
+}: {
+  message: ChatMessage;
+  onAction: (action: AnswerAction, target: PressTarget) => void;
+}) {
+  const { t } = useI18n();
+  const { home } = useConnection();
+  const text = readableContent(message.content);
+  if (!text) return null;
+  const target = { text, messageId: message.id };
+  return (
+    <div className="c-actions">
+      <button aria-label={t('复制')} onClick={() => onAction('copy', target)}>
+        <I name="copy" size={18} />
+      </button>
+      {home?.speech.output && (
+        <button aria-label={t('朗读')} onClick={() => onAction('speak', target)}>
+          <I name="speaker" size={18} />
+        </button>
+      )}
+      <button aria-label={t('引用回复')} onClick={() => onAction('quote', target)}>
+        <I name="quote" size={18} />
+      </button>
+      <button aria-label={t('更多')} onClick={() => onAction('more', target)}>
+        <I name="more" size={18} />
+      </button>
+    </div>
+  );
+}
+
 /** One run of a Bot: its live status while it works, the folded steps afterwards, its answer and files. */
 export const RunView = memo(function RunView({
   messages,
@@ -129,7 +156,7 @@ export const RunView = memo(function RunView({
   streams,
   waiting,
   onPress,
-  onComputer,
+  onAction,
 }: {
   messages: ChatMessage[];
   run?: RunRecord;
@@ -138,19 +165,20 @@ export const RunView = memo(function RunView({
   streams: StreamingReply[];
   waiting?: 'host_permission' | 'vm_takeover' | 'computer_use' | 'user_input';
   onPress: (target: PressTarget) => void;
-  onComputer?: () => void;
+  /** Given to the newest answer of the chat: the row of actions under it. */
+  onAction?: (action: AnswerAction, target: PressTarget) => void;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const presentation = runPresentation(messages, run);
   const running = presentation.status === 'running';
   const steps = runSteps(messages, { finalId: presentation.final?.id, error: presentation.error });
+  // What it does now is shown above the composer; here only that it works, or what it waits for.
   const step = running && isLast ? liveBotStep(messages, run, waiting) : undefined;
   const live =
     running && isLast ? streams.find((reply) => reply.runId === run?.id && reply.purpose !== 'progress') : undefined;
   const liveText = live ? streamingReplyText(live.content) : '';
   const elapsed = runDurationMs(run);
-  const usesComputer = step && /电脑|computer/i.test(step.label);
   const notes = running
     ? presentation.notes.filter((message) => message.role === 'assistant' && readableContent(message.content))
     : [];
@@ -161,29 +189,20 @@ export const RunView = memo(function RunView({
           <MessageMarkdown>{readableContent(message.content)}</MessageMarkdown>
         </div>
       ))}
-      {step ? (
-        <div className="c-live">
-          <button className="c-live-row" onClick={() => setOpen(!open)}>
-            <Avatar
-              bot={bot}
-              size={30}
-              activity={step.phase === 'waiting' ? 'waiting' : step.phase === 'working' ? 'working' : 'thinking'}
-            />
-            <span className="c-live-text">
-              <b className={step.phase === 'waiting' ? '' : 'x-shimmer'}>{step.label}</b>
-              <small>
-                {[step.detail, steps.length ? t('第 {count} 步', { count: steps.length + 1 }) : '']
-                  .filter(Boolean)
-                  .join(' · ')}
-              </small>
-            </span>
-          </button>
-          {usesComputer && onComputer && (
-            <button className="c-live-pc" onClick={onComputer} aria-label={t('工作电脑')}>
-              <I name="computer" size={20} />
-            </button>
-          )}
+      {step?.phase === 'waiting' ? (
+        <div className="c-wait">
+          <i />
+          {step.label}
         </div>
+      ) : step ? (
+        <button className="c-process" onClick={() => setOpen(!open)}>
+          <i className="c-process-dot" />
+          <span>
+            {t('正在处理')}
+            {steps.length > 0 && ' · ' + t('{count} 个步骤', { count: steps.length })}
+          </span>
+          <I name={open ? 'down' : 'right'} size={14} />
+        </button>
       ) : (
         steps.length > 0 && (
           <button className="c-process" onClick={() => setOpen(!open)}>
@@ -231,6 +250,7 @@ export const RunView = memo(function RunView({
         <>
           <Answer content={presentation.final.content} run={run} messageId={presentation.final.id} onPress={onPress} />
           <Files files={presentation.final.attachments} />
+          {onAction && <AnswerActions message={presentation.final} onAction={onAction} />}
         </>
       )}
       {!running && presentation.error && (
@@ -241,12 +261,21 @@ export const RunView = memo(function RunView({
 });
 
 /** A message outside any run: a notice, a peer's note, an answer from before runs existed. */
-export function NoteView({ message, onPress }: { message: ChatMessage; onPress: (target: PressTarget) => void }) {
+export function NoteView({
+  message,
+  onPress,
+  onAction,
+}: {
+  message: ChatMessage;
+  onPress: (target: PressTarget) => void;
+  onAction?: (action: AnswerAction, target: PressTarget) => void;
+}) {
   if (message.role === 'assistant')
     return (
       <>
         <Answer content={message.content} messageId={message.id} onPress={onPress} />
         <Files files={message.attachments} />
+        {onAction && <AnswerActions message={message} onAction={onAction} />}
       </>
     );
   const text = readableContent(message.content);

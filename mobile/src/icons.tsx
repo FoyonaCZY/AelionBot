@@ -17,6 +17,7 @@ const paths: Record<string, ReactNode> = {
     </>
   ),
   down: <path d="m7 10 5 5 5-5" />,
+  fold: <path d="m7 14 5-5 5 5" />,
   right: <path d="m9 6 6 6-6 6" />,
   plus: <path d="M12 5v14M5 12h14" />,
   mic: (
@@ -26,6 +27,7 @@ const paths: Record<string, ReactNode> = {
     </>
   ),
   up: <path d="M12 19V5M6 11l6-6 6 6" />,
+  arrowDown: <path d="M12 5v14M6 13l6 6 6-6" />,
   stop: <rect x="7.5" y="7.5" width="9" height="9" rx="1.5" fill="currentColor" stroke="none" />,
   close: <path d="M6 6l12 12M18 6 6 18" />,
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
