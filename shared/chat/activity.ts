@@ -268,11 +268,13 @@ export function liveBotStep(
 export function readableContent(content: string) {
   const answer = readableQuestionAnswer(content);
   if (answer !== content) return answer;
-  // Some compatible model providers put tagged reasoning in the content stream.
+  // Some compatible model providers put tagged reasoning in the content stream. DeepSeek's tool-call markup is hidden
+  // while it streams; the finished reply has it turned into calls (text-tool-calls).
   return content
     .replace(/<(think|thinking|analysis)>[\s\S]*?<\/\1>/gi, '')
     .replace(/<(think|thinking|analysis)>[\s\S]*$/gi, '')
     .replace(/<\/(think|thinking|analysis)>/gi, '')
+    .replace(/<\s*\/?\s*(?:[｜|]\s*)+DSML[\s\S]*$/, '')
     .trim();
 }
 
