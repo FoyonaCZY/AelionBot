@@ -1,6 +1,7 @@
 // The contract between the connector hub and one IM platform. An adapter keeps its own connection alive and remembers
 // whatever a platform needs to reply in a chat (WeCom's callback request, WeChat's context token).
 import type { ConnectorPerson, ConnectorPlatform, ConnectorStatus } from '../../../shared/types/connector-types';
+import type { VoiceClip, VoiceFormat } from '../speech/speech-service';
 
 export interface InboundResource {
   kind: 'image' | 'file' | 'audio' | 'video';
@@ -14,6 +15,8 @@ export interface InboundMessage {
   isGroup: boolean;
   sender: ConnectorPerson;
   text: string;
+  /** A voice message the platform put into words itself; `text` holds what was said. */
+  spoken?: boolean;
   quoted?: string;
   resources: InboundResource[];
   /** Milliseconds since the epoch, as the platform reports it. */
@@ -47,8 +50,10 @@ export interface ConnectorAdapter {
   stop(): Promise<void>;
   sendText(chatId: string, text: string): Promise<void>;
   sendFile(chatId: string, file: { name: string; bytes: Buffer }): Promise<void>;
-  /** A voice message, Ogg Opus; absent where the platform takes none from bots. */
-  sendVoice?(chatId: string, voice: { bytes: Buffer; durationMs: number }): Promise<void>;
+  /** The audio of voice messages the platform takes from bots; absent, with sendVoice, where it takes none. */
+  readonly voiceFormat?: VoiceFormat;
+  /** One voice message in `voiceFormat`. */
+  sendVoice?(chatId: string, voice: VoiceClip): Promise<void>;
   /** Absent where the platform has no buttons; the hub then asks for a text reply. */
   sendCard?(chatId: string, card: ConnectorCard): Promise<string | undefined>;
   /** Replaces a sent card with a decided state (its buttons removed). */

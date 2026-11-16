@@ -237,6 +237,8 @@ export interface RunRecord {
   plan?: TaskPlan;
   executions?: ToolExecution[];
   attachments?: Attachment[];
+  /** Audio among the attachments that text_to_speech made to be heard: IM chats get it as voice messages. */
+  voiceAttachmentIds?: string[];
   inputUpdated?: boolean;
   /** The user took back the input this run worked on to edit it; its messages are gone from the chat. */
   retracted?: boolean;

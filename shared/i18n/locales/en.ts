@@ -3277,8 +3277,8 @@ export const en: Record<string, string> = {
   '用于输入框的语音输入、IM 语音消息和 Bot 转写录音。':
     'Used for voice input in the composer, voice messages from chat apps, and Bots transcribing recordings.',
   '用语音回复 IM 里的语音消息': 'Answer voice messages from chat apps by voice',
-  '收到语音消息时，除了文字再发一条语音（目前支持飞书）':
-    'When a voice message arrives, send a voice reply as well as text (Feishu for now)',
+  '收到语音消息时，除了文字再发一条语音（目前支持飞书、企业微信）':
+    'When a voice message arrives, send a voice reply as well as text (Feishu and WeCom for now)',
   '你好，我是你的 AelionBot。这是语音合成的试听。': 'Hi, I am your AelionBot. This is a speech synthesis sample.',
   试听: 'Play sample',
   停止试听: 'Stop sample',

@@ -163,6 +163,7 @@
     "@types/ssh2": "1.15.6",
     "@types/ws": "8.18.1",
     "ajv": "8.17.1",
+    "benz-amr-recorder": "1.1.5",
     "electron": "44.2.0",
     "electron-builder": "26.15.3",
     "esbuild": "0.28.2",

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import vm from 'node:vm';
 import { createCipheriv, randomBytes } from 'node:crypto';
 import { answer, tempDir, until } from './helpers';
 import { ChatPinQueue } from '../electron/core/agent/chat-pins';
@@ -12,7 +13,8 @@ import { ModelProviders } from '../electron/core/model/model-providers';
 import { disposeModelHttp } from '../electron/core/model/model-http';
 import { Attachments } from '../electron/core/attachments/attachments';
 import { Harness } from '../electron/core/agent/harness';
-import { SpeechService, type AudioCodecs } from '../electron/core/speech/speech-service';
+import { SpeechService, type AudioCodecs, type VoiceClip } from '../electron/core/speech/speech-service';
+import { amrEncoderScript } from '../electron/core/speech/amr-encoder';
 import { recognize, speak, type SpeechAccess } from '../electron/core/speech/speech-protocols';
 import {
   billedCharacters,
@@ -239,6 +241,7 @@ test('long recordings are recognized in pieces cut at pauses, with the time each
       return { sampleRate: rate, samples: speechLike(rate, 250, [100, 205]) };
     },
     encodeOpus: async () => ({ packets: [], preSkip: 312, length: 0 }),
+    encodeAmr: async () => Buffer.alloc(0),
   };
   const service = new SpeechService(
     { speechAccess: () => ({ protocol: 'deepseek-tools', baseUrl: 'https://api.deepseek.com', key: 'k', model: '' }) },
@@ -267,7 +270,72 @@ test('long text is read in pieces and the WAV audio joined into one file', async
   assert.equal(audio.mime, 'audio/wav');
   assert.equal(readWav(audio.bytes)!.samples.length, text.length * 10);
   // Too long to listen to as a chat message: no voice message.
-  assert.equal(await service.voiceMessage(text, signal()), undefined);
+  assert.equal(await service.voiceMessage(text, 'ogg-opus', signal()), undefined);
+});
+
+test('the AMR encoder writes 12.2 kbit/s AMR-NB covering every sample', () => {
+  const encode = vm.runInNewContext(`${amrEncoderScript()};encodeAmr`, {
+    TextEncoder,
+    console: { log() {}, warn() {}, error() {} },
+  });
+  const samples = new Float32Array(8000 + 80);
+  for (let index = 0; index < samples.length; index++)
+    samples[index] = 0.3 * Math.sin((2 * Math.PI * 440 * index) / 8000);
+  const amr = Buffer.from(encode(samples));
+  assert.equal(amr.toString('latin1', 0, 6), '#!AMR\n');
+  // 51 frames of 20 ms reach past the last sample; each is 32 bytes and starts with the 12.2 kbit/s mode.
+  assert.equal(amr.length, 6 + 51 * 32);
+  for (let at = 6; at < amr.length; at += 32) assert.equal(amr[at], 0x3c);
+});
+
+test('audio becomes voice messages in the format a chat app takes, AMR a minute at most each', async () => {
+  const rates: number[] = [],
+    amr: number[] = [];
+  let seconds = 150;
+  const codecs: AudioCodecs = {
+    decode: async (_bytes, _signal, sampleRate = 16000) => {
+      rates.push(sampleRate);
+      return { sampleRate, samples: speechLike(sampleRate, seconds, [55, 110]) };
+    },
+    encodeOpus: async () => ({
+      packets: [{ data: new Uint8Array([1]), samples: 960 }],
+      preSkip: 312,
+      length: 48000 * seconds,
+    }),
+    encodeAmr: async (samples) => (amr.push(samples.length), Buffer.from('#!AMR\n')),
+  };
+  const service = new SpeechService({ speechAccess: () => undefined }, codecs);
+
+  const clips = (await service.voiceClips(Buffer.from('mp3'), 'amr', signal()))!;
+  assert.deepEqual(rates, [8000]);
+  assert.equal(clips.length, 3);
+  assert.ok(clips.every((clip) => clip.durationMs <= 60_000 && clip.bytes.toString() === '#!AMR\n'));
+  assert.equal(
+    clips.reduce((total, clip) => total + clip.durationMs, 0),
+    150_000,
+  );
+  // Cut in the pauses, not in the middle of a word.
+  assert.deepEqual(
+    clips.map((clip) => Math.round(clip.durationMs / 1000)),
+    [55, 55, 40],
+  );
+  assert.equal(
+    amr.reduce((total, length) => total + length, 0),
+    150 * 8000,
+  );
+
+  const [opus] = (await service.voiceClips(Buffer.from('mp3'), 'ogg-opus', signal()))!;
+  assert.equal(opus.durationMs, 150_000);
+  assert.equal(opus.bytes.toString('latin1', 0, 4), 'OggS');
+
+  // Past five minutes, audio stays a file; without the system's codecs nothing can be encoded.
+  seconds = 301;
+  assert.equal(await service.voiceClips(Buffer.from('mp3'), 'amr', signal()), undefined);
+  assert.equal(await service.voiceClips(Buffer.from('mp3'), 'ogg-opus', signal()), undefined);
+  assert.equal(
+    await new SpeechService({ speechAccess: () => undefined }).voiceClips(Buffer.from('mp3'), 'amr', signal()),
+    undefined,
+  );
 });
 
 function codec() {
@@ -397,6 +465,7 @@ test('a voice message from a connector reaches the Bot as text, and the answer c
   let handlers: AdapterHandlers | undefined;
   const adapter: ConnectorAdapter = {
     platform: 'feishu',
+    voiceFormat: 'ogg-opus',
     start: (value) => {
       handlers = value;
       value.status('connected');
@@ -410,7 +479,11 @@ test('a voice message from a connector reaches the Bot as text, and the answer c
   const speech = {
     available: () => true,
     transcribe: async (bytes: Buffer) => ({ text: bytes.toString() === 'opus' ? '明天几点开会' : '', seconds: 2 }),
-    voiceMessage: async (text: string) => (heard.push(text), { bytes: Buffer.from('OggS'), durationMs: 1200 }),
+    voiceMessage: async (text: string, format: string) => (
+      heard.push(`${format}:${text}`),
+      [{ bytes: Buffer.from('OggS'), durationMs: 1200 }]
+    ),
+    voiceClips: async () => undefined,
   };
   const prompts: string[] = [];
   const model = {
@@ -470,7 +543,7 @@ test('a voice message from a connector reaches the Bot as text, and the answer c
   assert.ok(!input.attachments?.length, 'the recording itself is not kept once understood');
   assert.match(prompts[0], /明天几点开会/);
   assert.deepEqual(texts, ['上午十点。']);
-  assert.deepEqual(heard, ['上午十点。']);
+  assert.deepEqual(heard, ['ogg-opus:上午十点。']);
   assert.equal(voices[0].durationMs, 1200);
 
   // Typed messages get text only.
@@ -485,4 +558,164 @@ test('a voice message from a connector reaches the Bot as text, and the answer c
   });
   await until(() => texts.length === 2 && !harness.busy);
   assert.equal(voices.length, 1);
+});
+
+test('speech a Bot records while answering a chat app goes out as voice messages, unless a file was asked for', async (t) => {
+  const dir = tempDir(t, 'aelion-speech-voice-'),
+    store = new Store(dir),
+    bot = store.data.bots[0];
+  store.data.model.model = 'fixture';
+  mockFetch(t, () => new Response(Buffer.from('ID3 voice')));
+  const service = new SpeechService({
+    speechAccess: () => ({ protocol: 'openai-audio', baseUrl: 'https://api.openai.com/v1', key: 'k', model: 'm' }),
+  });
+  const texts: string[] = [],
+    files: string[] = [],
+    voices: VoiceClip[] = [],
+    encoded: string[] = [];
+  let handlers: AdapterHandlers | undefined;
+  const adapter: ConnectorAdapter = {
+    platform: 'wecom',
+    voiceFormat: 'amr',
+    start: (value) => {
+      handlers = value;
+      value.status('connected');
+    },
+    stop: async () => {},
+    sendText: async (_chat, text) => void texts.push(text),
+    sendFile: async (_chat, file) => void files.push(file.name),
+    sendVoice: async (_chat, voice) => void voices.push(voice),
+  };
+  const speech = {
+    available: () => true,
+    transcribe: async () => ({ text: '', seconds: 0 }),
+    voiceMessage: async () => undefined,
+    voiceClips: async (bytes: Buffer, format: string) => {
+      encoded.push(`${format}:${bytes.toString()}`);
+      return [
+        { bytes: Buffer.from('#!AMR\n1'), durationMs: 60_000 },
+        { bytes: Buffer.from('#!AMR\n2'), durationMs: 5_000 },
+      ];
+    },
+  };
+  // Each request first records speech, then answers.
+  const said: unknown[] = [];
+  const model = {
+    complete: async (messages: Array<{ role: string; content?: string }>) => {
+      if (messages.at(-1)!.role === 'tool') return answer('语音发你了。');
+      const asked = JSON.stringify(messages.filter((message) => message.role === 'user').at(-1));
+      const args = /mp3/.test(asked) ? { text: '早上好', filename: '问候', voiceMessage: false } : { text: '早上好' };
+      said.push(args);
+      return {
+        content: '',
+        finishReason: 'tool_calls',
+        calls: [
+          {
+            id: 'say-' + said.length,
+            type: 'function',
+            function: { name: 'text_to_speech', arguments: JSON.stringify(args) },
+          },
+        ],
+      };
+    },
+  } as unknown as ModelClient;
+  const harness = new Harness(store, {} as VmController, model, () => {});
+  harness.setSpeech(service);
+  let connectors: Connectors | undefined;
+  const queue = new ChatPinQueue(
+    store,
+    {
+      isRunning: (id, sessionId) => harness.isRunning(id, sessionId),
+      run: (id, input, options) => connectors!.wrapRun(id, options, (wrapped) => harness.run(id, input, wrapped)),
+    },
+    () => {},
+  );
+  connectors = new Connectors({
+    store,
+    dataDir: dir,
+    codec: { encrypt: (value) => value, decrypt: (value) => value },
+    version: 'test',
+    attachments: new Attachments(store),
+    speech,
+    send: ({ connector, ...input }) => queue.send(input, connector),
+    cancel: () => {},
+    isRunning: (botId, sessionId) => harness.isRunning(botId, sessionId),
+    setPermission: () => {},
+    interactions: new Interactions(() => {}),
+    changed: () => queue.wake(),
+    lark: () => ({}) as LarkSdk,
+    createAdapter: () => adapter,
+  });
+  t.after(async () => {
+    queue.dispose();
+    await until(() => !harness.busy);
+    await connectors!.dispose();
+    store.close();
+  });
+  const id = connectors.add({
+    botId: bot.id,
+    permissionMode: 'auto',
+    credentials: { platform: 'wecom', botId: 'bot-1', secret: 'test-secret' },
+  });
+  connectors.saved.get(id)!.owner = { id: 'owner' };
+  // WeCom puts voice messages into words itself; the Bot hears that they were spoken.
+  handlers!.message({
+    messageId: 'voice-1',
+    chatId: 'owner',
+    isGroup: false,
+    sender: { id: 'owner' },
+    text: '发条语音给我听听',
+    spoken: true,
+    resources: [],
+    sentAt: Date.now(),
+  });
+  await until(() => texts.length === 1 && !harness.busy);
+  const input = store.data.messages.find((message) => message.connector?.messageId === 'voice-1')!;
+  assert.equal(input.content, '（语音）发条语音给我听听');
+  assert.equal(input.connector?.voice, true);
+  await until(() => voices.length === 2);
+  assert.deepEqual(texts, ['语音发你了。']);
+  assert.deepEqual(encoded, ['amr:ID3 voice']);
+  assert.deepEqual(
+    voices.map((voice) => voice.bytes.toString()),
+    ['#!AMR\n1', '#!AMR\n2'],
+  );
+  assert.deepEqual(files, [], 'heard as voice, the audio is not sent again as a file');
+  const first = store.data.runs.at(-1)!;
+  assert.deepEqual(first.voiceAttachmentIds, [first.attachments![0].id]);
+  // In the app the reply still carries the audio.
+  assert.ok(
+    store.data.messages.some(
+      (message) => message.runId === first.id && message.attachments?.some((file) => file.name === 'speech.mp3'),
+    ),
+  );
+
+  handlers!.message({
+    messageId: 'text-1',
+    chatId: 'owner',
+    isGroup: false,
+    sender: { id: 'owner' },
+    text: '导出成 mp3 文件给我',
+    resources: [],
+    sentAt: Date.now(),
+  });
+  await until(() => files.length === 1 && !harness.busy);
+  assert.deepEqual(files, ['问候.mp3']);
+  assert.equal(voices.length, 2);
+  assert.equal(store.data.runs.at(-1)!.voiceAttachmentIds, undefined);
+
+  // A platform that takes no voice messages from bots gets the recording as a file.
+  delete (adapter as { voiceFormat?: string }).voiceFormat;
+  handlers!.message({
+    messageId: 'text-2',
+    chatId: 'owner',
+    isGroup: false,
+    sender: { id: 'owner' },
+    text: '再说一遍',
+    resources: [],
+    sentAt: Date.now(),
+  });
+  await until(() => files.length === 2 && !harness.busy);
+  assert.deepEqual(files, ['问候.mp3', 'speech.mp3']);
+  assert.equal(voices.length, 2);
 });

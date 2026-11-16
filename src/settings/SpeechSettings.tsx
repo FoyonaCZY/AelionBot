@@ -159,7 +159,7 @@ export function SpeechAssignments({
               type="checkbox"
               checked={Boolean(value.connectorVoiceReplies)}
               disabled={!settings.output}
-              aria-label={t('收到语音消息时，除了文字再发一条语音（目前支持飞书）')}
+              aria-label={t('收到语音消息时，除了文字再发一条语音（目前支持飞书、企业微信）')}
               onChange={(event) => void persist({ ...value, connectorVoiceReplies: event.target.checked || undefined })}
             />
           </label>

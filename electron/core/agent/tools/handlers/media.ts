@@ -58,18 +58,35 @@ export const MEDIA_HANDLERS: Record<string, ToolHandler> = {
     };
   },
   text_to_speech: async (context) => {
-    const { bot, args, signal, deps } = context;
+    const { bot, args, signal, runId, deps } = context;
     if (!deps.speech?.available('output')) throw Error('还没有设置语音合成');
     const audio = await deps.speech.synthesize(String(args.text || ''), signal, bot.id),
       extension = audio.mime === 'audio/mpeg' ? '.mp3' : '.wav',
       stem = String(args.filename || 'speech').replace(/\.(mp3|wav)$/i, ''),
       file = attachToReply(context, attachmentName(stem + extension), audio.bytes);
+    // Answering a chat app, the audio goes out as a voice message unless a file was asked for. Only runs started from
+    // the chat, or by an automation in its session, answer there.
+    const run = deps.store.data.runs.find((item) => item.id === runId && item.botId === bot.id),
+      input = deps.store.humanRunMessage(runId),
+      chat = Boolean(
+        (input?.connector || input?.scheduled) &&
+        deps.store.data.workSessions?.some((item) => item.id === run?.sessionId && item.connector),
+      ),
+      voice = chat && args.voiceMessage !== false;
+    if (run && chat) {
+      const ids = (run.voiceAttachmentIds || []).filter((id) => id !== file.id);
+      if (voice) ids.push(file.id);
+      if (ids.length) run.voiceAttachmentIds = ids;
+      else delete run.voiceAttachmentIds;
+    }
     deps.store.save();
     return {
       attachmentId: file.id,
       name: file.name,
       bytes: file.size,
-      delivery: '音频已附在本次最终回复中，不用再次附加。',
+      delivery: voice
+        ? '会作为语音消息发到 IM 对话里（平台不支持语音消息或音频太长时改发文件），不用再次附加。'
+        : '音频已附在本次最终回复中，不用再次附加。',
     };
   },
   video_frames: ({ bot, args, signal, runId, deps }) => {

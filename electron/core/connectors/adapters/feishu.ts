@@ -3,6 +3,7 @@
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import type { AdapterHandlers, ConnectorAdapter, ConnectorCard, InboundMessage } from '../connector-adapter';
+import type { VoiceClip } from '../../speech/speech-service';
 
 // The parts of @larksuiteoapi/node-sdk used here. Its own declarations are 17 MB and would slow every type check.
 interface LarkMessage {
@@ -105,6 +106,7 @@ export function feishuCard(card: ConnectorCard, result?: string) {
 
 export class FeishuAdapter implements ConnectorAdapter {
   readonly platform = 'feishu' as const;
+  readonly voiceFormat = 'ogg-opus' as const;
   private channel?: LarkChannel;
   /** The latest message per chat, which carries the typing reaction. */
   private latest = new Map<string, string>();
@@ -257,7 +259,7 @@ export class FeishuAdapter implements ConnectorAdapter {
         : { file: { source: file.bytes, fileName: file.name } },
     );
   }
-  async sendVoice(chatId: string, voice: { bytes: Buffer; durationMs: number }) {
+  async sendVoice(chatId: string, voice: VoiceClip) {
     await this.connected().send(chatId, { audio: { source: voice.bytes, duration: voice.durationMs } });
   }
   async sendCard(chatId: string, card: ConnectorCard) {

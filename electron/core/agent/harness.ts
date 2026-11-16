@@ -827,6 +827,7 @@ export class Harness {
     if (resumed) {
       run.resumedFromRunId = resumed.id;
       if (resumed.attachments) run.attachments = structuredClone(resumed.attachments);
+      if (resumed.voiceAttachmentIds) run.voiceAttachmentIds = [...resumed.voiceAttachmentIds];
     }
     this.store.data.runs.push(run);
     if (

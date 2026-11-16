@@ -750,6 +750,77 @@ test('the WeCom adapter subscribes, receives, replies to the message and stops w
   assert.ok(server.clients.size < before || server.clients.size === 0, 'a displaced connection is not taken back');
 });
 
+test('the WeCom adapter hears voice messages as spoken and answers with AMR voice messages', async (t) => {
+  const server = new WebSocketServer({ port: 0 });
+  t.after(() => server.close());
+  await once(server, 'listening');
+  const frames: any[] = [];
+  let socket: WebSocket | undefined;
+  server.on('connection', (ws) => {
+    socket = ws;
+    ws.on('message', (data) => {
+      const frame = JSON.parse(String(data));
+      frames.push(frame);
+      if (frame.cmd === 'ping') return;
+      const body =
+        frame.cmd === 'aibot_upload_media_init'
+          ? { upload_id: 'upload-1' }
+          : frame.cmd === 'aibot_upload_media_finish'
+            ? { media_id: 'media-1' }
+            : undefined;
+      ws.send(JSON.stringify({ headers: { req_id: frame.headers.req_id }, errcode: 0, ...(body ? { body } : {}) }));
+    });
+  });
+  const statuses: string[] = [],
+    messages: InboundMessage[] = [];
+  const adapter = new WecomAdapter(
+    { botId: 'B1', secret: 'ok' },
+    { url: `ws://127.0.0.1:${(server.address() as { port: number }).port}`, reconnectMs: () => 20 },
+  );
+  t.after(() => adapter.stop());
+  adapter.start({
+    status: (status) => void statuses.push(status),
+    message: (message) => void messages.push(message),
+    action: async () => undefined,
+  });
+  await until(() => statuses.includes('connected'));
+  socket!.send(
+    JSON.stringify({
+      cmd: 'aibot_msg_callback',
+      headers: { req_id: 'req-voice' },
+      body: {
+        msgid: 'msg-voice',
+        chattype: 'single',
+        from: { userid: 'zhou' },
+        msgtype: 'voice',
+        voice: { content: '发条语音给我听听' },
+        create_time: 1760000000,
+      },
+    }),
+  );
+  await until(() => messages.length === 1);
+  assert.equal(messages[0].text, '发条语音给我听听');
+  assert.equal(messages[0].spoken, true);
+
+  assert.equal(adapter.voiceFormat, 'amr');
+  const amr = Buffer.concat([Buffer.from('#!AMR\n'), Buffer.alloc(320, 0x3c)]);
+  await adapter.sendVoice('zhou', { bytes: amr, durationMs: 200 });
+  const init = frames.find((frame) => frame.cmd === 'aibot_upload_media_init');
+  assert.equal(init.body.type, 'voice');
+  assert.equal(init.body.filename, 'voice.amr');
+  assert.equal(init.body.total_size, amr.length);
+  const chunk = frames.find((frame) => frame.cmd === 'aibot_upload_media_chunk');
+  assert.deepEqual(Buffer.from(chunk.body.base64_data, 'base64'), amr);
+  const reply = frames.find((frame) => frame.cmd === 'aibot_respond_msg');
+  assert.equal(reply.headers.req_id, 'req-voice', 'the voice answers the message');
+  assert.deepEqual(reply.body, { msgtype: 'voice', voice: { media_id: 'media-1' } });
+
+  // WeCom takes voice up to 2 MB; larger audio is refused before anything is uploaded.
+  const uploads = () => frames.filter((frame) => frame.cmd === 'aibot_upload_media_init').length;
+  await assert.rejects(adapter.sendVoice('zhou', { bytes: Buffer.alloc(2 * 1024 * 1024 + 1), durationMs: 1 }));
+  assert.equal(uploads(), 1);
+});
+
 test('WeCom downloads decrypt with the message key', () => {
   const key = randomBytes(32),
     plain = Buffer.from('附件内容'),

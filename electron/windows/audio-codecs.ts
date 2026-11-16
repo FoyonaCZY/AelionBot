@@ -1,20 +1,25 @@
 // Chromium's own audio codecs, in a hidden sandboxed window, so recordings in MP3, M4A, AAC, FLAC, Ogg, Opus, WebM
 // and the sound of MP4 videos can be recognized, and replies encoded as Opus voice messages, without shipping ffmpeg.
+// AMR voice messages, which Chromium cannot write, are encoded in the same window by opencore-amr.
 import { BrowserWindow } from 'electron';
 import { AppError } from '../../shared/errors';
 import type { AudioCodecs } from '../core/speech/speech-service';
 import type { OpusPackets, Pcm } from '../core/speech/speech-audio';
+import { amrEncoderScript } from '../core/speech/amr-encoder';
 
 /** An hour of 16 kHz samples is 115 MB; Chromium holds the decoded channels besides. */
 const MAX_SECONDS = 60 * 60;
 /** Bytes per call into and out of the page, so no single script or result is huge. */
 const PART = 8 * 1024 * 1024;
 
-/** Page code that turns the loaded bytes into one channel of float samples at `rate`. */
-const MONO = (rate: number) => `
+/** Page code that gathers the loaded bytes into `bytes`. */
+const BYTES = `
   const bytes=new Uint8Array(window.size);let at=0;
   for(const part of window.parts){const text=atob(part);for(let i=0;i<text.length;i++)bytes[at++]=text.charCodeAt(i)}
   window.parts=null;
+`;
+/** Page code that turns the loaded bytes into one channel of float samples at `rate`. */
+const MONO = (rate: number) => `${BYTES}
   const url=URL.createObjectURL(new Blob([bytes]));
   const duration=await new Promise(resolve=>{const audio=new Audio();audio.preload='metadata';
     const timer=setTimeout(()=>resolve(NaN),10000);
@@ -88,9 +93,9 @@ export class AudioCodecWindow implements AudioCodecs {
       this.windows.delete(window);
     }
   }
-  decode(bytes: Buffer, signal: AbortSignal): Promise<Pcm> {
+  decode(bytes: Buffer, signal: AbortSignal, sampleRate = 16000): Promise<Pcm> {
     return this.withPage(bytes, signal, async (run) => {
-      const length: number = await run(`(async()=>{${MONO(16000)}
+      const length: number = await run(`(async()=>{${MONO(sampleRate)}
         const pcm=new Int16Array(mono.length);for(let i=0;i<mono.length;i++)pcm[i]=mono[i]<0?mono[i]*32768:mono[i]*32767;
         window.pcm=pcm;return pcm.length})()`);
       const samples = new Int16Array(length);
@@ -101,7 +106,17 @@ export class AudioCodecWindow implements AudioCodecs {
         );
         new Uint8Array(samples.buffer).set(part, at * 2);
       }
-      return { sampleRate: 16000, samples };
+      return { sampleRate, samples };
+    });
+  }
+  encodeAmr(samples: Int16Array, signal: AbortSignal): Promise<Buffer> {
+    return this.withPage(Buffer.from(samples.buffer, samples.byteOffset, samples.byteLength), signal, async (run) => {
+      const amr: Uint8Array = await run(`(()=>{${BYTES}
+        const pcm=new Int16Array(bytes.buffer,0,bytes.length>>1),mono=new Float32Array(pcm.length);
+        for(let i=0;i<pcm.length;i++)mono[i]=pcm[i]/32768;
+        ${amrEncoderScript()}
+        const amr=encodeAmr(mono);if(!amr||amr.length<=6)throw Error('语音没能编码成 AMR');return amr})()`);
+      return Buffer.from(amr);
     });
   }
   encodeOpus(bytes: Buffer, signal: AbortSignal): Promise<OpusPackets> {

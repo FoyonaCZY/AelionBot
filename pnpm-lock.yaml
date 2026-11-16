@@ -314,6 +314,9 @@ importers:
       ajv:
         specifier: 8.17.1
         version: 8.17.1
+      benz-amr-recorder:
+        specifier: 1.1.5
+        version: 1.1.5
       electron:
         specifier: 44.2.0
         version: 44.2.0(supports-color@7.2.0)
@@ -1557,6 +1560,12 @@ packages:
 
   bcrypt-pbkdf@1.0.2:
     resolution: {integrity: sha512-qeFIXtP4MSoi6NLqO12WfqARWWuCKi2Rn/9hJLEmtB5yTNr9DqFWkJRCf2qShWzPeAMRnOgCrq0sg/KLv5ES9w==}
+
+  benz-amr-recorder@1.1.5:
+    resolution: {integrity: sha512-NepctcNTsZHK8NxBb5uKO5p8S+xkbm+vD6GLSkCYdJeEsriexvgumLHpDkanX4QJBcLRMVtg16buWMs+gUPB3g==}
+
+  benz-recorderjs@1.0.5:
+    resolution: {integrity: sha512-EwedOQo9KLti7HxDi/eZY51PSRbAXnOdEZmLvJ6ro3QQSoF9Y3AXBt57MIllGvVz5vtFYMeikG+GD7qTm3+p9w==}
 
   bluebird@3.7.2:
     resolution: {integrity: sha512-XpNj6GDQzdfW+r2Wnn7xiSAd7TM3jzkxGXBGTtWKuSXv1xUV+azxAm8jdWZN06QTQk+2N2XB9jRDkvbmQmcRtg==}
@@ -4386,6 +4395,12 @@ snapshots:
   bcrypt-pbkdf@1.0.2:
     dependencies:
       tweetnacl: 0.14.5
+
+  benz-amr-recorder@1.1.5:
+    dependencies:
+      benz-recorderjs: 1.0.5
+
+  benz-recorderjs@1.0.5: {}
 
   bluebird@3.7.2: {}
 

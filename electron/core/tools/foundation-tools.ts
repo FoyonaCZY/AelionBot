@@ -143,8 +143,12 @@ export const FOUNDATION_TOOLS: ToolDefinition[] = [
   ),
   tool(
     'text_to_speech',
-    '用设置里选择的语音合成，以当前 Bot 的音色把文字读成语音，保存为音频附件并附在本次回复中。Markdown 按口语读法处理，代码块不朗读；长文会分段合成后拼成一个文件。只在用户想听语音或需要音频文件时调用。',
-    { text: { ...text, minLength: 1, maxLength: 20000 }, filename: { ...text, maxLength: 80 } },
+    '用设置里选择的语音合成，以当前 Bot 的音色把文字读成语音，保存为音频附件并附在本次回复中。在 IM 对话里，平台支持时默认作为语音消息发出（超过 5 分钟仍发文件）；用户要的是音频文件时，voiceMessage 设为 false。Markdown 按口语读法处理，代码块不朗读；长文会分段合成后拼成一个文件。只在用户想听语音或需要音频文件时调用。',
+    {
+      text: { ...text, minLength: 1, maxLength: 20000 },
+      filename: { ...text, maxLength: 80 },
+      voiceMessage: { type: 'boolean' },
+    },
     ['text'],
   ),
   tool(

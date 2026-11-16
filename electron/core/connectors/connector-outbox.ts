@@ -7,6 +7,7 @@ import type { HarnessRunOptions } from '../agent/peer-runtime-types';
 import type { Store } from '../storage/store';
 import type { ConnectorAdapter, ConnectorCard, InboundAction, InboundMessage } from './connector-adapter';
 import type { StoredConnector } from './connector-store';
+import type { VoiceClip, VoiceFormat } from '../speech/speech-service';
 import { permissionSummary } from './format';
 import { stripBlockMarkers, visualsAsText } from '../../../shared/chat/message-blocks';
 
@@ -16,8 +17,10 @@ export interface OutboxHost {
   /** The adapter of a running connector. */
   adapter(id: string): ConnectorAdapter | undefined;
   bytes(attachmentId: string): Buffer;
-  /** A reply as a voice message, when voice replies are on and the reply is short enough to listen to. */
-  voice(botId: string, text: string, signal: AbortSignal): Promise<{ bytes: Buffer; durationMs: number } | undefined>;
+  /** A reply read aloud as voice messages, when voice replies are on and the reply is short enough to listen to. */
+  voice(botId: string, text: string, format: VoiceFormat, signal: AbortSignal): Promise<VoiceClip[] | undefined>;
+  /** An audio attachment as voice messages; undefined when it is too long or cannot be encoded here. */
+  voiceClips(attachmentId: string, format: VoiceFormat, signal: AbortSignal): Promise<VoiceClip[] | undefined>;
   interactions: {
     snapshot(): InteractionRequest[];
     approve(id: string, allow: boolean): void;
@@ -171,15 +174,31 @@ export class ConnectorOutbox {
     } catch (error) {
       this.host.journal('connector.reply-error', { runId, error: (error as Error).message });
     }
-    // Spoken to, the Bot answers by voice as well; the text above stays for reading and searching.
-    if (tracked.voice && adapter.sendVoice && run?.status === 'completed' && answerText)
+    const files = answers.flatMap((message) => message.attachments || []),
+      spoken = new Set(run?.voiceAttachmentIds);
+    // Spoken to, the Bot answers by voice as well; the text above stays for reading and searching. A Bot that
+    // recorded a voice message of its own has answered by voice already.
+    if (
+      tracked.voice &&
+      adapter.voiceFormat &&
+      adapter.sendVoice &&
+      run?.status === 'completed' &&
+      answerText &&
+      !files.some((file) => spoken.has(file.id))
+    )
       try {
-        const voice = await this.host.voice(tracked.botId, answerText, AbortSignal.timeout(180_000));
-        if (voice) await adapter.sendVoice(tracked.chatId, voice);
+        const clips = await this.host.voice(
+          tracked.botId,
+          answerText,
+          adapter.voiceFormat,
+          AbortSignal.timeout(180_000),
+        );
+        for (const clip of clips || []) await adapter.sendVoice(tracked.chatId, clip);
       } catch (error) {
         this.host.journal('connector.voice-error', { runId, error: (error as Error).message });
       }
-    for (const file of answers.flatMap((message) => message.attachments || [])) {
+    for (const file of files) {
+      if (spoken.has(file.id) && (await this.speak(adapter, tracked, file.id))) continue;
       try {
         await adapter.sendFile(tracked.chatId, { name: file.name, bytes: this.host.bytes(file.id) });
       } catch (error) {
@@ -187,6 +206,22 @@ export class ConnectorOutbox {
           .sendText(tracked.chatId, `文件「${file.name}」没能发送（${(error as Error).message}），请在电脑上查看。`)
           .catch(() => {});
       }
+    }
+  }
+  /**
+   * Sends audio the Bot recorded as voice messages, where the platform takes them. False when it should go as a file
+   * instead: the platform takes no voice, the audio is too long, or sending failed part of the way.
+   */
+  private async speak(adapter: ConnectorAdapter, tracked: Tracked, attachmentId: string) {
+    if (!adapter.voiceFormat || !adapter.sendVoice) return false;
+    try {
+      const clips = await this.host.voiceClips(attachmentId, adapter.voiceFormat, AbortSignal.timeout(180_000));
+      if (!clips?.length) return false;
+      for (const clip of clips) await adapter.sendVoice(tracked.chatId, clip);
+      return true;
+    } catch (error) {
+      this.host.journal('connector.voice-error', { runId: tracked.runId, error: (error as Error).message });
+      return false;
     }
   }
   /** Sends new approval requests and questions of tracked runs, and closes the ones decided elsewhere. */

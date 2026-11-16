@@ -55,7 +55,7 @@ export interface ConnectorDeps {
     connectorMessage(input: { connectorId: string; platform: string; sender: string; text: string }): void;
   };
   /** Speech chosen in settings, for voice messages; absent where the app was wired without it. */
-  speech?: Pick<SpeechService, 'available' | 'transcribe' | 'voiceMessage'>;
+  speech?: Pick<SpeechService, 'available' | 'transcribe' | 'voiceMessage' | 'voiceClips'>;
   changed(): void;
   lark(): LarkSdk;
   /** Replaces the platform adapters in tests. */
@@ -94,10 +94,11 @@ export class Connectors {
         return running?.status === 'connected' ? running.adapter : undefined;
       },
       bytes: (id) => deps.attachments.bytes(id),
-      voice: (botId, text, signal) =>
+      voice: (botId, text, format, signal) =>
         deps.store.data.speech?.connectorVoiceReplies && deps.speech
-          ? deps.speech.voiceMessage(text, signal, botId)
+          ? deps.speech.voiceMessage(text, format, signal, botId)
           : Promise.resolve(undefined),
+      voiceClips: async (id, format, signal) => deps.speech?.voiceClips(deps.attachments.bytes(id), format, signal),
       interactions: deps.interactions,
       journal: (type, payload) => deps.store.journal(type, payload),
     });
@@ -465,7 +466,9 @@ export class Connectors {
         notes.push(`（附件没能收下：${(error as Error).message}）`);
       }
     const quoted = message.quoted ? `> ${message.quoted.split('\n').slice(0, 6).join('\n> ')}\n\n` : '';
-    let text = quoted + [message.text, ...spoken, ...notes].filter(Boolean).join('\n');
+    // What the platform heard in a voice message is marked as speech, like a recording recognized here.
+    const said = message.spoken && message.text ? `（语音）${message.text}` : message.text;
+    let text = quoted + [said, ...spoken, ...notes].filter(Boolean).join('\n');
     if (text.length > MESSAGE_CHARS) text = text.slice(0, MESSAGE_CHARS) + '\n（消息过长，后面的内容没有收下）';
     if (!text.trim() && !attachmentIds.length) return;
     try {
@@ -491,7 +494,7 @@ export class Connectors {
           ...(message.isGroup ? { isGroup: true } : {}),
           sender: { id: person.id, ...(record?.name || person.name ? { name: record?.name || person.name } : {}) },
           ...(connector.owner ? { owner: isOwner } : {}),
-          ...(spoken.length ? { voice: true } : {}),
+          ...(spoken.length || message.spoken ? { voice: true } : {}),
         },
       });
     } catch (error) {

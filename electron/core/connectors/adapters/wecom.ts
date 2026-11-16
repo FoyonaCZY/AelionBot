@@ -4,6 +4,7 @@
 import { createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import WebSocket from 'ws';
 import type { AdapterHandlers, ConnectorAdapter, ConnectorCard, InboundMessage } from '../connector-adapter';
+import type { VoiceClip } from '../../speech/speech-service';
 import { splitText } from '../format';
 
 const DEFAULT_URL = 'wss://openws.work.weixin.qq.com';
@@ -13,7 +14,7 @@ const TEXT_BYTES = 20000;
 const REPLY_WINDOW_MS = 23 * 3600_000;
 const CHUNK_BYTES = 512 * 1024;
 const IMAGE_FILE = /\.(png|jpe?g|gif)$/i;
-const LIMITS = { image: 10 * 1024 * 1024, file: 20 * 1024 * 1024 };
+const LIMITS = { image: 10 * 1024 * 1024, voice: 2 * 1024 * 1024, file: 20 * 1024 * 1024 };
 /** Group text starts with the bot's @mention, which is routing rather than part of the request. */
 const GROUP_MENTION = /^(?:\s*@[^\s@]+\s+)+/u;
 
@@ -43,6 +44,7 @@ export function decryptWecomFile(data: Buffer, aesKey: string) {
 
 export class WecomAdapter implements ConnectorAdapter {
   readonly platform = 'wecom' as const;
+  readonly voiceFormat = 'amr' as const;
   private ws?: WebSocket;
   private handlers?: AdapterHandlers;
   private stopped = true;
@@ -158,6 +160,7 @@ export class WecomAdapter implements ConnectorAdapter {
     this.contexts.set(chatId, { reqId, at: Date.now() });
     const texts: string[] = [],
       resources: InboundMessage['resources'] = [];
+    let spoken = false;
     const media = (kind: 'image' | 'file' | 'video', item: any, name?: string) => {
       if (!item?.url) return;
       resources.push({
@@ -168,8 +171,10 @@ export class WecomAdapter implements ConnectorAdapter {
     };
     const take = (type: string, value: any) => {
       if (type === 'text' && value?.text?.content) texts.push(value.text.content);
-      else if (type === 'voice' && value?.voice?.content) texts.push(value.voice.content);
-      else if (type === 'image') media('image', value?.image);
+      else if (type === 'voice' && value?.voice?.content) {
+        texts.push(value.voice.content);
+        spoken = true;
+      } else if (type === 'image') media('image', value?.image);
       else if (type === 'file') media('file', value?.file);
       else if (type === 'video') media('video', value?.video);
       else if (type === 'mixed') for (const item of value?.mixed?.msg_item || []) take(item.msgtype, item);
@@ -185,6 +190,7 @@ export class WecomAdapter implements ConnectorAdapter {
       isGroup,
       sender: { id: String(body.from?.userid || ''), ...(body.from?.name ? { name: String(body.from.name) } : {}) },
       text: isGroup ? stripGroupMention(texts.join('\n')) : texts.join('\n').trim(),
+      ...(spoken ? { spoken } : {}),
       ...(quoted ? { quoted: isGroup ? stripGroupMention(quoted) : quoted } : {}),
       resources,
       sentAt: body.create_time ? Number(body.create_time) * (Number(body.create_time) < 1e12 ? 1000 : 1) : Date.now(),
@@ -282,18 +288,17 @@ export class WecomAdapter implements ConnectorAdapter {
         { msgtype: 'markdown', markdown: { content: part } },
       );
   }
-  async sendFile(chatId: string, file: { name: string; bytes: Buffer }) {
-    const type = IMAGE_FILE.test(file.name) && file.bytes.length <= LIMITS.image ? 'image' : 'file';
-    if (file.bytes.length > LIMITS.file) throw new Error('文件超过企业微信 20 MB 的限制');
-    const chunks = Math.max(1, Math.ceil(file.bytes.length / CHUNK_BYTES));
+  /** Uploads media in pieces and returns its ID, which a message can use for three days. */
+  private async upload(type: 'image' | 'voice' | 'file', name: string, bytes: Buffer): Promise<string> {
+    const chunks = Math.max(1, Math.ceil(bytes.length / CHUNK_BYTES));
     const init = await this.request(
       requestId('aibot_upload_media_init'),
       {
         type,
-        filename: file.name,
-        total_size: file.bytes.length,
+        filename: name,
+        total_size: bytes.length,
         total_chunks: chunks,
-        md5: createHash('md5').update(file.bytes).digest('hex'),
+        md5: createHash('md5').update(bytes).digest('hex'),
       },
       'aibot_upload_media_init',
     );
@@ -305,7 +310,7 @@ export class WecomAdapter implements ConnectorAdapter {
         {
           upload_id: uploadId,
           chunk_index: index,
-          base64_data: file.bytes.subarray(index * CHUNK_BYTES, (index + 1) * CHUNK_BYTES).toString('base64'),
+          base64_data: bytes.subarray(index * CHUNK_BYTES, (index + 1) * CHUNK_BYTES).toString('base64'),
         },
         'aibot_upload_media_chunk',
       );
@@ -316,7 +321,18 @@ export class WecomAdapter implements ConnectorAdapter {
     );
     const mediaId = done.body?.media_id;
     if (!mediaId) throw new Error('企业微信没有返回文件编号');
-    const message = { msgtype: type, [type]: { media_id: mediaId } };
+    return mediaId;
+  }
+  async sendFile(chatId: string, file: { name: string; bytes: Buffer }) {
+    const type = IMAGE_FILE.test(file.name) && file.bytes.length <= LIMITS.image ? 'image' : 'file';
+    if (file.bytes.length > LIMITS.file) throw new Error('文件超过企业微信 20 MB 的限制');
+    const message = { msgtype: type, [type]: { media_id: await this.upload(type, file.name, file.bytes) } };
+    await this.deliver(chatId, message, message);
+  }
+  /** An AMR voice message; WeCom takes no other format. */
+  async sendVoice(chatId: string, voice: VoiceClip) {
+    if (voice.bytes.length > LIMITS.voice) throw new Error('语音超过企业微信 2 MB 的限制');
+    const message = { msgtype: 'voice', voice: { media_id: await this.upload('voice', 'voice.amr', voice.bytes) } };
     await this.deliver(chatId, message, message);
   }
   private templateCard(card: ConnectorCard, taskId: string, result?: string) {

@@ -8,18 +8,31 @@ import { recognize, speak, SPEECH_LIMITS, type SpeechAccess } from './speech-pro
 
 /** Decoding and encoding with the system's codecs; absent in the command-line app. */
 export interface AudioCodecs {
-  /** Any audio or video the system plays, as 16 kHz mono samples. */
-  decode(bytes: Buffer, signal: AbortSignal): Promise<Pcm>;
+  /** Any audio or video the system plays, as mono samples at `sampleRate`, 16 kHz unless given. */
+  decode(bytes: Buffer, signal: AbortSignal, sampleRate?: number): Promise<Pcm>;
   /** Any audio as mono Opus packets for a voice message. */
   encodeOpus(bytes: Buffer, signal: AbortSignal): Promise<OpusPackets>;
+  /** 8 kHz mono samples as an AMR-NB file for a voice message. */
+  encodeAmr(samples: Int16Array, signal: AbortSignal): Promise<Buffer>;
 }
 export interface SpeechProviders {
   speechAccess(kind: 'input' | 'output', botId?: string): SpeechAccess | undefined;
+}
+/** The audio of voice messages a chat platform takes: Ogg Opus (Feishu) or AMR-NB (WeCom). */
+export type VoiceFormat = 'ogg-opus' | 'amr';
+/** One voice message, ready to send. */
+export interface VoiceClip {
+  bytes: Buffer;
+  durationMs: number;
 }
 
 const PARALLEL = 4;
 /** About two and a half minutes of speech: longer replies stay text in a chat app. */
 const VOICE_MESSAGE_CHARS = 600;
+/** Longer audio stays a file: nobody listens to that many voice messages in a row. */
+const VOICE_MESSAGE_SECONDS = 5 * 60;
+/** AMR voice messages play at most a minute in WeCom, as in WeChat; longer speech goes as several. */
+const AMR_CLIP_SECONDS = 60;
 
 /** Runs `work` over the items with at most `limit` running at once, keeping their order. */
 async function parallel<T, R>(items: T[], limit: number, work: (item: T) => Promise<R>) {
@@ -131,12 +144,33 @@ export class SpeechService {
     }
     return { bytes: wavFile(samples, pcm[0].sampleRate), mime: 'audio/wav' as const };
   }
-  /** A reply as a voice message (Ogg Opus), or undefined when it is too long to listen to or cannot be encoded. */
-  async voiceMessage(text: string, signal: AbortSignal, botId?: string) {
+  /** A reply read aloud as voice messages, or undefined when it is too long to listen to or cannot be encoded. */
+  async voiceMessage(text: string, format: VoiceFormat, signal: AbortSignal, botId?: string) {
     if (!this.codecs || !this.available('output') || spokenText(text).length > VOICE_MESSAGE_CHARS) return;
-    const audio = await this.synthesize(text, signal, botId),
-      encoded = await this.codecs.encodeOpus(audio.bytes, signal);
-    if (!encoded.packets.length) return;
-    return { bytes: oggOpus(encoded), durationMs: Math.round((encoded.length / 48000) * 1000) };
+    const audio = await this.synthesize(text, signal, botId);
+    return this.voiceClips(audio.bytes, format, signal);
+  }
+  /**
+   * Audio as voice messages: Ogg Opus as one message, AMR as messages of at most a minute, cut at pauses. Undefined
+   * without the system's codecs, for silence, and for audio longer than five minutes, which is better sent as a file.
+   */
+  async voiceClips(audio: Buffer, format: VoiceFormat, signal: AbortSignal): Promise<VoiceClip[] | undefined> {
+    if (!this.codecs) return;
+    if (format === 'ogg-opus') {
+      const encoded = await this.codecs.encodeOpus(audio, signal),
+        durationMs = Math.round((encoded.length / 48000) * 1000);
+      if (!encoded.packets.length || durationMs > VOICE_MESSAGE_SECONDS * 1000) return;
+      return [{ bytes: oggOpus(encoded), durationMs }];
+    }
+    const rate = 8000,
+      { samples } = await this.codecs.decode(audio, signal, rate);
+    if (!samples.length || samples.length > VOICE_MESSAGE_SECONDS * rate) return;
+    const clips: VoiceClip[] = [];
+    for (const [start, end] of speechPieces(samples, rate, AMR_CLIP_SECONDS))
+      clips.push({
+        bytes: await this.codecs.encodeAmr(samples.subarray(start, end), signal),
+        durationMs: Math.round(((end - start) / rate) * 1000),
+      });
+    return clips;
   }
 }

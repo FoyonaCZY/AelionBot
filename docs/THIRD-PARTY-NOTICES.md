@@ -33,6 +33,7 @@ AelionBot 的构建和运行依赖以下上游项目；第三方组件的许可�
 | quickjs-emscripten / QuickJS | 独立 JavaScript 工具编排运行时 | 固定版本 `0.32.0`；[上游项目](https://github.com/justjake/quickjs-emscripten)，许可见 `docs/licenses/quickjs-emscripten.txt` 与 `docs/licenses/quickjs-runtime.txt` |
 | linkedom | 无页面脚本执行的 HTML/XML 解析 | 固定版本 `0.18.13`；[上游项目](https://github.com/WebReflection/linkedom)，ISC 许可见 `docs/licenses/linkedom.txt` |
 | 飞书 Node SDK | 飞书连接器：长连接、流式卡片、扫码创建应用 | 固定版本 `@larksuiteoapi/node-sdk@1.74.0`；[上游项目](https://github.com/larksuite/node-sdk)，MIT 许可见 `docs/licenses/larksuite-node-sdk.txt`；首次使用飞书连接器时加载 |
+| opencore-amr（benz-amr-recorder 内的编译版） | 企业微信语音消息的 AMR-NB 编码，在隐藏的编解码窗口里运行 | 固定版本 `benz-amr-recorder@1.1.5`，只用其中的 `src/amrnb.js`：[amr.js](https://github.com/jpemartins/amr.js) 用 emscripten 编译的 [opencore-amr](https://sourceforge.net/projects/opencore-amr/) 0.1.3。opencore-amr 为 Apache-2.0，许可见 `docs/licenses/opencore-amr.txt`；benz-amr-recorder 为 MIT，许可见 `docs/licenses/benz-amr-recorder.txt` |
 | uqr | 连接器扫码页的二维码 | 固定版本 `0.1.3`；[上游项目](https://github.com/unjs/uqr)，MIT 许可见 `docs/licenses/uqr.txt` |
 | 企业微信智能机器人 Node SDK | 企业微信连接器的长连接帧格式参考 | 参考 `@wecom/aibot-node-sdk@1.0.7`（MIT，[上游项目](https://github.com/WecomTeam/aibot-node-sdk)）与[官方文档](https://developer.work.weixin.qq.com/document/path/101463)自行实现，未打包上游代码 |
 | openclaw-weixin | 微信连接器（实验）的 iLink 协议参考 | 参考 `@tencent-weixin/openclaw-weixin@2.4.10` 自行实现，未打包上游代码；MIT 许可见 `docs/licenses/openclaw-weixin.txt` |
