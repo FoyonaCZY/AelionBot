@@ -1,0 +1,16 @@
+/* The confirmation before an answer is made again (RegenerateDialog.tsx). */
+.modal.regenerate-dialog {
+  width: min(440px, calc(100vw - 32px));
+}
+.regenerate-dialog p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-small);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.regenerate-dialog form > label > .aelion-select {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+}

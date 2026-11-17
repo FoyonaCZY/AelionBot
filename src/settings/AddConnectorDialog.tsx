@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Bot, Snapshot } from '../../shared/types/core';
 import {
+  CONNECTOR_PLATFORMS,
   CONNECTOR_PLATFORM_NAMES,
+  EXPERIMENTAL_CONNECTORS,
   type ConnectorPlatform,
   type ConnectorStatus,
   type ConnectorView,
@@ -11,6 +13,7 @@ import {
   HOST_PERMISSION_MODES,
   type HostPermissionMode,
 } from '../../shared/types/permission-types';
+import { discordInviteUrl, slackManifest } from '../../shared/connector-setup';
 import { Select } from '../ui/Select';
 import { ConnectorLogo } from './ConnectorLogo';
 import { ipcErrorText } from '../ui/ipc-error';
@@ -98,6 +101,14 @@ function ConnectorFields({
 }
 
 const FEISHU_SCOPES = 'im:message、im:message.p2p_msg:readonly、im:message:send_as_bot、im:resource';
+/** What each platform calls the credentials typed by hand; the second one, where there is one, is the secret. */
+const MANUAL_FIELDS: Record<Exclude<ConnectorPlatform, 'weixin'>, [string, string?]> = {
+  feishu: ['App ID', 'App Secret'],
+  wecom: ['BotID', 'Secret'],
+  telegram: ['Bot Token'],
+  discord: ['Bot Token'],
+  slack: ['App Token (xapp-)', 'Bot Token (xoxb-)'],
+};
 
 export function AddConnectorDialog({
   state,
@@ -121,8 +132,11 @@ export function AddConnectorDialog({
     [verifyCode, setVerifyCode] = useState(''),
     [setupId, setSetupId] = useState(''),
     [pending, setPending] = useState(false),
+    [copied, setCopied] = useState(false),
     [error, setError] = useState('');
   const setup = state.connectors?.setups.find((item) => item.id === setupId);
+  const [firstLabel, secondLabel] = MANUAL_FIELDS[platform === 'weixin' ? 'feishu' : platform],
+    invite = platform === 'discord' ? discordInviteUrl(first) : '';
   const scanning = platform === 'weixin' || (platform === 'feishu' && method === 'scan');
   const dialog = useRef<HTMLDivElement>(null);
   useSwitchMotion(dialog, platform + ':' + method, ':scope > :is(.connector-scan, .connector-manual)');
@@ -146,6 +160,7 @@ export function AddConnectorDialog({
     setError('');
     setFirst('');
     setSecond('');
+    setCopied(false);
   };
   const close = () => {
     if (setupId && setup?.phase !== 'done') void window.aelion.cancelConnectorSetup(setupId);
@@ -170,7 +185,11 @@ export function AddConnectorDialog({
         credentials:
           platform === 'feishu'
             ? { platform: 'feishu', appId: first, appSecret: second }
-            : { platform: 'wecom', botId: first, secret: second },
+            : platform === 'telegram' || platform === 'discord'
+              ? { platform, token: first }
+              : platform === 'slack'
+                ? { platform: 'slack', appToken: first, botToken: second }
+                : { platform: 'wecom', botId: first, secret: second },
       });
       onCreated(id);
     });
@@ -203,7 +222,7 @@ export function AddConnectorDialog({
       >
         <h2 id="connector-dialog-title">{t('添加连接器')}</h2>
         <div className="connector-platforms" role="group" aria-label={t('平台')}>
-          {(['feishu', 'wecom', 'weixin'] as const).map((item) => (
+          {CONNECTOR_PLATFORMS.map((item) => (
             <button
               key={item}
               type="button"
@@ -217,7 +236,7 @@ export function AddConnectorDialog({
             >
               <ConnectorLogo platform={item} size={16} />
               {t(CONNECTOR_PLATFORM_NAMES[item])}
-              {item === 'weixin' && <small>{t('实验')}</small>}
+              {EXPERIMENTAL_CONNECTORS.has(item) && <small>{t('实验')}</small>}
             </button>
           ))}
         </div>
@@ -296,6 +315,25 @@ export function AddConnectorDialog({
                   </li>
                   <li>{t('创建版本并发布应用，然后在飞书里给机器人发消息，按提示确认配对码。')}</li>
                 </>
+              ) : platform === 'telegram' ? (
+                <>
+                  <li>{t('在 Telegram 里打开 @BotFather，发送 /newbot，按提示取名，复制它给的 token。')}</li>
+                  <li>{t('把 token 填在下面并添加。')}</li>
+                  <li>{t('在 Telegram 里给这个机器人发一条消息，按提示在这里确认配对码。')}</li>
+                </>
+              ) : platform === 'discord' ? (
+                <>
+                  <li>{t('在 Developer Portal 新建应用，在 Bot 页 Reset Token，把 token 填在下面。')}</li>
+                  <li>{t('点“打开邀请链接”，把机器人加进你自己的任意一个服务器。')}</li>
+                  <li>{t('点“添加”，然后在 Discord 里私信这个机器人，按提示在这里确认配对码。')}</li>
+                </>
+              ) : platform === 'slack' ? (
+                <>
+                  <li>{t('点“复制 Manifest”，在 Slack 应用页选 From a manifest，粘贴后创建应用。')}</li>
+                  <li>{t('在 Basic Information 生成 App-Level Token，勾选 connections:write。')}</li>
+                  <li>{t('在 Install App 安装到工作区，复制 Bot User OAuth Token。')}</li>
+                  <li>{t('把两个 token 填在下面并添加，然后在 Slack 里私信这个应用，按提示在这里确认配对码。')}</li>
+                </>
               ) : (
                 <>
                   <li>{t('在企业微信“工作台 → 智能机器人”创建机器人，切换到 API 模式，连接方式选“使用长连接”。')}</li>
@@ -318,19 +356,78 @@ export function AddConnectorDialog({
                 {t('打开飞书开放平台')}
               </button>
             )}
+            {platform === 'telegram' && (
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => void window.aelion.openExternalUrl('https://t.me/BotFather')}
+              >
+                {t('打开 BotFather')}
+              </button>
+            )}
+            {platform === 'discord' && (
+              <div className="connector-links">
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() => void window.aelion.openExternalUrl('https://discord.com/developers/applications')}
+                >
+                  {t('打开 Developer Portal')}
+                </button>
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={!invite}
+                  title={invite ? undefined : t('先填 Bot Token')}
+                  onClick={() => void window.aelion.openExternalUrl(invite)}
+                >
+                  {t('打开邀请链接')}
+                </button>
+              </div>
+            )}
+            {platform === 'slack' && (
+              <div className="connector-links">
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() => {
+                    const bot = state.bots.find((item) => item.id === botId);
+                    void navigator.clipboard.writeText(slackManifest(bot?.name || '')).then(() => setCopied(true));
+                  }}
+                >
+                  {copied ? t('已复制') : t('复制 Manifest')}
+                </button>
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() => void window.aelion.openExternalUrl('https://api.slack.com/apps?new_app=1')}
+                >
+                  {t('打开 Slack 应用页')}
+                </button>
+              </div>
+            )}
             <label>
-              <span>{platform === 'feishu' ? 'App ID' : 'BotID'}</span>
-              <input value={first} spellCheck={false} onChange={(event) => setFirst(event.target.value)} />
-            </label>
-            <label>
-              <span>{platform === 'feishu' ? 'App Secret' : 'Secret'}</span>
+              <span>{firstLabel}</span>
               <input
-                type="password"
-                value={second}
+                type={platform === 'feishu' || platform === 'wecom' ? 'text' : 'password'}
+                value={first}
                 spellCheck={false}
-                onChange={(event) => setSecond(event.target.value)}
+                autoComplete="off"
+                onChange={(event) => setFirst(event.target.value)}
               />
             </label>
+            {secondLabel && (
+              <label>
+                <span>{secondLabel}</span>
+                <input
+                  type="password"
+                  value={second}
+                  spellCheck={false}
+                  autoComplete="off"
+                  onChange={(event) => setSecond(event.target.value)}
+                />
+              </label>
+            )}
           </div>
         )}
         {error && (
@@ -349,7 +446,7 @@ export function AddConnectorDialog({
           ) : (
             <button
               className="primary-button"
-              disabled={pending || !botId || !first.trim() || !second.trim()}
+              disabled={pending || !botId || !first.trim() || Boolean(secondLabel && !second.trim())}
               onClick={() => void addManual()}
             >
               {t('添加')}

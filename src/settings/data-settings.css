@@ -1,0 +1,65 @@
+/* Settings → 数据: the form that opens in the card under its row, and the progress of a backup. The rows and the
+   hairlines between them come from settings.css. */
+.data-panel-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--settings-line);
+}
+.data-panel-footer small {
+  flex: 1;
+  margin-right: 8px;
+  font-size: var(--text-caption);
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.data-panel-footer small.is-error,
+.data-issue,
+.data-copy-actions .is-danger {
+  color: var(--ctl-danger);
+}
+.data-backup-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 12px 0;
+  font-size: var(--text-small);
+  line-height: 1.5;
+}
+.data-backup-info strong {
+  font-weight: var(--weight-label);
+  overflow-wrap: anywhere;
+}
+.data-backup-info span {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+.data-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 0 12px;
+  font-size: var(--text-small);
+}
+.data-progress {
+  padding: 14px 0;
+}
+.data-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: var(--text-small);
+}
+.data-copy-actions {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+.data-issue {
+  margin: 8px 4px 0;
+  font-size: var(--text-caption);
+  line-height: 1.6;
+}

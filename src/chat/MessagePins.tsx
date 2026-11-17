@@ -80,6 +80,7 @@ export function MessageActions({
   onPin,
   onReply,
   onEdit,
+  onRegenerate,
   speakAs,
   bubbleClassName,
   after,
@@ -94,6 +95,8 @@ export function MessageActions({
   onReply?: () => void;
   /** Takes the message back into the composer to edit it. */
   onEdit?: () => void;
+  /** Makes this answer again; given only for the last answer of a chat. */
+  onRegenerate?: () => void;
   bubbleClassName: string;
   /** Shown between the bubble and its reactions: the files a message carries. */
   after?: ReactNode;
@@ -117,7 +120,7 @@ export function MessageActions({
     reading = useSpeaking(),
     readable = Boolean(speechOutput && speakAs && content.trim()),
     readingThis = reading?.key === messageId ? reading.phase : undefined;
-  const hasToolbar = Boolean(onPin || onReply || onEdit || content.trim());
+  const hasToolbar = Boolean(onPin || onReply || onEdit || onRegenerate || content.trim());
   const showToolbar = () => {
     clearTimeout(hoverTimer.current);
     window.dispatchEvent(new CustomEvent('aelion:message-hover', { detail: messageId }));
@@ -476,6 +479,31 @@ export function MessageActions({
                 </svg>
               </button>
             )}
+            {onRegenerate && (
+              <button
+                type="button"
+                aria-label={t('重新生成')}
+                title={t('重新生成')}
+                onClick={() => {
+                  setHovered(false);
+                  onRegenerate();
+                }}
+              >
+                <svg
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" />
+                </svg>
+              </button>
+            )}
           </div>,
           document.body,
         )}
@@ -701,6 +729,33 @@ export function MessageActions({
                 </svg>
                 {t('复制')}
               </button>
+              {onRegenerate && (
+                <button
+                  type="button"
+                  className="message-menu-action"
+                  role={expanded ? undefined : 'menuitem'}
+                  onClick={() => {
+                    dismiss();
+                    setHovered(false);
+                    onRegenerate();
+                  }}
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" />
+                  </svg>
+                  {t('重新生成')}
+                </button>
+              )}
             </div>
           )}
         </Presence>,

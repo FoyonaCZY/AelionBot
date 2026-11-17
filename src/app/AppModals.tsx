@@ -7,11 +7,14 @@ import { RuntimeSettings } from '../settings/RuntimeSettings';
 import { UsageSettings } from '../settings/UsageSettings';
 import { SettingsWindow, type SettingsTab } from '../settings/SettingsWindow';
 import { RemoteSettings } from '../settings/RemoteSettings';
+import { NotificationSettings } from '../settings/NotificationSettings';
+import { KnowledgeSettings } from '../settings/KnowledgeSettings';
 import { CommandPermissionsSettings } from '../settings/CommandPermissionsSettings';
 import { HostComputerSettings } from '../settings/HostComputerSettings';
 import { UserProfileSettings } from '../settings/UserProfileSettings';
 import { ModelSettings } from '../settings/ModelSettings';
 import { AboutSettings } from '../settings/AboutSettings';
+import { DataSettings } from '../settings/DataSettings';
 import { ComputerSetup } from '../computer/ComputerSetup';
 import { Icon } from '../ui/Icon';
 import { ipcErrorText } from '../ui/ipc-error';
@@ -164,6 +167,9 @@ export function AppModals({
             onClose={() => void act(closeModal)}
           >
             {settingsTab === 'appearance' && <AppearanceSettings {...appearance} />}
+            {settingsTab === 'notifications' && (
+              <NotificationSettings settings={state.desktopNotify} onNotify={setToast} />
+            )}
             {settingsTab === 'profile' && <UserProfileSettings profile={state.userProfile} onNotify={setToast} />}
             {settingsTab === 'runtime' && <RuntimeSettings settings={state.runtime} onNotify={setToast} />}
             {settingsTab === 'model' && <ModelSettings state={state} onNotify={setToast} />}
@@ -171,6 +177,14 @@ export function AppModals({
             {settingsTab === 'usage' && <UsageSettings state={state} />}
             {settingsTab === 'memory' && (
               <MemorySettings state={state} bot={bot} scope={scope} onScope={setScope} busy={busy} act={act} />
+            )}
+            {settingsTab === 'knowledge' && (
+              <KnowledgeSettings
+                view={state.knowledge}
+                bots={state.bots}
+                onNotify={setToast}
+                onOpenMemory={() => setSettingsTab('memory')}
+              />
             )}
             {settingsTab === 'computer' && (
               <ComputerSettings
@@ -197,6 +211,7 @@ export function AppModals({
               </>
             )}
             {settingsTab === 'remote' && <RemoteSettings view={state.remote} onNotify={setToast} />}
+            {settingsTab === 'data' && <DataSettings onNotify={setToast} />}
             {settingsTab === 'about' && <AboutSettings update={state.updates} onNotify={setToast} />}
           </SettingsWindow>
         )}

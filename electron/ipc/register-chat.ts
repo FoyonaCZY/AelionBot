@@ -1,5 +1,5 @@
 import { resumableRun } from '../core/agent/resume-run';
-import { retractInput } from '../core/agent/retract-input';
+import { regenerateAnswer, retractInput } from '../core/agent/retract-input';
 import type { IpcContext } from './context';
 import { AppError } from '../../shared/errors';
 
@@ -63,6 +63,22 @@ export function registerChat(ctx: IpcContext) {
         store: ctx.store,
         stop,
         isRunning: (botId, lane) => ctx.harness.isRunning(botId, lane),
+        hold: (botId, sessionId, work) => queue.hold(botId, sessionId, work),
+        forgetSuperseded: (botId, sessionId, runId) => queue.forgetSuperseded(botId, sessionId, runId),
+        summarizedThrough: (botId, scopeKey) => ctx.cognition.context.summarizedThrough(botId, scopeKey),
+        changed: ctx.changed,
+      },
+      input,
+    );
+  });
+  handle('regenerateChat', (input) => {
+    const queue = ctx.chatPins!;
+    ctx.greetings?.cancel(String(input?.botId));
+    return regenerateAnswer(
+      {
+        store: ctx.store,
+        isRunning: (botId, lane) => ctx.harness.isRunning(botId, lane),
+        hasPending: (botId, lane) => queue.hasPending(botId, lane),
         hold: (botId, sessionId, work) => queue.hold(botId, sessionId, work),
         forgetSuperseded: (botId, sessionId, runId) => queue.forgetSuperseded(botId, sessionId, runId),
         summarizedThrough: (botId, scopeKey) => ctx.cognition.context.summarizedThrough(botId, scopeKey),

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Bot, McpServerView, Skill, Snapshot, WorkSession } from '../../shared/types/core';
 import {
+  CONNECTOR_PLATFORMS,
   CONNECTOR_PLATFORM_NAMES,
+  EXPERIMENTAL_CONNECTORS,
   type ConnectorPlatform,
   type ConnectorView,
 } from '../../shared/types/connector-types';
@@ -24,7 +26,6 @@ import './plugins.css';
 export type PluginFilter = 'all' | 'apps' | 'skills' | 'mcp' | 'connectors';
 type Selected = { kind: 'skill' | 'mcp' | 'connector' | 'sources'; id: string };
 type SkillGroup = { key: string; title: string; note: string; path?: string; bot?: Bot; skills: Skill[] };
-const PLATFORMS: ConnectorPlatform[] = ['feishu', 'wecom', 'weixin'];
 /** Apps recommended on the overview, to say what kind of thing can be connected. */
 const FEATURED_APPS = ['notion', 'github', 'gmail', 'linear', 'supabase', 'figma-desktop'];
 const appOf = (server: McpServerView) => APP_CONNECTORS.find((app) => app.id === server.app);
@@ -109,7 +110,7 @@ export function PluginsPage({
   // Another connector most likely joins the platform added last, such as a WeCom bot for another Bot.
   const nextPlatform: ConnectorPlatform = connectors.at(-1)?.platform || 'feishu';
   // Platforms still to connect; each has a row until it has a connector.
-  const openPlatforms = PLATFORMS.filter(
+  const openPlatforms = CONNECTOR_PLATFORMS.filter(
     (platform) =>
       !connectors.some((connector) => connector.platform === platform) &&
       t(CONNECTOR_PLATFORM_NAMES[platform]).toLowerCase().includes(words),
@@ -384,7 +385,7 @@ export function PluginsPage({
                     name={
                       <>
                         {t(CONNECTOR_PLATFORM_NAMES[platform])}
-                        {platform === 'weixin' && <span className="plugin-tag">{t('实验')}</span>}
+                        {EXPERIMENTAL_CONNECTORS.has(platform) && <span className="plugin-tag">{t('实验')}</span>}
                       </>
                     }
                   >
@@ -654,7 +655,12 @@ function AddMenu({
   }, [open]);
   const items = [
     { id: 'app', icon: 'globe', name: t('应用'), note: t('连接 Notion、GitHub、Google 等应用') },
-    { id: 'connector', icon: 'message', name: t('消息渠道'), note: t('在飞书、企业微信或微信里和 Bot 对话') },
+    {
+      id: 'connector',
+      icon: 'message',
+      name: t('消息渠道'),
+      note: t('在飞书、企业微信、Telegram 等聊天应用里和 Bot 对话'),
+    },
     { id: 'mcp', icon: 'plugin', name: t('MCP 服务'), note: t('粘贴配置，给 Bot 接上外部工具') },
     { id: 'skills', icon: 'book', name: t('技能文件夹'), note: t('从本地文件夹读取技能，所有 Bot 共享') },
   ] as const;

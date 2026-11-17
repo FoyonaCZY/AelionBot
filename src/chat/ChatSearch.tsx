@@ -3,25 +3,10 @@ import type { ChatMessage } from '../../shared/types/core';
 import { searchMessages } from '../../shared/chat/activity';
 import { Icon } from '../ui/Icon';
 import { useI18n } from '../i18n';
-import { revealMessage } from './reveal-message';
+import { clearMessageHit, showMessageHit } from './reveal-message';
 import './chat-search.css';
 
-const HIT_CLASS = 'is-search-hit';
-
-/** Scrolls a message into view, first asking a folded run process or the timeline to render it. */
-function reveal(id: string) {
-  document.querySelectorAll('.' + HIT_CLASS).forEach((node) => node.classList.remove(HIT_CLASS));
-  void revealMessage(id, () =>
-    document.querySelector<HTMLElement>(`.messages [data-message-id="${CSS.escape(id)}"]`),
-  ).then((target) => {
-    if (!target) return;
-    target.classList.add(HIT_CLASS);
-    target.scrollIntoView({
-      block: 'center',
-      behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-    });
-  });
-}
+const reveal = (id: string) => void showMessageHit(id);
 
 /** Search in the selected conversation: Ctrl/Cmd+F opens it, Enter and Shift+Enter step through matches. */
 export function ChatSearch({ messages, scopeKey }: { messages: ChatMessage[]; scopeKey: string }) {
@@ -34,7 +19,7 @@ export function ChatSearch({ messages, scopeKey }: { messages: ChatMessage[]; sc
   const close = () => {
     setOpen(false);
     setQuery('');
-    document.querySelectorAll('.' + HIT_CLASS).forEach((node) => node.classList.remove(HIT_CLASS));
+    clearMessageHit();
   };
   useEffect(close, [scopeKey]);
   useEffect(() => {

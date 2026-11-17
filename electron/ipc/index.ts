@@ -12,7 +12,9 @@ import { registerGroups } from './register-groups';
 import { registerIntegrations } from './register-integrations';
 import { registerConnectors } from './register-connectors';
 import { registerRemote } from './register-remote';
+import { registerBackup } from './register-backup';
 import { registerMemory } from './register-memory';
+import { registerKnowledge } from './register-knowledge';
 import { registerModels } from './register-models';
 import { registerPeers } from './register-peers';
 import { registerPersona } from './register-persona';
@@ -22,6 +24,7 @@ import { registerTerminal } from './register-terminal';
 import { registerWebPreview } from './register-web-preview';
 import { registerWorkspace } from './register-workspace';
 import { registerSessions } from './register-sessions';
+import { registerConversations } from './register-conversations';
 
 export function registerIpc(ctx: IpcContext) {
   registerPreview(ctx);
@@ -29,7 +32,9 @@ export function registerIpc(ctx: IpcContext) {
   registerApp(ctx);
   registerChat(ctx);
   registerMemory(ctx);
+  registerKnowledge(ctx);
   registerSessions(ctx);
+  registerConversations(ctx);
   registerModels(ctx);
   registerDecisions(ctx);
   registerTasks(ctx);
@@ -37,6 +42,7 @@ export function registerIpc(ctx: IpcContext) {
   registerIntegrations(ctx);
   registerConnectors(ctx);
   registerRemote(ctx);
+  registerBackup(ctx);
   registerBots(ctx);
   registerAttachments(ctx);
   registerDesign(ctx);

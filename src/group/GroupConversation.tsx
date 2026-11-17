@@ -16,6 +16,8 @@ import type { PreviewHistoryEntry } from '../../shared/preview/agent-preview-typ
 import { ConversationTimeProvider, MessageTime } from '../chat/ConversationTime';
 import { messageReply } from '../../shared/chat/message-replies';
 import { MessageQuote } from '../chat/MessageQuote';
+import { jumpScopeKey, useMessageJump } from '../chat/message-jump';
+import { showMessageHit } from '../chat/reveal-message';
 import { WorkItemsPanel } from '../chat/WorkItems';
 import { workspaceKey } from '../../shared/types/work-types';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -307,6 +309,44 @@ export function GroupConversation({
       setLoading(false);
     }
   };
+  // A search result opened this group at one message. When it is older than what is loaded, the page is read back
+  // to it first; it is shown once it is on the page.
+  const [jumpId, setJumpId] = useState<string>();
+  useMessageJump(jumpScopeKey({ kind: 'group', id: group.id }), setJumpId);
+  useEffect(() => {
+    if (!jumpId || !page) return;
+    if (page.messages.some((message) => message.id === jumpId)) {
+      setJumpId(undefined);
+      following(false);
+      requestAnimationFrame(() => void showMessageHit(jumpId, true));
+      return;
+    }
+    let live = true;
+    window.aelion
+      .readGroup({ id: group.id, through: jumpId })
+      .then((result) => {
+        if (!live) return;
+        following(false);
+        setPage((current) =>
+          current
+            ? {
+                ...current,
+                messages: merge(result.messages, current.messages),
+                deliveries: merge(result.deliveries, current.deliveries),
+                before: result.before,
+              }
+            : result,
+        );
+      })
+      .catch((error) => {
+        if (!live) return;
+        setJumpId(undefined);
+        setError(ipcErrorText(error));
+      });
+    return () => {
+      live = false;
+    };
+  }, [jumpId, page]);
   const members = useMemo(
       () => state.bots.filter((bot) => group.members.some((member) => member.id === bot.id && !member.leftAt)),
       [state.bots, group.members],

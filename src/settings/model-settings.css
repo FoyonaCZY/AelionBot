@@ -60,20 +60,6 @@
 .bot-soul-footer .is-error {
   color: light-dark(#b3261e, #f2b8b5);
 }
-.bot-soul-field .presets {
-  align-items: center;
-  margin: 12px 0 0;
-}
-.bot-soul-field .presets-label {
-  font-size: var(--text-caption);
-  color: light-dark(#8a8d90, #c0c0c0);
-  margin-right: 2px;
-}
-.bot-soul-field .presets button[aria-pressed='true'] {
-  border-color: light-dark(#7893aa, #b5c3ce);
-  color: light-dark(#42474b, #e0e0e0);
-  background: light-dark(#f2f5f7, #2c2c2c);
-}
 .bot-profile-model h3 {
   font-size: var(--text-caption);
   font-weight: var(--weight-body);

@@ -7,7 +7,7 @@
 import type { BotMention, ChatMessage, RunRecord, WireMessage } from '../../../shared/types/core';
 import type { Attachment } from '../../../shared/types/attachment-types';
 import type { MessageReply } from '../../../shared/chat/message-replies';
-import { canRetract } from '../../../shared/chat/retract';
+import { canRegenerate, canRetract } from '../../../shared/chat/retract';
 import { AppError } from '../../../shared/errors';
 import { Store } from '../storage/store';
 import { chatInputText } from './chat-input';
@@ -85,8 +85,65 @@ export async function retractInput(
   });
 }
 
+/**
+ * Making the last answer of a chat again. The run's input goes back to waiting and everything the Bot wrote for it,
+ * with its turn in the model history, goes: the queue then answers the same input as if for the first time. What the
+ * run already did outside the chat (files written, commands run) stays done.
+ */
+export async function regenerateAnswer(
+  deps: Omit<RetractDeps, 'stop' | 'stopTimeoutMs'> & {
+    hasPending: (botId: string, sessionId: string | null) => boolean;
+  },
+  input: { botId: string; sessionId?: string; runId: string },
+): Promise<void> {
+  const { store } = deps;
+  const botId = String(input?.botId || ''),
+    sessionId = typeof input?.sessionId === 'string' && input.sessionId ? input.sessionId : undefined;
+  store.bot(botId);
+  const inChat = (item: { botId: string; sessionId?: string }) => item.botId === botId && item.sessionId === sessionId;
+  const run = store.data.runs.find((item) => item.id === input?.runId && inChat(item));
+  const messages = store.data.messages,
+    inputs = run ? messages.filter((item) => item.runId === run.id && item.role === 'user' && !item.reaction) : [];
+  let last = -1;
+  if (run)
+    for (let index = messages.length - 1; index >= 0 && last < 0; index--)
+      if (messages[index].runId === run.id) last = index;
+  const followed =
+    !run ||
+    messages.slice(last + 1).some((item) => inChat(item) && (item.role === 'user' || item.role === 'assistant')) ||
+    store.data.runs.some(
+      (item) =>
+        item !== run &&
+        inChat(item) &&
+        !item.retracted &&
+        !item.groupOrigin &&
+        !item.peerOrigin &&
+        item.startedAt > run.startedAt,
+    );
+  if (!run || followed || !canRegenerate(run, inputs))
+    throw new AppError('chat.regenerate_unavailable', '只能重新生成这个对话里的最后一条回复');
+  if (deps.isRunning(botId, sessionId ?? null) || deps.hasPending(botId, sessionId ?? null))
+    throw new AppError('chat.regenerate_busy', 'Bot 正在处理消息，请稍后再试');
+  // Without a model the input would wait forever, with the answer it had already gone.
+  if (!store.modelFor(botId).model) throw new AppError('chat.model_missing', '请先为这个 Bot 选择模型');
+  await deps.hold(botId, sessionId, async () => {
+    run.retracted = true;
+    store.touch(run);
+    deps.forgetSuperseded(botId, sessionId, run.id);
+    cutHistory(deps, run, inputs);
+    store.data.messages = store.data.messages.filter((item) => item.runId !== run.id || inputs.includes(item));
+    for (const message of inputs) {
+      delete message.runId;
+      message.inputState = 'queued';
+      store.touch(message);
+    }
+    store.save();
+    deps.changed();
+  });
+}
+
 /** Cuts the model history back to before the run's input, or tells the model to disregard it when it is not found. */
-function cutHistory(deps: RetractDeps, run: RunRecord, inputs: ChatMessage[]) {
+function cutHistory(deps: Pick<RetractDeps, 'store' | 'summarizedThrough'>, run: RunRecord, inputs: ChatMessage[]) {
   const { store } = deps;
   const scopeKey = run.sessionId ? Store.sessionHistoryKey(run.sessionId) : undefined,
     key = scopeKey || run.botId,

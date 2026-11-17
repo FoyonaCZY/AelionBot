@@ -457,6 +457,8 @@ export interface Snapshot {
   conversationWorkspaces?: Record<string, string>;
   runtime?: RuntimeSettings;
   modelUsage?: UsageRecord[];
+  /** Prices, the budgets and how much of them the month and the day have used. */
+  spending?: import('../model-pricing').SpendingView;
   updates?: UpdateState;
   /** Release notes to show once after updating: those after `from` up to `version`, or only `version`'s. */
   whatsNew?: { from?: string; version: string };
@@ -481,6 +483,9 @@ export interface Snapshot {
   integrations?: IntegrationsView;
   connectors?: ConnectorsView;
   remote?: import('./remote-types').RemoteView;
+  knowledge?: import('./knowledge-types').KnowledgeView;
+  /** Settings → 通知. */
+  desktopNotify?: import('./notification-types').DesktopNotifySettings;
   interactions?: InteractionRequest[];
   cognition?: CognitionView;
   peers?: PeerView;
@@ -608,6 +613,9 @@ export interface AelionAPI {
   setPreviewDirty(dirty: boolean): Promise<void>;
   saveAppearanceSettings(settings: import('../preview/appearance').AppearanceSettings): Promise<void>;
   saveUserProfile(profile: import('../chat/user-profile').UserProfile): Promise<void>;
+  saveDesktopNotify(settings: import('./notification-types').DesktopNotifySettings): Promise<void>;
+  /** Shows a sample notification; false where the system has none. */
+  testDesktopNotify(): Promise<boolean>;
   prepareDiagnostics(): Promise<DiagnosticPreview>;
   exportDiagnostics(id: string): Promise<string | null>;
   openDiagnosticIssue(id: string): Promise<void>;
@@ -700,7 +708,8 @@ export interface AelionAPI {
     pace?: import('./group-types').GroupPace;
   }): Promise<void>;
   deleteGroup(id: string): Promise<void>;
-  readGroup(input: { id: string; before?: string }): Promise<GroupPage>;
+  /** The newest page; the one before `before`; or with `through`, everything from that message on. */
+  readGroup(input: { id: string; before?: string; through?: string }): Promise<GroupPage>;
   sendGroup(input: {
     id: string;
     message: string;
@@ -725,10 +734,26 @@ export interface AelionAPI {
     attachments: Attachment[];
     reply?: MessageReply;
   }>;
+  /**
+   * Makes the last answer of a Bot's chat again: what the Bot wrote for that task goes, and the same input is answered
+   * anew. What the task already did outside the chat stays done.
+   */
+  regenerateChat(input: { botId: string; sessionId?: string; runId: string }): Promise<void>;
   stopLiveWork(input: { botId: string; kind: 'terminal' | 'process'; id: string }): Promise<void>;
   saveModel(input: { baseUrl: string; model: string; apiKey?: string; contextTokens: number }): Promise<void>;
   testModel(): Promise<string>;
   queryUsage(input: import('./usage-types').UsageQuery): Promise<import('./usage-types').UsageReport>;
+  /** Settings → 用量 → 预算: the currency, its rate, the budgets and what happens past them. */
+  saveSpending(input: import('../model-pricing').SpendingInput): Promise<void>;
+  /** The user's own price for a model of a provider, in the chosen currency; null goes back to the bundled one. */
+  setModelPrice(input: {
+    providerId: string;
+    model: string;
+    price: Omit<import('../model-pricing').ModelPrice, 'tiers'> | null;
+  }): Promise<void>;
+  listModelPrices(): Promise<import('../model-pricing').ModelPriceRow[]>;
+  /** Fetches today's price table; resolves to how many models it prices. */
+  refreshModelPrices(): Promise<{ models: number; generatedAt: string }>;
   saveProvider(input: ProviderInput): Promise<ModelProvider>;
   imageProtocols(): Promise<import('./image-types').ImageProtocolInfo[]>;
   testImageModel(input: {
@@ -768,6 +793,13 @@ export interface AelionAPI {
   exportFile(input: { botId: string; path: string }): Promise<string | null>;
   previewFile(input: { botId: string; path: string }): Promise<ArtifactPreview>;
   readToolResult(input: { botId: string; messageId: string }): Promise<unknown>;
+  /** What the user and the Bots said in every chat (main chats, work sessions, groups) that matches `query`. */
+  searchConversations(input: {
+    query: string;
+    limit?: number;
+  }): Promise<import('../chat/conversation-search').ConversationSearchResult>;
+  /** Saves a chat as a Markdown file where the user chooses; resolves to its path, or null when cancelled. */
+  exportConversation(input: { scope: AttachmentScope; steps?: boolean }): Promise<string | null>;
   setBackgroundLearning(enabled: boolean): Promise<void>;
   memoryOverview(): Promise<import('./memory-types').MemoryOverview>;
   memoryList(query: import('./memory-types').MemoryListQuery): Promise<import('./memory-types').MemoryItem[]>;
@@ -791,6 +823,15 @@ export interface AelionAPI {
   memoryReadPast(): Promise<void>;
   memoryExport(): Promise<string | null>;
   memoryImport(scope: string): Promise<{ added: number } | null>;
+  /** Settings → 知识库. Creates a knowledge base or changes one; resolves to its ID. Indexing follows in the background. */
+  saveKnowledgeBase(input: import('./knowledge-types').KnowledgeBaseInput): Promise<string>;
+  removeKnowledgeBase(id: string): Promise<void>;
+  /** Reads every file of the knowledge base again. */
+  reindexKnowledgeBase(id: string): Promise<void>;
+  /** Asks for folders or files to add; resolves to their paths, none when cancelled. */
+  pickKnowledgeSources(kind: 'folder' | 'files'): Promise<string[]>;
+  /** The files of a knowledge base that are not in its index, with the reason. */
+  knowledgeIssues(id: string): Promise<import('./knowledge-types').KnowledgeIssue[]>;
   screenshot(id: string): Promise<string>;
   ensureComputerDesktop(botId: string): Promise<void>;
   setComputerControl(input: { botId: string; enabled: boolean }): Promise<void>;
@@ -803,6 +844,25 @@ export interface AelionAPI {
   cancelRemotePairing(): Promise<void>;
   decideRemotePairing(input: { allow: boolean }): Promise<void>;
   removeRemoteDevice(id: string): Promise<void>;
+  /** Settings → 数据: what a backup would hold, and the data earlier restores replaced. */
+  backupOverview(): Promise<import('./backup-types').BackupOverview>;
+  /** Asks where to save, then writes a backup. With a password, API keys and sign-ins go with it. */
+  exportBackup(input: { password?: string }): Promise<{ path: string; bytes: number } | null>;
+  /** The backup or restore that is running, for its progress bar. */
+  backupProgress(): Promise<import('./backup-types').BackupProgress | null>;
+  cancelBackup(): Promise<void>;
+  /** Asks for a backup file and returns what it says about itself. */
+  pickBackup(): Promise<import('./backup-types').BackupInfo | null>;
+  /** Unpacks the picked backup, then restarts the app, which puts it in place of the current data. */
+  restoreBackup(input: { id: string; password?: string; skipSecrets?: boolean }): Promise<void>;
+  removeBackupCopy(id: string): Promise<void>;
+  openBackupCopy(id: string): Promise<void>;
+  /** Writes a Bot to a file the person chooses: its profile, own skills and personality; never chats or keys. */
+  exportBot(input: { botId: string; memories?: boolean }): Promise<string | null>;
+  /** Asks for a Bot file and returns what it holds. */
+  pickBotFile(): Promise<import('./backup-types').BotFilePreview | null>;
+  /** Creates a Bot from the picked file. */
+  importBot(input: { id: string; memories?: boolean }): Promise<Bot>;
   setCommandPermissionEnabled(input: { id: string; enabled: boolean }): Promise<void>;
   removeCommandPermission(id: string): Promise<void>;
   setHostComputerEnabled(enabled: boolean): Promise<void>;
@@ -848,6 +908,8 @@ export interface AelionAPI {
   decideConnectorPairing(input: { id: string; code: string; allow: boolean }): Promise<void>;
   setConnectorsKeepRunning(enabled: boolean): Promise<void>;
   onEvent(callback: (event: AppEvent) => void): () => void;
+  /** A notification was clicked: open the chat it is about. */
+  onOpenChat(callback: (target: import('./notification-types').ChatTarget) => void): () => void;
 }
 declare global {
   interface Window {

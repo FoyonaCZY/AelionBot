@@ -41,6 +41,8 @@ export interface AutomationHooks {
   approveFolder?(botId: string, runId: string, path: string, signal: AbortSignal): Promise<void>;
   /** The local webhook server's origin, such as http://127.0.0.1:47811, while it listens. */
   webhookOrigin?(): string | undefined;
+  /** Why automations should wait instead of starting on their own, such as a spending budget that ran out. */
+  held?(): string | undefined;
 }
 
 /** A merged firing keeps this much of what happened; the newest first. */
@@ -560,6 +562,19 @@ export class TaskScheduler {
           dirty = true;
         }
         if (taskExecuting(task) || !this.dispatcher.ready(task.target)) continue;
+        // A run that is due waits while automatic runs are held, with the reason shown on the automation; it starts
+        // once they are allowed again. Running it by hand is not held.
+        const due =
+          Boolean(task.pending) ||
+          (task.trigger.kind === 'schedule' && Boolean(task.nextRunAt) && Date.parse(task.nextRunAt!) <= this.clock());
+        const held = due ? this.hooks.held?.() : undefined;
+        if (held) {
+          if (task.error !== held) {
+            task.error = held;
+            dirty = true;
+          }
+          continue;
+        }
         if (task.pending) {
           const last = task.lastRun ? Date.parse(task.lastRun.startedAt) : 0;
           if (this.clock() - last < COOLDOWN_MS) continue;

@@ -1,5 +1,7 @@
 import { runtimeSettings } from '../core/agent/runtime-policy';
 import { normalizeUserProfile } from '../../shared/chat/user-profile';
+import { normalizeDesktopNotify } from '../../shared/types/notification-types';
+import { translate } from '../../shared/i18n';
 import { app, dialog, shell, nativeTheme } from 'electron';
 import { join } from 'node:path';
 import { writeFile } from 'node:fs/promises';
@@ -22,6 +24,14 @@ export function registerApp(ctx: IpcContext) {
     ctx.store.save();
     ctx.changed();
   });
+  handle('saveDesktopNotify', (value) => {
+    ctx.store.data.desktopNotify = normalizeDesktopNotify(value);
+    ctx.store.save();
+    ctx.changed();
+  });
+  handle('testDesktopNotify', () =>
+    Boolean(ctx.desktopNotifier?.show({ title: 'AelionBot', body: translate('通知已开启'), tag: 'test' })),
+  );
   handle('readState', ctx.readState);
   handle('openExternalUrl', (value) => {
     const url = externalWebUrl(value);

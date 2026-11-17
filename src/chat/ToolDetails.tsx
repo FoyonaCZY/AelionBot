@@ -656,6 +656,35 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
         </div>
       </>
     );
+  if (tool === 'knowledge_search') {
+    const hits = arrayValue(result.results);
+    return (
+      <>
+        <DetailHeader
+          icon="search"
+          title={t('知识库里找到的内容')}
+          subtitle={arrayValue(result.searched).map(textValue).filter(Boolean).join(' · ') || undefined}
+          meta={t('{count} 条', { count: hits.length })}
+        />
+        <div className="detail-collection">
+          {hits.map((item, index) => {
+            const hit = objectValue(item),
+              where = [textValue(hit.title), textValue(hit.location)].filter(Boolean).join(' · ');
+            return (
+              <article className="detail-collection-item" key={index}>
+                <div className="detail-collection-title">
+                  <Icon name="book" size={15} />
+                  <strong title={textValue(hit.file)}>{fileName(textValue(hit.file))}</strong>
+                  {where && <span className="detail-source">{where}</span>}
+                </div>
+                <p>{textValue(hit.text)}</p>
+              </article>
+            );
+          })}
+        </div>
+      </>
+    );
+  }
   if (tool === 'skill_file_read' || tool === 'file_read' || tool === 'host_file_read') {
     const path = textValue(result.path) || display.detail || '',
       name = fileName(path) || t('文件内容'),

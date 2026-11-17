@@ -42,7 +42,7 @@
     <td valign="top"><strong>Files and previews</strong><br>Web pages, images, PDFs and documents beside the chat. Edit code and text in place.</td>
   </tr>
   <tr>
-    <td valign="top"><strong>Connectors</strong><br>Message a Bot from Feishu, WeCom or WeChat and get its final reply back in the chat.</td>
+    <td valign="top"><strong>Connectors</strong><br>Message a Bot from Feishu, WeCom, WeChat, Telegram, Discord or Slack and get its final reply back in the chat.</td>
     <td valign="top"><strong>Models, skills and plugins</strong><br>Your own API key or a local model. Eight bundled skills, plus any MCP server.</td>
   </tr>
   <tr>
@@ -177,7 +177,7 @@ Design systems come from OpenDesign's collection with original sources and licen
 
 <br>
 
-Add a Feishu, WeCom or WeChat (experimental) connector on the Plugins page and choose the Bot that replies and its local permissions. The first person who messages it and whom you allow becomes the owner; others pair before they can use it. The Bot sends only its final reply back to the chat, and the app can stay in the tray to keep connectors running after you close the window.
+Add a Feishu or WeCom connector, or a WeChat, Telegram, Discord or Slack one (experimental), on the Plugins page and choose the Bot that replies and its local permissions. The first person who messages it and whom you allow becomes the owner; others pair before they can use it. The Bot sends only its final reply back to the chat, and the app can stay in the tray to keep connectors running after you close the window.
 
 </details>
 

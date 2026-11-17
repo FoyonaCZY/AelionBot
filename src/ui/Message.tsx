@@ -29,6 +29,8 @@ type MessageProps = {
   onReply?: (message: ChatMessage) => void;
   /** Takes the message back to edit it; given only while it is still waiting or being worked on. */
   onEdit?: (message: ChatMessage) => void;
+  /** Makes this answer again; given only for the last answer of a chat. */
+  onRegenerate?: (message: ChatMessage) => void;
   /** False when the reasoning is already shown elsewhere, e.g. inside the folded run process. */
   showReasoning?: boolean;
 };
@@ -41,17 +43,20 @@ const MemoMessage = memo(
     a.showReasoning === b.showReasoning &&
     Boolean(a.onReply) === Boolean(b.onReply) &&
     Boolean(a.onEdit) === Boolean(b.onEdit) &&
+    Boolean(a.onRegenerate) === Boolean(b.onRegenerate) &&
     sameItems(a.blocks, b.blocks) &&
     shallowEqual(a.message, b.message),
 );
 type ReplyRef = { current?: (message: ChatMessage) => void };
-type Refs = { reply: ReplyRef; edit: ReplyRef };
+type Refs = { reply: ReplyRef; edit: ReplyRef; regenerate: ReplyRef };
 export function Message(props: MessageProps) {
   const reply = useRef<(message: ChatMessage) => void>(undefined),
-    edit = useRef<(message: ChatMessage) => void>(undefined);
+    edit = useRef<(message: ChatMessage) => void>(undefined),
+    regenerate = useRef<(message: ChatMessage) => void>(undefined);
   reply.current = props.onReply;
   edit.current = props.onEdit;
-  return <MemoMessage {...props} reply={reply} edit={edit} />;
+  regenerate.current = props.onRegenerate;
+  return <MemoMessage {...props} reply={reply} edit={edit} regenerate={regenerate} />;
 }
 function MessageView({
   message,
@@ -59,9 +64,11 @@ function MessageView({
   allowPins = true,
   onReply: hasReply,
   onEdit: hasEdit,
+  onRegenerate: hasRegenerate,
   showReasoning = true,
   reply,
   edit,
+  regenerate,
 }: MessageProps & Refs) {
   const onReply = hasReply ? (value: ChatMessage) => reply.current?.(value) : undefined;
   const { t } = useI18n();
@@ -146,6 +153,7 @@ function MessageView({
               : undefined
           }
           onEdit={hasEdit ? () => edit.current?.(message) : undefined}
+          onRegenerate={hasRegenerate ? () => regenerate.current?.(message) : undefined}
           speakAs={
             message.role === 'assistant' && displayContent && message.status !== 'running' ? message.botId : undefined
           }

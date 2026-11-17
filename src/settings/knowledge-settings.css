@@ -1,0 +1,122 @@
+/* Settings → 知识库. Cards, rows, fields, buttons and switches are the shared ones; this is only their layout. */
+.knowledge-note {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 4px 10px;
+  font-size: var(--text-caption);
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.knowledge-base,
+.knowledge-editor {
+  margin-bottom: 12px;
+}
+.knowledge-base > .settings-switch-row {
+  justify-content: flex-start;
+  gap: 12px;
+}
+.knowledge-base > .settings-switch-row > svg {
+  flex: none;
+  color: var(--text-secondary);
+}
+.knowledge-base > .settings-switch-row > .settings-row-copy {
+  flex: 1;
+}
+.knowledge-base > .settings-switch-row > .text-button {
+  flex: none;
+}
+.knowledge-warnings {
+  padding: 10px 0 12px;
+  border-top: 1px solid var(--settings-line);
+  font-size: var(--text-caption);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.knowledge-warnings p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.knowledge-warnings summary {
+  cursor: pointer;
+}
+.knowledge-warnings ul {
+  max-height: 220px;
+  margin: 6px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.knowledge-warnings li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+}
+.knowledge-warnings li > span,
+.knowledge-source > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.knowledge-warnings li > small {
+  flex: none;
+  color: var(--text-muted);
+}
+.knowledge-sources {
+  align-items: start !important;
+}
+.knowledge-sources > span {
+  padding-top: 7px;
+}
+.knowledge-source {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--size-md);
+  font-size: var(--text-small);
+}
+.knowledge-source > svg {
+  flex: none;
+  color: var(--text-secondary);
+}
+.knowledge-source > span {
+  flex: 1;
+}
+.knowledge-source-actions {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0;
+}
+.knowledge-bots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 4px 16px;
+  padding: 4px 0 12px;
+}
+.knowledge-bot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--size-md);
+  font-size: var(--text-small);
+  cursor: pointer;
+}
+.knowledge-bot > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.knowledge-editor-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--settings-line);
+}
+.knowledge-editor-footer > span {
+  flex: 1;
+}

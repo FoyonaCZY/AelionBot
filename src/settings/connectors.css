@@ -10,6 +10,14 @@
   gap: 5px;
   flex-wrap: wrap;
 }
+/* Six platforms sit in two even rows in every language. */
+.connector-platforms {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.connector-platforms button {
+  justify-content: center;
+}
 .connector-platforms button,
 .connector-methods button {
   display: flex;
@@ -70,6 +78,11 @@
 }
 .connector-manual > .text-button {
   align-self: flex-start;
+}
+.connector-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
 }
 .connector-scan > p {
   margin: 0;

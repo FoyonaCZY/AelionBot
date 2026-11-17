@@ -24,6 +24,12 @@ export interface UsageTotals {
   cacheWriteReports: number;
   reasoningReports: number;
   cacheInputTokens: number;
+  /** Estimated spend at today's prices, in the report's currency. */
+  cost: number;
+  /** Requests whose tokens were priced. */
+  costRequests: number;
+  /** Requests that reported tokens for a model without a price: their cost is missing from `cost`. */
+  unpricedRequests: number;
 }
 export function cacheHitRatio(value: Pick<UsageTotals, 'cachedTokens' | 'inputTokens'>) {
   return value.inputTokens > 0 ? value.cachedTokens / value.inputTokens : 0;
@@ -36,6 +42,10 @@ export interface UsageGroup extends UsageTotals {
   name: string;
   providerId?: string;
   model?: string;
+  /** The price a model's requests are charged at, per million tokens; absent for a model without one. */
+  price?: Omit<import('../model-pricing').ModelPrice, 'tiers'>;
+  /** The price is the user's own rather than the bundled table's. */
+  customPrice?: boolean;
 }
 export interface UsageReport {
   query: UsageQuery;
@@ -47,4 +57,8 @@ export interface UsageReport {
   providers: Array<{ id: string; name: string }>;
   models: string[];
   purposes: string[];
+  /** The currency of every cost in the report. */
+  currency: import('../model-pricing').Currency;
+  /** Models that reported tokens but have no price, so the costs are too low. */
+  unpricedModels: number;
 }

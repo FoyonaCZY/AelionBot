@@ -693,14 +693,17 @@ export class GroupChats implements GroupGateway {
       limits: GROUP_LIMITS,
     };
   }
-  read(input: { id: string; before?: string }): GroupPage {
+  read(input: { id: string; before?: string; through?: string }): GroupPage {
     const room = this.room(required(input?.id, '群聊 ID', 80));
     let end = room.messages.length;
     if (input.before) {
       end = room.messages.findIndex((message) => message.id === input.before);
       if (end < 0) throw new Error('消息位置已失效');
     }
-    const start = Math.max(0, end - 60),
+    // A jump to an older message (from search) reads from just before it to the end, so it lands in its place.
+    const from = input.through ? room.messages.findIndex((message) => message.id === input.through) : -1;
+    if (input.through && from < 0) throw new AppError('group.message_not_found', '这条消息已不在群聊里');
+    const start = Math.max(0, from < 0 ? end - 60 : Math.min(from - 8, end - 60)),
       messages = room.messages
         .slice(start, end)
         .map((message) =>

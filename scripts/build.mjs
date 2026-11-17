@@ -95,6 +95,18 @@ await build({
   format: 'cjs',
   target: 'node24',
 });
+// The knowledge bases' indexing thread. It carries the PDF reader, which the main bundle therefore does not.
+await build({
+  entryPoints: ['./electron/core/knowledge/knowledge-worker.ts'],
+  outfile: 'dist-electron/knowledge-worker.cjs',
+  bundle: true,
+  platform: 'node',
+  format: 'cjs',
+  target: 'node24',
+  // The PDF reader looks for a canvas package it only needs for drawing; text is read without it.
+  external: ['@napi-rs/canvas'],
+  logOverride: { 'empty-import-meta': 'silent' },
+});
 await build({
   entryPoints: ['./electron/core/context/token-worker.ts'],
   outfile: 'dist-electron/token-worker.cjs',

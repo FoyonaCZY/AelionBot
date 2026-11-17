@@ -232,14 +232,15 @@ export class MemoryAdmin {
   readPast() {
     this.cognition.worker.readPast(this.cognition.capture.pastConversations().map((entry) => entry.conversation));
   }
-  exportData() {
+  /** Every memory as a document, or with `scope` only those of one scope (a Bot's own, for its Bot file). */
+  exportData(scope?: string) {
     return JSON.stringify(
       {
         format: 'aelion-memories',
         version: 1,
         exportedAt: new Date().toISOString(),
         items: this.items
-          .list({ statuses: ['active', 'archived'] })
+          .list({ statuses: ['active', 'archived'], ...(scope ? { scopes: [scope] } : {}) })
           .map(({ id: _id, coreRank: _rank, suggest: _suggest, sources: _sources, ...item }) => ({
             ...item,
             scopeLabel: this.scopeLabel(item.scope),

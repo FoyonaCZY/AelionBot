@@ -2,6 +2,7 @@
 // role souls. They are written per language because a soul's voice does not survive string-by-string translation.
 import type { Language } from '../../i18n/interface-language';
 import type { BotType } from '../../types/designer-types';
+import type { BotPalette } from '../bot-colors';
 import { en } from './en';
 import type { SoulPresetId } from './types';
 import { zhCN } from './zh-CN';
@@ -9,10 +10,28 @@ import { zhTW } from './zh-TW';
 
 const tables = { 'zh-CN': zhCN, 'zh-TW': zhTW, en };
 
-/** Presets offered in the New Bot form. The designer is a preset now: every Bot can take on design work. */
+/** The look each template starts with, in the order the New Bot form shows them; the same in every language. */
+const looks: Array<[SoulPresetId, BotPalette]> = [
+  ['default', { color: '#8b6bea' }],
+  ['research', { color: '#5482b8' }],
+  ['writing', { color: '#c37c60' }],
+  ['data', { color: '#4f8987' }],
+  ['designer', { color: '#9468c5', avatarStyle: { kind: 'gradient', secondary: '#d27697', direction: 'diagonal' } }],
+  ['backend', { color: '#66707c' }],
+  ['frontend', { color: '#268bfa' }],
+  ['translator', { color: '#518f85', avatarStyle: { kind: 'gradient', secondary: '#75a2b4', direction: 'diagonal' } }],
+  ['marketing', { color: '#ed8c35' }],
+  ['tutor', { color: '#19a887' }],
+  ['finance', { color: '#748c70' }],
+  ['life', { color: '#c77391' }],
+];
+
+/**
+ * The templates of the New Bot form: a name, one line about the role, its SOUL.md and a look. The designer is a
+ * template like the others: every Bot can take on design work.
+ */
 export function soulPresets(language: Language) {
-  const ids: SoulPresetId[] = ['backend', 'data', 'writing', 'research', 'designer'];
-  return ids.map((id) => ({ id, ...tables[language][id] }));
+  return looks.map(([id, palette]) => ({ id, ...tables[language][id], palette }));
 }
 
 /** The soul a Bot gets when it is created without one; `designer` is the soul older designer Bots started with. */

@@ -1,5 +1,6 @@
 import { reportedTotal, type UsageRecord } from '../../../shared/types/runtime-types';
 import type { UsageQuery, UsageReport, UsageTotals, UsageGroup } from '../../../shared/types/usage-types';
+import type { Currency } from '../../../shared/model-pricing';
 import { AppError } from '../../../shared/errors';
 
 const localDay = (date: Date) =>
@@ -29,11 +30,21 @@ const empty = (): UsageTotals => ({
   cacheWriteReports: 0,
   reasoningReports: 0,
   cacheInputTokens: 0,
+  cost: 0,
+  costRequests: 0,
+  unpricedRequests: 0,
 });
 const valid = (value: unknown): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
-function add(total: UsageTotals, record: UsageRecord) {
+/** What a request cost; `priced` is false when its model has no price. */
+type Spend = { priced: boolean; cost?: number };
+function add(total: UsageTotals, record: UsageRecord, spend?: Spend) {
   total.requests++;
+  if (spend?.cost !== undefined) {
+    total.cost += spend.cost;
+    total.costRequests++;
+  } else if (spend && !spend.priced && (valid(record.usage?.inputTokens) || valid(record.usage?.outputTokens)))
+    total.unpricedRequests++;
   if (record.error) total.failedRequests++;
   const usage = record.usage,
     sum = reportedTotal(usage);
@@ -70,10 +81,20 @@ function add(total: UsageTotals, record: UsageRecord) {
   }
 }
 
+/** Prices for the report's costs; without them every cost is zero and nothing counts as unpriced. */
+export interface UsagePricing {
+  currency: Currency;
+  cost(record: UsageRecord): Spend;
+  priceOf(
+    providerId: string | undefined,
+    model: string,
+  ): { price: NonNullable<UsageGroup['price']>; custom: boolean } | undefined;
+}
 export function usageReport(
   records: UsageRecord[],
   providers: Array<{ id: string; name: string }>,
   input: UsageQuery,
+  pricing?: UsagePricing,
 ): UsageReport {
   if (!input || typeof input !== 'object') throw Error('用量查询无效');
   const start = dateValue(input.from),
@@ -131,15 +152,25 @@ export function usageReport(
       (query.purpose && record.purpose !== query.purpose)
     )
       continue;
-    const bucket = buckets.get(key(date));
-    if (bucket) add(bucket, record);
-    add(totals, record);
+    const bucket = buckets.get(key(date)),
+      spend = pricing?.cost(record);
+    if (bucket) add(bucket, record, spend);
+    add(totals, record, spend);
     if (!byProvider.has(providerId)) byProvider.set(providerId, { ...empty(), key: providerId, name, providerId });
-    add(byProvider.get(providerId)!, record);
+    add(byProvider.get(providerId)!, record, spend);
     const modelKey = JSON.stringify([providerId, record.model]);
-    if (!byModel.has(modelKey))
-      byModel.set(modelKey, { ...empty(), key: modelKey, name, providerId, model: record.model });
-    add(byModel.get(modelKey)!, record);
+    if (!byModel.has(modelKey)) {
+      const price = pricing?.priceOf(record.providerId, record.model);
+      byModel.set(modelKey, {
+        ...empty(),
+        key: modelKey,
+        name,
+        providerId,
+        model: record.model,
+        ...(price ? { price: price.price, customPrice: price.custom } : {}),
+      });
+    }
+    add(byModel.get(modelKey)!, record, spend);
   }
   const sorted = (groups: Map<string, UsageGroup>) =>
     [...groups.values()].sort(
@@ -155,5 +186,7 @@ export function usageReport(
     providers: [...providerOptions].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)),
     models: [...modelOptions].sort(),
     purposes: [...purposes].sort(),
+    currency: pricing?.currency ?? 'USD',
+    unpricedModels: [...byModel.values()].filter((group) => group.unpricedRequests > 0).length,
   };
 }

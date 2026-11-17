@@ -1,0 +1,53 @@
+/* The Bot file dialogs (BotTransfer.tsx): the shell and the buttons are the work session dialog's. */
+.bot-transfer-who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.bot-transfer-who > strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-control);
+  font-weight: var(--weight-label);
+}
+.bot-transfer-note,
+.bot-transfer-list {
+  margin: 0;
+  font-size: var(--text-small);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.bot-transfer-list {
+  display: grid;
+  gap: 4px;
+  padding: 0;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+.bot-transfer-list:empty {
+  display: none;
+}
+.bot-transfer-soul {
+  max-height: 148px;
+  margin: 0;
+  padding: 10px 12px;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--ctl-fill);
+  font: inherit;
+  font-size: var(--text-caption);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+:root .modal .bot-transfer .bot-transfer-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-small);
+  font-weight: var(--weight-body);
+}

@@ -65,6 +65,8 @@ interface Persisted {
   runtime?: RuntimeSettings;
   unlimitedTokenBudgetMigrated?: boolean;
   modelUsage?: UsageRecord[];
+  /** Model prices, currency and budgets, with the budget announcements already made (core/app/spending.ts). */
+  spending?: import('../../../shared/model-pricing').StoredSpending;
   imageGenerationRoutes?: Record<string, string>;
   scheduledTasks: ScheduledTask[];
   attachments: StoredAttachment[];
@@ -82,6 +84,9 @@ interface Persisted {
   /** Runs memory's background work when set; each Bot's own model otherwise. */
   memoryModel?: ModelSelection;
   speech?: import('../../../shared/types/speech-types').SpeechSettings;
+  desktopNotify?: import('../../../shared/types/notification-types').DesktopNotifySettings;
+  /** Knowledge bases: what they are called and which folders they cover. Their index is a file of its own. */
+  knowledgeBases?: import('../../../shared/types/knowledge-types').KnowledgeBase[];
   skills: Skill[];
   artifacts: Artifact[];
   skillFilesMigrated?: boolean;

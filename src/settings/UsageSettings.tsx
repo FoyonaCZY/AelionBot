@@ -11,7 +11,9 @@ import {
   type UsageReport,
   type UsageTotals,
 } from '../../shared/types/usage-types';
+import { formatMoney, type Currency } from '../../shared/model-pricing';
 import { currentLanguage, useI18n } from '../i18n';
+import { UsageBudget, priceRowKey } from './UsageBudget';
 import './usage-settings.css';
 
 const day = (value: Date) =>
@@ -43,20 +45,22 @@ const purposes: Record<string, string> = {
   progress: '进度说明',
   greeting: '问候',
 };
-type Metric = 'totalTokens' | 'inputTokens' | 'outputTokens' | 'cachedTokens';
-type Tab = 'overview' | 'detail';
-type SortKey = 'model' | 'totalTokens' | 'requests' | 'inputTokens' | 'outputTokens' | 'cachedTokens' | 'hit';
+type Metric = 'totalTokens' | 'inputTokens' | 'outputTokens' | 'cachedTokens' | 'cost';
+type Tab = 'overview' | 'detail' | 'budget';
+type SortKey = 'model' | 'totalTokens' | 'cost' | 'requests' | 'inputTokens' | 'outputTokens' | 'cachedTokens' | 'hit';
 const metricNames: Record<Metric, string> = {
   totalTokens: '总 tokens',
   inputTokens: '输入 tokens',
   outputTokens: '输出 tokens',
   cachedTokens: '缓存读取 tokens',
+  cost: '花费',
 };
 const metricShortNames: Record<Metric, string> = {
   totalTokens: '总',
   inputTokens: '输入',
   outputTokens: '输出',
   cachedTokens: '缓存',
+  cost: '花费',
 };
 function metricValue(row: UsageTotals, metric: Metric) {
   const reports =
@@ -66,7 +70,9 @@ function metricValue(row: UsageTotals, metric: Metric) {
         ? row.inputReports
         : metric === 'outputTokens'
           ? row.outputReports
-          : row.cacheReports;
+          : metric === 'cost'
+            ? row.costRequests
+            : row.cacheReports;
   return !row.requests || reports ? row[metric] : undefined;
 }
 function splitCompact(value: number) {
@@ -91,10 +97,12 @@ function niceStep(maximum: number) {
 function UsageColumns({
   buckets,
   metric,
+  format,
   onSelect,
 }: {
   buckets: UsageBucket[];
   metric: Metric;
+  format: (value: number) => string;
   onSelect?: (row?: UsageBucket) => void;
 }) {
   const { t } = useI18n();
@@ -113,7 +121,8 @@ function UsageColumns({
     plotWidth = width - left - right,
     plotHeight = height - top - bottom,
     base = top + plotHeight;
-  const maximum = Math.max(1, ...buckets.map((row) => metricValue(row, metric) || 0)),
+  // Token counts never need a scale below one; a day's cost is often a few cents.
+  const maximum = Math.max(metric === 'cost' ? 0.01 : 1, ...buckets.map((row) => metricValue(row, metric) || 0)),
     step = niceStep(maximum),
     ceiling = Math.ceil(maximum / step) * step,
     ticks = Array.from({ length: Math.round(ceiling / step) + 1 }, (_, index) => index * step);
@@ -148,7 +157,7 @@ function UsageColumns({
               y2={y(value)}
             />
             <text x={left - 10} y={y(value) + 4} textAnchor="end" className="usage-axis">
-              {compact(value)}
+              {format(value)}
             </text>
           </g>
         ))}
@@ -201,7 +210,12 @@ function UsageColumns({
             aria-label={t('{key}，{metric} {value}，{count} 次请求', {
               key: bucketLabel(row.key),
               metric: t(metricNames[metric]),
-              value: metricValue(row, metric) === undefined ? t('未返回') : number(row[metric]),
+              value:
+                metricValue(row, metric) === undefined
+                  ? t('未返回')
+                  : metric === 'cost'
+                    ? format(row.cost)
+                    : number(row[metric]),
               count: row.requests,
             })}
             onMouseEnter={() => select(index)}
@@ -226,7 +240,19 @@ function UsageColumns({
 }
 
 /** The headline: total tokens, what they are made of, and the request counts beside them. */
-function UsageSummary({ totals, period }: { totals: UsageTotals; period: string }) {
+function UsageSummary({
+  totals,
+  period,
+  currency,
+  unpricedModels,
+  onPrices,
+}: {
+  totals: UsageTotals;
+  period: string;
+  currency: Currency;
+  unpricedModels: number;
+  onPrices: () => void;
+}) {
   const { t } = useI18n();
   const totalReported = totals.reportedRequests > 0 || !totals.requests,
     inputReported = totals.inputReports > 0 || !totals.requests,
@@ -283,7 +309,16 @@ function UsageSummary({ totals, period }: { totals: UsageTotals; period: string 
           </div>
         ))}
       </dl>
-      <dl className="usage-stats">
+      <dl className="usage-stats has-cost">
+        <div>
+          <dt>{t('花费（估算）')}</dt>
+          <dd>
+            {totals.costRequests || !totals.requests ? formatMoney(totals.cost, currency, currentLanguage()) : '—'}
+          </dd>
+          <dd className={`usage-stat-note${unpricedModels ? ' is-bad' : ''}`}>
+            {unpricedModels ? t('{count} 个模型未定价', { count: unpricedModels }) : t('按当前价格')}
+          </dd>
+        </div>
         <div>
           <dt>{t('请求')}</dt>
           <dd>{number(totals.requests)}</dd>
@@ -312,6 +347,15 @@ function UsageSummary({ totals, period }: { totals: UsageTotals; period: string 
           {t('{count} 次请求未返回 token 用量（可能包括失败或超时请求），不代表零消耗。', {
             count: totals.missingUsage,
           })}
+        </p>
+      )}
+      {unpricedModels > 0 && (
+        <p className="usage-missing">
+          <Icon name="info" size={14} />
+          {t('有 {count} 个模型未定价，花费偏低', { count: unpricedModels })}
+          <button type="button" className="usage-reset" onClick={onPrices}>
+            {t('设置价格')}
+          </button>
         </p>
       )}
     </section>
@@ -394,9 +438,12 @@ export function UsageSettings({ state }: { state: Snapshot }) {
     [tab, setTab] = useState<Tab>('overview'),
     [hovered, setHovered] = useState<UsageBucket>(),
     [search, setSearch] = useState(''),
+    [priceFocus, setPriceFocus] = useState<string>(),
     [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'totalTokens', dir: 'desc' });
   const revision = state.modelUsage?.at(-1)?.id,
-    providerRevision = (state.providers || []).map((provider) => provider.id + provider.name).join('|');
+    providerRevision = (state.providers || []).map((provider) => provider.id + provider.name).join('|'),
+    // Costs follow the currency, its rate and the prices.
+    priceRevision = JSON.stringify([state.spending?.settings, state.spending?.priceTable.generatedAt]);
   const root = useRef<HTMLDivElement>(null);
   useSwitchMotion(root, tab, '.usage-tab-panel');
 
@@ -417,7 +464,7 @@ export function UsageSettings({ state }: { state: Snapshot }) {
       active = false;
       clearTimeout(timer);
     };
-  }, [JSON.stringify(query), revision, providerRevision, refresh]);
+  }, [JSON.stringify(query), revision, providerRevision, priceRevision, refresh]);
 
   useEffect(() => setHovered(undefined), [report, metric]);
 
@@ -467,6 +514,14 @@ export function UsageSettings({ state }: { state: Snapshot }) {
     return value !== undefined && (!best || value > best.value) ? { value, key: row.key } : best;
   }, undefined);
   const hoveredValue = hovered ? metricValue(hovered, metric) : undefined;
+  const currency = report?.currency ?? state.spending?.settings.currency ?? 'USD',
+    money = (value: number) => formatMoney(value, currency, currentLanguage()),
+    // Figures of the chosen metric: money for the cost, compact token counts otherwise.
+    figure = (value: number) => (metric === 'cost' ? money(value) : compact(value));
+  const openPrices = (row?: UsageGroup) => {
+    setPriceFocus(row ? priceRowKey(row) : undefined);
+    setTab('budget');
+  };
   const tableRows = useMemo(() => {
     const needle = search.trim().toLowerCase(),
       rows = (report?.byModel ?? []).filter(
@@ -486,6 +541,7 @@ export function UsageSettings({ state }: { state: Snapshot }) {
   const columns: Array<{ key: SortKey; label: string }> = [
     { key: 'model', label: t('模型 / Provider') },
     { key: 'totalTokens', label: t('总 tokens') },
+    { key: 'cost', label: t('花费') },
     { key: 'requests', label: t('请求') },
     { key: 'inputTokens', label: t('输入') },
     { key: 'outputTokens', label: t('输出') },
@@ -517,8 +573,18 @@ export function UsageSettings({ state }: { state: Snapshot }) {
           >
             {t('模型明细')}
           </button>
+          <button
+            type="button"
+            role="tab"
+            className={`usage-tab${tab === 'budget' ? ' is-active' : ''}`}
+            aria-selected={tab === 'budget'}
+            aria-controls="usage-budget-panel"
+            onClick={() => setTab('budget')}
+          >
+            {t('预算')}
+          </button>
         </div>
-        <div className="usage-range-row">
+        <div className="usage-range-row" hidden={tab === 'budget'}>
           <div className="usage-segmented" role="group" aria-label={t('用量时间范围')}>
             {[
               ['1', t('今天')],
@@ -559,7 +625,7 @@ export function UsageSettings({ state }: { state: Snapshot }) {
         </div>
       </div>
 
-      <div className="usage-filter-row">
+      <div className="usage-filter-row" hidden={tab === 'budget'}>
         <label className="usage-filter">
           <span>Provider</span>
           <Select
@@ -613,7 +679,7 @@ export function UsageSettings({ state }: { state: Snapshot }) {
         )}
       </div>
 
-      {preset === 'custom' && (
+      {preset === 'custom' && tab !== 'budget' && (
         <div className="usage-dates">
           <label>
             {t('开始日期')}
@@ -637,7 +703,11 @@ export function UsageSettings({ state }: { state: Snapshot }) {
         </div>
       )}
 
-      {error ? (
+      {tab === 'budget' ? (
+        state.spending && (
+          <UsageBudget spending={state.spending} focus={priceFocus} onFocused={() => setPriceFocus(undefined)} />
+        )
+      ) : error ? (
         <div className="usage-card usage-error" role="alert">
           {error}
         </div>
@@ -666,7 +736,13 @@ export function UsageSettings({ state }: { state: Snapshot }) {
           className={`usage-tab-panel${stale ? ' is-stale' : ''}`}
           aria-busy={stale}
         >
-          <UsageSummary totals={totals} period={period} />
+          <UsageSummary
+            totals={totals}
+            period={period}
+            currency={currency}
+            unpricedModels={report!.unpricedModels}
+            onPrices={() => openPrices()}
+          />
           <section className="usage-card usage-chart-card">
             <header className="usage-chart-head">
               <h3>{t('用量趋势')}</h3>
@@ -704,26 +780,26 @@ export function UsageSettings({ state }: { state: Snapshot }) {
             <p className="usage-readout" aria-live="polite">
               {hovered ? (
                 <>
-                  <strong>{hoveredValue === undefined ? t('未返回用量') : compact(hoveredValue)}</strong>
+                  <strong>{hoveredValue === undefined ? t('未返回用量') : figure(hoveredValue)}</strong>
                   <span>
                     {bucketLabel(hovered.key)} · {t('{count} 次请求', { count: number(hovered.requests) })}
                   </span>
                 </>
               ) : (
                 <>
-                  <strong>{chartValues.length ? compact(chartTotal) : '—'}</strong>
+                  <strong>{chartValues.length ? figure(chartTotal) : '—'}</strong>
                   <span>
                     {t(metricNames[metric])} · {t('本周期')}
                   </span>
                   {peak && (
                     <span className="usage-readout-peak">
-                      {t('峰值')} {compact(peak.value)} · {bucketLabel(peak.key)}
+                      {t('峰值')} {figure(peak.value)} · {bucketLabel(peak.key)}
                     </span>
                   )}
                 </>
               )}
             </p>
-            <UsageColumns buckets={report!.buckets} metric={metric} onSelect={setHovered} />
+            <UsageColumns buckets={report!.buckets} metric={metric} format={figure} onSelect={setHovered} />
           </section>
           <div className="usage-split">
             <UsageRankList
@@ -766,7 +842,7 @@ export function UsageSettings({ state }: { state: Snapshot }) {
             </header>
             {tableRows.length ? (
               <div className="usage-table-scroll">
-                <table className="usage-ledger">
+                <table className="usage-ledger has-cost">
                   <caption className="usage-sr-only">{t('模型明细')}</caption>
                   <thead>
                     <tr>
@@ -805,6 +881,19 @@ export function UsageSettings({ state }: { state: Snapshot }) {
                           </span>
                         </td>
                         <td>{row.reportedRequests ? compact(row.totalTokens) : '—'}</td>
+                        <td>
+                          {row.price ? (
+                            row.costRequests ? (
+                              money(row.cost)
+                            ) : (
+                              '—'
+                            )
+                          ) : (
+                            <button type="button" className="usage-reset" onClick={() => openPrices(row)}>
+                              {t('设置价格')}
+                            </button>
+                          )}
+                        </td>
                         <td>{number(row.requests)}</td>
                         <td>{row.inputReports ? compact(row.inputTokens) : '—'}</td>
                         <td>{row.outputReports ? compact(row.outputTokens) : '—'}</td>

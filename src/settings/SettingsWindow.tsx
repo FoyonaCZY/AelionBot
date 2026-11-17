@@ -8,15 +8,18 @@ import { useI18n } from '../i18n';
 
 export type SettingsTab =
   | 'appearance'
+  | 'notifications'
   | 'profile'
   | 'runtime'
   | 'model'
   | 'design'
   | 'usage'
   | 'memory'
+  | 'knowledge'
   | 'computer'
   | 'remote'
   | 'permissions'
+  | 'data'
   | 'about';
 type Page = { id: SettingsTab; label: string; icon: string };
 /**
@@ -29,6 +32,7 @@ const groups: ReadonlyArray<{ label: string; pages: ReadonlyArray<Page> }> = [
     pages: [
       { id: 'model', label: '模型', icon: 'layers' },
       { id: 'memory', label: '记忆', icon: 'memory' },
+      { id: 'knowledge', label: '知识库', icon: 'book' },
       { id: 'design', label: '设计', icon: 'palette' },
     ],
   },
@@ -36,11 +40,13 @@ const groups: ReadonlyArray<{ label: string; pages: ReadonlyArray<Page> }> = [
     label: '系统',
     pages: [
       { id: 'appearance', label: '外观', icon: 'appearance' },
+      { id: 'notifications', label: '通知', icon: 'bell' },
       { id: 'runtime', label: '运行', icon: 'sliders' },
       { id: 'computer', label: '电脑', icon: 'computer' },
       { id: 'remote', label: '手机访问', icon: 'phone' },
       { id: 'permissions', label: '权限', icon: 'shield' },
       { id: 'usage', label: '用量', icon: 'chart' },
+      { id: 'data', label: '数据', icon: 'archive' },
       { id: 'about', label: '关于', icon: 'info' },
     ],
   },

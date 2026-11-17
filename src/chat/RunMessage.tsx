@@ -26,6 +26,7 @@ export function RunMessage({
   onContinue,
   onSettings,
   onReply,
+  onRegenerate,
   model,
 }: {
   messages: ChatMessage[];
@@ -41,6 +42,8 @@ export function RunMessage({
   onSettings: (tab: 'model' | 'computer' | 'mcp') => void;
   onScreen?: (url: string) => void;
   onReply?: (message: ChatMessage) => void;
+  /** Makes the answer again; given only for the last answer of a chat. */
+  onRegenerate?: () => void;
   model?: ModelConfig;
 }) {
   const { t } = useI18n();
@@ -132,6 +135,7 @@ export function RunMessage({
           blocks={run?.blocks}
           allowPins={!run?.groupOrigin}
           onReply={onReply}
+          onRegenerate={onRegenerate}
           showReasoning={false}
         />
       )}

@@ -111,6 +111,17 @@ function ForkItem({ onFork }: { onFork: () => void }) {
   );
 }
 
+/** Saves the chat as a Markdown file; shared by the three menus. */
+function ExportItem({ onExport }: { onExport: () => void }) {
+  const { t } = useI18n();
+  return (
+    <button role="menuitem" onClick={onExport}>
+      <Icon name="download" size={16} />
+      {t('导出对话')}
+    </button>
+  );
+}
+
 export function BotContextMenu({
   anchor,
   name,
@@ -122,6 +133,8 @@ export function BotContextMenu({
   onNewSession,
   onFork,
   onArchived,
+  onExport,
+  onExportBot,
 }: {
   anchor: BotMenuAnchor;
   name: string;
@@ -135,6 +148,10 @@ export function BotContextMenu({
   onFork?: () => void;
   /** Lists the Bot's archived work sessions; given only when it has some. */
   onArchived?: () => void;
+  /** Exports the Bot's main chat. */
+  onExport?: () => void;
+  /** Writes the Bot itself (its profile, skills and personality) to a file. */
+  onExportBot?: () => void;
 }) {
   const { t } = useI18n();
   return (
@@ -162,6 +179,13 @@ export function BotContextMenu({
           {t('私聊记录')}
         </button>
       )}
+      {onExport && <ExportItem onExport={onExport} />}
+      {onExportBot && (
+        <button role="menuitem" onClick={onExportBot}>
+          <Icon name="bot" size={16} />
+          {t('导出 Bot')}
+        </button>
+      )}
       <div className="bot-menu-separator" role="separator" />
       <button
         role="menuitem"
@@ -185,6 +209,7 @@ export function SessionContextMenu({
   onEdit,
   onFork,
   onArchive,
+  onExport,
   onDelete,
   onClose,
 }: {
@@ -194,6 +219,7 @@ export function SessionContextMenu({
   onEdit: () => void;
   onFork: () => void;
   onArchive: () => void;
+  onExport: () => void;
   onDelete: () => void;
   onClose: () => void;
 }) {
@@ -209,11 +235,38 @@ export function SessionContextMenu({
         <Icon name="archive" size={16} />
         {archived ? t('取消归档') : t('归档')}
       </button>
+      <ExportItem onExport={onExport} />
       <div className="bot-menu-separator" role="separator" />
       <button role="menuitem" className="destructive" onClick={onDelete}>
         <Icon name="trash" size={16} />
         {t('删除')}
       </button>
+    </ContextMenu>
+  );
+}
+
+/** A group's menu: its settings and an export. */
+export function GroupContextMenu({
+  anchor,
+  name,
+  onSettings,
+  onExport,
+  onClose,
+}: {
+  anchor: BotMenuAnchor;
+  name: string;
+  onSettings: () => void;
+  onExport: () => void;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <ContextMenu anchor={anchor} label={t('{name} 的菜单', { name })} onClose={onClose}>
+      <button role="menuitem" onClick={onSettings}>
+        <Icon name="settings" size={16} />
+        {t('群聊设置')}
+      </button>
+      <ExportItem onExport={onExport} />
     </ContextMenu>
   );
 }

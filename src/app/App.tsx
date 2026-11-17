@@ -18,7 +18,10 @@ import { BotProfileForm } from './BotProfileForm';
 import { ConversationPane } from './ConversationPane';
 import { Sidebar } from './Sidebar';
 import { computerSetupDismissalKey } from '../computer/computer-setup-state';
-import { BotContextMenu, SessionContextMenu, type BotMenuAnchor } from '../bots/BotContextMenu';
+import { BotContextMenu, GroupContextMenu, SessionContextMenu, type BotMenuAnchor } from '../bots/BotContextMenu';
+import type { AttachmentScope } from '../../shared/types/attachment-types';
+import type { ConversationSearchHit } from '../../shared/chat/conversation-search';
+import { jumpToMessage } from '../chat/message-jump';
 import { InteractionNotifications } from '../chat/InteractionPrompts';
 import { PeerNotifications, PrivateChatWindow, type PeerPanel } from '../group/PeerChats';
 import { GroupEditor } from '../group/GroupEditor';
@@ -39,10 +42,13 @@ import { useDrafts } from './use-drafts';
 import { useFileActions } from './use-file-actions';
 import { useMessageFollow } from './use-message-follow';
 import { useModalEffects } from './use-modal-effects';
+import { useOpenChat } from './use-open-chat';
 import { useToast } from './use-toast';
+import { useSpendingAlert } from './SidebarBudget';
 import { StreamsProvider, useStreamOwners } from './streams';
 import { useShared } from '../ui/use-shared';
 import { WorkSessionEditor } from './WorkSessionEditor';
+import { BotTransfer, type BotTransferRequest } from '../bots/BotTransfer';
 import { ArchivedSessions } from './ArchivedSessions';
 import { Presence } from '../ui/Presence';
 import { WhatsNew } from './WhatsNew';
@@ -68,6 +74,7 @@ function AppContent() {
   const [toast, setToast] = useToast();
   const { state, selected, setSelected } = useAppSnapshot(setToast);
   useSpeechSettingsSync(state?.speech);
+  useSpendingAlert(state?.spending, setToast);
   const [query, setQuery] = useState('');
   const drafts = useDrafts(),
     groupDrafts = useDrafts();
@@ -95,7 +102,11 @@ function AppContent() {
     [scope, setScope] = useState('');
   /** The Bot whose archived work sessions are listed. */
   const [archivedOf, setArchivedOf] = useState('');
+  /** The Bot file dialog: exporting a Bot, or importing the file that was picked. */
+  const [botTransfer, setBotTransfer] = useState<BotTransferRequest>();
   const [botMenu, setBotMenu] = useState<BotMenuAnchor>(),
+    // A group's menu; its `id` is the group's.
+    [groupMenu, setGroupMenu] = useState<BotMenuAnchor>(),
     [deletingId, setDeletingId] = useState('');
   const [busy, setBusy] = useState(false);
   const [taskModalOpen, setTaskModalOpen] = useState(false);
@@ -211,6 +222,21 @@ function AppContent() {
       setBotMenu(undefined);
       setPeerPanel(panel);
     });
+  // A clicked system notification opens the chat it is about, at the request when it names one.
+  useOpenChat((target) => {
+    const request = target.requestId ? state?.interactions?.find((item) => item.id === target.requestId) : undefined;
+    if (request) return viewInteraction(request);
+    void computerAction(async () => {
+      await closeModal();
+      setPage('chat');
+      setPeerPanel(undefined);
+      setQuery('');
+      setBotMenu(undefined);
+      setSelected(target.botId);
+      setSelectedGroup(target.groupId || '');
+      setSelectedSession(target.sessionId || '');
+    });
+  });
   useComputerSetupOffer({
     state,
     bot,
@@ -316,6 +342,30 @@ function AppContent() {
     setBotMenu({ id: target.botId, sessionId: target.id, trigger, x: x ?? box.left + 24, y: y ?? box.bottom });
   };
   /** A new work session from the main chat or a work session, opened once it exists. */
+  /** Opens the chat a search result is in, at the message found. */
+  const openSearchHit = (hit: ConversationSearchHit) =>
+    void computerAction(async () => {
+      await closeModal();
+      setPage('chat');
+      setPeerPanel(undefined);
+      setGroupEditor(undefined);
+      setBotMenu(undefined);
+      if (hit.scope.kind === 'group') setSelectedGroup(hit.scope.id);
+      else {
+        setSelectedGroup('');
+        setSelected(hit.scope.id);
+        setSelectedSession(hit.scope.sessionId || '');
+      }
+      jumpToMessage(hit.scope, hit.messageId);
+    });
+  /** Saves a chat as a Markdown file where the user chooses. */
+  const exportChat = (scope: AttachmentScope) => {
+    setBotMenu(undefined);
+    setGroupMenu(undefined);
+    void act(async () => {
+      if (await window.aelion.exportConversation({ scope })) setToast(t('对话已导出'));
+    });
+  };
   const forkChat = (botId: string, sessionId?: string) => {
     setBotMenu(undefined);
     void act(async () =>
@@ -403,6 +453,12 @@ function AppContent() {
             onSelectSession={openSession}
             onSessionMenu={showSessionMenu}
             onBotMenu={showBotMenu}
+            onGroupMenu={(target, trigger, x, y) => {
+              const box = trigger.getBoundingClientRect();
+              setGroupMenu({ id: target.id, trigger, x: x ?? box.left + 24, y: y ?? box.bottom });
+            }}
+            groupMenuId={groupMenu?.id}
+            onOpenHit={openSearchHit}
             onPlugins={() => openPlugins()}
             onSettings={openSettings}
           />
@@ -576,6 +632,20 @@ function AppContent() {
             )}
           </Presence>
           <Presence>
+            {groupMenu && state.groups?.rooms.some((room) => room.id === groupMenu.id) && (
+              <GroupContextMenu
+                anchor={groupMenu}
+                name={state.groups.rooms.find((room) => room.id === groupMenu.id)!.name}
+                onSettings={() => {
+                  setGroupMenu(undefined);
+                  setGroupEditor(groupMenu.id);
+                }}
+                onExport={() => exportChat({ kind: 'group', id: groupMenu.id })}
+                onClose={() => setGroupMenu(undefined)}
+              />
+            )}
+          </Presence>
+          <Presence>
             {botMenu && menuBot && menuSession && (
               <SessionContextMenu
                 anchor={botMenu}
@@ -586,6 +656,7 @@ function AppContent() {
                   setSessionEditor({ botId: menuSession.botId, sessionId: menuSession.id });
                 }}
                 onFork={() => forkChat(menuSession.botId, menuSession.id)}
+                onExport={() => exportChat({ kind: 'bot', id: menuSession.botId, sessionId: menuSession.id })}
                 onArchive={() => {
                   setBotMenu(undefined);
                   void act(() =>
@@ -618,6 +689,11 @@ function AppContent() {
                   setSessionEditor({ botId: menuBot.id });
                 }}
                 onFork={() => forkChat(menuBot.id)}
+                onExport={() => exportChat({ kind: 'bot', id: menuBot.id })}
+                onExportBot={() => {
+                  setBotMenu(undefined);
+                  setBotTransfer({ kind: 'export', bot: menuBot });
+                }}
                 onArchived={
                   state.workSessions?.some((item) => item.botId === menuBot.id && item.archivedAt)
                     ? () => {
@@ -650,6 +726,14 @@ function AppContent() {
                       busy={busy}
                       onSave={() => void act(() => saveProfile())}
                       onCancel={() => setModal(null)}
+                      onImportBot={() =>
+                        void act(async () => {
+                          const preview = await window.aelion.pickBotFile();
+                          if (!preview) return;
+                          setModal(null);
+                          setBotTransfer({ kind: 'import', preview });
+                        })
+                      }
                     />
                   )
                 }
@@ -667,6 +751,22 @@ function AppContent() {
                 screen={screen}
                 openPreview={files.openPreview}
                 setToast={setToast}
+              />
+            )}
+          </Presence>
+          <Presence>
+            {botTransfer && (
+              <BotTransfer
+                request={botTransfer}
+                onClose={() => setBotTransfer(undefined)}
+                onImported={(created) => {
+                  setBotTransfer(undefined);
+                  setPage('chat');
+                  setSelectedGroup('');
+                  setSelectedSession('');
+                  setSelected(created.id);
+                }}
+                onNotify={setToast}
               />
             )}
           </Presence>

@@ -1,13 +1,28 @@
-// Connectors: IM accounts (Feishu, WeCom, WeChat) through which people message their Bot. Each private or group chat
-// on a connector is one work session of the bound Bot (see WorkSession.connector).
+// Connectors: IM accounts (Feishu, WeCom, WeChat, Telegram, Discord, Slack) through which people message their Bot.
+// Each private or group chat on a connector is one work session of the bound Bot (see WorkSession.connector).
 import type { HostPermissionMode } from './permission-types';
 
-export type ConnectorPlatform = 'feishu' | 'wecom' | 'weixin';
+export type ConnectorPlatform = 'feishu' | 'wecom' | 'weixin' | 'telegram' | 'discord' | 'slack';
 export const CONNECTOR_PLATFORM_NAMES: Record<ConnectorPlatform, string> = {
   feishu: '飞书',
   wecom: '企业微信',
   weixin: '微信',
+  telegram: 'Telegram',
+  discord: 'Discord',
+  slack: 'Slack',
 };
+/** In the order the app lists them. */
+export const CONNECTOR_PLATFORMS = Object.keys(CONNECTOR_PLATFORM_NAMES) as ConnectorPlatform[];
+/**
+ * Shown with an "experimental" tag: WeChat goes through a plugin the platform may restrict, and the last three have
+ * only run against local stand-ins of their services so far.
+ */
+export const EXPERIMENTAL_CONNECTORS: ReadonlySet<ConnectorPlatform> = new Set([
+  'weixin',
+  'telegram',
+  'discord',
+  'slack',
+]);
 /**
  * disabled: switched off. connecting: starting or reconnecting. displaced: another device took the single connection
  * the platform allows. needs-config: credentials or the bound Bot are missing.
@@ -35,7 +50,10 @@ export interface ConnectorView {
   /** Other people allowed to message the Bot. */
   allowed: ConnectorPerson[];
   pairings: ConnectorPairing[];
-  /** The platform account: Feishu App ID, WeCom BotID or the WeChat bot ID. Never a secret. */
+  /**
+   * The platform account: Feishu App ID, WeCom BotID, the WeChat bot ID, a Telegram @username, a Discord bot name or
+   * a Slack workspace and app. Never a secret.
+   */
   account: string;
   createdAt: string;
   lastMessageAt?: string;
@@ -82,8 +100,15 @@ export interface MessageConnectorSource {
 /** What to call a connector message's sender: the name if the platform gave one. WeCom reports only an ID. */
 export const connectorSenderLabel = (sender: ConnectorPerson) =>
   sender.name?.replace(/\s+/g, ' ').trim().slice(0, 80) || sender.id;
-type ConnectorCredentials =
+/** Credentials the hub stores as they are; the others are checked with the platform first. */
+export type ConnectorLocalCredentials =
   { platform: 'feishu'; appId: string; appSecret: string } | { platform: 'wecom'; botId: string; secret: string };
+type ConnectorCredentials =
+  | ConnectorLocalCredentials
+  | { platform: 'telegram'; token: string }
+  | { platform: 'discord'; token: string }
+  /** A Socket Mode app: its app-level token (xapp-) and its bot token (xoxb-). */
+  | { platform: 'slack'; appToken: string; botToken: string };
 export interface ConnectorCreateInput {
   botId: string;
   permissionMode: HostPermissionMode;

@@ -1,0 +1,91 @@
+/* Messages found in every chat, listed under the chats whose names match (SidebarSearchResults.tsx). */
+.search-results {
+  margin-top: 6px;
+  padding-bottom: 8px;
+}
+.search-results-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px 4px;
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+.search-results-title small {
+  font-size: var(--text-micro);
+}
+.search-hit {
+  display: block;
+  width: 100%;
+  margin: 1px 0;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  text-align: left;
+}
+.search-hit:hover {
+  background: var(--surface-hover);
+}
+.search-hit-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.search-hit-line strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: var(--weight-body);
+}
+.search-hit-line em,
+.search-hit-line small {
+  flex-shrink: 0;
+  font-size: var(--text-micro);
+  font-style: normal;
+  color: var(--text-muted);
+}
+/* Two lines of the message around the match. */
+.search-hit-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  font-size: var(--text-caption);
+  line-height: 1.45;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.search-hit-sender {
+  margin-right: 6px;
+  color: var(--text-secondary);
+}
+.search-hit-text mark {
+  background: var(--ctl-accent-soft);
+  color: var(--text-ink);
+}
+.search-results-empty {
+  padding: 6px 8px;
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+.search-results-more {
+  width: 100%;
+  min-height: var(--size-sm);
+  margin-top: 2px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+}
+.search-results-more:hover {
+  background: var(--surface-hover);
+}
+/* The narrow list shows icons only, with no room for text. */
+@media (max-width: 620px) {
+  .search-results {
+    display: none;
+  }
+}

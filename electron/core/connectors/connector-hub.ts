@@ -5,6 +5,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 import {
   CONNECTOR_PLATFORM_NAMES,
   type ConnectorCreateInput,
+  type ConnectorLocalCredentials,
   type ConnectorPlatform,
   type ConnectorSetupInput,
   type ConnectorStatus,
@@ -25,6 +26,9 @@ import { ConnectorStore, connectorView, type SecretCodec, type StoredConnector }
 import { FeishuAdapter, type LarkSdk } from './adapters/feishu';
 import { WecomAdapter } from './adapters/wecom';
 import { WeixinAdapter, type WeixinCredentials } from './adapters/weixin';
+import { TelegramAdapter, telegramIdentity } from './adapters/telegram';
+import { DiscordAdapter, discordIdentity } from './adapters/discord';
+import { SlackAdapter, slackIdentity } from './adapters/slack';
 import type { SpeechService } from '../speech/speech-service';
 
 export interface ConnectorDeps {
@@ -164,9 +168,15 @@ export class Connectors {
     botId: string,
     mode: HostPermissionMode,
     owner?: string,
+    /** The platform's own ID of the account, where `account` is a name that can change. */
+    uid?: string,
   ) {
     if (
-      this.saved.data.connectors.some((connector) => connector.platform === platform && connector.account === account)
+      this.saved.data.connectors.some(
+        (connector) =>
+          connector.platform === platform &&
+          (connector.account === account || Boolean(uid && connector.state?.uid === uid)),
+      )
     )
       throw new AppError('connector.duplicate', '这个账号已经添加过了');
     const connector: StoredConnector = {
@@ -181,6 +191,7 @@ export class Connectors {
       account,
       secret: this.saved.encrypt(credentials),
       createdAt: new Date().toISOString(),
+      ...(uid ? { state: { uid } } : {}),
     };
     this.saved.data.connectors.push(connector);
     this.saved.save();
@@ -188,7 +199,13 @@ export class Connectors {
     this.deps.changed();
     return connector.id;
   }
-  add(input: ConnectorCreateInput) {
+  /**
+   * Adds a connector from credentials the person typed. Feishu and WeCom ones are saved as they are and checked by
+   * connecting; Telegram, Discord and Slack tokens are checked with the platform first, which also names the account.
+   */
+  add(input: ConnectorCreateInput & { credentials: ConnectorLocalCredentials }): string;
+  add(input: ConnectorCreateInput): string | Promise<string>;
+  add(input: ConnectorCreateInput): string | Promise<string> {
     const bot = this.bot(input?.botId),
       mode = this.mode(input?.permissionMode),
       value = input?.credentials,
@@ -206,6 +223,34 @@ export class Connectors {
       const botId = text(value.botId, 'BotID'),
         secret = text(value.secret, 'Secret');
       return this.create('wecom', botId, { botId, secret }, bot.id, mode);
+    }
+    const options = { fetch: this.deps.fetch, version: this.deps.version };
+    if (value?.platform === 'telegram') {
+      const token = text(value.token, 'Bot Token');
+      return telegramIdentity(token, options).then((me) =>
+        this.create('telegram', me.username ? '@' + me.username : me.id, { token }, bot.id, mode, undefined, me.id),
+      );
+    }
+    if (value?.platform === 'discord') {
+      const token = text(value.token, 'Bot Token');
+      return discordIdentity(token, options).then((me) =>
+        this.create('discord', me.name, { token }, bot.id, mode, undefined, me.id),
+      );
+    }
+    if (value?.platform === 'slack') {
+      const appToken = text(value.appToken, 'App Token'),
+        botToken = text(value.botToken, 'Bot Token');
+      return slackIdentity({ appToken, botToken }, options).then((app) =>
+        this.create(
+          'slack',
+          [app.team, app.user].filter(Boolean).join(' · ') || app.id,
+          { appToken, botToken },
+          bot.id,
+          mode,
+          undefined,
+          app.id,
+        ),
+      );
     }
     throw new AppError('connector.platform_invalid', '不支持的平台');
   }
@@ -365,10 +410,29 @@ export class Connectors {
       return new FeishuAdapter({ appId: credentials.appId, appSecret: credentials.appSecret }, this.deps.lark);
     if (connector.platform === 'wecom')
       return new WecomAdapter({ botId: credentials.botId, secret: credentials.secret }, { fetch: this.deps.fetch });
-    let contexts: Record<string, string> = {};
-    try {
-      contexts = JSON.parse(connector.state?.contexts || '{}');
-    } catch {}
+    if (connector.platform === 'telegram')
+      return new TelegramAdapter(credentials.token, Number(connector.state?.offset) || 0, { fetch: this.deps.fetch });
+    // What an adapter keeps per chat across restarts: WeChat's reply tokens, Discord's and Slack's last messages.
+    const kept = (key: string): Record<string, string> => {
+      try {
+        return JSON.parse(connector.state?.[key] || '{}');
+      } catch {
+        return {};
+      }
+    };
+    if (connector.platform === 'discord')
+      return new DiscordAdapter(
+        credentials.token,
+        { fetch: this.deps.fetch, version: this.deps.version },
+        kept('seen'),
+      );
+    if (connector.platform === 'slack')
+      return new SlackAdapter(
+        { appToken: credentials.appToken, botToken: credentials.botToken },
+        { fetch: this.deps.fetch },
+        kept('seen'),
+      );
+    const contexts = kept('contexts');
     return new WeixinAdapter(
       credentials as unknown as WeixinCredentials,
       connector.state?.cursor || '',

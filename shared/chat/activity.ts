@@ -83,6 +83,7 @@ const operations: Record<string, { label: string; active: string; icon: string }
   memory: { label: '更新记忆', active: '正在更新记忆', icon: 'book' },
   history_search: { label: '查找历史记录', active: '正在查找历史记录', icon: 'search' },
   history_read: { label: '回查历史内容', active: '正在回查历史内容', icon: 'book' },
+  knowledge_search: { label: '检索知识库', active: '正在检索知识库', icon: 'search' },
   skills_list: { label: '查找技能', active: '正在查找合适的技能', icon: 'search' },
   skill_read: { label: '阅读技能', active: '正在阅读技能', icon: 'book' },
   skill_file_read: { label: '读取技能资料', active: '正在读取技能资料', icon: 'book' },
@@ -142,6 +143,7 @@ export function describeTool(
   }
   if (['skill_read', 'skill_save', 'skill_materialize'].includes(name)) detail = text(result.name || input.name);
   if (name === 'mcp_call') detail = text(result.tool || input.name);
+  if (name === 'knowledge_search') detail = text(input.query);
   if (name === 'bot_send_message') detail = text((result.recipient as Record<string, unknown> | undefined)?.name);
   if (name === 'computer') {
     const actions: Record<string, string> = {

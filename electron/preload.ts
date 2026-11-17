@@ -30,6 +30,7 @@ const api: AelionAPI = {
     control: (input) => ipcRenderer.invoke(GAME_CHANNELS.control, input),
   },
   onEvent: subscribe('onEvent'),
+  onOpenChat: subscribe('onOpenChat'),
   onTerminalEvent: subscribe('onTerminalEvent'),
   onPreviewSave: subscribe('onPreviewSave'),
   onPreviewEditor: subscribe('onPreviewEditor'),

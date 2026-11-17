@@ -1,11 +1,13 @@
 import { PinThreadContext, usePinThread } from '../preview/pin-thread';
-import { memo, useLayoutEffect, useMemo, type RefObject } from 'react';
+import { memo, useLayoutEffect, useMemo, useState, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import type {
   Artifact,
   Bot,
   ChatMessage,
   InteractionRequest,
   ModelConfig,
+  ModelSelection,
   RunRecord,
   Snapshot,
   StreamingReply,
@@ -18,9 +20,12 @@ import type { TimelineItem } from '../../shared/chat/activity';
 import { isRunArtifact } from '../../shared/preview/workspace-files';
 import type { PreviewHistoryEntry } from '../../shared/preview/agent-preview-types';
 import { workspaceKey } from '../../shared/types/work-types';
-import { canRetract } from '../../shared/chat/retract';
+import { canRegenerate, canRetract } from '../../shared/chat/retract';
 import { ConversationTimeProvider } from '../chat/ConversationTime';
+import { jumpScopeKey, useMessageJump } from '../chat/message-jump';
+import { showMessageHit } from '../chat/reveal-message';
 import { RunMessage } from '../chat/RunMessage';
+import { RegenerateDialog } from '../chat/RegenerateDialog';
 import { BotWorkingStatus } from '../chat/BotWorkingStatus';
 import { StreamingReply as LiveReply } from '../chat/StreamingReply';
 import { ConversationInteractions } from '../chat/InteractionPrompts';
@@ -35,6 +40,7 @@ import { GroupTaskMessage } from '../group/GroupTaskMessage';
 import { DesignerTaskCard } from '../designer/DesignerTaskCard';
 import { Icon } from '../ui/Icon';
 import { Message } from '../ui/Message';
+import { Presence } from '../ui/Presence';
 import { sameProps } from '../ui/equality';
 import { useStableHandlers } from '../ui/use-stable-handlers';
 import { useI18n } from '../i18n';
@@ -71,6 +77,7 @@ export function BotConversation({
   onSend,
   onReply,
   onEdit,
+  onRegenerate,
   onContinue,
   onSettings,
   onScreen,
@@ -97,6 +104,8 @@ export function BotConversation({
   onReply: (message: ChatMessage) => void;
   /** Takes back a message still waiting or being worked on, to edit it in the composer. */
   onEdit: (message: ChatMessage) => void;
+  /** Makes the last answer again, with another model when one is given. */
+  onRegenerate: (runId: string, selection?: ModelSelection) => Promise<void>;
   onContinue: () => void;
   onSettings: (tab: 'model' | 'computer' | 'mcp') => void;
   onScreen: (url: string) => void;
@@ -112,9 +121,11 @@ export function BotConversation({
   const sessionId = session?.id,
     chatKey = sessionId ? 'session:' + sessionId : bot.id;
   const composerWrap = useFloatingComposer();
+  const [regenerating, setRegenerating] = useState<string>();
   const actions = useStableHandlers<Actions>({
     reply: onReply,
     edit: onEdit,
+    regenerate: setRegenerating,
     continueWork: onContinue,
     settings: onSettings,
     screen: onScreen,
@@ -149,7 +160,26 @@ export function BotConversation({
   const liveSignature = liveReplies.map((reply) => reply.id + ':' + reply.content).join('|');
   useLayoutEffect(followLive, [liveSignature]);
   const keys = useMemo(() => timeline.map((item) => itemKey(chatKey, item)), [timeline, chatKey]);
+  // The run whose answer can be made again: the last thing in the chat, apart from notes the app added after it.
+  const tailRunId = useMemo(() => {
+    for (let index = timeline.length - 1; index >= 0; index--) {
+      const item = timeline[index];
+      if (item.kind === 'run') return item.id;
+      if (item.message.role !== 'event') return undefined;
+    }
+    return undefined;
+  }, [timeline]);
   const timelineWindow = useTimelineWindow({ botId: chatKey, timeline, keys, pane: messagesPane, follow });
+  // A search result opened this chat at one message. Opening a chat first settles at its end (two frames), and
+  // the jump must not be pulled back there.
+  useMessageJump(jumpScopeKey({ kind: 'bot', id: bot.id, sessionId }), (messageId) =>
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        follow.current = false;
+        void showMessageHit(messageId, true);
+      }),
+    ),
+  );
   // Follow-ups on an open canvas run in the same design task; its card shows once, under the latest of those runs.
   const designCardAt = useMemo(() => {
     const at = new Map<string, number>();
@@ -240,6 +270,16 @@ export function BotConversation({
                     )
                   }
                   canContinue={!running && !busy}
+                  regenerable={
+                    latest &&
+                    !running &&
+                    !busy &&
+                    tailRunId === item.id &&
+                    canRegenerate(
+                      runsById.get(item.id),
+                      allRunMessages.filter((message) => message.role === 'user' && !message.reaction),
+                    )
+                  }
                   outputs={
                     latest
                       ? state.artifacts.filter(
@@ -326,6 +366,23 @@ export function BotConversation({
           onStop={actions.stop}
         />
       </div>
+      {/* In the body: the conversation's glass would otherwise be what the dialog is positioned in. */}
+      {createPortal(
+        <Presence>
+          {regenerating && (
+            <RegenerateDialog
+              providers={state.providers || []}
+              current={currentModel}
+              onClose={() => setRegenerating(undefined)}
+              onConfirm={async (selection) => {
+                setRegenerating(undefined);
+                await onRegenerate(regenerating, selection);
+              }}
+            />
+          )}
+        </Presence>,
+        document.body,
+      )}
     </>
   );
 }
@@ -334,6 +391,7 @@ export function BotConversation({
 type Actions = {
   reply: (message: ChatMessage) => void;
   edit: (message: ChatMessage) => void;
+  regenerate: (runId: string) => void;
   continueWork: () => void;
   settings: (tab: 'model' | 'computer' | 'mcp') => void;
   screen: (url: string) => void;
@@ -406,6 +464,7 @@ const TimelineRun = memo(function TimelineRun({
   waiting,
   reviewing,
   canContinue,
+  regenerable,
   outputs,
   previewEntries,
   filesDisabled,
@@ -423,6 +482,7 @@ const TimelineRun = memo(function TimelineRun({
   waiting?: InteractionRequest['kind'];
   reviewing: boolean;
   canContinue: boolean;
+  regenerable: boolean;
   outputs: Artifact[];
   previewEntries: PreviewHistoryEntry[];
   filesDisabled: boolean;
@@ -445,6 +505,7 @@ const TimelineRun = memo(function TimelineRun({
         canContinue={canContinue}
         reviewing={reviewing}
         onContinue={actions.continueWork}
+        onRegenerate={regenerable ? () => actions.regenerate(runId) : undefined}
         onSettings={actions.settings}
         onScreen={actions.screen}
       />

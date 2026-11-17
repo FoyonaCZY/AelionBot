@@ -1,5 +1,5 @@
 import { useRef, type RefObject } from 'react';
-import type { Bot, ChatMessage, Snapshot } from '../../shared/types/core';
+import type { Bot, ChatMessage, ModelSelection, Snapshot } from '../../shared/types/core';
 import { messageReply } from '../../shared/chat/message-replies';
 import { usePreviewWorkbench } from '../preview/PreviewWorkbench';
 import { activeDesignId } from '../designer/design-canvas-state';
@@ -143,5 +143,16 @@ export function useBotChat(input: {
       .resumeChat({ botId: bot.id, runId: latestRun.id })
       .catch((error) => onError(ipcErrorText(error)));
   };
-  return { send, replyTo, edit, continueWork };
+  /** Makes the last answer of this chat again, first switching the Bot to `selection` when one is given. */
+  const regenerate = async (runId: string, selection?: ModelSelection) => {
+    if (!bot) return;
+    try {
+      if (selection) await window.aelion.setBotModel({ botId: bot.id, selection });
+      follow.current = true;
+      await window.aelion.regenerateChat({ botId: bot.id, ...(sessionId ? { sessionId } : {}), runId });
+    } catch (error) {
+      onError(ipcErrorText(error));
+    }
+  };
+  return { send, replyTo, edit, continueWork, regenerate };
 }

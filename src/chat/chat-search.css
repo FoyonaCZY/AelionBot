@@ -55,6 +55,7 @@
   animation: search-hit 1.6s ease-out;
 }
 .messages .is-search-hit .bubble,
+.messages .is-search-hit .group-message-bubble,
 .messages .run-step-note.is-search-hit {
   box-shadow: 0 0 0 2px light-dark(#bfcee2, #737373);
 }

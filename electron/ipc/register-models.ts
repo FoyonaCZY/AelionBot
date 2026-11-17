@@ -58,7 +58,17 @@ export function registerModels(ctx: IpcContext) {
       clearTimeout(timer);
     }
   });
-  handle('queryUsage', (input) => usageReport(ctx.store.data.modelUsage || [], ctx.providers.list(), input));
+  handle('queryUsage', (input) =>
+    usageReport(ctx.store.data.modelUsage || [], ctx.providers.list(), input, {
+      currency: ctx.spending.settings().currency,
+      cost: (record) => ctx.spending.cost(record),
+      priceOf: (providerId, model) => ctx.spending.priceOf(providerId, model),
+    }),
+  );
+  handle('saveSpending', (input) => ctx.spending.save(input));
+  handle('setModelPrice', (input) => ctx.spending.setPrice(input));
+  handle('listModelPrices', () => ctx.spending.prices());
+  handle('refreshModelPrices', () => ctx.spending.refreshPrices());
   handle('saveProvider', async (input) => {
     ctx.beforeModelChange(input?.id ? ctx.providers.using(String(input.id)) : []);
     try {

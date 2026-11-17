@@ -37,6 +37,7 @@ export const PLANNING_TOOLS = new Set([
   'attachment_read',
   'history_search',
   'history_read',
+  'knowledge_search',
   'skills_list',
   'skill_read',
   'skill_file_read',

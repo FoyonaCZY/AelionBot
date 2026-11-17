@@ -53,6 +53,12 @@ export function Icon({ name, size = 20 }: { name: string; size?: number }) {
         <path d="M4 4v16h16M8 16v-5m5 5V6m5 10V9" />
       </>
     ),
+    bell: (
+      <>
+        <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15l1.5-2Z" />
+        <path d="M10 21h4" />
+      </>
+    ),
     clock: (
       <>
         <circle cx="12" cy="12" r="9" />

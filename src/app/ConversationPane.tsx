@@ -152,6 +152,7 @@ export function ConversationPane({
             onSend={() => void chat.send()}
             onReply={chat.replyTo}
             onEdit={(message) => void chat.edit(message)}
+            onRegenerate={chat.regenerate}
             onContinue={chat.continueWork}
             onSettings={(tab) => (tab === 'model' && bot.model ? onProfile(bot) : onSettings(tab))}
             onScreen={onScreen}

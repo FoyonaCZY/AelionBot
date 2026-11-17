@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Bot, Snapshot, WorkSession } from '../../shared/types/core';
 import type { GroupSummary } from '../../shared/types/group-types';
+import type { ConversationSearchHit } from '../../shared/chat/conversation-search';
 import type { BotPalette } from '../../shared/chat/bot-colors';
 import { previewFeedbackDisplay } from '../../shared/preview/preview-feedback';
 import { attachmentSummary } from '../../shared/types/attachment-types';
@@ -14,7 +15,9 @@ import { time } from '../ui/format';
 import { Icon } from '../ui/Icon';
 import { Presence } from '../ui/Presence';
 import { conversationRows, type SessionRow } from './conversation-list';
+import { SidebarSearchResults } from './SidebarSearchResults';
 import { SidebarUpdate } from './SidebarUpdate';
+import { SidebarBudget } from './SidebarBudget';
 import { useI18n } from '../i18n';
 import './work-sessions.css';
 
@@ -49,6 +52,9 @@ export function Sidebar({
   onSelectSession,
   onSessionMenu,
   onBotMenu,
+  onGroupMenu,
+  groupMenuId,
+  onOpenHit,
   onPlugins,
   onSettings,
 }: {
@@ -75,6 +81,11 @@ export function Sidebar({
   /** Opens a work session's menu: at the pointer, or below the row when `x` is absent. */
   onSessionMenu: (session: WorkSession, trigger: HTMLButtonElement, x?: number, y?: number) => void;
   onBotMenu: (target: Bot, trigger: HTMLButtonElement, x?: number, y?: number) => void;
+  onGroupMenu: (target: GroupSummary, trigger: HTMLButtonElement, x?: number, y?: number) => void;
+  /** The group whose menu is open. */
+  groupMenuId?: string;
+  /** Opens the chat a found message is in, at that message. */
+  onOpenHit: (hit: ConversationSearchHit) => void;
   onPlugins: () => void;
   onSettings: (tab?: SettingsTab) => void;
 }) {
@@ -210,7 +221,19 @@ export function Sidebar({
                   key={`group:${room.id}`}
                   className={`bot-item group-item ${group?.id === room.id ? 'selected' : ''}`}
                   data-group-id={room.id}
+                  aria-haspopup="menu"
+                  aria-expanded={groupMenuId === room.id}
                   onClick={() => onOpenGroup(room.id)}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    onGroupMenu(room, event.currentTarget, event.clientX || undefined, event.clientY || undefined);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+                      event.preventDefault();
+                      onGroupMenu(room, event.currentTarget);
+                    }
+                  }}
                 >
                   <GroupAvatar group={room} activities={avatarActivities} />
                   <span className="bot-copy">
@@ -351,12 +374,14 @@ export function Sidebar({
               </div>
             );
           })}
+        <SidebarSearchResults query={query} state={state} onOpen={onOpenHit} />
       </div>
       <div className="sidebar-bottom">
         <button className="sidebar-link sidebar-user" aria-label={t('设置')} onClick={() => onSettings()}>
           <ProfileAvatar name={state.userProfile?.displayName} size={32} />
           <span>{state.userProfile?.displayName.trim() || t('设置')}</span>
         </button>
+        <SidebarBudget spending={state.spending} onOpen={() => onSettings('usage')} />
         <SidebarUpdate update={state.updates} onOpen={() => onSettings('about')} />
         <button
           className="icon-button"

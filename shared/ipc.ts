@@ -49,7 +49,11 @@ export const INVOKE_CHANNELS = {
   pinChat: 'chat:pin',
   cancel: 'chat:cancel',
   retractChat: 'chat:retract',
+  regenerateChat: 'chat:regenerate',
   readToolResult: 'chat:tool-result',
+  // Across conversations
+  searchConversations: 'conversations:search',
+  exportConversation: 'conversations:export',
   compactContext: 'context:compact',
   setBackgroundLearning: 'cognition:learning',
   // Long-term memory
@@ -71,6 +75,12 @@ export const INVOKE_CHANNELS = {
   memoryReadPast: 'memory:read-past',
   memoryExport: 'memory:export',
   memoryImport: 'memory:import',
+  // Knowledge bases
+  saveKnowledgeBase: 'knowledge:save',
+  removeKnowledgeBase: 'knowledge:remove',
+  reindexKnowledgeBase: 'knowledge:reindex',
+  pickKnowledgeSources: 'knowledge:pick',
+  knowledgeIssues: 'knowledge:issues',
   // Groups
   pinGroup: 'groups:pin',
   createGroup: 'groups:create',
@@ -110,6 +120,11 @@ export const INVOKE_CHANNELS = {
   transcribeSpeech: 'speech:transcribe',
   synthesizeSpeech: 'speech:synthesize',
   queryUsage: 'usage:query',
+  // Spending and budgets
+  saveSpending: 'spending:save',
+  setModelPrice: 'spending:price',
+  listModelPrices: 'spending:prices',
+  refreshModelPrices: 'spending:refresh-prices',
   // Attachments
   pickAttachments: 'attachments:pick',
   prepareAttachmentPaste: 'attachments:paste-prepare',
@@ -151,6 +166,8 @@ export const INVOKE_CHANNELS = {
   openExternalUrl: 'app:open-external-url',
   saveAppearanceSettings: 'appearance:save',
   saveUserProfile: 'profile:save',
+  saveDesktopNotify: 'notifications:save',
+  testDesktopNotify: 'notifications:test',
   saveRuntimeSettings: 'runtime:save',
   setWindowDimmed: 'window:dimmed',
   prepareDiagnostics: 'diagnostics:prepare',
@@ -194,6 +211,18 @@ export const INVOKE_CHANNELS = {
   cancelRemotePairing: 'remote:pairing-cancel',
   decideRemotePairing: 'remote:pairing-decide',
   removeRemoteDevice: 'remote:device-remove',
+  // Data backup and Bot files
+  backupOverview: 'backup:overview',
+  exportBackup: 'backup:export',
+  backupProgress: 'backup:progress',
+  cancelBackup: 'backup:cancel',
+  pickBackup: 'backup:pick',
+  restoreBackup: 'backup:restore',
+  removeBackupCopy: 'backup:copy-remove',
+  openBackupCopy: 'backup:copy-open',
+  exportBot: 'bot:export',
+  pickBotFile: 'bot:file-pick',
+  importBot: 'bot:import',
   // Experimental local decision model
   installLaya: 'laya:install',
   selectLaya: 'laya:select',
@@ -230,6 +259,7 @@ export const GAME_CHANNELS = {
 
 export const EVENT_CHANNELS = {
   onEvent: 'app:event',
+  onOpenChat: 'app:open-chat',
   onTerminalEvent: 'terminal:event',
   onPreviewSave: 'web-preview:save',
   onPreviewEditor: 'web-preview:editor-event',

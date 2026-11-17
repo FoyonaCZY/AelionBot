@@ -174,6 +174,7 @@ const COMPACT_TOOLS = new Set([
   'write_stdin',
   'request_user_input',
   'generate_image',
+  'knowledge_search',
 ]);
 const isReactionTool = (name: string) => name === 'chat_pin' || name === 'group_react';
 function groupProgressFingerprint(name: string, args: unknown, output: unknown) {
@@ -281,6 +282,15 @@ export class Harness {
   private speech?: import('../speech/speech-service').SpeechService;
   setSpeech(service: import('../speech/speech-service').SpeechService) {
     this.speech = service;
+  }
+  private knowledge?: import('../knowledge/knowledge-service').KnowledgeAccess;
+  setKnowledge(access: import('../knowledge/knowledge-service').KnowledgeAccess) {
+    this.knowledge = access;
+  }
+  /** Why goals should stop keeping themselves going, such as a spending budget that ran out; undefined otherwise. */
+  private automaticRunsPaused?: () => string | undefined;
+  setAutomaticRunsPaused(reason: () => string | undefined) {
+    this.automaticRunsPaused = reason;
   }
   // Headless runs have no work computer and nobody to answer questions: hide VM-only and ask-user tools.
   private headless = false;
@@ -1000,6 +1010,8 @@ export class Harness {
       lastTools: ToolDefinition[] = [];
     // MCP tools and the server list, taken once per run so its tool list, and the prompt cache, stay put.
     let mcpOffer: { tools: ToolDefinition[]; prompt: string } | undefined;
+    // The knowledge bases this Bot may search, likewise taken once; empty when it has none.
+    let knowledgePrompt: string | undefined;
     const pendingFailures = new Map<string, string>();
     let verificationRetries = 0,
       lastFailure = '',
@@ -1176,6 +1188,12 @@ export class Harness {
           options.peerOrigin?.kind !== 'peer_summary' && !(privateSessionId && options.peerOrigin),
           Boolean(privateSessionId),
         );
+        knowledgePrompt ??=
+          options.peerOrigin?.kind === 'peer_summary' ||
+          (privateSessionId && options.peerOrigin) ||
+          this.disabledTools.has('knowledge_search')
+            ? ''
+            : this.knowledge?.prompt(botId) || '';
         const { availableTools, modelTools } = this.turnTools(
           botId,
           run,
@@ -1184,6 +1202,7 @@ export class Harness {
           userMemoryRoute,
           work,
           mcpOffer.tools,
+          Boolean(knowledgePrompt),
         );
         this.callableTools.set(run.id, availableTools);
         const taskFrame = [
@@ -1231,6 +1250,7 @@ export class Harness {
             ).prompt,
           },
           ...(mcpOffer.prompt ? [{ role: 'system' as const, content: mcpOffer.prompt }] : []),
+          ...(knowledgePrompt ? [{ role: 'system' as const, content: knowledgePrompt }] : []),
           // A run bound to a design task: design rules, craft, the kind's workflow and the pinned reference.
           ...(this.design?.prefix(run) || []),
         ];
@@ -1550,6 +1570,14 @@ export class Harness {
             });
             visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
             continue;
+          }
+          // A goal keeps itself going turn after turn. While automatic runs are held it stops here instead: the goal
+          // is blocked with the reason, and this answer ends the run.
+          const goal = work.forRun(run),
+            held = goal?.kind === 'goal' && goal.status === 'running' ? this.automaticRunsPaused?.() : undefined;
+          if (held) {
+            work.block(run, held);
+            this.changed();
           }
           if (
             !['planning', 'blocked'].includes(work.forRun(run)?.status || '') &&
@@ -2130,6 +2158,8 @@ export class Harness {
     userMemoryRoute: ReturnType<typeof memoryRoute> | undefined,
     work: WorkItems,
     mcpTools: ToolDefinition[] = [],
+    /** The Bot has knowledge bases to search in this run. */
+    knowledge = false,
   ) {
     const baseTools =
       options.peerOrigin?.kind === 'peer_summary'
@@ -2178,6 +2208,7 @@ export class Harness {
         (t.function.name !== 'generate_image' || Boolean(this.imageModel?.(botId))) &&
         (t.function.name !== 'transcribe_audio' || Boolean(this.speech?.available('input'))) &&
         (t.function.name !== 'text_to_speech' || Boolean(this.speech?.available('output'))) &&
+        (t.function.name !== 'knowledge_search' || Boolean(knowledge)) &&
         (!['request_user_input', 'user_input_wait'].includes(t.function.name) || Boolean(this.interactions)) &&
         (work.forRun(run)?.status !== 'planning' || PLANNING_TOOLS.has(t.function.name)) &&
         (t.function.name !== 'chat_pin' || (!options.groupOrigin && !options.peerOrigin)) &&
@@ -2425,6 +2456,7 @@ export class Harness {
       design: this.design,
       imageModel: this.imageModel,
       speech: this.speech,
+      knowledge: this.knowledge,
       changed: () => this.changed(),
       callableTools: (runId) => this.callableTools.get(runId),
       pendingTasks: (botId, runId) => [

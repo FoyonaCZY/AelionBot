@@ -2,8 +2,9 @@ import { useId, useRef, useState } from 'react';
 import type { Snapshot } from '../../shared/types/core';
 import { SOUL_MAX_CHARS, normalizeSoul } from '../../shared/chat/bot-soul';
 import { workspaceKey } from '../../shared/types/work-types';
-import { isStarterText, soulPresets } from '../../shared/chat/soul-presets';
+import { isStarterText } from '../../shared/chat/soul-presets';
 import { BotPaletteEditor } from '../bots/BotPaletteEditor';
+import { BotTemplates } from '../bots/BotTemplates';
 import { ModelSelectionFields, validModelSelection } from '../settings/ModelSelectionFields';
 import { ipcErrorText } from '../ui/ipc-error';
 import { EditableSelect } from '../ui/EditableSelect';
@@ -11,7 +12,7 @@ import { defaultSpeechProtocol, speechProtocolInfo } from '../../shared/types/sp
 import { useI18n } from '../i18n';
 import type { BotProfile } from './use-bot-profile';
 
-/** Create a Bot or edit its profile. Every Bot can take on design work; the designer is one of the presets. */
+/** Create a Bot or edit its profile. A new Bot starts from a template; the designer is one of them. */
 export function BotProfileForm({
   modal,
   state,
@@ -19,6 +20,7 @@ export function BotProfileForm({
   busy,
   onSave,
   onCancel,
+  onImportBot,
 }: {
   modal: 'new' | 'profile';
   state: Snapshot;
@@ -26,8 +28,10 @@ export function BotProfileForm({
   busy: boolean;
   onSave: () => void;
   onCancel: () => void;
+  /** Makes the new Bot from a Bot file instead of this form. */
+  onImportBot?: () => void;
 }) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const { name, setName, soul, setSoul, newBotPalette, setNewBotPalette } = profile;
   const voiceProvider = state.providers?.find((item) => item.id === state.speech?.output?.providerId),
     voiceInfo =
@@ -76,6 +80,19 @@ export function BotProfileForm({
       }}
     >
       <div className="bot-profile-body">
+        {modal === 'new' && (
+          <BotTemplates
+            soul={soul}
+            disabled={busy}
+            onImport={onImportBot}
+            onPick={(template) => {
+              setSoul(template.soul);
+              setSoulIssue('');
+              if (isStarterText(name)) setName(template.name);
+              setNewBotPalette(template.palette);
+            }}
+          />
+        )}
         <BotPaletteEditor
           value={modal === 'new' ? newBotPalette : profilePalette}
           onChange={modal === 'new' ? setNewBotPalette : setProfilePalette}
@@ -173,25 +190,6 @@ export function BotProfileForm({
               {soul.length.toLocaleString()} / {SOUL_MAX_CHARS.toLocaleString()}
             </span>
           </div>
-          {modal === 'new' && (
-            <div className="presets" role="group" aria-label={t('从示例开始')}>
-              <span className="presets-label">{t('从示例开始')}</span>
-              {soulPresets(language).map((preset) => (
-                <button
-                  type="button"
-                  key={preset.id}
-                  aria-pressed={soul === preset.soul}
-                  onClick={() => {
-                    setSoul(preset.soul);
-                    setSoulIssue('');
-                    if (isStarterText(name)) setName(preset.name);
-                  }}
-                >
-                  {preset.name}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
         <div className="bot-profile-model">
           <h3>{t('对话模型')}</h3>

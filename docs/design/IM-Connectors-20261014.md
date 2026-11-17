@@ -1,8 +1,10 @@
 # 连接器方案（飞书、企业微信等）
 
-状态：飞书、企业微信、微信（实验）已实现，钉钉不做。调研日期 2026-10-14。使用说明见 [INTEGRATIONS.md](../INTEGRATIONS.md#连接器飞书企业微信微信)。
+状态：飞书、企业微信、微信（实验）已实现，钉钉不做。调研日期 2026-10-14。使用说明见 [INTEGRATIONS.md](../INTEGRATIONS.md#连接器飞书企业微信微信telegramdiscordslack)。
 
 > 2026-10-20 更新：企业微信群的 @ 消息已支持——群消息不在应用层再按 owner/白名单过滤，权限由企业微信机器人后台的人员名单控制；回复发回群，审批仍走私聊。飞书和微信的群消息仍然丢弃。下面“不做群聊”的描述保留为 2026-10-14 的方案记录。
+
+> 2026-11-17 更新：新增 Telegram（Bot API 的 getUpdates 长轮询）、Discord（Gateway 收私信和按钮，REST 发送）、Slack（Socket Mode 收事件，Web API 发送）。三家的协议都基于 `fetch` 和 `ws` 自己实现，没有引入 SDK；只处理私聊；添加时先向平台校验 token 并取账号名；审批都用平台自带的按钮。回复按各平台的格式转换（Telegram HTML、Discord Markdown、Slack mrkdwn），代码在 `electron/core/connectors/markdown.ts`。Discord 和 Slack 不替离线的机器人保留消息，所以每个私聊记下最后一条消息，重新建立会话后从频道历史里补读。实现时没有真实账号可用，只对照本地假服务测过。
 
 实现与方案的出入：
 

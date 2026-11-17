@@ -74,6 +74,7 @@ const conversationTools = new Set([
   'bot_send_message',
   'history_search',
   'history_read',
+  'knowledge_search',
   'group_react',
   'group_pass',
   'chat_pin',

@@ -7,6 +7,7 @@ import { COMPUTER_HANDLERS } from './computer';
 import { DELEGATION_HANDLERS } from './delegation';
 import { DESIGN_HANDLER } from './design';
 import { FILE_HANDLERS } from './files';
+import { KNOWLEDGE_HANDLERS } from './knowledge';
 import { MCP_HANDLER } from './mcp';
 import { MEDIA_HANDLERS } from './media';
 import { MEMORY_HANDLERS, SKILL_HANDLERS } from './memory';
@@ -33,6 +34,7 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
   ...CHAT_HANDLERS,
   ...MEMORY_HANDLERS,
   ...SKILL_HANDLERS,
+  ...KNOWLEDGE_HANDLERS,
 };
 
 /** Handlers for tool namespaces, tried in order. */

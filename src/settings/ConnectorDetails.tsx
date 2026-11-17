@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Snapshot, WorkSession } from '../../shared/types/core';
-import type { ConnectorView } from '../../shared/types/connector-types';
+import { EXPERIMENTAL_CONNECTORS, type ConnectorView } from '../../shared/types/connector-types';
 import { HOST_PERMISSION_MODES, type HostPermissionMode } from '../../shared/types/permission-types';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
@@ -111,7 +111,7 @@ export function ConnectorDetails({
         <div>
           <h2>
             {name}
-            {connector.platform === 'weixin' && <span className="plugin-tag">{t('实验')}</span>}
+            {EXPERIMENTAL_CONNECTORS.has(connector.platform) && <span className="plugin-tag">{t('实验')}</span>}
           </h2>
           <p>
             <StatusDot status={connector.status} />

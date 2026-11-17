@@ -42,7 +42,7 @@
     <td valign="top"><strong>文件与预览</strong><br>网页、图片、PDF 和文档在对话旁预览，代码和文字可以直接改。</td>
   </tr>
   <tr>
-    <td valign="top"><strong>连接器</strong><br>在飞书、企业微信和微信里给 Bot 发消息，Bot 完成后把最终回复发回来。</td>
+    <td valign="top"><strong>连接器</strong><br>在飞书、企业微信、微信、Telegram、Discord 和 Slack 里给 Bot 发消息，Bot 完成后把最终回复发回来。</td>
     <td valign="top"><strong>模型、技能与插件</strong><br>自带 API Key 或本地模型；内置八个技能，可以添加 MCP 服务。</td>
   </tr>
   <tr>
@@ -177,7 +177,7 @@ Windows 10 及以上（64 位）或 macOS（Apple 芯片），不支持 Intel �
 
 <br>
 
-在插件页添加飞书、企业微信或微信（实验）连接器，指定回复的 Bot 和本机权限。第一个发消息并被你允许的人成为主人，其他人需要配对后才能使用。Bot 只把最终回复发回聊天，关闭窗口后应用可以留在托盘里保持连接。
+在插件页添加飞书、企业微信，或微信、Telegram、Discord、Slack（实验）连接器，指定回复的 Bot 和本机权限。第一个发消息并被你允许的人成为主人，其他人需要配对后才能使用。Bot 只把最终回复发回聊天，关闭窗口后应用可以留在托盘里保持连接。
 
 </details>
 

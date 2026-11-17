@@ -71,6 +71,7 @@ import { Cognition } from './core/memory/cognition';
 import { MemoryAdmin } from './core/memory/memory-admin';
 import { LocalEmbedder } from './core/memory/memory-embedder';
 import { compactOnce } from './core/memory/memory-maintenance';
+import { KnowledgeService, WorkerIndexRunner } from './core/knowledge/knowledge-service';
 import { PeerChats } from './core/peer/peer-chats';
 import { GroupChats } from './core/group/group-chats';
 import { LayaRuntime } from './core/model/laya-runtime';
@@ -79,6 +80,10 @@ import { ChatPinQueue } from './core/agent/chat-pins';
 import { Connectors } from './core/connectors/connector-hub';
 import { loadLarkSdk } from './core/connectors/adapters/feishu';
 import { BackgroundTray } from './windows/background-tray';
+import { DataBackup } from './core/backup/backup-service';
+import { applyPendingRestore, type RestoreOutcome } from './core/backup/data-backup';
+import { DesktopNotices } from './core/app/desktop-notices';
+import { DesktopNotifier } from './windows/desktop-notifier';
 import { RemoteHub } from './core/remote/remote-hub';
 import { DirectWindow } from './windows/remote-direct';
 import { TaskScheduler } from './core/scheduler/task-scheduler';
@@ -94,6 +99,7 @@ import { markReleaseNotesSeen, pendingWhatsNew, type WhatsNew } from './core/app
 import { Diagnostics } from './core/app/diagnostics';
 import { slowOperations, watchEventLoop } from './core/app/slow-operations';
 import { StartupTimer } from './core/app/startup-timer';
+import { Spending } from './core/app/spending';
 import { PowerShellParser } from './core/host/powershell-parser';
 import { availableParallelism, release as osRelease, totalmem } from 'node:os';
 import { createWindowsUpdater, UPDATE_REPOSITORY } from './core/app/windows-updater';
@@ -121,6 +127,7 @@ let designSystems: DesignSystems;
 let designStore: DesignStore;
 let model: ModelClient;
 let providers: ModelProviders;
+let spending: Spending;
 let computer: ComputerController;
 let artifacts: ArtifactService;
 let videoInspector: VideoInspector;
@@ -139,6 +146,7 @@ const powershellParser = new PowerShellParser();
 let cognition: Cognition;
 let memoryAdmin: MemoryAdmin;
 let embedder: LocalEmbedder | undefined;
+let knowledge: KnowledgeService | undefined;
 let peerChats: PeerChats | undefined;
 let groupChats: GroupChats | undefined;
 let games: GameRuntime | undefined;
@@ -153,7 +161,10 @@ let automationCode: CodeOrchestrator | undefined;
 let greetings: BotGreetings | undefined;
 let connectors: Connectors | undefined;
 let tray: BackgroundTray | undefined;
+let desktopNotices: DesktopNotices | undefined;
+let desktopNotifier: DesktopNotifier | undefined;
 let remote: RemoteHub | undefined;
+let dataBackup: DataBackup | undefined;
 let directWindow: DirectWindow | undefined;
 /** Keeps the computer awake while phones may connect (a powerSaveBlocker id). */
 let awakeBlocker: number | undefined;
@@ -246,6 +257,8 @@ function snapshot(): Snapshot {
     integrations: integrations?.snapshot(),
     connectors: connectors?.snapshot(),
     remote: remote?.view(),
+    knowledge: knowledge?.view(),
+    desktopNotify: desktopNotices?.settings(),
     interactions: interactions?.snapshot() || [],
     cognition: cognition?.view(),
     peers: peerChats?.snapshot(),
@@ -254,6 +267,7 @@ function snapshot(): Snapshot {
     greetingBotIds: greetings?.botIds || [],
     runtime: store ? new RunPolicy(store).settings() : undefined,
     modelUsage: store?.data.modelUsage?.slice(-100),
+    spending: spending?.view(),
     commandPermissions: commandPermissions?.list() || [],
     hostPermissionModes: hostApprovals?.modes(),
     hostComputer: hostDesktop?.view(),
@@ -287,6 +301,7 @@ function changed() {
   if (exiting) return;
   stateTimer ??= setTimeout(sendState, Math.max(0, lastStateAt + STATE_INTERVAL_MS - Date.now()));
   remote?.changed();
+  desktopNotices?.changed();
   chatPins?.wake();
   peerChats?.wake();
   groupChats?.wake();
@@ -389,9 +404,29 @@ async function initialize() {
     : savedLaunch?.dataDir || (app.isPackaged ? profileDir : resolve('.local/app'));
   const projectDir = resolve(process.env.AELION_PROJECT_DIR || savedLaunch?.projectDir || process.cwd());
   mkdirSync(dataDir, { recursive: true });
+  // A restore prepared before the app was restarted goes in now, while nothing has the data open.
+  const restored: RestoreOutcome | undefined = applyPendingRestore(dataDir);
   store = new Store(dataDir, { incremental: true, deferWrites: true });
   startup.mark('state');
   providers = new ModelProviders(store, secretCodec, changed);
+  spending = new Spending({
+    store,
+    provider: (id) =>
+      store.data.providers?.find((provider) => provider.id === id) ||
+      (id === 'legacy' ? { baseUrl: store.data.model?.baseUrl } : undefined),
+    changed,
+    dataDir,
+    fetch: (url, options) => net.fetch(url, options),
+    // The window says it itself while someone looks at it (SidebarBudget.tsx); otherwise the system does.
+    onAlert: (alert) => {
+      if (window && !window.isDestroyed() && window.isVisible() && !window.isMinimized() && window.isFocused()) return;
+      desktopNotices?.announce({
+        title: 'AelionBot',
+        body: spending.alertText(alert),
+        tag: `budget-${alert.period}-${alert.level}`,
+      });
+    },
+  });
   commandPermissions = new CommandPermissions(
     join(dataDir, 'command-permissions.json'),
     (value) => host?.redact(value) ?? redactHost(value),
@@ -520,6 +555,17 @@ async function initialize() {
   attachments = new Attachments(store, vm, artifacts, imagePreview);
   const homeDir = app.getPath('home');
   const configDir = resolve(process.env.AELION_CONFIG_HOME || savedLaunch?.configDir || join(homeDir, '.aelion'));
+  dataBackup = new DataBackup({
+    dataDir,
+    configDir,
+    appVersion: app.getVersion(),
+    codec: secretCodec,
+    flush: () => store.flush(),
+    restart: () => {
+      app.relaunch();
+      app.quit();
+    },
+  });
   diagnostics = new Diagnostics({
     dataDir,
     snapshot,
@@ -632,6 +678,7 @@ async function initialize() {
     (record) => {
       record.runId ||= store.data.runs.find((run) => run.botId === record.botId && run.status === 'running')?.id;
       (store.data.modelUsage ||= []).push(record);
+      spending.record(record);
       store.journal('model.usage', record);
       store.save();
       changed();
@@ -642,6 +689,7 @@ async function initialize() {
     () => new RunPolicy(store).settings(),
     (record) => {
       (store.data.modelUsage ||= []).push(record);
+      spending.record(record);
       store.journal('model.usage', record);
       store.save();
       changed();
@@ -861,9 +909,24 @@ async function initialize() {
     attachments,
   );
   generalHarness.setImageModel(imageModelAccess);
+  generalHarness.setAutomaticRunsPaused(() => spending.pausedReason());
   audioCodecs = new AudioCodecWindow(join(app.getAppPath(), 'assets', 'audio-codecs.html'));
   speech = new SpeechService(providers, audioCodecs);
   generalHarness.setSpeech(speech);
+  // Knowledge bases: indexed on a thread of their own, searched by words and, with the local model on, by meaning.
+  knowledge = new KnowledgeService({
+    store,
+    dbPath: join(store.dir, 'knowledge.sqlite'),
+    runner: new WorkerIndexRunner(join(__dirname, 'knowledge-worker.cjs'), join(store.dir, 'knowledge.sqlite'), [
+      join(__dirname, '..', 'dist', 'pdf-assets'),
+      resolve('node_modules/pdfjs-dist'),
+    ]),
+    embedder,
+    busy: () => Boolean(updatePreparing || harness?.busy || groupChats?.busy),
+    changed,
+  });
+  generalHarness.setKnowledge(knowledge);
+  knowledge.start();
   hostDesktop = new HostDesktop({
     driver: new WindowsDesktopHelper(),
     imageDir: computer.imageDir,
@@ -1079,6 +1142,20 @@ async function initialize() {
     quit: () => app.quit(),
   });
   tray.refresh();
+  // A click on a notification brings the window forward and opens the chat it is about.
+  desktopNotifier = new DesktopNotifier((notice) => {
+    tray?.open();
+    if (notice.target && window && !window.isDestroyed())
+      window.webContents.send(EVENT_CHANNELS.onOpenChat, notice.target);
+  });
+  desktopNotices = new DesktopNotices({
+    store,
+    interactions: () => interactions.snapshot(),
+    attentive: () =>
+      Boolean(window && !window.isDestroyed() && window.isVisible() && !window.isMinimized() && window.isFocused()),
+    groupName: (id) => store.data.groups.find((group) => group.id === id)?.name,
+    show: (notice) => desktopNotifier?.show(notice),
+  });
   directWindow = new DirectWindow(join(__dirname, 'remote-direct-preload.cjs'));
   remote = new RemoteHub({
     store,
@@ -1159,6 +1236,7 @@ async function initialize() {
           signal,
         ),
       webhookOrigin: () => automationWebhooks?.origin(),
+      held: () => spending.pausedReason(),
     },
   );
   const automations = scheduler;
@@ -1422,6 +1500,9 @@ async function initialize() {
     get providers() {
       return providers;
     },
+    get spending() {
+      return spending;
+    },
     get speech() {
       return speech;
     },
@@ -1458,6 +1539,9 @@ async function initialize() {
     get memoryAdmin() {
       return memoryAdmin;
     },
+    get knowledge() {
+      return knowledge;
+    },
     get designSystems() {
       return designSystems;
     },
@@ -1486,6 +1570,15 @@ async function initialize() {
     },
     get remote() {
       return remote;
+    },
+    get dataBackup() {
+      return dataBackup;
+    },
+    get desktopNotices() {
+      return desktopNotices;
+    },
+    get desktopNotifier() {
+      return desktopNotifier;
     },
     get scheduler() {
       return scheduler;
@@ -1566,6 +1659,9 @@ async function initialize() {
         () => remote?.stop(),
         () => directWindow?.dispose(),
         () => tray?.dispose(),
+        () => desktopNotices?.dispose(),
+        () => desktopNotifier?.dispose(),
+        () => void knowledge?.close(),
         () => peerChats?.dispose(),
         () => groupChats?.dispose(),
         () => interactions.dispose(),
@@ -1634,6 +1730,17 @@ async function initialize() {
     }
   clearTimeout(revealTimer);
   reveal();
+  if (restored && !page.isDestroyed()) {
+    const say = (source: string, values?: Record<string, string | number>) =>
+      translateFor(store.data.language || 'zh-CN', source, values);
+    if (!restored.ok) diagnostics?.record('app.restore-error', restored.error || '');
+    void dialog.showMessageBox(page, {
+      type: restored.ok ? 'info' : 'error',
+      message: restored.ok ? say('已从备份恢复') : say('恢复没有完成，原来的数据还在'),
+      detail: restored.ok ? say('恢复前的数据保留了一份，在「设置 → 数据」里可以查看或删除。') : restored.error || '',
+      buttons: [say('好')],
+    });
+  }
   diagnostics?.record('app.startup', startup.report());
   appUpdates.startAutomaticChecks();
   void greetings.greetEmpty();
