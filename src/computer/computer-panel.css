@@ -37,7 +37,7 @@
   height: 28px;
   padding: 0;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
 }
 .computer-panel-settings {
   z-index: 2;
@@ -74,10 +74,10 @@
   max-width: calc(100% - 62px);
   height: 28px;
   padding: 0 10px 0 5px;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: light-dark(#18202cb3, #e1e1e1b3);
   color: light-dark(#fff, #242424);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-weight: var(--weight-label);
   pointer-events: none;
 }
@@ -208,11 +208,11 @@
   animation: computer-rest-z 3.6s ease-out infinite;
 }
 .computer-rest-zzz > i:nth-child(2) {
-  font-size: 12px;
+  font-size: var(--text-caption);
   animation-delay: 1.2s;
 }
 .computer-rest-zzz > i:nth-child(3) {
-  font-size: 14px;
+  font-size: var(--text-control);
   animation-delay: 2.4s;
 }
 @keyframes computer-rest-z {
@@ -237,7 +237,7 @@
 .computer-rest-title {
   margin: 6px 0 14px;
   color: var(--rest-ink);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-weight: var(--weight-label);
   line-height: 1.5;
   letter-spacing: 0.02em;
@@ -251,16 +251,16 @@
   min-height: 34px;
   padding: 7px 18px 7px 15px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--ctl-ink);
   box-shadow: var(--ctl-ink-shadow);
   color: var(--ctl-on-ink);
-  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-label);
   transition:
-    background 0.16s,
-    box-shadow 0.16s,
-    transform 0.12s;
+    background var(--motion-fast),
+    box-shadow var(--motion-fast),
+    transform var(--motion-fast);
 }
 .computer-rest-start:hover {
   background: var(--ctl-ink-hover);
@@ -286,7 +286,7 @@
   transform: scale(0.97);
 }
 .computer-rest-start:focus-visible {
-  outline: 2px solid rgba(190, 213, 244, 0.7);
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 2px;
 }
 .computer-rest-start svg {

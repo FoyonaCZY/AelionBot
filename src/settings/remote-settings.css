@@ -23,15 +23,15 @@
   width: 184px;
   height: 184px;
   flex: none;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: #fff;
 }
 .remote-qr strong {
-  font-size: 14px;
+  font-size: var(--text-control);
 }
 .remote-qr p {
   margin: 6px 0 0;
-  font-size: 13px;
+  font-size: var(--text-small);
   line-height: 1.6;
   color: var(--text-secondary);
 }
@@ -55,7 +55,7 @@
 .remote-request p {
   flex: 1;
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-control);
   line-height: 1.6;
 }
 .remote-request-actions {

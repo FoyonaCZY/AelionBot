@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import '../styles/tokens.css';
 import '../styles/style.css';
 import '../settings/settings.css';
 import '../styles/typography.css';

@@ -26,7 +26,7 @@
   flex-shrink: 0;
 }
 .app-shell > .conversation .designer-identity strong {
-  font-size: calc(16px * var(--appearance-text-scale, 1));
+  font-size: var(--text-heading);
   font-weight: var(--weight-label);
 }
 .app-shell > .conversation .designer-task-top {
@@ -62,7 +62,7 @@
     gap: 6px;
   }
   body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .designer-task-top > button {
-    font-size: 11px;
+    font-size: var(--text-micro);
     min-height: 23px;
     padding: 2px 5px;
   }

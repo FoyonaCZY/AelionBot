@@ -4,8 +4,8 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  border-radius: 999px;
-  transition: background 0.18s;
+  border-radius: var(--radius-pill);
+  transition: background var(--motion-fast);
 }
 .composer-voice.is-recording {
   padding-left: 4px;
@@ -36,7 +36,7 @@
 .composer-voice-time {
   min-width: 34px;
   color: var(--ctl-danger);
-  font-size: 12px;
+  font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
 }
 .composer-voice-spinner,
@@ -46,18 +46,14 @@
   border: 2px solid currentColor;
   border-right-color: transparent;
   border-radius: 50%;
-  animation: speech-spin 0.8s linear infinite;
+  animation: motion-spin 0.8s linear infinite;
 }
 @keyframes composer-voice-pulse {
   50% {
     box-shadow: 0 0 0 5px var(--ctl-danger-soft);
   }
 }
-@keyframes speech-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+
 @media (prefers-reduced-motion: reduce) {
   .composer-voice.is-recording .composer-voice-button,
   .composer-voice-spinner,

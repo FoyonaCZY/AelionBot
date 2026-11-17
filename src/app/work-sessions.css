@@ -15,8 +15,8 @@
   gap: 3px;
   height: 20px;
   padding: 0 5px 0 6px;
-  border-radius: 10px;
-  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  border-radius: var(--radius-md);
+  font-size: var(--text-micro);
   font-variant-numeric: tabular-nums;
   color: light-dark(#8b8c8e, #b8b8b8);
 }
@@ -28,7 +28,7 @@
   cursor: default;
 }
 .session-toggle > svg:last-child {
-  transition: transform 0.15s;
+  transition: transform var(--motion-fast);
 }
 .session-toggle.is-open > svg:last-child {
   transform: rotate(90deg);
@@ -44,9 +44,9 @@
   height: 34px;
   margin: 1px 0;
   padding: 0 10px;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   text-align: left;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   color: light-dark(#55585c, #d0d0d0);
 }
 .session-item > svg {
@@ -72,7 +72,7 @@
 }
 .session-item > small {
   flex-shrink: 0;
-  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-micro);
   color: light-dark(#9a9ba0, #a2a2a2);
 }
 .session-item.is-archived {
@@ -132,7 +132,7 @@
   display: grid;
   gap: 8px;
   margin: 0;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-label);
   color: light-dark(#3d4044, #e0e0e0);
 }
@@ -152,7 +152,7 @@
   flex: 1;
   min-width: 0;
   padding: 9px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: light-dark(#f3f3f3, #2c2c2c);
   color: light-dark(#4e4e4e, #d6d6d6);
   white-space: nowrap;
@@ -192,7 +192,7 @@
   gap: 7px;
   min-width: 0;
   padding: 5px 9px;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   color: light-dark(#4e4e4e, #dcdcdc);
 }
 .session-heading:hover {
@@ -203,7 +203,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: calc(15px * var(--appearance-text-scale, 1));
+  font-size: var(--text-control);
   font-weight: var(--weight-label);
 }
 
@@ -222,29 +222,28 @@
   gap: 10px;
   min-width: 0;
   padding: 9px 10px;
-  border: 1px solid light-dark(#e6e7e9, #3f3f3f);
-  border-radius: 11px;
-  background: light-dark(#fff, #252525);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--ctl-fill);
   text-align: left;
   font-weight: normal;
   transition:
-    border-color 0.12s,
-    background 0.12s;
+    border-color var(--motion-fast),
+    background var(--motion-fast);
 }
 .work-session-bot:hover:not(:disabled) {
-  border-color: light-dark(#cccccc, #585858);
+  background: var(--ctl-fill-hover);
 }
 .work-session-bot.is-chosen {
-  border-color: light-dark(#25282c, #e4e4e4);
-  background: light-dark(#f7f7f7, #2d2d2d);
-  box-shadow: inset 0 0 0 1px light-dark(#25282c, #e4e4e4);
+  background: var(--ctl-accent-soft);
+  box-shadow: inset 0 0 0 1.5px var(--ctl-accent);
 }
 .work-session-bot > strong {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-label);
 }
 .work-session-bot-check {
@@ -255,8 +254,8 @@
   height: 18px;
   margin-left: auto;
   border-radius: 50%;
-  background: light-dark(#25282c, #e4e4e4);
-  color: light-dark(#fff, #212121);
+  background: var(--ctl-accent);
+  color: var(--ctl-on-accent);
 }
 
 /* A Bot's archived sessions (ArchivedSessions.tsx): one row each, the name opens it. */
@@ -282,9 +281,9 @@
   min-width: 0;
   height: 40px;
   padding: 0 10px;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   text-align: left;
-  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   color: light-dark(#35383c, #e3e3e3);
 }
 .archived-session-open:hover {
@@ -296,7 +295,7 @@
 }
 .archived-session-open > small {
   flex-shrink: 0;
-  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-micro);
   color: light-dark(#9a9ba0, #a2a2a2);
 }
 .archived-session-list .secondary-button {

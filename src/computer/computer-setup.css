@@ -3,16 +3,18 @@
   width: 420px;
   max-width: calc(100vw - 32px);
   padding: 32px;
-  border: 1px solid light-dark(#efefef, #3f3f3f);
-  border-radius: 24px;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-xl);
   background: light-dark(#fff, #212121);
   color: light-dark(#373737, #dedede);
-  box-shadow: 0 24px 100px #2f2f2f18;
+  box-shadow: var(--elev-3);
 }
-.computer-setup-modal > header {
+/* No title bar: the close button alone, in the dialog's corner. */
+.modal.computer-setup-modal > header {
   position: absolute;
   top: 12px;
   right: 12px;
+  min-height: 0;
   margin: 0;
   padding: 0;
   border: 0;
@@ -22,10 +24,7 @@
   display: none;
 }
 .computer-setup-modal > header .icon-button {
-  width: 28px;
-  height: 28px;
-  color: light-dark(#a9a9a9, #b6b6b6);
-  border-radius: 50%;
+  color: light-dark(#8f8f8f, #bcbcbc);
 }
 .computer-setup-modal > header .icon-button:hover {
   background: light-dark(#f4f4f4, #232323);
@@ -103,7 +102,7 @@
   transform: scaleY(0.2);
 }
 .setup-intro h3 {
-  font-size: calc(23px * var(--appearance-text-scale, 1));
+  font-size: var(--text-title);
   line-height: 1.4;
   font-weight: var(--weight-body);
   letter-spacing: -0.6px;
@@ -111,7 +110,7 @@
   color: light-dark(#373737, #dedede);
 }
 .setup-intro p {
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   line-height: 1.8;
   margin: 0;
   color: light-dark(#969696, #bdbdbd);
@@ -127,7 +126,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   white-space: nowrap;
 }
 .setup-current {
@@ -140,7 +139,7 @@
   justify-content: space-between;
   gap: 12px;
   color: light-dark(#8e8e8e, #c0c0c0);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
 }
 .setup-current-label > span:last-child {
   color: light-dark(#b0b0b0, #a9a9a9);
@@ -149,7 +148,7 @@
 .setup-progress {
   height: 3px;
   background: light-dark(#eeeeee, #242424);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   overflow: hidden;
   width: 100%;
   margin: 12px 0 4px;
@@ -157,9 +156,9 @@
 .setup-progress > span {
   display: block;
   height: 100%;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: light-dark(#94aac6, #bababa);
-  transition: width 0.3s;
+  transition: width var(--motion-view);
 }
 .setup-progress .indeterminate {
   width: 34%;
@@ -168,7 +167,7 @@
 .setup-diagnostics {
   margin: 12px 0;
   color: light-dark(#a4a4a4, #b7b7b7);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   text-align: left;
 }
 .setup-diagnostics summary {
@@ -193,14 +192,14 @@
   margin: 8px 0;
   padding: 12px;
   background: light-dark(#f8f8f8, #222222);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 .setup-diagnostics .setup-error {
   color: light-dark(#a46d65, #d6bab6);
   background: light-dark(#faf6f4, #222222);
 }
 .setup-requirements {
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   line-height: 1.7;
   color: light-dark(#a18374, #cfc0b8);
   margin: 18px 0 0;
@@ -218,9 +217,9 @@
   gap: 16px;
   min-height: 41px;
   padding: 10px 22px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-weight: var(--weight-label);
-  border-radius: 13px;
+  border-radius: var(--radius-md);
   box-shadow: none;
 }
 .setup-actions .primary-button {
@@ -254,7 +253,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#b0b0b0, #a9a9a9);
   line-height: 1.7;
   margin: 16px 0 0;
@@ -273,8 +272,8 @@
   bottom: 20px;
   margin: 0;
   padding: 12px;
-  border: 1px solid light-dark(#eeeeee, #3f3f3f);
-  border-radius: 10px;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-md);
   background: light-dark(#fff, #212121);
   color: light-dark(#939393, #bebebe);
   box-shadow: 0 5px 20px #222f410c;

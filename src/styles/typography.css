@@ -103,7 +103,7 @@
   color: var(--text-ink);
 }
 :root :is(.bot-heading strong, .group-heading strong, .peer-chat-header strong) {
-  font-size: calc(16px * var(--appearance-text-scale, 1));
+  font-size: var(--text-heading);
   font-weight: var(--weight-label);
 }
 :root :is(.bot-preview, .composer-hint, .group-message-author, .peer-message-author, .message-quote-copy) {
@@ -181,7 +181,7 @@
   font-weight: var(--weight-body);
 }
 :root :is(.conversation-request h2, .question-card h2) {
-  font-size: calc(16px * var(--appearance-text-scale, 1));
+  font-size: var(--text-heading);
   font-weight: var(--weight-label);
   color: var(--text-ink);
 }
@@ -227,7 +227,7 @@
   letter-spacing: 0;
 }
 :root .scheduled-editor h2 {
-  font-size: calc(18px * var(--appearance-text-scale, 1));
+  font-size: var(--text-heading);
   font-weight: var(--weight-heading);
 }
 :root .scheduled-editor label {

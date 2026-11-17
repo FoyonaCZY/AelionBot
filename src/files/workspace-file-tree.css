@@ -16,7 +16,7 @@
   place-items: center;
   width: 26px;
   height: 26px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   color: inherit;
 }
 .workspace-file-tree > header button:hover {
@@ -35,7 +35,7 @@
   min-height: 35px;
   padding: 7px 10px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: transparent;
   text-align: left;
   color: inherit;
@@ -117,7 +117,7 @@
   text-align: left;
   font-size: var(--text-caption);
   color: #c0c0c0;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   overflow-wrap: anywhere;
 }
 .fp-session-file[aria-current='page'] {

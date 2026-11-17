@@ -42,10 +42,10 @@
   min-height: 40px;
   max-width: 220px;
   padding: 5px 14px 5px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--text-secondary);
   text-align: left;
-  transition: background 0.15s;
+  transition: background var(--motion-fast);
 }
 .gp-row:hover {
   background: var(--ctl-fill);
@@ -82,7 +82,7 @@
   width: calc(100% - 40px);
   margin: 0 20px 20px;
   box-sizing: border-box;
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   background: var(--gg-card);
   box-shadow: var(--gg-card-shadow);
 }
@@ -112,7 +112,7 @@
 }
 .gp-name-line h1 {
   margin: 0;
-  font-size: calc(24px * var(--appearance-text-scale, 1));
+  font-size: var(--text-title);
   font-weight: var(--weight-heading);
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -120,7 +120,7 @@
 .gp-mbti {
   display: inline-block;
   padding: 1px 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--gg-soft);
   color: var(--text-secondary);
   font: var(--weight-label) var(--text-caption) / 1.5 var(--font-ui);
@@ -169,12 +169,12 @@
 .gp-tabs button {
   flex-shrink: 0;
   padding: 5px 13px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--text-secondary);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   transition:
-    background 0.15s,
-    color 0.15s;
+    background var(--motion-fast),
+    color var(--motion-fast);
 }
 .gp-tabs button:hover {
   color: var(--gg-ink);
@@ -213,7 +213,7 @@
 }
 .gp-section-head h2 {
   margin: 0;
-  font-size: calc(17px * var(--appearance-text-scale, 1));
+  font-size: var(--text-heading);
   font-weight: var(--weight-heading);
   line-height: 1.5;
 }
@@ -266,7 +266,7 @@
 .gp-track {
   position: relative;
   height: 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: light-dark(#eeeeee, #3c3c3c);
 }
 .gp-dot {
@@ -316,7 +316,7 @@
 .gp-soul text {
   fill: var(--gg-muted);
   font-family: var(--font-ui);
-  font-size: 12px;
+  font-size: var(--text-caption);
 }
 .gp-soul .gp-radar-tick {
   font-size: 9px;
@@ -434,13 +434,13 @@
   gap: 2px;
   margin: 0;
   padding: 3px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--gg-soft);
 }
 .gg-seg.gp-seg button {
   flex: none;
   padding: 3px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   color: var(--gg-muted);
   font-size: var(--text-caption);
   line-height: 1.6;
@@ -538,7 +538,7 @@
   display: inline-flex;
   align-items: center;
   padding: 4px 0;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   color: var(--text-secondary);
   font-size: var(--text-caption);
 }
@@ -764,7 +764,7 @@
   max-height: 240px;
   overflow: auto;
   padding: 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: var(--gg-soft);
   font-size: var(--text-caption);
   white-space: pre-wrap;
@@ -772,7 +772,7 @@
 .gp-review-trait {
   margin: 12px 0;
   padding: 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--gg-soft);
 }
 .gp-review-trait ul {
@@ -888,7 +888,7 @@
   .gg-dialog[data-screen='persona'] {
     width: calc(100vw - 16px);
     height: calc(100dvh - 16px);
-    border-radius: 12px;
+    border-radius: var(--radius-xl);
   }
   .gg-dialog[data-screen='persona'] .gg-header {
     padding-right: 12px;
@@ -920,8 +920,8 @@
   align-items: stretch;
   gap: 8px;
   padding: 12px;
-  border: 1px solid light-dark(#e6e7e9, #3f3f3f);
-  border-radius: 10px;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-md);
   background: light-dark(#fff, #212121);
   color: inherit;
   font: inherit;
@@ -946,7 +946,7 @@
 }
 .gp-preset-intro {
   color: light-dark(#6f7680, #bdbdbd);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.5;
 }
 .gp-preset-phrases {
@@ -956,9 +956,9 @@
 }
 .gp-preset-phrases > span {
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: light-dark(#f2f3f5, #2c2c2c);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
 }
 .gp-preset-sample {
   display: flex;
@@ -966,7 +966,7 @@
   gap: 2px;
   padding-left: 8px;
   border-left: 2px solid light-dark(#e6e7e9, #3f3f3f);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   line-height: 1.5;
 }
 .gp-preset-sample > span:first-child {
@@ -976,7 +976,7 @@
 .gp-preset-focus {
   margin: 10px 0 0;
   color: light-dark(#6f7680, #bdbdbd);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 .gp-preset-focus {
   display: flex;

@@ -4,7 +4,7 @@
 .streaming-label {
   margin-left: 10px;
   color: light-dark(#9aa0a8, #b9b9b9);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-weight: var(--weight-body);
 }
 .streaming-text > :last-child:not(.message-code-block):not(.markdown-table-scroll)::after {

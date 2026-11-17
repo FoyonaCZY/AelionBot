@@ -5,7 +5,7 @@
   height: 32px;
   padding: 0 4px 0 10px;
   border: 1px solid var(--appearance-line);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--appearance-fill);
   color: var(--text-muted);
   min-width: 0;
@@ -20,7 +20,7 @@
   outline: none;
   background: transparent;
   color: var(--text-ink);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 .chat-search-count {
   flex-shrink: 0;
@@ -34,7 +34,7 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   color: var(--text-muted);
 }
 .chat-search-step:not(:disabled):hover,
@@ -51,7 +51,7 @@
 }
 /* The matched message briefly highlights after the view scrolls to it. */
 .messages .is-search-hit {
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   animation: search-hit 1.6s ease-out;
 }
 .messages .is-search-hit .bubble,

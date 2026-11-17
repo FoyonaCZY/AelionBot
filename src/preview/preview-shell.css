@@ -7,7 +7,7 @@
   --pv-bg: light-dark(#fff, #212121);
   --pv-stage: light-dark(#f3f3f3, #1b1b1b);
   --pv-dot: light-dark(#dedede, #2f2f2f);
-  --pv-line: light-dark(#efefef, #363636);
+  --pv-line: var(--surface-line);
   --pv-soft: light-dark(#f2f2f2, #2c2c2c);
   --pv-hover: light-dark(#f0f0f0, #333333);
   --pv-raised: light-dark(#fff, #3c3c3c);
@@ -57,11 +57,11 @@
 }
 .fp-layer.is-immersive .fp-title h2 {
   color: var(--pv-title);
-  font-weight: 600;
+  font-weight: var(--weight-heading);
 }
 .fp-layer.is-immersive .fp-title .fp-file-select {
   color: var(--pv-title);
-  font-weight: 600;
+  font-weight: var(--weight-heading);
   color-scheme: inherit;
 }
 .fp-layer.is-immersive .fp-title .fp-file-select:hover,
@@ -94,7 +94,7 @@
   min-height: 30px;
   height: 30px;
   padding: 5px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--pv-muted);
 }
 .fp-layer.is-immersive .fp-tools button:hover,
@@ -109,7 +109,7 @@
 .fp-layer.is-immersive .fp-tools button:focus-visible,
 .fp-layer.is-immersive .fp-actions button:focus-visible,
 .fp-layer.is-immersive .fp-mode button:focus-visible {
-  outline: 2px solid var(--pv-accent);
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 1px;
 }
 .fp-layer.is-immersive .fp-action-divider {
@@ -155,7 +155,7 @@
   gap: 2px;
   padding: 2px;
   margin: 0 4px 0 auto;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--pv-soft);
 }
 .fp-layer:has(.web-preview) .fp-mode {
@@ -164,8 +164,8 @@
 .fp-mode button {
   height: 26px;
   padding: 0 10px;
-  border-radius: 7px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  border-radius: var(--radius-sm);
+  font-size: var(--text-caption);
   color: var(--pv-muted);
   white-space: nowrap;
 }
@@ -175,7 +175,7 @@
 .fp-mode button[aria-checked='true'] {
   background: var(--pv-raised);
   color: var(--pv-title);
-  font-weight: 600;
+  font-weight: var(--weight-heading);
   box-shadow: 0 1px 2px #0000000f;
 }
 .fp-mode button:disabled {
@@ -192,7 +192,7 @@
 }
 .fp-layer.is-immersive .web-preview-nav button {
   color: var(--pv-muted);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 .fp-layer.is-immersive .web-preview-nav button:hover {
   background: var(--pv-hover);
@@ -202,14 +202,14 @@
 .fp-layer.is-immersive .web-preview-document {
   height: 28px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--pv-soft);
   color: var(--pv-ink);
   color-scheme: inherit;
 }
 .fp-layer.is-immersive .web-preview-nav input:focus {
   background: var(--pv-bg);
-  outline: 1px solid var(--pv-accent);
+  outline: 2px solid var(--ctl-accent-ring);
 }
 .fp-layer.is-immersive .web-preview {
   background: var(--pv-stage);
@@ -236,11 +236,11 @@
   padding: 3px 4px;
   gap: 4px;
   border: 1px solid var(--pv-line);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--pv-bg);
   color: var(--pv-muted);
   color-scheme: inherit;
-  box-shadow: 0 6px 18px #2d2d2d14;
+  box-shadow: var(--elev-2);
 }
 .fp-layer.is-immersive .fp-workbench-tools .fp-tool-group + .fp-tool-group {
   padding-left: 4px;
@@ -249,7 +249,7 @@
 .fp-layer.is-immersive .fp-workbench-tools button {
   height: 28px;
   padding: 0 9px;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   color: var(--pv-muted);
 }
 .fp-layer.is-immersive .fp-workbench-tools button:hover {
@@ -259,7 +259,7 @@
 .fp-layer.is-immersive .fp-workbench-tools button[aria-pressed='true'] {
   background: var(--pv-accent-soft);
   color: var(--pv-accent-ink);
-  font-weight: 600;
+  font-weight: var(--weight-heading);
 }
 .fp-layer.is-immersive .fp-workbench-tools .fp-save-dom {
   background: light-dark(#181818, #e1e1e1);
@@ -351,7 +351,7 @@
   aspect-ratio: var(--mirror-w) / var(--mirror-h);
 }
 .web-preview-device-caption {
-  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-micro);
   color: var(--pv-muted, #74777b);
   white-space: nowrap;
 }
@@ -361,10 +361,10 @@
   min-height: 28px;
   padding: 0 24px 0 9px;
   border: 1px solid var(--pv-line);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background-color: var(--pv-bg);
   color: var(--pv-ink);
-  font-size: 12px;
+  font-size: var(--text-caption);
   color-scheme: inherit;
 }
 .fp-layer.is-immersive .fp-device-select:hover {
@@ -411,7 +411,7 @@
   height: 28px;
   min-height: 28px;
   padding: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--pv-muted);
   background: transparent;
 }
@@ -422,22 +422,22 @@
   height: 28px;
   min-height: 28px;
   padding: 0 22px 0 8px;
-  font-size: 12px;
+  font-size: var(--text-caption);
 }
 /* Source editing: a status dot and one save button instead of three labels. */
 .fp-layer.is-immersive .fp-edit-toolbar {
   gap: 4px;
 }
 .fp-layer.is-immersive .fp-edit-indicator {
-  font-size: 12px;
+  font-size: var(--text-caption);
   color: var(--pv-muted);
   white-space: nowrap;
 }
 .fp-layer.is-immersive .fp-edit-toolbar button {
   height: 28px;
   padding: 0 10px;
-  border-radius: 8px;
-  font-size: 12px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-caption);
   color: var(--pv-ink);
   background: transparent;
   white-space: nowrap;
@@ -459,7 +459,7 @@
   height: 30px;
   min-height: 30px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--pv-ink);
   box-shadow: none;

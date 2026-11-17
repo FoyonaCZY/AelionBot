@@ -1,0 +1,44 @@
+/*
+ * One ruler for the renderer: corner radii, elevation, control heights and type sizes. Component stylesheets take
+ * their numbers from here, so the same kind of thing looks the same on every page. --ctl-* (controls.css),
+ * --settings-* (settings.css) and --pv-* (preview-shell.css) are names for these values in their own area.
+ * Durations and curves are in motion.css; colours stay with fonts.css, shell.css, theme.css and controls.css.
+ *
+ * The game tables (group-games.css, card-games.css), the Bot characters (avatar.css) and document surfaces in the
+ * preview keep their own numbers: they are drawn worlds, not application chrome.
+ */
+:root {
+  /* Corners. An outer shape is one step above what it holds: a 14 menu around 8 items with 6 between them. */
+  --radius-xs: 6px; /* inline code, checkboxes, small marks */
+  --radius-sm: 8px; /* menu items, step rows, compact controls */
+  --radius-md: 10px; /* fields, selects, list rows, blocks inside a bubble */
+  --radius-lg: 14px; /* cards, menus, popovers */
+  --radius-xl: 18px; /* dialogs, bubbles, cards floating over the conversation */
+  --radius-pill: 999px; /* buttons, tabs, chips, search fields */
+
+  /* Elevation says how far something floats. A card that is part of a page has a hairline (--surface-line) instead. */
+  --elev-1:
+    0 0 0 0.5px light-dark(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0.09)),
+    0 1px 4px light-dark(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.35));
+  --elev-2:
+    0 0 0 0.5px light-dark(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0.09)),
+    0 2px 6px light-dark(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.3)),
+    0 12px 32px -12px light-dark(rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0.6));
+  --elev-3:
+    0 0 0 0.5px light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.1)),
+    0 8px 24px light-dark(rgba(0, 0, 0, 0.07), rgba(0, 0, 0, 0.35)),
+    0 28px 72px -20px light-dark(rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.7));
+  /* The layer under every dialog. */
+  --dim: light-dark(rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0.55));
+
+  /* Control heights: in list rows and popovers, icon buttons and tab rows, form fields and buttons. */
+  --size-sm: 28px;
+  --size-md: 32px;
+  --size-lg: 36px;
+
+  /* Type. With --text-caption (12), --text-control (14), --text-body and --text-title (22) from fonts.css and the
+     appearance settings these are the seven sizes; all of them follow the text size setting. */
+  --text-micro: calc(11px * var(--appearance-text-scale, 1));
+  --text-small: calc(13px * var(--appearance-text-scale, 1));
+  --text-heading: calc(16px * var(--appearance-text-scale, 1));
+}

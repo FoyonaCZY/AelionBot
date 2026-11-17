@@ -1,7 +1,7 @@
 .run-memory {
   margin-top: 4px;
   color: var(--text-muted);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
 }
 .run-memory > button {
   display: inline-flex;
@@ -20,7 +20,7 @@
 }
 .run-memory-detail > p {
   margin: 10px 0 4px;
-  font-size: calc(11px * var(--appearance-text-scale, 1));
+  font-size: var(--text-micro);
 }
 .run-memory-detail > p:first-child {
   margin-top: 0;

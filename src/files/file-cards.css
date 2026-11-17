@@ -8,15 +8,15 @@
   min-width: 0;
   max-width: 100%;
   border: 1px solid var(--file-border);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--file-surface);
   color: var(--file-title);
   box-shadow: 0 1px 2px #2c2c2c03;
   overflow: hidden;
   transition:
-    border-color 0.18s,
-    box-shadow 0.18s,
-    background 0.18s;
+    border-color var(--motion-fast),
+    box-shadow var(--motion-fast),
+    background var(--motion-fast);
 }
 .file-tile:has(button:not(:disabled):hover),
 .file-tile:has(button:focus-visible) {
@@ -34,9 +34,9 @@
   color: inherit;
 }
 .file-tile button:focus-visible {
-  outline: 2px solid light-dark(#83a7d7, #3f3f3f);
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: -3px;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
 }
 .file-tile-copy {
   display: block;
@@ -46,7 +46,7 @@
 .file-tile-name {
   display: flex;
   min-width: 0;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-weight: var(--weight-body);
   line-height: 1.5;
   letter-spacing: 0;
@@ -67,7 +67,7 @@
   gap: 6px;
   margin-top: 4px;
   color: var(--file-muted);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   line-height: 1.4;
   white-space: nowrap;
 }
@@ -173,12 +173,12 @@
   height: 30px;
   padding: 0;
   margin-right: 11px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--file-muted);
   background: light-dark(#f7f7f7, #222222);
   transition:
-    color 0.18s,
-    background 0.18s;
+    color var(--motion-fast),
+    background var(--motion-fast);
 }
 .artifact-save:not(:disabled):hover {
   color: light-dark(#6486b3, #b1c2d9);

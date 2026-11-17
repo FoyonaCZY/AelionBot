@@ -162,7 +162,7 @@
   color: var(--gg-ink);
   font-size: calc(12.5px * var(--appearance-text-scale, 1));
   line-height: 1.5;
-  animation: cg-pop 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: cg-pop var(--motion-view) var(--motion-ease);
 }
 .cg-seat.is-right .cg-talk {
   border-radius: 14px 4px 14px 14px;
@@ -195,7 +195,7 @@
 }
 .cg-play-cards {
   display: flex;
-  animation: cg-pop 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: cg-pop var(--motion-view) var(--motion-ease);
 }
 .cg-play-cards > .cg-card + .cg-card {
   margin-left: -14px;
@@ -426,7 +426,7 @@ button.cg-card.is-selected,
     0 0 0 0.5px light-dark(rgba(41, 32, 58, 0.1), rgba(255, 255, 255, 0.08)),
     0 10px 30px -14px light-dark(rgba(41, 32, 58, 0.3), rgba(0, 0, 0, 0.6));
   text-align: center;
-  animation: cg-pop 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: cg-pop var(--motion-view) var(--motion-ease);
 }
 .cg-result h2 {
   margin: 0;
@@ -647,7 +647,7 @@ button.cg-card.is-selected,
   align-items: center;
   gap: 4px;
   margin-top: 12px;
-  animation: cg-pop 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: cg-pop var(--motion-view) var(--motion-ease);
 }
 .mj-last small {
   color: var(--gg-muted);

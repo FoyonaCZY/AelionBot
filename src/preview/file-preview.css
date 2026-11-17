@@ -58,8 +58,8 @@
 }
 .fp-title h2 {
   margin: 0;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--text-small);
+  font-weight: var(--weight-label);
   color: var(--fp-ink);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -71,11 +71,11 @@
   min-height: 32px;
   padding: 5px 30px 5px 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background-color: transparent;
   color: var(--fp-ink);
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--text-small);
+  font-weight: var(--weight-label);
   box-shadow: none;
 }
 .fp-title .fp-file-select:hover,
@@ -85,7 +85,7 @@
   box-shadow: none;
 }
 .fp-title .fp-file-select:focus-visible {
-  outline: 1px solid #b1b1b1;
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 3px;
   box-shadow: none;
 }
@@ -94,13 +94,13 @@
   background: #292a2e;
   color: #e1e2e5;
   border: 1px solid #ffffff12;
-  box-shadow: 0 10px 30px #0004;
-  border-radius: 8px;
+  box-shadow: var(--elev-2);
+  border-radius: var(--radius-sm);
 }
 .fp-title .fp-file-select option {
   color: #afb1bb;
   background: transparent;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 .fp-title .fp-file-select option:hover,
 .fp-title .fp-file-select option:checked {
@@ -124,13 +124,13 @@
   min-width: 32px;
   min-height: 32px;
   padding: 6px 8px;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--text-caption);
   color: #a6a9b2;
   transition:
-    color 0.12s,
-    background 0.12s;
+    color var(--motion-fast),
+    background var(--motion-fast);
 }
 .fp-tools button:hover {
   background: #ffffff0b;
@@ -142,7 +142,7 @@
 }
 .fp-tools button:focus-visible,
 .fp-segments button:focus-visible {
-  outline: 1px solid #cacaca;
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 2px;
 }
 .fp-tools button:disabled {
@@ -151,7 +151,7 @@
 .fp-tools output {
   min-width: 46px;
   text-align: center;
-  font-size: 12px;
+  font-size: var(--text-caption);
   color: #c0c2ca;
   font-variant-numeric: tabular-nums;
 }
@@ -192,10 +192,10 @@
   padding: 5px 10px;
   background: var(--fp-chrome);
   border: 1px solid #ffffff09;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   color: #979aa3;
-  font-size: 12px;
-  box-shadow: 0 2px 10px #00000014;
+  font-size: var(--text-caption);
+  box-shadow: var(--elev-2);
 }
 .fp-toolbar > .fp-tools + .fp-tools {
   border-left: 1px solid #ffffff12;
@@ -211,9 +211,9 @@
   place-items: center;
   min-width: 32px;
   min-height: 32px;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   padding: 6px 10px;
-  font-size: 12px;
+  font-size: var(--text-caption);
   color: #999ca6;
   white-space: nowrap;
 }
@@ -235,12 +235,12 @@
   padding: 9px 14px;
   background: #35363c;
   border: 1px solid #ffffff18;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   color: #e4e4e4;
-  font-size: 12px;
+  font-size: var(--text-caption);
   overflow-wrap: anywhere;
   text-align: center;
-  box-shadow: 0 4px 12px #0002;
+  box-shadow: var(--elev-2);
 }
 .fp-state {
   display: flex;
@@ -255,14 +255,14 @@
   color: #828690;
 }
 .fp-state strong {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: var(--text-control);
+  font-weight: var(--weight-label);
   color: #d1d2d8;
 }
 .fp-state p {
   margin: 0;
   max-width: 440px;
-  font-size: 12px;
+  font-size: var(--text-caption);
   line-height: 1.8;
   overflow-wrap: anywhere;
 }
@@ -281,7 +281,7 @@
   height: auto;
   max-width: 100%;
   max-height: 100%;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: #000;
   box-shadow: 0 12px 32px #0003;
 }
@@ -294,13 +294,9 @@
   border: 2px solid #ffffff12;
   border-top-color: #a5b8d1;
   border-radius: 50%;
-  animation: fp-spin 0.9s linear infinite;
+  animation: motion-spin 0.8s linear infinite;
 }
-@keyframes fp-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+
 .fp-image-stage,
 .fp-web-stage,
 .fp-document-stage,
@@ -346,8 +342,8 @@
   pointer-events: auto;
   cursor: pointer;
   transition:
-    opacity 0.12s,
-    background 0.12s;
+    opacity var(--motion-fast),
+    background var(--motion-fast);
 }
 .fp-gallery-step.is-previous {
   left: 14px;
@@ -372,8 +368,8 @@
   left: 50%;
   transform: translateX(-50%);
   padding: 2px 9px;
-  border-radius: 10px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  border-radius: var(--radius-md);
+  font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
   color: light-dark(#5f5f5f, #d0d0d0);
   background: light-dark(#ffffffd9, #2b2b2bd9);
@@ -485,10 +481,10 @@
   border: 0;
   border-bottom: 1px solid #ffffff15;
   border-radius: 0;
-  font-size: 12px;
+  font-size: var(--text-caption);
 }
 .fp-page-total {
-  font-size: 12px;
+  font-size: var(--text-caption);
   color: #797d88;
   white-space: nowrap;
 }
@@ -509,9 +505,9 @@
   width: 100%;
   padding: 6px;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   color: #727682;
-  font-size: 12px;
+  font-size: var(--text-caption);
   margin-bottom: 14px;
 }
 .fp-thumbnail[aria-current='page'] {
@@ -558,7 +554,7 @@
   }
   .fp-title .fp-file-select,
   .fp-title h2 {
-    font-size: 12px;
+    font-size: var(--text-caption);
   }
   .fp-actions {
     gap: 0;
@@ -630,18 +626,18 @@
   display: flex;
   align-items: center;
   padding: 4px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: #25262aeb;
   pointer-events: auto;
-  box-shadow: 0 2px 10px #00000014;
+  box-shadow: var(--elev-2);
 }
 .is-immersive .fp-actions {
   margin-left: auto;
   padding: 4px;
   background: #25262aeb;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   pointer-events: auto;
-  box-shadow: 0 2px 10px #00000014;
+  box-shadow: var(--elev-2);
 }
 .is-immersive .fp-content {
   padding: 0;
@@ -762,7 +758,7 @@
   color: #30343b;
   color-scheme: light;
   border: 1px solid #e2e5e9;
-  box-shadow: 0 3px 16px #17202b14;
+  box-shadow: var(--elev-3);
 }
 .fp-layer .fp-title h2 {
   color: #30343b;
@@ -780,7 +776,7 @@
   background: #fff;
   color: #30343b;
   border-color: #e2e5e9;
-  box-shadow: 0 8px 28px #17202b1c;
+  box-shadow: var(--elev-2);
   color-scheme: light;
 }
 .fp-layer .fp-title .fp-file-select option {
@@ -811,7 +807,7 @@
 }
 .fp-layer .fp-tools button:focus-visible,
 .fp-layer .fp-segments button:focus-visible {
-  outline: 2px solid #7eaad2;
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 2px;
 }
 .fp-layer .fp-tools button:disabled {
@@ -884,7 +880,7 @@
   color: #30343b;
   border: 1px solid #dfe3e8;
   color-scheme: light;
-  box-shadow: 0 4px 16px #17202b1c;
+  box-shadow: var(--elev-2);
 }
 .fp-layer .fp-editor-host .cm-tooltip li[aria-selected='true'] {
   background: #e9edf2;

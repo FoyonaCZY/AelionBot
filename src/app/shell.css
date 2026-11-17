@@ -10,13 +10,6 @@
   --surface-line: light-dark(#ececec, #363639);
   --surface-hover: light-dark(rgba(0, 0, 0, 0.045), rgba(255, 255, 255, 0.07));
   --surface-selected: light-dark(rgba(0, 0, 0, 0.065), rgba(255, 255, 255, 0.1));
-  --float-shadow:
-    0 0 0 0.5px light-dark(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0.09)),
-    0 2px 6px light-dark(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.3)),
-    0 12px 32px -12px light-dark(rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0.6));
-  --float-shadow-sm:
-    0 0 0 0.5px light-dark(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0.09)),
-    0 1px 4px light-dark(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.35));
 }
 /* On the conversation too: a var() in a custom property resolves where it is declared, so :root alone would never
    see the --bot-accent set further down. */
@@ -87,7 +80,7 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   height: 32px;
   border-radius: 50%;
   background: var(--surface-float);
-  box-shadow: var(--float-shadow-sm);
+  box-shadow: var(--elev-1);
   color: var(--text-secondary);
 }
 .app-shell .sidebar-top .icon-button:not(:disabled):hover {
@@ -98,7 +91,7 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   margin: 0 12px 10px;
   padding: 7px 11px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-selected);
 }
 .app-shell .sidebar .search:focus-within {
@@ -108,8 +101,8 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   padding: 0 10px;
 }
 .app-shell .sidebar :is(.bot-item, .session-item) {
-  border-radius: 12px;
-  transition: background-color 0.14s;
+  border-radius: var(--radius-md);
+  transition: background-color var(--motion-fast);
 }
 .app-shell .sidebar .bot-item {
   margin: 1px 0;
@@ -153,7 +146,7 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
 .app-shell .sidebar .sidebar-user {
   gap: 9px;
   padding: 5px 8px 5px 2px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-weight: var(--weight-body);
 }
 .sidebar-user > span:last-child {
@@ -171,7 +164,7 @@ body:has(.fp-panel[data-layout='expanded']) .window-drag-strip {
   height: 32px;
   border-radius: 50%;
   background: var(--surface-float);
-  box-shadow: var(--float-shadow-sm);
+  box-shadow: var(--elev-1);
   color: var(--text-secondary);
 }
 .app-shell .sidebar-bottom .icon-button[aria-current='page'] {
@@ -221,9 +214,9 @@ body:not(:has(.fp-panel[data-layout='docked'])) :is(.chat-heading, .chat-header 
   padding: 6px 18px 6px 6px;
   /* The actions weigh down the right end of the band, so the chip stands a little left of its axis to look centred. */
   translate: calc(min(48px, 4vw) * -1) 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-float);
-  box-shadow: var(--float-shadow);
+  box-shadow: var(--elev-2);
 }
 .chat-heading > :is(.bot-heading, .session-heading) {
   min-width: 0;
@@ -264,7 +257,7 @@ body:not(:has(.fp-panel[data-layout='docked'])) :is(.chat-heading, .chat-header 
 /* ---------- Messages ---------- */
 .message-row .bubble {
   max-width: min(100%, 620px);
-  border-radius: 18px;
+  border-radius: var(--radius-xl);
   box-shadow: none;
 }
 .message-row.assistant:has(.message-code-block) .bubble {
@@ -306,7 +299,7 @@ body:not(:has(.fp-panel[data-layout='docked'])) .floating-composer .composer {
   border: 0;
   border-radius: 26px;
   background: var(--surface-float);
-  box-shadow: var(--float-shadow);
+  box-shadow: var(--elev-2);
 }
 body:not(:has(.fp-panel[data-layout='docked'])) .floating-composer .composer > * {
   flex: 0 0 100%;
@@ -344,7 +337,7 @@ body:not(:has(.fp-panel[data-layout='docked'])) .floating-composer .composer .co
   background: var(--ctl-fill);
 }
 .app-shell .chat-search {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 .app-shell .chat-search:focus-within {
   box-shadow: var(--ctl-focus);
@@ -370,13 +363,13 @@ body:not(:has(.fp-panel[data-layout='docked'])) .floating-composer .composer .co
 
 /* ---------- Dialogs: flat white sheets over a plain dim ---------- */
 :root .modal-backdrop {
-  background: light-dark(rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0.55));
+  background: var(--dim);
 }
 :root .modal {
   border: 0;
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--surface-float);
-  box-shadow: var(--float-shadow);
+  box-shadow: var(--elev-3);
 }
 .settings-modal .settings-card .settings-card,
 .bot-profile-modal .settings-card {
@@ -393,15 +386,15 @@ body:not(:has(.fp-panel[data-layout='docked'])) .floating-composer .composer .co
   padding: 0;
   overflow: hidden;
 }
-.bot-profile-modal > header {
+.modal.bot-profile-modal > header {
   flex-shrink: 0;
+  min-height: 56px;
   margin: 0;
-  padding: 10px 10px 10px 16px;
-  border-bottom: 1px solid var(--surface-line);
+  padding: 0 12px 0 24px;
 }
 :root .bot-profile-modal > header h2 {
-  font-size: var(--text-control);
-  font-weight: var(--weight-label);
+  font-size: var(--text-heading);
+  font-weight: var(--weight-heading);
 }
 .bot-profile-modal > form {
   display: flex;
@@ -412,7 +405,7 @@ body:not(:has(.fp-panel[data-layout='docked'])) .floating-composer .composer .co
 .bot-profile-body {
   flex: 1;
   min-height: 0;
-  padding: 20px 16px 16px;
+  padding: 4px 24px 16px;
   overflow-y: auto;
   scrollbar-width: thin;
 }
@@ -421,7 +414,8 @@ body:not(:has(.fp-panel[data-layout='docked'])) .floating-composer .composer .co
   flex-shrink: 0;
   justify-content: flex-end;
   gap: 8px;
-  padding: 10px 12px;
+  /* The profile scrolls under this bar, so it keeps a line above it. */
+  padding: 12px 24px 16px;
   border-top: 1px solid var(--surface-line);
 }
 .bot-profile-workspace {
@@ -436,7 +430,7 @@ body:not(:has(.fp-panel[data-layout='docked'])) .floating-composer .composer .co
 }
 :root .bot-profile-workspace h3 {
   margin: 0 0 2px;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-label);
   color: var(--text-secondary);
 }
@@ -466,23 +460,11 @@ body:not(:has(.fp-panel[data-layout='docked'])) .floating-composer .composer .co
    layout instead of swapping the chat rail and panel abruptly. */
 @media (prefers-reduced-motion: no-preference) {
   ::view-transition-old(root) {
-    animation: aelion-view-out 170ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation: motion-fade-out var(--motion-exit) var(--motion-exit-ease) both;
   }
 
   ::view-transition-new(root) {
-    animation: aelion-view-in 200ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
-  }
-}
-
-@keyframes aelion-view-out {
-  to {
-    opacity: 0;
-  }
-}
-
-@keyframes aelion-view-in {
-  from {
-    opacity: 0;
+    animation: motion-fade-in var(--motion-pop) var(--motion-ease) both;
   }
 }
 
@@ -508,41 +490,34 @@ html:active-view-transition * {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  ::view-transition-group(conversation) {
-    animation-duration: 380ms;
-    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-
-  ::view-transition-group(sidebar) {
-    animation-duration: 280ms;
-    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-
+  /* The three parts change shape together in --motion-layout; what fades inside them takes --motion-pop. */
+  ::view-transition-group(conversation),
+  ::view-transition-group(sidebar),
   ::view-transition-group(preview) {
-    animation-duration: 380ms;
-    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+    animation-duration: var(--motion-layout);
+    animation-timing-function: var(--motion-ease);
   }
 
   ::view-transition-old(conversation),
   ::view-transition-new(conversation) {
-    animation-duration: 300ms;
+    animation-duration: var(--motion-pop);
   }
 
   ::view-transition-old(sidebar) {
-    animation: aelion-sidebar-out 240ms ease both;
+    animation: aelion-sidebar-out var(--motion-pop) var(--motion-exit-ease) both;
   }
 
   ::view-transition-new(sidebar) {
-    animation: aelion-sidebar-in 300ms 70ms ease both;
+    animation: aelion-sidebar-in var(--motion-layout) var(--motion-ease) both;
   }
 
   ::view-transition-new(preview) {
-    animation: aelion-preview-in 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    animation: aelion-preview-in var(--motion-layout) var(--motion-ease) both;
     transform-origin: center;
   }
 
   ::view-transition-old(preview) {
-    animation: aelion-preview-out 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    animation: aelion-preview-out var(--motion-pop) var(--motion-exit-ease) both;
     transform-origin: center;
   }
 }

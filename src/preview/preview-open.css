@@ -3,7 +3,7 @@
   align-items: center;
   overflow: hidden;
   border: 1px solid #dfe3e9;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: #fff;
   color: #43536a;
 }
@@ -21,7 +21,7 @@
 }
 .fp-layer .fp-header .fp-actions .fp-open-control .fp-open-default {
   padding: 4px 8px;
-  font-size: 12px;
+  font-size: var(--text-caption);
   white-space: nowrap;
 }
 .fp-layer .fp-header .fp-actions .fp-open-control .fp-open-options {
@@ -34,7 +34,7 @@
   background: #edf2f8;
 }
 .fp-layer .fp-header .fp-actions .fp-open-control button:focus-visible {
-  outline: 2px solid #7fa5cf;
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: -2px;
 }
 .fp-open-menu {
@@ -47,8 +47,8 @@
   padding: 6px;
   background: #fff;
   border: 1px solid #e1e6ed;
-  border-radius: 12px;
-  box-shadow: 0 10px 32px #182a4424;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elev-2);
   color: #34445c;
   color-scheme: light;
   overflow: auto;
@@ -60,7 +60,7 @@
   min-height: 36px;
   padding: 8px 10px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   text-align: left;
   background: transparent;
   color: inherit;
@@ -97,6 +97,6 @@
     box-shadow: none;
   }
   .fp-open-menu > button:focus {
-    outline: 2px solid Highlight;
+    outline: 2px solid var(--ctl-accent-ring);
   }
 }

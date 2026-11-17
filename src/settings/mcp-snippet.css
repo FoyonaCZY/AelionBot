@@ -14,19 +14,19 @@
   flex-direction: column;
   gap: 12px;
   padding: 22px 22px 18px;
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: light-dark(#fff, #252525);
   color: light-dark(#222, #eee);
-  box-shadow: 0 18px 50px #0003;
+  box-shadow: var(--elev-3);
 }
 .mcp-snippet-dialog h2 {
   margin: 0;
-  font-size: 17px;
+  font-size: var(--text-heading);
   font-weight: var(--weight-heading);
 }
 .mcp-snippet-dialog > p {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-small);
   line-height: 1.6;
   color: light-dark(#777, #aaa);
 }
@@ -35,8 +35,8 @@
   min-height: 220px;
   resize: vertical;
   padding: 12px 13px;
-  border: 1px solid light-dark(#e4e4e4, #3c3c3c);
-  border-radius: 10px;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-md);
   background: light-dark(#fafafa, #1f1f1f);
   color: inherit;
   font: 12px/1.6 var(--font-code);
@@ -47,7 +47,7 @@
 }
 .mcp-snippet-error {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-small);
   line-height: 1.6;
   color: #b26555;
 }

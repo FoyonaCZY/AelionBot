@@ -10,7 +10,7 @@
   gap: 10px;
   padding: 8px 10px;
   border: 1px solid var(--appearance-line);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--appearance-fill);
   flex-wrap: wrap;
 }
@@ -45,7 +45,7 @@
   flex-shrink: 0;
   border: 1px solid var(--appearance-line);
   background: transparent;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   padding: 4px 8px;
   font-size: var(--text-caption);
   color: var(--text-secondary);

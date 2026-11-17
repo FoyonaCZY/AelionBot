@@ -25,7 +25,7 @@
 .usage-stats dt,
 .usage-mix-legend dt {
   color: var(--text-muted);
-  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 
 /* ---------- Toolbar ---------- */
@@ -45,7 +45,7 @@
 
 .usage-tab {
   color: var(--text-secondary);
-  font-size: calc(14px * var(--appearance-text-scale, 1));
+  font-size: var(--text-control);
   font-weight: var(--weight-label);
 }
 
@@ -60,26 +60,26 @@
   display: inline-flex;
   gap: 2px;
   padding: 3px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--ctl-fill);
 }
 
 .usage-segmented button {
   min-height: 26px;
   padding: 3px 11px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--text-secondary);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   white-space: nowrap;
   transition:
-    background 0.15s,
-    color 0.15s;
+    background var(--motion-fast),
+    color var(--motion-fast);
 }
 
 .usage-segmented.is-small button {
   min-height: 24px;
   padding: 2px 10px;
-  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 
 .usage-segmented button:hover {
@@ -111,11 +111,11 @@
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--text-secondary);
   transition:
-    background 0.15s,
-    color 0.15s;
+    background var(--motion-fast),
+    color var(--motion-fast);
 }
 
 .usage-icon-button:hover {
@@ -141,11 +141,11 @@
   align-items: center;
   min-width: 0;
   padding-left: 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--ctl-fill);
   color: var(--text-muted);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
-  transition: background 0.15s;
+  font-size: var(--text-small);
+  transition: background var(--motion-fast);
 }
 
 .usage-filter:hover {
@@ -167,11 +167,11 @@
   max-width: 180px;
   min-height: 30px;
   padding: 4px 26px 4px 6px;
-  border-radius: 999px !important;
+  border-radius: var(--radius-pill) !important;
   background-color: transparent !important;
   box-shadow: none !important;
   color: var(--text-ink);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-label);
 }
 
@@ -189,9 +189,9 @@
 .usage-reset {
   min-height: 30px;
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--text-secondary);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 
 .usage-reset:hover {
@@ -216,7 +216,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   color: var(--text-muted);
 }
 
@@ -228,7 +228,7 @@
   background: var(--ctl-fill);
   color: var(--text-ink);
   font-family: inherit;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 
 .usage-dates input:focus {
@@ -243,7 +243,7 @@
   flex-direction: column;
   gap: var(--usage-gap);
   padding-top: 18px;
-  transition: opacity 0.2s;
+  transition: opacity var(--motion-menu);
 }
 
 /* A new range or filter is loading: the last result stays, dimmed. */
@@ -268,8 +268,8 @@
 .usage-card h3 {
   margin: 0;
   color: var(--text-ink);
-  font-size: calc(15px * var(--appearance-text-scale, 1));
-  font-weight: 600;
+  font-size: var(--text-control);
+  font-weight: var(--weight-heading);
 }
 
 /* ---------- Summary ---------- */
@@ -292,14 +292,14 @@
 
 .usage-hero-number strong {
   font-size: calc(44px * var(--appearance-text-scale, 1));
-  font-weight: 600;
+  font-weight: var(--weight-heading);
   line-height: 1;
   letter-spacing: -0.03em;
 }
 
 .usage-hero-number span {
   color: var(--text-secondary);
-  font-size: calc(18px * var(--appearance-text-scale, 1));
+  font-size: var(--text-heading);
   font-weight: var(--weight-label);
 }
 
@@ -315,7 +315,7 @@
   display: block;
   min-width: 3px;
   flex-basis: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .usage-mix .is-cache,
@@ -364,15 +364,15 @@
   gap: 6px;
   margin: 3px 0 0 14px;
   color: var(--text-ink);
-  font-size: calc(15px * var(--appearance-text-scale, 1));
+  font-size: var(--text-control);
   font-weight: var(--weight-label);
   white-space: nowrap;
 }
 
 .usage-mix-legend small {
   color: var(--text-muted);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
-  font-weight: 400;
+  font-size: var(--text-caption);
+  font-weight: var(--weight-body);
   font-variant-numeric: tabular-nums;
 }
 
@@ -397,8 +397,8 @@
   margin: 4px 0 0;
   overflow: hidden;
   color: var(--text-ink);
-  font-size: calc(20px * var(--appearance-text-scale, 1));
-  font-weight: 600;
+  font-size: var(--text-title);
+  font-weight: var(--weight-heading);
   letter-spacing: -0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -407,8 +407,8 @@
 .usage-stats dd.usage-stat-note {
   margin-top: 2px;
   color: var(--text-muted);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
-  font-weight: 400;
+  font-size: var(--text-caption);
+  font-weight: var(--weight-body);
   letter-spacing: 0;
 }
 
@@ -425,7 +425,7 @@
   border-top: 1px solid var(--settings-line);
   background: var(--settings-fill);
   color: var(--text-muted);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   line-height: 1.5;
 }
 
@@ -462,8 +462,8 @@
   min-width: 84px;
   min-height: 30px;
   padding: 3px 26px 3px 12px;
-  border-radius: 999px !important;
-  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  border-radius: var(--radius-pill) !important;
+  font-size: var(--text-small);
 }
 
 /* What the chart says: the period's total and its peak, or the column under the pointer. */
@@ -475,13 +475,13 @@
   min-height: 28px;
   margin: 10px 0 6px;
   color: var(--text-muted);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 
 .usage-readout strong {
   color: var(--text-ink);
-  font-size: calc(20px * var(--appearance-text-scale, 1));
-  font-weight: 600;
+  font-size: var(--text-title);
+  font-weight: var(--weight-heading);
   letter-spacing: -0.01em;
 }
 
@@ -513,13 +513,13 @@
 .usage-axis {
   fill: var(--text-muted);
   font-family: var(--font-ui);
-  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-micro);
   font-variant-numeric: tabular-nums;
 }
 
 .usage-column {
   fill: var(--usage-bar);
-  transition: fill 0.12s;
+  transition: fill var(--motion-fast);
 }
 
 .usage-column.is-selected {
@@ -570,7 +570,7 @@
   width: 100%;
   margin: 0;
   padding: 8px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   text-align: left;
 }
 
@@ -588,7 +588,7 @@
   gap: 6px;
   min-width: 0;
   color: var(--text-ink);
-  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 
 .usage-rank-name > span {
@@ -603,14 +603,14 @@
   min-width: 0;
   overflow: hidden;
   color: var(--text-muted);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .usage-rank-value {
   color: var(--text-ink);
-  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-label);
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -620,14 +620,14 @@
 .usage-rank-track {
   height: 4px;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--ctl-fill);
 }
 
 .usage-rank-track i {
   display: block;
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--usage-bar);
   transition: width 0.35s ease;
 }
@@ -640,7 +640,7 @@
 .usage-rank-share {
   min-width: 40px;
   color: var(--text-muted);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -648,9 +648,9 @@
 .usage-rank-more {
   margin: 4px 0 0;
   padding: 4px 8px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   color: var(--text-muted);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 
 .usage-rank-more:hover {
@@ -661,7 +661,7 @@
 .usage-muted {
   margin: 12px 8px 4px;
   color: var(--text-muted);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 
 /* ---------- Model table ---------- */
@@ -705,11 +705,11 @@
   min-height: 32px;
   padding: 6px 10px 6px 32px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--ctl-fill);
   color: var(--text-ink);
   font-family: inherit;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 
 .usage-search input::placeholder {
@@ -744,7 +744,7 @@
   border-bottom: 1px solid var(--settings-field-line);
   background: var(--settings-card);
   color: var(--text-muted);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-weight: var(--weight-label);
   text-align: right;
   white-space: nowrap;
@@ -754,7 +754,7 @@
   padding: 10px 8px;
   border-bottom: 1px solid var(--settings-line);
   color: var(--text-secondary);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   white-space: nowrap;
 }
 
@@ -793,14 +793,14 @@
 .usage-model-cell strong {
   overflow: hidden;
   color: var(--text-ink);
-  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-label);
   text-overflow: ellipsis;
 }
 
 .usage-model-cell small {
   color: var(--text-muted);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
 }
 
 .usage-sort-button {
@@ -849,7 +849,7 @@
 .usage-ledger-empty {
   padding: 40px 16px;
   color: var(--text-muted);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   text-align: center;
 }
 
@@ -871,7 +871,7 @@
   height: 44px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--ctl-fill);
   color: var(--text-muted);
 }
@@ -908,7 +908,7 @@
   inset: 0;
   background: linear-gradient(90deg, transparent, var(--settings-hover), transparent);
   transform: translateX(-100%);
-  animation: usage-shimmer 1.5s ease infinite;
+  animation: usage-shimmer 1.6s ease infinite;
 }
 
 @keyframes usage-shimmer {
@@ -920,7 +920,7 @@
 .usage-error {
   margin-top: 18px;
   color: var(--text-ink);
-  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 
 .usage-sr-only {

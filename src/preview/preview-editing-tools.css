@@ -25,7 +25,7 @@
   height: 27px;
   padding: 4px 7px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: transparent;
   color: inherit;
   font: var(--weight-body) 11px/1.5 var(--font-ui);
@@ -55,10 +55,10 @@
   width: 140px;
   min-width: 0;
   border: 1px solid #e2e8ef;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: #fff;
   color: #61758b;
-  font-size: 11px;
+  font-size: var(--text-micro);
   padding: 4px 6px;
 }
 .fp-workbench-tools {
@@ -92,8 +92,8 @@
   border: 1px solid #eadbd4;
   padding: 10px;
   color: #99614f;
-  font-size: 12px;
-  border-radius: 8px;
+  font-size: var(--text-caption);
+  border-radius: var(--radius-sm);
 }
 .web-preview-edit-error button {
   display: block;
@@ -101,7 +101,7 @@
   color: #46698e;
   background: #eff4fa;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   padding: 5px 9px;
 }
 /* Markup controls occupy one row outside the native document surface. */
@@ -145,7 +145,7 @@
   flex-shrink: 0;
   padding: 5px 8px;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--text-caption);
 }
 .fp-layer .fp-workbench-tools button:hover {
   background: light-dark(#f0f0f0, #3d3d3d);
@@ -155,7 +155,7 @@
   color: light-dark(#255b91, #c6dffc);
 }
 .fp-layer .fp-workbench-tools button:focus-visible {
-  outline: 2px solid #6a98c9;
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: -2px;
 }
 .fp-layer:not(:has(.web-preview)) .fp-workspace {
@@ -179,13 +179,9 @@
 .file-annotation-working {
   transform-box: fill-box;
   transform-origin: center;
-  animation: file-annotation-spin 1.6s linear infinite;
+  animation: motion-spin 0.8s linear infinite;
 }
-@keyframes file-annotation-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+
 @media (prefers-reduced-motion: reduce) {
   .file-annotation-working {
     animation: none;
@@ -199,7 +195,7 @@
 }
 .fp-workbench-tools .fp-tool-hint {
   color: light-dark(#9a9fa8, #7d7f88);
-  font-size: 11.5px;
+  font-size: var(--text-micro);
   white-space: nowrap;
 }
 /* The number of comments on the 评论 segment. */
@@ -210,11 +206,11 @@
   height: 16px;
   margin-left: 5px;
   padding: 0 4px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: light-dark(#2a2a2a, #e3e3e3);
   color: light-dark(#fff, #222222);
   font-size: 10px;
-  font-weight: 600;
+  font-weight: var(--weight-heading);
   font-variant-numeric: tabular-nums;
 }
 /* Compare: the page as it was when the comments were sent, on the left; the page as it is now, on the right. */
@@ -245,9 +241,9 @@
   display: inline-block;
   margin: 8px 0 -30px 8px;
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: light-dark(#2a2a2ae0, #e3e3e3e0);
   color: light-dark(#fff, #222222);
-  font-size: 11.5px;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-heading);
 }

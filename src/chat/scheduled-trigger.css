@@ -9,7 +9,7 @@
   min-width: 0;
   max-width: min(72%, 560px);
   padding: 12px 14px 11px;
-  border-radius: 18px;
+  border-radius: var(--radius-xl);
   background: var(--bubble-surface);
   box-shadow: var(--bubble-lift);
   color: var(--text-ink);
@@ -27,7 +27,7 @@
   flex-shrink: 0;
   width: 30px;
   height: 30px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: light-dark(#e5ecf5, #3d3d3d);
   color: light-dark(#7d7d7d, #a8bdd8);
 }
@@ -57,7 +57,7 @@
   -webkit-line-clamp: 2;
   margin: 9px 0 0;
   overflow: hidden;
-  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.7;
   color: var(--text-secondary);
   white-space: pre-wrap;
@@ -73,7 +73,7 @@
   gap: 4px;
   margin: 5px 0 0 -6px;
   padding: 2px 6px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   font-size: var(--text-caption);
   font-weight: var(--weight-body);
   color: var(--text-muted);
@@ -83,7 +83,7 @@
   color: var(--text-secondary);
 }
 .scheduled-card-toggle > svg {
-  transition: transform 0.18s;
+  transition: transform var(--motion-menu);
 }
 .scheduled-card.is-open .scheduled-card-toggle > svg {
   transform: rotate(180deg);

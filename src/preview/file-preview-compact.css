@@ -24,14 +24,14 @@
   box-shadow: none;
 }
 .fp-layer .fp-header .fp-title h2 {
-  font-size: 12px;
+  font-size: var(--text-caption);
   line-height: 1.5;
 }
 .fp-layer .fp-header .fp-title .fp-file-select {
   width: 100%;
   min-width: 0;
   min-height: 30px;
-  font-size: 12px;
+  font-size: var(--text-caption);
 }
 .fp-layer .fp-header .fp-actions {
   margin-left: 0;
@@ -46,7 +46,7 @@
 .fp-layer .fp-header .fp-actions button {
   min-width: 28px;
   padding: 5px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
 }
 .fp-layer .fp-header .fp-action-divider {
   margin: 0 3px;
@@ -96,14 +96,14 @@
 .fp-layer .fp-header :is(.fp-toolbar, .fp-edit-toolbar) button {
   min-width: 26px;
   padding: 5px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
 }
 .fp-layer .fp-header .fp-edit-toolbar button {
   padding: 5px 8px;
 }
 .fp-layer .fp-header .fp-tools output {
   min-width: 38px;
-  font-size: 11px;
+  font-size: var(--text-micro);
 }
 .fp-layer .fp-header .fp-segments > span {
   display: none;
@@ -111,11 +111,11 @@
 .fp-layer .fp-header .fp-page-input {
   width: 26px;
   min-height: 26px;
-  font-size: 12px;
+  font-size: var(--text-caption);
   padding: 2px;
 }
 .fp-layer .fp-header .fp-page-total {
-  font-size: 11px;
+  font-size: var(--text-micro);
 }
 .fp-layer:not(:has(.web-preview)) .fp-directory {
   padding-top: 12px;
@@ -161,7 +161,7 @@
     flex-basis: 90px;
   }
   .fp-layer .fp-header .fp-title h2 {
-    font-size: 11px;
+    font-size: var(--text-micro);
   }
   .fp-layer .fp-paper {
     padding-left: 18px;
@@ -209,13 +209,13 @@
   padding: 6px;
   background: #fff;
   color: #545b66;
-  font-size: 12px;
+  font-size: var(--text-caption);
   color-scheme: light;
 }
 .fp-csv-pagination button {
   padding: 4px 10px;
   border: 1px solid #dfe3e8;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
 }
 .fp-csv-pagination button:disabled {
   opacity: 0.4;
@@ -230,11 +230,11 @@
   min-height: 28px;
   padding: 3px 24px 3px 8px;
   border: 1px solid #dfe4ea;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background-color: #fff;
   color: #454d58;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--text-micro);
   line-height: 1.5;
   color-scheme: light;
   box-shadow: none;
@@ -244,16 +244,16 @@
   border-color: #cbd3dd;
 }
 .fp-layer .fp-zoom-picker:focus-visible {
-  outline: 2px solid #7eaad2;
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 1px;
 }
 .fp-layer .fp-zoom-picker::picker(select) {
   background: #fff;
   color: #30343b;
   border: 1px solid #dfe4ea;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color-scheme: light;
-  box-shadow: 0 8px 24px #17202b1c;
+  box-shadow: var(--elev-2);
   min-width: 120px;
 }
 .fp-layer .fp-zoom-picker option {

@@ -19,7 +19,7 @@
 }
 .bot-working-copy {
   min-width: 0;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.75;
   color: light-dark(#777777, #c8c8c8);
 }
@@ -31,16 +31,15 @@
 }
 .bot-working-name {
   display: block;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#a3a3a3, #b8b8b8);
   margin-bottom: 2px;
 }
 .bot-working-label {
   display: block;
-  animation: working-label-in 0.18s ease-out;
 }
 .bot-working-detail {
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#a2a2a2, #b8b8b8);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -103,16 +102,6 @@
     transform: translateY(-3.3333%) rotate(3deg);
   }
 }
-@keyframes working-label-in {
-  from {
-    opacity: 0.3;
-    transform: translateY(3px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .bot-working-status .avatar-body,
   .bot-working-status .avatar-gaze,
@@ -155,7 +144,7 @@
   gap: 5px;
   border: 1px solid var(--appearance-line);
   background: var(--appearance-fill);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 6px 10px;
   font-size: var(--text-caption);
   color: var(--text-secondary);

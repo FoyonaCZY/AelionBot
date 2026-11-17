@@ -25,7 +25,7 @@
 }
 .settings-modal .runtime-group h3 {
   margin: 0 4px 8px;
-  font-size: calc(14px * var(--appearance-text-scale, 1));
+  font-size: var(--text-control);
   font-weight: var(--weight-label);
   line-height: 1.5;
   color: var(--text-secondary);
@@ -55,7 +55,7 @@
   min-width: 0;
   margin: 0;
   padding: 0;
-  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.5;
   color: var(--text-ink);
 }
@@ -87,8 +87,8 @@
   border-radius: var(--ctl-radius);
   background: var(--ctl-fill);
   transition:
-    background 0.15s,
-    box-shadow 0.15s;
+    background var(--motion-fast),
+    box-shadow var(--motion-fast);
 }
 .runtime-number:hover {
   background: var(--ctl-fill-hover);
@@ -113,7 +113,7 @@
   box-shadow: none;
   outline: none;
   color: var(--text-ink);
-  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-label);
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -152,10 +152,10 @@
   width: 28px;
   height: 28px;
   padding: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--text-secondary);
-  font-size: calc(17px * var(--appearance-text-scale, 1));
+  font-size: var(--text-heading);
   line-height: 1;
 }
 .runtime-number button:hover:not(:disabled) {
@@ -177,24 +177,24 @@
   gap: 12px;
   margin: 26px 0 0;
   padding: 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   transition:
-    background 0.2s,
-    box-shadow 0.2s;
+    background var(--motion-fast),
+    box-shadow var(--motion-fast);
 }
 .runtime-actions[data-dirty] {
   position: sticky;
   bottom: 0;
   z-index: 2;
   background: var(--surface-float);
-  box-shadow: var(--float-shadow);
+  box-shadow: var(--elev-2);
 }
 .runtime-reset {
   min-height: 34px;
   padding: 6px 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--text-secondary);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   white-space: nowrap;
 }
 .runtime-reset:hover:not(:disabled) {
@@ -216,7 +216,7 @@
   flex-shrink: 0;
   min-height: 34px;
   padding: 6px 16px;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 .runtime-sr-only {
   position: absolute;

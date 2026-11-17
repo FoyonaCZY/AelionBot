@@ -37,14 +37,14 @@
 /* Cards that sit above the composer float with it. */
 .floating-composer .work-items-panel,
 .floating-composer .live-work {
-  border-radius: 14px;
-  box-shadow: 0 8px 24px -14px light-dark(#00000033, #000000a6);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elev-2);
 }
 .floating-composer .group-error,
 .floating-composer .group-permission {
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: light-dark(#fff, #2b2b2b);
-  box-shadow: 0 6px 18px -12px light-dark(#00000033, #000000a6);
+  box-shadow: var(--elev-2);
 }
 .floating-composer .group-error {
   padding: 8px 12px;

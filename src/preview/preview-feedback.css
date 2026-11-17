@@ -17,7 +17,7 @@
   border: 1px solid #e5e7eb;
   border-radius: 28px;
   background: #fff;
-  box-shadow: 0 4px 22px #14223812;
+  box-shadow: var(--elev-2);
   color: #333942;
 }
 .fp-feedback-capture {
@@ -71,7 +71,7 @@
   opacity: 1;
 }
 .fp-feedback button:focus-visible {
-  outline: 2px solid #78a2ca;
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 3px;
 }
 .fp-feedback-spinner {
@@ -80,7 +80,7 @@
   border: 1.5px solid #c7ccd4;
   border-top-color: #65758b;
   border-radius: 50%;
-  animation: fp-spin 1s linear infinite;
+  animation: motion-spin 0.8s linear infinite;
 }
 .fp-feedback-status {
   width: fit-content;
@@ -88,11 +88,11 @@
   margin: 0 auto 10px;
   padding: 7px 12px;
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: #fff;
   color: #626b77;
-  box-shadow: 0 3px 16px #17202b12;
-  font-size: 12px;
+  box-shadow: var(--elev-2);
+  font-size: var(--text-caption);
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
@@ -194,7 +194,7 @@
 .fp-layer .fp-feedback {
   min-height: 44px;
   padding: 7px 8px 7px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   box-shadow: none;
   background: light-dark(#fff, #343434);
   border-color: light-dark(#dfe2e8, #4d4d4d);
@@ -203,14 +203,14 @@
 .fp-layer .fp-feedback textarea {
   min-height: 28px;
   color: inherit;
-  font-size: 13px;
+  font-size: var(--text-small);
   line-height: 26px;
 }
 .fp-layer .fp-feedback textarea::placeholder {
   color: light-dark(#9599a3, #afafaf);
 }
 .fp-layer .fp-feedback button {
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   width: 30px;
   height: 30px;
   background: light-dark(#344b66, #b9cde6);
@@ -223,12 +223,12 @@
 .fp-layer .fp-feedback-status {
   margin: 0 0 7px;
   padding: 5px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: light-dark(#fff, #343434);
   color: light-dark(#586370, #d5d9df);
   border-color: light-dark(#e1e5ea, #4d4d4d);
   box-shadow: none;
-  font-size: 11px;
+  font-size: var(--text-micro);
   max-height: 70px;
   overflow: auto;
 }
@@ -252,7 +252,7 @@
     padding: 8px 10px;
   }
   .fp-layer .fp-feedback textarea {
-    font-size: 12px;
+    font-size: var(--text-caption);
   }
 }
 
@@ -276,9 +276,7 @@
   border-color: light-dark(#e4e4e4, #3f3f3f);
   border-radius: 18px;
   background: light-dark(#fff, #2b2b2b);
-  box-shadow:
-    0 1px 2px light-dark(#0000000a, #00000033),
-    0 10px 30px -12px light-dark(#0000002e, #00000099);
+  box-shadow: var(--elev-2);
 }
 .fp-layer.is-expanded .fp-feedback:focus-within {
   border-color: light-dark(#d1d1d1, #585858);
@@ -299,15 +297,15 @@
 }
 .fp-layer.is-expanded .fp-feedback-wrap:not(.is-captions) .fp-feedback-status {
   width: fit-content;
-  border-radius: 10px;
-  box-shadow: 0 6px 18px -12px light-dark(#00000033, #000000a6);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elev-2);
 }
 .fp-layer.is-expanded .fp-feedback-wrap:not(.is-captions) .fp-feedback-pins {
   padding: 6px 8px;
   border: 1px solid light-dark(#e4e4e4, #3f3f3f);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: light-dark(#fff, #2b2b2b);
-  box-shadow: 0 6px 18px -12px light-dark(#00000033, #000000a6);
+  box-shadow: var(--elev-2);
 }
 @media (max-width: 700px) {
   .fp-layer.is-expanded .fp-feedback-wrap:not(.is-captions) {

@@ -98,13 +98,13 @@
   text-decoration-thickness: 1.5px;
 }
 :root .markdown a[href]:focus-visible {
-  outline: 2px solid var(--message-link-line);
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 3px;
   border-radius: 2px;
 }
 :root .markdown :not(pre) > code {
   padding: 0.12em 0.4em;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: var(--message-inline);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--message-line) 70%, transparent);
   color: inherit;
@@ -114,7 +114,7 @@
 :root .markdown img {
   max-width: 100%;
   height: auto;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 :root .markdown [data-footnotes] {
   margin-top: 1.5em;
@@ -155,7 +155,7 @@
   max-width: 100%;
   margin: 1em 0;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--message-surface, light-dark(#f8f8f8, #222222));
   box-shadow: inset 0 0 0 1px var(--message-line, light-dark(#e7e7e7, #3f3f3f));
   color: var(--message-ink, light-dark(#343840, #dddddd));
@@ -193,14 +193,14 @@
   min-height: 26px;
   padding: 3px 10px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--message-muted, light-dark(#797979, #c7c7c7));
   font: var(--weight-label) calc(11.5px * var(--appearance-text-scale, 1))/1.5 var(--font-ui);
   cursor: pointer;
   transition:
-    background 0.15s,
-    color 0.15s;
+    background var(--motion-fast),
+    color var(--motion-fast);
 }
 .message-code-copy:hover {
   color: var(--message-ink, light-dark(#343840, #dddddd));
@@ -234,7 +234,7 @@
   scrollbar-color: light-dark(#cfcfcf, #a8a8a8) transparent;
 }
 :root .message-code-block pre.message-code-scroll:focus-visible {
-  outline: 2px solid var(--message-link-line, light-dark(#bdcfe7, #3f3f3f));
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: -2px;
 }
 :root .message-code-block pre.message-code-scroll code {
@@ -301,15 +301,15 @@
   color: var(--message-muted, light-dark(#797979, #c7c7c7));
   font: var(--weight-label) calc(12px * var(--appearance-text-scale, 1))/1.5 var(--font-ui);
   transition:
-    background 0.15s,
-    color 0.15s;
+    background var(--motion-fast),
+    color var(--motion-fast);
 }
 .message-code-fold:hover {
   background: var(--ctl-fill);
   color: var(--message-ink, light-dark(#343840, #dddddd));
 }
 .message-code-fold > svg {
-  transition: transform 0.18s;
+  transition: transform var(--motion-menu);
 }
 .message-code-fold[aria-expanded='true'] > svg {
   transform: rotate(180deg);
@@ -321,13 +321,13 @@
   max-width: 100%;
   margin: 1em 0;
   overflow: auto;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   box-shadow: inset 0 0 0 1px var(--message-line, light-dark(#e7e7e7, #3f3f3f));
   scrollbar-width: thin;
   scrollbar-color: light-dark(#cfcfcf, #a8a8a8) transparent;
 }
 .markdown-table-scroll:focus-visible {
-  outline: 2px solid var(--message-link-line, light-dark(#bdcfe7, #3f3f3f));
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 2px;
 }
 .markdown-table-scroll table {
@@ -356,7 +356,7 @@
   white-space: nowrap;
 }
 .markdown-table-scroll tbody tr {
-  transition: background 0.12s;
+  transition: background var(--motion-fast);
 }
 .markdown-table-scroll tbody tr:hover {
   background: color-mix(in srgb, var(--message-surface, light-dark(#f8f8f8, #222222)) 70%, transparent);
@@ -373,7 +373,7 @@
 .message-link-error {
   margin-inline-start: 6px;
   color: light-dark(#ad4545, #e5b1b1);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
 }
 
 @media (forced-colors: active) {

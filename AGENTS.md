@@ -31,6 +31,7 @@ python -m unittest discover -s tests -p bundled_skill_helpers_test.py   # 需要
 
 - Prettier：120 列、单引号、尾逗号；EditorConfig：2 空格、UTF-8；`.cmd`/`.ps1` 用 CRLF。
 - 错误使用 `shared/errors.ts` 的 `AppError` 并带上稳定的 code，测试断言 code，不断言中文文案。
+- 界面里的圆角、阴影、控件高度、字号取 `src/styles/tokens.css` 的变量，动效时长和曲线取 `src/styles/motion.css` 的变量，不写死数值；弹窗、输入框、按钮、标签、复选框的外观统一在 `src/styles/controls.css`，新页面直接沿用，不另画一套。牌桌（`group-games.css`、`card-games.css`）、Bot 形象（`avatar.css`）和预览里的文档纸面不在此列。
 - 界面文案的 key 就是简体中文原文（`shared/i18n`）。新增或修改中文文案，要同步更新 `shared/i18n/locales/en.ts` 和 `zh-TW.ts`。
 - knip 会检查未使用的文件、导出和依赖，删掉功能时把对应导出一起清理掉。
 - 测试共用 `tests/helpers.ts`。等待异步结果用轮询，不用固定 sleep；不要写扫描源码文本的测试。

@@ -24,7 +24,7 @@
   padding: 15px 17px;
   background: light-dark(#fbf9f6, #222222);
   border: 1px solid light-dark(#ede7df, #3f3f3f);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   margin: 9px 0 18px;
   max-width: 100%;
 }
@@ -37,13 +37,13 @@
   min-width: 0;
 }
 .run-notice strong {
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-label);
   color: light-dark(#736352, #cac2ba);
   line-height: 1.7;
 }
 .run-notice p {
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   line-height: 1.8;
   color: light-dark(#9c8f81, #bfbfbf);
   margin: 4px 0 0;
@@ -57,7 +57,7 @@
 }
 .run-notice-actions button,
 .run-stopped button {
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#7d7367, #c9c9c9);
   display: inline-flex;
   align-items: center;
@@ -78,7 +78,7 @@
   align-items: center;
   color: light-dark(#969da6, #bababa);
   margin: 0 0 15px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   line-height: 1.8;
 }
 .run-stopped p {
@@ -86,7 +86,7 @@
 }
 .run-error-details {
   margin-top: 12px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#726a62, #cccccc);
 }
 .run-error-details summary {
@@ -102,8 +102,8 @@
   padding: 12px;
   background: light-dark(#fff, #212121);
   border: 1px solid light-dark(#e9e4dc, #3f3f3f);
-  border-radius: 8px;
-  font-size: calc(11px * var(--appearance-text-scale, 1));
+  border-radius: var(--radius-sm);
+  font-size: var(--text-micro);
   line-height: 1.6;
   user-select: text;
 }

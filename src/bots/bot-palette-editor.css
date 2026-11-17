@@ -25,7 +25,7 @@
   padding: 0;
   border-radius: 50%;
   background: var(--swatch);
-  transition: transform 0.12s;
+  transition: transform var(--motion-fast);
 }
 .bot-palette-quick > button:not(:disabled):hover {
   transform: scale(1.1);
@@ -42,8 +42,8 @@
 }
 .bot-palette-actions > button {
   padding: 5px 12px;
-  border-radius: 999px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  border-radius: var(--radius-pill);
+  font-size: var(--text-caption);
   white-space: nowrap;
   color: var(--text-secondary);
 }
@@ -52,19 +52,19 @@
   color: var(--text-ink);
 }
 .bot-palette-body {
-  border-top: 1px solid light-dark(#efefef, #3f3f3f);
+  border-top: 1px solid var(--surface-line);
   padding-top: 12px;
   margin-top: 13px;
 }
 .bot-palette-custom-section {
   margin: 24px 0 0;
-  border-top: 1px solid light-dark(#efefef, #3f3f3f);
+  border-top: 1px solid var(--surface-line);
   padding-top: 16px;
 }
 .bot-palette-custom-section > summary {
   margin: 0 0 12px;
   padding: 0;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-label);
   color: light-dark(#6c6c6c, #c2c2c2);
   cursor: pointer;
@@ -77,7 +77,7 @@
   content: '▸ ';
   display: inline-block;
   margin-right: 6px;
-  transition: transform 0.15s;
+  transition: transform var(--motion-fast);
 }
 .bot-palette-custom-section[open] > summary::before {
   transform: rotate(90deg);
@@ -85,13 +85,13 @@
 .bot-palette-tabs {
   display: flex;
   gap: 24px;
-  border-bottom: 1px solid light-dark(#efefef, #3f3f3f);
+  border-bottom: 1px solid var(--surface-line);
   margin-bottom: 12px;
 }
 .bot-palette-tabs button {
   position: relative;
   padding: 0 0 9px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#8e8e8e, #c0c0c0);
 }
 .bot-palette-tabs button[aria-pressed='true'] {
@@ -124,11 +124,11 @@
   gap: 8px;
   padding: 14px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: transparent;
 }
 .bot-palette-presets button > span {
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   color: light-dark(#939393, #bebebe);
   white-space: nowrap;
 }
@@ -165,8 +165,8 @@
 .bot-character-states button {
   padding: 3px 9px;
   border: 1px solid transparent;
-  border-radius: 12px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  border-radius: var(--radius-md);
+  font-size: var(--text-caption);
   color: light-dark(#8e8e8e, #c0c0c0);
   background: transparent;
 }
@@ -181,7 +181,7 @@
 }
 .bot-character-states {
   padding: 2px;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: light-dark(#f4f4f4, #272727);
 }
 .bot-character-states button[aria-pressed='true'] {
@@ -218,7 +218,7 @@
 .bot-palette-editor .bot-color-field > label {
   display: block;
   margin: 0 0 7px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#888888, #c2c2c2);
 }
 .bot-color-input {
@@ -227,8 +227,8 @@
   gap: 8px;
   min-width: 0;
   padding: 5px 8px;
-  border: 1px solid light-dark(#e6e6e6, #3f3f3f);
-  border-radius: 8px;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-sm);
   background: light-dark(#fff, #212121);
 }
 .bot-palette-editor .bot-color-swatch {
@@ -238,7 +238,7 @@
   height: 25px;
   min-width: 25px;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   padding: 0;
   margin: 0;
   background: none;
@@ -249,7 +249,7 @@
 }
 .bot-color-swatch::-webkit-color-swatch {
   border: 1px solid light-dark(#0000000b, #3f3f3f0b);
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
 }
 .bot-palette-editor .bot-color-hex {
   min-width: 0;
@@ -266,7 +266,7 @@
 }
 .bot-color-input:focus-within {
   border-color: light-dark(#98aeca, #3f3f3f);
-  outline: 2px solid light-dark(#6ea2e712, #3f3f3f12);
+  outline: 2px solid var(--ctl-accent-ring);
 }
 .bot-palette-editor .bot-color-hex:focus-visible {
   outline: none;
@@ -274,7 +274,7 @@
 }
 .bot-color-error {
   display: block;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   line-height: 1.6;
   color: light-dark(#aa7068, #d7bab6);
   margin-top: 5px;
@@ -285,12 +285,12 @@
   align-items: center;
   gap: 12px;
   margin: 13px 0 0;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#888888, #c2c2c2);
 }
 .bot-palette-pattern > .aelion-select {
   min-height: 33px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
 }
 .bot-palette-tools {
   display: flex;
@@ -301,7 +301,7 @@
 }
 .bot-palette-tools button {
   padding: 4px 0;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   color: light-dark(#939393, #bdbdbd);
   background: none;
 }
@@ -309,7 +309,7 @@
   color: light-dark(#707070, #c2c2c2);
 }
 .bot-palette-editor button:focus-visible {
-  outline: 2px solid light-dark(#9db1cc, #3f3f3f);
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 2px;
 }
 @media (max-width: 540px) {
@@ -322,7 +322,7 @@
   }
   .bot-palette-summary > button {
     padding: 6px;
-    font-size: calc(12px * var(--appearance-text-scale, 1));
+    font-size: var(--text-caption);
   }
   .bot-palette-presets {
     gap: 3px;

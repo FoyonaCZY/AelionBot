@@ -12,7 +12,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  font-size: calc(14px * var(--appearance-text-scale, 1));
+  font-size: var(--text-control);
   font-weight: var(--weight-label);
 }
 .feedback-heading .text-button {
@@ -22,7 +22,7 @@
 .feedback-description,
 .feedback-status {
   margin: 6px 0 0;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   line-height: 1.7;
   color: var(--text-secondary);
   overflow-wrap: anywhere;
@@ -34,15 +34,15 @@
   gap: 8px;
   margin: 14px 0 0;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--settings-fill, light-dark(#f8f8f8, #272727));
   color: var(--text-secondary);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
 }
 .feedback-preview {
   margin: 10px 0 0;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: var(--text-secondary);
 }
 .feedback-preview summary {
@@ -58,7 +58,7 @@
   margin: 8px 0 0;
   padding: 12px 14px;
   overflow: auto;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--settings-field, light-dark(#f5f5f5, #232323));
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -74,7 +74,7 @@
   justify-content: space-between;
   gap: 15px;
   padding: 4px 2px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
 }
@@ -94,7 +94,7 @@
 }
 .feedback-error {
   margin: 10px 0 0;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   line-height: 1.7;
   color: light-dark(#a3554a, #e3b4ab);
   overflow-wrap: anywhere;

@@ -17,7 +17,7 @@
 .whats-new-range {
   margin: 4px 0 0;
   color: var(--text-muted);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 
 .whats-new-body {
@@ -41,16 +41,16 @@
 .whats-new-release > h3 {
   margin: 0 0 2px;
   color: var(--text-ink);
-  font-size: calc(17px * var(--appearance-text-scale, 1));
-  font-weight: 600;
+  font-size: var(--text-heading);
+  font-weight: var(--weight-heading);
   letter-spacing: -0.01em;
 }
 
 .whats-new-release .markdown h3 {
   margin: 14px 0 4px;
   color: var(--text-secondary);
-  font-size: calc(14px * var(--appearance-text-scale, 1));
-  font-weight: 600;
+  font-size: var(--text-control);
+  font-weight: var(--weight-heading);
 }
 
 .whats-new-release .markdown > :first-child {

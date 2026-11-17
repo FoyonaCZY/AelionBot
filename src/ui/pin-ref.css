@@ -6,12 +6,12 @@
   margin: 0 1px;
   padding: 0 6px 0 4px;
   height: 1.45em;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: light-dark(#f2f2f2, #363636);
   color: light-dark(#2a2a2a, #e3e3e3);
   font: inherit;
   font-size: 0.9em;
-  font-weight: 600;
+  font-weight: var(--weight-heading);
   font-variant-numeric: tabular-nums;
   vertical-align: baseline;
   cursor: pointer;
@@ -20,7 +20,7 @@
   background: light-dark(#e8e8e8, #3f3f3f);
 }
 .pin-ref:focus-visible {
-  outline: 2px solid #6ea2e7;
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 1px;
 }
 .pin-ref i {

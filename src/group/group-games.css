@@ -21,32 +21,32 @@
   --gg-bg: transparent;
   padding: 0;
   border: 0;
-  border-radius: 22px;
+  border-radius: var(--radius-xl);
   width: min(1080px, calc(100vw - 48px));
   height: min(760px, calc(100dvh - 48px));
   max-width: none;
   max-height: none;
   background: var(--surface-float);
-  box-shadow: var(--float-shadow);
+  box-shadow: var(--elev-3);
   color: var(--gg-ink);
   overflow: hidden;
 }
 .gg-dialog::backdrop {
-  background: rgba(30, 24, 42, 0.26);
-}
-:root[data-theme='dark'] .gg-dialog::backdrop {
-  background: rgba(6, 5, 10, 0.55);
+  background: var(--dim);
 }
 @media (prefers-reduced-motion: no-preference) {
   .gg-dialog[open] {
+    /* The same pop as every dialog (motion.css); it stays mounted, so it opens by transition. */
     transition:
-      opacity 0.2s ease,
-      transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+      opacity var(--motion-pop) ease,
+      translate var(--motion-pop) var(--motion-ease),
+      scale var(--motion-pop) var(--motion-ease);
   }
   @starting-style {
     .gg-dialog[open] {
       opacity: 0;
-      transform: translateY(10px) scale(0.985);
+      translate: 0 8px;
+      scale: 0.98;
     }
   }
 }
@@ -82,8 +82,8 @@
   margin-left: -10px;
 }
 .gg-header strong {
-  font-size: calc(16px * var(--appearance-text-scale, 1));
-  font-weight: var(--weight-heading, 600);
+  font-size: var(--text-heading);
+  font-weight: var(--weight-heading);
 }
 .gg-header > div > span:not(.gg-legend) {
   font-size: var(--text-caption);
@@ -957,7 +957,7 @@
   padding: 14px;
   border-radius: 16px;
   background: var(--surface-float);
-  box-shadow: var(--float-shadow);
+  box-shadow: var(--elev-2);
 }
 .gg-seat-pop .gg-card-head {
   margin: 0;
@@ -1210,7 +1210,7 @@
   padding: 5px;
   border-radius: var(--ctl-menu-radius);
   background: var(--surface-float);
-  box-shadow: var(--float-shadow);
+  box-shadow: var(--elev-2);
 }
 .gg-table-root[data-period='night'] .gg-menu-list {
   background: linear-gradient(180deg, rgba(48, 43, 66, 0.94), rgba(34, 31, 48, 0.94));
@@ -2102,9 +2102,8 @@
   width: min(460px, calc(100% - 16px));
   border-radius: 18px;
   background: var(--surface-float);
-  box-shadow: var(--float-shadow);
+  box-shadow: var(--elev-2);
   color: var(--gg-ink);
-  animation: gg-slide 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .gg-table-root[data-period='night'] .gg-drawer {
   background: linear-gradient(180deg, rgba(40, 36, 56, 0.97), rgba(28, 26, 40, 0.97));
@@ -2112,12 +2111,6 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
     0 0 0 0.5px rgba(255, 255, 255, 0.08),
     0 16px 38px -10px rgba(0, 0, 0, 0.62);
-}
-@keyframes gg-slide {
-  from {
-    opacity: 0;
-    transform: translateX(16px);
-  }
 }
 .gg-drawer > header {
   display: flex;

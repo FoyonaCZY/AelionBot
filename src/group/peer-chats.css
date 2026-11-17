@@ -10,7 +10,7 @@
   width: 100%;
   padding: 1px 6px;
   color: light-dark(#343434, #dfdfdf);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.65;
   cursor: text;
   outline: 0;
@@ -28,7 +28,7 @@
   max-width: 100%;
   padding: 1px 6px 1px 3px;
   background: light-dark(#eceef1, #242424);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   color: light-dark(#404750, #d8d8d8);
   font-size: inherit;
   line-height: 1.55;
@@ -54,9 +54,9 @@
   overflow: auto;
   padding: 5px;
   background: light-dark(#fff, #212121);
-  border: 1px solid light-dark(#e3e5e8, #3f3f3f);
-  border-radius: 13px;
-  box-shadow: 0 8px 30px #0002;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elev-2);
 }
 .mention-picker > button {
   display: flex;
@@ -64,7 +64,7 @@
   gap: 10px;
   width: 100%;
   padding: 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   text-align: left;
 }
 .mention-picker > button.active,
@@ -76,13 +76,13 @@
 }
 .mention-picker strong {
   display: block;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-weight: var(--weight-label);
 }
 .mention-picker small {
   display: block;
   margin-top: 4px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#92979f, #bcbcbc);
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -91,7 +91,7 @@
 .mention-empty {
   padding: 18px 12px;
   color: light-dark(#92979f, #bcbcbc);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
 }
 .message-row.user .bot-mention,
 .group-message.from-user .bot-mention {
@@ -107,7 +107,7 @@
   gap: 9px;
   margin: 18px 0;
   color: light-dark(#989da3, #bababa);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   min-width: 0;
 }
 .peer-notice-open {
@@ -116,7 +116,7 @@
   justify-content: center;
   gap: 6px;
   padding: 5px 7px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   min-width: 0;
   flex-wrap: wrap;
 }
@@ -131,10 +131,10 @@
   color: light-dark(#a2a6ad, #b6b6b6);
 }
 .peer-notice-cancel {
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#939aa4, #bbbbbb);
   padding: 4px;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   white-space: nowrap;
 }
 .peer-notice-cancel:hover {
@@ -164,9 +164,9 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: light-dark(#fff, #212121);
-  box-shadow: 0 15px 60px #0003;
+  box-shadow: var(--elev-3);
   overflow: hidden;
   outline: 0;
 }
@@ -175,11 +175,11 @@
   align-items: center;
   gap: 12px;
   padding: 17px 23px;
-  border-bottom: 1px solid light-dark(#ebedef, #3f3f3f);
+  border-bottom: 1px solid var(--surface-line);
   flex-shrink: 0;
 }
 .peer-chat-header > h2 {
-  font-size: calc(15px * var(--appearance-text-scale, 1));
+  font-size: var(--text-heading);
   font-weight: var(--weight-heading);
   margin: 0;
   min-width: 0;
@@ -204,7 +204,7 @@
   white-space: nowrap;
 }
 .peer-chat-header .readonly-badge {
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#a0a5ab, #b7b7b7);
   margin-left: auto;
 }
@@ -227,7 +227,7 @@
   place-items: center;
   min-height: 180px;
   color: light-dark(#a0a5ab, #b7b7b7);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
 }
 .peer-chat-history {
   padding: 12px;
@@ -238,7 +238,7 @@
   width: 100%;
   gap: 12px;
   padding: 17px 13px;
-  border-radius: 11px;
+  border-radius: var(--radius-md);
   text-align: left;
 }
 .peer-thread-row:hover {
@@ -249,7 +249,7 @@
   min-width: 0;
 }
 .peer-thread-row strong {
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-label);
   display: block;
 }
@@ -260,17 +260,17 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: light-dark(#92979e, #bcbcbc);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
 }
 .peer-thread-row time {
   color: light-dark(#a1a5aa, #b7b7b7);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   white-space: nowrap;
 }
 .peer-thread-row .peer-pending-count {
   flex: 0 0 auto;
   color: light-dark(#b68a49, #dcc6a5);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
 }
 .peer-message {
   display: flex;
@@ -285,7 +285,7 @@
 .peer-message .peer-author {
   display: block;
   margin: 0 0 6px 13px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#8e8e8e, #bfbfbf);
   font-weight: var(--weight-body);
 }
@@ -297,13 +297,13 @@
   border-radius: 6px 18px 18px 18px;
   box-shadow: var(--bubble-lift);
   overflow-wrap: anywhere;
-  font-size: calc(14px * var(--appearance-text-scale, 1));
+  font-size: var(--text-control);
   line-height: 1.85;
 }
 .peer-message small {
   display: block;
   margin: 6px 12px 0;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#a2a6ad, #b6b6b6);
 }
 .peer-message small.failed,
@@ -315,13 +315,13 @@
   text-align: center;
   margin: 16px 0 26px;
   color: light-dark(#a5a8ad, #b6b6b6);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
 }
 .peer-chat-load {
   display: block;
   margin: 0 auto 16px;
   padding: 6px 10px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#838c98, #c0c0c0);
 }
 .interaction-notification.peer-notification {
@@ -333,7 +333,7 @@
 .peer-chat-notice-error {
   color: light-dark(#b7655a, #dfb6b1);
   padding: 10px 18px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
 }
 @media (max-width: 700px) {
   .peer-chat-layer {
@@ -346,7 +346,7 @@
     gap: 7px;
   }
   .peer-chat-header > h2 {
-    font-size: calc(12px * var(--appearance-text-scale, 1));
+    font-size: var(--text-caption);
     gap: 5px;
   }
   .peer-pair-name {
@@ -387,15 +387,15 @@
 .peer-task-message {
   padding: 14px 16px;
   margin: 18px 0;
-  border: 1px solid light-dark(#e7e9ec, #3f3f3f);
-  border-radius: 13px;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-lg);
   background: light-dark(#f7f8f9, #222222);
 }
 .peer-task-source {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#78818d, #c3c3c3);
   padding: 0;
 }
@@ -406,7 +406,7 @@
 .peer-task-message > p {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.8;
   color: light-dark(#454e59, #d6d6d6);
   margin: 10px 0 0;

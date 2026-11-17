@@ -26,17 +26,15 @@
   border: 0;
   background: transparent;
   overflow: visible;
-  /* Opacity only: a transform here would capture the task editor's fixed overlay. */
-  animation: computer-card-in 0.16s ease-out;
 }
 :root .app-shell > .details.computer-details > :is(.computer-card, .design-canvas-card) {
   position: relative;
   flex: 0 1 auto;
   min-height: 0;
   border: 0;
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--surface-float);
-  box-shadow: var(--float-shadow);
+  box-shadow: var(--elev-2);
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: thin;
@@ -58,11 +56,6 @@
 @media (max-width: 900px) {
   :root .app-shell > .details.computer-details {
     display: none;
-  }
-}
-@keyframes computer-card-in {
-  from {
-    opacity: 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -91,7 +84,7 @@
   background: transparent;
 }
 .computer-details .computer-panel.is-online {
-  border-bottom: 1px solid light-dark(#e7e7e7, #3f3f3f);
+  border-bottom: 1px solid var(--surface-line);
   background: #1e1e1e;
 }
 .computer-details .computer-panel-screen,
@@ -103,7 +96,7 @@
 .computer-details .computer-panel-expand,
 .computer-details .computer-card-close.is-online {
   opacity: 0;
-  transition: opacity 0.12s;
+  transition: opacity var(--motion-fast);
 }
 .computer-card:is(:hover, :focus-within)
   :is(.computer-panel.is-online .computer-panel-settings, .computer-panel-expand, .computer-card-close.is-online) {
@@ -114,7 +107,7 @@
 .computer-card-close {
   width: 26px;
   height: 26px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 .computer-details .computer-panel-settings {
   top: 8px;
@@ -176,7 +169,7 @@
 .computer-details .desktop-status {
   margin: 0;
   padding: 8px 14px;
-  border-bottom: 1px solid light-dark(#efefef, #3b3b3b);
+  border-bottom: 1px solid var(--surface-line);
 }
 
 /* ---------- Scheduled tasks: one line each ---------- */
@@ -192,7 +185,7 @@
 }
 .computer-details .scheduled-panel h2 {
   gap: 6px;
-  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-label);
   color: light-dark(#6c6c6c, #c2c2c2);
 }
@@ -200,17 +193,17 @@
   min-width: 18px;
   height: 18px;
   padding: 0 6px;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   display: inline-grid;
   place-items: center;
-  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-micro);
   background: light-dark(#ededed, #363636);
   color: light-dark(#6c6c6c, #c2c2c2);
 }
 .computer-details .scheduled-add {
   width: 26px;
   height: 26px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
 }
 .computer-details .scheduled-filters {
   gap: 12px;
@@ -223,7 +216,7 @@
   min-height: 34px;
   padding: 0 8px;
   border: 0;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
 }
 .computer-details .scheduled-row:hover {
   background: light-dark(#f4f4f4, #313131);
@@ -237,7 +230,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.5;
 }
 /* The frequency is on hover (title) and in the editor; the row shows the next run. */
@@ -255,7 +248,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
 }
 .computer-details .scheduled-empty {
@@ -276,9 +269,9 @@
   position: relative;
   width: 26px;
   height: 15px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: light-dark(#dadada, #494949);
-  transition: background 0.15s;
+  transition: background var(--motion-fast);
 }
 .scheduled-toggle-track::after {
   content: '';
@@ -289,7 +282,7 @@
   height: 11px;
   border-radius: 50%;
   background: #fff;
-  transition: transform 0.15s;
+  transition: transform var(--motion-fast);
 }
 .scheduled-toggle[aria-checked='true'] .scheduled-toggle-track {
   background: light-dark(#5b83b8, #a4a4a4);

@@ -1,11 +1,12 @@
 /* Controls: one look for the small parts that sit on the app's flat surfaces — buttons, fields and selects, switches,
-   tabs, menus, chips and list rows. Each component stylesheet still lays its control out; this file only gives it its
-   surface, so a page that draws a switch or a menu its own way still looks like the rest.
+   tabs, menus, chips, list rows, and the dialogs they sit in. Each component stylesheet still lays its control out;
+   this file gives it its surface and its size (tokens.css), so the same kind of thing is the same on every page.
 
    - Fields, chips and quiet buttons are flat gray fills (--ctl-fill) with no border; hover deepens the fill.
-   - The selected tab or row is a deeper gray (--ctl-raised), not a lifted pane. The secondary button is a gray capsule.
-   - The primary action is an ink capsule; blue is kept for state (on, selected, focus).
-   - Menus and pickers are white sheets with the floating shadow of shell.css.
+   - Three colours, one job each. Gray says where you are: the selected tab or row is a deeper gray (--ctl-raised).
+     Blue says state: a switch that is on, a ticked box, the picked option, focus. Ink is the primary action.
+   - Controls are 36 high in forms, 32 for icon buttons and tab rows, 28 in list rows and popovers.
+   - Menus and pickers are white sheets with the floating shadow; dialogs are one shell with the deepest one.
 
    This file loads last (src/app/main.tsx) and is the one place controls get their surface, so where a component rule
    is more specific it uses !important. Layout properties (position, size, gap) stay with the component. */
@@ -30,10 +31,13 @@
   --ctl-danger-fill: light-dark(#d03b35, #e6928c);
   --ctl-switch-on: light-dark(#2f80ed, #5a9df2);
   --ctl-focus: 0 0 0 3px var(--ctl-accent-ring);
-  --ctl-radius: 10px;
-  --ctl-item-radius: 8px;
-  --ctl-menu-radius: 14px;
+  --ctl-on-accent: light-dark(#ffffff, #10233d);
+  --ctl-radius: var(--radius-md);
+  --ctl-item-radius: var(--radius-sm);
+  --ctl-menu-radius: var(--radius-lg);
   --ctl-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m7 10 5 5 5-5' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --ctl-chevron-right: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m10 7 5 5-5 5' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --ctl-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 12.500l4.500 4.500L19 7.500' fill='none' stroke='black' stroke-width='2.800' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   accent-color: var(--ctl-accent);
   scrollbar-color: light-dark(rgba(0, 0, 0, 0.2), rgba(255, 255, 255, 0.2)) transparent;
 }
@@ -42,6 +46,33 @@
 :root :is(button, [role='button'], [role='tab'], [role='switch'], a):focus-visible {
   outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 2px;
+}
+
+/* ---------- Hover and press ---------- */
+/* Whatever can be clicked changes colour in --motion-fast. Zero specificity: a component that moves something else
+   (a transform, a reveal) sets its own transition and replaces this one. */
+:where(
+  button,
+  a,
+  summary,
+  select,
+  input,
+  textarea,
+  label,
+  [role='button'],
+  [role='tab'],
+  [role='option'],
+  [role='menuitem'],
+  [role='switch'],
+  [role='checkbox'],
+  [role='radio']
+) {
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast),
+    border-color var(--motion-fast),
+    box-shadow var(--motion-fast),
+    opacity var(--motion-fast);
 }
 
 /* ---------- Buttons ---------- */
@@ -58,13 +89,13 @@
     .danger-button
   ) {
   border: 0 !important;
-  border-radius: 999px !important;
+  border-radius: var(--radius-pill) !important;
   transition:
-    background 0.16s,
-    box-shadow 0.16s,
-    color 0.16s,
-    transform 0.12s,
-    opacity 0.16s;
+    background var(--motion-fast),
+    box-shadow var(--motion-fast),
+    color var(--motion-fast),
+    transform var(--motion-fast),
+    opacity var(--motion-fast);
 }
 
 :root :is(.primary-button, .runtime-save, .companion-primary) {
@@ -132,6 +163,34 @@
   opacity: 0.42;
 }
 
+/* Standard buttons are 36 high. In list rows, cards and popovers they are 28. */
+:root :is(.primary-button, .secondary-button, .danger-button, .runtime-save, .companion-button, .bot-palette-random) {
+  min-height: var(--size-lg);
+  padding: 0 16px;
+  font-size: var(--text-control);
+  font-weight: var(--weight-label);
+  line-height: 1.3;
+}
+
+:root
+  :is(
+    .plugin-row,
+    .mcp-row,
+    .work-card-actions,
+    .gp-member,
+    .gp-actions,
+    .gp-settings-body,
+    .group-laya-setting-row,
+    .toolbar-buttons,
+    .integration-toolbar
+  )
+  :is(.primary-button, .secondary-button, .companion-button),
+:root .bot-palette-random {
+  min-height: var(--size-sm);
+  padding: 0 12px;
+  font-size: var(--text-caption);
+}
+
 :root .companion-surface .companion-quiet:not(:disabled):hover {
   background: var(--ctl-fill-hover);
 }
@@ -144,11 +203,13 @@
   color: var(--ctl-accent-strong);
 }
 
+/* Icon buttons are 32 circles everywhere: headers, the sidebar and the corner of every dialog. */
 :root .icon-button {
-  border-radius: var(--ctl-radius);
+  border-radius: 50%;
   transition:
-    background 0.15s,
-    color 0.15s;
+    background var(--motion-fast),
+    color var(--motion-fast),
+    scale var(--motion-fast);
 }
 
 :root .icon-button:not(:disabled):hover {
@@ -158,11 +219,14 @@
 
 :root .icon-button:not(:disabled):active {
   background: var(--ctl-fill-press);
+  scale: 0.94;
 }
 
 /* ---------- Fields and selects ---------- */
+/* One field: a gray fill with no border, 36 high, corners of 10, text at control size. */
 /* :where() keeps these at one class, so a component that places a select inside its own chip can still clear it. */
 :root :where(.aelion-select, .aelion-combobox .aelion-combobox-input, .editable-select input) {
+  min-height: var(--size-lg);
   border-color: transparent !important;
   border-radius: var(--ctl-radius) !important;
   background-color: var(--ctl-fill) !important;
@@ -207,7 +271,16 @@
     textarea,
     input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'])
   ),
-:root :is(.group-name input, .scheduled-editor :is(input:not([type='checkbox'], [type='radio']), textarea)) {
+:root
+  :is(
+    .group-name input,
+    .scheduled-editor :is(input:not([type='checkbox'], [type='radio']), textarea),
+    .memory-row textarea,
+    .question-card textarea,
+    .connector-manual input,
+    .connector-verify input,
+    .mcp-snippet-dialog textarea
+  ) {
   border-color: transparent !important;
   border-radius: var(--ctl-radius) !important;
   background-color: var(--ctl-fill) !important;
@@ -222,16 +295,122 @@
   ):focus,
 .bot-profile-modal
   :is(.settings-field, input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'])):focus,
-:root :is(.group-name input, .scheduled-editor :is(input:not([type='checkbox'], [type='radio']), textarea)):focus {
+:root
+  :is(
+    .group-name input,
+    .scheduled-editor :is(input:not([type='checkbox'], [type='radio']), textarea),
+    .memory-row textarea,
+    .question-card textarea,
+    .connector-manual input,
+    .connector-verify input,
+    .mcp-snippet-dialog textarea,
+    .context-compact input
+  ):focus {
   outline: none;
   background-color: light-dark(rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.1)) !important;
   box-shadow: var(--ctl-focus) !important;
 }
 
-/* The task name used to be an underlined title; as a filled field it needs the same inset as the others. */
-:root .scheduled-editor .scheduled-name input {
-  height: 40px;
-  padding: 9px 11px;
+/* Single-line fields in the Bot profile share the height of every other. */
+:root .bot-profile-modal .settings-row input:not([type='checkbox'], [type='radio'], [type='range']) {
+  height: var(--size-lg);
+}
+
+/* ---------- Search fields ---------- */
+/* A search field is a gray capsule with its icon inside: in the sidebar, the plugins, the chat, memory and design. */
+:root
+  :is(
+    .memory-search,
+    .design-search,
+    .plugins-search,
+    .provider-model-search,
+    .message-emoji-search,
+    .integration-search
+  ) {
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--ctl-fill);
+  box-shadow: none;
+  transition: box-shadow var(--motion-fast);
+}
+
+:root :is(.memory-search, .design-search, .plugins-search, .provider-model-search) {
+  height: var(--size-lg);
+  padding: 0 14px;
+}
+
+:root
+  :is(
+    .memory-search,
+    .design-search,
+    .plugins-search,
+    .provider-model-search,
+    .message-emoji-search,
+    .integration-search
+  ):focus-within {
+  outline: 0;
+  box-shadow: var(--ctl-focus);
+}
+
+/* ---------- Checkboxes and radios ---------- */
+/* Drawn here so a ticked box is the state blue on every page; the switches above are the other on/off control. */
+:root input:is([type='checkbox'], [type='radio']):not(.provider-hosted-row > input) {
+  appearance: none;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px light-dark(rgba(0, 0, 0, 0.28), rgba(255, 255, 255, 0.34));
+  vertical-align: -3px;
+  cursor: pointer;
+}
+
+:root input[type='radio'] {
+  border-radius: 50%;
+}
+
+/* Beside a line of text that may wrap, the mark sits on the first line. */
+:root .question-option input {
+  margin-top: 4px;
+}
+
+:root input[type='checkbox']:not(.provider-hosted-row > input)::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  background: var(--ctl-on-accent);
+  mask: var(--ctl-check) center / contain no-repeat;
+  opacity: 0;
+  transition: opacity var(--motion-fast);
+}
+
+:root input[type='checkbox']:not(.provider-hosted-row > input):checked {
+  background: var(--ctl-accent);
+  box-shadow: none;
+}
+
+:root input[type='checkbox']:not(.provider-hosted-row > input):checked::before {
+  opacity: 1;
+}
+
+:root input[type='radio']:checked {
+  box-shadow: inset 0 0 0 5px var(--ctl-accent);
+}
+
+:root input:is([type='checkbox'], [type='radio']):focus-visible {
+  outline: 2px solid var(--ctl-accent-ring);
+  outline-offset: 2px;
+}
+
+:root input:is([type='checkbox'], [type='radio']):disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* ---------- Switches ---------- */
@@ -247,12 +426,12 @@
     .settings-row.provider-hosted-row input[type='checkbox']
   ) {
   border: 0 !important;
-  border-radius: 999px !important;
+  border-radius: var(--radius-pill) !important;
   background: light-dark(rgba(102, 102, 102, 0.16), rgba(255, 255, 255, 0.16)) !important;
   box-shadow: inset 0 1px 2px light-dark(rgba(45, 45, 45, 0.12), rgba(0, 0, 0, 0.35)) !important;
   transition:
-    background 0.2s,
-    box-shadow 0.2s !important;
+    background var(--motion-menu),
+    box-shadow var(--motion-menu) !important;
 }
 
 :root
@@ -279,7 +458,7 @@
   ) {
   background: #fff !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22) !important;
-  transition: transform 0.22s cubic-bezier(0.3, 1.4, 0.5, 1) !important;
+  transition: transform var(--motion-menu) var(--motion-ease) !important;
 }
 
 /* Regular size: 38 × 22, knob 18. */
@@ -343,46 +522,96 @@
 }
 
 /* ---------- Segmented controls ---------- */
-.settings-modal :is(.design-tabs, .model-settings-navigation) {
+/* Two to four views of the same thing: a gray track, the current one a step deeper. */
+:root :is(.design-tabs, .model-settings-navigation, .usage-segmented, .scheduled-trigger-kinds) {
+  gap: 2px;
+  min-height: var(--size-lg);
   padding: 3px;
-  border-radius: 999px;
+  border: 0;
+  border-radius: var(--radius-pill);
   background: var(--ctl-fill);
   box-shadow: inset 0 1px 2px light-dark(rgba(45, 45, 45, 0.06), rgba(0, 0, 0, 0.25));
 }
 
-.settings-modal :is(.design-tabs, .model-settings-navigation) > button {
-  border-radius: 999px;
+:root :is(.design-tabs, .model-settings-navigation, .usage-segmented, .scheduled-trigger-kinds) > button {
+  min-height: 30px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-small);
+  font-weight: var(--weight-label);
 }
 
-.settings-modal
-  :is(.design-tabs, .model-settings-navigation)
-  > button:is([aria-selected='true'], [aria-pressed='true']) {
+:root
+  :is(.design-tabs, .model-settings-navigation, .usage-segmented, .scheduled-trigger-kinds)
+  > button:not(:disabled):hover {
+  color: var(--text-ink);
+}
+
+:root
+  :is(.design-tabs, .model-settings-navigation, .usage-segmented, .scheduled-trigger-kinds)
+  > button:is([aria-selected='true'], [aria-pressed='true'], [aria-checked='true'], .is-active, .selected) {
   background: var(--ctl-raised);
+  color: var(--text-ink);
   box-shadow: var(--ctl-raised-shadow);
 }
 
-/* ---------- Tabs ---------- */
-/* Tab rows were text with an underline. They are now capsules on the page: the current tab is raised, the rest show a
-   tint on hover. The row keeps its own spacing to the content below; only the rule under it goes. */
+/* The small one inside a card header keeps its own height. */
+:root .usage-segmented.is-small {
+  min-height: var(--size-sm);
+}
+
+:root .usage-segmented.is-small > button {
+  min-height: 22px;
+  padding: 0 10px;
+}
+
+/* ---------- Tab rows ---------- */
+/* Any number of sections or filters: plain text until picked, then a gray capsule; a tint under the pointer. The row
+   keeps its own spacing to the content below. */
 :root :is(.plugin-tabs, .provider-editor-tabs, .usage-tabs, .bot-palette-tabs) {
   gap: 4px !important;
   border-bottom: 0 !important;
 }
 
-:root :is(.plugin-tabs button, .provider-editor-tabs > button, .usage-tabs .usage-tab, .bot-palette-tabs button) {
+:root
+  :is(
+    .plugin-tabs button,
+    .provider-editor-tabs > button,
+    .usage-tabs .usage-tab,
+    .bot-palette-tabs button,
+    .plugins-tabs > button:not(.plugins-tab-link),
+    .design-chips button,
+    .gp-tabs button
+  ) {
   align-items: center !important;
-  padding: 5px 12px !important;
-  border-radius: 999px !important;
+  min-height: var(--size-md);
+  padding: 0 12px !important;
+  border: 0;
+  border-radius: var(--radius-pill) !important;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-secondary);
+  font-size: var(--text-small);
+  font-weight: var(--weight-label);
   transition:
-    background 0.15s,
-    color 0.15s,
-    box-shadow 0.15s;
+    background var(--motion-fast),
+    color var(--motion-fast),
+    box-shadow var(--motion-fast);
 }
 
 :root
-  :is(.plugin-tabs button, .provider-editor-tabs > button, .usage-tabs .usage-tab, .bot-palette-tabs button):not(
-    :disabled
-  ):hover {
+  :is(
+    .plugin-tabs button,
+    .provider-editor-tabs > button,
+    .usage-tabs .usage-tab,
+    .bot-palette-tabs button,
+    .plugins-tabs > button:not(.plugins-tab-link),
+    .design-chips button,
+    .gp-tabs button
+  ):not(:disabled):hover {
   background: var(--ctl-fill);
   color: var(--text-ink);
 }
@@ -392,14 +621,20 @@
     .plugin-tabs button[aria-selected='true'],
     .provider-editor-tabs > button[aria-pressed='true'],
     .usage-tabs .usage-tab.is-active,
-    .bot-palette-tabs button[aria-pressed='true']
+    .bot-palette-tabs button[aria-pressed='true'],
+    .plugins-tabs > button[aria-current='true']:not(.plugins-tab-link),
+    .design-chips button[aria-pressed='true'],
+    .gp-tabs button[aria-pressed='true']
   ),
 :root
   :is(
     .plugin-tabs button[aria-selected='true'],
     .provider-editor-tabs > button[aria-pressed='true'],
     .usage-tabs .usage-tab.is-active,
-    .bot-palette-tabs button[aria-pressed='true']
+    .bot-palette-tabs button[aria-pressed='true'],
+    .plugins-tabs > button[aria-current='true']:not(.plugins-tab-link),
+    .design-chips button[aria-pressed='true'],
+    .gp-tabs button[aria-pressed='true']
   ):hover {
   background: var(--ctl-raised);
   color: var(--text-ink);
@@ -415,9 +650,9 @@
 :root :is(.plugin-tabs button span, .provider-editor-tabs > button > span) {
   min-width: 18px;
   padding: 0 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--ctl-fill);
-  font-size: 11px;
+  font-size: var(--text-micro);
   line-height: 17px;
   text-align: center;
 }
@@ -440,7 +675,7 @@
   border: 0 !important;
   border-radius: var(--ctl-menu-radius) !important;
   background: var(--surface-float) !important;
-  box-shadow: var(--float-shadow) !important;
+  box-shadow: var(--elev-2) !important;
 }
 
 :root .aelion-select::picker(select) {
@@ -459,7 +694,7 @@
   ),
 :root :is(.aelion-select option, .aelion-combobox-option) {
   border-radius: var(--ctl-item-radius) !important;
-  transition: background 0.12s;
+  transition: background var(--motion-fast);
 }
 
 :root
@@ -504,7 +739,7 @@
 /* ---------- Chips, tags and badges ---------- */
 :root :is(.plugin-chip, .plugin-tag, .model-count-badge, .computer-details .scheduled-panel h2 > span) {
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--ctl-fill);
 }
 
@@ -587,4 +822,136 @@
   .ui-collapse {
     transition: none;
   }
+}
+
+/* ---------- Disclosures ---------- */
+/* A fold that still showed the browser's triangle gets the app's chevron, which turns as it opens. The ones listed
+   draw their own marker. */
+:root
+  details:not(
+    .memory-disclosure,
+    .bot-palette-custom-section,
+    .detail-parameters,
+    .setup-diagnostics,
+    .artifact-list,
+    .gg-rule-details,
+    .gg-result-card,
+    .settings-skill,
+    .computer-activity,
+    .provider-model-card,
+    .setup-footnote details
+  )
+  > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+:root
+  details:not(
+    .memory-disclosure,
+    .bot-palette-custom-section,
+    .detail-parameters,
+    .setup-diagnostics,
+    .artifact-list,
+    .gg-rule-details,
+    .gg-result-card,
+    .settings-skill,
+    .computer-activity,
+    .provider-model-card,
+    .setup-footnote details
+  )
+  > summary::-webkit-details-marker {
+  display: none;
+}
+
+:root
+  details:not(
+    .memory-disclosure,
+    .bot-palette-custom-section,
+    .detail-parameters,
+    .setup-diagnostics,
+    .artifact-list,
+    .gg-rule-details,
+    .gg-result-card,
+    .settings-skill,
+    .computer-activity,
+    .provider-model-card,
+    .setup-footnote details
+  )
+  > summary::before {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 5px;
+  background: currentColor;
+  mask: var(--ctl-chevron-right) center / contain no-repeat;
+  opacity: 0.7;
+  vertical-align: -2px;
+  transition: rotate var(--motion-menu) var(--motion-ease);
+}
+
+:root
+  details[open]:not(
+    .memory-disclosure,
+    .bot-palette-custom-section,
+    .detail-parameters,
+    .setup-diagnostics,
+    .artifact-list,
+    .gg-rule-details,
+    .gg-result-card,
+    .settings-skill,
+    .computer-activity,
+    .provider-model-card,
+    .setup-footnote details
+  )
+  > summary::before {
+  rotate: 90deg;
+}
+
+/* ---------- Dialogs ---------- */
+/* One shell: corners of 18, the deepest shadow, one dim under it. The title is 16 in the heading weight, the close
+   button the 32 circle 12 from the edge, content 24 in from the sides, buttons at the bottom right. The settings
+   window keeps its page titles; the work computer fills the window and has no shell. */
+:root
+  :is(
+    .modal:not(.computer-modal),
+    .group-editor,
+    .peer-chat-window,
+    .scheduled-editor,
+    .mcp-snippet-dialog,
+    .plugins-page,
+    .fp-unsaved-dialog
+  ) {
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: var(--surface-float);
+  box-shadow: var(--elev-3);
+}
+
+:root
+  :is(
+    .modal-backdrop:not(.computer-backdrop),
+    .peer-chat-layer,
+    .scheduled-layer,
+    .mcp-snippet-backdrop,
+    .plugins-layer,
+    .fp-unsaved-backdrop
+  ) {
+  background-color: var(--dim);
+}
+
+:root
+  :is(
+    .modal > header h2,
+    .group-editor > header h2,
+    .scheduled-editor-heading h2,
+    .plugins-header h1,
+    .peer-chat-header > h2,
+    .mcp-snippet-dialog h2,
+    .gg-header strong
+  ) {
+  font-size: var(--text-heading);
+  font-weight: var(--weight-heading);
+  line-height: 1.4;
 }

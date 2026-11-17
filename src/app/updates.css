@@ -17,11 +17,11 @@
   min-width: 62px;
   min-height: 32px;
   padding: 6px 10px;
-  border: 1px solid light-dark(#d9e2da, #3f3f3f);
-  border-radius: 8px;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-sm);
   background: light-dark(#e8eee9, #242424);
   color: light-dark(#47564b, #d6d6d6);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-weight: var(--weight-body);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -32,7 +32,7 @@
 /* Update state inside the centered app card on the About page (settings.css). */
 .about-update-status {
   margin-top: 14px;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.6;
   color: var(--text-secondary);
 }
@@ -47,29 +47,29 @@
 }
 .update-progress {
   height: 5px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   background: light-dark(#2a2a2a14, #ffffff1a);
 }
 .update-progress > div {
   height: 100%;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--settings-accent-fill, light-dark(#7d7d7d, #a4a4a4));
-  transition: width 0.15s;
+  transition: width var(--motion-fast);
 }
 .update-progress-detail {
   display: flex;
   justify-content: space-between;
   margin-top: 7px;
   color: var(--text-muted);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
 }
 .update-note,
 .update-error {
   max-width: 440px;
   margin: 10px 0 0;
-  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.7;
   overflow-wrap: anywhere;
 }
@@ -81,7 +81,7 @@
 }
 .update-source {
   margin: 14px 0 0;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: var(--text-muted);
   overflow-wrap: anywhere;
 }

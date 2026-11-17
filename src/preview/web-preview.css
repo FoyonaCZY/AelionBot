@@ -54,7 +54,7 @@
   min-width: 28px;
   min-height: 30px;
   padding: 5px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
 }
 .fp-layer:has(.web-preview) .fp-actions .fp-reload {
   display: none;
@@ -84,7 +84,7 @@
   height: 30px;
   flex-shrink: 0;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   padding: 4px;
   background: transparent;
   color: inherit;
@@ -104,10 +104,10 @@
   padding: 4px 10px;
   border: 1px solid transparent;
   background: #f4f5f7;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   color: #454d58;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--text-caption);
   outline: none;
 }
 .web-preview-nav input:focus {
@@ -116,13 +116,13 @@
 }
 .web-preview-nav button:focus-visible,
 .web-preview-slot:focus-visible {
-  outline: 2px solid #7eaad2;
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 1px;
 }
 .web-preview-document {
   flex: 1;
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--text-caption);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -208,7 +208,7 @@
   border: 1.5px solid #e0e4e9;
   border-top-color: #727f90;
   border-radius: 50%;
-  animation: fp-spin 1s linear infinite;
+  animation: motion-spin 0.8s linear infinite;
 }
 .fp-layer[data-feedback-capture='true'] .web-preview-nav {
   visibility: hidden;
@@ -221,7 +221,7 @@
 .web-preview-error {
   max-width: 35%;
   color: #a3624d;
-  font-size: 11px;
+  font-size: var(--text-micro);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

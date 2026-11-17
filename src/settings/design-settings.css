@@ -34,20 +34,7 @@
   align-items: center;
   gap: 9px;
   min-width: 0;
-  height: var(--settings-control-height);
-  padding: 0 12px;
-  border: 1px solid var(--ds-line);
-  border-radius: var(--settings-control-radius);
-  background: var(--ds-field);
-  box-shadow: var(--settings-lift);
   color: var(--ds-muted);
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-}
-.design-search:focus-within {
-  border-color: light-dark(#8ba8cf, #999999);
-  box-shadow: 0 0 0 3px var(--settings-accent-soft);
 }
 .settings-modal .design-search input {
   flex: 1;
@@ -59,7 +46,7 @@
   background: transparent;
   color: var(--ds-ink);
   font: inherit;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 /* The field's frame shows focus; the settings-wide input outline would draw a second ring inside it. */
 .settings-modal .design-search input:focus-visible {
@@ -73,24 +60,20 @@
   flex: none;
   align-items: center;
   gap: 6px;
-  height: var(--settings-control-height);
-  padding: 0 14px;
-  border: 1px solid var(--ds-line);
-  border-radius: var(--settings-control-radius);
-  background: var(--ds-field);
-  box-shadow: var(--settings-lift);
+  height: var(--size-lg);
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--ctl-fill);
   color: var(--ds-ink);
   font: inherit;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-control);
   font-weight: var(--weight-label);
   white-space: nowrap;
   cursor: pointer;
-  transition:
-    background 0.15s,
-    border-color 0.15s;
 }
 .settings-modal .design-action:hover:not(:disabled) {
-  background: var(--settings-hover);
+  background: var(--ctl-fill-hover);
 }
 .settings-modal .design-action:disabled {
   opacity: 0.6;
@@ -121,16 +104,16 @@
   height: 30px;
   padding: 0 12px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--ds-chip);
   color: var(--text-secondary);
   font: inherit;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   white-space: nowrap;
   cursor: pointer;
   transition:
-    background 0.15s,
-    color 0.15s;
+    background var(--motion-fast),
+    color var(--motion-fast);
 }
 .settings-modal .design-chips button:hover {
   color: var(--ds-ink);
@@ -174,7 +157,7 @@
   margin-bottom: 8px;
   padding: 16px 18px;
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: var(--sp-bg, #fff);
   color: var(--sp-fg, #1e1e1e);
   box-shadow:
@@ -202,7 +185,7 @@
   position: relative;
   font-family: var(--sp-display, Georgia, serif);
   font-size: 56px;
-  font-weight: 600;
+  font-weight: var(--weight-heading);
   line-height: 1;
   letter-spacing: -0.035em;
 }
@@ -231,17 +214,17 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-label);
   color: var(--ds-ink);
 }
 .design-caption em {
   flex: none;
   padding: 1px 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: var(--ds-chip);
   color: var(--ds-muted);
-  font-size: calc(11px * var(--appearance-text-scale, 1));
+  font-size: var(--text-micro);
   font-style: normal;
 }
 .design-caption-meta {
@@ -249,14 +232,14 @@
   padding: 0 2px;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: var(--ds-muted);
 }
 .design-empty-line {
   margin: 28px 0;
   list-style: none;
   text-align: center;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   color: var(--ds-muted);
 }
 
@@ -302,28 +285,28 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: calc(14px * var(--appearance-text-scale, 1));
+  font-size: var(--text-control);
   font-weight: var(--weight-label);
   color: var(--ds-ink);
 }
 .design-font-result-name small {
   flex: none;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: var(--ds-muted);
 }
 .design-font-result-name em {
   flex: none;
   padding: 1px 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: var(--ds-chip);
   color: var(--ds-muted);
-  font-size: calc(11px * var(--appearance-text-scale, 1));
+  font-size: var(--text-micro);
   font-style: normal;
 }
 .design-font-results .design-action {
   height: 32px;
   padding: 0 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 .design-font-result-done {
   display: inline-flex;
@@ -331,7 +314,7 @@
   align-items: center;
   gap: 5px;
   padding: 0 10px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: var(--ds-muted);
 }
 
@@ -346,8 +329,8 @@
   color: var(--text-secondary);
 }
 .design-subhead small {
-  font-size: calc(12px * var(--appearance-text-scale, 1));
-  font-weight: 400;
+  font-size: var(--text-caption);
+  font-weight: var(--weight-body);
   font-variant-numeric: tabular-nums;
   color: var(--ds-muted);
 }
@@ -359,13 +342,13 @@
   margin-bottom: 8px;
   padding: 14px 18px 16px;
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: var(--ds-paper);
   color: var(--ds-ink);
   box-shadow:
     inset 0 0 0 1px light-dark(#0000000d, #ffffff10),
     var(--settings-lift);
-  transition: opacity 0.25s;
+  transition: opacity var(--motion-view);
 }
 .design-font-card:not([data-font-loaded]) .design-font-specimen {
   opacity: 0.45;
@@ -379,7 +362,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 16px;
+  font-size: var(--text-heading);
   color: var(--ds-ink);
   opacity: 0.72;
 }
@@ -399,18 +382,18 @@
   height: 30px;
   padding: 0 8px;
   border: 0;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--ds-muted);
   font: inherit;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   white-space: nowrap;
   cursor: pointer;
   opacity: 0;
   transition:
-    opacity 0.15s,
-    background 0.15s,
-    color 0.15s;
+    opacity var(--motion-fast),
+    background var(--motion-fast),
+    color var(--motion-fast);
 }
 .design-font-card:hover .design-font-remove,
 .design-font-remove:focus-visible,
@@ -440,7 +423,7 @@
 }
 .design-font-empty p {
   margin: 0;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 
 @media (prefers-reduced-motion: reduce) {

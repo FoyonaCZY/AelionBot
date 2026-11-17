@@ -11,12 +11,12 @@
   max-height: calc(100% - 16px);
   overflow: hidden;
   resize: both;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: #1c1c1f;
   /* The ring keeps the dark panel apart from the dark theme's page. */
   box-shadow:
     0 0 0 1px #ffffff1f,
-    var(--float-shadow);
+    var(--elev-2);
 }
 .floating-terminal-bar {
   display: flex;

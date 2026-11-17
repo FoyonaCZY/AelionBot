@@ -23,9 +23,9 @@ body:has(.fp-panel[data-layout='docked']) {
     min-height: 0;
     overflow: hidden;
     border: 1px solid light-dark(#e9e9e9, #ffffff14);
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     background: light-dark(#ffffff, #222222);
-    box-shadow: 0 10px 30px rgba(57, 57, 57, 0.12);
+    box-shadow: var(--elev-2);
   }
   body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] > .sidebar,
   body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] > .computer-details {
@@ -84,7 +84,7 @@ body:has(.fp-panel[data-layout='docked']) {
   body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .permission-mode > .aelion-select {
     min-width: 0;
     max-width: 100%;
-    font-size: 11px;
+    font-size: var(--text-micro);
     min-height: 28px;
   }
   body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .context-usage-trigger {
@@ -109,14 +109,14 @@ body:has(.fp-panel[data-layout='docked']) {
   width: auto;
   overflow: hidden;
   border: 1px solid light-dark(#e9e9e9, #ffffff14);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--fp-canvas);
-  box-shadow: 0 10px 30px rgba(57, 57, 57, 0.12);
+  box-shadow: var(--elev-2);
 }
 
 .fp-layer.is-docked .fp-panel {
   border-left: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.58) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(30px) saturate(1.1);
@@ -171,7 +171,7 @@ body:has(.fp-panel[data-layout='docked']) {
 
   body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .chat-header .bot-heading strong {
     overflow: hidden;
-    font-size: 12.5px;
+    font-size: var(--text-small);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -180,7 +180,7 @@ body:has(.fp-panel[data-layout='docked']) {
     content: ' · 画布';
     color: var(--text-muted);
     font-size: 10px;
-    font-weight: 400;
+    font-weight: var(--weight-body);
   }
 
   body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .chat-header .session-heading {
@@ -218,16 +218,16 @@ body:has(.fp-panel[data-layout='docked']) {
 
   body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .bubble {
     padding: 8px 10px;
-    border-radius: 14px;
-    font-size: 13px;
+    border-radius: var(--radius-lg);
+    font-size: var(--text-small);
     line-height: 1.6;
   }
 
   /* The composer floats over the messages here too, so it brings its own surface. */
   body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .composer {
-    border-radius: 13px;
+    border-radius: var(--radius-lg);
     background: var(--surface-float);
-    box-shadow: var(--float-shadow);
+    box-shadow: var(--elev-2);
   }
 
   body:has(.fp-panel[data-layout='docked']) .app-shell[data-page='chat'] .permission-mode,
@@ -276,7 +276,7 @@ body:has(.fp-panel[data-layout='docked']) {
 
   body:has(.fp-panel[data-layout='docked']) .designer-workspace .designer-identity strong {
     overflow: hidden;
-    font-size: 12px;
+    font-size: var(--text-caption);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -310,15 +310,15 @@ body:has(.fp-panel[data-layout='docked']) {
 
   body:has(.fp-panel[data-layout='docked']) .designer-workspace .designer-thread .bubble {
     padding: 8px 10px;
-    border-radius: 14px;
-    font-size: 12.5px;
+    border-radius: var(--radius-lg);
+    font-size: var(--text-small);
     line-height: 1.6;
   }
 
   body:has(.fp-panel[data-layout='docked']) .designer-workspace .designer-activity {
     padding: 10px;
-    border-radius: 10px;
-    font-size: 11px;
+    border-radius: var(--radius-md);
+    font-size: var(--text-micro);
   }
 
   body:has(.fp-panel[data-layout='docked']) .designer-workspace .designer-task-composer {
@@ -342,7 +342,7 @@ body:has(.fp-panel[data-layout='docked']) {
 }
 .preview-bot-switcher > .preview-picker {
   width: 100%;
-  font-size: 12px;
+  font-size: var(--text-caption);
   height: 32px;
 }
 .preview-bot-switcher .avatar {

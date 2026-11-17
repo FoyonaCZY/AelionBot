@@ -7,7 +7,6 @@
   border-radius: 20px 20px 20px 8px;
   color: var(--companion-ink);
   box-shadow: 0 2px 8px #28282804;
-  animation: companion-arrive 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 .companion-badge {
   position: relative;
@@ -29,7 +28,7 @@
   width: 19px;
   height: 19px;
   border: 2px solid light-dark(#fff, #3f3f3f);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: light-dark(#eaf1fa, #232323);
   color: light-dark(#688ebf, #afc2da);
 }
@@ -59,7 +58,7 @@
   align-items: center;
   gap: 6px;
   max-width: 100%;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-weight: var(--weight-body);
   line-height: 1.5;
   color: var(--companion-muted);
@@ -80,17 +79,17 @@
   gap: 6px;
   min-height: 32px;
   padding: 6px 12px;
-  border: 1px solid light-dark(#e6e6e6, #3f3f3f);
-  border-radius: 8px;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-sm);
   background: light-dark(#fff, #212121);
   color: light-dark(#676767, #cdcdcd);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-weight: var(--weight-label);
   line-height: 1.5;
   white-space: nowrap;
   transition:
-    background 0.15s,
-    border-color 0.15s;
+    background var(--motion-fast),
+    border-color var(--motion-fast);
 }
 .companion-surface .companion-button:not(:disabled):hover {
   background: light-dark(#f7f7f7, #222222);
@@ -121,23 +120,13 @@
   color: light-dark(#797979, #c7c7c7);
 }
 .companion-surface button:focus-visible {
-  outline: 2px solid light-dark(#90b6e8, #3f3f3f);
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 2px;
 }
 .companion-surface button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
   box-shadow: none;
-}
-@keyframes companion-arrive {
-  from {
-    opacity: 0;
-    transform: translateY(5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 @keyframes companion-status-pulse {
   50% {

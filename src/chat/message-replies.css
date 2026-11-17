@@ -5,12 +5,11 @@
   display: flex;
   align-items: center;
   padding: 3px;
-  border: 1px solid light-dark(#e8e8e8, #464646);
-  border-radius: 11px;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-md);
   background: light-dark(#fff, #313131);
-  box-shadow: 0 5px 16px -5px light-dark(#141d283d, #00000080);
+  box-shadow: var(--elev-2);
   -webkit-app-region: no-drag;
-  animation: message-actions-in 0.12s ease-out;
 }
 .message-hover-actions button {
   display: grid;
@@ -19,7 +18,7 @@
   height: 28px;
   padding: 0;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: light-dark(#727272, #bcbcbc);
 }
@@ -29,7 +28,7 @@
   background: light-dark(#f3f3f3, #3d3d3d);
 }
 .message-hover-actions button:focus-visible {
-  outline: 2px solid light-dark(#bababa, #737373);
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: -1px;
 }
 .message-hover-actions .message-hover-emoji {
@@ -51,7 +50,7 @@
   margin: 2px 0 6px;
   padding: 5px 10px;
   border-left: 3px solid light-dark(#939393, #adadad);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: color-mix(in srgb, currentColor 7%, transparent);
   white-space: normal;
   text-align: left;
@@ -68,7 +67,7 @@
 .message-quote-author {
   display: block;
   color: light-dark(#757575, #c2c2c2);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-weight: var(--weight-body);
   overflow: hidden;
   white-space: nowrap;
@@ -82,7 +81,7 @@
   overflow-wrap: anywhere;
   margin-top: 2px;
   color: light-dark(#8b8b8b, #c0c0c0);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-weight: var(--weight-body);
 }
 .message-quote-content:hover .message-quote-author {
@@ -101,7 +100,7 @@
   width: 24px;
   height: 24px;
   padding: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   color: light-dark(#949494, #bdbdbd);
 }
 .message-quote-cancel:hover {
@@ -114,26 +113,18 @@
   width: 100%;
   margin: 22px 0 18px;
   color: light-dark(#9c9c9c, #bbbbbb);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   line-height: 1.6;
   font-weight: var(--weight-body);
   user-select: none;
 }
 .conversation-time > time {
   padding: 1px 11px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: light-dark(#2a2a2a0f, #ffffff0d);
 }
 .messages > .conversation-time:first-child {
   margin-top: 3px;
-}
-@keyframes message-actions-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   .message-hover-actions {

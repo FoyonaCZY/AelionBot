@@ -1,6 +1,7 @@
 /*
- * Page and component switches share one motion vocabulary: pages and conversations fade or rise in, dialogs pop
- * from the centre, menus unfold from their trigger, drawers slide from their edge, and toasts and notices drift in.
+ * Everything that moves shares one motion vocabulary: pages and conversations fade or rise in, dialogs pop from the
+ * centre, menus unfold from their trigger, drawers slide from their edge, toasts and notices drift in, and what
+ * turns up inside the conversation rises a few pixels. Hover, press and selection change colour in --motion-fast.
  * An overlay wrapped in Presence (src/ui/Presence.tsx) plays the reverse under [data-leaving] before it unmounts;
  * content that switches in place replays the same curve through useSwitchMotion (src/ui/motion.ts).
  *
@@ -10,12 +11,16 @@
  * measures with getBoundingClientRect (the message list, popovers placed from their own size) only fades.
  */
 :root {
+  /* Two curves: arriving slows into place, leaving speeds away. */
   --motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --motion-exit-ease: cubic-bezier(0.4, 0, 1, 1);
-  --motion-view: 220ms;
-  --motion-pop: 200ms;
-  --motion-menu: 160ms;
-  --motion-exit: 140ms;
+  /* Six durations. */
+  --motion-fast: 120ms; /* hover, press and selection colours */
+  --motion-menu: 160ms; /* menus, popovers, switches, chevrons */
+  --motion-pop: 200ms; /* dialogs, drawers, toasts */
+  --motion-view: 220ms; /* pages, tabs, folds, arrivals in the conversation */
+  --motion-layout: 320ms; /* the window's layout changing shape */
+  --motion-exit: 140ms; /* anything leaving */
 }
 
 .motion-presence {
@@ -77,6 +82,12 @@
     scale: 0.97;
   }
 }
+@keyframes motion-drawer-in {
+  from {
+    opacity: 0;
+    translate: 24px 0;
+  }
+}
 @keyframes motion-drawer-out {
   to {
     opacity: 0;
@@ -106,6 +117,19 @@
   to {
     opacity: 0;
     translate: 0 6px;
+  }
+}
+/* Something new inside the conversation: a status line, a decision, a card. */
+@keyframes motion-inline-in {
+  from {
+    opacity: 0;
+    translate: 0 3px;
+  }
+}
+/* The one spinner; every busy ring turns once in 0.8s. */
+@keyframes motion-spin {
+  to {
+    rotate: 360deg;
   }
 }
 
@@ -183,6 +207,9 @@
   .motion-presence[data-leaving] .modal-backdrop.computer-backdrop > .modal {
     animation-name: motion-fade-out;
   }
+  :is(.plugin-drawer, .gg-drawer) {
+    animation: motion-drawer-in var(--motion-pop) var(--motion-ease) backwards;
+  }
   .motion-presence[data-leaving] :is(.plugin-drawer, .gg-drawer) {
     animation: motion-drawer-out var(--motion-exit) var(--motion-exit-ease) forwards;
   }
@@ -193,9 +220,11 @@
      the one in group-games.css). */
   .gg-dialog:not([open]) {
     opacity: 0;
-    scale: 0.985;
+    translate: 0 4px;
+    scale: 0.98;
     transition:
       opacity var(--motion-exit) ease,
+      translate var(--motion-exit) var(--motion-exit-ease),
       scale var(--motion-exit) var(--motion-exit-ease),
       overlay var(--motion-exit) allow-discrete,
       display var(--motion-exit) allow-discrete;
@@ -289,5 +318,19 @@
   }
   .bot-palette-body {
     animation: motion-view-in var(--motion-view) var(--motion-ease) backwards;
+  }
+
+  /* ---------- Inside the conversation ---------- */
+  /* The work computer card only fades: a transform on it would capture the task editor's fixed overlay. */
+  :root .app-shell > .details.computer-details,
+  .message-hover-actions {
+    animation: motion-fade-in var(--motion-menu) ease backwards;
+  }
+  .pin-chip {
+    animation: motion-menu-in var(--motion-menu) var(--motion-ease) backwards;
+  }
+  /* The task editor and the notice are companion surfaces too; they keep the dialog's and the notice's motion. */
+  :is(.bot-working-label, .group-decision-card, .companion-surface:not(.scheduled-editor, .interaction-notification)) {
+    animation: motion-inline-in var(--motion-view) var(--motion-ease) backwards;
   }
 }

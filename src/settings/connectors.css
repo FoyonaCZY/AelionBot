@@ -15,9 +15,9 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   padding: 7px 12px;
-  font-size: 13px;
+  font-size: var(--text-small);
   color: light-dark(#777, #aaa);
 }
 .connector-platforms button[aria-pressed='true'],
@@ -28,7 +28,7 @@
 .connector-platforms small {
   font-size: 10px;
   padding: 0 5px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: light-dark(#f3ead8, #4a4030);
   color: light-dark(#8a6a2a, #e0c890);
 }
@@ -43,7 +43,7 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
-  font-size: 12px;
+  font-size: var(--text-caption);
   color: light-dark(#777, #aaa);
 }
 .connector-manual {
@@ -54,7 +54,7 @@
 .connector-manual ol {
   margin: 0;
   padding-left: 20px;
-  font-size: 12.5px;
+  font-size: var(--text-small);
   line-height: 1.7;
   color: light-dark(#555, #bbb);
   overflow-wrap: anywhere;
@@ -62,8 +62,8 @@
 .connector-manual input,
 .connector-verify input {
   padding: 8px 10px;
-  border: 1px solid light-dark(#e4e4e4, #3c3c3c);
-  border-radius: 9px;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-md);
   background: light-dark(#fafafa, #1f1f1f);
   color: inherit;
   font: 13px var(--font-code);
@@ -73,7 +73,7 @@
 }
 .connector-scan > p {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-small);
   line-height: 1.7;
   color: light-dark(#666, #aaa);
 }
@@ -87,12 +87,12 @@
 .connector-qr img {
   width: 200px;
   height: 200px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: #fff;
 }
 .connector-qr p {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-small);
   color: light-dark(#555, #bbb);
 }
 .connector-verify {
@@ -119,7 +119,7 @@
 }
 .app-picked p {
   margin: 2px 0 0;
-  font-size: 13px;
+  font-size: var(--text-small);
   color: var(--plugin-muted);
 }
 .app-note {
@@ -128,7 +128,7 @@
   align-items: baseline;
   gap: 4px 10px;
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-small);
   line-height: 1.6;
   color: light-dark(#555, #bbb);
 }
@@ -140,7 +140,7 @@
 }
 .app-redirect code {
   padding: 2px 7px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: var(--plugin-fill);
   font: 12px var(--font-code);
   user-select: all;
@@ -155,7 +155,7 @@
 .app-signing p {
   max-width: 380px;
   margin: 0 0 6px;
-  font-size: 13px;
+  font-size: var(--text-small);
   line-height: 1.6;
   color: var(--plugin-muted);
 }

@@ -16,7 +16,7 @@
 .appearance-preview {
   margin: 0;
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   background: var(--conversation-canvas);
   box-shadow:
     0 0 0 1px var(--settings-ring),
@@ -40,7 +40,7 @@
   max-width: min(78%, 460px);
   margin: 0;
   padding: 7px 13px;
-  border-radius: 18px;
+  border-radius: var(--radius-xl);
   background: var(--bubble-surface);
   box-shadow: var(--bubble-lift);
   color: light-dark(#373737, #dfdfdf);
@@ -61,7 +61,7 @@
 .appearance-preview-bubble code {
   margin-left: 0.25em;
   padding: 0.14em 0.35em;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--bubble-chip);
   font-family: var(--font-code);
   font-size: var(--text-code, 13px);
@@ -81,7 +81,7 @@
 :is(.appearance-themes, .appearance-canvases) > button {
   min-width: 0;
   padding: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   text-align: left;
   color: var(--text-secondary);
 }
@@ -97,7 +97,7 @@
   font-weight: var(--weight-label);
 }
 :is(.appearance-themes, .appearance-canvases) > button > span:first-child {
-  transition: box-shadow 0.15s;
+  transition: box-shadow var(--motion-fast);
 }
 :is(.appearance-themes, .appearance-canvases) > button:hover > span:first-child {
   box-shadow:
@@ -107,7 +107,7 @@
 :is(.appearance-themes, .appearance-canvases) > button[aria-pressed='true'] > span:first-child {
   box-shadow:
     0 0 0 2px var(--settings-card),
-    0 0 0 4px var(--settings-accent-fill);
+    0 0 0 4px var(--ctl-accent);
 }
 /* A theme is the app in small: frame on the left, the canvas, a reply and one of yours. */
 .appearance-theme-swatch {
@@ -115,7 +115,7 @@
   display: block;
   height: 84px;
   overflow: hidden;
-  border-radius: 11px;
+  border-radius: var(--radius-md);
   background: #f5f5f5;
   box-shadow: 0 0 0 1px #141d2817;
 }
@@ -124,13 +124,13 @@
   inset: 0 auto 0 0;
   width: 26%;
   background: #fff;
-  border-right: 1px solid #eaeaea;
+  border-right: 1px solid var(--surface-line);
 }
 .appearance-theme-swatch b,
 .appearance-theme-swatch em {
   position: absolute;
   height: 11px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
 }
 .appearance-theme-swatch b {
   left: 33%;
@@ -172,7 +172,7 @@
   display: block;
   height: 56px;
   overflow: hidden;
-  border-radius: 11px;
+  border-radius: var(--radius-md);
   background: var(--conversation-canvas);
   box-shadow: 0 0 0 1px #141d2817;
 }
@@ -180,7 +180,7 @@
 .appearance-canvas-swatch b {
   position: absolute;
   height: 11px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
 }
 .appearance-canvas-swatch i {
   left: 9px;
@@ -213,7 +213,7 @@
   min-width: 0;
 }
 .appearance-row > div > span {
-  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 .appearance-row small {
   display: block;
@@ -232,7 +232,7 @@
   min-height: var(--settings-control-height);
   border-color: transparent;
   background-color: var(--settings-field);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 .settings-modal .appearance-control > .aelion-select:not(:disabled):hover {
   border-color: var(--settings-field-line);
@@ -247,13 +247,13 @@
   border-radius: var(--settings-control-radius);
   background: var(--settings-field);
   color: var(--text-ink);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 .settings-modal .appearance-control > input:focus-visible {
   outline: none;
   border-color: light-dark(#8ba8cf, #999999);
   background: var(--settings-card);
-  box-shadow: 0 0 0 3px var(--settings-accent-soft);
+  box-shadow: var(--ctl-focus);
 }
 .appearance-range {
   display: flex;
@@ -276,7 +276,7 @@
 .appearance-range output {
   min-width: 44px;
   padding: 2px 0;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: var(--settings-field);
   color: var(--text-secondary);
   font-size: var(--text-caption);

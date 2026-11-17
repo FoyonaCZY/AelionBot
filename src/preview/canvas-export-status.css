@@ -28,12 +28,12 @@
   gap: 2px;
 }
 .fp-export-status-copy strong {
-  font-size: 12px;
-  font-weight: 550;
+  font-size: var(--text-caption);
+  font-weight: var(--weight-label);
   line-height: 17px;
 }
 .fp-export-status-copy > span {
-  font-size: 11px;
+  font-size: var(--text-micro);
   line-height: 16px;
   max-height: 32px;
   overflow: auto;
@@ -62,18 +62,18 @@
 .fp-export-status > button {
   flex-shrink: 0;
   border: 1px solid currentColor;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: transparent;
   color: inherit;
   padding: 4px 9px;
-  font-size: 12px;
+  font-size: var(--text-caption);
   cursor: pointer;
 }
 .fp-export-status > button:hover {
   background: #ffffffa6;
 }
 .fp-export-status > button:focus-visible {
-  outline: 2px solid currentColor;
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 2px;
 }
 .fp-export-status > .fp-export-dismiss {
@@ -86,7 +86,7 @@
   width: 16px;
   text-align: center;
   flex-shrink: 0;
-  font-size: 17px;
+  font-size: var(--text-heading);
 }
 .fp-export-spinner {
   display: inline-block;
@@ -96,18 +96,14 @@
   border: 1.5px solid #b8cde2;
   border-top-color: #376894;
   border-radius: 50%;
-  animation: fp-export-spin 0.8s linear infinite;
+  animation: motion-spin 0.8s linear infinite;
 }
 .fp-layer .fp-header .fp-actions .fp-export-trigger[aria-busy='true'] {
   opacity: 1;
   color: #365c83;
   background: #f1f6fc;
 }
-@keyframes fp-export-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+
 @media (prefers-reduced-motion: reduce) {
   .fp-export-spinner {
     animation: none;

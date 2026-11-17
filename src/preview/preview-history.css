@@ -11,7 +11,7 @@
   width: min(100%, 440px);
   padding: 9px 13px;
   border: 1px solid light-dark(#e5e5e5, #3f3f3f);
-  border-radius: 11px;
+  border-radius: var(--radius-md);
   background: light-dark(#fff, #252525);
   color: var(--text-ink);
   text-align: left;
@@ -22,7 +22,7 @@
   border-color: light-dark(#d3d3d3, #565656);
 }
 .preview-history-chip:focus-visible {
-  outline: 2px solid light-dark(#a3a3a3, #b1b1b1);
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 1px;
 }
 .preview-history-symbol {

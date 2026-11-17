@@ -16,11 +16,9 @@
   background: var(--pin-surface);
   color: var(--pin-ink);
   border: 1px solid var(--pin-line);
-  border-radius: 12px;
-  box-shadow:
-    0 1px 2px #0000000a,
-    0 16px 36px -14px #1a2d4552;
-  font-size: 13px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elev-2);
+  font-size: var(--text-small);
   line-height: 1.6;
 }
 .pin-bubble header {
@@ -28,7 +26,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 12px 0;
-  font-size: 12px;
+  font-size: var(--text-caption);
   color: var(--pin-muted);
   min-width: 0;
 }
@@ -42,7 +40,7 @@
   background: var(--pin-ink);
   color: var(--pin-surface);
   font-size: 10px;
-  font-weight: 600;
+  font-weight: var(--weight-heading);
   font-variant-numeric: tabular-nums;
 }
 .pin-dot.bot {
@@ -71,8 +69,8 @@
 }
 .pin-bubble-state {
   flex: none;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-heading);
 }
 .pin-bubble-state.done {
   color: #3f9a6e;
@@ -83,7 +81,7 @@
 .pin-bubble-note {
   margin: 8px 12px 0;
   padding: 8px 10px;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--pin-fill);
   color: var(--pin-ink2);
 }
@@ -100,7 +98,7 @@
   background: transparent;
   color: var(--pin-ink);
   font: inherit;
-  font-size: 13.5px;
+  font-size: var(--text-small);
   scrollbar-width: thin;
 }
 .pin-bubble textarea::placeholder {
@@ -118,8 +116,8 @@
 .pin-bubble-reply b {
   display: block;
   color: var(--pin-ink);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--text-caption);
+  font-weight: var(--weight-heading);
 }
 .pin-bubble-reply i {
   flex: none;
@@ -141,7 +139,7 @@
   height: 26px;
   display: grid;
   place-items: center;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   color: var(--pin-muted);
 }
 .pin-bubble-icon:hover {
@@ -151,19 +149,19 @@
 .pin-bubble-hint {
   margin-left: auto;
   margin-right: 8px;
-  font-size: 11.5px;
+  font-size: var(--text-micro);
   color: var(--pin-faint);
 }
 .pin-bubble-done {
   height: 26px;
   padding: 0 12px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: var(--pin-ink);
   color: var(--pin-surface);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--text-caption);
+  font-weight: var(--weight-heading);
 }
 .pin-bubble button:focus-visible {
-  outline: 2px solid #6ea2e7;
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 1px;
 }

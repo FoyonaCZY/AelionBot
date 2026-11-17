@@ -3,7 +3,7 @@
   max-width: min(82%, 680px);
   margin: 0 0 4px 4px;
   min-width: 0;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 .reasoning-toggle {
   display: inline-flex;
@@ -11,12 +11,12 @@
   gap: 6px;
   margin-left: -6px;
   padding: 4px 8px 4px 6px;
-  border-radius: 8px;
-  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  border-radius: var(--radius-sm);
+  font-size: var(--text-small);
   color: light-dark(#909090, #ababab);
   transition:
-    background 0.15s,
-    color 0.15s;
+    background var(--motion-fast),
+    color var(--motion-fast);
 }
 .reasoning-toggle:not(:disabled):hover,
 .reasoning-toggle:focus-visible {
@@ -36,7 +36,7 @@
 }
 .reasoning-toggle > svg:last-child:not(:first-child) {
   opacity: 0.7;
-  transition: transform 0.18s;
+  transition: transform var(--motion-menu);
 }
 .message-reasoning.is-open .reasoning-toggle > svg:last-child:not(:first-child) {
   transform: rotate(90deg);
@@ -48,10 +48,10 @@
 .reasoning-body {
   margin: 6px 0 4px;
   padding: 12px 16px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--ctl-fill);
   color: var(--text-secondary);
-  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.7;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -81,7 +81,7 @@
     250% 100%;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: reasoning-shimmer 1.8s linear infinite;
+  animation: reasoning-shimmer 1.6s linear infinite;
 }
 @keyframes reasoning-shimmer {
   from {

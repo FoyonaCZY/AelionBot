@@ -11,7 +11,7 @@
 }
 .message-widget-error {
   margin: 4px 0 0;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: var(--text-muted);
 }
 .message-visual-pending {
@@ -21,9 +21,9 @@
   margin: 10px 0;
   padding: 14px 16px;
   border: 1px dashed var(--surface-line);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: var(--text-muted);
-  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 .message-visual-spinner {
   width: 13px;
@@ -31,13 +31,9 @@
   border: 2px solid currentColor;
   border-right-color: transparent;
   border-radius: 50%;
-  animation: message-visual-spin 0.8s linear infinite;
+  animation: motion-spin 0.8s linear infinite;
 }
-@keyframes message-visual-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+
 @media (prefers-reduced-motion: reduce) {
   .message-visual-spinner {
     animation: none;

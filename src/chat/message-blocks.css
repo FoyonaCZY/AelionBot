@@ -1,19 +1,19 @@
 .message-block {
   margin: 10px 0;
   padding: 12px 14px;
-  border: 1px solid light-dark(#e7e7e7, #484848);
-  border-radius: 14px;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-lg);
   background: light-dark(#fff, #262626);
   color: light-dark(#414141, #e5ebf3);
   box-shadow: 0 1px 3px #15202e0a;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.5;
   white-space: normal;
 }
 .message-block-title {
   margin: 0 0 8px;
-  font-size: calc(14px * var(--appearance-text-scale, 1));
-  font-weight: 600;
+  font-size: var(--text-control);
+  font-weight: var(--weight-heading);
 }
 .message-block-text + .message-block-text {
   margin-top: 8px;
@@ -22,7 +22,7 @@
   color: light-dark(#89483d, #dab9b4);
   background: light-dark(#fff7f4, #2a2224);
   border-color: light-dark(#efd9d2, #4d3b3b);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 
 /* chart */
@@ -39,7 +39,7 @@
   gap: 12px;
   margin-bottom: 4px;
   color: light-dark(#8d8d8d, #b8b8b8);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
 }
 .message-chart-legend span {
   display: inline-flex;
@@ -57,7 +57,7 @@
 }
 .message-block-chart text {
   fill: light-dark(#8d8d8d, #b8b8b8);
-  font-size: 11px;
+  font-size: var(--text-micro);
 }
 .chart-grid {
   stroke: light-dark(#eeeeee, #3c3c3c);
@@ -91,24 +91,24 @@
 }
 .message-metric {
   padding: 10px 11px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: light-dark(#f3f6f9, #313131);
 }
 .message-metric > span {
   display: block;
   color: light-dark(#8d8d8d, #b8b8b8);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
 }
 .message-metric > strong {
   display: block;
   margin-top: 2px;
-  font-size: calc(19px * var(--appearance-text-scale, 1));
-  font-weight: 600;
+  font-size: var(--text-title);
+  font-weight: var(--weight-heading);
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
 }
 .message-metric > small {
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#8d8d8d, #b8b8b8);
 }
 .message-metric > small[data-tone='up'] {
@@ -126,19 +126,19 @@
 .message-block-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
 }
 .message-block-table th,
 .message-block-table td {
   padding: 7px 6px;
-  border-bottom: 1px solid light-dark(#eeeeee, #3c3c3c);
+  border-bottom: 1px solid var(--surface-line);
 }
 .message-block-table tr:last-child td {
   border-bottom: 0;
 }
 .message-block-table th {
-  font-weight: 500;
+  font-weight: var(--weight-label);
   color: light-dark(#8d8d8d, #b8b8b8);
 }
 .message-block-table th button {
@@ -207,18 +207,18 @@
   gap: 12px;
 }
 .message-timeline-head strong {
-  font-size: calc(13px * var(--appearance-text-scale, 1));
-  font-weight: 600;
+  font-size: var(--text-small);
+  font-weight: var(--weight-heading);
 }
 .message-timeline-head time {
   color: light-dark(#939393, #adadad);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   white-space: nowrap;
 }
 .message-block-timeline p {
   margin: 2px 0 0;
   color: light-dark(#7e7e7e, #b8b8b8);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
 }
 
 /* callout */
@@ -238,8 +238,8 @@
 .message-block-callout strong {
   display: block;
   margin-bottom: 2px;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
-  font-weight: 600;
+  font-size: var(--text-small);
+  font-weight: var(--weight-heading);
 }
 .message-block-callout p {
   margin: 0;
@@ -264,7 +264,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
 }
 .message-block-pie li {
   display: grid;
@@ -278,7 +278,7 @@
   border-radius: 2px;
 }
 .message-block-pie b {
-  font-weight: 600;
+  font-weight: var(--weight-heading);
   font-variant-numeric: tabular-nums;
 }
 .message-block-pie small {
@@ -297,15 +297,15 @@
   display: grid;
   gap: 4px;
   color: light-dark(#8d8d8d, #b8b8b8);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
 }
 .message-calculator-control {
   display: flex;
   align-items: center;
   height: 32px;
   padding: 0 9px;
-  border: 1px solid light-dark(#e2e2e2, #4b4b4b);
-  border-radius: 8px;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-sm);
   background: light-dark(#fff, #202020);
 }
 .message-calculator-control input {
@@ -315,14 +315,14 @@
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
 .message-calculator-control em {
   margin-left: 4px;
   color: light-dark(#aaaaaa, #9d9d9d);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-style: normal;
 }
 .message-calculator-result {
@@ -337,11 +337,11 @@
 .message-calculator-result > div > span {
   display: block;
   color: light-dark(#8d8d8d, #b8b8b8);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
 }
 .message-calculator-result > div > strong {
-  font-size: calc(26px * var(--appearance-text-scale, 1));
-  font-weight: 600;
+  font-size: var(--text-title);
+  font-weight: var(--weight-heading);
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
@@ -352,7 +352,7 @@
   gap: 4px;
   min-width: 180px;
   margin: 0;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
 }
 .message-calculator-result dl div {
@@ -366,7 +366,7 @@
 .message-calculator-result dd {
   margin: 0;
   color: light-dark(#414141, #e5ebf3);
-  font-weight: 500;
+  font-weight: var(--weight-label);
 }
 .message-calculator-actions {
   display: flex;
@@ -378,11 +378,11 @@
   height: 30px;
   padding: 0 12px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: light-dark(#e9f0f8, #3c3c3c);
   color: light-dark(#606060, #cad7e8);
   font: inherit;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   white-space: nowrap;
   flex-shrink: 0;
   cursor: pointer;
@@ -397,7 +397,7 @@
 .message-calculator-actions p {
   margin: 0;
   color: light-dark(#aaaaaa, #9d9d9d);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   line-height: 1.45;
 }
 

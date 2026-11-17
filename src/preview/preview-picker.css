@@ -7,7 +7,7 @@
   min-height: 29px;
   padding: 4px 7px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: #4e5b6a;
   font: var(--weight-body) 12px/1.5 var(--font-ui);
@@ -32,7 +32,7 @@
   color: #96a1ad;
 }
 .preview-picker:focus-visible {
-  outline: 2px solid #9ab7db;
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 1px;
 }
 .preview-picker-popover {
@@ -44,8 +44,8 @@
   padding: 5px;
   background: #fff;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  box-shadow: 0 8px 26px #172b451a;
+  border-radius: var(--radius-md);
+  box-shadow: var(--elev-2);
   color: #4e5c6d;
   color-scheme: light;
   overflow: auto;
@@ -62,7 +62,7 @@
   background: transparent;
   color: inherit;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   text-align: left;
 }
 .preview-picker-popover button > span {

@@ -12,7 +12,7 @@
   aspect-ratio: 16 / 10;
   padding: 0;
   border: 0;
-  border-bottom: 1px solid light-dark(#efefef, #3b3b3b);
+  border-bottom: 1px solid var(--surface-line);
   background: light-dark(#f7f7f7, #272727);
   color: inherit;
   font: inherit;
@@ -20,7 +20,7 @@
   cursor: pointer;
 }
 .design-canvas-stage:focus-visible {
-  outline: 2px solid light-dark(#5b83b8, #a4a4a4);
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: -2px;
 }
 .design-canvas-stage[data-running]::after {
@@ -69,12 +69,12 @@
   place-items: center;
   width: 24px;
   height: 24px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   color: light-dark(#4c4c4c, #e3e3e3);
   background: light-dark(#ffffffe6, #2b2b2be6);
   box-shadow: 0 0 0 1px light-dark(#e7e7e7, #3f3f3f);
   opacity: 0;
-  transition: opacity 0.12s;
+  transition: opacity var(--motion-fast);
 }
 .design-canvas-stage:is(:hover, :focus-visible) .design-canvas-expand {
   opacity: 1;
@@ -95,26 +95,26 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-label);
 }
 .design-canvas-text small {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-micro);
   color: light-dark(#7c7c7c, #bababa);
 }
 .design-canvas-accept {
   flex: none;
   height: 26px;
   padding: 0 10px;
-  border: 1px solid light-dark(#e2e2e2, #464646);
-  border-radius: 8px;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-ink);
   font: inherit;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   cursor: pointer;
 }
 .design-canvas-accept:hover:not(:disabled) {
@@ -128,7 +128,7 @@
   height: 26px;
   padding: 0;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: light-dark(#8c8c8c, #aaaaaa);
   cursor: pointer;
@@ -138,13 +138,13 @@
   background: light-dark(#ededed, #363636);
 }
 :is(.design-canvas-accept, .design-canvas-close):focus-visible {
-  outline: 2px solid light-dark(#5b83b8, #a4a4a4);
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 1px;
 }
 .design-canvas-error {
   margin: 0;
   padding: 0 12px 10px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#a8432f, #e59b88);
 }
 @media (prefers-reduced-motion: reduce) {

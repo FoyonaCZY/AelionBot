@@ -25,16 +25,16 @@
   padding: 7px 10px;
   background: #2b2b2b;
   border: 1px solid #ffffff15;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   color: #c6c6c6;
   max-width: calc(100% - 24px);
   font-size: var(--text-caption);
-  box-shadow: 0 3px 15px #0003;
+  box-shadow: var(--elev-2);
 }
 .fp-edit-toolbar button {
   padding: 5px 9px;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: transparent;
   color: inherit;
   white-space: nowrap;
@@ -67,7 +67,7 @@
   z-index: 7;
   padding: 11px 13px;
   border: 1px solid #73584f;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: #342d2b;
   color: #e4c4b5;
   font-size: var(--text-caption);
@@ -87,15 +87,15 @@
 .fp-unsaved-dialog {
   background: #2b2b2b;
   border: 1px solid #4e4e4e;
-  border-radius: 15px;
+  border-radius: var(--radius-xl);
   padding: 24px;
   max-width: 420px;
   width: 100%;
   color: #e7edf4;
-  box-shadow: 0 16px 50px #0004;
+  box-shadow: var(--elev-3);
 }
 .fp-unsaved-dialog h2 {
-  font-size: 18px;
+  font-size: var(--text-heading);
   margin: 0 0 11px;
   font-weight: var(--weight-heading);
 }
@@ -115,7 +115,7 @@
 .fp-unsaved-dialog button {
   padding: 8px 11px;
   border: 1px solid #545454;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: inherit;
   background: #383838;
   font-size: var(--text-caption);

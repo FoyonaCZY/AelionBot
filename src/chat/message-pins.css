@@ -16,26 +16,25 @@
   justify-content: center;
   gap: 5px;
   padding: 0 9px;
-  border: 1px solid light-dark(#e4e4e4, #464646);
-  border-radius: 999px;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-pill);
   background: light-dark(#fff, #323232);
   box-shadow: 0 1px 1.5px light-dark(#1f2b3a14, #0000);
   min-height: 25px;
   line-height: 1;
   transition:
-    background 0.15s,
-    border-color 0.15s;
-  animation: pin-appear 0.16s ease-out;
+    background var(--motion-fast),
+    border-color var(--motion-fast);
 }
 .pin-chip > span {
   display: block;
   font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-control);
   line-height: 20px;
   font-weight: var(--weight-body);
 }
 .pin-chip small {
-  font-size: 12px;
+  font-size: var(--text-caption);
   font-weight: var(--weight-label);
   font-variant-numeric: tabular-nums;
   color: light-dark(#616161, #c3c3c3);
@@ -54,26 +53,16 @@
   background: light-dark(#dae4f1, #444444);
 }
 .pin-chip:focus-visible {
-  outline: 2px solid light-dark(#bababa, #737373);
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 2px;
 }
 .group-message.from-user .message-pins {
   justify-content: flex-end;
 }
-@keyframes pin-appear {
-  from {
-    opacity: 0.4;
-    transform: scale(0.92);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
 .pin-error {
   display: block;
   color: light-dark(#a85b4c, #deb8b0);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   max-width: 320px;
   line-height: 1.6;
   margin: 6px 4px 0;
@@ -88,7 +77,7 @@
   outline: none;
 }
 .message-context-target:focus-visible {
-  outline: 2px solid light-dark(#c9ced5, #3f3f3f);
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 3px;
 }
 .message-context-menu {
@@ -99,9 +88,9 @@
   overflow: auto;
   padding: 8px;
   background: light-dark(#fff, #212121);
-  border: 1px solid light-dark(#e5e5e5, #3f3f3f);
-  border-radius: 12px;
-  box-shadow: 0 8px 28px #31313112;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elev-2);
   color: light-dark(#25282d, #e3e3e3);
   -webkit-app-region: no-drag;
   scrollbar-width: thin;
@@ -119,7 +108,7 @@
   justify-content: center;
   min-width: 0;
   height: 42px;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;
   font-size: 25px;
   padding: 0;
@@ -131,7 +120,7 @@
   background: light-dark(#ebf0f7, #232323);
 }
 .message-context-menu button:focus-visible {
-  outline: 2px solid light-dark(#b0c1d7, #3f3f3f);
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: -2px;
   background: light-dark(#f3f4f5, #232323);
 }
@@ -139,7 +128,7 @@
   color: light-dark(#888e96, #bfbfbf);
 }
 .message-emoji-picker {
-  border-top: 1px solid light-dark(#f0f1f3, #3f3f3f);
+  border-top: 1px solid var(--surface-line);
   padding-top: 9px;
 }
 .message-emoji-search {
@@ -150,8 +139,8 @@
   padding: 0 9px;
   height: 35px;
   background: light-dark(#f3f6f9, #222222);
-  border: 1px solid light-dark(#eeeeee, #3f3f3f);
-  border-radius: 9px;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-md);
   color: light-dark(#8c929a, #bebebe);
 }
 .message-emoji-search input {
@@ -163,7 +152,7 @@
   outline: none !important;
   box-shadow: none !important;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--text-caption);
   color: light-dark(#34383e, #dedede);
 }
 .message-emoji-search input::placeholder {
@@ -178,14 +167,14 @@
 .message-emoji-categories button {
   height: 33px;
   min-width: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 0;
   font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;
   font-size: 19px;
   color: light-dark(#737b84, #c6c6c6);
 }
 .message-emoji-label {
-  font-size: 11px;
+  font-size: var(--text-micro);
   color: light-dark(#9298a0, #bbbbbb);
   padding: 9px 8px 4px;
 }
@@ -212,7 +201,7 @@
   justify-content: center;
 }
 .message-emoji-empty {
-  font-size: 12px;
+  font-size: var(--text-caption);
   color: light-dark(#989da5, #b9b9b9);
 }
 .message-menu-separator {
@@ -227,9 +216,9 @@
   width: 100%;
   padding: 11px 12px;
   min-height: 41px;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   text-align: left;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 @media (max-height: 420px) {
   .message-emoji-quick button,

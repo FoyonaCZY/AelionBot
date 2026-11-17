@@ -3,7 +3,6 @@
    this file, so a page rule that must win uses one more class. */
 .modal-backdrop.settings-backdrop {
   padding: 28px;
-  background: light-dark(#141d283d, #00000080);
 }
 .modal.settings-modal {
   --settings-frame: var(--surface-float);
@@ -21,9 +20,9 @@
   --settings-accent-fill: light-dark(#7d7d7d, #a4a4a4);
   --settings-accent-ink: light-dark(#fff, #232323);
   --settings-accent-soft: light-dark(#e9eff7, #3d3d3d);
-  --settings-radius: 14px;
-  --settings-control-radius: 9px;
-  --settings-control-height: 36px;
+  --settings-radius: var(--radius-lg);
+  --settings-control-radius: var(--radius-md);
+  --settings-control-height: var(--size-lg);
   --settings-muted: var(--text-muted);
   position: relative;
   display: grid;
@@ -34,11 +33,9 @@
   padding: 0;
   overflow: hidden;
   border: 0;
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--settings-canvas);
-  box-shadow:
-    0 0 0 1px light-dark(#141d2814, #ffffff14),
-    0 30px 90px -24px #141d2866;
+  box-shadow: var(--elev-3);
   color: var(--text-ink);
 }
 
@@ -60,10 +57,10 @@
   gap: 8px;
   min-width: 0;
   padding: 6px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   text-align: left;
   color: var(--text-ink);
-  transition: background 0.15s;
+  transition: background var(--motion-fast);
 }
 .settings-me:hover {
   background: var(--settings-hover);
@@ -83,7 +80,7 @@
   text-overflow: ellipsis;
 }
 .settings-me-copy strong {
-  font-size: calc(14px * var(--appearance-text-scale, 1));
+  font-size: var(--text-control);
   font-weight: var(--weight-label);
   line-height: 1.45;
 }
@@ -109,12 +106,12 @@
   gap: 8px;
   min-height: 34px;
   padding: 6px 10px;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   text-align: left;
   color: var(--text-secondary);
-  font-size: calc(14px * var(--appearance-text-scale, 1));
+  font-size: var(--text-control);
   font-weight: var(--weight-body);
-  transition: background 0.15s;
+  transition: background var(--motion-fast);
 }
 .settings-nav-item > svg {
   width: 16px;
@@ -156,7 +153,7 @@
 }
 .settings-modal .settings-heading h2 {
   margin: 0;
-  font-size: calc(17px * var(--appearance-text-scale, 1));
+  font-size: var(--text-heading);
   font-weight: var(--weight-label);
   line-height: 1.4;
 }
@@ -202,7 +199,7 @@
 }
 .settings-modal .settings-section-heading > h3 {
   margin: 0;
-  font-size: calc(14px * var(--appearance-text-scale, 1));
+  font-size: var(--text-control);
   font-weight: var(--weight-label);
   line-height: 1.5;
   color: var(--text-secondary);
@@ -232,7 +229,7 @@
   min-height: 56px;
   margin: 0;
   padding: 10px 0;
-  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 .settings-modal .settings-row + .settings-row,
 .settings-modal .settings-card > * + .settings-switch-row,
@@ -256,7 +253,7 @@
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.5;
 }
 .settings-row-copy > small {
@@ -278,12 +275,12 @@
   border-radius: var(--settings-control-radius);
   background: var(--settings-field);
   color: var(--text-ink);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.5;
   transition:
-    border-color 0.15s,
-    background 0.15s,
-    box-shadow 0.15s;
+    border-color var(--motion-fast),
+    background var(--motion-fast),
+    box-shadow var(--motion-fast);
 }
 .settings-modal textarea.settings-field {
   height: auto;
@@ -298,7 +295,7 @@
   min-height: var(--settings-control-height);
   border-color: transparent;
   background-color: var(--settings-field);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-body);
 }
 .settings-modal .aelion-select > button {
@@ -317,7 +314,7 @@
   outline: none;
   border-color: light-dark(#8ba8cf, #999999);
   background-color: var(--settings-card);
-  box-shadow: 0 0 0 3px var(--settings-accent-soft);
+  box-shadow: var(--ctl-focus);
 }
 .settings-modal :is(input, textarea)::placeholder {
   color: var(--text-muted);
@@ -327,7 +324,7 @@
 }
 .settings-modal button:focus-visible,
 .settings-modal summary:focus-visible {
-  outline: 2px solid light-dark(#bababa, #737373);
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 2px;
 }
 .settings-modal .settings-number input {
@@ -348,7 +345,7 @@
 .settings-modal .settings-path-field input {
   flex: 1;
   font-family: var(--font-code);
-  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 
 /* ---------- Buttons ---------- */
@@ -361,13 +358,13 @@
   min-height: 36px;
   padding: 7px 14px;
   border-radius: var(--settings-control-radius);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.5;
   white-space: nowrap;
   transition:
-    background 0.15s,
-    border-color 0.15s,
-    opacity 0.15s;
+    background var(--motion-fast),
+    border-color var(--motion-fast),
+    opacity var(--motion-fast);
 }
 .settings-modal .primary-button {
   border: 1px solid transparent;
@@ -393,9 +390,9 @@
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--settings-accent);
-  font-size: calc(12.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.5;
   white-space: nowrap;
 }
@@ -422,10 +419,10 @@
   height: 22px;
   padding: 3px;
   border: 0;
-  border-radius: 11px;
+  border-radius: var(--radius-md);
   background: light-dark(#dcdcdc, #494949);
   cursor: pointer;
-  transition: background 0.18s;
+  transition: background var(--motion-fast);
 }
 .settings-modal :is(.learning-switch > i, .runtime-switch > span, .vm-storage-switch > i) {
   display: block;
@@ -434,7 +431,7 @@
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 3px #141d2833;
-  transition: transform 0.18s;
+  transition: transform var(--motion-menu);
 }
 .settings-modal :is(.learning-switch.enabled, :is(.runtime-switch, .vm-storage-switch)[aria-checked='true']) {
   background: var(--settings-accent-fill);
@@ -454,7 +451,7 @@
   gap: 2px;
   width: fit-content;
   padding: 3px;
-  border-radius: 11px;
+  border-radius: var(--radius-md);
   background: light-dark(#eaeaea, #2c2c2c);
 }
 .settings-modal :is(.design-tabs, .model-settings-navigation) > button {
@@ -465,15 +462,15 @@
   min-height: 30px;
   padding: 0 14px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-label);
   cursor: pointer;
   transition:
-    background 0.15s,
-    color 0.15s;
+    background var(--motion-fast),
+    color var(--motion-fast);
 }
 .settings-modal :is(.design-tabs, .model-settings-navigation) > button:hover {
   color: var(--text-ink);
@@ -493,7 +490,7 @@
   background: var(--settings-card);
   box-shadow: 0 0 0 1px var(--settings-ring);
   color: var(--text-secondary);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 .settings-modal .settings-empty-state {
   display: flex;
@@ -509,12 +506,12 @@
   width: 44px;
   height: 44px;
   margin-bottom: 12px;
-  border-radius: 13px;
-  background: var(--settings-accent-soft, light-dark(#e9eff7, #3d3d3d));
-  color: var(--settings-accent, light-dark(#7d7d7d, #a8bdd8));
+  border-radius: var(--radius-md);
+  background: var(--ctl-fill);
+  color: var(--text-secondary);
 }
 .settings-empty-state strong {
-  font-size: calc(14px * var(--appearance-text-scale, 1));
+  font-size: var(--text-control);
   font-weight: var(--weight-label);
   color: var(--text-ink);
 }
@@ -535,8 +532,8 @@
 .settings-modal .computer-notice {
   margin: 14px 0 0;
   padding: 11px 14px;
-  border-radius: 10px;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  border-radius: var(--radius-md);
+  font-size: var(--text-small);
   line-height: 1.7;
   overflow-wrap: anywhere;
 }
@@ -548,7 +545,7 @@
 /* ---------- Profile: one card that reads like the profile it edits ---------- */
 .profile-card {
   overflow: hidden;
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   background: var(--settings-card);
   box-shadow:
     0 0 0 1px var(--settings-ring),
@@ -574,22 +571,22 @@
   margin: 0 0 0 -9px;
   padding: 3px 9px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-ink);
   transition:
-    background 0.15s,
-    border-color 0.15s;
+    background var(--motion-fast),
+    border-color var(--motion-fast);
 }
 .settings-modal .profile-identity .profile-name {
   height: 40px;
-  font-size: calc(21px * var(--appearance-text-scale, 1));
+  font-size: var(--text-title);
   font-weight: var(--weight-heading);
   letter-spacing: -0.01em;
 }
 .settings-modal .profile-identity .profile-role {
   height: 32px;
-  font-size: calc(14px * var(--appearance-text-scale, 1));
+  font-size: var(--text-control);
   color: var(--text-secondary);
 }
 .settings-modal .profile-identity input:not(:disabled):hover {
@@ -599,7 +596,7 @@
   outline: none;
   background: var(--settings-card);
   border-color: light-dark(#8ba8cf, #999999);
-  box-shadow: 0 0 0 3px var(--settings-accent-soft);
+  box-shadow: var(--ctl-focus);
 }
 .profile-background {
   display: flex;
@@ -609,7 +606,7 @@
   border-top: 1px solid var(--settings-line);
 }
 .profile-background > span {
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-label);
   color: var(--text-secondary);
 }
@@ -637,7 +634,7 @@
 .memory-list > li {
   position: relative;
   padding: 13px 0 13px 18px;
-  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.75;
   overflow-wrap: anywhere;
 }
@@ -677,7 +674,7 @@
   width: fit-content;
   max-width: 100%;
   padding: 5px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--settings-field);
   color: var(--text-ink);
   font: var(--weight-body) calc(12.5px * var(--appearance-text-scale, 1)) / 1.65 var(--font-code);
@@ -695,7 +692,7 @@
 }
 .settings-modal .command-rule-kind {
   padding: 1px 7px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: light-dark(#2a2a2a0d, #ffffff14);
   color: var(--text-secondary);
   line-height: 1.6;
@@ -744,7 +741,7 @@
   align-items: center;
   margin: 0 0 26px;
   padding: 30px 24px 22px;
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   background: var(--settings-card);
   box-shadow:
     0 0 0 1px var(--settings-ring),
@@ -753,7 +750,7 @@
 }
 .settings-modal .about-app .brand {
   margin-top: 14px;
-  font-size: calc(24px * var(--appearance-text-scale, 1));
+  font-size: var(--text-title);
   font-weight: var(--weight-heading);
   letter-spacing: -0.02em;
   line-height: 1.25;
@@ -764,7 +761,7 @@
 .settings-modal .about-version {
   margin: 6px 0 0;
   padding: 1px 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: light-dark(#2a2a2a0d, #ffffff14);
   color: var(--text-secondary);
   font-size: var(--text-caption);
@@ -782,7 +779,7 @@
 /* ---------- Computer: the machine first, then its storage, upkeep and your own folder ---------- */
 .computer-hero {
   margin: 0 0 26px;
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   background: var(--settings-card);
   box-shadow:
     0 0 0 1px var(--settings-ring),
@@ -800,7 +797,7 @@
   flex-shrink: 0;
   width: 52px;
   height: 52px;
-  border-radius: 15px;
+  border-radius: var(--radius-lg);
   background: #727fc1;
   color: #fff;
 }
@@ -812,7 +809,7 @@
   min-width: 0;
 }
 .computer-hero-copy > strong {
-  font-size: calc(17px * var(--appearance-text-scale, 1));
+  font-size: var(--text-heading);
   font-weight: var(--weight-heading);
   line-height: 1.35;
 }
@@ -820,7 +817,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   color: var(--text-secondary);
 }
 .computer-state::before {
@@ -876,7 +873,7 @@
   margin: 3px 0 0;
   color: var(--text-ink);
   text-align: left;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -891,12 +888,12 @@
   width: 100%;
   min-height: 46px;
   padding: 9px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   text-align: left;
   color: var(--text-ink);
-  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-body);
-  transition: background 0.15s;
+  transition: background var(--motion-fast);
 }
 .settings-modal .settings-action-list > button:not(:disabled):hover {
   background: var(--settings-hover);
@@ -922,12 +919,12 @@
   width: 38px;
   height: 22px;
   margin: 0;
-  border-radius: 11px;
+  border-radius: var(--radius-md);
   background: light-dark(#dcdcdc, #494949);
   cursor: pointer;
   appearance: none;
   justify-self: end;
-  transition: background 0.18s;
+  transition: background var(--motion-fast);
 }
 .settings-modal .settings-row.provider-hosted-row input[type='checkbox']::before {
   content: '';
@@ -939,7 +936,7 @@
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 3px #141d2833;
-  transition: transform 0.18s;
+  transition: transform var(--motion-menu);
 }
 .settings-modal .settings-row.provider-hosted-row input[type='checkbox']:checked {
   background: var(--settings-accent-fill);
@@ -948,7 +945,7 @@
   transform: translateX(16px);
 }
 .settings-modal .settings-row.provider-hosted-row input[type='checkbox']:focus-visible {
-  outline: 2px solid light-dark(#bababa, #737373);
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 2px;
 }
 .settings-modal .settings-row.provider-hosted-row input[type='checkbox']:disabled {

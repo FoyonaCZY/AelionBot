@@ -3,20 +3,20 @@
   box-sizing: border-box;
   min-width: 0;
   width: 100%;
-  min-height: 38px;
+  min-height: var(--size-lg);
   margin: 0;
-  padding: 8px 34px 8px 12px;
-  border: 1px solid light-dark(#e2e2e2, #3f3f3f);
-  border-radius: 9px;
+  padding: 6px 34px 6px 12px;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-md);
   background: light-dark(#fff, #212121);
   color: light-dark(#3d3d3d, #dcdcdc);
   font: var(--weight-body) calc(13px * var(--appearance-text-scale, 1))/1.5 var(--font-ui);
   text-align: left;
   outline: none;
   transition:
-    border-color 0.15s,
-    background 0.15s,
-    box-shadow 0.15s;
+    border-color var(--motion-fast),
+    background var(--motion-fast),
+    box-shadow var(--motion-fast);
 }
 .aelion-select {
   appearance: none;
@@ -36,7 +36,7 @@
 .aelion-select:open,
 .aelion-combobox .aelion-combobox-input:focus-visible {
   border-color: light-dark(#8ba8cf, #3f3f3f);
-  box-shadow: 0 0 0 3px #6ea2e712;
+  box-shadow: var(--ctl-focus);
   outline: none;
 }
 .aelion-select:disabled,
@@ -95,7 +95,7 @@
     background: light-dark(#909090, #393939);
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m7 10 5 5 5-5' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
       center/contain no-repeat;
-    transition: transform 0.15s;
+    transition: transform var(--motion-fast);
   }
   .aelion-select:open::picker-icon {
     transform: rotate(180deg);
@@ -107,11 +107,11 @@
     max-height: min(320px, 65vh);
     margin: 5px 0;
     padding: 5px;
-    border: 1px solid light-dark(#e5e5e5, #3f3f3f);
-    border-radius: 11px;
+    border: 1px solid var(--surface-line);
+    border-radius: var(--radius-md);
     background: light-dark(#fff, #212121);
     color: light-dark(#3d3d3d, #dcdcdc);
-    box-shadow: 0 8px 28px #28282814;
+    box-shadow: var(--elev-2);
     overflow: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
@@ -125,7 +125,7 @@
     min-height: 34px;
     padding: 8px 10px;
     border: 0;
-    border-radius: 6px;
+    border-radius: var(--radius-xs);
     white-space: normal;
     overflow-wrap: anywhere;
     cursor: pointer;
@@ -194,11 +194,11 @@
   margin: 0;
   max-height: 272px;
   padding: 5px;
-  border: 1px solid light-dark(#e5e5e5, #3f3f3f);
-  border-radius: 11px;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-md);
   background: light-dark(#fff, #212121);
   color: light-dark(#3d3d3d, #dcdcdc);
-  box-shadow: 0 8px 28px #28282814;
+  box-shadow: var(--elev-2);
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -214,7 +214,7 @@
   gap: 12px;
   min-height: 34px;
   padding: 8px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   white-space: normal;
   overflow-wrap: anywhere;
   cursor: pointer;
@@ -241,7 +241,7 @@
 .aelion-combobox-empty {
   display: block;
   padding: 10px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#858585, #c3c3c3);
 }
 @media (prefers-reduced-motion: reduce) {

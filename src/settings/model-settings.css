@@ -8,8 +8,8 @@
   gap: 16px;
   padding: 18px 20px;
   background: light-dark(#f0f0f0, #232323);
-  border-radius: 18px;
-  font-size: calc(14px * var(--appearance-text-scale, 1));
+  border-radius: var(--radius-lg);
+  font-size: var(--text-control);
   color: light-dark(#333, #e0e0e0);
 }
 .model-default-row + .settings-card {
@@ -36,7 +36,7 @@
   margin-bottom: 7px;
 }
 .bot-soul-header label {
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#8a8d90, #c0c0c0);
 }
 .modal .bot-soul-field textarea {
@@ -44,7 +44,7 @@
   min-height: 180px;
   max-height: 55vh;
   font-family: var(--font-code);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   line-height: 1.65;
   tab-size: 2;
 }
@@ -53,7 +53,7 @@
   justify-content: space-between;
   gap: 12px;
   margin-top: 6px;
-  font-size: calc(11px * var(--appearance-text-scale, 1));
+  font-size: var(--text-micro);
   color: light-dark(#8a8d90, #c0c0c0);
   font-variant-numeric: tabular-nums;
 }
@@ -65,7 +65,7 @@
   margin: 12px 0 0;
 }
 .bot-soul-field .presets-label {
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#8a8d90, #c0c0c0);
   margin-right: 2px;
 }
@@ -75,22 +75,22 @@
   background: light-dark(#f2f5f7, #2c2c2c);
 }
 .bot-profile-model h3 {
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-weight: var(--weight-body);
   color: light-dark(#8a8d90, #c0c0c0);
   margin: 0 0 9px;
 }
 .bot-profile-modal .settings-note {
   margin: 0 0 10px;
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   line-height: 1.55;
   color: light-dark(#8a8d90, #c0c0c0);
 }
 .bot-profile-modal .model-default-row {
   padding: 15px 16px;
   min-height: 54px;
-  border-radius: 12px;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  border-radius: var(--radius-md);
+  font-size: var(--text-small);
 }
 .bot-profile-modal .model-default-row > span {
   min-width: 0;
@@ -98,7 +98,7 @@
 }
 .bot-profile-modal .settings-card {
   padding: 0 16px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: light-dark(#f0f0f0, #232323);
 }
 .bot-profile-modal .settings-row {
@@ -109,11 +109,11 @@
   padding: 12px 0;
   margin: 0;
   min-height: 60px;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   color: light-dark(#333, #e0e0e0);
 }
 .bot-profile-modal .settings-row + .settings-row {
-  border-top: 1px solid light-dark(#d9d9d9, #3f3f3f);
+  border-top: 1px solid var(--surface-line);
 }
 .bot-profile-modal .settings-row input {
   margin: 0;
@@ -124,7 +124,7 @@
 .bot-profile-modal .learning-switch {
   width: 41px;
   height: 24px;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: light-dark(#d5d5d5, #282828);
   padding: 3px;
 }
@@ -140,7 +140,7 @@
 }
 .bot-profile-modal input:focus-visible,
 .bot-profile-modal textarea:focus-visible {
-  outline: 2px solid light-dark(#838383, #3f3f3f);
+  outline: 2px solid var(--ctl-accent-ring);
   outline-offset: 2px;
 }
 .provider-heading {
@@ -176,23 +176,23 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  font-size: calc(15px * var(--appearance-text-scale, 1));
+  font-size: var(--text-control);
   font-weight: var(--weight-label);
 }
 .provider-protocol {
   display: inline-flex;
   align-items: center;
   padding: 2px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: light-dark(#2a2a2a12, #ffffff17);
   color: var(--text-secondary);
-  font-size: calc(11px * var(--appearance-text-scale, 1));
+  font-size: var(--text-micro);
   font-weight: var(--weight-body);
 }
 .provider-card-kicker {
   margin: 12px 0 0;
   color: light-dark(#777, #c8c8c8);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
 }
 .provider-tools-card {
   margin-top: 12px;
@@ -203,7 +203,7 @@
 .provider-advanced > summary {
   cursor: pointer;
   color: light-dark(#777, #c8c8c8);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 .provider-advanced .settings-card {
   margin-top: 10px;
@@ -220,7 +220,7 @@
   cursor: pointer;
   padding: 12px 2px;
   font-weight: var(--weight-label);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 .provider-model-id {
   flex: 1;
@@ -232,11 +232,11 @@
 .provider-model-meta {
   flex-shrink: 0;
   color: light-dark(#888, #c1c1c1);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   font-weight: var(--weight-body);
 }
 .provider-info span {
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   color: light-dark(#888, #c1c1c1);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -244,23 +244,23 @@
 }
 .provider-model-count {
   color: light-dark(#888, #c1c1c1);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   white-space: nowrap;
 }
 .provider-row .text-button {
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   padding: 5px 0;
 }
 .provider-empty {
   padding: 22px 0;
   color: light-dark(#999, #bbbbbb);
-  font-size: calc(14px * var(--appearance-text-scale, 1));
+  font-size: var(--text-control);
 }
 .provider-editor {
   margin-top: 24px;
 }
 .provider-editor h4 {
-  font-size: calc(14px * var(--appearance-text-scale, 1));
+  font-size: var(--text-control);
   font-weight: var(--weight-body);
   color: light-dark(#777, #c8c8c8);
   margin: 0 10px 12px;
@@ -268,7 +268,7 @@
 .provider-error {
   margin: 10px 10px 0;
   color: light-dark(#a64242, #e3b1b1);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
@@ -276,7 +276,7 @@
   margin: 0 0 4px;
   padding: 8px 0 12px;
   color: light-dark(#777, #c8c8c8);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   line-height: 1.5;
 }
 .provider-model-catalog {
@@ -285,7 +285,7 @@
 .provider-model-hint {
   margin: 0 10px 12px;
   color: light-dark(#777, #c8c8c8);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.55;
 }
 .settings-section > .provider-model-hint {
@@ -293,7 +293,7 @@
 }
 .provider-model-card {
   margin: 0 0 8px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--settings-fill, light-dark(#f7f7f7, #222222));
   padding: 0 14px 10px;
 }
@@ -313,7 +313,7 @@
   gap: 8px;
   margin: 8px 0 0;
   color: inherit;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   line-height: 1.45;
 }
 .provider-hosted-flag input {
@@ -337,7 +337,7 @@
   gap: 7px;
   margin: 14px 10px 0;
   color: light-dark(#777, #c8c8c8);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 .settings-modal .provider-clear-key input {
   width: auto;
@@ -363,14 +363,14 @@
   margin: 0;
   padding: 2px 0 8px;
   color: light-dark(#777, #c8c8c8);
-  font-size: calc(12px * var(--appearance-text-scale, 1));
+  font-size: var(--text-caption);
   line-height: 1.5;
 }
 .provider-image-capabilities {
   margin: 0;
   padding: 0 0 10px;
   color: light-dark(#8d8d8d, #aaaaaa);
-  font-size: calc(11px * var(--appearance-text-scale, 1));
+  font-size: var(--text-micro);
 }
 .image-model-test {
   display: flex;
@@ -415,10 +415,10 @@
 .model-count-badge {
   min-width: 20px;
   padding: 1px 5px;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: light-dark(#2a2a2a14, #484848);
   color: var(--model-muted);
-  font-size: 11px;
+  font-size: var(--text-micro);
   font-weight: var(--weight-body);
   line-height: 17px;
   font-variant-numeric: tabular-nums;
@@ -458,13 +458,13 @@
   place-items: center;
   width: 28px;
   height: 28px;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--settings-accent-soft);
   color: var(--settings-accent);
 }
 .model-assignment-panel h3 {
   margin: 0;
-  font-size: calc(14px * var(--appearance-text-scale, 1));
+  font-size: var(--text-control);
   font-weight: var(--weight-label);
 }
 .model-assignment-panel .model-assignment {
@@ -500,7 +500,7 @@
   border: 0;
   border-radius: 0;
   background: none;
-  font-size: calc(13.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 .model-assignment-panel .model-default-row + .settings-card {
   margin-top: 0;
@@ -571,7 +571,7 @@
 .provider-browser-heading .icon-button {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
 }
 .provider-browser-heading .icon-button:hover {
@@ -592,10 +592,10 @@
   min-width: 0;
   margin: 2px 0;
   padding: 8px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   text-align: left;
   color: var(--model-ink);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 .provider-browser-item:hover {
   background: var(--settings-hover);
@@ -624,7 +624,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-label);
 }
 .provider-browser-meta {
@@ -632,7 +632,7 @@
   justify-content: space-between;
   gap: 8px;
   color: var(--text-muted);
-  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-micro);
   font-variant-numeric: tabular-nums;
 }
 /* A provider being added has no emblem yet: a plus where its emblem will be. */
@@ -687,18 +687,18 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: calc(17px * var(--appearance-text-scale, 1));
+  font-size: var(--text-heading);
   font-weight: var(--weight-heading);
 }
 .provider-editor-heading .provider-protocol {
   flex-shrink: 0;
-  font-size: calc(11px * var(--appearance-text-scale, 1));
+  font-size: var(--text-micro);
 }
 .provider-delete {
   flex-shrink: 0;
   width: 30px;
   height: 30px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--text-muted);
 }
 .provider-delete:hover:not(:disabled) {
@@ -720,7 +720,7 @@
   padding: 9px 8px 11px;
   border-radius: 8px 8px 0 0;
   color: var(--text-secondary);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   white-space: nowrap;
 }
 .provider-editor-tabs > button:not(:disabled):hover {
@@ -743,7 +743,7 @@
 .provider-editor-tabs > button > span {
   min-width: 17px;
   padding: 0 5px;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: light-dark(#2a2a2a14, #484848);
   color: var(--text-muted);
   font-size: 10.5px;
@@ -870,8 +870,8 @@
   background: var(--ctl-fill);
   color: var(--text-muted);
   transition:
-    background 0.15s,
-    box-shadow 0.15s;
+    background var(--motion-fast),
+    box-shadow var(--motion-fast);
 }
 .provider-model-search:hover {
   background: var(--ctl-fill-hover);
@@ -890,7 +890,7 @@
   border-radius: 0;
   background: none;
   color: var(--model-ink);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 .settings-modal .provider-model-search input:focus-visible {
   outline: none;
@@ -915,7 +915,7 @@
   border-radius: var(--ctl-radius);
   background: var(--ctl-fill);
   color: var(--model-ink);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
 }
 .settings-modal .provider-catalog-panel .provider-model-add input:focus-visible {
   outline: none;
@@ -940,7 +940,7 @@
   min-height: 44px;
   gap: 8px;
   padding: 10px 0;
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   font-weight: var(--weight-body);
 }
 .provider-catalog-panel .provider-model-card > summary:hover {
@@ -949,7 +949,7 @@
 .provider-model-card > summary > svg {
   flex-shrink: 0;
   color: var(--text-muted);
-  transition: transform 0.15s;
+  transition: transform var(--motion-fast);
 }
 .provider-model-card[open] > summary > svg {
   transform: rotate(90deg);
@@ -978,14 +978,14 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   color: var(--text-muted);
-  font-size: calc(11.5px * var(--appearance-text-scale, 1));
+  font-size: var(--text-micro);
   font-variant-numeric: tabular-nums;
 }
 .provider-empty {
   margin: 0;
   padding: 26px 0;
   color: var(--text-muted);
-  font-size: calc(13px * var(--appearance-text-scale, 1));
+  font-size: var(--text-small);
   text-align: center;
 }
 @media (max-width: 1000px) {
