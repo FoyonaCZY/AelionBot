@@ -1477,9 +1477,7 @@ export class Harness {
           const files = generated.map((bytes, index) =>
             this.attachments.importForBot(botId, `generated-${index + 1}.png`, bytes),
           );
-          run.attachments = this.attachments.forBot(botId, [
-            ...new Set([...(run.attachments || []), ...files].map((file) => file.id)),
-          ]);
+          run.attachments = this.attachments.forReply(botId, run.attachments, files).attachments;
           if (files[0].image) visible.screenshotId = files[0].image.id;
         }
         run.modelCalls++;

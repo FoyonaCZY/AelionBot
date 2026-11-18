@@ -177,6 +177,26 @@ export class Attachments {
       }),
     );
   }
+  /**
+   * What a Bot's reply carries once `files` join `current`: as many as one message holds (ATTACHMENT_LIMITS), in
+   * order. Files past that are `left` out of the reply but stay the Bot's, readable and savable by attachment ID, so
+   * making more files than one message holds never fails the work that made them.
+   */
+  forReply(botId: string, current: readonly Attachment[] | undefined, files: readonly Attachment[]) {
+    const ids = new Set((current || []).map((file) => file.id)),
+      left = new Map<string, Attachment>();
+    let bytes = (current || []).reduce((total, file) => total + file.size, 0);
+    for (const file of files) {
+      if (ids.has(file.id)) continue;
+      if (ids.size >= ATTACHMENT_LIMITS.count || bytes + file.size > ATTACHMENT_LIMITS.totalBytes) {
+        left.set(file.id, file);
+        continue;
+      }
+      ids.add(file.id);
+      bytes += file.size;
+    }
+    return { attachments: this.forBot(botId, [...ids]), left: [...left.values()] };
+  }
   discardUnsentDraft(scope: AttachmentScope, id: string) {
     const file = this.file(id);
     if (file.ownerBotId || file.draftScope?.kind !== scope.kind || file.draftScope.id !== scope.id)

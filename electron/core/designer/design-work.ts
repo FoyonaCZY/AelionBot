@@ -864,9 +864,8 @@ export class DesignWork {
     );
     const fresh = files.filter((file) => !delivered.has(file.id));
     if (fresh.length) {
-      run.attachments = this.attachments.forBot(botId, [
-        ...new Set([...(run.attachments || []), ...fresh].map((file) => file.id)),
-      ]);
+      // What does not fit in the reply still shows on the delivery card.
+      run.attachments = this.attachments.forReply(botId, run.attachments, fresh).attachments;
       this.store.touch(run);
     }
     await this.artifacts.collect(botId, run.id);

@@ -18,6 +18,12 @@ import {
 } from '../electron/core/image/image-errors';
 import { aspectDimensions, defaultImageProtocol, migrateImageRoute } from '../shared/types/image-types';
 import { ModelClient } from '../electron/core/model/model';
+import { Attachments } from '../electron/core/attachments/attachments';
+import { Harness } from '../electron/core/agent/harness';
+import { Store } from '../electron/core/storage/store';
+import type { VmController } from '../electron/core/vm/vm';
+import { ATTACHMENT_LIMITS } from '../shared/types/attachment-types';
+import { tempDir, until } from './helpers';
 
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -424,4 +430,82 @@ test('the settings connection test reports the protocol it actually proved', asy
   assert.equal(probe.protocol, 'sd-webui');
   assert.equal(probe.mediaType, 'image/png');
   assert.equal(probe.bytes, png.length);
+});
+
+test('a Bot can make more images than one reply holds: the reply carries what fits, the rest are kept for the Bot', async (t) => {
+  let served = 0;
+  const baseUrl = await listen(
+    (req, res) => {
+      served++;
+      req.resume();
+      req.on('end', () => {
+        res.setHeader('content-type', 'application/json');
+        res.end(JSON.stringify({ data: [{ b64_json: png.toString('base64') }] }));
+      });
+    },
+    (fn) => t.after(fn),
+  );
+  const store = new Store(tempDir(t, 'aelion-image-tool-'));
+  t.after(() => store.close());
+  const bot = store.data.bots[0],
+    images = ATTACHMENT_LIMITS.count + 2,
+    outputs: string[] = [];
+  let turn = 0;
+  const model = {
+    complete: async (messages: Array<{ role: string; content?: string }>) => {
+      const last = messages.at(-1)!;
+      if (last.role === 'tool') outputs.push(last.content || '');
+      if (turn++ === images) return { content: '画好了', finishReason: 'stop', calls: [] };
+      const args = { prompt: 'a red square', filename: `square-${turn}` };
+      return {
+        content: '',
+        finishReason: 'tool_calls',
+        calls: [
+          {
+            id: `image-${turn}`,
+            type: 'function',
+            function: { name: 'generate_image', arguments: JSON.stringify(args) },
+          },
+        ],
+      };
+    },
+  } as unknown as ModelClient;
+  const harness = new Harness(store, {} as VmController, model, () => {});
+  harness.setImageModel(() => ({
+    config: {
+      baseUrl,
+      model: 'flux',
+      protocol: 'chat',
+      imageProtocol: 'openai-images',
+      contextTokens: 8000,
+      hasKey: true,
+    },
+    key: '',
+  }));
+  await harness.run(bot.id, `画 ${images} 张图`);
+  await until(() => store.data.runs[0]?.status === 'completed');
+
+  assert.equal(served, images);
+  assert.equal(outputs.length, images);
+  outputs.forEach((output, index) => {
+    assert.match(output, /attachmentId/);
+    if (index < ATTACHMENT_LIMITS.count) assert.doesNotMatch(output, /附件已满/);
+    else assert.match(output, /附件已满/);
+  });
+  const reply = store.data.messages.find((message) => message.role === 'assistant' && message.attachments?.length);
+  assert.deepEqual(
+    reply?.attachments?.map((file) => file.name),
+    Array.from({ length: ATTACHMENT_LIMITS.count }, (_, index) => `square-${index + 1}.png`),
+  );
+  const kept = store.data.attachments.filter((file) => file.ownerBotId === bot.id && file.name.startsWith('square-'));
+  assert.equal(kept.length, images);
+
+  const attachments = new Attachments(store),
+    [first] = attachments.forBot(bot.id, [kept[0].id]),
+    again = attachments.forReply(bot.id, [first], [first, first]);
+  assert.deepEqual(
+    again.attachments.map((file) => file.id),
+    [first.id],
+  );
+  assert.equal(again.left.length, 0);
 });
