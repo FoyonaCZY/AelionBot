@@ -195,6 +195,8 @@ export interface ChatMessage {
   inputState?: 'queued' | 'handled' | 'cancelled' | 'interrupted';
   pins?: MessagePin[];
   reaction?: PinEvent;
+  /** The user marked it to find again on the conversation rail; the Bot is not told. */
+  marked?: boolean;
   id: string;
   botId: string;
   role: 'user' | 'assistant' | 'tool' | 'event';
@@ -695,6 +697,8 @@ export interface AelionAPI {
     attachmentIds?: string[];
   }): Promise<void>;
   pinChat(input: PinInput & { botId: string }): Promise<void>;
+  /** Marks one of a Bot's chat messages to find again, or takes the mark off. */
+  markMessage(input: { botId: string; messageId: string; marked: boolean }): Promise<void>;
   pinGroup(
     input: PinInput & { groupId: string },
   ): Promise<{ pinned: boolean; messageId: string; alreadyApplied?: boolean; eventId?: string }>;

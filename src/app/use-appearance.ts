@@ -15,6 +15,7 @@ function applyAppearance(value: AppearanceSettings) {
   root.dataset.theme = theme;
   root.dataset.canvas = value.canvas;
   root.dataset.reasoning = value.reasoning;
+  root.dataset.conversationRail = value.conversationRail;
   root.style.colorScheme = theme;
   window.dispatchEvent(new Event('aelion-appearance-change'));
 }

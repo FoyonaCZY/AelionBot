@@ -77,7 +77,11 @@ await build({
       icon: 'assets/icon.png',
       artifactName: 'AelionBot-${version}-mac-${arch}.${ext}',
       minimumSystemVersion: '15.0',
-      extendInfo: { NSMicrophoneUsageDescription: 'AelionBot 用麦克风录下你说的话，转成文字发给 Bot。' },
+      extendInfo: {
+        NSMicrophoneUsageDescription: 'AelionBot 用麦克风录下你说的话，转成文字发给 Bot。',
+        NSAudioCaptureUsageDescription:
+          '开启“对话导航条跟随系统音频”后，AelionBot 读取系统正在播放的音量，让导航条随之起伏，不录制也不保存。',
+      },
       identity: signed ? undefined : '-',
       hardenedRuntime: true,
       entitlements: signingEntitlements,

@@ -1,5 +1,7 @@
 export type ThemePreference = 'system' | 'light' | 'dark';
 export type ReasoningDisplay = 'collapsed' | 'expanded' | 'hidden';
+/** The rail of turns beside a Bot's chat: moving with the computer's sound, still, or not shown. */
+export type ConversationRailDisplay = 'audio' | 'static' | 'hidden';
 /** The ground the conversation sits on in the light theme; the dark theme has one of its own. Colors: theme.css. */
 export const CANVAS_TONES = ['neutral', 'lilac', 'cool', 'warm', 'deep', 'wash', 'white'] as const;
 export type CanvasTone = (typeof CANVAS_TONES)[number];
@@ -17,6 +19,7 @@ export interface AppearanceSettings {
   lineHeight: number;
   zoom: number;
   reasoning: ReasoningDisplay;
+  conversationRail: ConversationRailDisplay;
 }
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
   theme: 'system',
@@ -32,6 +35,7 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
   lineHeight: 1.8,
   zoom: 100,
   reasoning: 'collapsed',
+  conversationRail: 'static',
 };
 const family = (value: unknown) =>
   typeof value === 'string' && /^[\p{L}\p{N} ._-]{0,80}$/u.test(value) ? value.trim() : '';
@@ -57,6 +61,7 @@ export function normalizeAppearance(value: unknown): AppearanceSettings {
     lineHeight: Number(number('lineHeight', 1.4, 2.2, 0.1).toFixed(1)),
     zoom: number('zoom', 50, 200),
     reasoning: choice('reasoning', ['collapsed', 'expanded', 'hidden'], 'collapsed'),
+    conversationRail: choice('conversationRail', ['audio', 'static', 'hidden'], 'static'),
   };
 }
 export function appearanceVariables(value: AppearanceSettings) {

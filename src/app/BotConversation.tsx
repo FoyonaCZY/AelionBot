@@ -21,7 +21,9 @@ import { isRunArtifact } from '../../shared/preview/workspace-files';
 import type { PreviewHistoryEntry } from '../../shared/preview/agent-preview-types';
 import { workspaceKey } from '../../shared/types/work-types';
 import { canRegenerate, canRetract } from '../../shared/chat/retract';
+import { conversationTurns } from '../../shared/chat/conversation-turns';
 import { ConversationTimeProvider } from '../chat/ConversationTime';
+import { ConversationRail } from '../chat/ConversationRail';
 import { jumpScopeKey, useMessageJump } from '../chat/message-jump';
 import { showMessageHit } from '../chat/reveal-message';
 import { RunMessage } from '../chat/RunMessage';
@@ -170,6 +172,7 @@ export function BotConversation({
     return undefined;
   }, [timeline]);
   const timelineWindow = useTimelineWindow({ botId: chatKey, timeline, keys, pane: messagesPane, follow });
+  const turns = useMemo(() => conversationTurns(timeline, runsById), [timeline, runsById]);
   // A search result opened this chat at one message. Opening a chat first settles at its end (two frames), and
   // the jump must not be pulled back there.
   useMessageJump(jumpScopeKey({ kind: 'bot', id: bot.id, sessionId }), (messageId) =>
@@ -334,6 +337,15 @@ export function BotConversation({
           </section>
         </PinThreadContext.Provider>
       </ConversationTimeProvider>
+      <ConversationRail
+        key={chatKey}
+        botId={bot.id}
+        botName={bot.name}
+        turns={turns}
+        running={running}
+        pane={messagesPane}
+        follow={follow}
+      />
       <div ref={composerWrap} className={`composer-wrap floating-composer ${waiting ? 'with-request' : ''}`}>
         <ConversationInteractions requests={ownRequests} botId={bot.id} onTakeover={onTakeover} />
         <WorkItemsPanel items={state.workItems} scope={attachmentScope} bots={state.bots} />

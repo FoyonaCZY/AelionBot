@@ -12,6 +12,7 @@ import {
 import { Avatar } from '../ui/Avatar';
 import { SettingsSection } from './SettingsWindow';
 import { languageOptions, useI18n } from '../i18n';
+import { useSystemAudio } from '../chat/system-audio';
 import './appearance-settings.css';
 
 const canvasNames: Record<CanvasTone, string> = {
@@ -72,6 +73,8 @@ export function AppearanceSettings({
   error: string;
 }) {
   const { t, language, setLanguage } = useI18n();
+  // Whether the rail in the conversation behind the settings gets the system's sound.
+  const systemAudio = useSystemAudio(false);
   const number = (
     key: 'textScale' | 'messageSize' | 'codeSize' | 'lineHeight',
     label: string,
@@ -241,6 +244,28 @@ export function AppearanceSettings({
             >
               <option value="collapsed">{t('自动收起')}</option>
               <option value="expanded">{t('始终展开')}</option>
+              <option value="hidden">{t('不显示')}</option>
+            </Select>
+          </Row>
+          <Row
+            title={t('对话导航条')}
+            hint={
+              settings.conversationRail !== 'audio'
+                ? t('每轮对话一条短线，悬停查看摘要，可标记重点')
+                : systemAudio === 'unavailable'
+                  ? t(
+                      '没有取到系统音频。请在“系统设置 > 隐私与安全性 > 录屏与系统录音”中允许 AelionBot；Linux 暂不支持。',
+                    )
+                  : t('macOS 首次使用会请求“系统录音”权限；只读取音量，不录制。')
+            }
+          >
+            <Select
+              aria-label={t('对话导航条')}
+              value={settings.conversationRail}
+              onChange={(e) => change({ conversationRail: e.target.value as Values['conversationRail'] })}
+            >
+              <option value="audio">{t('随系统音频律动')}</option>
+              <option value="static">{t('静态显示')}</option>
               <option value="hidden">{t('不显示')}</option>
             </Select>
           </Row>

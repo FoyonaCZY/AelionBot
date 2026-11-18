@@ -1512,6 +1512,20 @@ export const en: Record<string, string> = {
   自动收起: 'Collapse automatically',
   始终展开: 'Always expanded',
   不显示: 'Hidden',
+  对话导航: 'Conversation navigation',
+  '{name} 说：{text}': '{name}: {text}',
+  '正在回复…': 'Replying…',
+  取消标记: 'Remove mark',
+  标记这轮对话: 'Mark this turn',
+  对话导航条: 'Conversation rail',
+  随系统音频律动: 'Move with system audio',
+  静态显示: 'Static',
+  '每轮对话一条短线，悬停查看摘要，可标记重点':
+    'One line per turn along the left edge. Hover for a summary and mark the ones that matter.',
+  '没有取到系统音频。请在“系统设置 > 隐私与安全性 > 录屏与系统录音”中允许 AelionBot；Linux 暂不支持。':
+    "Couldn't get the system audio. Allow AelionBot in System Settings > Privacy & Security > Screen & System Audio Recording. Linux isn't supported yet.",
+  'macOS 首次使用会请求“系统录音”权限；只读取音量，不录制。':
+    'macOS asks once for System Audio Recording permission. Only sound levels are read; nothing is recorded.',
   '正在导出 {format}…': 'Exporting {format}…',
   '{format} 已导出': '{format} exported',
   导出失败: 'Export failed',

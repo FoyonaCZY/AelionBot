@@ -1,5 +1,6 @@
 import { resumableRun } from '../core/agent/resume-run';
 import { regenerateAnswer, retractInput } from '../core/agent/retract-input';
+import { markMessage } from '../core/agent/message-marks';
 import type { IpcContext } from './context';
 import { AppError } from '../../shared/errors';
 
@@ -37,6 +38,9 @@ export function registerChat(ctx: IpcContext) {
     ctx.changed();
   });
   handle('pinChat', (input) => ctx.chatPins!.pin(input));
+  handle('markMessage', (input) => {
+    if (markMessage(ctx.store, input)) ctx.changed();
+  });
   // Stops the work of the chat it is pressed in: the Bot's main chat (with its group and delegated work), or one
   // work session. The Bot's other chats keep working.
   /** Stops the run in one chat, with the group and delegated work of the main chat's. */

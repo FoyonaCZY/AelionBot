@@ -47,6 +47,7 @@ export const INVOKE_CHANNELS = {
   send: 'chat:send',
   resumeChat: 'chat:resume',
   pinChat: 'chat:pin',
+  markMessage: 'chat:mark',
   cancel: 'chat:cancel',
   retractChat: 'chat:retract',
   regenerateChat: 'chat:regenerate',

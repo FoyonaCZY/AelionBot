@@ -1,0 +1,162 @@
+/* The rail of turns along the conversation's left edge (ConversationRail.tsx). It lies in the gutter beside the message
+   column, between the header and the composer; only the ticks and the card take the pointer, so text beside them
+   stays selectable. The card is drawn like the other popovers over the conversation. */
+.conversation-rail {
+  --rail-step: 10px;
+  --rail-line: light-dark(#d2d2d2, #4c4c50);
+  --rail-line-strong: light-dark(#2a2a2a, #e3e3e3);
+  position: absolute;
+  z-index: 4;
+  top: 72px;
+  bottom: calc(var(--composer-inset, 120px) + 12px);
+  left: 0;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+.conversation-rail-ticks {
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+  padding-left: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  pointer-events: auto;
+}
+.conversation-rail-ticks::-webkit-scrollbar {
+  display: none;
+}
+.conversation-rail-tick {
+  display: flex;
+  flex: none;
+  align-items: center;
+  width: 30px;
+  height: var(--rail-step);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.conversation-rail-tick:focus-visible {
+  outline: none;
+}
+/* Longer for turns that said more; the sound adds --wave on top. */
+.conversation-rail-tick > i {
+  display: block;
+  width: calc(6px + var(--weight, 0.5) * 8px + var(--wave, 0px));
+  height: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--rail-line);
+  transition:
+    width var(--motion-fast) linear,
+    background-color var(--motion-fast);
+}
+.conversation-rail-tick:is(:hover, :focus-visible) > i {
+  background: var(--text-muted);
+}
+.conversation-rail-tick:focus-visible > i {
+  box-shadow: 0 0 0 2px var(--ctl-accent-ring);
+}
+.conversation-rail-tick.is-reading > i {
+  width: calc(18px + var(--wave, 0px));
+  background: var(--rail-line-strong);
+}
+.conversation-rail-tick.is-marked > i {
+  height: 3px;
+  background: var(--bot-accent, var(--ctl-accent));
+}
+
+.conversation-rail-card {
+  position: absolute;
+  top: 0;
+  left: 44px;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  width: min(420px, calc(100vw - 120px));
+  padding: 10px 8px 12px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-float);
+  box-shadow: var(--elev-2);
+  pointer-events: auto;
+  animation: motion-fade-in var(--motion-menu) var(--motion-ease);
+}
+/* The gap between the ticks and the card still holds the pointer on its way across. */
+.conversation-rail-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -16px;
+  width: 16px;
+}
+.conversation-rail-card-open {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 2px 0 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.conversation-rail-card-open strong {
+  overflow: hidden;
+  color: var(--text-ink);
+  font-size: var(--text-control);
+  font-weight: var(--weight-label);
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.conversation-rail-card-open span {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--text-small);
+  line-height: 1.6;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+.conversation-rail-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--size-sm);
+  height: var(--size-sm);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast);
+}
+.conversation-rail-mark:hover {
+  background: var(--surface-hover);
+  color: var(--text-ink);
+}
+.conversation-rail-mark:focus-visible {
+  outline: 2px solid var(--ctl-focus);
+  outline-offset: 1px;
+}
+.conversation-rail-mark[aria-pressed='true'] {
+  color: var(--bot-accent, var(--ctl-accent));
+}
+.conversation-rail-mark[aria-pressed='true'] svg {
+  fill: currentColor;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .conversation-rail-tick > i {
+    transition: none;
+  }
+}

@@ -23,6 +23,7 @@ import { WebPreviewBrowser } from './windows/web-preview';
 import { protocol } from 'electron';
 import { VideoInspector } from './windows/video-inspector';
 import { AudioCodecWindow } from './windows/audio-codecs';
+import { allowSystemAudio } from './windows/system-audio';
 import { SpeechService } from './core/speech/speech-service';
 import { VideoFrames } from './core/preview/video-frames';
 import { AgentPreviews } from './core/preview/agent-previews';
@@ -1397,6 +1398,7 @@ async function initialize() {
     if (canDiscardPreview()) event.preventDefault();
   });
   installComputerView(window);
+  allowSystemAudio(window);
   webPreview = new WebPreviewBrowser(
     window,
     vm,
