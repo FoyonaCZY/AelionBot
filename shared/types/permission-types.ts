@@ -14,9 +14,16 @@ export interface HostComputerSettings {
   /** Whether Bots are offered it at all; each task still asks before it starts. */
   enabled: boolean;
 }
+/** What macOS must grant the app before it can see and operate other apps. */
+export interface HostComputerPermissions {
+  accessibility: boolean;
+  screenRecording: boolean;
+}
 export interface HostComputerView extends HostComputerSettings {
   /** False on systems host Computer Use does not support. */
   available: boolean;
+  /** macOS only, and absent until the system has been asked. */
+  permissions?: HostComputerPermissions;
 }
 export interface HostApprovalView {
   mode: HostPermissionMode;

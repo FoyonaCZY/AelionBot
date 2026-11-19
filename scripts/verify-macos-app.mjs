@@ -28,6 +28,8 @@ try {
     (snapshot.updates?.manualInstall !== true && !process.env.CSC_LINK && !process.env.CSC_NAME)
   )
     throw Error('Mac platform/update state was not detected');
+  // Host Computer Use is offered only when the app finds its helper where the package put it.
+  if (snapshot.hostComputer?.available !== true) throw Error('The packaged desktop helper was not found by the app');
   const terminal = await app.evaluate(async ({ app }) => {
     const runtimeRequire = process.mainModule.require.bind(process.mainModule),
       { createRequire } = runtimeRequire('node:module'),

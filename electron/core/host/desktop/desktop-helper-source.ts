@@ -1,4 +1,6 @@
-// The Windows half of host Computer Use: window discovery, capture, accessibility and input.
+// The Windows half of host Computer Use: window discovery, capture, accessibility and input. Looking at a window,
+// pressing a control and scrolling go through the compositor and the accessibility tree and leave the window where it
+// is; only real pointer and keyboard input brings it to the front.
 // It is C# compiled by the Windows PowerShell 5.1 already on every machine (Add-Type), so it stays within C# 5 and
 // needs no native module. desktop-helper.ts sends this source over stdin and then one JSON request per line.
 export const DESKTOP_HELPER_SOURCE = String.raw`// Compiled by Windows PowerShell 5.1 (Add-Type), so this file stays within C# 5.
@@ -55,6 +57,11 @@ namespace Aelion {
     [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll", SetLastError = true)] static extern uint SendInput(uint count, INPUT[] inputs, int size);
     [DllImport("user32.dll")] static extern int GetSystemMetrics(int index);
+    [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr window, IntPtr dc, uint flags);
+    [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);
+    [DllImport("user32.dll")] static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")] static extern IntPtr ChildWindowFromPointEx(IntPtr parent, POINT point, uint flags);
+    [DllImport("user32.dll")] static extern bool ScreenToClient(IntPtr window, ref POINT point);
     [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr context);
     [DllImport("user32.dll")] static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
     [DllImport("user32.dll")] static extern uint GetDpiForSystem();
@@ -163,6 +170,21 @@ namespace Aelion {
       }
       return pids;
     }
+    static bool WebClass(string name) {
+      return name.StartsWith("Chrome_", StringComparison.OrdinalIgnoreCase) || name.StartsWith("Cef", StringComparison.OrdinalIgnoreCase) ||
+        name.StartsWith("Mozilla", StringComparison.OrdinalIgnoreCase);
+    }
+    // Browsers and the apps built on them stop drawing while other windows cover them completely.
+    static bool Web(IntPtr window) {
+      if (WebClass(ClassOf(window))) return true;
+      bool found = false;
+      EnumChildWindows(window, delegate(IntPtr child, IntPtr data) {
+        if (!WebClass(ClassOf(child))) return true;
+        found = true;
+        return false;
+      }, IntPtr.Zero);
+      return found;
+    }
     static bool Cloaked(IntPtr window) {
       int cloaked;
       return DwmGetWindowAttribute(window, 14, out cloaked, 4) == 0 && cloaked != 0;
@@ -200,6 +222,7 @@ namespace Aelion {
       info["minimized"] = IsIconic(window);
       info["foreground"] = Fronted(window);
       info["elevated"] = Elevated(pid);
+      info["pausesWhenCovered"] = Web(window);
       info["x"] = bounds.Left; info["y"] = bounds.Top; info["width"] = bounds.Width; info["height"] = bounds.Height;
       return info;
     }
@@ -271,10 +294,7 @@ namespace Aelion {
       return new Dictionary<string, object>();
     }
 
-    static bool Activate(IntPtr window) {
-      if (IsIconic(window)) { ShowWindow(window, 9); Thread.Sleep(250); }
-      HashSet<uint> pids = AppPids(window);
-      if (Owns(window, GetForegroundWindow(), pids)) return true;
+    static void Raise(IntPtr window) {
       IntPtr foreground = GetForegroundWindow();
       uint unused, me = GetCurrentThreadId(), other = foreground == IntPtr.Zero ? 0 : GetWindowThreadProcessId(foreground, out unused);
       bool attached = other != 0 && other != me && AttachThreadInput(me, other, true);
@@ -282,6 +302,11 @@ namespace Aelion {
         BringWindowToTop(window);
         SetForegroundWindow(window);
       } finally { if (attached) AttachThreadInput(me, other, false); }
+    }
+    static bool Activate(IntPtr window, HashSet<uint> pids) {
+      if (IsIconic(window)) { ShowWindow(window, 9); Thread.Sleep(250); }
+      if (Owns(window, GetForegroundWindow(), pids)) return true;
+      Raise(window);
       for (int i = 0; i < 2; i++) {
         for (int wait = 0; wait < 10; wait++) {
           if (Owns(window, GetForegroundWindow(), pids)) return true;
@@ -326,6 +351,7 @@ namespace Aelion {
     static object Input(Dictionary<string, object> request) {
       IntPtr window = Handle(request);
       HashSet<uint> pids = AppPids(window);
+      if (!Activate(window, pids)) throw new HelperError("not_foreground", "the window could not be brought to the front");
       List<int> buttons = new List<int>(), keys = new List<int>();
       int done = 0;
       try {
@@ -399,14 +425,51 @@ namespace Aelion {
       return layers;
     }
 
+    // A window's own picture as the compositor holds it: complete even while other windows cover it.
+    static bool Print(Graphics graphics, IntPtr window, Rectangle part, Rectangle area) {
+      RECT rect;
+      if (!GetWindowRect(window, out rect) || rect.Right <= rect.Left || rect.Bottom <= rect.Top) return false;
+      using (Bitmap bitmap = new Bitmap(rect.Right - rect.Left, rect.Bottom - rect.Top, PixelFormat.Format24bppRgb)) {
+        bool printed;
+        using (Graphics own = Graphics.FromImage(bitmap)) {
+          IntPtr dc = own.GetHdc();
+          try { printed = PrintWindow(window, dc, 2); } finally { own.ReleaseHdc(dc); }
+        }
+        if (!printed) return false;
+        graphics.DrawImage(bitmap, new Rectangle(part.Left - area.Left, part.Top - area.Top, part.Width, part.Height),
+          part.Left - rect.Left, part.Top - rect.Top, part.Width, part.Height, GraphicsUnit.Pixel);
+        return true;
+      }
+    }
+    static bool Blank(Bitmap bitmap) {
+      BitmapData data = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
+      try {
+        byte[] row = new byte[data.Stride];
+        for (int y = 0; y < bitmap.Height; y += 4) {
+          Marshal.Copy(new IntPtr(data.Scan0.ToInt64() + (long)y * data.Stride), row, 0, data.Stride);
+          for (int x = 0; x < bitmap.Width * 3; x += 7) if (row[x] > 12) return false;
+        }
+        return true;
+      } finally { bitmap.UnlockBits(data); }
+    }
+
     static object Capture(Dictionary<string, object> request) {
       IntPtr target = Handle(request);
       string file = Convert.ToString(request["file"]);
       int maxEdge = Convert.ToInt32(request["maxEdge"]);
       bool text = request.ContainsKey("text") && Convert.ToBoolean(request["text"]);
-      if (!Activate(target)) throw new HelperError("not_foreground", "the window could not be brought to the front");
-      Thread.Sleep(60);
+      bool front = request.ContainsKey("front") && Convert.ToBoolean(request["front"]);
       HashSet<uint> pids = AppPids(target);
+      if (front) {
+        if (!Activate(target, pids)) throw new HelperError("not_foreground", "the window could not be brought to the front");
+        Thread.Sleep(60);
+      } else if (IsIconic(target)) {
+        // Restored behind the window in use, so nothing changes in front of the user.
+        IntPtr used = GetForegroundWindow();
+        ShowWindow(target, 4);
+        if (used != IntPtr.Zero && used != target) SetWindowPos(target, used, 0, 0, 0, 0, 0x13);
+        Thread.Sleep(350);
+      }
       List<IntPtr> layers = Layers(target, pids);
       Rectangle area = Rectangle.Empty;
       foreach (IntPtr layer in layers) area = area.IsEmpty ? Bounds(layer) : Rectangle.Union(area, Bounds(layer));
@@ -420,10 +483,13 @@ namespace Aelion {
           for (int i = layers.Count - 1; i >= 0; i--) {
             Rectangle part = Bounds(layers[i]);
             part.Intersect(area);
-            if (part.Width > 0 && part.Height > 0)
-              graphics.CopyFromScreen(part.Left, part.Top, part.Left - area.Left, part.Top - area.Top, part.Size);
+            if (part.Width <= 0 || part.Height <= 0) continue;
+            if (front) graphics.CopyFromScreen(part.Left, part.Top, part.Left - area.Left, part.Top - area.Top, part.Size);
+            else if (!Print(graphics, layers[i], part, area) && layers[i] == target)
+              throw new HelperError("blank", "the window gave no picture of itself");
           }
         }
+        if (!front && Blank(full)) throw new HelperError("blank", "the window gave no picture of itself");
         if (scale < 1.0) {
           using (Bitmap small = new Bitmap(width, height, PixelFormat.Format24bppRgb)) {
             using (Graphics graphics = Graphics.FromImage(small)) {
@@ -484,6 +550,8 @@ namespace Aelion {
       cache.Add(AutomationElement.IsOffscreenProperty);
       cache.Add(AutomationElement.HasKeyboardFocusProperty);
       cache.Add(ValuePattern.ValueProperty);
+      cache.Add(TogglePattern.ToggleStateProperty);
+      cache.Add(SelectionItemPattern.IsSelectedProperty);
       TreeWalker walker = new TreeWalker(Automation.ControlViewCondition);
       StringBuilder output = new StringBuilder();
       Stopwatch clock = Stopwatch.StartNew();
@@ -517,6 +585,10 @@ namespace Aelion {
           output.Append(' ', Math.Min(depth, 12)).Append(elements.Count).Append(' ').Append(type);
           if (name.Length > 0) output.Append(" \"").Append(name).Append('"');
           if (value.Length > 0 && value != name) output.Append(" = \"").Append(value).Append('"');
+          object toggled = element.GetCachedPropertyValue(TogglePattern.ToggleStateProperty, true);
+          if (toggled is ToggleState && (ToggleState)toggled == ToggleState.On) output.Append(" (checked)");
+          object selected = element.GetCachedPropertyValue(SelectionItemPattern.IsSelectedProperty, true);
+          if (selected is bool && (bool)selected) output.Append(" (selected)");
           if (!element.Cached.IsEnabled) output.Append(" (disabled)");
           if (element.Cached.HasKeyboardFocus) output.Append(" (focused)");
           output.Append(" [").Append(x).Append(',').Append(y).Append(' ').Append(w).Append('x').Append(h).Append("]\n");
@@ -532,23 +604,153 @@ namespace Aelion {
       } catch (ElementNotAvailableException) { } catch (InvalidOperationException) { }
       return cut;
     }
-    static object SetValue(Dictionary<string, object> request) {
+    // Some controls bring their window to the front when they are pressed. An action that was meant to stay in the
+    // background gives the foreground straight back to the window the user was in; the reply says whether it stayed.
+    static Dictionary<string, object> Quiet(IntPtr window, IntPtr before, int watch) {
+      Dictionary<string, object> result = new Dictionary<string, object>();
+      HashSet<uint> pids = AppPids(window);
+      if (before != IntPtr.Zero && !Owns(window, before, pids)) {
+        Stopwatch clock = Stopwatch.StartNew();
+        while (clock.ElapsedMilliseconds < watch) {
+          IntPtr now = GetForegroundWindow();
+          if (now != before && Owns(window, now, pids) && IsWindow(before)) Raise(before);
+          Thread.Sleep(15);
+        }
+      }
+      if (Owns(window, GetForegroundWindow(), pids)) result["front"] = true;
+      return result;
+    }
+    static AutomationElement Element(Dictionary<string, object> request) {
       IntPtr window = Handle(request);
       int index = Convert.ToInt32(request["element"]);
-      string value = Convert.ToString(request["value"]);
       List<AutomationElement> elements;
       if (!Elements.TryGetValue(window.ToInt64(), out elements) || index < 0 || index >= elements.Count)
         throw new HelperError("element_stale", "element is not part of the latest observation");
-      AutomationElement element = elements[index];
-      return OnMta<object>(delegate() {
+      return elements[index];
+    }
+    // What a click on this control means, asked of the control itself: no pointer, and the window stays where it is.
+    static void Semantic(AutomationElement element, int count) {
+      if (!element.Current.IsEnabled) throw new HelperError("element_disabled", "the element is disabled");
+      ControlType type = element.Current.ControlType;
+      object pattern;
+      bool item = type == ControlType.ListItem || type == ControlType.TreeItem || type == ControlType.DataItem;
+      if (count == 2) {
+        if (!item || !element.TryGetCurrentPattern(InvokePattern.Pattern, out pattern))
+          throw new HelperError("unsupported", "this element has no action for a double click");
+        ((InvokePattern)pattern).Invoke();
+        return;
+      }
+      // Anything that opens a menu or a list needs the app in front to show it.
+      if (type == ControlType.MenuItem || type == ControlType.Menu || type == ControlType.MenuBar || type == ControlType.ComboBox ||
+        type == ControlType.SplitButton || (type == ControlType.Button && element.TryGetCurrentPattern(ExpandCollapsePattern.Pattern, out pattern)))
+        throw new HelperError("unsupported", "this element opens a menu");
+      if ((item || type == ControlType.TabItem || type == ControlType.RadioButton) &&
+        element.TryGetCurrentPattern(SelectionItemPattern.Pattern, out pattern)) {
+        ((SelectionItemPattern)pattern).Select();
+        return;
+      }
+      if (type == ControlType.CheckBox && element.TryGetCurrentPattern(TogglePattern.Pattern, out pattern)) {
+        ((TogglePattern)pattern).Toggle();
+        return;
+      }
+      if ((item || type == ControlType.Button || type == ControlType.Hyperlink || type == ControlType.TabItem ||
+        type == ControlType.CheckBox || type == ControlType.RadioButton) && element.TryGetCurrentPattern(InvokePattern.Pattern, out pattern)) {
+        ((InvokePattern)pattern).Invoke();
+        return;
+      }
+      if (type == ControlType.Button && element.TryGetCurrentPattern(TogglePattern.Pattern, out pattern)) {
+        ((TogglePattern)pattern).Toggle();
+        return;
+      }
+      throw new HelperError("unsupported", "this element has no action of its own");
+    }
+    static object Press(Dictionary<string, object> request) {
+      IntPtr before = GetForegroundWindow();
+      AutomationElement element = Element(request);
+      int count = request.ContainsKey("count") ? Convert.ToInt32(request["count"]) : 1;
+      Exception failure = null;
+      Thread thread = new Thread(delegate() {
+        try { Dpi(); Semantic(element, count); } catch (Exception error) { failure = error; }
+      });
+      thread.SetApartmentState(ApartmentState.MTA);
+      thread.IsBackground = true;
+      thread.Start();
+      // A button that opens a dialog may not answer until the dialog closes; the press itself has happened by then.
+      if (thread.Join(2500) && failure != null) throw failure;
+      return Quiet(Handle(request), before, 250);
+    }
+    static IntPtr Deepest(IntPtr window, int x, int y) {
+      for (int depth = 0; depth < 32; depth++) {
+        POINT point; point.X = x; point.Y = y;
+        ScreenToClient(window, ref point);
+        IntPtr child = ChildWindowFromPointEx(window, point, 0x7);
+        if (child == IntPtr.Zero || child == window) break;
+        window = child;
+      }
+      return window;
+    }
+    static double Moved(double percent, double view, int notches) {
+      double hidden = Math.Max(0.5, 100.0 - view);
+      return Math.Min(100.0, Math.Max(0.0, percent + notches * 12.0 * view / hidden));
+    }
+    static bool ScrollPane(AutomationElement element, int dx, int dy) {
+      TreeWalker walker = TreeWalker.ControlViewWalker;
+      for (int depth = 0; depth < 16 && element != null; depth++) {
+        object pattern;
+        if (element.TryGetCurrentPattern(ScrollPattern.Pattern, out pattern)) {
+          ScrollPattern scroll = (ScrollPattern)pattern;
+          bool vertical = dy != 0 && scroll.Current.VerticallyScrollable, horizontal = dx != 0 && scroll.Current.HorizontallyScrollable;
+          if (vertical || horizontal) {
+            // A wheel notch moves about an eighth of what the pane shows.
+            double v = vertical ? Moved(scroll.Current.VerticalScrollPercent, scroll.Current.VerticalViewSize, -dy) : ScrollPattern.NoScroll;
+            double h = horizontal ? Moved(scroll.Current.HorizontalScrollPercent, scroll.Current.HorizontalViewSize, dx) : ScrollPattern.NoScroll;
+            scroll.SetScrollPercent(h, v);
+            return true;
+          }
+        }
+        element = walker.GetParent(element);
+      }
+      return false;
+    }
+    // Scrolls without the pointer: through the pane's own scroll bar, or with the wheel message a window gets when the
+    // pointer is over it, which Windows also delivers to windows that are not in front.
+    static object Scroll(Dictionary<string, object> request) {
+      IntPtr window = Handle(request), before = GetForegroundWindow();
+      int dx = Convert.ToInt32(request["dx"]), dy = Convert.ToInt32(request["dy"]);
+      int x = Convert.ToInt32(request["x"]), y = Convert.ToInt32(request["y"]);
+      if (request.ContainsKey("element")) {
+        AutomationElement element = Element(request);
+        if (OnMta<bool>(delegate() { return ScrollPane(element, dx, dy); }, 6000)) return Quiet(window, before, 120);
+      }
+      IntPtr top = IntPtr.Zero;
+      foreach (IntPtr layer in Layers(window, AppPids(window))) {
+        if (!Bounds(layer).Contains(x, y)) continue;
+        top = layer;
+        break;
+      }
+      if (top == IntPtr.Zero) throw new HelperError("unsupported", "that point is not inside the window");
+      IntPtr target = Deepest(top, x, y);
+      IntPtr where = new IntPtr((long)((y << 16) | (x & 0xFFFF)));
+      if (dy != 0 && !PostMessage(target, 0x020A, new IntPtr((long)(dy * 120) << 16), where))
+        throw new HelperError("unsupported", "the window took no wheel message");
+      if (dx != 0 && !PostMessage(target, 0x020E, new IntPtr((long)(dx * 120) << 16), where))
+        throw new HelperError("unsupported", "the window took no wheel message");
+      return Quiet(window, before, 120);
+    }
+    static object SetValue(Dictionary<string, object> request) {
+      IntPtr before = GetForegroundWindow();
+      AutomationElement element = Element(request);
+      string value = Convert.ToString(request["value"]);
+      OnMta<object>(delegate() {
         object pattern;
         if (!element.TryGetCurrentPattern(ValuePattern.Pattern, out pattern))
           throw new HelperError("unsupported", "this element does not accept a value");
         ValuePattern target = (ValuePattern)pattern;
         if (target.Current.IsReadOnly) throw new HelperError("unsupported", "this element is read-only");
         target.SetValue(value);
-        return new Dictionary<string, object>();
+        return null;
       }, 6000);
+      return Quiet(Handle(request), before, 120);
     }
 
     // ---------- protocol: one JSON object per line, ASCII only ----------
@@ -568,7 +770,7 @@ namespace Aelion {
         info["elevated"] = Elevated((uint)Process.GetCurrentProcess().Id);
         info["dpi"] = GetDpiForSystem();
         info["processAware"] = processAware;
-        info["screen"] = new int[] { screen.Left, screen.Top, screen.Width, screen.Height };
+        info["display"] = new int[] { screen.Left, screen.Top, screen.Width, screen.Height };
         return info;
       }
       if (op == "list_windows") return ListWindows();
@@ -581,12 +783,15 @@ namespace Aelion {
       }
       if (op == "activate") {
         Dictionary<string, object> result = new Dictionary<string, object>();
-        result["foreground"] = Activate(Handle(request));
+        IntPtr window = Handle(request);
+        result["foreground"] = Activate(window, AppPids(window));
         return result;
       }
       if (op == "capture") return Capture(request);
       if (op == "input") return Input(request);
       if (op == "set_value") return SetValue(request);
+      if (op == "press") return Press(request);
+      if (op == "scroll") return Scroll(request);
       throw new HelperError("invalid", "unknown operation");
     }
     public static void Run(TextReader reader) {

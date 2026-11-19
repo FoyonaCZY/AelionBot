@@ -14,6 +14,7 @@ runtime/downloads/
 runtime/local-model/
 runtime/mac-release.json
 runtime/qemu-macos-staging/
+runtime/desktop-helper/
 .local/
 .aelion/
 *.qcow2

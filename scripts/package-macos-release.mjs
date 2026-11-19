@@ -5,6 +5,7 @@ import { resolve, join, basename } from 'node:path';
 import { createHash } from 'node:crypto';
 import { parse } from 'yaml';
 import { verifyMacosLoader } from './verify-macos-loader.mjs';
+import { buildDesktopHelper, checkDesktopHelper } from './build-desktop-helper.mjs';
 const require = createRequire(import.meta.url),
   root = resolve(import.meta.dirname, '..'),
   pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')),
@@ -59,6 +60,8 @@ async function run(script) {
 await run('scripts/prepare-native-tools.mjs');
 await run('scripts/generate-icons.mjs');
 await run('scripts/build.mjs');
+// Host Computer Use on macOS runs through a Swift helper shipped beside the app.
+buildDesktopHelper({ force: true });
 const { build, Platform, Arch } = require('electron-builder');
 // Ad-hoc signatures have no Team ID; hardened library validation rejects Electron's framework.
 // Keep the exception out of Developer ID builds.
@@ -71,6 +74,7 @@ await build({
     extraResources: [
       { from: 'runtime/qemu', to: 'qemu', filter: ['**/*'] },
       { from: 'runtime/mac-release.json', to: 'mac-release.json' },
+      { from: 'runtime/desktop-helper', to: 'desktop-helper', filter: ['aelion-desktop-helper'] },
     ],
     mac: {
       category: 'public.app-category.productivity',
@@ -99,6 +103,9 @@ execFileSync('/usr/bin/lipo', [join(app, 'Contents', 'MacOS', 'AelionBot'), '-ve
   stdio: 'inherit',
 });
 verifyMacosLoader(app);
+const desktopHelper = join(app, 'Contents', 'Resources', 'desktop-helper', 'aelion-desktop-helper');
+execFileSync('/usr/bin/lipo', [desktopHelper, '-verify_arch', 'arm64'], { stdio: 'inherit' });
+console.log(JSON.stringify({ desktopHelper: await checkDesktopHelper(desktopHelper) }));
 const runtime = join(app, 'Contents', 'Resources', 'qemu'),
   emulator = join(runtime, 'bin', 'qemu-system-aarch64');
 const qemuEnv = { ...process.env, QEMU_MODULE_DIR: join(runtime, 'lib', 'qemu') };

@@ -82,10 +82,12 @@ export const COMPUTER_TOOLS: ToolDefinition[] = [
     ['code'],
   ),
 ];
-export const HOST_COMPUTER_TOOLS: ToolDefinition[] = [
-  tool(
+// The description and the actions follow the system the app runs on: the menu bar is outside the window only on macOS.
+function hostComputerTool(mac: boolean) {
+  const stepActions = ['click', 'drag', 'scroll', 'type_text', 'press_key', 'set_value', 'wait'];
+  return tool(
     'host_computer',
-    '操作用户本机 Windows 上的应用窗口，使用真实的鼠标和键盘并占用前台：操作期间用户不能同时使用这台电脑，按 Esc 可随时取消。只在命令、MCP 和工作电脑都无法完成、确实需要用户本机的应用或已登录账号时使用。流程：list_windows 找到窗口，或用 list_apps、launch_app 启动应用；get_window_state 观察窗口，返回截图和 observationId；click、drag、scroll、set_value 必须携带该窗口最新的 observationId，坐标为截图原始像素；type_text 和 press_key 发给该窗口当前的焦点。includeText=true 时同时返回控件列表，click、scroll、set_value 可以用 element 编号代替坐标。每次操作后返回新截图，之前的 observationId 随即失效。任务第一次调用时由用户批准一次，之后不再询问。终端应用、AelionBot 自身、以管理员身份运行的窗口和系统安全提示无法操作，遇到时请用户处理。action=batch 用同一个 observationId 按顺序执行 actions 里的多个步骤，只在最后返回一张截图；用于中途不会改变布局的连续操作，例如点击输入框、输入文字、按回车。',
+    `操作用户本机 ${mac ? 'macOS' : 'Windows'} 上的应用窗口。不需要鼠标和键盘的操作在后台完成，不改变用户正在用的窗口：get_window_state 观察窗口、带 element 编号的 click 和 scroll、set_value${mac ? '、select_menu' : ''}。按坐标的 click、drag、type_text、press_key 使用真实的鼠标和键盘，会把窗口带到前台并占用电脑，屏幕上出现提示，用户按 Esc 可随时取消。因此优先用 includeText=true 观察并按 element 编号操作，填写输入框优先用 set_value。只在命令、MCP 和工作电脑都无法完成、确实需要用户本机的应用或已登录账号时使用。流程：list_windows 找到窗口，或用 list_apps、launch_app 启动应用${mac ? '（在后台启动）' : '（新应用会来到前台）'}；get_window_state 返回截图和 observationId；click、drag、scroll、set_value 必须携带该窗口最新的 observationId，坐标为截图原始像素；type_text 和 press_key 发给该窗口当前的焦点${mac ? '，组合键用 CMD（如 CMD+S）' : ''}。includeText=true 时同时返回控件列表，click、scroll、set_value 可以用 element 编号代替坐标。${mac ? '应用的菜单栏不在窗口里：用 select_menu 选择其中的命令，menu 是路径，例如 “文件 > 导出为 PDF…”。' : ''}每次操作后返回新截图，之前的 observationId 随即失效。任务第一次调用时由用户批准一次，之后不再询问。终端应用、AelionBot 自身${mac ? '' : '、以管理员身份运行的窗口'}和系统安全提示无法操作，遇到时请用户处理。action=batch 用同一个 observationId 按顺序执行 actions 里的多个步骤，只在最后返回一张截图；用于中途不会改变布局的连续操作，例如点击输入框、输入文字、按回车。`,
     {
       action: {
         type: 'string',
@@ -94,13 +96,8 @@ export const HOST_COMPUTER_TOOLS: ToolDefinition[] = [
           'list_windows',
           'launch_app',
           'get_window_state',
-          'click',
-          'drag',
-          'scroll',
-          'type_text',
-          'press_key',
-          'set_value',
-          'wait',
+          ...stepActions,
+          ...(mac ? ['select_menu'] : []),
           'batch',
         ],
       },
@@ -109,8 +106,10 @@ export const HOST_COMPUTER_TOOLS: ToolDefinition[] = [
       observationId: string,
       includeText: { type: 'boolean' },
       ...hostStep,
-      actions: steps(['click', 'drag', 'scroll', 'type_text', 'press_key', 'set_value', 'wait'], hostStep),
+      ...(mac ? { menu: string } : {}),
+      actions: steps(stepActions, hostStep),
     },
     ['action'],
-  ),
-];
+  );
+}
+export const HOST_COMPUTER_TOOLS: ToolDefinition[] = [hostComputerTool(process.platform === 'darwin')];

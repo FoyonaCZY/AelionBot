@@ -205,7 +205,12 @@ export function AppModals({
             {settingsTab === 'permissions' && (
               <>
                 {state.hostComputer?.available && (
-                  <HostComputerSettings value={state.hostComputer} busy={busy} act={act} />
+                  <HostComputerSettings
+                    value={state.hostComputer}
+                    mac={state.platform === 'darwin'}
+                    busy={busy}
+                    act={act}
+                  />
                 )}
                 <CommandPermissionsSettings rules={state.commandPermissions || []} busy={busy} act={act} />
               </>

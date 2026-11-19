@@ -38,6 +38,8 @@ const contents = new Map(),
     '.plist',
     '.py',
     '.sh',
+    // The macOS helper of host Computer Use.
+    '.swift',
     '.csv',
   ]);
 const forbidden =

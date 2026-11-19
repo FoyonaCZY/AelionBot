@@ -241,6 +241,7 @@ export const INVOKE_CHANNELS = {
   setCommandPermissionEnabled: 'permissions:command-enabled',
   removeCommandPermission: 'permissions:command-remove',
   setHostComputerEnabled: 'host-computer:enabled',
+  checkHostComputerPermissions: 'host-computer:permissions',
   respondInteraction: 'interaction:respond',
   searchMentionFiles: 'workspace:mention-files',
   pickConversationWorkspace: 'workspace:pick',

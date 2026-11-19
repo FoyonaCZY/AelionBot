@@ -49,7 +49,7 @@ import {
 } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { join, resolve, dirname } from 'node:path';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { Store } from './core/storage/store';
 import { VmController } from './core/vm/vm';
 import { ModelClient } from './core/model/model';
@@ -58,7 +58,7 @@ import { Harness } from './core/agent/harness';
 import { ComputerController } from './core/vm/computer';
 import { translateFor } from '../shared/i18n';
 import { HostDesktop } from './core/host/desktop/host-desktop';
-import { WindowsDesktopHelper } from './core/host/desktop/desktop-helper';
+import { MacDesktopHelper, WindowsDesktopHelper } from './core/host/desktop/desktop-helper';
 import { ComputerUseOverlay } from './windows/computer-use-overlay';
 import { installComputerView } from './core/vm/computer-view';
 import { Attachments } from './core/attachments/attachments';
@@ -928,8 +928,19 @@ async function initialize() {
   });
   generalHarness.setKnowledge(knowledge);
   knowledge.start();
+  // The macOS helper is built from Swift and shipped beside the app; without it the feature is not offered there.
+  const macHelper = join(
+    app.isPackaged ? process.resourcesPath : resolve('runtime'),
+    'desktop-helper',
+    'aelion-desktop-helper',
+  );
   hostDesktop = new HostDesktop({
-    driver: new WindowsDesktopHelper(),
+    driver:
+      process.platform === 'win32'
+        ? new WindowsDesktopHelper()
+        : process.platform === 'darwin' && existsSync(macHelper)
+          ? new MacDesktopHelper(macHelper)
+          : undefined,
     imageDir: computer.imageDir,
     settings: {
       read: () => store.data.hostComputer,

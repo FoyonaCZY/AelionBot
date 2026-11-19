@@ -3,6 +3,7 @@ import { createServer } from 'vite';
 import { spawn } from 'node:child_process';
 import { cpSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { buildDesktopHelper } from './build-desktop-helper.mjs';
 const require = createRequire(import.meta.url);
 await build({
   entryPoints: ['electron/windows/web-preview-preload.ts'],
@@ -81,6 +82,12 @@ await build({
 });
 for (const file of ['ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm'])
   cpSync(`node_modules/onnxruntime-web/dist/${file}`, `dist-electron/embedding/${file}`);
+// On macOS, host Computer Use needs its Swift helper; without the Xcode tools the app runs without that feature.
+try {
+  buildDesktopHelper();
+} catch (error) {
+  console.warn('Desktop helper not built; host Computer Use is unavailable in this run:', error.message);
+}
 const server = await createServer({ server: { host: '127.0.0.1', port: 5173, strictPort: true } });
 await server.listen();
 const env = { ...process.env, AELION_DEV_URL: 'http://127.0.0.1:5173' };

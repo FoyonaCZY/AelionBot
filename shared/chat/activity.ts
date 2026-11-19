@@ -184,6 +184,7 @@ export function describeTool(
       type_text: '输入文字',
       press_key: '按下快捷键',
       set_value: '填写内容',
+      select_menu: '选择菜单命令',
       batch: '连续操作界面',
     };
     const action = actions[text(input.action || result.action)];

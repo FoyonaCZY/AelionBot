@@ -870,6 +870,8 @@ export interface AelionAPI {
   setCommandPermissionEnabled(input: { id: string; enabled: boolean }): Promise<void>;
   removeCommandPermission(id: string): Promise<void>;
   setHostComputerEnabled(enabled: boolean): Promise<void>;
+  /** macOS: reads the system's grants again; with `request`, first opens the system's prompt or settings for it. */
+  checkHostComputerPermissions(request?: 'accessibility' | 'screen'): Promise<void>;
   saveHostWorkspace(path: string): Promise<void>;
   pickHostWorkspace(): Promise<string | null>;
   openComputerApp(input: {

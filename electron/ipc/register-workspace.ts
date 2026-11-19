@@ -1,4 +1,4 @@
-import { dialog } from 'electron';
+import { dialog, shell } from 'electron';
 import { respondToInteraction } from '../core/agent/interactions';
 import { assertWorkspaceScope, conversationWorkspace, setConversationWorkspace } from '../core/storage/workspaces';
 import type { IpcContext } from './context';
@@ -30,6 +30,16 @@ export function registerWorkspace(ctx: IpcContext) {
   handle('setHostComputerEnabled', (enabled) => {
     if (typeof enabled !== 'boolean' || !ctx.hostDesktop?.available) throw new Error('这台电脑不支持本机电脑控制');
     ctx.hostDesktop.setEnabled(enabled);
+  });
+  handle('checkHostComputerPermissions', async (request) => {
+    if (request !== undefined && request !== 'accessibility' && request !== 'screen') throw new Error('无效权限类型');
+    await ctx.hostDesktop?.checkPermissions(request);
+    // The system prompts once at most; its settings page is where the switch can always be found.
+    if (request && process.platform === 'darwin')
+      await shell.openExternal(
+        'x-apple.systempreferences:com.apple.preference.security?' +
+          (request === 'screen' ? 'Privacy_ScreenCapture' : 'Privacy_Accessibility'),
+      );
   });
   const mentionSearches = new Map<string, AbortController>();
   handle('searchMentionFiles', async (input) => {

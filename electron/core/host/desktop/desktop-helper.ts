@@ -8,12 +8,14 @@ export interface DesktopWindow {
   title: string;
   className: string;
   pid: number;
-  /** Full path of the app's executable; empty when Windows would not say. */
+  /** The app behind the window: its executable on Windows, its bundle on macOS. Empty when the system would not say. */
   exe: string;
   name: string;
   minimized: boolean;
   foreground: boolean;
   elevated: boolean;
+  /** A browser, or an app built on one: it stops drawing while other windows cover it completely. */
+  pausesWhenCovered?: boolean;
   x: number;
   y: number;
   width: number;
@@ -32,64 +34,90 @@ export interface DesktopCapture extends DesktopWindow {
 }
 export type InputStep =
   | { t: 'move' | 'check'; x: number; y: number; free?: true }
-  | { t: 'down' | 'up'; button: 0 | 1 | 2 }
+  /** `n` counts the presses of one click: 2 on the second press of a double click. */
+  | { t: 'down' | 'up'; button: 0 | 1 | 2; n?: number }
   | { t: 'wheel'; dx: number; dy: number }
   | { t: 'key'; keys: number[] }
   | { t: 'text'; text: string }
   | { t: 'sleep'; ms: number };
-/** What host Computer Use needs from the operating system. */
+export interface DesktopStatus {
+  elevated: boolean;
+  /** The whole desktop in screen coordinates: [left, top, width, height]. */
+  display?: number[];
+  /** macOS privacy grants; absent where the system has none to give. */
+  accessibility?: boolean;
+  screenRecording?: boolean;
+}
+/** Where a menu path led: the command was chosen, or these are the items at the point it stopped. */
+export interface MenuResult {
+  pressed: boolean;
+  at?: string[];
+  items?: string[];
+  submenu?: boolean;
+}
+/**
+ * What host Computer Use needs from the operating system. Looking at a window and acting on a control through the
+ * accessibility tree leave the window where it is; `input` and a capture with `front` bring it to the front.
+ */
 export interface DesktopDriver {
-  status(): Promise<{ elevated: boolean }>;
+  /** Whether launch() leaves the window in use in front. */
+  readonly quietLaunch: boolean;
+  status(): Promise<DesktopStatus>;
+  /** Front to back. */
   listWindows(): Promise<DesktopWindow[]>;
   listApps(): Promise<Array<{ name: string; id: string }>>;
   launch(id: string): Promise<void>;
   window(id: number): Promise<DesktopWindow>;
   foreground(): Promise<DesktopWindow | null>;
-  capture(id: number, file: string, text: boolean): Promise<DesktopCapture>;
+  /** Without `front` the picture comes from the window itself and fails with computer.host_blank if it has none. */
+  capture(id: number, file: string, options: { text: boolean; front: boolean }): Promise<DesktopCapture>;
+  /** Real pointer and keyboard input. */
   input(id: number, steps: InputStep[]): Promise<void>;
+  /** What a click means to the control, without the pointer; computer.host_unsupported when it has no such action. */
+  press(id: number, element: number, count: number): Promise<void>;
+  /** Scrolls at a screen point without the pointer; computer.host_unsupported when the window cannot. */
+  scroll(id: number, at: { x: number; y: number; dx: number; dy: number; element?: number }): Promise<void>;
   setValue(id: number, element: number, value: string): Promise<void>;
+  /** macOS: chooses a command from the menu bar of the window's app. */
+  menu?(id: number, path: string[]): Promise<MenuResult>;
+  /** macOS: has the system show its permission prompt. */
+  requestPermission?(kind: 'accessibility' | 'screen'): Promise<void>;
   dispose(): void;
 }
 
-const BOOTSTRAP = `$ErrorActionPreference='Stop'
-$ProgressPreference='SilentlyContinue'
-$reader=New-Object IO.StreamReader([Console]::OpenStandardInput(),(New-Object Text.UTF8Encoding($false)))
-$source=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($reader.ReadLine()))
-Add-Type -TypeDefinition $source -ReferencedAssemblies System.Drawing,System.Web.Extensions,UIAutomationClient,UIAutomationTypes,WindowsBase
-[Aelion.DesktopHelper]::Run($reader)`;
-// Both directions stay ASCII so the console code page never touches window titles or typed text.
-const ascii = (value: string) =>
-  value.replace(/[\u007f-\uffff]/g, (char) => '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0'));
 const MESSAGES: Record<string, string> = {
   window_gone: '窗口已经关闭。用 list_windows 查看当前窗口',
   obscured: '目标位置被其他应用的窗口挡住，或不在这个应用的窗口内。重新观察窗口后再操作',
   not_foreground: '这个应用不在前台，无法继续输入。重新观察窗口后再操作',
   not_visible: '窗口不在屏幕可见范围内',
-  input_blocked: 'Windows 拒绝了这次输入，目标可能是以管理员身份运行的窗口',
+  input_blocked: '系统拒绝了这次输入，目标可能是以管理员身份运行的窗口',
   element_stale: '控件编号不属于最新一次观察。用 includeText 重新观察窗口',
+  element_disabled: '这个控件当前不可用',
   unsupported: '这个控件不支持直接设置内容，改用点击和输入',
+  blank: '这个窗口没有给出自己的画面',
   timeout: '应用没有及时响应',
+  accessibility_permission: 'macOS 还没有允许 AelionBot 使用辅助功能',
+  screen_permission: 'macOS 还没有允许 AelionBot 录制屏幕',
 };
+// Both directions stay ASCII so no code page or locale touches window titles or typed text.
+const ascii = (value: string) =>
+  value.replace(/[\u007f-\uffff]/g, (char) => '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0'));
 
-/** One long-lived PowerShell process that hosts the compiled helper; started on first use. */
-export class WindowsDesktopHelper implements DesktopDriver {
+/** One long-lived helper process answering a JSON request per line; started on first use. */
+abstract class DesktopHelper implements DesktopDriver {
+  abstract readonly quietLaunch: boolean;
   private child?: ChildProcessWithoutNullStreams;
   private ready?: Promise<void>;
   private pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
   private next = 1;
+  protected abstract spawn(): ChildProcessWithoutNullStreams;
+  /** A line the helper reads before its first request. */
+  protected preamble(): string | undefined {
+    return undefined;
+  }
   private start() {
     if (this.ready) return this.ready;
-    const child = spawn(
-      join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
-      [
-        '-NoLogo',
-        '-NoProfile',
-        '-NonInteractive',
-        '-EncodedCommand',
-        Buffer.from(BOOTSTRAP, 'utf16le').toString('base64'),
-      ],
-      { windowsHide: true },
-    );
+    const child = this.spawn();
     this.child = child;
     let buffer = '',
       errors = '';
@@ -155,12 +183,15 @@ export class WindowsDesktopHelper implements DesktopDriver {
         }
       });
     });
+    // Rejections reach the callers through call(); this keeps a start nobody awaited from being unhandled.
+    ready.catch(() => {});
     child.stdin.on('error', () => {});
-    child.stdin.write(Buffer.from(DESKTOP_HELPER_SOURCE, 'utf8').toString('base64') + '\n');
+    const preamble = this.preamble();
+    if (preamble !== undefined) child.stdin.write(preamble + '\n');
     this.ready = ready;
     return ready;
   }
-  private async call<T>(op: string, args: Record<string, unknown> = {}, timeoutMs = 20000): Promise<T> {
+  protected async call<T>(op: string, args: Record<string, unknown> = {}, timeoutMs = 20000): Promise<T> {
     await this.start();
     const child = this.child;
     if (!child) throw new AppError('computer.host_unavailable', '本机电脑控制组件未运行');
@@ -187,7 +218,7 @@ export class WindowsDesktopHelper implements DesktopDriver {
     });
   }
   status() {
-    return this.call<{ elevated: boolean }>('ping');
+    return this.call<DesktopStatus>('ping');
   }
   listWindows() {
     return this.call<DesktopWindow[]>('list_windows');
@@ -204,11 +235,17 @@ export class WindowsDesktopHelper implements DesktopDriver {
   foreground() {
     return this.call<DesktopWindow | null>('foreground');
   }
-  capture(id: number, file: string, text: boolean) {
-    return this.call<DesktopCapture>('capture', { window: id, file, maxEdge: 1600, text });
+  capture(id: number, file: string, options: { text: boolean; front: boolean }) {
+    return this.call<DesktopCapture>('capture', { window: id, file, maxEdge: 1600, ...options });
   }
   async input(id: number, steps: InputStep[]) {
     await this.call('input', { window: id, steps }, 60000);
+  }
+  async press(id: number, element: number, count: number) {
+    await this.call('press', { window: id, element, count });
+  }
+  async scroll(id: number, at: { x: number; y: number; dx: number; dy: number; element?: number }) {
+    await this.call('scroll', { window: id, ...at });
   }
   async setValue(id: number, element: number, value: string) {
     await this.call('set_value', { window: id, element, value });
@@ -222,5 +259,51 @@ export class WindowsDesktopHelper implements DesktopDriver {
     this.pending.clear();
     child?.stdin.end();
     child?.kill();
+  }
+}
+
+const BOOTSTRAP = `$ErrorActionPreference='Stop'
+$ProgressPreference='SilentlyContinue'
+$reader=New-Object IO.StreamReader([Console]::OpenStandardInput(),(New-Object Text.UTF8Encoding($false)))
+$source=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($reader.ReadLine()))
+Add-Type -TypeDefinition $source -ReferencedAssemblies System.Drawing,System.Web.Extensions,UIAutomationClient,UIAutomationTypes,WindowsBase
+[Aelion.DesktopHelper]::Run($reader)`;
+/** Windows: the C# helper, compiled and hosted by the PowerShell every machine has. */
+export class WindowsDesktopHelper extends DesktopHelper {
+  // Windows hands a newly started app the foreground.
+  readonly quietLaunch = false;
+  protected spawn() {
+    return spawn(
+      join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
+      [
+        '-NoLogo',
+        '-NoProfile',
+        '-NonInteractive',
+        '-EncodedCommand',
+        Buffer.from(BOOTSTRAP, 'utf16le').toString('base64'),
+      ],
+      { windowsHide: true },
+    );
+  }
+  protected preamble() {
+    return Buffer.from(DESKTOP_HELPER_SOURCE, 'utf8').toString('base64');
+  }
+}
+
+/** macOS: the Swift helper built from desktop-helper-mac.swift and shipped inside the app. */
+export class MacDesktopHelper extends DesktopHelper {
+  // `open -g` starts an app behind the one in use.
+  readonly quietLaunch = true;
+  constructor(private binary: string) {
+    super();
+  }
+  protected spawn() {
+    return spawn(this.binary, [], { stdio: ['pipe', 'pipe', 'pipe'] });
+  }
+  menu(id: number, path: string[]) {
+    return this.call<MenuResult>('menu', { window: id, path });
+  }
+  async requestPermission(kind: 'accessibility' | 'screen') {
+    await this.call('request_permission', { kind });
   }
 }

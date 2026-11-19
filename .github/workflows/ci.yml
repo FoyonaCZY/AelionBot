@@ -95,6 +95,9 @@ jobs:
         run: python -m unittest discover -s tests -p bundled_skill_helpers_test.py -v
       - name: Build desktop
         run: pnpm run build
+      - name: Build and check the Mac desktop helper
+        if: runner.os == 'macOS'
+        run: node scripts/build-desktop-helper.mjs --force
       - name: Test website
         if: runner.os == 'Linux'
         run: pnpm run site:test
