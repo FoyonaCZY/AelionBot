@@ -7,6 +7,18 @@ export function Icon({ name, size = 20 }: { name: string; size?: number }) {
         <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
       </>
     ),
+    micOff: (
+      <>
+        <rect x="9" y="3" width="6" height="11" rx="3" />
+        <path d="M5 11a7 7 0 0 0 12.2 4.7M12 18v3M3 3l18 18" />
+      </>
+    ),
+    record: (
+      <>
+        <circle cx="12" cy="12" r="8.5" />
+        <circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none" />
+      </>
+    ),
     speaker: (
       <>
         <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4v-5Z" />
@@ -222,6 +234,12 @@ export function Icon({ name, size = 20 }: { name: string; size?: number }) {
       </>
     ),
     bookmark: <path d="M17.5 20.5 12 16.6l-5.5 3.9V5a1.5 1.5 0 0 1 1.5-1.5h8A1.5 1.5 0 0 1 17.5 5Z" />,
+    pin: (
+      <>
+        <path d="M12 17v5" />
+        <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6a1 1 0 0 1 1-1h.5a1.5 1.5 0 0 0 0-3h-9a1.5 1.5 0 0 0 0 3H8a1 1 0 0 1 1 1Z" />
+      </>
+    ),
     sparkle: (
       <path d="M12 3c.5 4.4 2.6 6.5 7 7-4.4.5-6.5 2.6-7 7-.5-4.4-2.6-6.5-7-7 4.4-.5 6.5-2.6 7-7ZM18.5 15.5c.2 1.8 1 2.6 2.5 2.8-1.5.2-2.3 1-2.5 2.7-.2-1.7-1-2.5-2.5-2.7 1.5-.2 2.3-1 2.5-2.8Z" />
     ),

@@ -1012,6 +1012,9 @@ export class GroupChats implements GroupGateway {
     this.store.data.workItems = this.store.data.workItems?.filter(
       (item) => item.scope.kind !== 'group' || item.scope.id !== id,
     );
+    this.store.data.pinnedWidgets = this.store.data.pinnedWidgets?.filter(
+      (widget) => widget.scope.kind !== 'group' || widget.scope.id !== id,
+    );
     if (this.store.data.conversationWorkspaces) delete this.store.data.conversationWorkspaces['group:' + id];
     if (this.store.data.hostPermissionModes) delete this.store.data.hostPermissionModes['group:' + id];
     this.store.data.groups = this.store.data.groups.filter((item) => item !== room);

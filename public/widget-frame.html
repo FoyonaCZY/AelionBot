@@ -1,9 +1,9 @@
 <!doctype html>
 <!--
-  The frame a ```widget fence in a Bot's reply runs in. The app loads it in a sandboxed iframe without
+  The frame a ```widget fence or pinned widget runs in. The app loads it in a sandboxed iframe without
   allow-same-origin, so it has an opaque origin and cannot reach the app; this policy forbids any network or
-  external file. The app sends the widget's HTML and the theme; the frame reports its height and follow-ups the
-  widget suggests through aelion.prompt().
+  external file. The app sends the widget's HTML, initial state, and theme; the frame reports its height, state
+  updates through aelion.setState(), and follow-ups through aelion.prompt().
 -->
 <html lang="zh-CN">
   <head>
@@ -25,14 +25,18 @@
       * {
         box-sizing: border-box;
       }
-      html,
+      html {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
       body {
         margin: 0;
         padding: 0;
         background: transparent;
         overflow: hidden;
-      }
-      body {
         color: var(--aelion-text);
         font: 14px/1.6 var(--aelion-font);
         overflow-wrap: anywhere;
@@ -59,15 +63,66 @@
     <script>
       (() => {
         const root = document.getElementById('root');
+        const MAX_STATE_BYTES = 64 * 1024;
+        const STATE_THROTTLE_MS = 200;
+        const encoder = new TextEncoder();
         let rendered = false,
           lastHeight = 0,
-          lastPrompt = 0;
+          lastPrompt = 0,
+          currentState = {},
+          lastStateSentAt = 0,
+          stateTimer = null,
+          pendingState = null;
+        const stateListeners = new Set();
         const send = (message) => parent.postMessage(message, '*');
+        const isPlainObject = (value) => {
+          if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+          const proto = Object.getPrototypeOf(value);
+          return proto === Object.prototype || proto === null;
+        };
+        const parsePlainState = (value) => {
+          if (!isPlainObject(value)) return null;
+          try {
+            const text = JSON.stringify(value);
+            if (typeof text !== 'string' || encoder.encode(text).length > MAX_STATE_BYTES) return null;
+            const parsed = JSON.parse(text);
+            return isPlainObject(parsed) ? parsed : null;
+          } catch {
+            return null;
+          }
+        };
+        const cloneState = (value) => parsePlainState(value) || {};
+        const applyTheme = (theme, scheme) => {
+          for (const [name, value] of Object.entries(theme || {}))
+            if (/^--aelion-[a-z]+$/.test(name) && typeof value === 'string')
+              document.documentElement.style.setProperty(name, value);
+          if (scheme === 'dark' || scheme === 'light') document.documentElement.style.colorScheme = scheme;
+        };
         const height = () => {
           const next = Math.ceil(root.getBoundingClientRect().height);
           if (next !== lastHeight) {
             lastHeight = next;
             send({ type: 'aelion-widget-height', height: next });
+          }
+        };
+        const flushState = () => {
+          if (stateTimer !== null) {
+            clearTimeout(stateTimer);
+            stateTimer = null;
+          }
+          if (pendingState === null) return;
+          const snapshot = pendingState;
+          pendingState = null;
+          lastStateSentAt = Date.now();
+          send({ type: 'aelion-widget-state', state: snapshot });
+        };
+        const scheduleState = (snapshot) => {
+          pendingState = snapshot;
+          const wait = Math.max(0, lastStateSentAt + STATE_THROTTLE_MS - Date.now());
+          if (wait === 0 && stateTimer === null) {
+            flushState();
+          } else if (stateTimer === null) {
+            stateTimer = setTimeout(flushState, wait);
           }
         };
         window.aelion = Object.freeze({
@@ -78,16 +133,57 @@
             lastPrompt = now;
             send({ type: 'aelion-widget-prompt', text: String(text ?? '').slice(0, 2000) });
           },
+          /** Returns a clone of the widget's persisted JSON state object. */
+          getState() {
+            return cloneState(currentState);
+          },
+          /**
+           * Stores the next plain JSON state object (or computes it via `(prev) => next`),
+           * persisting it to the parent app (throttled, <= 64 KB).
+           */
+          setState(nextOrUpdater) {
+            const candidate = typeof nextOrUpdater === 'function' ? nextOrUpdater(cloneState(currentState)) : nextOrUpdater;
+            const next = parsePlainState(candidate);
+            if (!next) return false;
+            currentState = next;
+            scheduleState(cloneState(next));
+            return true;
+          },
+          /** Subscribes to external state updates (e.g. from the Bot or synced views); returns unsubscribe. */
+          onState(callback) {
+            if (typeof callback !== 'function') return () => {};
+            stateListeners.add(callback);
+            return () => {
+              stateListeners.delete(callback);
+            };
+          },
         });
         window.addEventListener('message', (event) => {
-          if (event.source !== parent || rendered) return;
+          if (event.source !== parent) return;
           const data = event.data;
-          if (!data || data.type !== 'aelion-widget-render' || typeof data.html !== 'string') return;
+          if (!data || typeof data.type !== 'string') return;
+          if (data.type === 'aelion-widget-theme') {
+            applyTheme(data.theme, data.scheme);
+            return;
+          }
+          if (data.type === 'aelion-widget-state-sync') {
+            if (!rendered) return;
+            const next = parsePlainState(data.state);
+            if (!next) return;
+            currentState = next;
+            for (const listener of [...stateListeners]) {
+              try {
+                listener(cloneState(currentState));
+              } catch (error) {
+                send({ type: 'aelion-widget-error', message: String(error && error.message ? error.message : error) });
+              }
+            }
+            return;
+          }
+          if (rendered || data.type !== 'aelion-widget-render' || typeof data.html !== 'string') return;
           rendered = true;
-          for (const [name, value] of Object.entries(data.theme || {}))
-            if (/^--aelion-[a-z]+$/.test(name) && typeof value === 'string')
-              document.documentElement.style.setProperty(name, value);
-          if (data.scheme === 'dark' || data.scheme === 'light') document.documentElement.style.colorScheme = data.scheme;
+          currentState = cloneState(data.state);
+          applyTheme(data.theme, data.scheme);
           root.innerHTML = data.html;
           // Scripts set through innerHTML do not run; each is replaced by a copy that does, in order.
           for (const old of root.querySelectorAll('script')) {

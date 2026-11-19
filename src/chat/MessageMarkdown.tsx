@@ -9,43 +9,56 @@ import './message-markdown.css';
 import { useI18n } from '../i18n';
 
 /**
- * Where a fence that is still open at the end of the text starts, or Infinity. While a reply streams, its last
- * fence may not be closed yet; a visual fence there shows a placeholder instead of half a chart or half a page.
+ * Where a fence that is still open at the end of the text starts, or Infinity, along with the starting offsets of
+ * every ```widget fence in the source so multiple widgets in one reply get stable indices.
  */
-function openFenceStart(markdown: string) {
+function scanFences(markdown: string) {
   let open = -1,
     marker = '',
     offset = 0;
+  const widgetOffsets: number[] = [];
   for (const line of markdown.split('\n')) {
-    const fence = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1];
-    if (fence) {
+    const match = /^ {0,3}(`{3,}|~{3,})([^\r\n]*)/.exec(line);
+    if (match) {
+      const fence = match[1];
       if (open < 0) {
         open = offset;
         marker = fence;
+        const lang = match[2].trim().split(/\s+/)[0];
+        if (lang === 'widget') widgetOffsets.push(offset);
       } else if (fence[0] === marker[0] && fence.length >= marker.length && !line.trim().slice(fence.length)) {
         open = -1;
       }
     }
     offset += line.length + 1;
   }
-  return open < 0 ? Infinity : open;
+  return { open: open < 0 ? Infinity : open, widgetOffsets };
 }
-const OpenFence = createContext(Infinity);
+
+const FenceScan = createContext<{ open: number; widgetOffsets: number[] }>({ open: Infinity, widgetOffsets: [] });
 
 /** Code blocks, except visual fences, which show what they describe. Stable, so a widget is not reloaded. */
 function Pre(pre: ComponentProps<'pre'> & ExtraProps) {
-  const open = useContext(OpenFence);
+  const { open, widgetOffsets } = useContext(FenceScan);
   const child = Children.toArray(pre.children)[0],
     code = isValidElement<ComponentProps<'code'>>(child) ? child.props : undefined,
     language = /\blanguage-([^\s]+)/.exec(code?.className || '')?.[1] || '';
-  if (VISUAL_FENCES.includes(language) && typeof code?.children === 'string')
+  if (VISUAL_FENCES.includes(language) && typeof code?.children === 'string') {
+    const startOffset = pre.node?.position?.start.offset ?? -1;
+    let widgetIndex = 0;
+    if (language === 'widget' && startOffset >= 0 && widgetOffsets.length > 1) {
+      const found = widgetOffsets.indexOf(startOffset);
+      widgetIndex = found >= 0 ? found : widgetOffsets.filter((pos) => pos < startOffset).length;
+    }
     return (
       <MessageVisual
         language={language}
         source={code.children}
-        pending={(pre.node?.position?.start.offset ?? -1) >= open}
+        pending={startOffset >= open}
+        widgetIndex={widgetIndex}
       />
     );
+  }
   return <MessageCodeBlock {...pre} />;
 }
 function Table({ node: _node, ...table }: ComponentProps<'table'> & ExtraProps) {
@@ -59,12 +72,12 @@ function Table({ node: _node, ...table }: ComponentProps<'table'> & ExtraProps) 
 
 export default function MessageMarkdown(props: ComponentProps<typeof Markdown>) {
   const source = typeof props.children === 'string' ? props.children : '';
-  const open = useMemo(() => openFenceStart(source), [source]);
+  const scan = useMemo(() => scanFences(source), [source]);
   const overrides = props.components;
   const components = useMemo(() => ({ a: MessageLink, pre: Pre, table: Table, ...overrides }), [overrides]);
   return (
-    <OpenFence.Provider value={open}>
+    <FenceScan.Provider value={scan}>
       <Markdown {...props} remarkPlugins={[remarkGfm, ...(props.remarkPlugins || [])]} components={components} />
-    </OpenFence.Provider>
+    </FenceScan.Provider>
   );
 }

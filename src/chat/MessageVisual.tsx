@@ -1,76 +1,101 @@
 // Visual fences in a reply: data fences (```chart, ```table, …) drawn with the app's own blocks, and ```widget
 // fences, HTML a Bot wrote, run in a sandboxed frame with no network and no way into the app.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useContext, useMemo, useState } from 'react';
 import { inlineBlock } from '../../shared/chat/message-blocks';
+import { extractWidgetTitle, widgetInScope } from '../../shared/types/widget-types';
 import { MessageBlockCard } from './MessageBlocks';
+import { WidgetSandboxFrame, WIDGET_PROMPT_EVENT } from './WidgetSandboxFrame';
+import { WidgetHostContext, WidgetMessageContext } from './widget-context';
+import { inlineWidgetKey, openPinnedWidget, setInlineWidgetState, useInlineWidgetState } from './pinned-widgets-state';
+import { Icon } from '../ui/Icon';
+import { ipcErrorText } from '../ui/ipc-error';
 import { useI18n } from '../i18n';
 import './message-visual.css';
 
-/** Tallest a widget grows before it scrolls inside the reply. */
-const MAX_HEIGHT = 2400;
-const FRAME_URL = () => new URL('widget-frame.html', document.baseURI).href;
+export { WIDGET_PROMPT_EVENT };
 
-/** The app's theme as resolved colors, read through a probe so light-dark() values are already decided. */
-function widgetTheme() {
-  const probe = document.createElement('span');
-  probe.style.display = 'none';
-  document.body.append(probe);
-  const resolve = (value: string, property: 'color' | 'fontFamily' = 'color') => {
-    probe.style[property] = value;
-    return getComputedStyle(probe)[property];
-  };
-  const theme = {
-    '--aelion-text': resolve('var(--text-ink, #2a2a2a)'),
-    '--aelion-muted': resolve('var(--text-muted, #7a7a7a)'),
-    '--aelion-surface': resolve('var(--surface-float, #fff)'),
-    '--aelion-border': resolve('var(--surface-line, #ececec)'),
-    '--aelion-accent': resolve('light-dark(#4f7fc2, #9dbbe6)'),
-    '--aelion-font': resolve('var(--font-ui, sans-serif)', 'fontFamily'),
-  };
-  // light-dark() picks by the scheme the app is in, which is what the widget should follow.
-  const dark = resolve('light-dark(rgb(0, 0, 0), rgb(255, 255, 255))') === 'rgb(255, 255, 255)';
-  probe.remove();
-  return { theme, scheme: dark ? 'dark' : 'light' };
-}
-
-/** Puts a widget's suggested follow-up into the open conversation's composer. */
-export const WIDGET_PROMPT_EVENT = 'aelion:widget-prompt';
-
-function WidgetFrame({ html }: { html: string }) {
+function InlineWidgetFrame({ html, widgetIndex }: { html: string; widgetIndex: number }) {
   const { t } = useI18n();
-  const frame = useRef<HTMLIFrameElement>(null),
-    [height, setHeight] = useState(0),
-    [failed, setFailed] = useState('');
-  useEffect(() => {
-    const receive = (event: MessageEvent) => {
-      const source = frame.current?.contentWindow;
-      if (!source || event.source !== source) return;
-      const data = event.data as { type?: string; height?: unknown; text?: unknown; message?: unknown };
-      if (data?.type === 'aelion-widget-ready')
-        source.postMessage({ type: 'aelion-widget-render', html, ...widgetTheme() }, '*');
-      else if (data?.type === 'aelion-widget-height' && typeof data.height === 'number')
-        setHeight(Math.max(0, Math.min(MAX_HEIGHT, Math.ceil(data.height))));
-      else if (data?.type === 'aelion-widget-prompt' && typeof data.text === 'string' && data.text.trim())
-        window.dispatchEvent(new CustomEvent(WIDGET_PROMPT_EVENT, { detail: data.text.trim().slice(0, 2000) }));
-      else if (data?.type === 'aelion-widget-error' && typeof data.message === 'string') setFailed(data.message);
-    };
-    window.addEventListener('message', receive);
-    return () => window.removeEventListener('message', receive);
-  }, [html]);
+  const host = useContext(WidgetHostContext);
+  const messageId = useContext(WidgetMessageContext);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const extractedTitle = useMemo(() => extractWidgetTitle(html), [html]);
+  const pinned = useMemo(() => {
+    if (!host || !messageId) return undefined;
+    return host.pinnedWidgets.find(
+      (widget) =>
+        widgetInScope(widget, host.scope) &&
+        widget.sourceMessageId === messageId &&
+        (widget.sourceIndex ?? 0) === widgetIndex,
+    );
+  }, [host, messageId, widgetIndex]);
+
+  const storageKey = host && messageId ? inlineWidgetKey(host.scope, messageId, widgetIndex) : undefined;
+  const inlineState = useInlineWidgetState(storageKey);
+  const currentState = pinned ? pinned.state : inlineState;
+  const title = pinned ? pinned.title : extractedTitle;
+  const canPin = Boolean(host && messageId);
+
+  const togglePin = async () => {
+    if (!host || !messageId || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      if (pinned) {
+        await window.aelion.unpinWidget(pinned.id);
+      } else {
+        const created = await window.aelion.pinWidget({
+          scope: host.scope,
+          title: extractedTitle,
+          html,
+          ...(currentState ? { state: currentState } : {}),
+          sourceMessageId: messageId,
+          sourceIndex: widgetIndex,
+        });
+        openPinnedWidget(host.scope, created.id);
+      }
+    } catch (failure) {
+      setError(ipcErrorText(failure));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleStateChange = (next: Record<string, unknown>) => {
+    if (storageKey) setInlineWidgetState(storageKey, next);
+    if (pinned) {
+      void window.aelion.updatePinnedWidget({ id: pinned.id, state: next }).catch((failure) => {
+        setError(ipcErrorText(failure));
+      });
+    }
+  };
+
   return (
-    <div className="message-widget">
-      <iframe
-        ref={frame}
-        src={FRAME_URL()}
-        sandbox="allow-scripts"
-        referrerPolicy="no-referrer"
-        title={t('Bot 生成的交互内容')}
-        style={{ height: height || 48 }}
-        scrolling={height >= MAX_HEIGHT ? 'yes' : 'no'}
-      />
-      {failed && (
-        <p className="message-widget-error" role="status">
-          {t('这个图示运行出错：{message}', { message: failed.slice(0, 200) })}
+    <div className={`message-widget ${canPin ? 'has-bar' : ''}`}>
+      {canPin && (
+        <div className="message-widget-bar">
+          <span className="message-widget-title" title={title}>
+            {title}
+          </span>
+          <button
+            type="button"
+            className={`message-widget-pin ${pinned ? 'is-pinned' : ''}`}
+            disabled={busy}
+            aria-pressed={Boolean(pinned)}
+            title={pinned ? t('取消固定') : t('固定到侧栏')}
+            onClick={() => void togglePin()}
+          >
+            <Icon name="pin" size={13} />
+            <span>{pinned ? t('取消固定') : t('固定到侧栏')}</span>
+          </button>
+        </div>
+      )}
+      <WidgetSandboxFrame html={html} state={currentState} onStateChange={handleStateChange} title={title} />
+      {error && (
+        <p className="message-widget-error" role="alert">
+          {error}
         </p>
       )}
     </div>
@@ -78,7 +103,17 @@ function WidgetFrame({ html }: { html: string }) {
 }
 
 /** A visual fence; `pending` while the reply is still writing it. */
-export function MessageVisual({ language, source, pending }: { language: string; source: string; pending: boolean }) {
+export function MessageVisual({
+  language,
+  source,
+  pending,
+  widgetIndex = 0,
+}: {
+  language: string;
+  source: string;
+  pending: boolean;
+  widgetIndex?: number;
+}) {
   const { t } = useI18n();
   const parsed = useMemo(() => {
     if (pending || language === 'widget') return undefined;
@@ -95,7 +130,7 @@ export function MessageVisual({ language, source, pending }: { language: string;
         {t('正在生成图示…')}
       </div>
     );
-  if (language === 'widget') return <WidgetFrame html={source} />;
+  if (language === 'widget') return <InlineWidgetFrame html={source} widgetIndex={widgetIndex} />;
   if (parsed?.block) return <MessageBlockCard block={parsed.block} />;
   return (
     <div className="message-block message-block-failed">

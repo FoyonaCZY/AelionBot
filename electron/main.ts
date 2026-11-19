@@ -27,6 +27,7 @@ import { allowSystemAudio } from './windows/system-audio';
 import { SpeechService } from './core/speech/speech-service';
 import { VideoFrames } from './core/preview/video-frames';
 import { AgentPreviews } from './core/preview/agent-previews';
+import { PinnedWidgets } from './core/preview/pinned-widgets';
 import { normalizeAppearance, type AppearanceSettings } from '../shared/preview/appearance';
 import { createMacUpdater, macAutomaticUpdates } from './core/app/mac-updater';
 import { hostEnvironment } from './core/host/host-platform';
@@ -59,6 +60,7 @@ import { ComputerController } from './core/vm/computer';
 import { translateFor } from '../shared/i18n';
 import { HostDesktop } from './core/host/desktop/host-desktop';
 import { MacDesktopHelper, WindowsDesktopHelper } from './core/host/desktop/desktop-helper';
+import { TeachingService } from './core/teaching/teaching-service';
 import { ComputerUseOverlay } from './windows/computer-use-overlay';
 import { installComputerView } from './core/vm/computer-view';
 import { Attachments } from './core/attachments/attachments';
@@ -141,6 +143,7 @@ let host: HostComputer;
 let commandPermissions: CommandPermissions;
 let hostApprovals: HostApprovals;
 let hostDesktop: HostDesktop | undefined;
+let teaching: TeachingService | undefined;
 let userTerminals: UserTerminals;
 // Parses host commands for the permission policy only; never executes them.
 const powershellParser = new PowerShellParser();
@@ -185,6 +188,7 @@ let appUpdates: AppUpdates | undefined;
 let whatsNew: WhatsNew | undefined;
 let diagnostics: Diagnostics | undefined;
 let agentPreviews: AgentPreviews | undefined;
+let pinnedWidgets: PinnedWidgets | undefined;
 process.on('uncaughtExceptionMonitor', (error, origin) => diagnostics?.record('process.' + origin, error));
 let updatePreparing = false;
 let timer: NodeJS.Timeout | undefined;
@@ -231,6 +235,7 @@ function snapshot(): Snapshot {
     designer: designStore?.snapshot(),
     previewRequests: agentPreviews?.snapshot(),
     previewHistory: agentPreviews?.history(),
+    pinnedWidgets: pinnedWidgets?.list(),
     appearance: normalizeAppearance(store?.data.appearance),
     userProfile: store.data.userProfile,
     platform: process.platform,
@@ -895,6 +900,7 @@ async function initialize() {
   cognition.memory.onChanged = changed;
   cognition.onSlow = cognition.learning.onSlow = (source, ms) => slow?.(source, ms);
   agentPreviews = new AgentPreviews(store, artifacts, attachments, changed, host);
+  pinnedWidgets = new PinnedWidgets(store, changed);
   const imageModelAccess = (botId: string) => providers.imageAccess(botId);
   const generalHarness = new Harness(
     store,
@@ -910,6 +916,7 @@ async function initialize() {
     attachments,
   );
   generalHarness.setImageModel(imageModelAccess);
+  generalHarness.setPinnedWidgets(pinnedWidgets);
   generalHarness.setAutomaticRunsPaused(() => spending.pausedReason());
   audioCodecs = new AudioCodecWindow(join(app.getAppPath(), 'assets', 'audio-codecs.html'));
   speech = new SpeechService(providers, audioCodecs);
@@ -934,13 +941,14 @@ async function initialize() {
     'desktop-helper',
     'aelion-desktop-helper',
   );
+  const hostDriver =
+    process.platform === 'win32'
+      ? new WindowsDesktopHelper()
+      : process.platform === 'darwin' && existsSync(macHelper)
+        ? new MacDesktopHelper(macHelper)
+        : undefined;
   hostDesktop = new HostDesktop({
-    driver:
-      process.platform === 'win32'
-        ? new WindowsDesktopHelper()
-        : process.platform === 'darwin' && existsSync(macHelper)
-          ? new MacDesktopHelper(macHelper)
-          : undefined,
+    driver: hostDriver,
     imageDir: computer.imageDir,
     settings: {
       read: () => store.data.hostComputer,
@@ -1119,6 +1127,29 @@ async function initialize() {
     host,
   );
   chatPins.wake();
+  teaching = new TeachingService({
+    dataDir,
+    driver: hostDriver,
+    ownExe: process.execPath,
+    speech,
+    attachments,
+    send: (input) => chatPins!.send(input),
+    hasBot: (botId) => store.data.bots.some((bot) => bot.id === botId),
+    hasSession: (botId, sessionId) =>
+      Boolean(store.data.workSessions?.some((session) => session.id === sessionId && session.botId === botId)),
+    vm: {
+      isReady: () => vm.state.status === 'ready' && Boolean(vm.state.desktopReady) && !vm.state.maintenance,
+      activeWindowTitle: async (botId, signal) => {
+        const result = await vm.executeDesktop(
+          'xdotool getactivewindow getwindowname 2>/dev/null || true',
+          botId,
+          signal,
+        );
+        return result.exitCode === 0 ? result.stdout.trim() || undefined : undefined;
+      },
+      screenshot: (botId, signal) => vm.desktopScreenshot(botId, signal),
+    },
+  });
   connectors = new Connectors({
     store,
     dataDir,
@@ -1543,6 +1574,9 @@ async function initialize() {
     get hostDesktop() {
       return hostDesktop;
     },
+    get teaching() {
+      return teaching;
+    },
     get userTerminals() {
       return userTerminals;
     },
@@ -1611,6 +1645,9 @@ async function initialize() {
     get agentPreviews() {
       return agentPreviews;
     },
+    get pinnedWidgets() {
+      return pinnedWidgets;
+    },
     get updatePreparing() {
       return updatePreparing;
     },
@@ -1678,6 +1715,7 @@ async function initialize() {
         () => peerChats?.dispose(),
         () => groupChats?.dispose(),
         () => interactions.dispose(),
+        () => teaching?.dispose(),
         () => hostDesktop?.dispose(),
         () => userTerminals.dispose(),
         () => host.dispose(),

@@ -100,6 +100,7 @@ interface Persisted {
   groupContexts: Record<string, WireMessage[]>;
   groupRunMessages: ChatMessage[];
   previewHistory?: import('../../../shared/preview/agent-preview-types').PreviewHistoryEntry[];
+  pinnedWidgets?: import('../../../shared/types/widget-types').PinnedWidget[];
 }
 export function atomicJson(path: string, value: unknown) {
   const temp = `${path}.${process.pid}.tmp`;
@@ -228,6 +229,7 @@ export class Store {
     this.data.attachments ||= [];
     this.data.previewHistory ||= [];
     for (const entry of this.data.previewHistory) if (!entry.scope) entry.scope = { kind: 'bot', id: entry.botId };
+    this.data.pinnedWidgets ||= [];
     this.data.peerThreads ||= [];
     this.data.peerExchanges ||= [];
     this.data.peerContexts ||= {};
@@ -636,6 +638,9 @@ export class Store {
       messages: this.data.messages.filter((message) => message.sessionId !== id),
       runs: this.data.runs.filter((run) => run.sessionId !== id),
       workItems: this.data.workItems?.filter((item) => item.scope.sessionId !== id),
+      pinnedWidgets: this.data.pinnedWidgets?.filter(
+        (widget) => widget.scope.kind !== 'bot' || widget.scope.sessionId !== id,
+      ),
       conversations: { ...this.data.conversations },
       summaries: { ...this.data.summaries },
       contextOffsets: { ...this.data.contextOffsets },
@@ -669,6 +674,9 @@ export class Store {
       runs: this.data.runs.filter((run) => run.botId !== id),
       artifacts: this.data.artifacts.filter((artifact) => artifact.botId !== id),
       previewHistory: (this.data.previewHistory || []).filter((entry) => entry.botId !== id),
+      pinnedWidgets: (this.data.pinnedWidgets || []).filter(
+        (widget) => widget.scope.kind !== 'bot' || widget.scope.id !== id,
+      ),
       skills: this.data.skills.filter((skill) => skill.botId !== id),
       conversations: { ...this.data.conversations },
       summaries: { ...this.data.summaries },

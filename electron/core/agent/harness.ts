@@ -1,8 +1,10 @@
 import type { VideoFrames } from '../preview/video-frames';
 import type { AgentPreviews } from '../preview/agent-previews';
+import { PinnedWidgets } from '../preview/pinned-widgets';
 import type { DesignWork } from '../designer/design-work';
 import { operationDenial, DENIAL_GUIDANCE } from './operation-denial';
 import { conversationIdentityPrompt } from '../../../shared/chat/user-profile';
+import { isTeachingPrompt } from '../../../shared/teaching/teaching-events';
 import { soulPromptBudget } from '../../../shared/chat/bot-soul';
 import {
   QUESTION_ANSWER_PREFIX,
@@ -118,6 +120,15 @@ import {
 } from './prompts/continuations';
 import { dispatchTool } from './tools/handlers';
 import { MCP_NATIVE_PREFIX } from '../extensions/mcp-native';
+import {
+  COMPACT_CONTEXT_THRESHOLD,
+  CORE_ACTIVE_TOOLS,
+  EXECUTION_RECOVERY_TOOLS,
+  deferredMcpPromptNote,
+  extractHistoryToolNames,
+  selectModelTools,
+  usesDeferredToolLoading,
+} from './tool-loading';
 import { contextBudget } from '../context/context-budget';
 import type { ToolDeps } from './tools/context';
 import { AppError } from '../../../shared/errors';
@@ -135,6 +146,8 @@ const HEADLESS_HIDDEN_TOOLS = new Set([
   'attachment_save',
   'request_user_input',
   'user_input_wait',
+  'widgets_list',
+  'widget_save',
 ]);
 const privateTools = new Set([
   'bots_list',
@@ -160,21 +173,6 @@ const groupNonProgressTools = new Set([
   'start_main_task',
   'bot_send_message',
   'groups_list',
-]);
-const COMPACT_TOOLS = new Set([
-  'open_preview',
-  'preview_mark',
-  'code_exec',
-  'tool_search',
-  'groups_list',
-  'group_send_message',
-  'read_result',
-  'file_read',
-  'exec_command',
-  'write_stdin',
-  'request_user_input',
-  'generate_image',
-  'knowledge_search',
 ]);
 const isReactionTool = (name: string) => name === 'chat_pin' || name === 'group_react';
 function groupProgressFingerprint(name: string, args: unknown, output: unknown) {
@@ -258,6 +256,28 @@ export class Harness {
     this.video = video;
   }
   private callableTools = new Map<string, ToolDefinition[]>();
+  private activatedTools = new Map<string, Set<string>>();
+  private deferredRuns = new Map<string, boolean>();
+  private activateTools(runId: string, names: Iterable<string>): string[] {
+    if (!this.deferredRuns.get(runId)) return [];
+    const callable = this.callableTools.get(runId);
+    if (!callable?.length) return [];
+    const allowed = new Set(callable.map((tool) => tool.function.name));
+    let active = this.activatedTools.get(runId);
+    if (!active) {
+      active = new Set();
+      this.activatedTools.set(runId, active);
+    }
+    const result: string[] = [];
+    const seen = new Set<string>();
+    for (const name of names) {
+      if (!allowed.has(name) || seen.has(name)) continue;
+      seen.add(name);
+      active.add(name);
+      result.push(name);
+    }
+    return result;
+  }
   disposeTools() {
     this.terminals.dispose();
     void this.code.dispose();
@@ -286,6 +306,10 @@ export class Harness {
   private knowledge?: import('../knowledge/knowledge-service').KnowledgeAccess;
   setKnowledge(access: import('../knowledge/knowledge-service').KnowledgeAccess) {
     this.knowledge = access;
+  }
+  private pinnedWidgets: PinnedWidgets;
+  setPinnedWidgets(service: PinnedWidgets) {
+    this.pinnedWidgets = service;
   }
   /** Why goals should stop keeping themselves going, such as a spending budget that ran out; undefined otherwise. */
   private automaticRunsPaused?: () => string | undefined;
@@ -322,6 +346,7 @@ export class Harness {
     private attachments = new Attachments(store),
   ) {
     this.ledger = new ExecutionLedger(store);
+    this.pinnedWidgets = new PinnedWidgets(store, changed);
     const runtimeDir = host?.options.runtimeDir || join(process.cwd(), 'electron', 'core');
     this.code = new CodeOrchestrator(runtimeDir);
     this.terminals = new TerminalSessions(vm, host, interactions, runtimeDir);
@@ -913,12 +938,11 @@ export class Harness {
           peers: Boolean(this.peers),
           groups: Boolean(this.groups),
           chatPin: !options.peerOrigin && !options.groupOrigin && !this.disabledTools.has('chat_pin'),
-          // Only the app shows them; small-context models keep their prompt short outside private sessions.
+          // Only the app shows them (private chats, work sessions and interactive groups); small-context models stay short.
           richReplies:
             !options.peerOrigin &&
-            !options.groupOrigin &&
             !this.headless &&
-            (modelConfig.contextTokens >= 32000 || Boolean(privateSessionId)),
+            (modelConfig.contextTokens >= 32000 || Boolean(privateSessionId) || Boolean(sessionId)),
           history: Boolean(cognition) && !this.disabledTools.has('history_search'),
           web: !this.disabledTools.has('web_read'),
           privateMessage: Boolean(privateSessionId && options.peerOrigin?.kind !== 'peer_summary'),
@@ -1016,6 +1040,10 @@ export class Harness {
     let verificationRetries = 0,
       lastFailure = '',
       sameFailureCount = 0;
+    const scheduledRun = inputs.some((message) => Boolean(message?.scheduled));
+    const teachingRun = isTeachingPrompt(input) || inputs.some((message) => isTeachingPrompt(message?.content || ''));
+    const activatedTools = new Set<string>(extractHistoryToolNames(history));
+    this.activatedTools.set(run.id, activatedTools);
     const enterMainTask = () => {
       const task = this.store.promotePeerTask(run.id);
       options = { ...options, peerOrigin: run.peerOrigin };
@@ -1024,6 +1052,7 @@ export class Harness {
       contextKey = botId;
       contextStart = cognition ? 0 : this.store.data.contextOffsets[botId] || 0;
       history = this.store.data.conversations[botId] ||= [];
+      for (const name of extractHistoryToolNames(history)) activatedTools.add(name);
       history.push({
         role: 'user',
         ...this.attachments.wire(
@@ -1118,7 +1147,8 @@ export class Harness {
             : groupSource) ||
           (!options.peerOrigin && !options.groupOrigin ? this.store.humanRunMessage(run.id) : undefined);
       work.begin(run, options, source);
-      if (work.forRun(run)) this.changed();
+      const hasInitialWork = Boolean(work.forRun(run));
+      if (hasInitialWork) this.changed();
       for (const [id, failure] of this.ledger.failureMap(botId, run.id)) pendingFailures.set(id, failure);
       // What this request calls to mind. A reaction is not a request, and a private exchange reads no shared memory.
       if (this.cognition && !privateSessionId && !reactionMessage && !resumed) {
@@ -1179,12 +1209,15 @@ export class Harness {
           : controller.signal;
         let finalContext: WireMessage[] = [];
         const memoryDelegation = this.cognition ? delegatedMemory(this.store, bot.id, run.id) : undefined;
+        if (pendingFailures.size > 0) for (const name of EXECUTION_RECOVERY_TOOLS) activatedTools.add(name);
+        const toolLoading = { history, scheduledRun, teachingRun, hasInitialWork, activatedTools };
         mcpOffer ??= this.mcpOffer(
           botId,
-          // While planning only a few tools are listed; budget for all of them, which come back afterwards.
+          // While planning only a few tools are listed; budget for the active core tools that come back afterwards.
           work.forRun(run)?.status === 'planning'
-            ? TOOLS.length
-            : this.turnTools(botId, run, options, privateSessionId, userMemoryRoute, work).availableTools.length,
+            ? CORE_ACTIVE_TOOLS.size
+            : this.turnTools(botId, run, options, privateSessionId, userMemoryRoute, work, [], false, toolLoading)
+                .modelTools.length,
           options.peerOrigin?.kind !== 'peer_summary' && !(privateSessionId && options.peerOrigin),
           Boolean(privateSessionId),
         );
@@ -1203,8 +1236,17 @@ export class Harness {
           work,
           mcpOffer.tools,
           Boolean(knowledgePrompt),
+          toolLoading,
         );
         this.callableTools.set(run.id, availableTools);
+        this.deferredRuns.set(
+          run.id,
+          usesDeferredToolLoading(
+            this.store.modelFor(botId).contextTokens,
+            Boolean(privateSessionId),
+            work.forRun(run)?.status === 'planning',
+          ),
+        );
         const taskFrame = [
           new RunPolicy(this.store).frame(botId, run.id),
           work.frame(run),
@@ -2141,11 +2183,12 @@ export class Harness {
   private mcpOffer(botId: string, builtIn: number, offered: boolean, privateSession: boolean) {
     if (!this.integrations || !offered || this.disabledTools.has('mcp_call')) return { tools: [], prompt: '' };
     const capacity = this.store.modelFor(botId).contextTokens,
-      compact = capacity < 32000 && !privateSession;
-    return this.integrations.mcp.context({
+      compact = capacity < COMPACT_CONTEXT_THRESHOLD && !privateSession;
+    const offer = this.integrations.mcp.context({
       maxTools: compact ? 0 : Math.max(0, Math.min(60, 120 - builtIn)),
       maxTokens: compact ? 0 : Math.min(12000, Math.floor(contextBudget(capacity).input * 0.1)),
     });
+    return compact ? offer : { ...offer, prompt: deferredMcpPromptNote(offer.prompt, offer.tools.length) };
   }
   /** The tools callable in this turn, and the subset listed to the model. */
   private turnTools(
@@ -2158,6 +2201,13 @@ export class Harness {
     mcpTools: ToolDefinition[] = [],
     /** The Bot has knowledge bases to search in this run. */
     knowledge = false,
+    loading: {
+      history?: WireMessage[];
+      scheduledRun?: boolean;
+      teachingRun?: boolean;
+      hasInitialWork?: boolean;
+      activatedTools?: ReadonlySet<string>;
+    } = {},
   ) {
     const baseTools =
       options.peerOrigin?.kind === 'peer_summary'
@@ -2202,6 +2252,7 @@ export class Harness {
         (!this.headless || !HEADLESS_HIDDEN_TOOLS.has(t.function.name)) &&
         (t.function.name !== 'video_frames' || Boolean(this.video)) &&
         (!['open_preview', 'preview_mark'].includes(t.function.name) || Boolean(this.previews)) &&
+        (!['widgets_list', 'widget_save'].includes(t.function.name) || (!options.peerOrigin && !this.headless)) &&
         (t.function.name !== 'view_image' || Boolean(this.host?.options.imagePreview)) &&
         (t.function.name !== 'generate_image' || Boolean(this.imageModel?.(botId))) &&
         (t.function.name !== 'transcribe_audio' || Boolean(this.speech?.available('input'))) &&
@@ -2247,15 +2298,18 @@ export class Harness {
         availableTools[index] = batch;
       }
     }
-    const modelTools =
-      this.store.modelFor(botId).contextTokens < 32000 && !privateSessionId
-        ? availableTools.filter(
-            (tool) =>
-              COMPACT_TOOLS.has(tool.function.name) ||
-              (Boolean(options.groupOrigin) &&
-                (/^groups?_/.test(tool.function.name) || tool.function.name.startsWith('history_'))),
-          )
-        : availableTools;
+    const modelTools = selectModelTools(availableTools, {
+      contextTokens: this.store.modelFor(botId).contextTokens,
+      privateSession: Boolean(privateSessionId),
+      groupOrigin: Boolean(options.groupOrigin),
+      planning: work.forRun(run)?.status === 'planning',
+      designBound: Boolean(this.design?.session(run)),
+      scheduledRun: Boolean(loading.scheduledRun),
+      teachingRun: Boolean(loading.teachingRun),
+      hasInitialWork: Boolean(loading.hasInitialWork),
+      historyToolNames: loading.history ? extractHistoryToolNames(loading.history) : undefined,
+      activatedTools: loading.activatedTools,
+    });
     return { availableTools, modelTools };
   }
   /** Releases everything a run holds once it has finished, failed or been cancelled. */
@@ -2294,6 +2348,8 @@ export class Harness {
     if (run.status === 'cancelled' || run.status === 'failed') await this.terminals.cancelRun(botId, run.id);
     this.interactions?.cancelQuestions(botId, run.id);
     this.callableTools.delete(run.id);
+    this.activatedTools.delete(run.id);
+    this.deferredRuns.delete(run.id);
     this.store.repairHistory(history, contextKey);
     ownedContext?.close();
     clearTimeout(budgetTimer);
@@ -2451,12 +2507,14 @@ export class Harness {
       scheduler: this.scheduler,
       video: this.video,
       previews: this.previews,
+      pinnedWidgets: this.pinnedWidgets,
       design: this.design,
       imageModel: this.imageModel,
       speech: this.speech,
       knowledge: this.knowledge,
       changed: () => this.changed(),
       callableTools: (runId) => this.callableTools.get(runId),
+      activateTools: (runId, names) => this.activateTools(runId, names),
       pendingTasks: (botId, runId) => [
         ...this.terminals.list(botId, runId).filter((s) => s.purpose === 'task' && s.exitCode === undefined),
         ...this.processes

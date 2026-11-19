@@ -16,6 +16,7 @@ import { PLANNING_HANDLERS } from './planning';
 import { EXEC_HANDLERS } from './processes';
 import { SCHEDULED_HANDLER } from './scheduling';
 import { WEB_HANDLERS } from './web';
+import { WIDGET_HANDLERS } from './widgets';
 import { AppError } from '../../../../../shared/errors';
 import { MCP_NATIVE_PREFIX } from '../../../extensions/mcp-native';
 
@@ -35,6 +36,7 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
   ...MEMORY_HANDLERS,
   ...SKILL_HANDLERS,
   ...KNOWLEDGE_HANDLERS,
+  ...WIDGET_HANDLERS,
 };
 
 /** Handlers for tool namespaces, tried in order. */

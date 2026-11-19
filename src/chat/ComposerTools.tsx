@@ -11,10 +11,12 @@ export function ComposerTools({
   contextControl,
   onAttach,
   onCommand,
+  onTeach,
 }: {
   contextControl?: ReactNode;
   onAttach: () => void;
   onCommand: (mode: WorkMode) => void;
+  onTeach?: () => void;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -86,6 +88,21 @@ export function ComposerTools({
               </span>
               <span>{t('上传附件')}</span>
             </button>
+            {onTeach && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  close();
+                  onTeach();
+                }}
+              >
+                <span className="composer-menu-icon">
+                  <Icon name="record" size={17} />
+                </span>
+                <span>{t('演示操作')}</span>
+              </button>
+            )}
             <div className="composer-menu-divider" />
             <button
               type="button"

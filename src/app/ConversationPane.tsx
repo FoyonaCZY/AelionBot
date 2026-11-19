@@ -51,6 +51,7 @@ export function ConversationPane({
   onOpenPrivateChat,
   onSessionSettings,
   onNewSession,
+  onTeach,
 }: {
   state: Snapshot;
   group?: GroupSummary;
@@ -83,6 +84,7 @@ export function ConversationPane({
   onOpenPrivateChat: (panel: PeerPanel) => void;
   onSessionSettings: (session: WorkSession) => void;
   onNewSession: (bot: Bot) => void;
+  onTeach?: () => void;
 }) {
   const { t } = useI18n(),
     previewWorkbench = usePreviewWorkbench();
@@ -133,6 +135,7 @@ export function ConversationPane({
             session={session}
             activity={avatarActivities[bot.id]}
             conversation={conversation}
+            pinnedWidgets={state.pinnedWidgets}
             onProfile={() => onProfile(bot)}
             onSessionSettings={session ? () => onSessionSettings(session) : undefined}
             onNewSession={() => onNewSession(bot)}
@@ -163,6 +166,7 @@ export function ConversationPane({
             onOpenFile={(file) => void files.openPreview(file)}
             onSaveFile={(file) => void files.saveFile(file)}
             onOpenPreviewEntry={files.openHistoryEntry}
+            onTeach={onTeach}
           />
         </>
       ) : (

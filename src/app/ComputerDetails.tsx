@@ -1,6 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, type RefObject } from 'react';
 import type { Bot, Snapshot, WorkSession } from '../../shared/types/core';
 import type { GroupSummary } from '../../shared/types/group-types';
+import { widgetInScope } from '../../shared/types/widget-types';
+import { PinnedWidgetsCard } from '../chat/PinnedWidgetsCard';
+import { usePinnedWidgetsState } from '../chat/pinned-widgets-state';
 import { ComputerPanel } from '../computer/ComputerPanel';
 import { setComputerCardOnline, setComputerCardOpen, useComputerCard } from '../computer/computer-card';
 import { DesignCanvasCard } from '../designer/DesignCanvasCard';
@@ -114,8 +117,13 @@ export function ComputerDetails({
   );
   const activeDesign = useActiveDesignId(scope);
   const design = designs.find((s) => s.id === activeDesign);
-  // The canvas card stands on its own: it shows with the computer card hidden, and closing either leaves the other.
-  const shown = open || Boolean(design && scope);
+  const widgets = useMemo(
+    () => (scope ? (state.pinnedWidgets || []).filter((widget) => widgetInScope(widget, scope)) : []),
+    [state.pinnedWidgets, scope],
+  );
+  const { open: widgetsOpen, activeWidget } = usePinnedWidgetsState(scope, widgets);
+  // Each card stands on its own: closing one leaves the others visible.
+  const shown = open || Boolean(design && scope) || Boolean(widgetsOpen && activeWidget && scope);
   useMessageBounds(card, shown);
   // A run that binds a design task brings its canvas card back.
   useFollowDesignRuns(scope, state.runs, state.designer?.sessions);
@@ -185,6 +193,9 @@ export function ComputerDetails({
         />
       </section>
       {design && scope && <DesignCanvasCard key={design.id} scope={scope} task={design} runs={state.runs} />}
+      {widgetsOpen && activeWidget && scope && (
+        <PinnedWidgetsCard scope={scope} widgets={widgets} active={activeWidget} />
+      )}
     </aside>
   );
 }

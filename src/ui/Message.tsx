@@ -19,6 +19,7 @@ import { useI18n } from '../i18n';
 import type { MessageBlock } from '../../shared/chat/message-blocks';
 import { stripBlockPlacements } from '../../shared/chat/message-blocks';
 import { MessageBlockContent, MessageBlocks, hasBlockMarkers } from '../chat/MessageBlocks';
+import { WidgetMessageContext } from '../chat/widget-context';
 import '../chat/message-surfaces.css';
 
 type MessageProps = {
@@ -178,7 +179,14 @@ function MessageView({
                 <>
                   {displayContent && (
                     <div className="markdown">
-                      <MentionContent content={displayContent} mentions={presentation.mentions} markdown pins={pins} />
+                      <WidgetMessageContext.Provider value={message.status === 'running' ? undefined : message.id}>
+                        <MentionContent
+                          content={displayContent}
+                          mentions={presentation.mentions}
+                          markdown
+                          pins={pins}
+                        />
+                      </WidgetMessageContext.Provider>
                     </div>
                   )}
                   {hasBlocks && <MessageBlocks blocks={blocks!} />}

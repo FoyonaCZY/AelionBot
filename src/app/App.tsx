@@ -32,7 +32,11 @@ import { useWindowDimming } from './window-dimming';
 import { I18nProvider, useI18n } from '../i18n';
 import { botConversation } from './bot-conversation';
 import { useAppSnapshot } from './use-app-snapshot';
-import { useSpeechSettingsSync } from '../speech/speech-availability';
+import { useSpeechAvailable, useSpeechSettingsSync } from '../speech/speech-availability';
+import { useTeaching } from '../teaching/use-teaching';
+import { TeachingDialog } from '../teaching/TeachingDialog';
+import { TeachingBar } from '../teaching/TeachingBar';
+import { TeachingReviewDialog } from '../teaching/TeachingReviewDialog';
 import { useBotChat } from './use-bot-chat';
 import { useBotProfile } from './use-bot-profile';
 import { useComputerControl, type TakeoverRequest } from './use-computer-control';
@@ -162,7 +166,23 @@ function AppContent() {
     [group?.id, group?.members, state?.runs, state?.messages, state?.bots],
   );
   const computer = useComputerControl(state, bot, setToast, groupDesktop, modal === 'computer');
-  const { vmReady, desktopBot, controlled, computerAction } = computer;
+  const { vmReady, desktopAvailable, desktopBot, controlled, computerAction } = computer;
+  const speechInputAvailable = useSpeechAvailable('input');
+  const releaseComputerModal = async () => {
+    if (controlled && desktopBot) await window.aelion.setComputerControl({ botId: desktopBot.id, enabled: false });
+    setModal((current) => (current === 'computer' ? null : current));
+  };
+  const teaching = useTeaching({
+    vmReady,
+    desktopAvailable,
+    onOpenComputer: (botId) => {
+      computer.setComputerBotId(botId);
+      setModal('computer');
+    },
+    onCloseComputer: releaseComputerModal,
+    onError: setToast,
+    onNotify: setToast,
+  });
   const act = async (operation: () => Promise<unknown>) => {
     setBusy(true);
     try {
@@ -174,6 +194,10 @@ function AppContent() {
     }
   };
   const closeModal = async () => {
+    if (modal === 'computer' && teaching.phase === 'recording' && teaching.session?.target === 'vm') {
+      await teaching.finish();
+      return;
+    }
     if (modal === 'computer' && controlled && desktopBot)
       await window.aelion.setComputerControl({ botId: desktopBot.id, enabled: false });
     if (modal === 'computer-setup' && state)
@@ -501,6 +525,11 @@ function AppContent() {
             onOpenPrivateChat={openPrivateChat}
             onSessionSettings={(item) => setSessionEditor({ botId: item.botId, sessionId: item.id })}
             onNewSession={(target) => setSessionEditor({ botId: target.id })}
+            onTeach={
+              bot && !group && teaching.phase === 'idle'
+                ? () => teaching.openSetup(bot.id, bot.name, session?.id)
+                : undefined
+            }
           />
           <ComputerDetails
             state={state}
@@ -751,6 +780,49 @@ function AppContent() {
                 screen={screen}
                 openPreview={files.openPreview}
                 setToast={setToast}
+                vncTeaching={teaching.vncBridge}
+              />
+            )}
+          </Presence>
+          <Presence>
+            {teaching.phase === 'setup' && teaching.context && (
+              <TeachingDialog
+                botName={teaching.context.botName}
+                hostWindows={teaching.hostWindows}
+                loadingWindows={teaching.loadingWindows}
+                vmReady={vmReady}
+                desktopAvailable={desktopAvailable}
+                speechAvailable={speechInputAvailable}
+                onRefreshWindows={() => void teaching.refreshHostWindows()}
+                onOpenSettings={(tab) => openSettings(tab)}
+                onOpenComputerSetup={() => setModal('computer-setup')}
+                onStart={(options) => void teaching.start(options)}
+                onClose={teaching.closeSetup}
+              />
+            )}
+          </Presence>
+          <Presence>
+            {(teaching.phase === 'recording' || teaching.phase === 'finishing') && (
+              <TeachingBar
+                finishing={teaching.phase === 'finishing'}
+                target={teaching.session?.target || 'host'}
+                seconds={teaching.seconds}
+                stepCount={teaching.stepCount}
+                micActive={teaching.micActive}
+                micMuted={teaching.micMuted}
+                onToggleMute={teaching.toggleMute}
+                onFinish={() => void teaching.finish()}
+                onCancel={() => void teaching.cancel()}
+              />
+            )}
+          </Presence>
+          <Presence>
+            {(teaching.phase === 'review' || teaching.phase === 'sending') && teaching.draft && (
+              <TeachingReviewDialog
+                draft={teaching.draft}
+                sending={teaching.phase === 'sending'}
+                onSend={(input) => void teaching.sendDraft(input)}
+                onDiscard={() => void teaching.cancel()}
               />
             )}
           </Presence>

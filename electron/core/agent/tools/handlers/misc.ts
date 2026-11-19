@@ -25,7 +25,13 @@ function batchTools(deps: ToolDeps, runId: string): ReadonlySet<string> | undefi
 
 export const MISC_HANDLERS: Record<string, ToolHandler> = {
   tool_search: ({ args, signal, runId, deps }) =>
-    discoverTools(args, deps.callableTools(runId) || [], deps.integrations?.mcp, signal),
+    discoverTools(
+      args,
+      deps.callableTools(runId) || [],
+      deps.integrations?.mcp,
+      signal,
+      deps.activateTools ? (names) => deps.activateTools!(runId, names) : undefined,
+    ),
   request_user_input: ({ bot, args, signal, runId, deps }) => {
     if (!deps.interactions) throw Error('用户交互尚未就绪');
     return deps.interactions.ask(bot.id, runId, args.questions, signal, args.wait === true);

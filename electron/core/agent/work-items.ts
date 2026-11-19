@@ -14,6 +14,7 @@ export const PLANNING_TOOLS = new Set([
   'group_outbox',
   'open_preview',
   'preview_mark',
+  'widgets_list',
   'code_exec',
   'view_image',
   'video_frames',

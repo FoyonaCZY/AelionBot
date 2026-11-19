@@ -18,7 +18,7 @@ import { DataSettings } from '../settings/DataSettings';
 import { ComputerSetup } from '../computer/ComputerSetup';
 import { Icon } from '../ui/Icon';
 import { ipcErrorText } from '../ui/ipc-error';
-import { Vnc } from '../ui/Vnc';
+import { Vnc, type VncTeachingBridge } from '../ui/Vnc';
 import { useI18n } from '../i18n';
 import { ComputerSettings } from './ComputerSettings';
 import { MemorySettings } from './MemorySettings';
@@ -63,6 +63,7 @@ export function AppModals({
   screen,
   openPreview,
   setToast,
+  vncTeaching,
 }: {
   modal: Exclude<Modal, null>;
   setModal: (modal: Modal) => void;
@@ -88,6 +89,7 @@ export function AppModals({
   screen: string;
   openPreview: (file: PreviewFile) => void;
   setToast: (message: string) => void;
+  vncTeaching?: VncTeachingBridge;
 }) {
   const { t } = useI18n();
   const { vmReady, desktopBot, desktop, controlled, takeover, controlPending, computerAction, toggleComputerControl } =
@@ -252,7 +254,12 @@ export function AppModals({
         {modal === 'computer' && (
           <>
             <div className="expanded-screen">
-              <Vnc key={desktopBot?.id} url={vmReady ? desktop?.vncUrl : undefined} control={controlled} />
+              <Vnc
+                key={desktopBot?.id}
+                url={vmReady ? desktop?.vncUrl : undefined}
+                control={controlled}
+                teaching={vncTeaching}
+              />
             </div>
             <div className="computer-floating-controls">
               <span className="desktop-owner">{desktopBot?.name}</span>

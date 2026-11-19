@@ -32,6 +32,8 @@ v0.52.x 及更早要先调用 `message_block` 工具存块，再在正文里写 
   - 框架发 `ready` 后，父窗口发 `render`，内容是 HTML 和解析好的主题色。主题色以 `--aelion-text`、`--aelion-muted`、`--aelion-surface`、`--aelion-border`、`--aelion-accent`、`--aelion-font` 这些 CSS 变量提供，配色方案跟随应用的深浅色。
   - 框架用 `ResizeObserver` 上报高度，父窗口按高度设置 iframe，最高 2400px。
   - `aelion.prompt(text)` 把一句追问填进当前会话的输入框，由用户决定是否发送，不会自动发出。每 0.8 秒最多一次，最长 2000 字。
+  - 持久状态桥：`aelion.getState()` 同步返回当前 JSON 状态对象副本，`aelion.setState(nextObjOrUpdater)` 写入新的纯 JSON 对象（200ms 节流、不超过 64 KB）并同步到父窗口，`aelion.onState(fn)` 监听外部状态同步（例如 Bot 调用 `widget_save`、重置状态或内联/侧栏双向同步）并返回取消订阅函数。主题切换时父窗口通过 `aelion-widget-theme` 动态刷新 CSS 变量。
+  - 用户可以把消息中的 ```` ```widget ```` 固定到右侧浮窗卡片（`PinnedWidgetsCard`），支持多标签切换、重命名、重置状态、取消固定和隐藏/重开；Bot 也可以通过 `widgets_list` 和 `widget_save` 读取用户在小工具中的最新状态或实时更新固定小工具（HTML 与 state 各自不超过 64 KB，单会话最多 12 个）。
 - 流式输出时，如果最后一个围栏还没闭合，只显示“正在生成图示…”，不会渲染半截 HTML 或半截 JSON（`MessageMarkdown` 的 `openFenceStart`）。
 - 小组件直接运行，不需要点击：它没有网络，也没有能把数据带出去的通道，能做的事只有展示和往输入框里填字。
 
@@ -39,7 +41,7 @@ v0.52.x 及更早要先调用 `message_block` 工具存块，再在正文里写 
 
 ## 4. 提示词
 
-`harness` 的 `richReplies` 选项打开时，系统提示加入 `RICH_REPLIES` 段落：列出数据块的 JSON 格式和小组件的约束。条件与原来的 `message_block` 相同：只在应用里显示的会话（不含群聊协作、Bot 私聊、headless），并且上下文不小于 32k 或处于私聊工作会话。
+`harness` 的 `richReplies` 选项打开时，系统提示加入 `RICH_REPLIES` 段落：列出数据块的 JSON 格式和小组件的约束。条件为在应用里显示的交互会话（主对话、工作会话与群聊，不含 Bot 私聊与 headless），并且上下文不小于 32k 或处于工作会话。
 
 ## 5. 应用之外的地方
 

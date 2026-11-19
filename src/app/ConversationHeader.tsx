@@ -1,8 +1,10 @@
 import type { Bot, WorkSession } from '../../shared/types/core';
+import type { PinnedWidget } from '../../shared/types/widget-types';
 import type { BotActivity } from '../bots/bot-activity';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
 import { ChatSearch } from '../chat/ChatSearch';
+import { PinnedWidgetsToggle } from '../chat/PinnedWidgetsToggle';
 import { ComputerCardToggle } from '../computer/ComputerCardToggle';
 import { TerminalToggle } from '../terminal/TerminalToggle';
 import { useI18n } from '../i18n';
@@ -14,6 +16,7 @@ export function ConversationHeader({
   session,
   activity,
   conversation,
+  pinnedWidgets,
   onProfile,
   onSessionSettings,
   onNewSession,
@@ -22,6 +25,7 @@ export function ConversationHeader({
   session?: WorkSession;
   activity?: BotActivity;
   conversation: BotConversationData;
+  pinnedWidgets?: PinnedWidget[];
   onProfile: () => void;
   onSessionSettings?: () => void;
   onNewSession?: () => void;
@@ -64,6 +68,10 @@ export function ConversationHeader({
           </button>
         )}
         <TerminalToggle scope={{ kind: 'bot', id: bot.id, sessionId: session?.id }} />
+        <PinnedWidgetsToggle
+          scope={{ kind: 'bot', id: bot.id, ...(session ? { sessionId: session.id } : {}) }}
+          widgets={pinnedWidgets}
+        />
         <ComputerCardToggle />
       </div>
     </header>

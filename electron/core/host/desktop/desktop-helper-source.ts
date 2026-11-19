@@ -55,6 +55,8 @@ namespace Aelion {
     [DllImport("user32.dll")] static extern IntPtr WindowFromPoint(POINT point);
     [DllImport("user32.dll")] static extern IntPtr GetAncestor(IntPtr window, uint flags);
     [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] static extern bool GetCursorPos(out POINT point);
+    [DllImport("user32.dll")] static extern short GetAsyncKeyState(int vKey);
     [DllImport("user32.dll", SetLastError = true)] static extern uint SendInput(uint count, INPUT[] inputs, int size);
     [DllImport("user32.dll")] static extern int GetSystemMetrics(int index);
     [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr window, IntPtr dc, uint flags);
@@ -753,6 +755,57 @@ namespace Aelion {
       return Quiet(Handle(request), before, 120);
     }
 
+    static Dictionary<string, object> HitControl(int x, int y) {
+      return OnMta<Dictionary<string, object>>(delegate() {
+        try {
+          AutomationElement element = AutomationElement.FromPoint(new System.Windows.Point(x, y));
+          if (element == null) return null;
+          string type = element.Current.ControlType.ProgrammaticName.Replace("ControlType.", "");
+          string name = Short(element.Current.Name, 80);
+          bool password = false;
+          try { password = element.Current.IsPassword; } catch { }
+          string value = "";
+          if (!password) {
+            object pattern;
+            if (element.TryGetCurrentPattern(ValuePattern.Pattern, out pattern)) {
+              value = Short(((ValuePattern)pattern).Current.Value, 80);
+            }
+          }
+          Dictionary<string, object> info = new Dictionary<string, object>();
+          info["type"] = type;
+          info["name"] = name;
+          if (password) info["password"] = true;
+          else if (value.Length > 0 && value != name) info["value"] = value;
+          return info;
+        } catch {
+          return null;
+        }
+      }, 800);
+    }
+    static object Probe(Dictionary<string, object> request) {
+      POINT cursor;
+      if (!GetCursorPos(out cursor)) { cursor.X = 0; cursor.Y = 0; }
+      int buttons = 0;
+      if ((GetAsyncKeyState(0x01) & 0x8000) != 0) buttons |= 1;
+      if ((GetAsyncKeyState(0x02) & 0x8000) != 0) buttons |= 2;
+      if ((GetAsyncKeyState(0x04) & 0x8000) != 0) buttons |= 4;
+      IntPtr front = GetForegroundWindow();
+      IntPtr root = front == IntPtr.Zero ? IntPtr.Zero : GetAncestor(front, 3);
+      if (root == IntPtr.Zero) root = front;
+      Dictionary<string, object> result = new Dictionary<string, object>();
+      result["x"] = cursor.X;
+      result["y"] = cursor.Y;
+      result["buttons"] = buttons;
+      result["foreground"] = root == IntPtr.Zero ? null : Describe(root);
+      bool inspect = request.ContainsKey("inspect") && Convert.ToBoolean(request["inspect"]);
+      if (inspect) {
+        int hx = request.ContainsKey("x") ? Convert.ToInt32(request["x"]) : cursor.X;
+        int hy = request.ContainsKey("y") ? Convert.ToInt32(request["y"]) : cursor.Y;
+        try { result["control"] = HitControl(hx, hy); } catch { result["control"] = null; }
+      }
+      return result;
+    }
+
     // ---------- protocol: one JSON object per line, ASCII only ----------
     static string Ascii(string json) {
       StringBuilder text = new StringBuilder(json.Length + 16);
@@ -792,6 +845,7 @@ namespace Aelion {
       if (op == "set_value") return SetValue(request);
       if (op == "press") return Press(request);
       if (op == "scroll") return Scroll(request);
+      if (op == "probe") return Probe(request);
       throw new HelperError("invalid", "unknown operation");
     }
     public static void Run(TextReader reader) {

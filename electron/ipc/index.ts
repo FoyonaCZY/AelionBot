@@ -19,7 +19,9 @@ import { registerModels } from './register-models';
 import { registerPeers } from './register-peers';
 import { registerPersona } from './register-persona';
 import { registerPreview } from './register-preview';
+import { registerWidgets } from './register-widgets';
 import { registerTasks } from './register-tasks';
+import { registerTeaching } from './register-teaching';
 import { registerTerminal } from './register-terminal';
 import { registerWebPreview } from './register-web-preview';
 import { registerWorkspace } from './register-workspace';
@@ -28,6 +30,7 @@ import { registerConversations } from './register-conversations';
 
 export function registerIpc(ctx: IpcContext) {
   registerPreview(ctx);
+  registerWidgets(ctx);
   registerWebPreview(ctx);
   registerApp(ctx);
   registerChat(ctx);
@@ -51,6 +54,7 @@ export function registerIpc(ctx: IpcContext) {
   registerGames(ctx);
   registerPersona(ctx);
   registerComputer(ctx);
+  registerTeaching(ctx);
   registerTerminal(ctx);
   registerFiles(ctx);
 }

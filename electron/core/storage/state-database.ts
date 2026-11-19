@@ -17,6 +17,7 @@ const collections = new Set([
   'scheduledTasks',
   'workItems',
   'previewHistory',
+  'pinnedWidgets',
 ]);
 const histories = new Set(['conversations', 'peerContexts', 'groupContexts']);
 /** Collections this small are always serialized: it is cheap, and settings-like rows edited in place land at once. */

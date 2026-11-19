@@ -17,6 +17,7 @@ import type { WebTools } from '../../tools/web-tools';
 import type { TaskScheduler } from '../../scheduler/task-scheduler';
 import type { VideoFrames } from '../../preview/video-frames';
 import type { AgentPreviews } from '../../preview/agent-previews';
+import type { PinnedWidgets } from '../../preview/pinned-widgets';
 import type { GroupGateway } from '../../group/group-runtime-types';
 import type { ExecutionLedger } from '../execution-ledger';
 import type { Interactions } from '../interactions';
@@ -51,6 +52,7 @@ export interface ToolDeps {
   scheduler?: TaskScheduler;
   video?: VideoFrames;
   previews?: AgentPreviews;
+  pinnedWidgets?: PinnedWidgets;
   /** Local design tasks; absent when the app was wired without them. */
   design?: DesignWork;
   imageModel?: (botId: string) => { config: ModelConfig; key: string } | undefined;
@@ -61,6 +63,8 @@ export interface ToolDeps {
   changed(): void;
   /** Tools callable in this run, as offered to the model. */
   callableTools(runId: string): ToolDefinition[] | undefined;
+  /** Activates deferred tools for subsequent model turns of this run; returns the activated tool names. */
+  activateTools?(runId: string, names: Iterable<string>): string[];
   /** Finite background tasks of this run (terminals and processes) that have not finished. */
   pendingTasks(botId: string, runId: string): unknown[];
   /** The last context sent to the model in this run. */

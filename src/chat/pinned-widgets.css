@@ -1,0 +1,184 @@
+/* Docked pinned live widgets card in the right floating column (ComputerDetails.tsx). */
+.pinned-widgets-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pinned-widgets-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid var(--surface-line);
+}
+
+.pinned-widgets-badge {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  color: var(--text-muted);
+}
+
+.pinned-widgets-title {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-ink);
+  font-size: var(--text-small);
+  font-weight: var(--weight-label);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: text;
+}
+
+.pinned-widgets-title:hover {
+  background: var(--ctl-fill);
+}
+
+.pinned-widgets-title-input {
+  flex: 1;
+  min-width: 0;
+  height: var(--size-sm);
+  padding: 0 8px;
+  border: 1px solid var(--ctl-accent-ring);
+  border-radius: var(--radius-sm);
+  background: var(--ctl-fill);
+  color: var(--text-ink);
+  font-size: var(--text-small);
+  font-weight: var(--weight-label);
+}
+
+.pinned-widgets-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+.pinned-widgets-action {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.pinned-widgets-action:not(:disabled):hover {
+  background: var(--ctl-fill-hover);
+  color: var(--text-ink);
+}
+
+.pinned-widgets-action.is-danger:not(:disabled):hover {
+  background: var(--ctl-danger-soft);
+  color: var(--ctl-danger);
+}
+
+.pinned-widgets-action:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pinned-widgets-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--surface-line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pinned-widgets-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.pinned-widgets-tab {
+  flex: none;
+  max-width: 140px;
+  height: 24px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--ctl-fill);
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-label);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.pinned-widgets-tab:hover {
+  background: var(--ctl-fill-hover);
+  color: var(--text-ink);
+}
+
+.pinned-widgets-tab.is-active {
+  background: var(--ctl-raised);
+  color: var(--text-ink);
+}
+
+.pinned-widgets-body {
+  padding: 10px 12px 12px;
+  min-width: 0;
+}
+
+.pinned-widgets-body .widget-sandbox iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+}
+
+.pinned-widgets-error {
+  margin: 0;
+  padding: 6px 12px 10px;
+  color: var(--ctl-danger);
+  font-size: var(--text-caption);
+}
+
+/* Header button that brings a hidden pinned widgets card back. */
+.pinned-widgets-toggle {
+  position: relative;
+}
+
+.pinned-widgets-toggle-count {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: var(--radius-pill);
+  display: inline-grid;
+  place-items: center;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-label);
+  line-height: 1;
+  background: var(--ctl-accent);
+  color: var(--ctl-on-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+body:has(.fp-panel[data-layout='docked']) .pinned-widgets-toggle {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .pinned-widgets-toggle {
+    display: none;
+  }
+}

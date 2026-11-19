@@ -5,6 +5,19 @@ import { SPEECH_RECORDING_LIMIT } from '../../../shared/types/speech-types';
 import { speechChunks, spokenText } from '../../../shared/speech/speech-text';
 import { clock, closeWav, oggOpus, readWav, speechPieces, wavFile, type OpusPackets, type Pcm } from './speech-audio';
 import { recognize, speak, SPEECH_LIMITS, type SpeechAccess } from './speech-protocols';
+import { speechSegments, type SpeechSegmentOptions } from './speech-timeline';
+
+interface SpeechTimelineSegment {
+  startMs: number;
+  endMs: number;
+  clock: string;
+  text: string;
+}
+interface SpeechTimelineResult {
+  segments: SpeechTimelineSegment[];
+  text: string;
+  seconds: number;
+}
 
 /** Decoding and encoding with the system's codecs; absent in the command-line app. */
 export interface AudioCodecs {
@@ -107,6 +120,60 @@ export class SpeechService {
             .filter(Boolean)
             .join('\n');
     return { text, seconds };
+  }
+  /**
+   * Fine-grained timestamped transcription for narrated demonstrations: splits speech on natural pauses into short
+   * segments (default <= 15 s), skips pure-silence gaps so pauses cost zero ASR calls, and returns `[m:ss]` segments.
+   */
+  async transcribeTimeline(
+    bytes: Buffer,
+    signal: AbortSignal,
+    options?: SpeechSegmentOptions,
+  ): Promise<SpeechTimelineResult> {
+    const access = this.access('input');
+    if (bytes.length > SPEECH_RECORDING_LIMIT.bytes)
+      throw new AppError('speech.recording_too_large', '录音不能超过 25 MB');
+    let pcm = readWav(bytes);
+    if (!pcm) {
+      if (!this.codecs) throw new AppError('speech.format_unsupported', '这里只能识别 16 位 PCM WAV 录音');
+      pcm = await this.codecs.decode(bytes, signal);
+    }
+    const { samples, sampleRate } = pcm,
+      seconds = samples.length / sampleRate;
+    if (seconds > SPEECH_RECORDING_LIMIT.seconds)
+      throw new AppError('speech.recording_too_long', '录音超过 1 小时，请分段后再识别');
+    if (!samples.length) return { segments: [], text: '', seconds: 0 };
+    const maxSeconds = Math.min(options?.maxSeconds ?? 15, SPEECH_LIMITS[access.protocol].pieceSeconds);
+    const ranges = speechSegments(samples, sampleRate, { ...options, maxSeconds });
+    if (!ranges.length) return { segments: [], text: '', seconds };
+    const texts = await parallel(ranges, PARALLEL, async ([start, end]) => {
+      const wav = wavFile(samples.subarray(start, end), sampleRate);
+      try {
+        return await recognize(access, wav, signal);
+      } catch (error) {
+        if (signal.aborted || (error as AppError).code !== 'speech.busy') throw error;
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        signal.throwIfAborted();
+        return recognize(access, wav, signal);
+      }
+    });
+    const segments: SpeechTimelineSegment[] = [];
+    for (let index = 0; index < ranges.length; index++) {
+      const line = texts[index]?.trim();
+      if (!line) continue;
+      const [start, end] = ranges[index];
+      segments.push({
+        startMs: Math.round((start / sampleRate) * 1000),
+        endMs: Math.round((end / sampleRate) * 1000),
+        clock: clock(start / sampleRate),
+        text: line,
+      });
+    }
+    return {
+      segments,
+      text: segments.map((item) => `[${item.clock}] ${item.text}`).join('\n'),
+      seconds,
+    };
   }
   /**
    * The text read aloud in the Bot's voice, as one file. Markdown is read the way a person would say it; text

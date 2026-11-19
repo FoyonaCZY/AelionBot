@@ -42,6 +42,9 @@ import { ConversationInteractions } from '../chat/InteractionPrompts';
 import { GroupAvatar } from './GroupAvatar';
 import { GroupPersonaPanel, PersonaHoverCard } from './GroupPersonaPanel';
 import { ComputerCardToggle } from '../computer/ComputerCardToggle';
+import { PinnedWidgetsToggle } from '../chat/PinnedWidgetsToggle';
+import { WidgetHostContext, WidgetMessageContext } from '../chat/widget-context';
+import { widgetInScope } from '../../shared/types/widget-types';
 import { TerminalToggle } from '../terminal/TerminalToggle';
 import { readScrollAnchor, restoreScrollAnchor, type ScrollAnchor } from '../app/scroll-anchor';
 import { useFloatingComposer } from '../chat/use-floating-composer';
@@ -116,6 +119,14 @@ export function GroupConversation({
     ),
     pinScope = useMemo(() => ({ kind: 'group' as const, id: group.id }), [group.id]),
     pinThread = usePinThread(threadMessages, group.pending > 0 || Boolean(group.activities?.length), pinScope);
+  const allPinnedWidgets = state.pinnedWidgets;
+  const widgetHost = useMemo(
+    () => ({
+      scope: pinScope,
+      pinnedWidgets: (allPinnedWidgets || []).filter((widget) => widgetInScope(widget, pinScope)),
+    }),
+    [allPinnedWidgets, pinScope],
+  );
   const composerWrap = useFloatingComposer();
   const stickToBottom = () => {
     const element = body.current;
@@ -435,6 +446,7 @@ export function GroupConversation({
             <Icon name="settings" />
           </button>
           <TerminalToggle scope={{ kind: 'group', id: group.id }} />
+          <PinnedWidgetsToggle scope={pinScope} widgets={state.pinnedWidgets} />
           <ComputerCardToggle />
         </div>
       </header>
@@ -454,48 +466,50 @@ export function GroupConversation({
           ))}
       </div>
       <PinThreadContext.Provider value={pinThread}>
-        <ConversationTimeProvider messages={page?.messages || []}>
-          <section
-            ref={body}
-            className="messages group-messages"
-            onScroll={(event) => onMessagesScroll(event.currentTarget)}
-            onWheel={(event) => {
-              if (event.deltaY < 0 && follow.current) following(false);
-            }}
-          >
-            {page?.before && (
-              <button className="peer-chat-load" disabled={loading} onClick={() => void older()}>
-                {t('加载更早消息')}
-              </button>
-            )}
-            {timeline.map((message) =>
-              message === CARD_SLOT ? (
-                <div key="game-card-slot" ref={setCardSlot} className="gg-card-slot" />
-              ) : (
-                <GroupMessageRow
-                  key={message.id}
-                  message={message}
-                  bots={state.bots}
-                  members={members}
-                  displayName={displayName}
-                  runId={rows.replyRuns.get(message.id)}
-                  artifacts={state.artifacts}
-                  previewEntries={previewEntries}
-                  unanswered={rows.quiet.has(message.id)}
-                  deliveries={rows.byMessage.get(message.id) || NO_DELIVERIES}
-                  laya={page?.laya}
-                  sessions={state.designer?.sessions}
-                  vmReady={state.vm.status === 'ready'}
-                  latestGame={latestGame}
-                  actions={actions}
-                />
-              ),
-            )}
-            {page &&
-              !page.messages.some((message) => message.kind === 'message' || message.kind === 'progress') &&
-              !group.activities?.length && <div className="group-empty">{t('暂无消息')}</div>}
-          </section>
-        </ConversationTimeProvider>
+        <WidgetHostContext.Provider value={widgetHost}>
+          <ConversationTimeProvider messages={page?.messages || []}>
+            <section
+              ref={body}
+              className="messages group-messages"
+              onScroll={(event) => onMessagesScroll(event.currentTarget)}
+              onWheel={(event) => {
+                if (event.deltaY < 0 && follow.current) following(false);
+              }}
+            >
+              {page?.before && (
+                <button className="peer-chat-load" disabled={loading} onClick={() => void older()}>
+                  {t('加载更早消息')}
+                </button>
+              )}
+              {timeline.map((message) =>
+                message === CARD_SLOT ? (
+                  <div key="game-card-slot" ref={setCardSlot} className="gg-card-slot" />
+                ) : (
+                  <GroupMessageRow
+                    key={message.id}
+                    message={message}
+                    bots={state.bots}
+                    members={members}
+                    displayName={displayName}
+                    runId={rows.replyRuns.get(message.id)}
+                    artifacts={state.artifacts}
+                    previewEntries={previewEntries}
+                    unanswered={rows.quiet.has(message.id)}
+                    deliveries={rows.byMessage.get(message.id) || NO_DELIVERIES}
+                    laya={page?.laya}
+                    sessions={state.designer?.sessions}
+                    vmReady={state.vm.status === 'ready'}
+                    latestGame={latestGame}
+                    actions={actions}
+                  />
+                ),
+              )}
+              {page &&
+                !page.messages.some((message) => message.kind === 'message' || message.kind === 'progress') &&
+                !group.activities?.length && <div className="group-empty">{t('暂无消息')}</div>}
+            </section>
+          </ConversationTimeProvider>
+        </WidgetHostContext.Provider>
       </PinThreadContext.Provider>
       <div ref={composerWrap} className={`composer-wrap floating-composer ${requests.length ? 'with-request' : ''}`}>
         {unseen > 0 && (
@@ -673,12 +687,14 @@ const GroupMessageRow = memo(function GroupMessageRow({
             after={bare ? undefined : <AttachmentList files={message.attachments} only="files" />}
           >
             {message.reply && <MessageQuote reply={message.reply} />}
-            <MentionContent
-              content={formatted.content}
-              mentions={formatted.mentions}
-              markdown
-              pins={message.sender.kind === 'bot' ? pins : undefined}
-            />
+            <WidgetMessageContext.Provider value={message.sender.kind === 'bot' ? message.id : undefined}>
+              <MentionContent
+                content={formatted.content}
+                mentions={formatted.mentions}
+                markdown
+                pins={message.sender.kind === 'bot' ? pins : undefined}
+              />
+            </WidgetMessageContext.Provider>
             <AttachmentList files={message.attachments} only={bare ? undefined : 'images'} />
           </MessageActions>
           {unanswered && <div className="group-unanswered">{t('没有 Bot 回应，可以 @ 一个')}</div>}

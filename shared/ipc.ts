@@ -33,6 +33,10 @@ export const INVOKE_CHANNELS = {
   updatePreviewFeedbackOverlay: 'preview-feedback:overlay',
   sendPreviewFeedback: 'preview:feedback',
   acknowledgePreview: 'preview:acknowledge',
+  // Pinned widgets
+  pinWidget: 'widgets:pin',
+  updatePinnedWidget: 'widgets:update',
+  unpinWidget: 'widgets:unpin',
   // Web preview
   captureWebPreviewMenu: 'web-preview:menu-capture',
   freezeWebPreview: 'web-preview:freeze',
@@ -242,6 +246,14 @@ export const INVOKE_CHANNELS = {
   removeCommandPermission: 'permissions:command-remove',
   setHostComputerEnabled: 'host-computer:enabled',
   checkHostComputerPermissions: 'host-computer:permissions',
+  // Teach by showing
+  teachingListWindows: 'teaching:windows',
+  teachingStart: 'teaching:start',
+  teachingStatus: 'teaching:status',
+  teachingVmWindow: 'teaching:vm-window',
+  teachingFinish: 'teaching:finish',
+  teachingCancel: 'teaching:cancel',
+  teachingSend: 'teaching:send',
   respondInteraction: 'interaction:respond',
   searchMentionFiles: 'workspace:mention-files',
   pickConversationWorkspace: 'workspace:pick',

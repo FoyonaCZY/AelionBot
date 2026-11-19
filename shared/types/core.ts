@@ -450,6 +450,7 @@ export interface Snapshot {
   designer?: import('./designer-types').DesignerSnapshot;
   previewRequests?: import('../preview/agent-preview-types').AgentPreviewRequest[];
   previewHistory?: import('../preview/agent-preview-types').PreviewHistoryEntry[];
+  pinnedWidgets?: import('./widget-types').PinnedWidget[];
   appearance?: import('../preview/appearance').AppearanceSettings;
   userProfile?: import('../chat/user-profile').UserProfile;
   hostPermissionModes?: Record<string, HostPermissionMode>;
@@ -604,6 +605,11 @@ export interface AelionAPI {
   saveVmStorageSettings(value: import('../preview/vm-storage').VmStorageSettings): Promise<void>;
   reclaimVmStorage(): Promise<void>;
   acknowledgePreview(id: string): Promise<void>;
+  pinWidget(input: import('./widget-types').PinWidgetInput): Promise<import('./widget-types').PinnedWidget>;
+  updatePinnedWidget(
+    input: import('./widget-types').UpdatePinnedWidgetInput,
+  ): Promise<import('./widget-types').PinnedWidget>;
+  unpinWidget(id: string): Promise<void>;
   readEditableFile(input: { botId: string; path: string }): Promise<import('../chat/editable-text').EditableText>;
   saveEditableFile(input: {
     botId: string;
@@ -872,6 +878,20 @@ export interface AelionAPI {
   setHostComputerEnabled(enabled: boolean): Promise<void>;
   /** macOS: reads the system's grants again; with `request`, first opens the system's prompt or settings for it. */
   checkHostComputerPermissions(request?: 'accessibility' | 'screen'): Promise<void>;
+  /** Teach by showing: host window list, recording session lifecycle, timeline review and sending to a Bot. */
+  teachingListWindows(): Promise<import('./teaching-types').TeachingListWindowsResult>;
+  teachingStart(
+    input: import('./teaching-types').TeachingStartInput,
+  ): Promise<import('./teaching-types').TeachingSessionInfo>;
+  teachingStatus(sessionId: string): Promise<import('./teaching-types').TeachingSessionInfo | null>;
+  teachingVmWindow(sessionId: string): Promise<{ title?: string }>;
+  teachingFinish(
+    input: import('./teaching-types').TeachingFinishInput,
+  ): Promise<import('./teaching-types').TeachingDraft>;
+  teachingCancel(id?: string): Promise<void>;
+  teachingSend(
+    input: import('./teaching-types').TeachingSendInput,
+  ): Promise<{ message: string; attachmentCount: number }>;
   saveHostWorkspace(path: string): Promise<void>;
   pickHostWorkspace(): Promise<string | null>;
   openComputerApp(input: {

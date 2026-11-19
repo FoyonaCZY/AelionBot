@@ -865,6 +865,53 @@ func input(_ request: [String: Any]) throws {
   }
 }
 
+func hitControl(_ x: Float, _ y: Float) -> [String: Any]? {
+  let system = AXUIElementCreateSystemWide()
+  _ = AXUIElementSetMessagingTimeout(system, 0.8)
+  var hit: AXUIElement?
+  guard AXUIElementCopyElementAtPosition(system, x, y, &hit) == .success, let element = hit else {
+    return nil
+  }
+  let values = axMany(element, ["AXRole", "AXSubrole", "AXTitle", "AXDescription", "AXValue"])
+  let role = (values[0] as? String) ?? ""
+  let subrole = (values[1] as? String) ?? ""
+  var type = roleNames[role] ?? (role.hasPrefix("AX") ? String(role.dropFirst(2)) : role)
+  if subrole == "AXTabButton" { type = "TabItem" }
+  let password = role == "AXSecureTextField" || subrole == "AXSecureTextField"
+  var name = short((values[2] as? String) ?? "", 80)
+  if name.isEmpty { name = short((values[3] as? String) ?? "", 80) }
+  var info: [String: Any] = ["type": type, "name": name]
+  if password {
+    info["password"] = true
+  } else if let string = values[4] as? String {
+    let value = short(string, 80)
+    if !value.isEmpty && value != name { info["value"] = value }
+  } else if let number = values[4] as? NSNumber {
+    info["value"] = number.stringValue
+  }
+  return info
+}
+func probe(_ request: [String: Any]) -> [String: Any] {
+  let cursor = CGEvent(source: nil)?.location ?? CGPoint.zero
+  var buttons = 0
+  if CGEventSource.buttonState(.hidSystemState, button: .left) { buttons |= 1 }
+  if CGEventSource.buttonState(.hidSystemState, button: .right) { buttons |= 2 }
+  if CGEventSource.buttonState(.hidSystemState, button: .center) { buttons |= 4 }
+  var result: [String: Any] = [
+    "x": Int(cursor.x.rounded()),
+    "y": Int(cursor.y.rounded()),
+    "buttons": buttons,
+    "foreground": foreground(),
+  ]
+  let inspect = (request["inspect"] as? NSNumber)?.boolValue ?? false
+  if inspect {
+    let hx = (request["x"] as? NSNumber)?.floatValue ?? Float(cursor.x)
+    let hy = (request["y"] as? NSNumber)?.floatValue ?? Float(cursor.y)
+    result["control"] = hitControl(hx, hy) ?? NSNull()
+  }
+  return result
+}
+
 // ---------- protocol: one JSON object per line, ASCII only ----------
 func display() -> [Int] {
   var count: UInt32 = 0
@@ -906,6 +953,7 @@ func perform(_ op: String, _ request: [String: Any]) throws -> Any {
     return describe(window)
   }
   if op == "foreground" { return foreground() }
+  if op == "probe" { return probe(request) }
   if op == "activate" {
     let window = try target(request)
     return ["foreground": activate(window)]

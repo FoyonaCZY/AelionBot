@@ -55,6 +55,21 @@ export interface MenuResult {
   items?: string[];
   submenu?: boolean;
 }
+/** Non-blocking pointer/window/control snapshot used while the user demonstrates steps on this computer. */
+export interface DesktopProbeControl {
+  type: string;
+  name: string;
+  value?: string;
+  password?: boolean;
+}
+export interface DesktopProbe {
+  x: number;
+  y: number;
+  /** Bitmask: 1 = left, 2 = right, 4 = middle. */
+  buttons: number;
+  foreground: DesktopWindow | null;
+  control?: DesktopProbeControl | null;
+}
 /**
  * What host Computer Use needs from the operating system. Looking at a window and acting on a control through the
  * accessibility tree leave the window where it is; `input` and a capture with `front` bring it to the front.
@@ -82,6 +97,8 @@ export interface DesktopDriver {
   menu?(id: number, path: string[]): Promise<MenuResult>;
   /** macOS: has the system show its permission prompt. */
   requestPermission?(kind: 'accessibility' | 'screen'): Promise<void>;
+  /** Non-blocking pointer/foreground query, with optional accessibility hit-test at (x, y). */
+  probe?(options?: { inspect?: boolean; x?: number; y?: number }): Promise<DesktopProbe>;
   dispose(): void;
 }
 
@@ -249,6 +266,9 @@ abstract class DesktopHelper implements DesktopDriver {
   }
   async setValue(id: number, element: number, value: string) {
     await this.call('set_value', { window: id, element, value });
+  }
+  probe(options?: { inspect?: boolean; x?: number; y?: number }) {
+    return this.call<DesktopProbe>('probe', options ? { ...options } : {}, 5000);
   }
   dispose() {
     const child = this.child;

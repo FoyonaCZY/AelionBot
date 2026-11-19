@@ -42,6 +42,8 @@ export function groupPace(pace: GroupPace | undefined) {
 const conversationTools = new Set([
   'open_preview',
   'preview_mark',
+  'widgets_list',
+  'widget_save',
   'code_exec',
   'request_user_input',
   'user_input_wait',

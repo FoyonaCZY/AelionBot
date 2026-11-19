@@ -1,0 +1,397 @@
+/* Teach by Showing: setup dialog, compact floating recording bar, and post-recording timeline review dialog. */
+
+.teaching-setup-modal {
+  width: min(500px, calc(100vw - 48px));
+}
+
+.teaching-review-modal {
+  width: min(740px, calc(100vw - 48px));
+  max-height: min(86vh, 780px);
+  display: flex;
+  flex-direction: column;
+}
+
+.teaching-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 22px 22px;
+  overflow-y: auto;
+}
+
+.teaching-segmented {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  min-height: var(--size-lg);
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--ctl-fill);
+}
+
+.teaching-segmented > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-small);
+  font-weight: var(--weight-label);
+}
+
+.teaching-segmented > button:hover:not(:disabled) {
+  color: var(--text-ink);
+}
+
+.teaching-segmented > button[aria-pressed='true'] {
+  background: var(--ctl-raised);
+  color: var(--text-ink);
+}
+
+.teaching-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.teaching-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.teaching-field label,
+.teaching-section-title {
+  font-size: var(--text-small);
+  font-weight: var(--weight-label);
+  color: var(--text-ink);
+}
+
+.teaching-window-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.teaching-window-row > select {
+  flex: 1;
+  min-width: 0;
+  padding: 0 12px;
+  font-size: var(--text-control);
+  color: var(--text-ink);
+}
+
+.teaching-input,
+.teaching-textarea {
+  width: 100%;
+  border: 0;
+  border-radius: var(--ctl-radius);
+  background: var(--ctl-fill);
+  color: var(--text-ink);
+  font-size: var(--text-control);
+  padding: 8px 12px;
+}
+
+.teaching-input {
+  min-height: var(--size-lg);
+}
+
+.teaching-textarea {
+  resize: vertical;
+  min-height: 62px;
+  line-height: 1.5;
+}
+
+.teaching-input:focus,
+.teaching-textarea:focus {
+  outline: none;
+  box-shadow: var(--ctl-focus);
+}
+
+.teaching-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--ctl-fill);
+}
+
+.teaching-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--text-control);
+  color: var(--text-ink);
+  cursor: pointer;
+}
+
+.teaching-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--ctl-fill);
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
+  white-space: nowrap;
+}
+
+.teaching-status-pill.is-ok {
+  background: var(--ctl-accent-soft);
+  color: var(--ctl-accent-strong);
+}
+
+.teaching-status-pill.is-warn {
+  background: var(--ctl-danger-soft);
+  color: var(--ctl-danger);
+}
+
+.teaching-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--ctl-danger-soft);
+  color: var(--ctl-danger);
+  font-size: var(--text-small);
+}
+
+.teaching-vm-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--ctl-fill);
+  font-size: var(--text-small);
+  color: var(--text-ink);
+}
+
+/* ---------- Floating recording bar ---------- */
+.teaching-bar {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 6px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-float);
+  box-shadow: var(--elev-3);
+  color: var(--text-ink);
+  animation: motion-pop-in var(--motion-pop) var(--motion-ease) backwards;
+}
+
+.teaching-bar-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--ctl-danger-fill);
+  animation: teaching-bar-pulse 1.4s ease-in-out infinite;
+}
+
+.teaching-bar-timer {
+  font-size: var(--text-small);
+  font-weight: var(--weight-label);
+  font-variant-numeric: tabular-nums;
+  min-width: 38px;
+}
+
+.teaching-bar-meta {
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.teaching-bar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.teaching-bar-actions .primary-button {
+  min-height: var(--size-sm);
+  padding: 0 12px;
+  font-size: var(--text-caption);
+}
+
+.teaching-bar-mic.is-muted {
+  color: var(--ctl-danger);
+  background: var(--ctl-danger-soft);
+}
+
+.teaching-bar-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--ctl-accent);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: motion-spin 0.8s linear infinite;
+}
+
+@keyframes teaching-bar-pulse {
+  50% {
+    box-shadow: 0 0 0 5px var(--ctl-danger-soft);
+  }
+}
+
+/* ---------- Review dialog ---------- */
+.teaching-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.teaching-meta-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.teaching-narration-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.teaching-narration-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.teaching-clock-chip {
+  flex: none;
+  min-width: 48px;
+  padding: 4px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--ctl-fill);
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: var(--text-caption);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.teaching-narration-row > input {
+  flex: 1;
+  min-width: 0;
+}
+
+.teaching-steps-box {
+  max-height: 168px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--ctl-fill);
+}
+
+.teaching-step-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: var(--text-small);
+  color: var(--text-ink);
+}
+
+.teaching-step-row .teaching-clock-chip {
+  padding: 2px 6px;
+  font-size: var(--text-micro);
+}
+
+.teaching-step-window {
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
+}
+
+.teaching-keyframes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(144px, 1fr));
+  gap: 10px;
+}
+
+.teaching-keyframe-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border-radius: var(--radius-md);
+  background: var(--ctl-fill);
+  cursor: pointer;
+  transition:
+    background var(--motion-fast),
+    box-shadow var(--motion-fast);
+}
+
+.teaching-keyframe-card:hover {
+  background: var(--ctl-fill-hover);
+}
+
+.teaching-keyframe-card.is-selected {
+  box-shadow: inset 0 0 0 2px var(--ctl-accent);
+  background: var(--ctl-accent-soft);
+}
+
+.teaching-keyframe-card img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: var(--radius-xs);
+  background: var(--surface-base);
+}
+
+.teaching-keyframe-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-micro);
+  color: var(--text-secondary);
+}
+
+.teaching-keyframe-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.teaching-empty {
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+
+.teaching-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 22px 18px;
+  border-top: 1px solid var(--ctl-line);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .teaching-bar,
+  .teaching-bar-dot,
+  .teaching-bar-spinner {
+    animation: none;
+  }
+}

@@ -5,6 +5,8 @@ import { currentLanguage, translate } from '../i18n';
 
 const operations: Record<string, { label: string; active: string; icon: string }> = {
   open_preview: { label: '预览', active: '正在打开预览', icon: 'file' },
+  widgets_list: { label: '查看固定小工具', active: '正在查看固定小工具', icon: 'pin' },
+  widget_save: { label: '更新固定小工具', active: '正在更新固定小工具', icon: 'pin' },
   execution_list: { label: '核对执行记录', active: '正在核对执行记录', icon: 'check' },
   execution_resolve: { label: '核对问题处理结果', active: '正在核对问题处理结果', icon: 'check' },
   tools_batch: { label: '批量读取资料', active: '正在批量读取资料', icon: 'file' },
@@ -144,6 +146,7 @@ export function describeTool(
   if (['skill_read', 'skill_save', 'skill_materialize'].includes(name)) detail = text(result.name || input.name);
   if (name === 'mcp_call') detail = text(result.tool || input.name);
   if (name === 'knowledge_search') detail = text(input.query);
+  if (name === 'widget_save') detail = text(result.title || input.title);
   if (name === 'bot_send_message') detail = text((result.recipient as Record<string, unknown> | undefined)?.name);
   if (name === 'computer') {
     const actions: Record<string, string> = {

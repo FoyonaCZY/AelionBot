@@ -1,4 +1,6 @@
 import { PinThreadContext, usePinThread } from '../preview/pin-thread';
+import { WidgetHostContext } from '../chat/widget-context';
+import { widgetInScope } from '../../shared/types/widget-types';
 import { memo, useLayoutEffect, useMemo, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import type {
@@ -90,6 +92,7 @@ export function BotConversation({
   onOpenFile,
   onSaveFile,
   onOpenPreviewEntry,
+  onTeach,
 }: {
   bot: Bot;
   session?: WorkSession;
@@ -118,6 +121,7 @@ export function BotConversation({
   onOpenFile: (file: PreviewFile) => void;
   onSaveFile: (file: PreviewFile) => void;
   onOpenPreviewEntry: (entry: PreviewHistoryEntry) => void;
+  onTeach?: () => void;
 }) {
   const { t } = useI18n();
   const sessionId = session?.id,
@@ -215,126 +219,136 @@ export function BotConversation({
       [messages],
     ),
     pinThread = usePinThread(threadMessages, running, attachmentScope);
+  const allPinnedWidgets = state.pinnedWidgets;
+  const widgetHost = useMemo(
+    () => ({
+      scope: attachmentScope,
+      pinnedWidgets: (allPinnedWidgets || []).filter((widget) => widgetInScope(widget, attachmentScope)),
+    }),
+    [allPinnedWidgets, attachmentScope],
+  );
   return (
     <>
       <ConversationTimeProvider messages={messages}>
         <PinThreadContext.Provider value={pinThread}>
-          <section
-            ref={messagesPane}
-            key={chatKey}
-            className="messages"
-            onScroll={(event) => {
-              onMessagesScroll(event.currentTarget);
-              timelineWindow.onScroll(event.currentTarget);
-            }}
-          >
-            {timeline.slice(timelineWindow.start).map((item, index) => {
-              const key = keys[timelineWindow.start + index];
-              if (item.kind === 'message') {
-                const message = item.message;
+          <WidgetHostContext.Provider value={widgetHost}>
+            <section
+              ref={messagesPane}
+              key={chatKey}
+              className="messages"
+              onScroll={(event) => {
+                onMessagesScroll(event.currentTarget);
+                timelineWindow.onScroll(event.currentTarget);
+              }}
+            >
+              {timeline.slice(timelineWindow.start).map((item, index) => {
+                const key = keys[timelineWindow.start + index];
+                if (item.kind === 'message') {
+                  const message = item.message;
+                  return (
+                    <TimelineMessage
+                      key={key}
+                      message={message}
+                      shown={shown.get(message)}
+                      groups={message.groupTaskSource || message.groupLink ? state.groups : undefined}
+                      peers={message.taskSource || message.peer ? state.peers : undefined}
+                      allowPins={!runsById.get(message.runId || '')?.groupOrigin}
+                      editable={canRetract(message, runsById.get(message.runId || ''))}
+                      actions={actions}
+                    />
+                  );
+                }
+                const latest = item.isLast && latestRun?.id === item.id,
+                  allRunMessages = runMessages.get(item.id) || NO_MESSAGES;
                 return (
-                  <TimelineMessage
+                  <TimelineRun
                     key={key}
-                    message={message}
-                    shown={shown.get(message)}
-                    groups={message.groupTaskSource || message.groupLink ? state.groups : undefined}
-                    peers={message.taskSource || message.peer ? state.peers : undefined}
-                    allowPins={!runsById.get(message.runId || '')?.groupOrigin}
-                    editable={canRetract(message, runsById.get(message.runId || ''))}
+                    runId={item.id}
+                    run={runsById.get(item.id)}
+                    messages={item.messages.map((message) => shown.get(message) || message)}
+                    allRunMessages={allRunMessages}
+                    isLast={item.isLast}
+                    latest={latest}
+                    model={currentModel}
+                    stream={
+                      item.isLast
+                        ? liveReplies.find((reply) => reply.runId === item.id && reply.purpose !== 'progress')
+                        : undefined
+                    }
+                    waiting={item.isLast ? requests.find((request) => request.runId === item.id)?.kind : undefined}
+                    reviewing={
+                      item.isLast &&
+                      requests.some(
+                        (request) =>
+                          request.runId === item.id &&
+                          request.kind === 'host_permission' &&
+                          request.approval?.phase === 'reviewing',
+                      )
+                    }
+                    canContinue={!running && !busy}
+                    regenerable={
+                      latest &&
+                      !running &&
+                      !busy &&
+                      tailRunId === item.id &&
+                      canRegenerate(
+                        runsById.get(item.id),
+                        allRunMessages.filter((message) => message.role === 'user' && !message.reaction),
+                      )
+                    }
+                    outputs={
+                      latest
+                        ? state.artifacts.filter(
+                            (file) =>
+                              file.botId === bot.id &&
+                              file.runId === item.id &&
+                              isRunArtifact(file.path) &&
+                              !allRunMessages.some((message) =>
+                                message.attachments?.some(
+                                  (attachment) => attachment.name === file.name && attachment.size === file.size,
+                                ),
+                              ),
+                          )
+                        : NO_FILES
+                    }
+                    previewEntries={previewEntries}
+                    filesDisabled={busy || !vmReady}
+                    designSession={
+                      designCardAt.get(runsById.get(item.id)?.designSessionId || '') === timelineWindow.start + index
+                        ? designSessionOf(state, runsById.get(item.id))
+                        : undefined
+                    }
                     actions={actions}
                   />
                 );
-              }
-              const latest = item.isLast && latestRun?.id === item.id,
-                allRunMessages = runMessages.get(item.id) || NO_MESSAGES;
-              return (
-                <TimelineRun
-                  key={key}
-                  runId={item.id}
-                  run={runsById.get(item.id)}
-                  messages={item.messages.map((message) => shown.get(message) || message)}
-                  allRunMessages={allRunMessages}
-                  isLast={item.isLast}
-                  latest={latest}
-                  model={currentModel}
-                  stream={
-                    item.isLast
-                      ? liveReplies.find((reply) => reply.runId === item.id && reply.purpose !== 'progress')
-                      : undefined
+              })}
+              {liveReplies
+                .filter(
+                  (reply) =>
+                    reply.purpose === 'progress' ||
+                    !reply.runId ||
+                    !timeline.some((item) => item.kind === 'run' && item.id === reply.runId),
+                )
+                .map((reply) => (
+                  <LiveReply key={reply.id} reply={reply} />
+                ))}
+              {(running || greeting) && (
+                <BotWorkingStatus
+                  bot={bot}
+                  onReview={waiting ? () => onReview(waiting) : undefined}
+                  step={
+                    liveBotStep(
+                      messages,
+                      latestRun,
+                      waiting?.kind,
+                      waiting?.kind === 'host_permission' && waiting.approval?.phase === 'reviewing',
+                    ) || { phase: 'thinking', label: greeting ? t('正在准备打招呼') : t('正在准备处理') }
                   }
-                  waiting={item.isLast ? requests.find((request) => request.runId === item.id)?.kind : undefined}
-                  reviewing={
-                    item.isLast &&
-                    requests.some(
-                      (request) =>
-                        request.runId === item.id &&
-                        request.kind === 'host_permission' &&
-                        request.approval?.phase === 'reviewing',
-                    )
-                  }
-                  canContinue={!running && !busy}
-                  regenerable={
-                    latest &&
-                    !running &&
-                    !busy &&
-                    tailRunId === item.id &&
-                    canRegenerate(
-                      runsById.get(item.id),
-                      allRunMessages.filter((message) => message.role === 'user' && !message.reaction),
-                    )
-                  }
-                  outputs={
-                    latest
-                      ? state.artifacts.filter(
-                          (file) =>
-                            file.botId === bot.id &&
-                            file.runId === item.id &&
-                            isRunArtifact(file.path) &&
-                            !allRunMessages.some((message) =>
-                              message.attachments?.some(
-                                (attachment) => attachment.name === file.name && attachment.size === file.size,
-                              ),
-                            ),
-                        )
-                      : NO_FILES
-                  }
-                  previewEntries={previewEntries}
-                  filesDisabled={busy || !vmReady}
-                  designSession={
-                    designCardAt.get(runsById.get(item.id)?.designSessionId || '') === timelineWindow.start + index
-                      ? designSessionOf(state, runsById.get(item.id))
-                      : undefined
-                  }
-                  actions={actions}
                 />
-              );
-            })}
-            {liveReplies
-              .filter(
-                (reply) =>
-                  reply.purpose === 'progress' ||
-                  !reply.runId ||
-                  !timeline.some((item) => item.kind === 'run' && item.id === reply.runId),
-              )
-              .map((reply) => (
-                <LiveReply key={reply.id} reply={reply} />
-              ))}
-            {(running || greeting) && (
-              <BotWorkingStatus
-                bot={bot}
-                onReview={waiting ? () => onReview(waiting) : undefined}
-                step={
-                  liveBotStep(
-                    messages,
-                    latestRun,
-                    waiting?.kind,
-                    waiting?.kind === 'host_permission' && waiting.approval?.phase === 'reviewing',
-                  ) || { phase: 'thinking', label: greeting ? t('正在准备打招呼') : t('正在准备处理') }
-                }
-              />
-            )}
-            <div />
-          </section>
+              )}
+              <div />
+            </section>
+          </WidgetHostContext.Provider>
         </PinThreadContext.Provider>
       </ConversationTimeProvider>
       <ConversationRail
@@ -376,6 +390,7 @@ export function BotConversation({
           running={running}
           onSend={actions.send}
           onStop={actions.stop}
+          onTeach={onTeach}
         />
       </div>
       {/* In the body: the conversation's glass would otherwise be what the dialog is positioned in. */}

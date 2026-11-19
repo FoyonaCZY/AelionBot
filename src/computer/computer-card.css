@@ -27,7 +27,7 @@
   background: transparent;
   overflow: visible;
 }
-:root .app-shell > .details.computer-details > :is(.computer-card, .design-canvas-card) {
+:root .app-shell > .details.computer-details > :is(.computer-card, .design-canvas-card, .pinned-widgets-card) {
   position: relative;
   flex: 0 1 auto;
   min-height: 0;

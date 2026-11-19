@@ -172,10 +172,12 @@ export function BotComposer({
   contextControl,
   designSessionId,
   placeholder,
+  onTeach,
 }: {
   placeholder?: string;
   designSessionId?: string;
   contextControl?: ReactNode;
+  onTeach?: () => void;
   contextOverview?: ContextOverview;
   contextCapacity?: number;
   requestMetrics?: RequestMetrics;
@@ -832,6 +834,7 @@ export function BotComposer({
             })
           }
           onCommand={chooseCommand}
+          onTeach={onTeach}
         />
         {scope.kind === 'bot' && (
           <>
