@@ -949,7 +949,10 @@ while let line = readLine(strippingNewline: true) {
   {
     reply["id"] = request["id"] ?? NSNull()
     do {
-      reply["result"] = try autoreleasepool { try perform(request["op"] as? String ?? "", request) }
+      let result: Any = try autoreleasepool { () throws -> Any in
+        try perform(request["op"] as? String ?? "", request)
+      }
+      reply["result"] = result
       reply["ok"] = true
     } catch let error as HelperError {
       reply["ok"] = false
