@@ -24,7 +24,7 @@
 
 <br>
 
-<img src="docs/assets/screenshots/workspace-zh-CN.png" alt="AelionBot 工作台：左侧是 Bot 和工作会话，中间是进行中的调研任务和计划，右侧是工作电脑和定时任务" width="100%">
+<img src="docs/assets/screenshots/workspace-zh-CN.png" alt="AelionBot 工作台：左侧是 Bot、群聊和工作会话，中间是研究员正在执行计划的第 2 步，右侧是工作电脑和自动化" width="100%">
 
 ## 能做什么
 
@@ -53,16 +53,16 @@
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/assets/screenshots/collaboration-zh-CN.png" alt="群聊：研究、数据、写作和设计伙伴分别交付候选清单、更正后的表格、摘要初稿和幻灯片"></td>
-    <td width="50%"><img src="docs/assets/screenshots/design-zh-CN.png" alt="落地页任务：左侧是 Bot 的说明，右侧是带页面缩略图的设计画布卡片"></td>
+    <td width="50%"><img src="docs/assets/screenshots/collaboration-zh-CN.png" alt="群聊：你 @ 了四个 Bot，研究员和数据分析师分别回复了来源和更正后的表格"></td>
+    <td width="50%"><img src="docs/assets/screenshots/design-zh-CN.png" alt="落地页任务：对话里是设计师的说明，右侧画布卡片里是做好的页面"></td>
   </tr>
   <tr>
     <td align="center"><sub>群聊分工</sub></td>
     <td align="center"><sub>设计画布</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/assets/screenshots/research-zh-CN.png" alt="展开处理步骤的调研任务：搜索、阅读三个页面、保存文件、运行脚本，随后是对比表格"></td>
-    <td><img src="docs/assets/screenshots/approval-zh-CN.png" alt="审批请求：显示命令、所在文件夹，以及拒绝、始终允许和本次允许的按钮"></td>
+    <td><img src="docs/assets/screenshots/research-zh-CN.png" alt="展开处理步骤的调研任务：阅读四个网页、运行代码、写入两个文件，随后是结论"></td>
+    <td><img src="docs/assets/screenshots/approval-zh-CN.png" alt="审批请求：显示要执行的命令和工作目录，可以拒绝或允许本次"></td>
   </tr>
   <tr>
     <td align="center"><sub>处理步骤</sub></td>
@@ -114,7 +114,10 @@ Windows 10 及以上（64 位）或 macOS（Apple 芯片），不支持 Intel �
 - **工作会话**：从“+”菜单或 Bot 的右键菜单新建。每个会话有自己的记录、工作目录、权限模式和计划，长期记忆共享。
 - **定时任务**：一次性、每天、每周或按间隔执行，在创建它的对话里运行，执行时需要保持应用开启。
 - **记忆与个性**：每个 Bot 有一份 SOUL.md，定义说话方式和边界，也会记住你确认过的偏好。
+- **回复里的图表**：数字可以直接以图表、表格和指标卡片的形式出现在对话里。
 - 浅色和深色主题；英语、简体中文和繁体中文界面。
+
+<img src="docs/assets/screenshots/charts-zh-CN.png" alt="数据分析师回答注册数据的问题：三张指标卡片和一张每周柱状图" width="100%">
 
 </details>
 
@@ -125,7 +128,7 @@ Windows 10 及以上（64 位）或 macOS（Apple 芯片），不支持 Intel �
 
 群聊只用群内的消息、资料和文件，不混入无关的私聊。伙伴之间可以互发私信、传递文件。谁负责什么由你决定，应用不会擅自改变分工。
 
-<img src="docs/assets/screenshots/handoff-zh-CN.png" alt="Bot 私信：交接来源文件与更正后的表格" width="100%">
+<img src="docs/assets/screenshots/handoff-zh-CN.png" alt="两个 Bot 之间的私信：研究员请数据分析师核对价格，对方发回更正后的表格" width="100%">
 
 </details>
 
@@ -150,8 +153,6 @@ Windows 10 及以上（64 位）或 macOS（Apple 芯片），不支持 Intel �
 <br>
 
 任务需要浏览器、桌面应用或干净环境时，Bot 使用一台受管理的 Linux VM，里面有浏览器、终端和办公应用。各 Bot 有自己的工作目录和桌面，你可以查看过程、暂停或接管。VM 里的网页服务可以通过端口转发在应用内预览。按应用内引导准备并启动；存储上限和回收空间在设置里。
-
-<img src="docs/assets/screenshots/computer-zh-CN.png" alt="工作电脑设置：存储用量、上限和回收空间，示例电脑未启动" width="100%">
 
 </details>
 

@@ -35,10 +35,20 @@ const context = (f: F, extra: Partial<MemoryContext> = {}): MemoryContext => ({
   shareUser: true,
   ...extra,
 });
+// Each a second after the last: facts recorded in the same millisecond would list in the order of their random IDs.
+let recorded = Date.parse('2026-01-01T00:00:00.000Z');
 const fact = (f: F, text: string, extra: Record<string, unknown> = {}) =>
-  f.items.create({ scope: 'bot:' + f.bot.id, kind: 'project', text, origin: 'user_stated', ...extra } as any, {
-    actor: 'system',
-  });
+  f.items.create(
+    {
+      scope: 'bot:' + f.bot.id,
+      kind: 'project',
+      text,
+      origin: 'user_stated',
+      recordedAt: new Date((recorded += 1000)).toISOString(),
+      ...extra,
+    } as any,
+    { actor: 'system' },
+  );
 const modelReturning = (reply: (messages: WireMessage[]) => string, seen?: WireMessage[][]) =>
   ({
     complete: async (messages: WireMessage[]) => {

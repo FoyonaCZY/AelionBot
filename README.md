@@ -24,7 +24,7 @@
 
 <br>
 
-<img src="docs/assets/screenshots/workspace-en.png" alt="AelionBot workspace: Bots and work sessions on the left, a research task and its plan in the middle, the work computer and schedules on the right" width="100%">
+<img src="docs/assets/screenshots/workspace-en.png" alt="AelionBot workspace: Bots, groups and work sessions on the left, the Researcher working on step 2 of a plan in the middle, the work computer and automations on the right" width="100%">
 
 ## What it does
 
@@ -53,16 +53,16 @@
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/assets/screenshots/collaboration-en.png" alt="Group chat: research, data, writing and design partners deliver a shortlist, a corrected table, a draft summary and a slide"></td>
-    <td width="50%"><img src="docs/assets/screenshots/design-en.png" alt="Landing page task: the Bot's notes on the left, the design canvas card with a page thumbnail on the right"></td>
+    <td width="50%"><img src="docs/assets/screenshots/collaboration-en.png" alt="Group chat: you @mention four Bots, and the Researcher and Analyst reply with sources and a corrected table"></td>
+    <td width="50%"><img src="docs/assets/screenshots/design-en.png" alt="Landing page task: the Designer's summary in the chat, the page itself in a canvas card on the right"></td>
   </tr>
   <tr>
     <td align="center"><sub>Group work</sub></td>
     <td align="center"><sub>Design canvas</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/assets/screenshots/research-en.png" alt="A research task with its steps expanded: searches, three pages read, a file saved and a script run, followed by a comparison table"></td>
-    <td><img src="docs/assets/screenshots/approval-en.png" alt="An approval request showing the command, its folder, and buttons to deny, always allow or allow once"></td>
+    <td><img src="docs/assets/screenshots/research-en.png" alt="A research task with its steps expanded: four pages read, a script run and two files written, followed by the recommendation"></td>
+    <td><img src="docs/assets/screenshots/approval-en.png" alt="An approval request showing the command and its folder, with buttons to deny it or allow it this time"></td>
   </tr>
   <tr>
     <td align="center"><sub>Task steps</sub></td>
@@ -114,7 +114,10 @@ Open a Bot and say what you need. Searching, reading, writing files and running 
 - **Work sessions**: start one from the "+" menu or a Bot's context menu. Each has its own history, folder, permission mode and plan; long-term memory is shared.
 - **Scheduled tasks**: once, daily, weekly or at an interval, run in the conversation that created them while the app is open.
 - **Memory and personality**: each Bot has a SOUL.md for its voice and limits, and remembers preferences you confirm.
+- **Charts in replies**: numbers can come back as charts, tables and metric cards right in the chat.
 - Light and dark themes; English, Simplified Chinese and Traditional Chinese.
+
+<img src="docs/assets/screenshots/charts-en.png" alt="The Analyst answers a question about sign-ups with three metric cards and a weekly bar chart" width="100%">
 
 </details>
 
@@ -125,7 +128,7 @@ Open a Bot and say what you need. Searching, reading, writing files and running 
 
 A group uses only its own messages, materials and files, never unrelated private chats. Partners can message each other and pass files. You decide who does what; the app never reassigns roles on its own.
 
-<img src="docs/assets/screenshots/handoff-en.png" alt="Bot messages: handing over source files and a corrected table" width="100%">
+<img src="docs/assets/screenshots/handoff-en.png" alt="Private messages between two Bots: the Researcher asks for a price check and the Analyst returns a corrected table" width="100%">
 
 </details>
 
@@ -150,8 +153,6 @@ Each conversation has its own permission mode:
 <br>
 
 When a task needs a browser, desktop apps or a clean environment, the Bot uses a managed Linux VM with a browser, terminal and office apps. Each Bot has its own folder and desktop; you can watch, pause or take over. Web servers started in the VM can be previewed in the app through port forwarding. Prepare and start it from the in-app guide; storage limits and cleanup are in Settings.
-
-<img src="docs/assets/screenshots/computer-en.png" alt="Work computer settings: storage use, limit and cleanup, with the example computer stopped" width="100%">
 
 </details>
 
