@@ -238,12 +238,6 @@
 .plugins-head-switch + .plugins-section-add {
   margin-left: 10px;
 }
-.plugins-section-note {
-  margin: 0 0 8px;
-  font-size: var(--text-caption);
-  line-height: 1.6;
-  color: var(--text-muted);
-}
 .plugins-head-switch {
   display: inline-flex;
   align-items: center;

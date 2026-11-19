@@ -169,7 +169,7 @@ export function AppearanceSettings({
             </Select>
           </Row>
           {settings.font === 'custom' && (
-            <Row title={t('字体名称')} hint={t('填写已安装的字体；未找到时使用内置字体')}>
+            <Row title={t('字体名称')}>
               <FontName
                 label={t('自定义界面字体名称')}
                 value={settings.customFont}
@@ -189,7 +189,7 @@ export function AppearanceSettings({
             </Select>
           </Row>
           {settings.codeFont === 'custom' && (
-            <Row title={t('代码字体名称')} hint={t('建议使用等宽字体')}>
+            <Row title={t('代码字体名称')}>
               <FontName
                 label={t('自定义代码字体名称')}
                 value={settings.customCodeFont}
@@ -236,7 +236,7 @@ export function AppearanceSettings({
       </SettingsSection>
       <SettingsSection title={t('对话')}>
         <div className="settings-card">
-          <Row title={t('思考过程')} hint={t('模型返回的推理内容在对话中的展示方式')}>
+          <Row title={t('思考过程')}>
             <Select
               aria-label={t('思考过程')}
               value={settings.reasoning}
@@ -250,13 +250,11 @@ export function AppearanceSettings({
           <Row
             title={t('对话导航条')}
             hint={
-              settings.conversationRail !== 'audio'
-                ? t('每轮对话一条短线，悬停查看摘要，可标记重点')
-                : systemAudio === 'unavailable'
-                  ? t(
-                      '没有取到系统音频。请在“系统设置 > 隐私与安全性 > 录屏与系统录音”中允许 AelionBot；Linux 暂不支持。',
-                    )
-                  : t('macOS 首次使用会请求“系统录音”权限；只读取音量，不录制。')
+              settings.conversationRail === 'audio' && systemAudio === 'unavailable'
+                ? t(
+                    '没有取到系统音频。请在“系统设置 > 隐私与安全性 > 录屏与系统录音”中允许 AelionBot；Linux 暂不支持。',
+                  )
+                : undefined
             }
           >
             <Select

@@ -626,10 +626,6 @@
   margin-top: 18px;
   padding: 0 18px;
 }
-.gg-lobby-note {
-  margin: 0;
-  text-align: center;
-}
 
 /* ---------- presets ---------- */
 .gg-presets {
@@ -769,9 +765,6 @@
   gap: 7px;
   margin-top: 8px;
   font-size: calc(12.5px * var(--appearance-text-scale, 1));
-}
-.gg-room-note {
-  margin-top: auto;
 }
 .gg-room-main {
   display: flex;
@@ -988,11 +981,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 2px;
-}
-.gg-pop-actions > .gg-muted {
-  flex-basis: 100%;
-  margin-bottom: 4px;
-  line-height: 1.5;
 }
 .gg-pop-actions > .gg-spacer {
   display: none;

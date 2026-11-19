@@ -515,13 +515,6 @@
   font-weight: var(--weight-label);
   color: var(--text-ink);
 }
-.settings-empty-state p {
-  max-width: 320px;
-  margin: 6px 0 0;
-  font-size: var(--text-caption);
-  line-height: 1.7;
-  color: var(--text-secondary);
-}
 .settings-modal .settings-note {
   margin: 8px 4px 0;
   font-size: var(--text-caption);

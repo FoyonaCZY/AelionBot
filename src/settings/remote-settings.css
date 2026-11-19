@@ -4,12 +4,6 @@
 .remote-status.is-error {
   color: light-dark(#b4462f, #f0a090);
 }
-.remote-note {
-  margin: 8px 2px 0;
-  font-size: var(--text-caption);
-  line-height: 1.6;
-  color: var(--text-muted);
-}
 .remote-pairing {
   margin-bottom: 12px;
   padding: 16px !important;
@@ -74,13 +68,8 @@
 .remote-relay-footer {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 16px;
   padding: 12px 0;
   border-top: 1px solid var(--settings-line);
-}
-.remote-relay-footer small {
-  flex: 1;
-  font-size: var(--text-caption);
-  line-height: 1.6;
-  color: var(--text-muted);
 }

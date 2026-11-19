@@ -56,7 +56,6 @@ export function GroupDecisionSetting({ laya }: { laya: LayaFeatureState }) {
       <div className="group-laya-setting-row">
         <div className="group-laya-setting-copy">
           <strong>{t('实验 · 决策模型')}</strong>
-          <small>{t('本地判断 Bot 是否需要参与群聊')}</small>
         </div>
         <button
           type="button"

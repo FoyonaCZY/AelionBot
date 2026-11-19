@@ -6,8 +6,6 @@ export const en: Record<string, string> = {
   'TTFT：从模型请求发出到首个输出 Token。TPS：输出 Token ÷ 首 Token 到最后一个流事件的时间。':
     'TTFT: from the model request to the first output token. TPS: output tokens ÷ time from the first token to the last stream event.',
   不影响私聊: 'Private chats unaffected',
-  '私聊沿用原有 SOUL；游戏人格、成长和关系不会注入私聊。':
-    'Private chats keep the original SOUL. Game personality, growth and relationships are not injected into private chats.',
   已有经历记录: 'Experiences recorded',
   '新版游戏先记录事实经历，不根据一次模型判断或胜负自动改变五维。已有成长保留，锁定成长也不会停止记录事实。':
     'The new game policy records factual experiences first. A single model assessment or win/loss does not automatically change the five dimensions. Existing growth is retained, and locking growth does not stop factual records.',
@@ -18,7 +16,6 @@ export const en: Record<string, string> = {
     'No notable relationships yet. Being saved by a witch and winning together affect relationships under the existing rules; being voted out by teammates is retained as a shared experience.',
   '取消中…': 'Cancelling…',
   '实验 · 决策模型': 'Experiment · Decision model',
-  '本地判断 Bot 是否需要参与群聊': 'Decide locally whether Bots should participate in the group',
   一键下载并启用: 'Download and enable',
   '各 Bot 的回应判断': 'Whether each Bot responds',
   判断中: 'Deciding',
@@ -70,7 +67,6 @@ export const en: Record<string, string> = {
   '把 {model} 标记为生图模型': 'Mark {model} as an image model',
   '{model} 的默认画幅': 'Default aspect for {model}',
   '{model} 的默认质量': 'Default quality for {model}',
-  等待响应或连续无有效输出的时限: 'Time limit for waiting for a response or receiving no meaningful output',
   正在接收代码与工具参数: 'Receiving code and tool arguments',
   模型正在处理: 'Model processing',
   '模型已有{elapsed}没有返回新的有效输出，仍在等待。': 'No new meaningful output for {elapsed}. Still waiting.',
@@ -114,12 +110,10 @@ export const en: Record<string, string> = {
   系统默认: 'System default',
   自定义字体: 'Custom font',
   字体名称: 'Font name',
-  '填写已安装的字体；未找到时使用内置字体': 'Enter an installed font; the bundled font is used if it is not found',
   自定义界面字体名称: 'Custom interface font name',
   代码字体: 'Code font',
   系统等宽字体: 'System monospace',
   代码字体名称: 'Code font name',
-  建议使用等宽字体: 'A monospace font is recommended',
   正文字重: 'Body weight',
   '纤细 · 300': 'Light · 300',
   '常规 · 400': 'Regular · 400',
@@ -310,7 +304,6 @@ export const en: Record<string, string> = {
   '已保存：': 'Saved:',
   'Bot 已删除': 'Bot deleted',
   文件恢复点: 'File checkpoints',
-  修改前保留一份文件版本: 'Keep a file version before editing',
   文件修改前保留检查点: 'Keep a checkpoint before editing files',
   请检查输入的数值: 'Check the values you entered',
   有未保存的更改: 'Unsaved changes',
@@ -354,8 +347,6 @@ export const en: Record<string, string> = {
   状态: 'Status',
   任务状态: 'Task status',
   等待执行: 'Waiting to run',
-  '客户端运行时自动执行，结果发送到此会话。':
-    'Runs automatically while the client is open; results are sent to this conversation.',
   '删除此定时任务？': 'Delete this scheduled task?',
   '正在删除…': 'Deleting…',
   确认删除: 'Confirm delete',
@@ -492,8 +483,6 @@ export const en: Record<string, string> = {
   '在 GitHub 反馈': 'Report on GitHub',
   诊断包已保存: 'Diagnostic package saved',
   '已打开 GitHub，请补充问题后提交': 'GitHub opened. Add details and submit.',
-  '包含环境、近期错误和执行状态，密钥与个人目录会脱敏。聊天正文、附件和截图不在包中。':
-    'Includes the environment, recent errors, and run state. Keys and personal folders are redacted; chat text, attachments, and screenshots are not included.',
   '正在导出…': 'Exporting…',
   '正在打开…': 'Opening…',
   '已保存 {file}，可拖入 GitHub issue 上传。': 'Saved {file}; drag it into a GitHub issue to upload.',
@@ -662,10 +651,7 @@ export const en: Record<string, string> = {
   并行读取: 'Parallel reads',
   '0 表示不限': '0 means unlimited',
   '0 表示不重试': '0 means no retries',
-  每次模型响应的输出量: 'Output per model response',
   自动压缩阈值: 'Auto-compaction threshold',
-  上下文占用达到窗口的这个比例时整理较早记录:
-    'Summarize older records when context use reaches this share of the window',
   压缩上下文: 'Compact context',
   立即压缩: 'Compact now',
   '压缩中…': 'Compacting…',
@@ -966,7 +952,7 @@ export const en: Record<string, string> = {
   正在下载: 'Downloading',
   正在准备应用: 'Preparing apps',
   正在准备系统: 'Preparing system',
-  '已停止，完成的操作和文件仍然保留。': 'Stopped; completed actions and files are preserved.',
+  已停止: 'Stopped',
   已停用: 'Disabled',
   用途: 'Purpose',
   '预计需要 {estimated} token，当前输入预算 {budget}。工作记录已保留，请调整模型设置后继续。':
@@ -1427,13 +1413,10 @@ export const en: Record<string, string> = {
     'The task is still running. You can inspect or stop it above the composer.',
   本机: 'This computer',
   停止: 'Stop',
-  '未配置时无法生成图片。': 'Image generation is unavailable until configured.',
   字体预览: 'Font preview',
   '正文示例：今天的工作记录。': 'Sample body text: today’s work notes.',
   暂无技能: 'No skills',
   '暂无 MCP 服务': 'No MCP servers',
-  '选择“始终允许”的命令会保存在此列表。': 'Commands approved with “Always allow” are saved here.',
-  '提交前请补充复现步骤和截图。': 'Add reproduction steps and screenshots before submitting.',
   '更新将安装压缩包、表格和演示文稿工具，保留现有文件。':
     'The update installs archive, spreadsheet and presentation tools. Existing files are kept.',
   '正在审核操作权限。': 'Reviewing operation permissions.',
@@ -1508,7 +1491,6 @@ export const en: Record<string, string> = {
   展开思考过程: 'Show thinking',
   收起思考过程: 'Hide thinking',
   思考过程: 'Thinking',
-  模型返回的推理内容在对话中的展示方式: 'How reasoning returned by the model appears in conversations',
   自动收起: 'Collapse automatically',
   始终展开: 'Always expanded',
   不显示: 'Hidden',
@@ -1520,12 +1502,8 @@ export const en: Record<string, string> = {
   对话导航条: 'Conversation rail',
   随系统音频律动: 'Move with system audio',
   静态显示: 'Static',
-  '每轮对话一条短线，悬停查看摘要，可标记重点':
-    'One line per turn along the left edge. Hover for a summary and mark the ones that matter.',
   '没有取到系统音频。请在“系统设置 > 隐私与安全性 > 录屏与系统录音”中允许 AelionBot；Linux 暂不支持。':
     "Couldn't get the system audio. Allow AelionBot in System Settings > Privacy & Security > Screen & System Audio Recording. Linux isn't supported yet.",
-  'macOS 首次使用会请求“系统录音”权限；只读取音量，不录制。':
-    'macOS asks once for System Audio Recording permission. Only sound levels are read; nothing is recorded.',
   '正在导出 {format}…': 'Exporting {format}…',
   '{format} 已导出': '{format} exported',
   导出失败: 'Export failed',
@@ -1708,9 +1686,6 @@ export const en: Record<string, string> = {
   撤回预览: 'Revert preview',
   '应用 HTML': 'Apply HTML',
   '把修改发给 Bot': 'Send changes to Bot',
-  '拖动选中元素或蓝色标签移动，拖动边角调整大小。':
-    'Drag the selected element or blue label to move. Drag an edge or corner to resize.',
-  '使用网页已加载或电脑已安装的字体。': 'Uses fonts loaded by the page or installed on this computer.',
   收起子元素: 'Collapse children',
   展开子元素: 'Expand children',
   更多元素: 'More elements',
@@ -2158,16 +2133,12 @@ export const en: Record<string, string> = {
   '＋ 更多游戏会出现在这里': '＋ More games will appear here',
   '还没设置，每局随机性格': 'Not set; personalities are random each match',
   规则要点: 'Key rules',
-  '对局在本机运行，AI 调用会消耗各自模型的额度。': "Matches run on this computer; AI calls use each model's quota.",
   临时: 'Temporary',
   '开局时从 16 种里抽一种': 'One of 16 types is drawn at the start',
   你的位置: 'Your seat',
   坐进去玩: 'Play',
   '旁观 12 个 AI': 'Watch 12 AI',
-  '旁观时可以随时切换「全知视角」看所有身份。':
-    'While watching you can switch to the omniscient view to see every role.',
   完整规则: 'Full rules',
-  '身份在开局时随机发放，座位顺序即发言顺序。': 'Roles are dealt at random; seat order is speaking order.',
   '还差 {count} 位': '{count} more',
   '统一模型：选择模型': 'Model for all: choose',
   沿用上次: 'Use last setup',
@@ -2177,7 +2148,6 @@ export const en: Record<string, string> = {
   '{name} 的本局设置': '{name} for this match',
   '{seat} 号 · {name}': 'Seat {seat} · {name}',
   本局模型: 'Model for this match',
-  只影响这一局: 'This match only',
   恢复预设: 'Reset to preset',
   移出本局: 'Remove from match',
   补一位玩家: 'Add a player',
@@ -2468,8 +2438,6 @@ export const en: Record<string, string> = {
   '越向外，该项数值越高。': 'Further out means a higher value.',
   '形状大小不代表好坏。': 'Size does not mean better or worse.',
   最近经历: 'Recent experiences',
-  '从左到右是历次记录，中线是出生值；向上表示数值升高，向下表示降低。五张图共用 ±{range} 的变化刻度，展示所有来源的累计变化。':
-    'Records run from left to right. The midline is the birth value; up means an increase, down a decrease. All five charts share a ±{range} scale and show cumulative changes from all sources.',
   '还没有游戏经历。': 'No game experiences yet.',
   '还没有群聊经历。': 'No group chat experiences yet.',
   '与人交往、表达主张和投入活动的倾向。': 'The tendency to engage socially, assert oneself and be active.',
@@ -2620,8 +2588,6 @@ export const en: Record<string, string> = {
   随机补位性格: 'Randomize guest personalities',
   沿用人格档案: 'Uses personality profile',
   返回开局设置: 'Back to match setup',
-  '模型只影响这一局；人格沿用 Bot 档案。':
-    'The model setting applies to this match. Personality comes from the Bot profile.',
   '有未保存的修改，确定放弃并离开吗？': 'Discard unsaved changes and leave?',
   电脑控制: 'Computer use',
   '让 Bot 操作这台电脑上的应用': 'Let Bots use apps on this computer',
@@ -2713,8 +2679,6 @@ export const en: Record<string, string> = {
   验证数字: 'Verification number',
   概览: 'Overview',
   '在手机上给 Bot 发消息': 'Message your Bots from your phone',
-  '连接后，私聊消息会交给 Bot 在这台电脑上处理；企业微信群里 @ 它的消息也可以。做完把结果和文件发回去，不需要公网地址。':
-    'Once connected, private messages go to the Bot on this computer, and group @mentions work in WeCom too. It sends the results and files back, with no public address needed.',
   'MCP 服务': 'MCP servers',
   '{count} 个 · {connected} 个已连接': '{count} · {connected} connected',
   '{count} 个 · {enabled} 个启用': '{count} · {enabled} on',
@@ -2747,13 +2711,8 @@ export const en: Record<string, string> = {
   '{name} 想使用这个 Bot': '{name} wants to use this Bot',
   '{name} 想成为这个连接器的主人': '{name} wants to own this connector',
   配对码: 'Pairing code',
-  收到的消息交给它处理: 'Messages received go to this Bot',
   这个连接器的所有会话都用这个模式: 'Every chat of this connector uses this mode',
-  '修改后会同步到这个连接器的所有会话；单个会话仍可再调整':
-    'Changes apply to every chat of this connector; each chat can still be adjusted separately.',
   可以使用的人: 'People who can use it',
-  '主人 · 审批卡片发给主人': 'Owner · approval cards go to the owner',
-  第一个发消息并被你允许的人会成为主人: 'The first person who writes and is allowed by you becomes the owner',
   刚刚: 'Just now',
   '{count} 分钟前': '{count} min ago',
   '{count} 小时前': '{count} h ago',
@@ -2764,7 +2723,6 @@ export const en: Record<string, string> = {
     '{name} connects with an access token. The token stays on this computer, encrypted.',
   'Google 要求用你自己的 Google Cloud 项目登录。只需设置一次，之后所有 Google 应用共用。':
     'Google requires sign-in through your own Google Cloud project. Set it up once and every Google app uses it.',
-  '使用你提供的访问令牌，加密保存在这台电脑上': 'Uses the access token you provided, encrypted on this computer',
   '去 {name} 创建令牌': 'Create a token on {name}',
   '在 Google Auth Platform 里配置同意屏幕，把要用的权限加到“数据访问”。':
     'In Google Auth Platform, set up the consent screen and add the scopes you need under “Data Access”.',
@@ -2785,10 +2743,7 @@ export const en: Record<string, string> = {
   消息渠道: 'Messaging',
   登录: 'Sign in',
   登录中: 'Signing in',
-  '登录凭据加密保存在这台电脑上，过期后自动续期':
-    'Sign-in is kept encrypted on this computer and renewed when it expires',
   '登录后 Bot 才能使用': 'Sign in so Bots can use it',
-  '登录后 Bot 才能使用这个服务': 'Sign in so Bots can use this service',
   '登录页已经在浏览器里打开。登录并允许访问后，回到这里就能用了。':
     'The sign-in page is open in your browser. Sign in and allow access, then come back here.',
   确认移除: 'Remove',
@@ -2967,8 +2922,6 @@ export const en: Record<string, string> = {
   '旁观 {count} 个 AI': 'Watch {count} AIs',
   '每轮存活玩家依次描述自己的词，然后同时投票，得票最多的人出局并公布身份。第一次平票时，平票的人各补一句描述后在他们之中重投，再平票本轮无人出局。卧底全部出局平民胜；存活卧底不少于平民，或只剩 3 人时仍有卧底，卧底胜。白板出局时可以猜一次平民的词，猜中则白板单独获胜。':
     "Each round, living players describe their word in turn, then vote at the same time; the most-voted player is out and their role revealed. On a first tie, the tied players each add one line and the others revote among them; a second tie means nobody is out that round. Civilians win when every spy is out; spies win when they are as many as the civilians, or when a spy is still in with three players left. A blank who is voted out may guess the civilians' word once and wins alone if right.",
-  '词在开局时随机发放，每轮的描述从下一位玩家开始。':
-    "Words are dealt at random when the match starts; each round's descriptions start one seat later.",
   '✓ {count} 位玩家都已就绪': '✓ All {count} players ready',
   平民的词: "Civilians' word",
   卧底的词: "Spies' word",
@@ -3006,7 +2959,6 @@ export const en: Record<string, string> = {
   '正在读取性格…': 'Loading personality…',
   性格均衡: 'Balanced',
   人格库: 'Personality library',
-  '网络经典人格的夸张演绎，娱乐用，不是诊断': 'Exaggerated internet archetypes for fun, not a diagnosis',
   '不使用预设，保留现在的性格数值': 'No preset; keep the current trait values',
   使用中: 'In use',
   口头禅: 'Catchphrases',
@@ -3037,7 +2989,6 @@ export const en: Record<string, string> = {
     'Every Bot in the group shares this folder, so files one Bot writes can be read by the others',
   更换: 'Change',
   发言上限: 'Message limits',
-  你说话后重新计数: 'Counting restarts when you speak',
   'Bot 连续发言': 'Bot messages in a row',
   '你不说话时，所有 Bot 加起来最多发几条。到了会暂停，等你说话':
     'How many messages all Bots together may send while you are silent. At the limit the group pauses until you speak',
@@ -3148,21 +3099,13 @@ export const en: Record<string, string> = {
   '约 15–25 分钟': 'About 15–25 minutes',
   '3 人：叫分决定地主，另外两人是农民。': 'Three players: the bidding decides the landlord; the other two are farmers.',
   '4 人：开局随机定庄家，庄家先摸牌。': 'Four players: a random dealer, who draws first.',
-  '旁观时可以随时切换「全知视角」看所有人的牌。':
-    'While watching you can switch to full view at any time to see every hand.',
   '一副 54 张牌，每人 17 张，留 3 张底牌。从随机一人开始每人叫一次，可叫 1、2、3 分或不叫，叫 3 分直接当地主，否则最高者当地主；无人叫则重新发牌。地主拿底牌先出。出牌要压过上家同类型、同张数的牌，或者不要；两家都不要时最后出牌的人重新出。牌型有单张、对子、三张、三带一、三带二、顺子、连对、飞机（可带单或带对）、四带二、炸弹和王炸。先出完的一边获胜；底分是叫分，每个炸弹、王炸和春天翻倍，地主输赢是农民的两倍。':
     'A 54-card deck, 17 cards each and 3 hole cards. Starting from a random player, each bids once: 1, 2 or 3 points, or no bid. A bid of 3 makes you landlord at once; otherwise the highest bid does; if nobody bids the cards are dealt again. The landlord takes the hole cards and leads. Each play must beat the last one with the same combination and the same number of cards, or pass; when both others pass, the last player leads again. Combinations: single, pair, triple, triple with a single, triple with a pair, straight, pair chain, plane (with singles or pairs), four with two, bomb and rocket. The side that empties a hand first wins. The base score is the bid, doubled by each bomb, rocket and a spring; the landlord wins or loses twice what each farmer does.',
   '136 张牌，没有花牌。每人 13 张，庄家先摸。轮到你时摸一张，然后自摸和牌、暗杠或加杠，或者打出一张。别人打出的牌可以和、杠或碰，不能吃；和牌优先，多人能和时出牌者下家起第一个人和。四组面子加一对将，或七个对子，就能和。番数：平胡 1，七对、碰碰胡、混一色各 2，清一色 4，字一色 6，门清、自摸、杠上开花、海底捞月各 1。点炮由出牌的人付，自摸三家各付。牌墙摸完无人和牌就是流局。':
     '136 tiles without flowers, 13 each; the dealer draws first. On your turn you draw, then win on the self-draw, declare a concealed or added kong, or discard. Another player’s discard can be claimed for a win, a kong or a pung, but not a chow; a win comes first, and when several players can win the first in turn order after the discarder does. Four sets and a pair, or seven pairs, win. Fan: basic win 1; seven pairs, all pungs and mixed one suit 2 each; pure one suit 4; all honours 6; concealed hand, self-draw, win on a kong replacement and win on the last tile 1 each. A discarder pays the winner; on a self-draw all three pay. If the wall runs out with no winner the hand is drawn.',
-  '牌在开局时随机发放，座位顺序即出牌顺序。': 'Cards are dealt at random; the seat order is the playing order.',
-  '牌在开局时随机发放，座位顺序即摸牌顺序。': 'Tiles are dealt at random; the seat order is the drawing order.',
   加杠: 'Added kong',
   杠: 'Kong',
   'AI 出牌时附带闲聊': 'AI players chat as they play',
-  'AI 出牌时会顺口说一句，所有人都能看到；可能无意中透露牌情。':
-    'AI players add a line as they play, which everyone sees and which may give away what they hold.',
-  'AI 只出牌、不说话，牌桌上不会出现任何 AI 发言。':
-    'AI players only play, without a word; nothing they say reaches the table.',
   偏好: 'Preference',
   个人信息: 'Personal',
   环境: 'Environment',
@@ -3213,7 +3156,6 @@ export const en: Record<string, string> = {
   显示已归档: 'Show archived',
   '这个 Bot': 'This Bot',
   使用关于你的记忆: 'Use memories about you',
-  '角色扮演类的 Bot 可以关掉': 'Can be turned off for role-play Bots',
   记忆方式: 'Memory mode',
   使用并记住: 'Use and remember',
   '只用，不记新的': 'Use, keep nothing new',
@@ -3229,22 +3171,15 @@ export const en: Record<string, string> = {
   '正在下载本地模型 {percent}%': 'Downloading the local model {percent}%',
   '模型下载失败：{issue}。可以先关掉再打开重试，不影响按词搜索。':
     'Model download failed: {issue}. Turn this off and on to retry; word search keeps working.',
-  '已索引 {indexed} 条，{pending} 条待处理。模型在本机运行，内容不会发出去。':
-    '{indexed} indexed, {pending} waiting. The model runs on this computer; nothing is sent out.',
-  '下载约 {size} MB 的本地模型，换个说法也能想起':
-    'Downloads a local model of about {size} MB, so other wordings are found too',
+  '已索引 {indexed} 条，{pending} 条待处理': '{indexed} indexed, {pending} waiting',
+  '下载约 {size} MB 的本地模型': 'Downloads a local model of about {size} MB',
   记忆模型: 'Memory model',
   回顾过去的对话: 'Look back over past conversations',
   '{conversations} 段对话，约 {tokens} 输入 token，会花费你的模型额度。':
     '{conversations} conversations, about {tokens} input tokens, charged to your model quota.',
-  从已有的对话里提取记忆: 'Extracts memories from existing conversations',
   开始: 'Start',
   估算用量: 'Estimate usage',
   导入与导出: 'Import and export',
-  '导入的记忆要你确认后才会使用，会放进上面选中的范围。':
-    'Imported memories are used only after you confirm them, and go into the scope selected above.',
-  '忘记一条记忆后，它不会再被用到，也不会被自动记回来；但已经发给模型服务的内容无法追回。':
-    'A forgotten memory is no longer used or learned again, but what was already sent to a model service cannot be recalled.',
   '想起了 {count} 条': 'Recalled {count}',
   '记住了 {count} 条': 'Remembered {count}',
   这条不对: 'This is wrong',
@@ -3254,8 +3189,6 @@ export const en: Record<string, string> = {
   仅此范围: 'This scope only',
   长期记忆: 'Long-term memory',
   '用每个 Bot 自己的模型': "Each Bot's own model",
-  '后台提取和整理用的模型。可以换成便宜的，对话内容会发给所选的服务商。':
-    'Used for capture and consolidation in the background. You can pick a cheaper one; conversations are sent to its provider.',
   记忆提取: 'Memory capture',
   已置顶: 'Pinned',
   记忆详情: 'Memory details',
@@ -3264,9 +3197,7 @@ export const en: Record<string, string> = {
   '加载中…': 'Loading…',
   记忆设置: 'Memory settings',
   '{name} 的记忆设置': 'Memory settings for {name}',
-  '模型、导入与整理记录': 'Models, import and activity',
   没有找到相关记忆: 'No matching memories',
-  '试试其他关键词，或清空搜索查看全部记忆。': 'Try another keyword, or clear the search to see all memories.',
   '已暂停自动记忆，已有记忆仍可使用。': 'Automatic memory is paused. Saved memories can still be used.',
   '使用了 {count} 条记忆': 'Used {count} memories',
   本次记住: 'Remembered this time',
@@ -3291,8 +3222,6 @@ export const en: Record<string, string> = {
   语音合成模型: 'Speech synthesis model',
   默认音色: 'Default voice',
   服务默认: 'Service default',
-  '用于输入框的语音输入、IM 语音消息和 Bot 转写录音。':
-    'Used for voice input in the composer, voice messages from chat apps, and Bots transcribing recordings.',
   '用语音回复 IM 里的语音消息': 'Answer voice messages from chat apps by voice',
   '你好，我是你的 AelionBot。这是语音合成的试听。': 'Hi, I am your AelionBot. This is a speech synthesis sample.',
   试听: 'Play sample',
@@ -3307,7 +3236,6 @@ export const en: Record<string, string> = {
   朗读: 'Read aloud',
   停止朗读: 'Stop reading',
   朗读音色: 'Reading voice',
-  '朗读这个 Bot 的回复、发送语音消息时使用。': "Used to read this Bot's replies aloud and for its voice messages.",
   音色: 'Voice',
   使用默认音色: 'Use the default voice',
   '{action}自动化 {title}': '{action} automation {title}',
@@ -3358,8 +3286,6 @@ export const en: Record<string, string> = {
   自动化名称: 'Automation name',
   要做的事: 'What to do',
   触发事件: 'Trigger event',
-  '触发后在此会话执行；每个自动化每分钟最多运行一次，期间的多次触发会合并。':
-    'Runs in this chat when triggered; each automation runs at most once a minute and merges triggers in between.',
   '触发后需要 Bot 做什么？': 'What should the Bot do when it triggers?',
   触发方式: 'Trigger',
   请选择: 'Choose',
@@ -3400,10 +3326,6 @@ export const en: Record<string, string> = {
   手机访问: 'Phone access',
   允许手机连接这台电脑: 'Let phones connect to this computer',
   开启时不让电脑睡眠: 'Keep this computer awake while it is on',
-  '电脑睡眠后手机就连不上了；屏幕仍会按系统设置关闭。':
-    'A sleeping computer cannot be reached from your phone. The screen still turns off as your system settings say.',
-  '连接经过端到端加密，中继服务器看不到内容。手机上不能修改模型、插件和 API Key，也不能把本机权限改成完全放行。':
-    'Connections are end-to-end encrypted; the relay cannot read them. From a phone you cannot change models, plugins or API keys, or turn local permissions to full access.',
   添加手机: 'Add a phone',
   新手机请求连接: 'A new phone asks to connect',
   '“{name}”请求连接这台电脑。确认是你自己的手机再允许。':
@@ -3421,8 +3343,6 @@ export const en: Record<string, string> = {
   中继: 'Relay',
   中继地址: 'Relay address',
   手机网页地址: 'Phone app address',
-  '留空使用官方中继。自己部署的中继同时提供手机网页，部署方法见仓库里的 relay/README.md。换中继后手机需要重新配对。':
-    'Leave empty to use the official relay. A relay you host also serves the phone app; see relay/README.md in the repository. Phones need to pair again after you change the relay.',
   有问题想问你: 'has a question for you',
   需要你处理工作电脑: 'needs you on the work computer',
   需要你批准一个操作: 'needs your approval',
@@ -3531,7 +3451,6 @@ export const en: Record<string, string> = {
   '断开后要重新扫码才能再连接“{name}”。':
     'After disconnecting you need to scan the code again to reconnect to “{name}”.',
   断开这台电脑: 'Disconnect this computer',
-  '连接经过端到端加密，中继只转发密文。': 'Connections are end-to-end encrypted; the relay only forwards ciphertext.',
   '中继：{host}': 'Relay: {host}',
   '相机权限被拒绝。请在系统设置里允许，或改用粘贴链接':
     'Camera access was denied. Allow it in settings, or paste the link instead.',
@@ -3577,9 +3496,7 @@ export const en: Record<string, string> = {
   'Bot 等你批准或回答时': 'When a Bot waits for your approval or answer',
   任务结束时: 'When a task ends',
   自动化运行结束时: 'When an automation finishes',
-  '窗口在前台时不通知。': 'No notifications while the window is in front.',
   显示消息内容: 'Show message content',
-  '关闭后只显示是哪个 Bot、发生了什么。': 'When off, only the Bot and what happened are shown.',
   // Regenerate
   '这条回复会被新的回复替换。已经写好的文件、执行过的操作不会撤销。':
     'A new reply replaces this one. Files already written and actions already taken are not undone.',
@@ -3653,8 +3570,6 @@ export const en: Record<string, string> = {
   '文件超过 {limit} 个，只收录了前 {limit} 个': 'More than {limit} files; only the first {limit} are indexed',
   '{count} 个文件未收录': '{count} files not indexed',
   还没有知识库: 'No knowledge bases yet',
-  '把文件夹加进来，Bot 回答时就能检索里面的文档。':
-    'Add folders, and Bots can search the documents in them when they answer.',
   文件过大: 'File too large',
   没有可提取的文字: 'No text to read',
   不支持的文件类型: 'Unsupported file type',
@@ -3703,8 +3618,7 @@ export const en: Record<string, string> = {
   '正在更新…': 'Updating…',
   更新价格表: 'Update prices',
   '已更新，{count} 个模型': 'Updated, {count} models',
-  '价格按每百万 tokens 计。花费按当前价格估算，不是账单。':
-    "Prices are per million tokens. Cost is an estimate at today's prices, not a bill.",
+  '价格按每百万 tokens 计': 'Prices are per million tokens',
   '正在读取价格…': 'Loading prices…',
   未定价: 'No price',
   恢复内置: 'Use built-in',
@@ -3730,15 +3644,10 @@ export const en: Record<string, string> = {
   '上次恢复：{time}': 'Last restore: {time}',
   上次恢复没有完成: 'The last restore did not finish',
   导出备份: 'Export backup',
-  '对话、Bot、记忆、附件和设置，约 {size}': 'Chats, Bots, memory, attachments and settings, about {size}',
-  '对话、Bot、记忆、附件和设置': 'Chats, Bots, memory, attachments and settings',
   '密码（可选）': 'Password (optional)',
   再输一次密码: 'Repeat password',
-  '设了密码，API Key 和登录信息会一起备份。不设密码，这些只能在这台电脑上恢复。':
-    'With a password, API keys and sign-ins are backed up too. Without one, they can only be restored on this computer.',
   选择位置并导出: 'Choose location and export',
   从备份恢复: 'Restore from backup',
-  用备份替换这台电脑上现在的数据: 'Replace the data on this computer with a backup',
   选择备份文件: 'Choose backup file',
   '{time} · 来自 {device} · 版本 {version} · {size}': '{time} · from {device} · version {version} · {size}',
   未知电脑: 'unknown computer',
@@ -3749,16 +3658,12 @@ export const en: Record<string, string> = {
   恢复并重启: 'Restore and restart',
   '正在导出备份…': 'Exporting backup…',
   '正在读取备份…': 'Reading backup…',
-  '工作文件夹里的文件和工作电脑不在备份里。换电脑后，工作电脑需要重新准备。':
-    'Files in work folders and the work computer are not part of a backup. On a new computer, the work computer has to be set up again.',
   恢复前的数据: 'Data from before a restore',
   '{time} 被替换的数据': 'Data replaced on {time}',
   从模板开始: 'Start from a template',
   '导入 Bot 文件': 'Import Bot file',
   '导出 Bot': 'Export Bot',
   '已导出到 {path}': 'Exported to {path}',
-  '设定、形象、它自己的技能和人格会写进一个文件，不含聊天记录和 API Key。':
-    'Its profile, look, own skills and personality go into one file, without chat history or API keys.',
   包含它的记忆: 'Include its memories',
   '导入 Bot': 'Import Bot',
   '已导入 {name}': 'Imported {name}',

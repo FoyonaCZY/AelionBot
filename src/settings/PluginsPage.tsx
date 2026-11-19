@@ -349,13 +349,6 @@ export function PluginsPage({
                   {connectorError}
                 </p>
               )}
-              {connectors.length === 0 && !words && (
-                <p className="plugins-section-note">
-                  {t(
-                    '连接后，私聊消息会交给 Bot 在这台电脑上处理；企业微信群里 @ 它的消息也可以。做完把结果和文件发回去，不需要公网地址。',
-                  )}
-                </p>
-              )}
               <div className="plugin-grid">
                 {shownConnectors.map((connector) => (
                   <ConnectorRow

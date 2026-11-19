@@ -348,13 +348,6 @@
   stroke: var(--gg-panel);
   stroke-width: 1.5;
 }
-.gp-shape-note {
-  margin: 0;
-  color: var(--gg-muted);
-  font-size: var(--text-caption);
-  line-height: 1.6;
-  text-align: center;
-}
 .gp-shape-key {
   display: inline-flex;
   flex-wrap: wrap;
@@ -617,12 +610,6 @@
   background: var(--gp-bot-color, var(--gg-acc));
   transform: translate(50%, -50%);
   box-shadow: 0 0 0 2px var(--gg-panel);
-}
-.gp-chart-note {
-  margin: 0 0 14px;
-  color: var(--gg-muted);
-  font-size: var(--text-caption);
-  line-height: 1.7;
 }
 .gp-relations {
   gap: 15px;

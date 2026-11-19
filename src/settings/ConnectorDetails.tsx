@@ -167,10 +167,7 @@ export function ConnectorDetails({
         <h3 id="connector-settings">{t('设置')}</h3>
         <div className="plugin-rows">
           <label>
-            <span>
-              {t('回复的 Bot')}
-              <small>{t('收到的消息交给它处理')}</small>
-            </span>
+            <span>{t('回复的 Bot')}</span>
             <Select
               value={connector.botId}
               disabled={pending}
@@ -184,10 +181,7 @@ export function ConnectorDetails({
             </Select>
           </label>
           <label>
-            <span>
-              {t('本机权限')}
-              <small>{t('修改后会同步到这个连接器的所有会话；单个会话仍可再调整')}</small>
-            </span>
+            <span>{t('本机权限')}</span>
             <Select
               value={connector.permissionMode}
               disabled={pending}
@@ -211,7 +205,7 @@ export function ConnectorDetails({
               <span className="connector-person">{Array.from(connector.owner.name || connector.owner.id)[0]}</span>
               <span>
                 {connector.owner.name || connector.owner.id}
-                <small>{t('主人 · 审批卡片发给主人')}</small>
+                <small>{t('主人')}</small>
               </span>
             </div>
           ) : (
@@ -219,10 +213,7 @@ export function ConnectorDetails({
               <span className="connector-person">
                 <Icon name="user" size={14} />
               </span>
-              <span>
-                {t('等待配对')}
-                <small>{t('第一个发消息并被你允许的人会成为主人')}</small>
-              </span>
+              <span>{t('等待配对')}</span>
             </div>
           )}
           {connector.allowed.map((person) => (

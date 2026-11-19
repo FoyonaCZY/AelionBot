@@ -134,9 +134,6 @@ export function BotTransfer({
           <Avatar bot={bot} size={36} />
           <strong>{bot.name}</strong>
         </div>
-        <p className="bot-transfer-note">
-          {t('设定、形象、它自己的技能和人格会写进一个文件，不含聊天记录和 API Key。')}
-        </p>
         <label className="bot-transfer-check">
           <input
             type="checkbox"

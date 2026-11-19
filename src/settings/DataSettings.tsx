@@ -118,11 +118,7 @@ export function DataSettings({ onNotify }: { onNotify: (message: string) => void
           <div className="settings-switch-row">
             <div className="settings-row-copy">
               <span>{t('导出备份')}</span>
-              <small>
-                {overview
-                  ? t('对话、Bot、记忆、附件和设置，约 {size}', { size: size(overview.bytes) })
-                  : t('对话、Bot、记忆、附件和设置')}
-              </small>
+              {overview && <small>{size(overview.bytes)}</small>}
             </div>
             <button
               type="button"
@@ -172,7 +168,7 @@ export function DataSettings({ onNotify }: { onNotify: (message: string) => void
               )}
               <div className="data-panel-footer">
                 <small className={issue ? 'is-error' : undefined} role={issue ? 'alert' : undefined}>
-                  {issue || t('设了密码，API Key 和登录信息会一起备份。不设密码，这些只能在这台电脑上恢复。')}
+                  {issue}
                 </small>
                 <button type="button" className="secondary-button" disabled={busy} onClick={close}>
                   {t('取消')}
@@ -186,7 +182,6 @@ export function DataSettings({ onNotify }: { onNotify: (message: string) => void
           <div className="settings-switch-row">
             <div className="settings-row-copy">
               <span>{t('从备份恢复')}</span>
-              <small>{t('用备份替换这台电脑上现在的数据')}</small>
             </div>
             <button type="button" className="secondary-button" disabled={working} onClick={() => void pick()}>
               {t('选择备份文件')}
@@ -286,7 +281,6 @@ export function DataSettings({ onNotify }: { onNotify: (message: string) => void
             {issue}
           </p>
         )}
-        <p className="settings-note">{t('工作文件夹里的文件和工作电脑不在备份里。换电脑后，工作电脑需要重新准备。')}</p>
       </SettingsSection>
 
       {overview && overview.copies.length > 0 && (

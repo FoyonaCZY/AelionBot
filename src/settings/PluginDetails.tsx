@@ -347,15 +347,7 @@ export function PluginDetails({
             <strong>
               {mcp.login === 'signed-in' ? t('已登录') : mcp.login === 'signing-in' ? t('登录中') : t('未登录')}
             </strong>
-            <small>
-              {mcp.login === 'signed-in'
-                ? app?.auth === 'token'
-                  ? t('使用你提供的访问令牌，加密保存在这台电脑上')
-                  : t('登录凭据加密保存在这台电脑上，过期后自动续期')
-                : mcp.login === 'signing-in'
-                  ? t('在浏览器里完成登录')
-                  : t('登录后 Bot 才能使用这个服务')}
-            </small>
+            {mcp.login === 'signing-in' && <small>{t('在浏览器里完成登录')}</small>}
           </span>
           {mcp.login === 'signing-in' ? (
             <button className="secondary-button" onClick={() => void window.aelion.cancelMcpSignIn(mcp.id)}>

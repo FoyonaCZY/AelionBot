@@ -63,11 +63,7 @@ export function CommandPermissionsSettings({
           ))}
         </div>
       ) : (
-        <SettingsEmpty
-          icon="shield"
-          title={t('还没有长期授权')}
-          description={t('选择“始终允许”的命令会保存在此列表。')}
-        />
+        <SettingsEmpty icon="shield" title={t('还没有长期授权')} />
       )}
     </SettingsSection>
   );

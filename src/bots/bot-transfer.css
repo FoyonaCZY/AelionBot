@@ -13,7 +13,6 @@
   font-size: var(--text-control);
   font-weight: var(--weight-label);
 }
-.bot-transfer-note,
 .bot-transfer-list {
   margin: 0;
   font-size: var(--text-small);

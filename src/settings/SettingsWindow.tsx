@@ -143,22 +143,13 @@ export function SettingsSection({ title, aside, children }: { title: string; asi
   );
 }
 
-export function SettingsEmpty({
-  icon = 'bot',
-  title,
-  description,
-}: {
-  icon?: string;
-  title: string;
-  description?: string;
-}) {
+export function SettingsEmpty({ icon = 'bot', title }: { icon?: string; title: string }) {
   return (
     <div className="settings-empty settings-empty-state">
       <span className="settings-empty-symbol" aria-hidden="true">
         <Icon name={icon} size={22} />
       </span>
       <strong>{title}</strong>
-      {description && <p>{description}</p>}
     </div>
   );
 }

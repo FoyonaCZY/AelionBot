@@ -487,11 +487,7 @@ export function MemorySettings({
             ))}
           </ul>
         ) : (
-          <SettingsEmpty
-            icon="memory"
-            title={query.trim() ? t('没有找到相关记忆') : t('还没有记忆')}
-            description={query.trim() ? t('试试其他关键词，或清空搜索查看全部记忆。') : undefined}
-          />
+          <SettingsEmpty icon="memory" title={query.trim() ? t('没有找到相关记忆') : t('还没有记忆')} />
         )}
       </SettingsSection>
       {selectedBot && options && (
@@ -508,7 +504,6 @@ export function MemorySettings({
             <div className="settings-switch-row">
               <div className="settings-row-copy">
                 <span>{t('使用关于你的记忆')}</span>
-                <small>{t('角色扮演类的 Bot 可以关掉')}</small>
               </div>
               <Switch
                 label={t('使用关于你的记忆')}
@@ -580,7 +575,6 @@ export function MemorySettings({
         <summary>
           <Icon name="chevron" size={15} />
           <span>{t('更多设置')}</span>
-          <small>{t('模型、导入与整理记录')}</small>
         </summary>
         {overview && overview.jobs.some((job) => job.kind === 'consolidate') && (
           <SettingsSection title={t('整理记录')}>
@@ -627,11 +621,11 @@ export function MemorySettings({
                             issue: embedding.issue || '',
                           })
                         : embedding.state === 'ready'
-                          ? t('已索引 {indexed} 条，{pending} 条待处理。模型在本机运行，内容不会发出去。', {
+                          ? t('已索引 {indexed} 条，{pending} 条待处理', {
                               indexed: embedding.indexed,
                               pending: embedding.pending,
                             })
-                          : t('下载约 {size} MB 的本地模型，换个说法也能想起', { size: embedding.sizeMB })}
+                          : t('下载约 {size} MB 的本地模型', { size: embedding.sizeMB })}
                   </small>
                 </div>
                 <Switch
@@ -649,7 +643,6 @@ export function MemorySettings({
             <div className="memory-model">
               <div className="settings-row-copy">
                 <span>{t('记忆模型')}</span>
-                <small>{t('后台提取和整理用的模型。可以换成便宜的，对话内容会发给所选的服务商。')}</small>
               </div>
               <ModelSelectionFields
                 providers={providers}
@@ -667,14 +660,14 @@ export function MemorySettings({
             <div className="settings-switch-row">
               <div className="settings-row-copy">
                 <span>{t('回顾过去的对话')}</span>
-                <small>
-                  {past
-                    ? t('{conversations} 段对话，约 {tokens} 输入 token，会花费你的模型额度。', {
-                        conversations: past.conversations,
-                        tokens: past.inputTokens.toLocaleString(language),
-                      })
-                    : t('从已有的对话里提取记忆')}
-                </small>
+                {past && (
+                  <small>
+                    {t('{conversations} 段对话，约 {tokens} 输入 token，会花费你的模型额度。', {
+                      conversations: past.conversations,
+                      tokens: past.inputTokens.toLocaleString(language),
+                    })}
+                  </small>
+                )}
               </div>
               {past ? (
                 <button
@@ -701,7 +694,6 @@ export function MemorySettings({
             <div className="settings-switch-row">
               <div className="settings-row-copy">
                 <span>{t('导入与导出')}</span>
-                <small>{t('导入的记忆要你确认后才会使用，会放进上面选中的范围。')}</small>
               </div>
               <div className="memory-transfer">
                 <button
@@ -717,9 +709,6 @@ export function MemorySettings({
               </div>
             </div>
           </div>
-          <p className="settings-note">
-            {t('忘记一条记忆后，它不会再被用到，也不会被自动记回来；但已经发给模型服务的内容无法追回。')}
-          </p>
         </SettingsSection>
         {overview && (
           <p className="settings-note memory-totals">

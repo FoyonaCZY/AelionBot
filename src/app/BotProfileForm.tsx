@@ -206,7 +206,6 @@ export function BotProfileForm({
         </div>
         <div className="bot-profile-model">
           <h3>{t('生图模型')}</h3>
-          <p className="settings-note">{t('未配置时无法生成图片。')}</p>
           <ModelSelectionFields
             providers={state.providers || []}
             value={profileImageModel}
@@ -221,7 +220,6 @@ export function BotProfileForm({
         {voiceInfo && (
           <div className="bot-profile-model">
             <h3>{t('朗读音色')}</h3>
-            <p className="settings-note">{t('朗读这个 Bot 的回复、发送语音消息时使用。')}</p>
             <div className="settings-card">
               <label className="settings-row">
                 <span>{t('音色')}</span>

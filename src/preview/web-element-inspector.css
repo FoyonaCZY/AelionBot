@@ -241,10 +241,3 @@
   line-height: 1.6;
   color: #98a3b0;
 }
-.web-element-manipulation-hint {
-  font-size: 10px;
-  margin: 10px 0;
-  padding: 7px 9px;
-  border-radius: var(--radius-xs);
-  background: #f6f8fb;
-}

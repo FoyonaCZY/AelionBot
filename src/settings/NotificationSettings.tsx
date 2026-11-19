@@ -32,11 +32,10 @@ export function NotificationSettings({
   };
   const toggle = (key: keyof DesktopNotifySettings) =>
     act(() => window.aelion.saveDesktopNotify({ ...settings, [key]: !settings[key] }));
-  const row = (key: keyof DesktopNotifySettings, label: string, note?: string) => (
+  const row = (key: keyof DesktopNotifySettings, label: string) => (
     <div className="settings-switch-row" key={key}>
       <div className="settings-row-copy">
         <span>{label}</span>
-        {note && <small>{note}</small>}
       </div>
       <button
         role="switch"
@@ -69,12 +68,9 @@ export function NotificationSettings({
         }
       >
         <div className="settings-card">{EVENTS.map((item) => row(item.key, t(item.label)))}</div>
-        <p className="settings-note">{t('窗口在前台时不通知。')}</p>
       </SettingsSection>
       <SettingsSection title={t('内容')}>
-        <div className="settings-card">
-          {row('content', t('显示消息内容'), t('关闭后只显示是哪个 Bot、发生了什么。'))}
-        </div>
+        <div className="settings-card">{row('content', t('显示消息内容'))}</div>
       </SettingsSection>
     </>
   );

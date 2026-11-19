@@ -859,11 +859,6 @@ function ScheduledTaskEditor({
                   </label>
                 </div>
               )}
-              <p className="scheduled-local-note">
-                {triggerKind === 'schedule'
-                  ? t('客户端运行时自动执行，结果发送到此会话。')
-                  : t('触发后在此会话执行；每个自动化每分钟最多运行一次，期间的多次触发会合并。')}
-              </p>
             </section>
             {live?.lastRun && (
               <div

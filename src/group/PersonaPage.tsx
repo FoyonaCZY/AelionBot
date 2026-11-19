@@ -358,7 +358,6 @@ export function PersonaPage({
               <section className="gp-section gp-presets" hidden={section !== 'library'} aria-label={t('人格库')}>
                 <header className="gp-section-head">
                   <h2>{t('人格库')}</h2>
-                  <small className="gg-muted">{t('网络经典人格的夸张演绎，娱乐用，不是诊断')}</small>
                   <span className="gp-spacer" />
                   <button
                     type="button"
@@ -494,9 +493,6 @@ export function PersonaPage({
                   <summary>{t('性格图与五维说明')}</summary>
                   <figure className="gp-shape">
                     <SoulShape view={{ ...view, profile: { ...view.profile, traits } }} color={color} />
-                    <figcaption className="gp-shape-note">
-                      {t('彩色为当前人格，虚线为出生人格；越向外，该维度数值越高。')}
-                    </figcaption>
                   </figure>
                   <dl>
                     {TRAITS.map((key) => (
@@ -635,12 +631,6 @@ export function PersonaPage({
                       );
                     })}
                   </div>
-                  <p className="gg-muted gp-chart-note">
-                    {t(
-                      '从左到右是历次记录，中线是出生值；向上表示数值升高，向下表示降低。五张图共用 ±{range} 的变化刻度，展示所有来源的累计变化。',
-                      { range: reach.toFixed(2) },
-                    )}
-                  </p>
                 </details>
                 {view.profile.locked && <p className="gg-muted">{t('成长已锁定，仍会记录经历。')}</p>}
                 {view.growthReview && (
@@ -823,7 +813,6 @@ export function PersonaPage({
                   </button>
                 </div>
               </div>
-              <p className="gg-muted">{t('私聊沿用原有 SOUL；游戏人格、成长和关系不会注入私聊。')}</p>
             </section>
           </div>
         </section>

@@ -60,7 +60,6 @@ export function RemoteSettings({ view, onNotify }: { view?: RemoteView; onNotify
           <div className="settings-switch-row">
             <div className="settings-row-copy">
               <span>{t('开启时不让电脑睡眠')}</span>
-              <small>{t('电脑睡眠后手机就连不上了；屏幕仍会按系统设置关闭。')}</small>
             </div>
             <button
               role="switch"
@@ -74,11 +73,6 @@ export function RemoteSettings({ view, onNotify }: { view?: RemoteView; onNotify
             </button>
           </div>
         </div>
-        <p className="remote-note">
-          {t(
-            '连接经过端到端加密，中继服务器看不到内容。手机上不能修改模型、插件和 API Key，也不能把本机权限改成完全放行。',
-          )}
-        </p>
       </SettingsSection>
 
       {view.enabled && (
@@ -239,11 +233,6 @@ export function RemoteSettings({ view, onNotify }: { view?: RemoteView; onNotify
             />
           </label>
           <div className="remote-relay-footer">
-            <small>
-              {t(
-                '留空使用官方中继。自己部署的中继同时提供手机网页，部署方法见仓库里的 relay/README.md。换中继后手机需要重新配对。',
-              )}
-            </small>
             <button
               className="secondary-button"
               disabled={busy || (relay.relayUrl === view.customRelayUrl && relay.appUrl === view.customAppUrl)}

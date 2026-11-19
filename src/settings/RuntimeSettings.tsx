@@ -32,7 +32,7 @@ function RuntimeNumber({
         <span>{t(field.label)}</span>
         <small id={id + '-hint'} className={valid ? '' : 'is-invalid'}>
           {valid
-            ? t(field.hint)
+            ? field.hint && t(field.hint)
             : t('请输入 {min}–{max} {unit}', {
                 min: field.min.toLocaleString(),
                 max: field.max.toLocaleString(),
@@ -153,7 +153,6 @@ export function RuntimeSettings({ settings, onNotify }: { settings?: Values; onN
           <div className="runtime-field runtime-checkpoint">
             <label htmlFor={checkpointId} className="runtime-field-copy">
               <span>{t('文件恢复点')}</span>
-              <small>{t('修改前保留一份文件版本')}</small>
             </label>
             <button
               id={checkpointId}

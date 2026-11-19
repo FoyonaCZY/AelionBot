@@ -328,10 +328,7 @@ export function GroupEditor({
             {group && (
               <div hidden={tab !== 'pace'}>
                 <section className="group-settings-section">
-                  <h3>
-                    {t('发言上限')}
-                    <small>{t('你说话后重新计数')}</small>
-                  </h3>
+                  <h3>{t('发言上限')}</h3>
                   <SettingRow
                     title={t('Bot 连续发言')}
                     detail={t('你不说话时，所有 Bot 加起来最多发几条。到了会暂停，等你说话')}
@@ -403,10 +400,7 @@ export function GroupEditor({
             {group && (
               <div hidden={tab !== 'decide'}>
                 <section className="group-settings-section">
-                  <h3>
-                    {t('谁来回应')}
-                    <small>{t('适用于所有群聊')}</small>
-                  </h3>
+                  <h3>{t('谁来回应')}</h3>
                   {laya ? (
                     <GroupDecisionSetting laya={laya} />
                   ) : (

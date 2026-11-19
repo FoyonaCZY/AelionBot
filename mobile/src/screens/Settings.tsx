@@ -209,8 +209,6 @@ export function Settings() {
           )}
         </ul>
         <p className="st-note">
-          {t('连接经过端到端加密，中继只转发密文。')}
-          <br />
           {computer && t('中继：{host}', { host: new URL(computer.relay).host })}
           <br />
           AelionBot {__APP_VERSION__}

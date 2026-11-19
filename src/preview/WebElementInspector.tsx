@@ -185,9 +185,6 @@ export function WebElementInspector({
                 />
               </label>
             )}
-            <p className="web-element-hint web-element-manipulation-hint">
-              {t('拖动选中元素或蓝色标签移动，拖动边角调整大小。')}
-            </p>
             <div className="web-element-font">
               <span>{t('字体')}</span>
               <PreviewPicker
@@ -214,7 +211,6 @@ export function WebElementInspector({
                   if (e.key === 'Enter') e.currentTarget.blur();
                 }}
               />
-              <small>{t('使用网页已加载或电脑已安装的字体。')}</small>
             </div>
             <div className="web-element-fields">
               {[

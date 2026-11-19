@@ -339,7 +339,7 @@ export function UsageBudget({
             {refreshing ? t('正在更新…') : t('更新价格表')}
           </button>
         </div>
-        <p className="usage-price-note">{t('价格按每百万 tokens 计。花费按当前价格估算，不是账单。')}</p>
+        <p className="usage-price-note">{t('价格按每百万 tokens 计')}</p>
         {!rows ? (
           <div className="usage-ledger-empty" role="status">
             {t('正在读取价格…')}

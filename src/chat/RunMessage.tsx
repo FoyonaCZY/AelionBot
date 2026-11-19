@@ -115,11 +115,7 @@ export function RunMessage({
       )}
       {showStopped && (
         <div className="run-stopped">
-          <p>
-            {view.error?.startsWith('用户拒绝') || view.error?.startsWith('用户取消')
-              ? view.error
-              : t('已停止，完成的操作和文件仍然保留。')}
-          </p>
+          <p>{view.error?.startsWith('用户拒绝') || view.error?.startsWith('用户取消') ? view.error : t('已停止')}</p>
           {canContinue && (
             <button onClick={onContinue}>
               {t('继续处理')}

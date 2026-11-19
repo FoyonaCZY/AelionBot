@@ -69,9 +69,6 @@ export function FeedbackSettings({ onNotify }: { onNotify: (text: string) => voi
             {t('刷新诊断')}
           </button>
         </div>
-        <p className="feedback-description">
-          {t('包含环境、近期错误和执行状态，密钥与个人目录会脱敏。聊天正文、附件和截图不在包中。')}
-        </p>
         {loading ? (
           <p className="feedback-status" role="status">
             {t('正在整理诊断信息…')}
@@ -125,11 +122,11 @@ export function FeedbackSettings({ onNotify }: { onNotify: (text: string) => voi
             {action === 'issue' ? t('正在打开…') : t('在 GitHub 反馈')}
           </button>
         </div>
-        <p className="feedback-status">
-          {saved
-            ? t('已保存 {file}，可拖入 GitHub issue 上传。', { file: report?.fileName || '' })
-            : t('提交前请补充复现步骤和截图。')}
-        </p>
+        {saved && (
+          <p className="feedback-status">
+            {t('已保存 {file}，可拖入 GitHub issue 上传。', { file: report?.fileName || '' })}
+          </p>
+        )}
       </div>
     </SettingsSection>
   );

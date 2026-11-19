@@ -725,7 +725,6 @@ export function GroupGames({
                   </button>
                 </article>
               </div>
-              <p className="gg-muted gg-lobby-note">{t('对局在本机运行，AI 调用会消耗各自模型的额度。')}</p>
             </main>
           )}
           {screen === 'presets' && (
@@ -797,13 +796,6 @@ export function GroupGames({
                       <input type="checkbox" checked={tableTalk} onChange={(e) => setTableTalk(e.target.checked)} />
                       {t('AI 出牌时附带闲聊')}
                     </label>
-                    <p className="gg-muted">
-                      {t(
-                        tableTalk
-                          ? 'AI 出牌时会顺口说一句，所有人都能看到；可能无意中透露牌情。'
-                          : 'AI 只出牌、不说话，牌桌上不会出现任何 AI 发言。',
-                      )}
-                    </p>
                   </div>
                 ) : game === 'undercover' ? (
                   <div>
@@ -884,13 +876,6 @@ export function GroupGames({
                       {t('旁观 {count} 个 AI', { count: total })}
                     </button>
                   </div>
-                  <p className="gg-muted">
-                    {t(
-                      CARD_GAMES.includes(game)
-                        ? '旁观时可以随时切换「全知视角」看所有人的牌。'
-                        : '旁观时可以随时切换「全知视角」看所有身份。',
-                    )}
-                  </p>
                 </div>
                 <details className="gg-rule-details">
                   <summary>{t('完整规则')}</summary>
@@ -910,17 +895,6 @@ export function GroupGames({
                           : twelveRules(board)}
                   </p>
                 </details>
-                <p className="gg-muted gg-room-note">
-                  {t(
-                    game === 'doudizhu'
-                      ? '牌在开局时随机发放，座位顺序即出牌顺序。'
-                      : game === 'mahjong'
-                        ? '牌在开局时随机发放，座位顺序即摸牌顺序。'
-                        : game === 'undercover'
-                          ? '词在开局时随机发放，每轮的描述从下一位玩家开始。'
-                          : '身份在开局时随机发放，座位顺序即发言顺序。',
-                  )}
-                </p>
               </aside>
               <section className="gg-room-main">
                 <div className="gg-toolbar">
@@ -1123,13 +1097,6 @@ export function GroupGames({
                         </label>
                       )}
                       <div className="gg-pop-actions">
-                        <span className="gg-muted">
-                          {t(
-                            editSeat.temporary || sessionPreset[editSeat.id]
-                              ? '只影响这一局'
-                              : '模型只影响这一局；人格沿用 Bot 档案。',
-                          )}
-                        </span>
                         <span className="gg-spacer" />
                         <button
                           className="gg-back"

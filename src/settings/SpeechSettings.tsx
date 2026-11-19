@@ -136,7 +136,6 @@ export function SpeechAssignments({
             value={value.input}
             onChange={(input) => void persist({ ...value, input })}
           />
-          <p className="provider-model-note">{t('用于输入框的语音输入、IM 语音消息和 Bot 转写录音。')}</p>
         </div>
       </section>
       <section className="model-assignment-panel">

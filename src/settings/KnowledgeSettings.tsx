@@ -331,13 +331,7 @@ export function KnowledgeSettings({
           </div>
         ),
       )}
-      {!view.bases.length && !draft && (
-        <SettingsEmpty
-          icon="book"
-          title={t('还没有知识库')}
-          description={t('把文件夹加进来，Bot 回答时就能检索里面的文档。')}
-        />
-      )}
+      {!view.bases.length && !draft && <SettingsEmpty icon="book" title={t('还没有知识库')} />}
     </SettingsSection>
   );
 }
