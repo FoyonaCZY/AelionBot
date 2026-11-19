@@ -114,14 +114,22 @@ export const FOUNDATION_TOOLS: ToolDefinition[] = [
   ),
   tool(
     'generate_image',
-    '使用 Bot 单独配置的生图模型生成一张图，保存为附件。aspect 决定画幅：横幅插图用 16:9，竖版海报用 9:16，方图用 1:1；不填按模型配置的默认值。referenceAttachmentIds 提供已收到的图片作为参考图（部分协议不支持，会明确报错）。只在用户要求出图或需要真实插图时调用；没有图像字节必须失败，禁止假装已经出图。失败结果里的 nextStep 是唯一的恢复依据：只有 retry-later 可以原样重试一次，其余一律不要重试，按 guidance 处理。',
+    '使用 Bot 单独配置的生图模型生成一张图，保存为附件。aspect 决定画幅：横幅插图用 16:9，竖版海报用 9:16，方图用 1:1；不填按模型配置的默认值。references 提供最多 4 张参考图：每项填已收到图片的 attachmentId，或图片 path（工作目录相对路径；用户本机绝对路径可加 location=host）；网上的图先下载成文件再引用。部分协议不支持参考图，会明确报错。只在用户要求出图或需要真实插图时调用；没有图像字节必须失败，禁止假装已经出图。失败结果里的 nextStep 是唯一的恢复依据：只有 retry-later 可以原样重试一次，其余一律不要重试，按 guidance 处理。',
     {
       prompt: { ...text, minLength: 1, maxLength: 4000 },
       filename: { ...text, maxLength: 80 },
       aspect: { type: 'string', enum: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'] },
       quality: { type: 'string', enum: ['auto', 'low', 'medium', 'high'] },
       negativePrompt: { ...text, maxLength: 1000 },
-      referenceAttachmentIds: { type: 'array', items: id, maxItems: 4 },
+      references: {
+        type: 'array',
+        maxItems: 4,
+        items: {
+          type: 'object',
+          properties: { attachmentId: id, path: text, location: { type: 'string', enum: ['vm', 'host'] } },
+          additionalProperties: false,
+        },
+      },
     },
     ['prompt'],
   ),

@@ -22,6 +22,7 @@ import { Attachments } from '../electron/core/attachments/attachments';
 import { Harness } from '../electron/core/agent/harness';
 import { Store } from '../electron/core/storage/store';
 import type { VmController } from '../electron/core/vm/vm';
+import type { ArtifactService } from '../electron/core/attachments/artifacts';
 import { ATTACHMENT_LIMITS } from '../shared/types/attachment-types';
 import { tempDir, until } from './helpers';
 
@@ -508,4 +509,89 @@ test('a Bot can make more images than one reply holds: the reply carries what fi
     [first.id],
   );
   assert.equal(again.left.length, 0);
+});
+
+test('generate_image takes reference images by path as well as by attachment ID', async (t) => {
+  const endpoints: string[] = [];
+  const baseUrl = await listen(
+    (req, res) => {
+      endpoints.push(req.url || '');
+      req.resume();
+      req.on('end', () => {
+        res.setHeader('content-type', 'application/json');
+        res.end(JSON.stringify({ data: [{ b64_json: png.toString('base64') }] }));
+      });
+    },
+    (fn) => t.after(fn),
+  );
+  const store = new Store(tempDir(t, 'aelion-image-reference-'));
+  t.after(() => store.close());
+  const bot = store.data.bots[0],
+    read: string[] = [];
+  const attachments = new Attachments(store, undefined, {
+    read: async (_botId: string, path: string) => {
+      read.push(path);
+      return png;
+    },
+  } as unknown as ArtifactService);
+  const received = attachments.importForBot(bot.id, 'received.png', png);
+  const calls: Array<Record<string, unknown>> = [
+    { references: [{ path: 'downloads/fan-art.png' }] },
+    { references: [{ attachmentId: received.id }] },
+  ];
+  const outputs: string[] = [];
+  let turn = 0;
+  const model = {
+    complete: async (messages: Array<{ role: string; content?: string }>) => {
+      const last = messages.at(-1)!;
+      if (last.role === 'tool') outputs.push(last.content || '');
+      const args = calls[turn++];
+      if (!args) return { content: '好了', finishReason: 'stop', calls: [] };
+      return {
+        content: '',
+        finishReason: 'tool_calls',
+        calls: [
+          {
+            id: `image-${turn}`,
+            type: 'function',
+            function: { name: 'generate_image', arguments: JSON.stringify({ prompt: 'same style', ...args }) },
+          },
+        ],
+      };
+    },
+  } as unknown as ModelClient;
+  const harness = new Harness(
+    store,
+    {} as VmController,
+    model,
+    () => {},
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    attachments,
+  );
+  harness.setImageModel(() => ({
+    config: {
+      baseUrl,
+      model: 'gpt-image-1',
+      protocol: 'chat',
+      imageProtocol: 'openai-images',
+      contextTokens: 8000,
+      hasKey: true,
+    },
+    key: '',
+  }));
+  await harness.run(bot.id, '照着这几张图的画风画');
+  await until(() => store.data.runs[0]?.status === 'completed');
+
+  assert.deepEqual(read, ['downloads/fan-art.png']);
+  assert.deepEqual(
+    endpoints.map((url) => url.endsWith('/images/edits')),
+    [true, true],
+  );
+  outputs.forEach((output) => assert.match(output, /attachmentId/));
+  assert.ok(store.data.attachments.some((file) => file.ownerBotId === bot.id && file.name === 'fan-art.png'));
 });

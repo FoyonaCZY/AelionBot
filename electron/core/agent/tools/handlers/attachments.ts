@@ -4,14 +4,14 @@ import type { ToolContext, ToolHandler } from '../context';
 import { requiredText } from '../validation';
 
 /**
- * One file the model named by attachment ID or path, as an attachment of the Bot. A path on the user's computer is
- * read with the run's permissions, as message_attach reads it.
+ * Files the model named by attachment ID or path, as attachments of the Bot. A path on the user's computer is read
+ * with the run's permissions, as message_attach reads it.
  */
-export async function namedFile({ bot, signal, runId, name, deps }: ToolContext, ref: unknown, reason: string) {
+export function namedFiles({ bot, signal, runId, name, deps }: ToolContext, refs: unknown[], reason: string) {
   const workspace = deps.store.data.runs.find((item) => item.id === runId)?.workspaceDir;
-  const [file] = await deps.attachments.prepare(
+  return deps.attachments.prepare(
     bot.id,
-    [ref],
+    refs,
     signal,
     deps.host
       ? (path) =>
@@ -20,6 +20,11 @@ export async function namedFile({ bot, signal, runId, name, deps }: ToolContext,
             .then((read) => read.bytes)
       : undefined,
   );
+}
+
+/** One file the model named by attachment ID or path, as namedFiles reads it. */
+export async function namedFile(context: ToolContext, ref: unknown, reason: string) {
+  const [file] = await namedFiles(context, [ref], reason);
   if (!file) throw new Error('没有指定文件');
   return file;
 }

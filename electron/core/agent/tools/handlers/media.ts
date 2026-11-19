@@ -1,8 +1,8 @@
 import { generateModelImage, storeImageRoutes } from '../../../image/image-generation';
-import { imageFileName, imageJobFromArgs, imageReferences } from '../../../image/image-tool';
+import { MAX_REFERENCES, imageFileName, imageJobFromArgs, imageReferences } from '../../../image/image-tool';
 import type { ToolHandler } from '../context';
 import { attachmentName } from '../../../attachments/attachments';
-import { attachToReply, namedFile, replyFull } from './attachments';
+import { attachToReply, namedFile, namedFiles, replyFull } from './attachments';
 
 export const MEDIA_HANDLERS: Record<string, ToolHandler> = {
   open_preview: ({ bot, args, signal, runId, deps }) => {
@@ -22,9 +22,16 @@ export const MEDIA_HANDLERS: Record<string, ToolHandler> = {
     const { bot, args, signal, runId, deps } = context;
     const access = deps.imageModel?.(bot.id);
     if (!access) throw Error('这个 Bot 没有配置生图模型');
-    const job = imageJobFromArgs(args, access.config, (ids) =>
-      imageReferences(deps.attachments.forBot(bot.id, ids), (id) => deps.attachments.bytes(id)),
-    );
+    // Reference images are named like message_attach's files: a received attachment, or a path in the work
+    // directory or on the user's computer.
+    const refs: unknown[] = Array.isArray(args.references) ? args.references : [];
+    if (refs.length > MAX_REFERENCES) throw Error(`参考图最多 ${MAX_REFERENCES} 张`);
+    const references = refs.length ? await namedFiles(context, refs, '读取生图参考图') : [],
+      job = imageJobFromArgs(
+        args,
+        access.config,
+        imageReferences(references, (id) => deps.attachments.bytes(id)),
+      );
     const { bytes, mediaType, protocol } = await generateModelImage({
       model: deps.model,
       config: access.config,

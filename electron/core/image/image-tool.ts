@@ -1,4 +1,8 @@
-/** Shared argument handling for the two image tools, so `generate_image` and `design_image` accept the same surface. */
+/**
+ * Shared argument handling for the two image tools, so `generate_image` and `design_image` read prompt, aspect, quality
+ * and negative prompt alike. Each finds its own reference images: generate_image by attachment or path, design_image by
+ * attachment ID.
+ */
 import type { ModelConfig } from '../../../shared/types/core';
 import { asImageAspect, asImageQuality } from '../../../shared/types/image-types';
 import { imageExtension, type ImageJob } from './image-generation';
@@ -6,16 +10,22 @@ import type { ImageReference } from './image-protocols';
 
 const SUPPORTED_REFERENCE = /^image\/(png|jpeg|webp|gif)$/;
 
+/** At most this many reference images go with one generation. */
+export const MAX_REFERENCES = 4;
+
+/** The attachment IDs design_image names as reference images. */
+export function referenceAttachmentIds(args: Record<string, unknown>) {
+  return Array.isArray(args.referenceAttachmentIds)
+    ? (args.referenceAttachmentIds.filter((value) => typeof value === 'string').slice(0, MAX_REFERENCES) as string[])
+    : [];
+}
+
 /** Tool arguments win; the model catalog supplies the default when the agent did not choose. */
 export function imageJobFromArgs(
   args: Record<string, unknown>,
   config: Pick<ModelConfig, 'imageAspect' | 'imageQuality'>,
-  resolveReference?: (ids: string[]) => ImageReference[],
+  reference?: ImageReference[],
 ): ImageJob {
-  const ids = Array.isArray(args.referenceAttachmentIds)
-    ? (args.referenceAttachmentIds.filter((value) => typeof value === 'string').slice(0, 4) as string[])
-    : [];
-  const reference = ids.length && resolveReference ? resolveReference(ids) : undefined;
   const negative = typeof args.negativePrompt === 'string' ? args.negativePrompt.trim() : '';
   return {
     prompt: typeof args.prompt === 'string' ? args.prompt : '',

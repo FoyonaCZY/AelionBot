@@ -18,7 +18,7 @@ import { TemporarilyUnavailableTool } from '../tools/tool-availability';
 import { parsePatch } from '../tools/multi-patch';
 import { hostedGeneratedImages } from '../tools/hosted-tools';
 import { generateModelImage, imageExtension, imageMediaType, storeImageRoutes } from '../image/image-generation';
-import { imageJobFromArgs, imageReferences } from '../image/image-tool';
+import { imageJobFromArgs, imageReferences, referenceAttachmentIds } from '../image/image-tool';
 import { ImageGenerationError } from '../image/image-errors';
 import type { DesignStore } from './design-store';
 import type { DesignSystems } from './design-systems';
@@ -667,8 +667,12 @@ export class DesignWork {
     }
     if (name === 'design_image') {
       const access = this.extras.imageModel?.(botId);
-      const job = imageJobFromArgs(args, access?.config || {}, (ids) =>
-        imageReferences(this.attachments.forBot(botId, ids), (id) => this.attachments.bytes(id)),
+      const job = imageJobFromArgs(
+        args,
+        access?.config || {},
+        imageReferences(this.attachments.forBot(botId, referenceAttachmentIds(args)), (id) =>
+          this.attachments.bytes(id),
+        ),
       );
       // Permission is asked once, before any provider call, using the name the provider will actually produce.
       await permission(
