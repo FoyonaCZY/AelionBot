@@ -28,7 +28,7 @@ Frames are sampled near the requested timestamps. They do not prove unseen event
 
 The original video is read locally through a sandboxed hidden Electron page, with no Node integration, no remote analysis service, and no copy of a path-referenced original. Host files use normal read permission checks; received attachments use existing ownership checks and integrity validation. Source changes during decoding invalidate the result.
 
-One inspection runs at a time, with at most eight outstanding jobs. Requests can be cancelled while queued or decoding. Each window is destroyed on completion, cancellation or a 60-second deadline. Metadata and seeks also have bounded waits. References can inspect videos up to 4 GiB; uploaded attachments retain the existing 25 MiB limit.
+One inspection runs at a time, with at most eight outstanding jobs. Requests can be cancelled while queued or decoding. Each window is destroyed on completion, cancellation or a 60-second deadline. Metadata and seeks also have bounded waits. References can inspect videos up to 4 GiB; uploaded attachments retain the existing 100 MiB limit.
 
 Derived PNGs are under `screenshots/video-frames`, using a stable key based on Bot, source identity, file stamp and extraction options. Identical inspections reuse the image after rechecking access. The cache is capped at 128 images / 128 MiB; each output is at most 8 MiB. Files absent from the index still count toward limits. Images without conversation/run references can be reclaimed after a one-hour grace period; referenced images are preserved. At capacity, new generation stops rather than silently deleting referenced history. The original video is never a cleanup target.
 

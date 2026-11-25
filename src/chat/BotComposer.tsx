@@ -257,7 +257,7 @@ export function BotComposer({
           files = [...new Map([...(latest.attachments || []), ...added].map((file) => [file.id, file])).values()];
         if (files.length > ATTACHMENT_LIMITS.count) throw Error(t('每条消息最多附加 10 个文件'));
         if (files.reduce((total, file) => total + file.size, 0) > ATTACHMENT_LIMITS.totalBytes)
-          throw Error(t('附件总大小不能超过 100 MB'));
+          throw Error(t('附件总大小不能超过 250 MB'));
         update({ ...latest, attachments: files });
       })
       .catch((error) => {
@@ -294,9 +294,9 @@ export function BotComposer({
       const prepared = await window.aelion.prepareAttachmentDrop({ scope, files });
       if (!isCurrent()) return [];
       const virtual = prepared.virtualIndexes.map((index) => files[index]);
-      if (virtual.some((file) => file.size > ATTACHMENT_LIMITS.fileBytes)) throw Error(t('单个附件不能超过 25 MB'));
+      if (virtual.some((file) => file.size > ATTACHMENT_LIMITS.fileBytes)) throw Error(t('单个附件不能超过 100 MB'));
       if (virtual.reduce((sum, file) => sum + file.size, 0) > ATTACHMENT_LIMITS.totalBytes)
-        throw Error(t('附件总大小不能超过 100 MB'));
+        throw Error(t('附件总大小不能超过 250 MB'));
       const uploaded = virtual.length
         ? await window.aelion.importAttachments({
             scope,

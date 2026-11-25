@@ -3,7 +3,7 @@ import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { AttachmentUpload } from '../../../shared/types/attachment-types';
+import { ATTACHMENT_LIMITS, type AttachmentUpload } from '../../../shared/types/attachment-types';
 
 function dropFilePaths(bytes: Buffer) {
   if (bytes.length < 20 || bytes.length > 1024 * 1024) return [];
@@ -77,7 +77,7 @@ export async function readAttachmentClipboard(): Promise<{ paths: string[]; file
     if (!type) continue;
     const blob = await item.getType(type);
     if (blob instanceof Blob) {
-      if (blob.size > 25 * 1024 * 1024) throw new Error('粘贴的图片不能超过 25 MB');
+      if (blob.size > ATTACHMENT_LIMITS.fileBytes) throw new Error('粘贴的图片不能超过 100 MB');
       files.push({
         name: `粘贴图片-${Date.now()}-${files.length + 1}.${type.split('/')[1] === 'jpeg' ? 'jpg' : type.split('/')[1]}`,
         bytes: new Uint8Array(await blob.arrayBuffer()),

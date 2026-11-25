@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { ATTACHMENT_LIMITS } from '../../../shared/types/attachment-types';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   existsSync,
@@ -343,7 +344,7 @@ export class HostComputer {
     const path = this.canonical(this.resolveFilePath(args.path, workspace)),
       reason = approvalReason(args, '执行本机操作'),
       stamp = this.stamp(path),
-      limit = 25 * 1024 * 1024;
+      limit = ATTACHMENT_LIMITS.fileBytes;
     await this.interactions.permission(
       botId,
       runId,
@@ -355,7 +356,7 @@ export class HostComputer {
       throw new FileToolError('FILE_CHANGED', '文件在确认期间发生变化，请重新预览');
     const expected = statSync(path);
     if (!expected.isFile() || expected.size > limit)
-      throw new FileToolError('FILE_TOO_LARGE', '预览需要 25 MB 以内的普通文件');
+      throw new FileToolError('FILE_TOO_LARGE', '预览需要 100 MB 以内的普通文件');
     const fd = openSync(path, 'r');
     let bytes: Buffer;
     try {

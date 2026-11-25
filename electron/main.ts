@@ -20,6 +20,7 @@ import { DesignCraft } from './core/designer/design-craft';
 import { DesignFonts } from './core/designer/design-fonts';
 import { renderCanvasExport } from './windows/canvas-export-renderer';
 import { WebPreviewBrowser } from './windows/web-preview';
+import { MEDIA_STREAM_SCHEME, MediaStreamRegistry } from './core/attachments/media-stream';
 import { protocol } from 'electron';
 import { VideoInspector } from './windows/video-inspector';
 import { AudioCodecWindow } from './windows/audio-codecs';
@@ -187,6 +188,7 @@ const secretCodec = {
 };
 protocol.registerSchemesAsPrivileged([
   { scheme: 'aelion-preview', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
+  { scheme: MEDIA_STREAM_SCHEME, privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true } },
 ]);
 let webPreview: WebPreviewBrowser | undefined;
 let appUpdates: AppUpdates | undefined;
@@ -488,7 +490,10 @@ async function initialize() {
     downloadFetch: (url, options) => net.fetch(url, options),
   });
   computer = new ComputerController(vm, dataDir, changed, vaultResolver);
+  const mediaStreams = new MediaStreamRegistry();
+  protocol.handle(MEDIA_STREAM_SCHEME, (request) => mediaStreams.handle(request));
   artifacts = new ArtifactService(store, vm);
+  artifacts.mediaStreams = mediaStreams;
   // Model requests inline every picture as base64, and a long vision session can exceed the provider's body limit.
   // Stored screenshots stay lossless for the interface; what goes to the model is a smaller JPEG of the same frame.
   const MODEL_IMAGE_SIDE = 2048,
@@ -571,7 +576,7 @@ async function initialize() {
     writeFileSync(join(computer.imageDir, id + '.png'), preview.toPNG());
     return { id, ...preview.getSize() };
   };
-  attachments = new Attachments(store, vm, artifacts, imagePreview);
+  attachments = new Attachments(store, vm, artifacts, imagePreview, mediaStreams);
   const homeDir = app.getPath('home');
   const configDir = resolve(process.env.AELION_CONFIG_HOME || savedLaunch?.configDir || join(homeDir, '.aelion'));
   dataBackup = new DataBackup({

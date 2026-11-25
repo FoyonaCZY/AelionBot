@@ -75,8 +75,8 @@ test('directory attachments reject symlinks and excessive input before reading o
   mkdirSync(large);
   const path = join(large, 'sparse');
   writeFileSync(path, '');
-  truncateSync(path, 100 * 1024 * 1024 + 1);
-  await assert.rejects(directoryAttachment(large), /100 MB/);
+  truncateSync(path, 250 * 1024 * 1024 + 1);
+  await assert.rejects(directoryAttachment(large), /250 MB/);
 });
 test('a removed selection produces a recoverable error and never imports a replacement path', async (t) => {
   const f = fixture(t),

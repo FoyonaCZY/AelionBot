@@ -32,7 +32,7 @@ export interface PreparedAttachmentDrop {
   entries: DroppedAttachment[];
   virtualIndexes: number[];
 }
-export const ATTACHMENT_LIMITS = { count: 10, fileBytes: 25 * 1024 * 1024, totalBytes: 100 * 1024 * 1024 } as const;
+export const ATTACHMENT_LIMITS = { count: 10, fileBytes: 100 * 1024 * 1024, totalBytes: 250 * 1024 * 1024 } as const;
 export const attachmentSummary = (attachments?: Attachment[]) =>
   attachments?.length ? attachments.map((file) => `[附件] ${file.name}`).join('、') : '';
 const trimmed = new WeakMap<object, { key: string; value: object }>();

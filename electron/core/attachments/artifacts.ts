@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { lstatSync, statSync } from 'node:fs';
 import { extname, basename } from 'node:path';
 import type { ArtifactPreview } from '../../../shared/types/core';
+import { ATTACHMENT_LIMITS } from '../../../shared/types/attachment-types';
+import type { MediaStreamRegistry } from './media-stream';
 import { Store } from '../storage/store';
 import { officeExtensions, officePreview, OFFICE_PREVIEW_LIMIT } from '../designer/office-preview';
 import { VmController, shQuote } from '../vm/vm';
@@ -31,6 +34,7 @@ import type { DesignerFiles } from '../designer/designer-files';
 import { AppError } from '../../../shared/errors';
 export class ArtifactService {
   designerFiles?: DesignerFiles;
+  mediaStreams?: MediaStreamRegistry;
   openLocal?: (path: string) => Promise<string>;
   isLocal(botId: string, path: string) {
     return Boolean(this.designerFiles?.owns(botId, path));
@@ -184,7 +188,7 @@ print(json.dumps(files,ensure_ascii=False))`;
     }
     this.store.save();
   }
-  async read(botId: string, path: string, maxBytes = 25 * 1024 * 1024): Promise<Buffer> {
+  async read(botId: string, path: string, maxBytes = ATTACHMENT_LIMITS.fileBytes): Promise<Buffer> {
     this.store.bot(botId);
     path = artifactPath(path);
     const local = this.local(botId, path);
@@ -257,11 +261,6 @@ print(json.dumps(files,ensure_ascii=False))`;
       '.webm': 'video/webm',
       '.ogv': 'video/ogg',
     };
-    const isText = !imageTypes[extension] && sourceTextFile(path);
-    if (videoTypes[extension]) {
-      const bytes = await this.read(botId, path, 30 * 1024 * 1024);
-      return { kind: 'video', dataUrl: `data:${videoTypes[extension]};base64,${bytes.toString('base64')}` };
-    }
     const audioTypes: Record<string, string> = {
       '.wav': 'audio/wav',
       '.mp3': 'audio/mpeg',
@@ -271,9 +270,33 @@ print(json.dumps(files,ensure_ascii=False))`;
       '.ogg': 'audio/ogg',
       '.opus': 'audio/ogg',
     };
-    if (audioTypes[extension]) {
-      const bytes = await this.read(botId, path, 30 * 1024 * 1024);
-      return { kind: 'audio', dataUrl: `data:${audioTypes[extension]};base64,${bytes.toString('base64')}` };
+    const isText = !imageTypes[extension] && sourceTextFile(path);
+    if (videoTypes[extension] || audioTypes[extension]) {
+      const kind = videoTypes[extension] ? ('video' as const) : ('audio' as const);
+      const mime = videoTypes[extension] || audioTypes[extension];
+      const normalized = artifactPath(path),
+        local = this.local(botId, normalized);
+      if (local && this.mediaStreams) {
+        const hostPath = local.hostPath(botId, normalized);
+        const link = lstatSync(hostPath),
+          stat = statSync(hostPath);
+        if (link.isSymbolicLink() || !stat.isFile() || stat.size > ATTACHMENT_LIMITS.fileBytes)
+          throw Error('设计文件不存在或超过读取限制');
+        return {
+          kind,
+          dataUrl: this.mediaStreams.register(
+            { kind: 'file', path: hostPath, size: stat.size, mime },
+            `local:${hostPath}:${stat.mtimeMs}:${stat.size}`,
+          ),
+        };
+      }
+      const bytes = await this.read(botId, path, ATTACHMENT_LIMITS.fileBytes);
+      if (this.mediaStreams)
+        return {
+          kind,
+          dataUrl: this.mediaStreams.register({ kind: 'buffer', bytes, mime }, `artifact:${botId}:${normalized}`),
+        };
+      return { kind, dataUrl: `data:${mime};base64,${bytes.toString('base64')}` };
     }
     if (!isText && !imageTypes[extension] && extension !== '.pdf') return { kind: 'unsupported' };
     const bytes = await this.read(botId, path, isText ? 2 * 1024 * 1024 : 15 * 1024 * 1024);

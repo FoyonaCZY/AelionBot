@@ -819,9 +819,9 @@ export const en: Record<string, string> = {
   已提交的问答: 'Submitted answers',
   你的回答: 'Your answer',
   '每条消息最多附加 10 个文件': 'Up to 10 files per message',
-  '附件总大小不能超过 100 MB': 'Attachments cannot exceed 100 MB total',
+  '附件总大小不能超过 250 MB': 'Attachments cannot exceed 250 MB total',
   '一次最多拖入 10 个文件或文件夹': 'Drop up to 10 files or folders at once',
-  '单个附件不能超过 25 MB': 'A single attachment cannot exceed 25 MB',
+  '单个附件不能超过 100 MB': 'A single attachment cannot exceed 100 MB',
   '无法读取选中的文件，请确认文件仍在原位置后重新选择。':
     'Unable to read the selected file. Confirm it is still in its original location and try again.',
   上传附件: 'Upload attachment',

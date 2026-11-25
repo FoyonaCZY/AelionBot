@@ -5,6 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync, statSync, lstatSync, unlinkSync
 import { join, extname, basename } from 'node:path';
 import type { Store } from '../storage/store';
 import type { ArtifactService } from './artifacts';
+import type { MediaStreamRegistry } from './media-stream';
 import type { VmController } from '../vm/vm';
 import type { ArtifactPreview, ScreenReference, WireMessage } from '../../../shared/types/core';
 import {
@@ -88,6 +89,7 @@ export class Attachments {
     private vm?: VmController,
     private artifacts?: ArtifactService,
     private image?: (bytes: Buffer, id: string) => ScreenReference | undefined,
+    private mediaStreams?: MediaStreamRegistry,
   ) {}
   importForBot(botId: string, name: string, bytes: Buffer, sourcePath?: string) {
     this.store.bot(botId);
@@ -139,7 +141,7 @@ export class Attachments {
   }
   private size(files: Attachment[]) {
     if (files.reduce((total, file) => total + file.size, 0) > ATTACHMENT_LIMITS.totalBytes)
-      throw new Error('附件总大小不能超过 100 MB');
+      throw new Error('附件总大小不能超过 250 MB');
     return files;
   }
   forDraft(scope: AttachmentScope, ids: unknown) {
@@ -223,7 +225,7 @@ export class Attachments {
     if (!Array.isArray(paths) || paths.length > ATTACHMENT_LIMITS.count) throw new Error('一次最多选择 10 个文件');
     const files = paths.map((path) => {
       if (typeof path !== 'string' || !statSync(path).isFile()) throw new Error('请选择文件，文件夹请先压缩');
-      if (statSync(path).size > ATTACHMENT_LIMITS.fileBytes) throw new Error('单个附件不能超过 25 MB');
+      if (statSync(path).size > ATTACHMENT_LIMITS.fileBytes) throw new Error('单个附件不能超过 100 MB');
       return { name: attachmentName(path), bytes: readFileSync(path) };
     });
     const imported = this.importFiles(scope, files);
@@ -236,7 +238,7 @@ export class Attachments {
       throw new Error('一次请选择 1–10 个附件');
     const prepared = files.map((file) => {
       if (!file || !(file.bytes instanceof Uint8Array) || file.bytes.byteLength > ATTACHMENT_LIMITS.fileBytes)
-        throw new Error('单个附件不能超过 25 MB');
+        throw new Error('单个附件不能超过 100 MB');
       const name = attachmentName(file.name);
       return { name, bytes: Buffer.from(file.bytes) };
     });
@@ -292,7 +294,7 @@ export class Attachments {
           if (!readHost) throw new Error('本机文件附件需要本机读取权限');
           const bytes = await readHost(item.path);
           signal.throwIfAborted();
-          if (bytes.length > ATTACHMENT_LIMITS.fileBytes) throw new Error('单个附件不能超过 25 MB');
+          if (bytes.length > ATTACHMENT_LIMITS.fileBytes) throw new Error('单个附件不能超过 100 MB');
           const name = attachmentName(item.path),
             same = this.store.data.attachments.find(
               (file) => file.ownerBotId === botId && file.name === name && file.sha256 === hash(bytes),
@@ -376,15 +378,25 @@ export class Attachments {
     const file = this.file(id);
     return this.vm.importAttachment(botId, id, file.name, this.bytes(id), signal);
   }
+  private mediaPreview(kind: 'video' | 'audio', file: StoredAttachment, mime: string): ArtifactPreview {
+    if (this.mediaStreams) {
+      const path = this.location(file.id);
+      if (lstatSync(path).isSymbolicLink() || statSync(path).size !== file.size) throw new Error('附件文件发生变化');
+      return {
+        kind,
+        dataUrl: this.mediaStreams.register({ kind: 'file', path, size: file.size, mime }, 'attachment:' + file.id),
+      };
+    }
+    return { kind, dataUrl: `data:${mime};base64,${this.bytes(file.id).toString('base64')}` };
+  }
   preview(id: string): ArtifactPreview {
     const file = this.file(id);
     if (file.mime.startsWith('image/'))
       return { kind: 'image', dataUrl: `data:${file.mime};base64,${this.bytes(id).toString('base64')}` };
-    if (file.mime.startsWith('video/'))
-      return { kind: 'video', dataUrl: `data:${file.mime};base64,${this.bytes(id).toString('base64')}` };
+    if (file.mime.startsWith('video/')) return this.mediaPreview('video', file, file.mime);
     // Files received before audio had a type are stored as octet streams; their name still says what they are.
     const audio = [file.mime, mimeTypes[extname(file.name).toLowerCase()]].find((type) => type?.startsWith('audio/'));
-    if (audio) return { kind: 'audio', dataUrl: `data:${audio};base64,${this.bytes(id).toString('base64')}` };
+    if (audio) return this.mediaPreview('audio', file, audio);
     if (file.mime === 'application/pdf')
       return { kind: 'pdf', dataUrl: `data:application/pdf;base64,${this.bytes(id).toString('base64')}` };
     const text = this.text(file),

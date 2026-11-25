@@ -32,7 +32,7 @@ Provide exactly one of path and attachmentId. location is required for path and 
 - The queue is in memory, survives renderer reconnects until consumed, and is not replayed after an app restart.
 - Workspace files use the existing file tree and editor. Host files are read with the current host permission policy and captured as immutable owned attachments; editing those previews saves a copy, not the host original.
 - Attachment access is checked against Bot ownership or actual receipt. VM paths are confined to the calling Bot workspace. Host reads detect file replacement during approval/read and do not enqueue after cancellation.
-- Supported formats follow the existing preview renderer: source/text, static HTML, images, PDF, and office documents. Host files and attachments are limited to 25 MB; VM text is limited to 2 MB and images/PDF to 15 MB. Office conversion still uses the managed computer.
+- Supported formats follow the existing preview renderer: source/text, static HTML, images, PDF, and office documents. Host files and attachments are limited to 100 MB; VM text is limited to 2 MB and images/PDF to 15 MB. Office conversion still uses the managed computer.
 - The tool does not start a web server, navigate a live URL, execute preview HTML, or replace message_attach. HTML keeps the existing sandbox/CSP.
 
 ## Reference

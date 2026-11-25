@@ -1,4 +1,5 @@
 import { lineChanges, recordDesignChange } from '../../../shared/designer/design-changes';
+import { ATTACHMENT_LIMITS } from '../../../shared/types/attachment-types';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   existsSync,
@@ -114,7 +115,7 @@ export class DesignerFiles {
       session.workspacePath + '/' + relative(session.workspaceDir!, this.absolute(session, input)).replaceAll('\\', '/')
     );
   }
-  async read(botId: string, path: string, maxBytes = 25 * 1024 * 1024) {
+  async read(botId: string, path: string, maxBytes = ATTACHMENT_LIMITS.fileBytes) {
     const session = this.find(botId, path),
       file = this.absolute(session, path);
     const stat = statSync(file);

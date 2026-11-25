@@ -9,7 +9,8 @@ import type { Attachments } from '../attachments/attachments';
 import type { HostComputer } from '../host/host';
 import { officeExtensions } from '../designer/office-preview';
 import { botPins } from '../../../shared/preview/preview-annotations';
-const LIMIT = 25 * 1024 * 1024;
+import { ATTACHMENT_LIMITS } from '../../../shared/types/attachment-types';
+const LIMIT = ATTACHMENT_LIMITS.fileBytes;
 const HISTORY_PER_SCOPE = 20,
   HISTORY_TOTAL = 400;
 const supported = (name: string) =>

@@ -27,7 +27,7 @@ export function VideoTest() {
   const start = async () => {
     if (!prompt.trim() || current.current) return;
     if (sourceMode === 'file' && file && file.size > ATTACHMENT_LIMITS.fileBytes) {
-      setError(t('单个附件不能超过 25 MB'));
+      setError(t('单个附件不能超过 100 MB'));
       return;
     }
     const id = crypto.randomUUID();

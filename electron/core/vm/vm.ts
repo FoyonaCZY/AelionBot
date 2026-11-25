@@ -1,4 +1,5 @@
 import { PreviewTunnel, VM_LISTENER_OWNER } from '../preview/preview-tunnel';
+import { ATTACHMENT_LIMITS } from '../../../shared/types/attachment-types';
 import { VmStorage } from './vm-storage';
 import { storagePressure } from '../../../shared/preview/vm-storage';
 import { VmHealthChannel, VM_HEALTH_SCRIPT } from './vm-health';
@@ -1421,7 +1422,7 @@ export class VmController extends EventEmitter {
       name = (shortened || 'attachment') + extension;
     }
     if (this.operation || this.stateValue.status !== 'ready') throw new Error('工作电脑尚未就绪或正在维护');
-    if (bytes.length > 25 * 1024 * 1024) throw new Error('附件超过 25 MB');
+    if (bytes.length > ATTACHMENT_LIMITS.fileBytes) throw new Error('附件超过 100 MB');
     signal.throwIfAborted();
     const data = Buffer.from(
       JSON.stringify({ botId, id, name, size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') }),

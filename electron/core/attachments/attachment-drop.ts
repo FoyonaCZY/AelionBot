@@ -30,7 +30,7 @@ export async function directoryAttachment(path: string, expected?: { dev: number
       return;
     }
     zipBytes += data.length;
-    if (zipBytes > ATTACHMENT_LIMITS.fileBytes) throw Error('文件夹压缩后超过 25 MB，请缩小附件范围');
+    if (zipBytes > ATTACHMENT_LIMITS.fileBytes) throw Error('文件夹压缩后超过 100 MB，请缩小附件范围');
     chunks.push(data);
     finished = final;
   });
@@ -56,7 +56,7 @@ export async function directoryAttachment(path: string, expected?: { dev: number
       }
       if (!before.isFile()) throw Error('文件夹包含特殊文件，请移除后重试');
       sourceBytes += before.size;
-      if (sourceBytes > ATTACHMENT_LIMITS.totalBytes) throw Error('文件夹原始内容超过 100 MB，请缩小附件范围');
+      if (sourceBytes > ATTACHMENT_LIMITS.totalBytes) throw Error('文件夹原始内容超过 250 MB，请缩小附件范围');
       const file = await open(child, 'r');
       try {
         const current = await file.stat();
@@ -180,7 +180,7 @@ export class AttachmentDrops {
               ? await directoryAttachment(entry.path, entry)
               : { name: entry.name, bytes: await this.readFile(entry) };
           total += file.bytes.length;
-          if (total > ATTACHMENT_LIMITS.totalBytes) throw Error('附件总大小不能超过 100 MB');
+          if (total > ATTACHMENT_LIMITS.totalBytes) throw Error('附件总大小不能超过 250 MB');
           files.push(file);
         }
       const result =
@@ -198,12 +198,12 @@ export class AttachmentDrops {
     try {
       const stat = await file.stat();
       if (stat.dev !== entry.dev || stat.ino !== entry.ino) throw Error('拖入文件已变化，请重新拖入');
-      if (!stat.isFile() || stat.size > ATTACHMENT_LIMITS.fileBytes) throw Error('单个附件不能超过 25 MB');
+      if (!stat.isFile() || stat.size > ATTACHMENT_LIMITS.fileBytes) throw Error('单个附件不能超过 100 MB');
       const chunks: Buffer[] = [];
       let size = 0;
       for await (const chunk of file.createReadStream({ autoClose: false, highWaterMark: 64 * 1024 })) {
         size += chunk.length;
-        if (size > ATTACHMENT_LIMITS.fileBytes) throw Error('单个附件不能超过 25 MB');
+        if (size > ATTACHMENT_LIMITS.fileBytes) throw Error('单个附件不能超过 100 MB');
         chunks.push(chunk);
       }
       const after = await file.stat();

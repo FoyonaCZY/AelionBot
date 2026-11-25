@@ -6,6 +6,7 @@ import type { VmController } from '../electron/core/vm/vm';
 import { csvRows, previewHtml } from '../src/preview/preview-utils';
 import { Store } from '../electron/core/storage/store';
 import { Attachments } from '../electron/core/attachments/attachments';
+import { MEDIA_STREAM_SCHEME, MediaStreamRegistry, parseByteRange } from '../electron/core/attachments/media-stream';
 import { previewViewportSize } from '../src/preview/use-preview-viewport';
 
 test('preview viewport keeps fractional bounds without expanding into scrollbars', () => {
@@ -97,6 +98,50 @@ test('office preview caches successful conversions and retries failed conversion
   assert.equal(a.kind, 'pdf');
   assert.equal(a, b);
   assert.equal(calls, 2);
+});
+test('media stream registry serves video and audio attachments with Range requests without base64 data URLs', async (t) => {
+  const dir = tempDir(t, 'aelion-preview-media-');
+  const store = new Store(dir),
+    streams = new MediaStreamRegistry(),
+    attachments = new Attachments(store, undefined, undefined, undefined, streams),
+    bytes = Buffer.from('0123456789abcdefghijklmnopqrstuvwxyz');
+  const [file] = attachments.importFiles({ kind: 'bot', id: store.data.bots[0].id }, [{ name: 'clip.mp4', bytes }]);
+  const preview = attachments.preview(file.id);
+  assert.equal(preview.kind, 'video');
+  assert.ok(preview.dataUrl?.startsWith(MEDIA_STREAM_SCHEME + '://media/'));
+  assert.equal(attachments.preview(file.id).dataUrl, preview.dataUrl);
+
+  const head = streams.handle(new Request(preview.dataUrl!, { method: 'HEAD' }));
+  assert.equal(head.status, 200);
+  assert.equal(head.headers.get('content-type'), 'video/mp4');
+  assert.equal(head.headers.get('accept-ranges'), 'bytes');
+  assert.equal(head.headers.get('content-length'), String(bytes.length));
+  assert.equal(await head.text(), '');
+
+  const partial = streams.handle(new Request(preview.dataUrl!, { headers: { range: 'bytes=10-19' } }));
+  assert.equal(partial.status, 206);
+  assert.equal(partial.headers.get('content-range'), `bytes 10-19/${bytes.length}`);
+  assert.equal(partial.headers.get('content-length'), '10');
+  assert.equal(await partial.text(), 'abcdefghij');
+
+  const suffix = streams.handle(new Request(preview.dataUrl!, { headers: { range: 'bytes=-4' } }));
+  assert.equal(suffix.status, 206);
+  assert.equal(suffix.headers.get('content-range'), `bytes ${bytes.length - 4}-${bytes.length - 1}/${bytes.length}`);
+  assert.equal(await suffix.text(), 'wxyz');
+
+  const outOfRange = streams.handle(new Request(preview.dataUrl!, { headers: { range: 'bytes=999-' } }));
+  assert.equal(outOfRange.status, 416);
+  assert.equal(outOfRange.headers.get('content-range'), `bytes */${bytes.length}`);
+
+  assert.equal(streams.handle(new Request(preview.dataUrl!, { method: 'POST' })).status, 405);
+  assert.equal(streams.handle(new Request(`${MEDIA_STREAM_SCHEME}://media/unknown-token-123456`)).status, 404);
+  assert.deepEqual(parseByteRange('bytes=5-', 10), { kind: 'partial', start: 5, end: 9 });
+  assert.deepEqual(parseByteRange('bytes=8-3', 10), { kind: 'unsatisfiable' });
+
+  const bufUrl = streams.register({ kind: 'buffer', bytes: Buffer.from('abcdef'), mime: 'audio/mpeg' }, 'buf:1');
+  const bufRes = streams.handle(new Request(bufUrl, { headers: { range: 'bytes=2-4' } }));
+  assert.equal(bufRes.status, 206);
+  assert.equal(await bufRes.text(), 'cde');
 });
 test('office preview never accepts a successful command without a PDF result', async () => {
   const vm = {
