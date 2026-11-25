@@ -214,6 +214,11 @@ test('custom video specs pass through and adapters convert only wire representat
     .body as FormData;
   assert.equal(form.get('size'), '4096x1536');
   assert.equal(form.get('seconds'), 'auto');
+  const webmForm = videoPlan(access('openai'), {
+    prompt: 'edit',
+    source: { kind: 'video', bytes: clip, mime: 'video/webm' },
+  }).submit.body as FormData;
+  assert.equal((webmForm.get('video') as File).name, 'source.webm');
   assert.equal(
     (
       videoPlan(access('replicate'), {
@@ -342,4 +347,33 @@ test('legacy Bot image and voice migrate once and all Bots share the new workspa
   assert.equal(migrated.imageAccess(bot.id)?.config.model, 'first-image');
   migrated.setMediaDefault('image', null);
   assert.equal(new ModelProviders(store, codec).imageAccess(bot.id), undefined);
+});
+test('video polling retries transient transport errors and keeps terminal output errors unwrapped', async (t) => {
+  let posts = 0,
+    polls = 0,
+    payload: Buffer = clip;
+  t.mock.method(globalThis, 'fetch', async (u: string, i?: RequestInit) => {
+    const url = new URL(u);
+    if (i?.method === 'POST') {
+      posts++;
+      return Response.json({ id: 'poll-job' });
+    }
+    if (url.pathname === '/result') return new Response(new Uint8Array(payload));
+    polls++;
+    if (polls === 1) throw new TypeError('socket hang up');
+    return Response.json({ status: 'succeeded', content: { video_url: 'https://studio.example/result' } });
+  });
+  const ok = await generateVideo(access('seedance'), { prompt: 'coast' }, AbortSignal.timeout(5000));
+  assert.deepEqual(ok.bytes, clip);
+  assert.equal(posts, 1);
+  assert.equal(polls, 2);
+
+  payload = Buffer.from('not-a-video');
+  await assert.rejects(
+    generateVideo(access('seedance'), { prompt: 'coast' }, AbortSignal.timeout(5000)),
+    (error: unknown) =>
+      error instanceof Error &&
+      (error as { code?: string }).code === 'video.invalid_output' &&
+      !error.message.includes('poll-job'),
+  );
 });

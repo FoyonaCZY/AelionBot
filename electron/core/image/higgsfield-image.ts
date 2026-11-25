@@ -6,6 +6,33 @@ import { mediaRequest, mediaJson, mediaDiagnostic, downloadMedia } from '../mode
 import { uploadHiggsfieldReference } from '../model/higgsfield';
 import { nativeEndpoint } from '../model/native-endpoint';
 
+const SCHEMA_TTL_MS = 10 * 60 * 1000;
+const SCHEMA_CACHE_MAX = 128;
+const MAX_POLL_NETWORK_RETRIES = 3;
+const referenceFieldCache = new Map<string, { field: 'image_url' | 'image_urls' | null; expiresAt: number }>();
+
+async function resolveReferenceField(
+  endpoint: string,
+  access: { baseUrl: string; key: string; protocol: string },
+  signal: AbortSignal,
+): Promise<'image_url' | 'image_urls' | null> {
+  const now = Date.now(),
+    cached = referenceFieldCache.get(endpoint);
+  if (cached && cached.expiresAt > now) return cached.field;
+  const schemaResponse = await mediaRequest(
+    { url: 'https://dash.higgsfield.ai/api/v2/app-models/' + endpoint + '/' },
+    {},
+    signal,
+  );
+  const detail = await mediaJson(schemaResponse, 2 * 1024 * 1024, access),
+    properties = detail?.input_schema?.properties;
+  const field =
+    (['image_urls', 'image_url'] as const).find((name) => properties && Object.hasOwn(properties, name)) ?? null;
+  if (referenceFieldCache.size >= SCHEMA_CACHE_MAX) referenceFieldCache.clear();
+  referenceFieldCache.set(endpoint, { field, expiresAt: now + SCHEMA_TTL_MS });
+  return field;
+}
+
 export async function generateHiggsfieldImage(
   baseUrl: string,
   model: string,
@@ -36,14 +63,7 @@ export async function generateHiggsfieldImage(
   };
   if (job.reference?.length) {
     // The same provider uses image_url for Soul and image_urls for Seedream/Kling. Check the endpoint schema before uploading.
-    const schemaResponse = await mediaRequest(
-      { url: 'https://dash.higgsfield.ai/api/v2/app-models/' + endpoint + '/' },
-      {},
-      signal,
-    );
-    const detail = await mediaJson(schemaResponse, 2 * 1024 * 1024, access),
-      properties = detail?.input_schema?.properties;
-    const field = ['image_urls', 'image_url'].find((name) => properties && Object.hasOwn(properties, name));
+    const field = await resolveReferenceField(endpoint, access, signal);
     if (!field || (field === 'image_url' && job.reference.length !== 1))
       throw new ImageGenerationError('unsupported', {
         protocol,
@@ -72,12 +92,17 @@ export async function generateHiggsfieldImage(
   const id = submitted?.request_id;
   if (typeof id !== 'string' || !/^[-\w.]{1,256}$/.test(id) || id === '.' || id === '..')
     throw new ImageGenerationError('contact-support', { protocol, detail: translate('服务未返回有效的图片任务 ID') });
+  let pollNetworkErrors = 0;
   for (;;) {
-    const response = await mediaRequest(
-      { url: base + '/requests/' + encodeURIComponent(id) + '/status' },
-      headers,
-      signal,
-    );
+    let response: Response;
+    try {
+      response = await mediaRequest({ url: base + '/requests/' + encodeURIComponent(id) + '/status' }, headers, signal);
+      pollNetworkErrors = 0;
+    } catch (error) {
+      if (signal.aborted || ++pollNetworkErrors > MAX_POLL_NETWORK_RETRIES) throw error;
+      await wait(Math.min(5000, 1000 * 2 ** (pollNetworkErrors - 1)), undefined, { signal });
+      continue;
+    }
     if (response.status === 429 || response.status >= 500) {
       await response.body?.cancel();
       await wait(3500, undefined, { signal });

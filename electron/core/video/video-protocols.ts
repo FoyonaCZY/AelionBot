@@ -377,10 +377,13 @@ export function videoPlan(access: VideoAccess, request: VideoJob): VideoPlan {
       if (size) form.set('size', size);
       if (source) {
         if (!source.bytes) unsupported('OpenAI 视频文件输入需要附件或工作目录文件');
+        const fallbackExt = video ? 'mp4' : 'png';
+        const ext =
+          (source.mime?.split('/')[1]?.split(';')[0] || fallbackExt).replace(/[^a-z0-9]/gi, '') || fallbackExt;
         form.set(
           video ? 'video' : 'input_reference',
           new Blob([new Uint8Array(source.bytes!)], { type: source.mime }),
-          video ? 'source.mp4' : 'frame.' + (source.mime?.split('/')[1] || 'png'),
+          (video ? 'source.' : 'frame.') + ext,
         );
       }
       return {

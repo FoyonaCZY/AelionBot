@@ -30,6 +30,39 @@ const pending = new Set([
   'inprogress',
   'starting',
 ]);
+const terminalErrors = new Set([
+  'video.task_failed',
+  'video.result_too_large',
+  'video.invalid_output',
+  'video.missing_output',
+  'video.file_failed',
+  'video.invalid_download',
+]);
+const MAX_POLL_NETWORK_RETRIES = 3;
+async function pollRequest(
+  spec: { url: string; body?: Record<string, unknown> | FormData; headers?: Record<string, string> },
+  headers: Record<string, string>,
+  signal: AbortSignal,
+) {
+  let networkErrors = 0;
+  for (;;) {
+    let response: Response;
+    try {
+      response = await request(spec, headers, signal);
+      networkErrors = 0;
+    } catch (error) {
+      if (signal.aborted || ++networkErrors > MAX_POLL_NETWORK_RETRIES) throw error;
+      await wait(Math.min(5000, 1000 * 2 ** (networkErrors - 1)), undefined, { signal });
+      continue;
+    }
+    if (response.status === 429 || response.status >= 500) {
+      await response.body?.cancel();
+      await wait(5000, undefined, { signal });
+      continue;
+    }
+    return response;
+  }
+}
 export async function generateVideo(access: VideoAccess, job: VideoJob, signal: AbortSignal, resumeId?: string) {
   const origin = new URL(access.baseUrl).origin;
   const budget = AbortSignal.any([signal, AbortSignal.timeout(30 * 60 * 1000)]);
@@ -61,12 +94,7 @@ export async function generateVideo(access: VideoAccess, job: VideoJob, signal: 
   const id = encodeURIComponent(taskId);
   try {
     for (;;) {
-      const response = await request(plan.poll(id), plan.headers(), budget);
-      if (response.status === 429 || response.status >= 500) {
-        await response.body?.cancel();
-        await wait(5000, undefined, { signal: budget });
-        continue;
-      }
+      const response = await pollRequest(plan.poll(id), plan.headers(), budget);
       const data = await json(response, metadataLimit, access);
       const result = plan.result(data, id);
       const state = String(result.status || '').toLowerCase();
@@ -104,7 +132,7 @@ export async function generateVideo(access: VideoAccess, job: VideoJob, signal: 
             if (fileId) {
               const fileBase = plan.submit.url.replace(/\/interactions$/, '/files/' + fileId);
               for (;;) {
-                const file = await json(await request({ url: fileBase }, plan.headers(), budget), 65536, access);
+                const file = await json(await pollRequest({ url: fileBase }, plan.headers(), budget), 65536, access);
                 if (file.state === 'ACTIVE') break;
                 if (file.state !== 'PROCESSING') throw new AppError('video.file_failed', '生成文件处理失败');
                 await wait(3500, undefined, { signal: budget });
@@ -128,7 +156,7 @@ export async function generateVideo(access: VideoAccess, job: VideoJob, signal: 
       await wait(3500, undefined, { signal: budget });
     }
   } catch (error) {
-    if (signal.aborted || (error instanceof AppError && error.code === 'video.task_failed')) throw error;
+    if (signal.aborted || (error instanceof AppError && terminalErrors.has(error.code))) throw error;
     throw new AppError(
       error instanceof AppError ? error.code : 'video.interrupted',
       (error instanceof AppError ? error.message : '视频任务查询中断') +

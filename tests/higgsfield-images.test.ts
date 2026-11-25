@@ -20,9 +20,10 @@ const config = {
   hasKey: true,
   imageProtocol: 'higgsfield-images' as const,
 };
-test('Higgsfield image editing resolves the reference field, uploads once, and downloads the true image without an API credential', async (t) => {
+test('Higgsfield image editing resolves and caches the reference field, uploads once, and downloads the true image without an API credential', async (t) => {
   const calls: string[] = [];
-  let schema = 'image_url';
+  let schema = 'image_url',
+    model = 'vendor/image/edit-single';
   t.mock.method(globalThis, 'fetch', async (u: string, i: RequestInit) => {
     const url = new URL(u),
       h = new Headers(i.headers);
@@ -51,7 +52,7 @@ test('Higgsfield image editing resolves the reference field, uploads once, and d
         public_url: base + '/ref',
         upload_headers: { 'content-type': 'image/png' },
       });
-    if (url.pathname === '/vendor/image/edit') {
+    if (url.pathname === '/' + model) {
       const payload = JSON.parse(String(i.body));
       assert.deepEqual(payload, {
         prompt: 'test',
@@ -65,11 +66,17 @@ test('Higgsfield image editing resolves the reference field, uploads once, and d
     assert.equal(url.pathname, '/requests/img-7/status');
     return Response.json({ status: 'completed', images: [{ url: base + '/result' }] });
   });
-  for (schema of ['image_url', 'image_urls']) {
+  for (const [nextSchema, nextModel] of [
+    ['image_url', 'vendor/image/edit-single'],
+    ['image_url', 'vendor/image/edit-single'],
+    ['image_urls', 'vendor/image/edit-multi'],
+  ] as const) {
+    schema = nextSchema;
+    model = nextModel;
     const out = await generateModelImage({
       model: {} as ModelClient,
       key,
-      config,
+      config: { ...config, model },
       signal: signal(),
       job: {
         prompt: 'test',
@@ -82,7 +89,9 @@ test('Higgsfield image editing resolves the reference field, uploads once, and d
     assert.equal(out.mediaType, 'image/png');
     assert.deepEqual(out.bytes, png);
   }
-  assert.equal(calls.filter((path) => path === '/vendor/image/edit').length, 2);
+  assert.equal(calls.filter((path) => path === '/vendor/image/edit-single').length, 2);
+  assert.equal(calls.filter((path) => path === '/api/v2/app-models/vendor/image/edit-single/').length, 1);
+  assert.equal(calls.filter((path) => path === '/api/v2/app-models/vendor/image/edit-multi/').length, 1);
 });
 test('native text-to-image works through a custom prefix and returns bytes using the saved protocol', async (t) => {
   let origin = '';
@@ -138,4 +147,29 @@ test('Higgsfield text-to-image does not upload a reference and never submits ano
     (e: unknown) => e instanceof ImageGenerationError && e.nextStep === 'revise-request',
   );
   assert.equal(posts, 1);
+});
+test('Higgsfield image polling retries transient transport errors without resubmitting', async (t) => {
+  let posts = 0,
+    polls = 0;
+  t.mock.method(globalThis, 'fetch', async (u: string, i: RequestInit) => {
+    const url = new URL(u);
+    if (i.method === 'POST') {
+      posts++;
+      return Response.json({ request_id: 'retry-1' });
+    }
+    if (url.pathname === '/out') return new Response(new Uint8Array(png));
+    polls++;
+    if (polls === 1) throw new TypeError('connection reset');
+    return Response.json({ status: 'completed', images: [{ url: base + '/out' }] });
+  });
+  const result = await generateModelImage({
+    model: {} as ModelClient,
+    key,
+    config,
+    signal: signal(),
+    job: { prompt: 'paint' },
+  });
+  assert.deepEqual(result.bytes, png);
+  assert.equal(posts, 1);
+  assert.equal(polls, 2);
 });
