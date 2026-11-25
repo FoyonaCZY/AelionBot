@@ -1,3 +1,4 @@
+import { catalogMatches } from '../../shared/model-catalog';
 import { useState } from 'react';
 import type { ModelProvider } from '../../shared/types/core';
 import { MODEL_USES, usesModel, type VideoSelection } from '../../shared/types/media-types';
@@ -78,7 +79,9 @@ export function MediaAssignment({
                   (a, b) => Number(Boolean(b.imageOutput)) - Number(Boolean(a.imageOutput)),
                 )
               : connection?.models || []
-            ).map((m) => m.id)}
+            )
+              .filter((m) => catalogMatches(m, kind))
+              .map((m) => m.id)}
             disabled={!connection}
             placeholder={t('选择或输入模型名称')}
           />

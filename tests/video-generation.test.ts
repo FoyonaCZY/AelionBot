@@ -14,7 +14,7 @@ import { tempDir, until, answer } from './helpers';
 
 const clip = Buffer.from('000000186674797069736f6d0000000069736f6d', 'hex');
 const asset = 'https://cdn.example/asset.mp4';
-const access = (protocol: VideoProtocol, baseUrl = 'https://studio.example/v1'): VideoAccess => ({
+const access = (protocol: VideoProtocol, baseUrl = 'https://studio.example'): VideoAccess => ({
   baseUrl,
   protocol,
   key: 'test-key',
@@ -30,10 +30,10 @@ const matrix: Record<VideoProtocol, [string, string, string | null]> = {
   vidu: ['/ent/v2/text2video', '/img2video', '/reference2video'],
   runway: ['/v1/text_to_video', '/image_to_video', '/video_to_video'],
   luma: ['/dream-machine/v1/generations/video', '/video', '/video/modify'],
-  openai: ['/v1/videos', '/videos', '/videos/edits'],
+  openai: ['/videos', '/videos', '/videos/edits'],
   xai: ['/v1/videos/generations', '/generations', '/edits'],
   vertex: [':predictLongRunning', ':predictLongRunning', ':predictLongRunning'],
-  gemini: ['/v1beta/interactions', '/interactions', '/interactions'],
+  gemini: ['/interactions', '/interactions', '/interactions'],
   replicate: ['/v1/predictions', '/predictions', '/predictions'],
   fal: ['/vendor/model', '/vendor/model', '/vendor/model'],
   higgsfield: ['/vendor/model', '/vendor/model', '/vendor/model'],
@@ -78,7 +78,7 @@ const completedFixtures: Record<VideoProtocol, [object, object, string]> = {
   vidu: [{ task_id: 'job' }, { state: 'success', creations: [{ url: asset }] }, asset],
   runway: [{ id: 'job' }, { status: 'SUCCEEDED', output: [asset] }, asset],
   luma: [{ id: 'job' }, { state: 'completed', assets: { video: asset } }, asset],
-  openai: [{ id: 'job' }, { status: 'completed' }, 'https://studio.example/v1/videos/job/content'],
+  openai: [{ id: 'job' }, { status: 'completed' }, 'https://studio.example/videos/job/content'],
   gemini: [
     { id: 'job' },
     { status: 'completed', steps: [{ type: 'model_output', content: [{ type: 'video', uri: 'files/result' }] }] },

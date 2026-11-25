@@ -1,9 +1,14 @@
 import { setTimeout as wait } from 'node:timers/promises';
 import { ATTACHMENT_LIMITS } from '../../../shared/types/attachment-types';
 import { AppError } from '../../../shared/errors';
-import { requestPublicBytes } from '../tools/web-tools';
-import { modelFetch } from '../model/model-http';
-import { higgsfieldBaseUrl, videoPlan, type VideoAccess, type VideoJob, type VideoRequest } from './video-protocols';
+import {
+  mediaRequest as request,
+  mediaJson as json,
+  downloadMedia as download,
+  mediaDiagnostic as diagnostic,
+} from '../model/media-http';
+import { uploadHiggsfieldReference } from '../model/higgsfield';
+import { videoPlan, type VideoAccess, type VideoJob } from './video-protocols';
 
 const completed = new Set(['completed', 'succeeded', 'succeed', 'success', 'done']);
 const pending = new Set([
@@ -25,163 +30,19 @@ const pending = new Set([
   'inprogress',
   'starting',
 ]);
-async function readBytes(response: Response, limit: number) {
-  if (!response.body) throw new AppError('video.empty_response', '视频服务返回空响应');
-  const reader = response.body.getReader(),
-    chunks: Uint8Array[] = [];
-  let size = 0;
-  try {
-    for (;;) {
-      const next = await reader.read();
-      if (next.done) break;
-      size += next.value.byteLength;
-      if (size > limit) throw new AppError('video.result_too_large', '视频服务返回的数据超过附件大小限制');
-      chunks.push(next.value);
-    }
-    return Buffer.concat(chunks, size);
-  } finally {
-    await reader.cancel().catch(() => {});
-  }
-}
-async function request(spec: VideoRequest, headers: Record<string, string>, signal: AbortSignal) {
-  const form = spec.body instanceof FormData;
-  return modelFetch(spec.url, {
-    method: spec.body ? 'POST' : 'GET',
-    redirect: 'manual',
-    signal,
-    headers: { ...headers, ...(spec.body && !form ? { 'content-type': 'application/json' } : {}), ...spec.headers },
-    body: form ? (spec.body as FormData) : spec.body ? JSON.stringify(spec.body) : undefined,
-  });
-}
-function diagnostic(data: any, access: VideoAccess) {
-  const reason =
-    data?.error?.message ||
-    data?.base_resp?.status_msg ||
-    data?.message ||
-    data?.task?.error?.message ||
-    data?.data?.task_status_msg ||
-    data?.output?.message ||
-    data?.failure ||
-    data?.failure_reason;
-  if (typeof reason !== 'string') return '';
-  let text = reason.replace(/https?:\/\/\S+|data:[^\s]+/gi, '[URL]');
-  for (const secret of [
-    access.key,
-    ...(['kling', 'higgsfield'].includes(access.protocol) ? access.key.split(':') : []),
-  ])
-    if (secret) text = text.replaceAll(secret, '***');
-  return ' · ' + text.replace(/[\r\n]/g, ' ').slice(0, 350);
-}
-async function json(response: Response, limit: number, access: VideoAccess) {
-  if (!response.ok) {
-    let detail = '';
-    try {
-      detail = diagnostic(JSON.parse((await readBytes(response, 65536)).toString('utf8')), access);
-    } catch {}
-    throw new AppError('video.http_error', '视频服务返回 HTTP ' + response.status + detail);
-  }
-  const bytes = await readBytes(response, limit);
-  try {
-    return JSON.parse(bytes.toString('utf8'));
-  } catch {
-    throw new AppError('video.invalid_response', '视频服务返回了无效的 JSON');
-  }
-}
-async function download(url: string, signal: AbortSignal, origin: string, headers: Record<string, string> = {}) {
-  // Only an adapter-constructed content endpoint carries credentials. CDN redirects never inherit them.
-  for (let redirects = 0; redirects < 6; redirects++) {
-    const parsed = new URL(url);
-    if (
-      parsed.username ||
-      parsed.password ||
-      !(parsed.protocol === 'https:' || (parsed.protocol === 'http:' && parsed.origin === origin))
-    )
-      throw new AppError('video.invalid_download', '视频下载地址无效');
-    if (parsed.origin !== origin) {
-      const response = await requestPublicBytes(url, {}, signal, ATTACHMENT_LIMITS.fileBytes, 120000);
-      if (response.status < 200 || response.status >= 300)
-        throw new AppError('video.download_failed', '下载视频失败 HTTP ' + response.status);
-      return response.bytes;
-    }
-    const response = await request({ url }, headers, signal);
-    if ([301, 302, 303, 307, 308].includes(response.status)) {
-      await response.body?.cancel();
-      const location = response.headers.get('location');
-      if (!location) break;
-      url = new URL(location, url).href;
-      if (new URL(url).origin !== origin) headers = {};
-      continue;
-    }
-    if (!response.ok) {
-      await response.body?.cancel();
-      throw new AppError('video.download_failed', '下载视频失败 HTTP ' + response.status);
-    }
-    return readBytes(response, ATTACHMENT_LIMITS.fileBytes);
-  }
-  throw new AppError('video.invalid_download', '视频下载重定向无效');
-}
-
-/** Upload local references to the provider's signed storage URL before submitting the model request. */
-async function uploadHiggsfieldSource(access: VideoAccess, job: VideoJob, signal: AbortSignal): Promise<VideoJob> {
-  const source = job.source;
-  if (!source?.bytes || !source.mime) return job;
-  const signed = await json(
-    await request(
-      { url: higgsfieldBaseUrl(access.baseUrl) + '/files/generate-upload-url', body: { content_type: source.mime } },
-      { Authorization: 'Key ' + access.key },
-      signal,
-    ),
-    65536,
-    access,
-  );
-  const origin = new URL(access.baseUrl).origin;
-  const validate = (value: unknown) => {
-    if (typeof value !== 'string' || !URL.canParse(value))
-      throw new AppError('video.upload_invalid', '视频素材上传地址无效');
-    const url = new URL(value);
-    if (
-      url.username ||
-      url.password ||
-      !(url.protocol === 'https:' || (url.protocol === 'http:' && url.origin === origin))
-    )
-      throw new AppError('video.upload_invalid', '视频素材上传地址无效');
-    return url;
-  };
-  const upload = validate(signed.upload_url),
-    output = validate(signed.public_url);
-  const headers = new Headers(signed.upload_headers);
-  for (const name of ['authorization', 'proxy-authorization', 'cookie']) headers.delete(name);
-  let status: number;
-  if (upload.origin === origin) {
-    const response = await modelFetch(upload.href, {
-      method: 'PUT',
-      headers,
-      body: new Uint8Array(source.bytes),
-      credentials: 'omit',
-      redirect: 'error',
-      signal,
-    });
-    status = response.status;
-    await response.body?.cancel();
-  } else {
-    const response = await requestPublicBytes(
-      upload.href,
-      { method: 'PUT', headers: Object.fromEntries(headers), body: source.bytes },
-      signal,
-      65536,
-      120000,
-    );
-    status = response.status;
-  }
-  if (status < 200 || status >= 300) throw new AppError('video.upload_failed', '上传视频素材失败 HTTP ' + status);
-  return { ...job, source: { kind: source.kind, url: output.href } };
-}
-
 export async function generateVideo(access: VideoAccess, job: VideoJob, signal: AbortSignal, resumeId?: string) {
   const origin = new URL(access.baseUrl).origin;
   const budget = AbortSignal.any([signal, AbortSignal.timeout(30 * 60 * 1000)]);
-  if (access.protocol === 'higgsfield' && job.source?.bytes)
-    job = resumeId ? { ...job, source: undefined } : await uploadHiggsfieldSource(access, job, budget);
+  if (access.protocol === 'higgsfield' && job.source?.bytes && job.source.mime)
+    job = resumeId
+      ? { ...job, source: undefined }
+      : {
+          ...job,
+          source: {
+            kind: job.source.kind,
+            url: await uploadHiggsfieldReference(access, { bytes: job.source.bytes, mime: job.source.mime }, budget),
+          },
+        };
   const plan = videoPlan(access, job);
   const metadataLimit =
     access.protocol === 'vertex' || access.protocol === 'gemini'

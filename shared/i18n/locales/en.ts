@@ -1,5 +1,22 @@
 // en translations keyed by the zh-CN source string.
 export const en: Record<string, string> = {
+  模型目录格式无效: 'Invalid model catalog format',
+  '获取模型列表失败 HTTP {status}': 'Could not fetch models (HTTP {status})',
+  'Vertex AI 地址需要包含项目、区域和 publishers/google':
+    'The Vertex AI URL must include the project, location and publishers/google',
+  '请输入 Higgsfield 图片模型的端点路径': 'Enter the Higgsfield image model endpoint path',
+  所选图片模型不支持此数量的参考图: 'The selected image model does not support this number of reference images',
+  '服务未返回有效的图片任务 ID': 'The service did not return a valid image job ID',
+  图片任务完成但未返回图片地址: 'The image job completed without an image URL',
+  返回的文件不是可识别的图片: 'The returned file is not a recognized image',
+  图片任务未完成: 'The image job did not complete',
+  模型服务返回空响应: 'The model service returned an empty response',
+  模型服务返回的数据超过附件大小限制: 'The model service returned data exceeding the attachment size limit',
+  '模型服务返回了无效的 JSON': 'The model service returned invalid JSON',
+  媒体下载地址无效: 'Invalid media download URL',
+  媒体下载重定向无效: 'Invalid media download redirect',
+  '模型服务返回 HTTP {status}': 'Model service returned HTTP {status}',
+  '下载媒体文件失败 HTTP {status}': 'Media download failed (HTTP {status})',
   语音识别协议: 'Speech recognition protocol',
   语音合成协议: 'Speech synthesis protocol',
   'Provider 连接': 'Provider connections',

@@ -3,6 +3,7 @@
  * what it accepts, and how to read bytes back. Adding a protocol means adding one
  * descriptor to ADAPTERS — no heuristics elsewhere in the app change.
  */
+import { nativeEndpoint, geminiBaseUrl } from '../model/native-endpoint';
 import { AppError } from '../../../shared/errors';
 import {
   aspectDimensions,
@@ -19,6 +20,7 @@ export interface ImageReference {
 }
 export interface ImageJob {
   prompt: string;
+  input?: Record<string, unknown>;
   resolution?: string;
   aspect?: ImageAspect;
   quality?: ImageQuality;
@@ -31,6 +33,7 @@ interface ImageEndpoint {
   model: string;
 }
 export type ImagePlan =
+  | { kind: 'higgsfield' }
   | { kind: 'http'; url: string; method: string; headers: Record<string, string>; body: BodyInit }
   | { kind: 'hosted'; size?: string; quality?: ImageQuality };
 interface ImageAdapter extends ImageProtocolInfo {
@@ -52,17 +55,9 @@ function bearer(key: string): Record<string, string> {
   return key ? { Authorization: `Bearer ${key}` } : {};
 }
 
-/** Gemini exposes generateContent under /v1beta regardless of the chat base path the user configured. */
 export function geminiImageUrl(baseUrl: string, model: string) {
-  const id = encodeURIComponent(model.replace(/^models\//, ''));
-  const trimmed = baseUrl.replace(/\/$/, '');
-  if (/\/v1beta(?:\/|$)/.test(trimmed) || trimmed.endsWith('/models'))
-    return `${trimmed.replace(/\/models$/, '')}/models/${id}:generateContent`;
-  try {
-    return `${new URL(trimmed).origin}/v1beta/models/${id}:generateContent`;
-  } catch {
-    return `${trimmed}/models/${id}:generateContent`;
-  }
+  const base = geminiBaseUrl(baseUrl);
+  return base + '/models/' + encodeURIComponent(model.replace(/^models\//, '')) + ':generateContent';
 }
 
 /** OpenAI image models accept a fixed size menu that differs per family; anything else gets the standard bucket. */
@@ -237,16 +232,10 @@ const sdWebui: ImageAdapter = {
     const { width, height } = explicit
       ? { width: Number(explicit[1]), height: Number(explicit[2]) }
       : aspectDimensions(job.aspect);
-    let origin = endpoint.baseUrl.replace(/\/$/, '');
-    try {
-      origin = new URL(origin).origin;
-    } catch {
-      /* keep the configured value */
-    }
     const img2img = Boolean(job.reference?.length);
     return {
       kind: 'http',
-      url: `${origin}/sdapi/v1/${img2img ? 'img2img' : 'txt2img'}`,
+      url: nativeEndpoint(endpoint.baseUrl, '/sdapi/v1/' + (img2img ? 'img2img' : 'txt2img')),
       method: 'POST',
       headers: { 'content-type': 'application/json', ...bearer(key) },
       body: JSON.stringify({
@@ -272,7 +261,16 @@ const sdWebui: ImageAdapter = {
   },
 };
 
-const ADAPTERS: ImageAdapter[] = [openAiImages, geminiImages, responsesImages, sdWebui];
+const higgsfieldImages: ImageAdapter = {
+  id: 'higgsfield-images',
+  label: 'Higgsfield',
+  hint: 'Higgsfield',
+  endpoint: '/{model}',
+  capabilities: { aspect: true, size: true, quality: true, reference: true, negativePrompt: true, seed: true },
+  plan: () => ({ kind: 'higgsfield' }),
+  parse: () => undefined,
+};
+const ADAPTERS: ImageAdapter[] = [openAiImages, geminiImages, responsesImages, sdWebui, higgsfieldImages];
 const BY_ID = new Map(ADAPTERS.map((adapter) => [adapter.id, adapter]));
 
 export function imageAdapter(protocol: ImageProtocol) {

@@ -3,6 +3,7 @@
  * and negative prompt alike. Each finds its own reference images: generate_image by attachment or path, design_image by
  * attachment ID.
  */
+import { AppError } from '../../../shared/errors';
 import type { ModelConfig } from '../../../shared/types/core';
 import { asImageAspect, asImageQuality } from '../../../shared/types/image-types';
 import { imageExtension, type ImageJob } from './image-generation';
@@ -27,7 +28,10 @@ export function imageJobFromArgs(
   reference?: ImageReference[],
 ): ImageJob {
   const negative = typeof args.negativePrompt === 'string' ? args.negativePrompt.trim() : '';
+  if (args.input !== undefined && (!args.input || typeof args.input !== 'object' || Array.isArray(args.input)))
+    throw new AppError('image.input_invalid', '模型输入应为对象');
   return {
+    ...(args.input ? { input: args.input as Record<string, unknown> } : {}),
     prompt: typeof args.prompt === 'string' ? args.prompt : '',
     resolution: asImageAspect(args.resolution) || config.imageResolution,
     aspect: asImageAspect(args.aspect) || config.imageAspect,

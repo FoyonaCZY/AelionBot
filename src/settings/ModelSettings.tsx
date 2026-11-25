@@ -1,3 +1,4 @@
+import { catalogSources, officialHiggsfield } from '../../shared/model-catalog';
 import { Select } from '../ui/Select';
 import { useEffect, useRef, useState } from 'react';
 import type { ModelProvider, ModelSelection, ProviderModel, Snapshot } from '../../shared/types/core';
@@ -72,7 +73,7 @@ export function ModelSettings({ state, onNotify }: { state: Snapshot; onNotify: 
   };
   useEffect(() => {
     for (const provider of providers)
-      if (usesModel(provider, 'chat') && !provider.modelsCheckedAt && !attempted.current.has(provider.id)) {
+      if (catalogSources(provider).length && !provider.modelsCheckedAt && !attempted.current.has(provider.id)) {
         attempted.current.add(provider.id);
         void refresh(provider.id);
       }
@@ -377,6 +378,7 @@ function ProviderEditor({
         baseUrl,
         ...parameters,
         imageProtocol,
+        videoProtocol: parameters.uses?.includes('video') ? videoProtocol : parameters.videoProtocol,
         apiKey: clearKey ? null : apiKey || undefined,
       });
       setName(saved.name);
@@ -398,14 +400,16 @@ function ProviderEditor({
   const imageProtocol =
     parameters.imageProtocol && imageOptions.some((info) => info.id === parameters.imageProtocol)
       ? parameters.imageProtocol
-      : defaultImageProtocol(parameters.protocol);
+      : officialHiggsfield(baseUrl) || parameters.videoProtocol === 'higgsfield'
+        ? 'higgsfield-images'
+        : defaultImageProtocol(parameters.protocol);
+  const videoProtocol = parameters.videoProtocol || (officialHiggsfield(baseUrl) ? 'higgsfield' : 'dashscope');
   const imageInfo = imageOptions.find((info) => info.id === imageProtocol);
   const toggleUse = (kind: ModelUse, enabled: boolean) => {
     const uses = enabled ? [...parameters.uses!, kind] : parameters.uses!.filter((k) => k !== kind);
     setParameters({
       ...parameters,
       uses,
-      videoProtocol: parameters.videoProtocol || (kind === 'video' && enabled ? 'dashscope' : undefined),
     });
   };
   return (
@@ -655,7 +659,7 @@ function ProviderEditor({
           <label className="settings-row">
             <span>{t('视频协议')}</span>
             <Select
-              value={parameters.videoProtocol || 'dashscope'}
+              value={videoProtocol}
               disabled={disabled || pending}
               onChange={(e) => setParameters({ ...parameters, videoProtocol: e.target.value as VideoProtocol })}
             >
@@ -857,15 +861,12 @@ function ProviderModelCatalog({
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
-        <button
-          className="text-button"
-          type="button"
-          disabled={disabled || refreshing || saving || !usesModel(provider, 'chat')}
-          onClick={onRefresh}
-        >
-          <Icon name="restart" size={14} />
-          {refreshing ? t('拉取中…') : t('刷新')}
-        </button>
+        {catalogSources(provider).length > 0 && (
+          <button className="text-button" type="button" disabled={disabled || refreshing || saving} onClick={onRefresh}>
+            <Icon name="restart" size={14} />
+            {refreshing ? t('拉取中…') : t('刷新')}
+          </button>
+        )}
       </div>
       <div className="provider-model-add">
         <input

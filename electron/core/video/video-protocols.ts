@@ -1,7 +1,8 @@
 import { createHmac } from 'node:crypto';
 import { AppError } from '../../../shared/errors';
 import type { VideoProtocol, VideoSpecs } from '../../../shared/types/media-types';
-import { validateModelEndpoint } from '../model/model';
+import { nativeEndpoint, geminiBaseUrl } from '../model/native-endpoint';
+import { validateModelEndpoint, modelEndpoint } from '../model/model';
 
 export interface VideoSource {
   kind: 'image' | 'video';
@@ -23,7 +24,7 @@ export interface VideoAccess {
   defaults: VideoSpecs;
 }
 type Payload = Record<string, unknown> | FormData;
-export interface VideoRequest {
+interface VideoRequest {
   url: string;
   body?: Payload;
   headers?: Record<string, string>;
@@ -100,15 +101,7 @@ function mediaUri(source: VideoSource, remoteOnly = false): string {
     return 'data:' + source.mime + ';base64,' + source.bytes.toString('base64');
   return unsupported('该接口需要服务端可访问的素材 URL');
 }
-// Preserve reverse-proxy prefixes. Chat endpoints may already carry a provider-specific version suffix.
-function endpoint(value: string, prefix: string) {
-  const url = new URL(validateModelEndpoint(value));
-  const base = url.pathname
-    .replace(/\/(?:compatible-mode\/v1|v1beta\/openai|api\/v[13]|ent\/v2|dream-machine\/v1|v1beta|v1|v2)\/?$/, '')
-    .replace(/\/$/, '');
-  return url.origin + base + prefix;
-}
-export const higgsfieldBaseUrl = (url: string) => endpoint(url, '');
+const higgsfieldBaseUrl = (url: string) => nativeEndpoint(url, '');
 export function videoPlan(access: VideoAccess, request: VideoJob): VideoPlan {
   // Editing on these endpoints inherits the source clip's format. Send any explicit per-call overrides to the service.
   const inheritsSource = request.source?.kind === 'video' && ['xai', 'openai', 'luma'].includes(access.protocol);
@@ -119,7 +112,7 @@ export function videoPlan(access: VideoAccess, request: VideoJob): VideoPlan {
   const number = seconds(duration),
     image = source?.kind === 'image',
     video = source?.kind === 'video';
-  const root = (p: string) => endpoint(access.baseUrl, p);
+  const root = (p: string) => nativeEndpoint(access.baseUrl, p);
   const get = (url: string): VideoRequest => ({ url });
   const post = (url: string, body: Payload): VideoRequest => ({ url, body });
   const headers = (): Record<string, string> => (key ? { Authorization: 'Bearer ' + key } : {});
@@ -375,7 +368,7 @@ export function videoPlan(access: VideoAccess, request: VideoJob): VideoPlan {
       };
     }
     case 'openai': {
-      const url = root('/v1/videos'),
+      const url = modelEndpoint(access.baseUrl, 'chat') + '/videos',
         form = new FormData();
       form.set('prompt', prompt);
       if (!video) form.set('model', model);
@@ -398,7 +391,7 @@ export function videoPlan(access: VideoAccess, request: VideoJob): VideoPlan {
       };
     }
     case 'gemini': {
-      const url = root('/v1beta/interactions');
+      const url = geminiBaseUrl(access.baseUrl) + '/interactions';
       const input = source
         ? [
             {

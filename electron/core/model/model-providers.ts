@@ -11,7 +11,9 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ModelProvider, ModelSelection, ProviderInput, ProviderModel } from '../../../shared/types/core';
 import { Store, atomicJson, type StoredProvider } from '../storage/store';
-import { modelEndpoint } from './model';
+import { catalogSources, catalogMatches, officialHiggsfield } from '../../../shared/model-catalog';
+import { loadProviderCatalog } from './provider-catalog';
+import { modelEndpoint, validateModelEndpoint } from './model';
 import { redactHost } from '../host/host';
 import { hostedSearchProtocol, type ModelParameters } from '../../../shared/types/model-types';
 import { asImageAspect, asImageProtocol, asImageQuality } from '../../../shared/types/image-types';
@@ -21,9 +23,8 @@ import {
   type SpeechSelection,
   type SpeechSettings,
 } from '../../../shared/types/speech-types';
-import { imageCapability } from './model-vision';
 import { reasoningEffort as cleanReasoning } from '../../../shared/chat/reasoning';
-import { modelFetch, prewarmModelEndpoint, disposeModelHttp } from './model-http';
+import { prewarmModelEndpoint, disposeModelHttp } from './model-http';
 import { AppError } from '../../../shared/errors';
 import { isOpenCodeEndpoint } from './opencode';
 
@@ -146,27 +147,18 @@ function text(value: unknown, label: string, max: number) {
     throw new Error(`${label}无效`);
   return value.trim();
 }
-async function jsonBody(response: Response) {
-  if (!response.body) throw new Error('Provider 返回空响应');
-  if (response.headers.get('content-type')?.includes('text/html')) {
-    await response.body.cancel();
-    throw new AppError('provider.html_response', '服务返回了网页而不是模型列表，请检查 Base URL');
-  }
-  const reader = response.body.getReader();
-  let length = 0;
-  const chunks: Uint8Array[] = [];
-  try {
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      length += value.length;
-      if (length > 2 * 1024 * 1024) throw new Error('模型列表超过 2 MB');
-      chunks.push(value);
-    }
-    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
-  } finally {
-    await reader.cancel().catch(() => {});
-  }
+function catalogRevision(p: StoredProvider) {
+  return JSON.stringify([
+    p.baseUrl,
+    p.encryptedKey,
+    p.protocol,
+    p.uses,
+    p.imageProtocol,
+    p.videoProtocol,
+    p.asrProtocol,
+    p.ttsProtocol,
+    p.speechProtocol,
+  ]);
 }
 export function videoSpecs(input: { aspect?: unknown; resolution?: unknown; duration?: unknown }): VideoSpecs {
   const result: VideoSpecs = {};
@@ -192,6 +184,7 @@ export class ModelProviders {
       this.migrateReasoning();
       this.migrateHostedTools();
       this.migrateMedia();
+      this.migrateProviderBaseUrls();
       return;
     }
     const legacy = store.data.model,
@@ -218,6 +211,7 @@ export class ModelProviders {
     }
     this.commit({
       providers,
+      providerBaseUrlVersion: 1,
       defaultModel,
       ...(legacy.reasoningEffort
         ? {
@@ -228,6 +222,52 @@ export class ModelProviders {
           }
         : {}),
     });
+  }
+  /** v0.57.1 stored the chat suffix and default OpenAI Images protocol on native connections. */
+  private migrateProviderBaseUrls() {
+    if (this.store.data.providerBaseUrlVersion === 1) return;
+    const providers = this.store.data.providers!.map((p) => {
+      // Old media-only native connections on these service roots used a synthetic /v1 that the adapter stripped.
+      const oldRoot = /^https:\/\/([^/:?#]+)\/v1\/?$/i.exec(p.baseUrl);
+      if (
+        oldRoot &&
+        !usesModel(p, 'chat') &&
+        !usesModel(p, 'asr') &&
+        !usesModel(p, 'tts') &&
+        ((p.videoProtocol === 'fal' && oldRoot[1] === 'queue.fal.run') ||
+          (p.videoProtocol === 'dashscope' &&
+            /^(?:dashscope(?:-intl|-us)?\.aliyuncs\.com|[a-z0-9.-]+\.maas\.aliyuncs\.com)$/.test(oldRoot[1])) ||
+          (p.videoProtocol === 'seedance' && /^ark\.[a-z0-9-]+\.(?:volces|bytepluses)\.com$/.test(oldRoot[1])) ||
+          (p.videoProtocol === 'vidu' && ['api.vidu.com', 'api.vidu.cn'].includes(oldRoot[1])) ||
+          (p.videoProtocol === 'luma' && oldRoot[1] === 'api.lumalabs.ai') ||
+          (p.videoProtocol === 'minimax-v2' && ['api.minimax.io', 'api.minimaxi.com'].includes(oldRoot[1])) ||
+          ((p.videoProtocol === 'gemini' || p.imageProtocol === 'gemini-images') &&
+            oldRoot[1] === 'generativelanguage.googleapis.com'))
+      )
+        return { ...p, baseUrl: new URL(p.baseUrl).origin, modelsCheckedAt: undefined, modelsError: undefined };
+      if (
+        !/^https:\/\/api\.higgsfield\.ai(?:\/v1)?\/?$/i.test(p.baseUrl) ||
+        (!usesModel(p, 'image') && !usesModel(p, 'video'))
+      )
+        return p;
+      const baseUrl = 'https://api.higgsfield.ai';
+      const imageProtocol =
+        usesModel(p, 'image') && (!p.imageProtocol || p.imageProtocol === 'openai-images')
+          ? 'higgsfield-images'
+          : p.imageProtocol;
+      const videoProtocol =
+        usesModel(p, 'video') && (!p.videoProtocol || p.videoProtocol === 'dashscope') ? 'higgsfield' : p.videoProtocol;
+      if (p.baseUrl === baseUrl && p.imageProtocol === imageProtocol && p.videoProtocol === videoProtocol) return p;
+      return {
+        ...p,
+        baseUrl,
+        imageProtocol,
+        videoProtocol,
+        modelsCheckedAt: undefined,
+        modelsError: undefined,
+      } satisfies StoredProvider;
+    });
+    this.commit({ providers, providerBaseUrlVersion: 1 });
   }
   private migrateMedia() {
     const { bots, providers, mediaDefaults, speech } = this.store.data;
@@ -403,7 +443,7 @@ export class ModelProviders {
         providerId: p.id,
         name: p.name,
         protocol: kind === 'video' ? p.videoProtocol : p.imageProtocol,
-        models: p.models.map((m) => m.id),
+        models: p.models.filter((m) => catalogMatches(m, kind)).map((m) => m.id),
         defaultModel:
           this.store.data.mediaDefaults?.[kind]?.providerId === p.id
             ? this.store.data.mediaDefaults[kind]?.model
@@ -512,7 +552,7 @@ export class ModelProviders {
     const voice = selection.voice;
     return {
       protocol: speechProtocolFor(provider, kind),
-      baseUrl: provider.baseUrl,
+      baseUrl: modelEndpoint(provider.baseUrl, 'chat'),
       key: this.keyFor(provider),
       model: selection.model,
       ...(voice ? { voice } : {}),
@@ -535,7 +575,11 @@ export class ModelProviders {
     const models = [...provider.models];
     const index = models.findIndex((model) => model.id === entry.id),
       prior = index >= 0 ? models[index] : undefined;
-    const next = { ...entry, ...(prior?.supportsImages !== undefined ? { supportsImages: prior.supportsImages } : {}) };
+    const next = {
+      ...entry,
+      ...(prior?.catalogOutput ? { catalogOutput: prior.catalogOutput } : {}),
+      ...(prior?.supportsImages !== undefined ? { supportsImages: prior.supportsImages } : {}),
+    };
     if (index >= 0) models[index] = next;
     else models.push(next);
     models.sort((a, b) => a.id.localeCompare(b.id));
@@ -581,7 +625,13 @@ export class ModelProviders {
   save(input: ProviderInput) {
     const name = text(input?.name, 'Provider 名称', 80);
     const previous = input.id ? this.provider(text(input.id, 'Provider', 80)) : undefined;
-    const parameters = modelParameters({ ...previous, ...input });
+    const baseUrl = validateModelEndpoint(text(input.baseUrl, 'Base URL', 2000));
+    const fields = { ...previous, ...input };
+    if (officialHiggsfield(baseUrl)) {
+      if (usesModel(fields, 'image')) fields.imageProtocol ??= 'higgsfield-images';
+      if (usesModel(fields, 'video')) fields.videoProtocol ??= 'higgsfield';
+    }
+    const parameters = modelParameters(fields);
     if (previous) {
       const id = previous.id,
         data = this.store.data;
@@ -601,8 +651,6 @@ export class ModelProviders {
         throw new AppError('provider.in_use', '请先切换使用此连接的模型');
     }
     delete parameters.reasoningEffort;
-    // Store the normalized endpoint so the settings form shows the URL requests actually use.
-    const baseUrl = modelEndpoint(text(input.baseUrl, 'Base URL', 2000), parameters.protocol);
     if (this.store.data.providers?.some((provider) => provider.id !== previous?.id && provider.name === name))
       throw new Error('已有同名 Provider，请使用不同名称');
     if (input.apiKey !== undefined && input.apiKey !== null && typeof input.apiKey !== 'string')
@@ -623,13 +671,17 @@ export class ModelProviders {
       previous.baseUrl !== baseUrl ||
       previous.encryptedKey !== encryptedKey ||
       previous.protocol !== parameters.protocol;
+    const catalogChanged =
+      previous &&
+      (JSON.stringify(catalogSources(previous)) !== JSON.stringify(catalogSources({ ...parameters, baseUrl })) ||
+        JSON.stringify(previous.uses) !== JSON.stringify(parameters.uses));
     const provider: StoredProvider = {
       id: previous?.id || randomUUID(),
       name,
       baseUrl,
       ...(isOpenCodeEndpoint(baseUrl) ? { opencode: true } : {}),
       models: connectionChanged ? [] : previous.models,
-      ...(!connectionChanged
+      ...(!connectionChanged && !catalogChanged
         ? {
             modelsUpdatedAt: previous.modelsUpdatedAt,
             modelsCheckedAt: previous.modelsCheckedAt,
@@ -672,104 +724,65 @@ export class ModelProviders {
   }
   refresh(id: string): Promise<ModelProvider> {
     const provider = this.provider(id);
-    if (!usesModel(provider, 'chat')) return Promise.resolve(this.public(provider));
-    const revision = JSON.stringify([provider.baseUrl, provider.encryptedKey, provider.protocol]);
+    const sources = catalogSources(provider);
+    if (!sources.length) return Promise.resolve(this.public(provider));
+    const revision = catalogRevision(provider);
     const existing = this.requests.get(id);
     if (existing?.revision === revision) return existing.promise;
     existing?.controller.abort();
     const controller = new AbortController();
     const pending = (async () => {
-      let models: ModelProvider['models'] | undefined, error: string | undefined;
-      try {
-        const key = this.keyFor(provider),
-          headers: Record<string, string> = { Accept: 'application/json' };
-        if (provider.protocol === 'anthropic') {
-          headers['anthropic-version'] = '2023-06-01';
-          if (key) headers['x-api-key'] = key;
-        } else if (provider.protocol === 'gemini') {
-          if (key) headers['x-goog-api-key'] = key;
-        } else if (key) headers.Authorization = `Bearer ${key}`;
-        const response = await modelFetch(`${modelEndpoint(provider.baseUrl, provider.protocol)}/models`, {
-          headers,
-          redirect: 'error',
-          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
-        });
-        if (!response.ok) {
-          await response.body?.cancel();
-          throw new Error(`获取模型列表失败 HTTP ${response.status}`);
+      const found = new Map<string, ProviderModel>(),
+        problems: string[] = [];
+      const results = await Promise.allSettled(
+        sources.map((source) =>
+          loadProviderCatalog(
+            source,
+            provider,
+            source === 'higgsfield' || source === 'fal' ? '' : this.keyFor(provider),
+            controller.signal,
+          ),
+        ),
+      );
+      const secrets = this.secrets();
+      let successful = false;
+      for (const [index, result] of results.entries()) {
+        if (result.status === 'rejected') {
+          problems.push(redactHost(String(result.reason?.message || result.reason), secrets).slice(0, 400));
+          continue;
         }
-        let body = await jsonBody(response);
-        const all: any[] = [],
-          cursors = new Set<string>();
-        for (let page = 0; ; page++) {
-          if (provider.protocol === 'gemini' && Array.isArray(body.models))
-            body.data = body.models
-              .filter(
-                (m: any) => !m.supportedGenerationMethods || m.supportedGenerationMethods.includes('generateContent'),
-              )
-              .map((m: any) => ({ id: m.name?.replace(/^models\//, '') }));
-          if (!Array.isArray(body?.data)) throw new Error('模型列表格式不兼容，需要 data 数组');
-          all.push(...body.data);
-          if (all.length > 5000) throw Error('模型列表超过 5000 项');
-          const cursor =
-            provider.protocol === 'gemini'
-              ? body.nextPageToken
-              : provider.protocol === 'anthropic' && body.has_more
-                ? body.last_id
-                : undefined;
-          if (!cursor) break;
-          if (typeof cursor !== 'string' || cursor.length > 4000 || page >= 19 || cursors.has(cursor))
-            throw Error('Provider 模型列表分页异常');
-          cursors.add(cursor);
-          const url = new URL(`${modelEndpoint(provider.baseUrl, provider.protocol)}/models`);
-          url.searchParams.set(provider.protocol === 'gemini' ? 'pageToken' : 'after_id', cursor);
-          const next = await modelFetch(url.href, {
-            headers,
-            redirect: 'error',
-            signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
-          });
-          if (!next.ok) {
-            await next.body?.cancel();
-            throw Error(`获取模型列表失败 HTTP ${next.status}`);
-          }
-          body = await jsonBody(next);
+        if (
+          !['higgsfield', 'fal'].includes(sources[index]) &&
+          result.value.some((m) => secrets.some((secret) => m.id.includes(secret)))
+        ) {
+          problems.push('模型列表包含凭据信息');
+          continue;
         }
-        body = { data: all };
-        if (body.data.length > 5000) throw new Error('模型列表超过 5000 项');
-        const secrets = this.secrets(),
-          ids = new Set<string>();
-        for (const item of body.data) {
-          if (typeof item?.id !== 'string') throw new Error('模型列表缺少模型 ID');
-          const id = text(item.id, '模型 ID', 256);
-          if (secrets.some((secret) => id.includes(secret))) throw new Error('模型列表包含凭据信息');
-          ids.add(id);
-        }
-        const previous = new Map(provider.models.map((model) => [model.id, model]));
-        models = [...ids]
-          .sort((a, b) => a.localeCompare(b))
-          .map((id) => {
-            const prior = previous.get(id),
-              capability = imageCapability(body.data.find((item: any) => item.id === id));
-            return { id, ...prior, ...(capability !== undefined ? { supportsImages: capability } : {}) };
-          });
-        for (const model of provider.models) if (!ids.has(model.id)) models.push(model);
-      } catch (caught) {
-        error = redactHost((caught as Error).message, this.secrets()).slice(0, 400);
+        successful = true;
+        for (const model of result.value) found.set(model.id, { ...found.get(model.id), ...model });
       }
       const current = this.store.data.providers?.find((provider) => provider.id === id);
       if (!current) throw new AppError('provider.deleted', 'Provider 已删除');
-      if (
-        controller.signal.aborted ||
-        JSON.stringify([current.baseUrl, current.encryptedKey, current.protocol]) !== revision
-      )
-        return this.public(current);
+      if (controller.signal.aborted || catalogRevision(current) !== revision) return this.public(current);
+      const previous = new Map(current.models.map((model) => [model.id, model]));
+      const models = [...found.values()]
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .map((model) => ({ ...previous.get(model.id), ...model }));
+      for (const model of current.models)
+        if (
+          !found.has(model.id) &&
+          (!model.catalogOutput ||
+            problems.length ||
+            Object.keys(model).some((field) => field !== 'id' && field !== 'catalogOutput'))
+        )
+          models.push(model);
       const stamp = new Date().toISOString(),
         next = {
           ...current,
-          models: models || current.models,
+          models: successful ? models : current.models,
           modelsCheckedAt: stamp,
-          modelsUpdatedAt: models ? stamp : current.modelsUpdatedAt,
-          modelsError: error,
+          modelsUpdatedAt: successful ? stamp : current.modelsUpdatedAt,
+          modelsError: problems.length ? problems.join(' · ').slice(0, 400) : undefined,
         };
       this.commit({ providers: this.store.data.providers!.map((provider) => (provider.id === id ? next : provider)) });
       return this.public(next);

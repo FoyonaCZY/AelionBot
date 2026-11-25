@@ -264,7 +264,7 @@ function fixture(t: test.TestContext) {
         for await (const chunk of req) raw += chunk;
         const body = raw ? JSON.parse(raw) : undefined;
         requests.push({ url: req.url || '', key: req.headers.authorization || '', body });
-        if (req.url === '/v1/models') {
+        if (req.url === '/v1/models' || req.url === '/models') {
           await config.hold;
           if (res.destroyed) return;
           res.writeHead(config.listStatus, { 'Content-Type': 'application/json' });
@@ -504,17 +504,17 @@ test('model lists use each Provider base URL and key, coalesce requests and reta
   assert.match(unsafe.modelsError || '', /凭据/);
   assert.equal(unsafe.models.length, 2);
 });
-test('an Anthropic Base URL without /v1 is saved normalized and lists models from /v1/models', async (t) => {
+test('an unversioned gateway stays as entered and lists models from /models', async (t) => {
   const f = fixture(t),
     providers = f.router(),
     a = await f.endpoint('alpha'),
     root = a.url.replace(/\/v1$/, '');
   const p = providers.save({ name: 'Claude gateway', baseUrl: root + '/', protocol: 'anthropic' });
-  assert.equal(p.baseUrl, a.url);
+  assert.equal(p.baseUrl, root);
   const listed = await providers.refresh(p.id);
   assert.deepEqual(
     a.requests.map((request) => request.url),
-    ['/v1/models'],
+    ['/models'],
   );
   assert.deepEqual(
     listed.models.map((model) => model.id),

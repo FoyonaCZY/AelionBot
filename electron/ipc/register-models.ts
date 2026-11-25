@@ -2,7 +2,6 @@ import { videoSourceUrl, type VideoSource } from '../core/video/video-protocols'
 import { generateVideo } from '../core/video/video-generation';
 import { ATTACHMENT_LIMITS } from '../../shared/types/attachment-types';
 import { AppError } from '../../shared/errors';
-import { usesModel } from '../../shared/types/media-types';
 import { validateModelEndpoint } from '../core/model/model';
 import { probeImageModel, storeImageRoutes } from '../core/image/image-generation';
 import { imageProtocolCatalog } from '../core/image/image-protocols';
@@ -137,7 +136,6 @@ export function registerModels(ctx: IpcContext) {
     ctx.beforeModelChange(input?.id ? ctx.providers.using(String(input.id)) : []);
     try {
       const provider = ctx.providers.save(input);
-      if (!usesModel(provider, 'chat')) return provider;
       const refreshed = await ctx.providers.refresh(provider.id);
       void ctx.providers.prewarm(provider.id);
       return refreshed;

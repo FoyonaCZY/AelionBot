@@ -167,6 +167,7 @@ export const FOUNDATION_TOOLS: ToolDefinition[] = [
       aspect: text,
       resolution: text,
       quality: text,
+      input: { type: 'object', additionalProperties: true, description: 'Higgsfield 图片端点专用参数' },
       negativePrompt: { ...text, maxLength: 1000 },
       references: {
         type: 'array',

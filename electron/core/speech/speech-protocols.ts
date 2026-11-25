@@ -1,5 +1,6 @@
 // One request of speech recognition or synthesis in each protocol. The service above cuts recordings and texts to
 // the sizes in SPEECH_LIMITS, so each request here fits what its protocol takes.
+import { nativeEndpoint } from '../model/native-endpoint';
 import { AppError } from '../../../shared/errors';
 import type { SpeechProtocol } from '../../../shared/types/speech-types';
 import { modelFetch } from '../model/model-http';
@@ -27,7 +28,7 @@ const root = (baseUrl: string) => baseUrl.trim().replace(/\/+$/, '');
 /** DeepSeek's tools sit beside its versioned API, whichever of the two documented base URLs is configured. */
 function deepseekTools(baseUrl: string) {
   try {
-    return `${new URL(baseUrl).origin}/v1/tools`;
+    return nativeEndpoint(baseUrl, '/v1/tools');
   } catch {
     throw new AppError('speech.base_url_invalid', '语音 Provider 的 Base URL 无效');
   }

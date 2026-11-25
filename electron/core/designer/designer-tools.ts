@@ -118,6 +118,7 @@ export const DESIGN_TOOLS = [
       providerId: str,
       model: str,
       quality: str,
+      input: { type: 'object', additionalProperties: true, description: 'Higgsfield 图片端点专用参数' },
       negativePrompt: { type: 'string', maxLength: 1000 },
       referenceAttachmentIds: { type: 'array', items: str, maxItems: 4 },
       reason: { type: 'string', minLength: 1, maxLength: 1000 },

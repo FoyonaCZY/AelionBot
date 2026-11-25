@@ -40,6 +40,8 @@ export interface ModelSelection {
 }
 export interface ProviderModel {
   id: string;
+  /** Output modality declared by a native model catalog; absent for hand-entered IDs. */
+  catalogOutput?: 'image' | 'video';
   contextTokens?: number;
   reasoningEffort?: string;
   thinkingBudget?: number;

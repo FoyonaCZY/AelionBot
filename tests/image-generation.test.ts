@@ -60,7 +60,7 @@ test('the protocol catalog stays declarative and every adapter is reachable', ()
   }
   assert.deepEqual(
     catalog.map((info) => info.id),
-    ['openai-images', 'gemini-images', 'responses-images', 'sd-webui'],
+    ['openai-images', 'gemini-images', 'responses-images', 'sd-webui', 'higgsfield-images'],
   );
   assert.equal(imageAdapter('gemini-images').capabilities.reference, true);
   assert.equal(imageAdapter('responses-images').capabilities.reference, false);
@@ -97,7 +97,7 @@ test('aspect ratios map to real dimensions and to each provider size menu', () =
   );
   assert.match(
     geminiImageUrl('https://api.example/v1', 'gemini-2.5-flash-image'),
-    /https:\/\/api\.example\/v1beta\/models\/gemini-2\.5-flash-image:generateContent$/,
+    /https:\/\/api\.example\/v1\/models\/gemini-2\.5-flash-image:generateContent$/,
   );
 });
 
@@ -136,7 +136,7 @@ test('adapters build the request each provider actually documents', () => {
     '',
   );
   if (webui.kind !== 'http') throw new Error('unreachable');
-  assert.equal(webui.url, 'http://127.0.0.1:7860/sdapi/v1/txt2img');
+  assert.equal(webui.url, 'http://127.0.0.1:7860/v1/sdapi/v1/txt2img');
   const sd = JSON.parse(webui.body as string);
   assert.equal(sd.width, 1344);
   assert.equal(sd.height, 768);

@@ -89,7 +89,7 @@ export function ModelSelectionFields({
   const { t } = useI18n();
   providers = providers.filter((p) => usesModel(p, 'chat'));
   const provider = providers.find((p) => p.id === value?.providerId),
-    ids = provider?.models.map((m) => m.id) || [];
+    ids = provider?.models.filter((m) => !m.catalogOutput).map((m) => m.id) || [];
   const effective =
     provider ||
     (inheritDefault && value === null

@@ -119,17 +119,22 @@ const ENDPOINT_SUFFIXES: Record<ModelProtocol, RegExp> = {
   anthropic: /\/(messages|models)$/i,
   gemini: /\/models(\/[^/]+)?$/i,
 };
-const VERSION_SEGMENT = /\/v\d+[a-z\d]*$/i;
-/**
- * Normalizes a provider Base URL into the prefix the protocol builders append paths to.
- * Anthropic follows the SDK/Claude Code convention: the base URL omits /v1, so it is added unless
- * the path already ends with a version. OpenAI-compatible and Gemini URLs only get their default
- * version when the path is empty, because gateways use other prefixes (/api/v3, /compatible-mode/v1).
- */
+/** Build the request prefix without changing a gateway's chosen mount. Only first-party API roots imply a version. */
 export function modelEndpoint(value: string, protocol: ModelProtocol = 'chat') {
   const url = new URL(validateModelEndpoint(value));
   let path = url.pathname.replace(/\/+$/, '').replace(ENDPOINT_SUFFIXES[protocol], '');
-  if (protocol === 'anthropic' ? !VERSION_SEGMENT.test(path) : !path) path += protocol === 'gemini' ? '/v1beta' : '/v1';
+  if (!path && url.origin === 'https://generativelanguage.googleapis.com' && protocol === 'gemini') path = '/v1beta';
+  if (
+    !path &&
+    [
+      'https://api.openai.com',
+      'https://api.anthropic.com',
+      'https://api.x.ai',
+      'https://api.minimax.io',
+      'https://api.minimaxi.com',
+    ].includes(url.origin)
+  )
+    path = '/v1';
   url.pathname = path;
   return url.toString().replace(/\/+$/, '');
 }

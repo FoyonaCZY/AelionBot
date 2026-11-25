@@ -1,6 +1,8 @@
 import type { ModelConfig, WireMessage } from '../../../shared/types/core';
 import type { ModelClient } from '../model/model';
-import { validateModelEndpoint } from '../model/model';
+import { generateHiggsfieldImage } from './higgsfield-image';
+import { officialHiggsfield } from '../../../shared/model-catalog';
+import { modelEndpoint, validateModelEndpoint } from '../model/model';
 import { modelFetch } from '../model/model-http';
 import {
   asImageProtocol,
@@ -143,9 +145,19 @@ async function runPlan(protocol: ImageProtocol, job: ImageJob, input: GenerateIm
     throw new ImageGenerationError('unsupported', { protocol, detail: '当前生图协议不支持参考图' });
   const plan = adapter.plan(
     job,
-    { baseUrl: validateModelEndpoint(input.config.baseUrl), model: input.config.model },
+    {
+      baseUrl:
+        protocol === 'openai-images'
+          ? modelEndpoint(input.config.baseUrl, 'chat')
+          : validateModelEndpoint(input.config.baseUrl),
+      model: input.config.model,
+    },
     input.key,
   );
+  if (plan.kind === 'higgsfield')
+    return generateHiggsfieldImage(input.config.baseUrl, input.config.model, input.key, job, signal);
+  if (job.input !== undefined)
+    throw new ImageGenerationError('unsupported', { protocol, detail: '模型专用图片参数需要 Higgsfield 协议' });
   if (plan.kind === 'hosted') {
     const result = await input.model.complete(
       [
@@ -205,7 +217,7 @@ export function resolvedImageProtocol(
   return (
     asImageProtocol(config.imageProtocol) ||
     routes?.get(imageRouteKey(config)) ||
-    defaultImageProtocol(config.protocol, config.model)
+    (officialHiggsfield(config.baseUrl) ? 'higgsfield-images' : defaultImageProtocol(config.protocol, config.model))
   );
 }
 
@@ -228,7 +240,7 @@ export async function generateModelImage(input: GenerateImageInput & { job: Imag
         error instanceof ImageGenerationError
           ? error.withProtocol(protocol)
           : new ImageGenerationError('contact-support', { protocol, detail: (error as Error).message });
-      if (retryableImageFailure(failure.nextStep) && attempt === 0) continue;
+      if (protocol !== 'higgsfield-images' && retryableImageFailure(failure.nextStep) && attempt === 0) continue;
       throw failure;
     }
   }

@@ -1,5 +1,11 @@
 /** Image generation contract shared by the renderer and the main process. Adding a protocol means adding one descriptor, not editing heuristics. */
-const IMAGE_PROTOCOLS = ['openai-images', 'gemini-images', 'responses-images', 'sd-webui'] as const;
+const IMAGE_PROTOCOLS = [
+  'openai-images',
+  'gemini-images',
+  'responses-images',
+  'sd-webui',
+  'higgsfield-images',
+] as const;
 export type ImageProtocol = (typeof IMAGE_PROTOCOLS)[number];
 
 export const IMAGE_ASPECTS = ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'] as const;

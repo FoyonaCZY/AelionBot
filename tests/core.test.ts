@@ -36,21 +36,24 @@ test('endpoint rejects credentials and remote plaintext while supporting local m
 });
 test('model endpoint tolerates common Base URL shapes per protocol', () => {
   const cases: [string, ModelProtocol | undefined, string][] = [
-    // Anthropic follows the Claude Code convention: /v1 is optional.
-    ['https://gateway.example', 'anthropic', 'https://gateway.example/v1'],
-    ['https://gateway.example/', 'anthropic', 'https://gateway.example/v1'],
+    // A custom gateway owns its prefix, including an unversioned root.
+    ['https://gateway.example', 'anthropic', 'https://gateway.example'],
+    ['https://gateway.example/', 'anthropic', 'https://gateway.example'],
     ['https://gateway.example/v1/', 'anthropic', 'https://gateway.example/v1'],
     ['https://gateway.example/v1/messages', 'anthropic', 'https://gateway.example/v1'],
-    ['https://gateway.example/api/anthropic', 'anthropic', 'https://gateway.example/api/anthropic/v1'],
-    // OpenAI-compatible gateways keep custom prefixes; only an empty path gets /v1.
-    ['  gateway.example  ', undefined, 'https://gateway.example/v1'],
+    ['https://gateway.example/api/anthropic', 'anthropic', 'https://gateway.example/api/anthropic'],
+    // Only well-known first-party roots imply the native API version.
+    ['  gateway.example  ', undefined, 'https://gateway.example'],
+    ['https://api.openai.com', 'responses', 'https://api.openai.com/v1'],
+    ['https://api.anthropic.com', 'anthropic', 'https://api.anthropic.com/v1'],
+    ['https://generativelanguage.googleapis.com', 'gemini', 'https://generativelanguage.googleapis.com/v1beta'],
     ['https://gateway.example//v1//', 'chat', 'https://gateway.example/v1'],
     ['https://gateway.example/v1/chat/completions', 'chat', 'https://gateway.example/v1'],
     ['https://gateway.example/api/plan/v3', 'responses', 'https://gateway.example/api/plan/v3'],
     ['https://gateway.example/v1/responses', 'responses', 'https://gateway.example/v1'],
     ['https://gateway.example/compatible-mode/v1/models', 'chat', 'https://gateway.example/compatible-mode/v1'],
-    ['localhost:11434', 'chat', 'http://localhost:11434/v1'],
-    ['https://gateway.example', 'gemini', 'https://gateway.example/v1beta'],
+    ['localhost:11434', 'chat', 'http://localhost:11434'],
+    ['https://gateway.example', 'gemini', 'https://gateway.example'],
     ['https://gateway.example/v1beta/models/gemini-pro', 'gemini', 'https://gateway.example/v1beta'],
   ];
   for (const [input, protocol, expected] of cases) assert.equal(modelEndpoint(input, protocol), expected, input);

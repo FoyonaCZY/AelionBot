@@ -80,6 +80,7 @@ interface Persisted {
   contextOffsets: Record<string, number>;
   model: Omit<ModelConfig, 'hasKey'> & { encryptedKey?: string };
   providers?: StoredProvider[];
+  providerBaseUrlVersion?: 1;
   mediaDefaults?: MediaDefaults;
   defaultModel?: ModelSelection;
   approvalModel?: ModelSelection;

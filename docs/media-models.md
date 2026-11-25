@@ -4,6 +4,21 @@
 
 升级时，已有工作区语音设置优先。如果以前为不同 Bot 指定过不同生图模型，采用 Bot 列表中第一个仍有效的选择作为工作区默认，同时把旧选择保存在对应连接的模型目录中。以后导入 Bot 使用本工作区的媒体配置。
 
+## 地址与模型目录
+
+Base URL 保存填写的路径。自定义 OpenAI 兼容网关在根路径提供服务时可直接填域名；如果接口位于 `/v1` 或租户路径，填写完整前缀。原生协议按各自的路由发送请求。升级会修正旧版写入 Higgsfield 官方根地址的版本后缀，并保留连接 ID、密钥与模型分配。
+
+在「Provider 连接 → 模型」可刷新支持发现的连接。Higgsfield 从官网使用的[公开目录](https://open.higgsfield.ai/explore)拉取操作端点；模型分配和 Bot 工具按图片、视频分类。生图与视频协议均可选 **Higgsfield**。例如，生图可以使用 `bytedance/seedream/v5.0/pro/text-to-image`，参考图编辑使用同系列的 `bytedance/seedream/v5.0/pro/edit`。支持参考图的端点按其公开输入结构上传本地素材。目录可见性与账号的模型访问权限、额度分别由服务端决定。
+
+| 连接 | 模型发现方式 |
+| --- | --- |
+| Higgsfield、fal | 读取平台公开目录。目录请求不携带服务密钥；fal 读取视频分类。 |
+| 火山方舟、百炼、xAI | 使用平台的原生模型列表或视频模型列表。百炼地址和 Key 应属于同一地域或业务空间。 |
+| Replicate、Vertex AI | 分别读取官方视频精选集合、Model Garden 的 Veo 条目。也可填写自己的模型版本或部署。 |
+| OpenAI 兼容、Anthropic、Gemini、MiniMax | 使用对应服务的模型列表。部分目录只返回通用 ID，可按该模型的实际能力分配。 |
+| Stable Diffusion WebUI | 查询当前实例安装的 checkpoints。 |
+| Runway、Kling、Vidu、Luma Dream Machine | 目前使用平台文档或控制台给出的模型 ID 手动添加。 |
+
 ## 按次选择
 
 Bot 可用 `list_media_models` 列出已启用对应能力的本地 Provider ID、模型和默认分配。`generate_image`、`design_image` 和 `generate_video` 可传 `providerId` 和 `model`。省略时使用工作区默认值。手填模型名适用于尚未进入目录的模型。
