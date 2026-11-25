@@ -83,7 +83,7 @@ export type WebLoader = (url: string, signal: AbortSignal) => Promise<WebDocumen
 export interface PublicRequest {
   method?: string;
   headers?: Record<string, string>;
-  body?: string;
+  body?: string | Uint8Array;
 }
 /**
  * One HTTP request to a public address. Every hop is resolved first and refused when any address is local or private,

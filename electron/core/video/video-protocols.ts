@@ -108,6 +108,7 @@ function endpoint(value: string, prefix: string) {
     .replace(/\/$/, '');
   return url.origin + base + prefix;
 }
+export const higgsfieldBaseUrl = (url: string) => endpoint(url, '');
 export function videoPlan(access: VideoAccess, request: VideoJob): VideoPlan {
   // Editing on these endpoints inherits the source clip's format. Send any explicit per-call overrides to the service.
   const inheritsSource = request.source?.kind === 'video' && ['xai', 'openai', 'luma'].includes(access.protocol);
@@ -123,16 +124,18 @@ export function videoPlan(access: VideoAccess, request: VideoJob): VideoPlan {
   const post = (url: string, body: Payload): VideoRequest => ({ url, body });
   const headers = (): Record<string, string> => (key ? { Authorization: 'Bearer ' + key } : {});
   const common = { headers, id: (d: any) => d.id };
-  if ((job.input || job.sourceField) && protocol !== 'fal' && protocol !== 'replicate')
-    unsupported('模型自定义输入字段仅适用于 fal 或 Replicate');
+  if ((job.input || job.sourceField) && protocol !== 'fal' && protocol !== 'replicate' && protocol !== 'higgsfield')
+    unsupported('模型自定义输入字段仅适用于 Higgsfield、fal 或 Replicate');
   switch (protocol) {
+    case 'higgsfield':
     case 'fal':
     case 'replicate': {
       const fal = protocol === 'fal';
       const parts = model.split('/');
       if (parts.some((p) => !/^[-a-zA-Z0-9_.:]+$/.test(p) || p === '.' || p === '..') || parts.length < 2)
         unsupported('请输入平台提供的完整模型 ID');
-      const base = root(fal ? '' : '/v1');
+      const higgsfield = protocol === 'higgsfield';
+      const base = higgsfield ? higgsfieldBaseUrl(access.baseUrl) : root(fal ? '' : '/v1');
       const path = parts.map(encodeURIComponent).join('/');
       const queue =
         base +
@@ -144,11 +147,27 @@ export function videoPlan(access: VideoAccess, request: VideoJob): VideoPlan {
         '/requests/';
       const input = { prompt, aspect_ratio: aspect, resolution, duration: fal ? duration : number, ...job.input };
       if (source) {
-        const field = job.sourceField || (fal ? source.kind + '_url' : source.kind);
+        const field =
+          job.sourceField ||
+          (higgsfield && model.endsWith('/reference-to-video')
+            ? source.kind + '_urls'
+            : fal || higgsfield
+              ? source.kind + '_url'
+              : source.kind);
         if (!/^\w+$/.test(field) || ['__proto__', 'constructor', 'prototype'].includes(field))
           unsupported('素材字段名无效');
-        Object.assign(input, { [field]: mediaUri(source) });
+        const uri = mediaUri(source, higgsfield);
+        Object.assign(input, { [field]: higgsfield && field.endsWith('_urls') ? [uri] : uri });
       }
+      if (higgsfield)
+        return {
+          ...common,
+          headers: () => ({ Authorization: 'Key ' + key }),
+          submit: post(base + '/' + path, input),
+          id: (d) => d.request_id,
+          poll: (id) => get(base + '/requests/' + id + '/status'),
+          result: (d) => ({ status: d.status, url: d.video?.url }),
+        };
       return fal
         ? {
             ...common,

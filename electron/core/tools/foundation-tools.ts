@@ -131,7 +131,7 @@ export const FOUNDATION_TOOLS: ToolDefinition[] = [
   ),
   tool(
     'generate_video',
-    '生成视频并附在回复中。默认使用工作区视频模型；按需先用 list_media_models 选择 providerId 与 model。传 image 生成首帧视频，传 video 编辑、参考或续写源视频，均省略则文生视频。素材填 attachmentId、工作目录 path 或服务可访问的 HTTPS url。规格可以自由填写。fal 和 Replicate 的模型专用参数放 input，可用 sourceField 指定素材字段名。已有任务用原参数和 taskId 继续查询，避免重复计费。',
+    '生成视频并附在回复中。默认使用工作区视频模型；按需先用 list_media_models 选择 providerId 与 model。传 image 生成首帧视频，传 video 编辑、参考或续写源视频，均省略则文生视频。素材填 attachmentId、工作目录 path 或服务可访问的 HTTPS url。规格可以自由填写。Higgsfield、fal 和 Replicate 的模型专用参数放 input，可用 sourceField 指定素材字段名。已有任务用原参数和 taskId 继续查询，避免重复计费。',
     {
       prompt: text,
       providerId: text,

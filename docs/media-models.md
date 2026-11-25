@@ -39,6 +39,7 @@ Bot 可用 `list_media_models` 列出已启用对应能力的本地 Provider ID�
 | [Vertex AI / Veo](https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/veo-video-generation) | 服务地址填至 /v1/projects/PROJECT/locations/LOCATION/publishers/google，凭据填有效的 Google Cloud OAuth 访问令牌。支持附件首帧，以及模型允许的源视频续写。 |
 | [xAI](https://docs.x.ai/developers/rest-api-reference/inference/videos) | 文字及首帧使用 generations，源视频使用 edits，并继承源视频规格。 |
 | [OpenAI Videos 兼容协议](https://developers.openai.com/api/docs/guides/video-generation) | 供实现 /videos、/videos/edits、/videos/{id}/content 的兼容服务使用，参考素材以本地文件或附件上传。 |
+| [Higgsfield](https://open.higgsfield.ai/quick-start) | 选择 Higgsfield 视频协议。服务地址填 `https://api.higgsfield.ai`，API Key 填控制台复制的完整凭据（不用加 `Key ` 前缀）。模型 ID 填官方端点路径，例如 `bytedance/seedance-2.0/text-to-video`、`bytedance/seedance-2.0/image-to-video` 或 `bytedance/seedance-2.0/reference-to-video`。本地素材通过平台签名地址上传，模型专用字段可通过 `input` 填写。 |
 | [fal Queue](https://fal.ai/docs/documentation/model-apis/inference/queue) | 填 https://queue.fal.run，模型填完整端点路径（包括图生或视频编辑子路径）。模型专用参数放在工具的 input，sourceField 可选择输入素材字段。 |
 | [Replicate Predictions](https://replicate.com/docs/reference/http) | 模型填 owner/model 或 owner/model:version。模型专用输入和素材字段由相应模型定义。 |
 

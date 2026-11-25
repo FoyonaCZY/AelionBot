@@ -3,7 +3,7 @@ import { ATTACHMENT_LIMITS } from '../../../shared/types/attachment-types';
 import { AppError } from '../../../shared/errors';
 import { requestPublicBytes } from '../tools/web-tools';
 import { modelFetch } from '../model/model-http';
-import { videoPlan, type VideoAccess, type VideoJob, type VideoRequest } from './video-protocols';
+import { higgsfieldBaseUrl, videoPlan, type VideoAccess, type VideoJob, type VideoRequest } from './video-protocols';
 
 const completed = new Set(['completed', 'succeeded', 'succeed', 'success', 'done']);
 const pending = new Set([
@@ -65,7 +65,10 @@ function diagnostic(data: any, access: VideoAccess) {
     data?.failure_reason;
   if (typeof reason !== 'string') return '';
   let text = reason.replace(/https?:\/\/\S+|data:[^\s]+/gi, '[URL]');
-  for (const secret of [access.key, ...(access.protocol === 'kling' ? access.key.split(':') : [])])
+  for (const secret of [
+    access.key,
+    ...(['kling', 'higgsfield'].includes(access.protocol) ? access.key.split(':') : []),
+  ])
     if (secret) text = text.replaceAll(secret, '***');
   return ' · ' + text.replace(/[\r\n]/g, ' ').slice(0, 350);
 }
@@ -118,10 +121,68 @@ async function download(url: string, signal: AbortSignal, origin: string, header
   throw new AppError('video.invalid_download', '视频下载重定向无效');
 }
 
+/** Upload local references to the provider's signed storage URL before submitting the model request. */
+async function uploadHiggsfieldSource(access: VideoAccess, job: VideoJob, signal: AbortSignal): Promise<VideoJob> {
+  const source = job.source;
+  if (!source?.bytes || !source.mime) return job;
+  const signed = await json(
+    await request(
+      { url: higgsfieldBaseUrl(access.baseUrl) + '/files/generate-upload-url', body: { content_type: source.mime } },
+      { Authorization: 'Key ' + access.key },
+      signal,
+    ),
+    65536,
+    access,
+  );
+  const origin = new URL(access.baseUrl).origin;
+  const validate = (value: unknown) => {
+    if (typeof value !== 'string' || !URL.canParse(value))
+      throw new AppError('video.upload_invalid', '视频素材上传地址无效');
+    const url = new URL(value);
+    if (
+      url.username ||
+      url.password ||
+      !(url.protocol === 'https:' || (url.protocol === 'http:' && url.origin === origin))
+    )
+      throw new AppError('video.upload_invalid', '视频素材上传地址无效');
+    return url;
+  };
+  const upload = validate(signed.upload_url),
+    output = validate(signed.public_url);
+  const headers = new Headers(signed.upload_headers);
+  for (const name of ['authorization', 'proxy-authorization', 'cookie']) headers.delete(name);
+  let status: number;
+  if (upload.origin === origin) {
+    const response = await modelFetch(upload.href, {
+      method: 'PUT',
+      headers,
+      body: new Uint8Array(source.bytes),
+      credentials: 'omit',
+      redirect: 'error',
+      signal,
+    });
+    status = response.status;
+    await response.body?.cancel();
+  } else {
+    const response = await requestPublicBytes(
+      upload.href,
+      { method: 'PUT', headers: Object.fromEntries(headers), body: source.bytes },
+      signal,
+      65536,
+      120000,
+    );
+    status = response.status;
+  }
+  if (status < 200 || status >= 300) throw new AppError('video.upload_failed', '上传视频素材失败 HTTP ' + status);
+  return { ...job, source: { kind: source.kind, url: output.href } };
+}
+
 export async function generateVideo(access: VideoAccess, job: VideoJob, signal: AbortSignal, resumeId?: string) {
-  const plan = videoPlan(access, job),
-    origin = new URL(access.baseUrl).origin;
+  const origin = new URL(access.baseUrl).origin;
   const budget = AbortSignal.any([signal, AbortSignal.timeout(30 * 60 * 1000)]);
+  if (access.protocol === 'higgsfield' && job.source?.bytes)
+    job = resumeId ? { ...job, source: undefined } : await uploadHiggsfieldSource(access, job, budget);
+  const plan = videoPlan(access, job);
   const metadataLimit =
     access.protocol === 'vertex' || access.protocol === 'gemini'
       ? Math.ceil((ATTACHMENT_LIMITS.fileBytes * 4) / 3) + 65536

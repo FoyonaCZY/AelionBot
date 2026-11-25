@@ -36,6 +36,7 @@ const matrix: Record<VideoProtocol, [string, string, string | null]> = {
   gemini: ['/v1beta/interactions', '/interactions', '/interactions'],
   replicate: ['/v1/predictions', '/predictions', '/predictions'],
   fal: ['/vendor/model', '/vendor/model', '/vendor/model'],
+  higgsfield: ['/vendor/model', '/vendor/model', '/vendor/model'],
 };
 for (const protocol of Object.keys(VIDEO_PROTOCOLS) as VideoProtocol[])
   test(protocol + ' selects the text, image and video routes and sends the supplied media', () => {
@@ -85,6 +86,7 @@ const completedFixtures: Record<VideoProtocol, [object, object, string]> = {
   ],
   vertex: [{ name: 'job' }, { done: true, response: { videos: [{ bytesBase64Encoded: 'mp4' }] } }, 'mp4'],
   xai: [{ request_id: 'job' }, { status: 'done', video: { url: asset } }, asset],
+  higgsfield: [{ request_id: 'job' }, { status: 'completed', video: { url: asset } }, asset],
   fal: [{ request_id: 'job' }, { status: 'COMPLETED' }, 'https://studio.example/vendor/model/requests/job'],
   replicate: [{ id: 'job' }, { status: 'succeeded', output: asset }, asset],
 };
@@ -136,6 +138,68 @@ test('all video protocols retrieve playable bytes from local protocol fixtures',
     assert.deepEqual(result.bytes, clip, protocol);
     assert.equal(result.taskId, 'job', protocol);
   }
+});
+test('Higgsfield uploads a local reference without forwarding the API credential and resumes without re-uploading', async (t) => {
+  const paths: string[] = [];
+  const requests: Array<{ key?: string; payload: Buffer; headers: import('node:http').IncomingHttpHeaders }> = [];
+  let base = '';
+  const server = createServer(async (req, res) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) chunks.push(Buffer.from(chunk));
+    paths.push(req.url!);
+    requests.push({ key: req.headers.authorization, payload: Buffer.concat(chunks), headers: req.headers });
+    const path = req.url!;
+    if (path === '/object') {
+      res.end();
+      return;
+    }
+    if (path === '/result') {
+      res.end(clip);
+      return;
+    }
+    res.setHeader('content-type', 'application/json');
+    if (path === '/files/generate-upload-url')
+      res.end(
+        JSON.stringify({
+          upload_url: base + '/object',
+          public_url: base + '/reference',
+          upload_headers: { 'content-type': 'video/mp4', 'x-test-signed': 'yes' },
+        }),
+      );
+    else if (path === '/requests/abc/status')
+      res.end(JSON.stringify({ status: 'completed', video: { url: base + '/result' } }));
+    else res.end(JSON.stringify({ request_id: 'abc' }));
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  base = 'http://127.0.0.1:' + (server.address() as { port: number }).port;
+  t.after(() => {
+    server.closeAllConnections();
+    server.close();
+  });
+  const service = { ...access('higgsfield', base), model: 'bytedance/seedance-2.0/reference-to-video' },
+    job: VideoJob = { prompt: 'pan left', duration: '8', source: { kind: 'video', bytes: clip, mime: 'video/mp4' } };
+  await generateVideo(service, job, AbortSignal.timeout(5000));
+  assert.deepEqual(paths, [
+    '/files/generate-upload-url',
+    '/object',
+    '/bytedance/seedance-2.0/reference-to-video',
+    '/requests/abc/status',
+    '/result',
+  ]);
+  assert.deepEqual(
+    requests.map((r) => r.key),
+    ['Key test-key', undefined, 'Key test-key', 'Key test-key', undefined],
+  );
+  assert.deepEqual(requests[1].payload, clip);
+  assert.equal(requests[1].headers['x-test-signed'], 'yes');
+  assert.deepEqual(JSON.parse(requests[2].payload.toString()), {
+    prompt: 'pan left',
+    duration: 8,
+    video_urls: [base + '/reference'],
+  });
+  await generateVideo(service, job, AbortSignal.timeout(5000), 'abc');
+  assert.deepEqual(paths.slice(5), ['/requests/abc/status', '/result']);
 });
 test('custom video specs pass through and adapters convert only wire representations', () => {
   const job = { prompt: 'test', aspect: '47:13', resolution: 'cinema-8k', duration: '23.5s' };

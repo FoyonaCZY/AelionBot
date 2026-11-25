@@ -16,6 +16,7 @@ export const VIDEO_PROTOCOLS = {
   runway: 'Runway',
   luma: 'Luma Dream Machine',
   openai: 'OpenAI Videos',
+  higgsfield: 'Higgsfield',
   fal: 'fal Queue',
   replicate: 'Replicate Predictions',
   gemini: 'Gemini Omni',
