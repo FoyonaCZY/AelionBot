@@ -37,6 +37,17 @@ export const FOUNDATION_TOOLS: ToolDefinition[] = [
       location: { type: 'string', enum: ['host', 'vm'] },
       cwd: text,
       stdin: { ...text, maxLength: 262144 },
+      vaultEnv: {
+        type: 'object',
+        additionalProperties: { type: 'string', maxLength: 300 },
+        description: '从保险库注入环境变量（如 { TOKEN: "{{vault:slug.apiKey}}" }），不会经过命令行参数',
+      },
+      vaultFiles: {
+        type: 'object',
+        additionalProperties: { type: 'string', maxLength: 300 },
+        description:
+          '从保险库将私钥等敏感文件写入 0600 临时文件并将路径写入指定环境变量（如 { SSH_KEY: "{{vault:prod.privateKey}}" }），退出后立即销毁',
+      },
       tty: { type: 'boolean' },
       purpose: { type: 'string', enum: ['task', 'service'] },
       cols: integer(20, 300),

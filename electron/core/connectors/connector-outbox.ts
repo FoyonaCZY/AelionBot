@@ -1,15 +1,20 @@
-// Replies from the Bot back to connector chats: only the final answer with its files, plus approval cards for the
-// connector's owner and questions for whoever asked. While the Bot works the chat shows the platform's typing cue.
-// Only runs started by connector messages, or by scheduled tasks in connector sessions, are sent; work started in
-// the app stays in the app.
+// Replies from the Bot back to connector chats: live streaming where the platform supports it, intermediate text
+// turns as they finish, final answer with its files, plus approval cards for the connector's owner and questions for
+// whoever asked. While the Bot works the chat shows the platform's typing cue. Only runs started by connector
+// messages, or by scheduled tasks in connector sessions, are sent; work started in the app stays in the app.
 import type { InteractionRequest } from '../../../shared/types/core';
 import type { HarnessRunOptions } from '../agent/peer-runtime-types';
 import type { Store } from '../storage/store';
-import type { ConnectorAdapter, ConnectorCard, InboundAction, InboundMessage } from './connector-adapter';
+import type {
+  ConnectorAdapter,
+  ConnectorCard,
+  ConnectorTextStream,
+  InboundAction,
+  InboundMessage,
+} from './connector-adapter';
 import type { StoredConnector } from './connector-store';
 import type { VoiceClip, VoiceFormat } from '../speech/speech-service';
-import { permissionSummary } from './format';
-import { stripBlockMarkers, visualsAsText } from '../../../shared/chat/message-blocks';
+import { connectorStreamingText, connectorText, permissionSummary } from './format';
 
 export interface OutboxHost {
   store: Store;
@@ -25,9 +30,119 @@ export interface OutboxHost {
     snapshot(): InteractionRequest[];
     approve(id: string, allow: boolean): void;
     decideComputerAccess(id: string, allow: boolean): void;
+    decideVaultUse?(id: string, decision: 'allow' | 'allow-run' | 'deny'): void;
     answer(id: string, value: unknown): void;
   };
   journal(type: string, payload: unknown): void;
+}
+const DEFAULT_STREAM_INTERVAL_MS = 500;
+
+/**
+ * Throttles and serializes one live-updated message to an adapter. The first non-empty chunk flushes immediately (after
+ * any preceding message in the same run finishes); later updates wait for the in-flight request and `intervalMs`.
+ */
+class LiveMessageStream {
+  private stream?: ConnectorTextStream;
+  private latest = '';
+  private sent = '';
+  private opened = false;
+  private degraded = false;
+  private finished = false;
+  private lastFlushAt = 0;
+  private timer?: ReturnType<typeof setTimeout>;
+  private inFlight?: Promise<void>;
+  constructor(
+    private chatId: string,
+    private adapter: () => ConnectorAdapter | undefined,
+    private prior: Promise<void>,
+    private onError: (error: unknown) => void,
+  ) {}
+  push(text: string) {
+    if (this.finished || this.degraded) return;
+    if (!text) {
+      this.latest = '';
+      return;
+    }
+    this.latest = text;
+    if (this.latest === this.sent) return;
+    this.schedule();
+  }
+  private intervalMs() {
+    return Math.max(0, this.stream?.intervalMs ?? DEFAULT_STREAM_INTERVAL_MS);
+  }
+  private schedule() {
+    if (this.finished || this.degraded || this.inFlight || this.timer) return;
+    const wait = this.opened ? Math.max(0, this.lastFlushAt + this.intervalMs() - Date.now()) : 0;
+    if (wait <= 0) {
+      this.flush();
+      return;
+    }
+    this.timer = setTimeout(() => {
+      this.timer = undefined;
+      this.flush();
+    }, wait);
+    this.timer.unref?.();
+  }
+  private flush() {
+    if (this.finished || this.degraded || this.inFlight) return;
+    const text = this.latest;
+    if (!text || text === this.sent) return;
+    const adapter = this.adapter();
+    if (!adapter) return;
+    if (!this.stream) {
+      const created = adapter.beginStream?.(this.chatId);
+      if (!created) {
+        this.degraded = true;
+        return;
+      }
+      this.stream = created;
+    }
+    const stream = this.stream;
+    this.lastFlushAt = Date.now();
+    this.inFlight = (async () => {
+      try {
+        await this.prior;
+        if (this.finished || this.degraded) return;
+        const current = this.latest;
+        if (!current || current === this.sent) return;
+        this.opened = true;
+        await stream.update(current);
+        this.sent = current;
+      } catch (error) {
+        this.degraded = true;
+        this.onError(error);
+      } finally {
+        this.inFlight = undefined;
+        if (!this.finished && !this.degraded && this.latest && this.latest !== this.sent) this.schedule();
+      }
+    })();
+  }
+  async finish(finalText: string) {
+    if (this.finished) return;
+    this.finished = true;
+    clearTimeout(this.timer);
+    this.timer = undefined;
+    if (this.inFlight) await this.inFlight;
+    const adapter = this.adapter();
+    if (!adapter) return;
+    if (this.stream && this.opened) {
+      try {
+        await this.stream.finish(finalText);
+        return;
+      } catch (error) {
+        this.onError(error);
+        if (this.sent || !finalText) return;
+      }
+    }
+    if (!finalText) return;
+    await this.prior;
+    await adapter.sendText(this.chatId, finalText);
+  }
+  dispose() {
+    this.finished = true;
+    clearTimeout(this.timer);
+    this.timer = undefined;
+  }
 }
 interface Tracked {
   runId: string;
@@ -37,6 +152,12 @@ interface Tracked {
   typingAt: number;
   /** The person spoke; the answer may be spoken back. */
   voice?: boolean;
+  /** The currently streaming assistant message, if any. */
+  active?: { messageId: string; stream: LiveMessageStream };
+  /** Assistant messages already finalized and queued for delivery. */
+  delivered: Set<string>;
+  /** Keeps messages, streams and cards for this run in chronological order. */
+  delivery: Promise<void>;
 }
 interface Prompt {
   requestId: string;
@@ -56,7 +177,11 @@ const TYPING_MS = 10_000;
 const APPROVE = /^(同意|允许|批准|可以|ok|yes|y)\s*#?([a-z0-9]{4})?$/i;
 const DENY = /^(拒绝|不同意|驳回|不行|no|n)\s*#?([a-z0-9]{4})?$/i;
 /** Requests the owner allows or denies, by card button or text reply; each keyed by its card button prefix. */
-const DECISIONS: Partial<Record<InteractionRequest['kind'], string>> = { host_permission: 'p', computer_use: 'c' };
+const DECISIONS: Partial<Record<InteractionRequest['kind'], string>> = {
+  host_permission: 'p',
+  computer_use: 'c',
+  vault_use: 'v',
+};
 
 /** Owners are reached in the chat they last wrote from, or by their ID where the platform accepts one. */
 export const ownerChat = (connector: StoredConnector) => connector.owner?.chatId || connector.owner?.id;
@@ -109,15 +234,85 @@ export class ConnectorOutbox {
         runId = id;
         this.begin(id, botId, origin.connectorId, origin.chatId, origin.voice);
       },
+      onAssistantStream: (event) => {
+        options.onAssistantStream?.(event);
+        this.stream(event.runId, event.messageId, event.content, event.reset);
+      },
+      onAssistantMessage: (event) => {
+        options.onAssistantMessage?.(event);
+        this.assistantMessage(event.runId, event.messageId, event.content, event.presentation);
+      },
     }).finally(() => {
       if (runId) void this.complete(runId);
     });
   }
   private begin(runId: string, botId: string, connectorId: string, chatId: string, voice: boolean) {
-    this.runs.set(runId, { runId, connectorId, chatId, botId, typingAt: 0, ...(voice ? { voice } : {}) });
+    this.runs.set(runId, {
+      runId,
+      connectorId,
+      chatId,
+      botId,
+      typingAt: 0,
+      ...(voice ? { voice } : {}),
+      delivered: new Set(),
+      delivery: Promise.resolve(),
+    });
     this.timer ??= setInterval(() => this.tick(), TICK_MS);
     this.timer.unref?.();
     this.tick();
+  }
+  private enqueue(tracked: Tracked, task: () => Promise<void>) {
+    const next = tracked.delivery
+      .catch(() => {})
+      .then(task)
+      .catch((error) =>
+        this.host.journal('connector.reply-error', { runId: tracked.runId, error: (error as Error).message }),
+      );
+    tracked.delivery = next;
+    return next;
+  }
+  /** Feeds live streaming assistant text to the platform's streaming handle, when supported. */
+  private stream(runId: string, messageId: string, content: string, reset?: boolean) {
+    const tracked = this.runs.get(runId);
+    if (!tracked || tracked.delivered.has(messageId)) return;
+    const text = reset ? '' : connectorStreamingText(content);
+    if (tracked.active && tracked.active.messageId !== messageId) {
+      const previous = tracked.active.stream;
+      tracked.active = undefined;
+      this.enqueue(tracked, () => previous.finish(''));
+    }
+    if (!tracked.active) {
+      if (!text) return;
+      const adapter = this.host.adapter(tracked.connectorId);
+      if (!adapter?.beginStream) return;
+      const stream = new LiveMessageStream(
+        tracked.chatId,
+        () => this.host.adapter(tracked.connectorId),
+        tracked.delivery,
+        (error) => this.host.journal('connector.stream-error', { runId, error: (error as Error).message }),
+      );
+      tracked.active = { messageId, stream };
+    }
+    tracked.active.stream.push(text);
+  }
+  /** Finalizes an intermediate assistant text turn immediately, before tools run or the next turn begins. */
+  private assistantMessage(runId: string, messageId: string, content: string, presentation: 'progress' | 'answer') {
+    if (presentation !== 'progress') return;
+    const tracked = this.runs.get(runId);
+    if (!tracked || tracked.delivered.has(messageId)) return;
+    tracked.delivered.add(messageId);
+    const text = connectorText(content);
+    const active = tracked.active?.messageId === messageId ? tracked.active.stream : undefined;
+    if (active) {
+      tracked.active = undefined;
+      this.enqueue(tracked, () => active.finish(text));
+      return;
+    }
+    if (!text) return;
+    this.enqueue(tracked, async () => {
+      const adapter = this.host.adapter(tracked.connectorId);
+      if (adapter) await adapter.sendText(tracked.chatId, text);
+    });
   }
   /** Keeps the typing cue up while runs work; WeChat's expires, so it is sent again now and then. */
   private tick() {
@@ -138,30 +333,57 @@ export class ConnectorOutbox {
     this.runs.delete(runId);
     for (const prompt of [...this.prompts.values()].filter((item) => item.runId === runId))
       await this.closePrompt(prompt, '已失效');
+    await tracked.delivery.catch(() => {});
+    const active = tracked.active;
+    tracked.active = undefined;
     const adapter = this.host.adapter(tracked.connectorId);
     if (!adapter) {
+      active?.stream.dispose();
       this.host.journal('connector.reply-skipped', { runId, connectorId: tracked.connectorId, reason: 'offline' });
       return;
     }
     const run = this.host.store.data.runs.find((item) => item.id === runId),
       // All of the run's messages: a final reply to a private message is published to the chat only after this.
-      answers = this.host.store
-        .runMessages(runId)
-        .filter(
-          (message) =>
-            message.role === 'assistant' &&
-            message.presentation === 'answer' &&
-            (message.content.trim() || message.attachments?.length),
-        );
+      messages = this.host.store.runMessages(runId),
+      answers = messages.filter(
+        (message) =>
+          message.role === 'assistant' &&
+          message.presentation === 'answer' &&
+          (message.content.trim() || message.attachments?.length),
+      );
     // Another run in this chat, one that took over after new input, keeps the cue.
     if (adapter.typing && ![...this.runs.values()].some((item) => item.chatId === tracked.chatId))
       await adapter.typing(tracked.chatId, false).catch(() => {});
     // A run stopped by new input is followed by the run that answers it; one the person stopped needs no reply.
-    if (run?.status === 'cancelled') return;
+    if (run?.status === 'cancelled') {
+      if (active) await active.stream.finish('').catch(() => {});
+      return;
+    }
+    if (run?.status === 'completed') {
+      for (const message of messages) {
+        if (
+          message.role !== 'assistant' ||
+          message.presentation !== 'progress' ||
+          message.status !== 'done' ||
+          tracked.delivered.has(message.id)
+        )
+          continue;
+        tracked.delivered.add(message.id);
+        const progress = connectorText(message.content);
+        if (active?.messageId === message.id)
+          await active.stream.finish(progress).catch((error) => {
+            this.host.journal('connector.reply-error', { runId, error: (error as Error).message });
+          });
+        else if (progress)
+          await adapter.sendText(tracked.chatId, progress).catch((error) => {
+            this.host.journal('connector.reply-error', { runId, error: (error as Error).message });
+          });
+      }
+    }
     // Blocks are app-only; a connector chat gets their plain-text fallbacks instead of placement markers.
     const answerText = answers
       // Charts and widgets are app-only; a chat gets what they say as text.
-      .map((message) => visualsAsText(stripBlockMarkers(message.content)))
+      .map((message) => connectorText(message.content))
       // An answer that is only files carries a placeholder line; the files speak for themselves.
       .filter((content, index) => content && !(content === '已附上文件。' && answers[index].attachments?.length))
       .join('\n\n');
@@ -170,7 +392,15 @@ export class ConnectorOutbox {
         ? [answerText, ...(run?.blocks || []).map((block) => block.fallback)].filter(Boolean).join('\n\n')
         : '这次没有完成：' + (run?.error || '出现了错误').slice(0, 500);
     try {
-      if (text) await adapter.sendText(tracked.chatId, text);
+      const finalStream =
+        run?.status === 'completed' && active && answers.some((message) => message.id === active.messageId)
+          ? active.stream
+          : undefined;
+      if (finalStream) await finalStream.finish(text);
+      else {
+        if (active && !tracked.delivered.has(active.messageId)) await active.stream.finish('').catch(() => {});
+        if (text) await adapter.sendText(tracked.chatId, text);
+      }
     } catch (error) {
       this.host.journal('connector.reply-error', { runId, error: (error as Error).message });
     }
@@ -259,6 +489,9 @@ export class ConnectorOutbox {
       kind: request.kind,
     };
     this.prompts.set(request.id, prompt);
+    // Wait for any intermediate turn message that preceded this tool call to finalize first.
+    await tracked.delivery.catch(() => {});
+    if (!this.prompts.has(request.id) || prompt.decided) return;
     try {
       if (request.kind === 'host_permission' || request.kind === 'computer_use') {
         const prefix = DECISIONS[request.kind];
@@ -318,6 +551,47 @@ export class ConnectorOutbox {
               request.questions.length > 1 ? '请按编号逐行回复答案。' : '直接回复答案即可。',
             ].join('\n'),
           );
+      } else if (request.kind === 'vault_use') {
+        const prefix = DECISIONS.vault_use;
+        if (request.category === 'card' || !this.host.interactions.decideVaultUse) {
+          prompt.decided = true;
+          await adapter.sendText(
+            chatId,
+            [
+              `${bot} 请求使用保险库条目「${request.itemTitle}」（${request.category}，字段：${request.fields.join(', ')}）`,
+              `注入目标：${request.targetSummary}`,
+              '出于安全要求，请前往桌面端或已配对手机 PWA 完成确认。',
+            ].join('\n'),
+          );
+        } else {
+          const lines = [
+            `条目：${request.itemTitle}（${request.category}）`,
+            `字段：${request.fields.join(', ')}`,
+            `目标：${request.targetSummary}`,
+            ...(request.bindingMismatch ? ['注意：当前目标与条目配置绑定不一致，请确认无误后放行。'] : []),
+          ];
+          const buttons = [
+            { label: '允许一次', key: `${prefix}:${code}:allow`, style: 'primary' as const },
+            ...(request.allowRunGrant ? [{ label: '本任务内允许', key: `${prefix}:${code}:allow-run` }] : []),
+            { label: '拒绝', key: `${prefix}:${code}:deny`, style: 'danger' as const },
+          ];
+          prompt.card = { title: `${bot} 请求使用保险库凭据`, lines, buttons };
+          if (adapter.sendCard) prompt.handle = await adapter.sendCard(chatId, prompt.card);
+          else
+            await adapter.sendText(
+              chatId,
+              [prompt.card.title, ...lines, '', `回复「同意 ${code}」允许一次，回复「拒绝 ${code}」拒绝。`].join('\n'),
+            );
+        }
+      } else if (request.kind === 'vault_input') {
+        prompt.decided = true;
+        await adapter.sendText(
+          chatId,
+          [
+            `${bot} 请求填写安全保险库条目「${request.title}」：${request.reason}`,
+            '为避免明文进入聊天记录，请前往桌面端或已配对手机 PWA 填写并加密提交。',
+          ].join('\n'),
+        );
       } else {
         prompt.decided = true;
         await adapter.sendText(chatId, `${bot} 需要你在电脑前接管工作电脑：${request.reason}`);
@@ -332,9 +606,14 @@ export class ConnectorOutbox {
     const adapter = this.host.adapter(prompt.connectorId);
     await adapter?.closeCard?.(prompt.handle, prompt.card, result).catch(() => {});
   }
-  private decide(prompt: Prompt, allow: boolean) {
+  private decide(prompt: Prompt, decision: 'allow' | 'allow-run' | 'deny') {
     prompt.decided = true;
     try {
+      if (prompt.kind === 'vault_use') {
+        this.host.interactions.decideVaultUse?.(prompt.requestId, decision);
+        return decision === 'deny' ? '已拒绝' : decision === 'allow-run' ? '已本任务允许' : '已允许';
+      }
+      const allow = decision !== 'deny';
       if (prompt.kind === 'computer_use') this.host.interactions.decideComputerAccess(prompt.requestId, allow);
       else this.host.interactions.approve(prompt.requestId, allow);
       return allow ? '已允许' : '已拒绝';
@@ -361,7 +640,8 @@ export class ConnectorOutbox {
     if (!prompt) return '已失效';
     if (kind === DECISIONS[prompt.kind]) {
       if (action.operator.id !== connector.owner?.id) return undefined;
-      const result = this.decide(prompt, choice === 'allow');
+      const decision = choice === 'allow-run' ? 'allow-run' : choice === 'allow' ? 'allow' : 'deny';
+      const result = this.decide(prompt, decision);
       if (prompt.handle && prompt.card) void this.closePrompt(prompt, result);
       return result;
     }
@@ -397,7 +677,7 @@ export class ConnectorOutbox {
             ? permissions[0]
             : undefined;
       if (prompt) {
-        const result = this.decide(prompt, APPROVE.test(text));
+        const result = this.decide(prompt, APPROVE.test(text) ? 'allow' : 'deny');
         void this.closePrompt(prompt, result);
         await adapter.sendText(message.chatId, result + '。').catch(() => {});
         return true;
@@ -442,6 +722,7 @@ export class ConnectorOutbox {
   dispose() {
     clearInterval(this.timer);
     this.timer = undefined;
+    for (const tracked of this.runs.values()) tracked.active?.stream.dispose();
     this.runs.clear();
     this.prompts.clear();
   }

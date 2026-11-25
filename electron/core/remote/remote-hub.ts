@@ -499,17 +499,44 @@ export class RemoteHub implements SessionHost {
       }
       case 'request.respond': {
         const action = input.action as InteractionAction;
-        if (!['allow', 'allow-always', 'deny', 'takeover', 'resume', 'cancel', 'answer'].includes(action))
+        if (
+          !['allow', 'allow-always', 'allow-run', 'deny', 'takeover', 'resume', 'cancel', 'answer', 'submit'].includes(
+            action,
+          )
+        )
           fail('remote.invalid', '无效操作');
         const answers = input.answers === undefined ? undefined : object(input.answers);
         if (answers && Object.values(answers).some((value) => typeof value !== 'string' || value.length > 4000))
           fail('remote.invalid', '回答无效');
+        const vaultInput = input.vaultInput === undefined ? undefined : object(input.vaultInput);
         return call('respondInteraction', {
           id: text(input.id, 100),
           action,
           ...(answers ? { answers: answers as Record<string, string> } : {}),
+          ...(vaultInput ? { vaultInput } : {}),
         });
       }
+      case 'vault.overview':
+        return call('vaultOverview');
+      case 'vault.save':
+        return call('vaultSave', object(input));
+      case 'vault.audit': {
+        const itemId = optionalText(input.itemId, 100);
+        const rawLimit = input.limit;
+        if (
+          rawLimit !== undefined &&
+          (typeof rawLimit !== 'number' || !Number.isInteger(rawLimit) || rawLimit < 1 || rawLimit > 200)
+        )
+          fail('remote.invalid', '审计日志查询条数无效');
+        return call('vaultAudit', {
+          ...(itemId ? { itemId } : {}),
+          ...(rawLimit !== undefined ? { limit: rawLimit } : {}),
+        });
+      }
+      case 'vault.reveal':
+      case 'vault.delete':
+      case 'vault.importSshKey':
+        return fail('remote.forbidden', '手机上不能执行这个操作');
       case 'files.upload': {
         const scope = object(input.scope),
           bytes = input.bytes;
@@ -951,7 +978,11 @@ export class RemoteHub implements SessionHost {
         ? request.details.command || request.details.path || request.details.tool || ''
         : request.kind === 'user_input'
           ? request.questions[0]?.title || ''
-          : '';
+          : request.kind === 'vault_use'
+            ? `${request.itemTitle}: ${request.targetSummary}`
+            : request.kind === 'vault_input'
+              ? `${request.title}: ${request.reason}`
+              : '';
     const general =
       request.kind === 'user_input'
         ? translate('有问题想问你')

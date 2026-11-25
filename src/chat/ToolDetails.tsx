@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import Markdown from './MessageMarkdown';
 import type { ChatMessage } from '../../shared/types/core';
-import { toolResult, toolDisplay, toolOperation } from '../../shared/chat/activity';
+import {
+  toolResult,
+  toolDisplay,
+  toolOperation,
+  VAULT_BINDING_LABELS,
+  VAULT_CATEGORY_LABELS,
+} from '../../shared/chat/activity';
+import type { VaultBinding, VaultCategory } from '../../shared/types/vault-types';
+import { containsVaultRef } from '../../shared/vault-refs';
 import { Icon } from '../ui/Icon';
 import { bytes } from '../ui/format';
 import {
@@ -21,6 +29,7 @@ import {
   scalarText,
   searchFiles,
   type SearchFile,
+  splitVaultText,
   textValue,
 } from './tool-details-model';
 import { currentLanguage, useI18n } from '../i18n';
@@ -93,6 +102,31 @@ function DetailHeader({
     </header>
   );
 }
+function VaultRefText({ text }: { text: string }) {
+  const { t } = useI18n();
+  const segments = splitVaultText(text);
+  return (
+    <>
+      {segments.map((segment, index) =>
+        segment.kind === 'text' ? (
+          segment.text
+        ) : (
+          <span
+            key={index}
+            className="detail-vault-pill"
+            title={segment.raw}
+            aria-label={t('保险库引用 {ref}', { ref: `${segment.item}.${segment.field}` })}
+          >
+            <Icon name="lock" size={11} />
+            <span>
+              {segment.item}.{segment.field}
+            </span>
+          </span>
+        ),
+      )}
+    </>
+  );
+}
 /** Monospace output: JSON is pretty-printed, known languages highlighted, long output folds behind a fade. */
 function CodeView({ text, language = '', numbered = false }: { text: string; language?: string; numbered?: boolean }) {
   const { t } = useI18n();
@@ -100,14 +134,28 @@ function CodeView({ text, language = '', numbered = false }: { text: string; lan
   const view = useMemo(() => {
     const json = prettyJson(text),
       source = (json ?? text).slice(0, 60000),
-      lang = json !== undefined ? 'json' : language;
-    return { source, lines: source.split('\n'), html: lang ? highlightMessageCode(source, lang).html : undefined };
+      lang = json !== undefined ? 'json' : language,
+      hasVault = containsVaultRef(source);
+    return {
+      source,
+      lines: source.split('\n'),
+      html: lang && !hasVault ? highlightMessageCode(source, lang).html : undefined,
+      hasVault,
+    };
   }, [text, language]);
   const fold = view.lines.length > 12 && !all;
   return (
     <div className={`detail-code ${fold ? 'is-folded' : ''}`}>
       <pre className={numbered ? 'is-numbered' : undefined} tabIndex={0}>
-        {view.html ? <code dangerouslySetInnerHTML={{ __html: view.html }} /> : <code>{view.source}</code>}
+        {view.html ? (
+          <code dangerouslySetInnerHTML={{ __html: view.html }} />
+        ) : view.hasVault ? (
+          <code>
+            <VaultRefText text={view.source} />
+          </code>
+        ) : (
+          <code>{view.source}</code>
+        )}
       </pre>
       {view.lines.length > 12 && (
         <button type="button" className="detail-code-more" onClick={() => setAll(!all)}>
@@ -278,7 +326,13 @@ function TextPreview({ text, name = '' }: { text: string; name?: string }) {
         {text.length > content.length && <p className="detail-muted">{t('预览已截取前 30,000 字符。')}</p>}
       </div>
     );
-  return typeof value === 'string' ? <div className="detail-text-content">{content}</div> : <DataView value={value} />;
+  return typeof value === 'string' ? (
+    <div className="detail-text-content">
+      <VaultRefText text={content} />
+    </div>
+  ) : (
+    <DataView value={value} />
+  );
 }
 function DataView({ value, depth = 0 }: { value: unknown; depth?: number }) {
   const { t } = useI18n();
@@ -288,7 +342,7 @@ function DataView({ value, depth = 0 }: { value: unknown; depth?: number }) {
       limit = all ? 30000 : 2400;
     return (
       <span className="detail-value">
-        {content.slice(0, limit)}
+        <VaultRefText text={content.slice(0, limit)} />
         {content.length > 2400 && (
           <button className="detail-show-more" onClick={() => setAll(!all)}>
             {all ? t('收起内容') : t('展开内容')}
@@ -331,7 +385,9 @@ function DataView({ value, depth = 0 }: { value: unknown; depth?: number }) {
                 {rows.map((row, index) => (
                   <tr key={index}>
                     {keys.map((key) => (
-                      <td key={key}>{scalarText(objectValue(row)[key])}</td>
+                      <td key={key}>
+                        <VaultRefText text={scalarText(objectValue(row)[key])} />
+                      </td>
                     ))}
                   </tr>
                 ))}
@@ -1058,6 +1114,95 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
         </Section>
       </>
     );
+  if (tool === 'vault_list') {
+    const items = arrayValue(result.items || value).map(objectValue);
+    return (
+      <>
+        <DetailHeader icon="lock" title={t('保险库目录')} meta={t('{count} 项', { count: items.length })} />
+        {items.length ? (
+          <div className="detail-collection">
+            {items.map((item, index) => {
+              const cat = textValue(item.category) as VaultCategory,
+                catLabel = VAULT_CATEGORY_LABELS[cat],
+                fields = arrayValue(item.fields).map(objectValue),
+                bindings = arrayValue(item.bindings).map(objectValue);
+              return (
+                <article className="detail-collection-item" key={textValue(item.id) || index}>
+                  <div className="detail-collection-title">
+                    <Icon name="lock" size={14} />
+                    <strong>{textValue(item.title) || textValue(item.slug)}</strong>
+                    {catLabel && <span className="detail-badge">{t(catLabel)}</span>}
+                    {textValue(item.slug) && <span className="detail-source">{textValue(item.slug)}</span>}
+                  </div>
+                  {bindings.length > 0 && (
+                    <p className="detail-vault-bindings">
+                      {bindings
+                        .map((b) => {
+                          const kind = textValue(b.kind) as VaultBinding['kind'];
+                          return `${VAULT_BINDING_LABELS[kind] ? t(VAULT_BINDING_LABELS[kind]) : kind}: ${textValue(b.value)}`;
+                        })
+                        .join(' · ')}
+                    </p>
+                  )}
+                  {fields.length > 0 && (
+                    <div className="detail-vault-fields">
+                      {fields.map((field) => (
+                        <span className="detail-vault-field-chip" key={textValue(field.key)}>
+                          <b>{textValue(field.key)}</b>
+                          <code>{textValue(field.preview) || '••••'}</code>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <Section>
+            <p className="detail-empty">{t('没有找到匹配的保险库条目')}</p>
+          </Section>
+        )}
+      </>
+    );
+  }
+  if (tool === 'vault_save' || tool === 'vault_request') {
+    if (tool === 'vault_request' && result.cancelled) {
+      return <DetailHeader icon="lock" title={t('已取消安全录入')} />;
+    }
+    const item = objectValue(result.item),
+      slug = textValue(item.slug),
+      cat = textValue(item.category) as VaultCategory,
+      catLabel = VAULT_CATEGORY_LABELS[cat],
+      fields = arrayValue(item.fields).map(objectValue);
+    return (
+      <>
+        <DetailHeader
+          icon="lock"
+          title={
+            textValue(item.title) || display.detail || t(tool === 'vault_save' ? '已保存到保险库' : '已完成安全录入')
+          }
+          chips={catLabel ? [{ text: t(catLabel) }] : []}
+          subtitle={slug || undefined}
+        />
+        {fields.length > 0 && (
+          <Section>
+            <div className="detail-vault-fields">
+              {fields.map((field) => {
+                const key = textValue(field.key);
+                return (
+                  <span className="detail-vault-field-chip" key={key}>
+                    {slug ? <VaultRefText text={`{{vault:${slug}.${key}}}`} /> : <b>{key}</b>}
+                    <code>{textValue(field.preview) || '••••'}</code>
+                  </span>
+                );
+              })}
+            </div>
+          </Section>
+        )}
+      </>
+    );
+  }
   if (tool === 'read_result')
     return (
       <>

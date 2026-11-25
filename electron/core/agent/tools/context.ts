@@ -26,6 +26,8 @@ import type { DesignWork } from '../../designer/design-work';
 import { AppError } from '../../../../shared/errors';
 import type { SpeechService } from '../../speech/speech-service';
 import type { KnowledgeAccess } from '../../knowledge/knowledge-service';
+import type { VaultService } from '../../vault/vault-service';
+import type { VaultResolutionContext, VaultResolver } from '../../vault/vault-resolver';
 
 /** The Harness collaborators tool handlers may use; optional ones depend on how the app was wired. */
 export interface ToolDeps {
@@ -60,6 +62,15 @@ export interface ToolDeps {
   speech?: SpeechService;
   /** The user's knowledge bases; absent where the app was wired without them (the command line). */
   knowledge?: KnowledgeAccess;
+  /** User secret Vault and blind-injection resolver; absent in isolated unit setups. */
+  vault?: VaultService;
+  vaultResolver?: VaultResolver;
+  /** Builds run-aware Vault resolution base metadata (headless, scheduled, group, peer, connector). */
+  vaultContext?(
+    botId: string,
+    runId: string,
+    options: HarnessRunOptions,
+  ): Omit<VaultResolutionContext, 'sink' | 'targetSummary' | 'target' | 'signal'>;
   changed(): void;
   /** Tools callable in this run, as offered to the model. */
   callableTools(runId: string): ToolDefinition[] | undefined;

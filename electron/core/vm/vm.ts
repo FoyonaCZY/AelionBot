@@ -27,11 +27,145 @@ import { PACKAGE_INSTALLER_BOOTSTRAP } from '../host/package-installer';
 import { shutdownOwnedVm } from './vm-shutdown';
 import { stopOwnedQemuWindows, inspectOwnedQemuWindows } from './owned-qemu';
 import { AppError } from '../../../shared/errors';
+import type { VmVaultPayload } from '../vault/vault-resolver';
 
 const runFile = promisify(execFile);
 const { Client, utils } = ssh2;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export const shQuote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
+
+const VM_VAULT_EXEC_RUNNER = String.raw`import base64,json,os,shutil,signal as sig,subprocess,sys,uuid
+p=json.loads(sys.stdin.buffer.read().decode('utf-8'))
+base='/dev/shm/aelion-vault-'+uuid.uuid4().hex
+os.makedirs(base,mode=0o700,exist_ok=True)
+files=[]
+env=os.environ.copy()
+env['AELION_BOT_ID']=p['botId']
+proc=None
+def wipe(path):
+ try:
+  if os.path.isfile(path) and not os.path.islink(path):
+   sz=os.path.getsize(path)
+   if sz>0:
+    with open(path,'r+b') as fh:
+     fh.write(b'\x00'*sz); fh.flush(); os.fsync(fh.fileno())
+ except Exception: pass
+def fwd(signum,_frame):
+ if proc and proc.poll() is None:
+  try: proc.send_signal(signum)
+  except Exception: pass
+for s in (sig.SIGTERM,sig.SIGHUP,sig.SIGINT): sig.signal(s,fwd)
+try:
+ os.chmod(base,0o700)
+ for k,v in p.get('env',{}).items(): env[k]=v
+ ask_set=False
+ for i,f in enumerate(p.get('files',[])):
+  kp=os.path.join(base,f'key_{i}')
+  with open(kp,'w',encoding='utf-8') as fh: fh.write(f['content'])
+  os.chmod(kp,f.get('mode') or 0o600)
+  files.append(kp)
+  env[f['envVar']]=kp
+  if f.get('passphrase') is not None and not ask_set:
+   pp=os.path.join(base,f'pass_{i}')
+   with open(pp,'w',encoding='utf-8') as fh: fh.write(f['passphrase'])
+   os.chmod(pp,0o600)
+   files.append(pp)
+   ap=os.path.join(base,f'askpass_{i}.sh')
+   q="'"+pp.replace("'","'\\''")+"'"
+   with open(ap,'w',encoding='utf-8') as fh: fh.write('#!/bin/sh\ncat '+q+'\n')
+   os.chmod(ap,0o700)
+   files.append(ap)
+   env['SSH_ASKPASS']=ap
+   env['SSH_ASKPASS_REQUIRE']='force'
+   env['DISPLAY']='none'
+   ask_set=True
+ sin=base64.b64decode(p['stdinB64']) if p.get('stdinB64') else None
+ proc=subprocess.Popen(['timeout','-s','TERM','120','sh','-lc',p['command']],cwd=p['cwd'],env=env,stdin=subprocess.PIPE if sin is not None else None)
+ if sin is not None:
+  try: proc.stdin.write(sin); proc.stdin.close()
+  except Exception: pass
+ sys.exit(proc.wait())
+finally:
+ if os.path.isdir(base):
+  for name in os.listdir(base): wipe(os.path.join(base,name))
+ shutil.rmtree(base,ignore_errors=True)`;
+
+const VM_VAULT_STAGE_SCRIPT = String.raw`import json,os,re,sys
+p=json.loads(sys.stdin.buffer.read().decode('utf-8'))
+tok=p['token']
+if not re.fullmatch(r'[a-zA-Z0-9-]{8,80}',tok): raise ValueError('bad token')
+base='/dev/shm/aelion-vault/'+tok
+os.makedirs(base,mode=0o700,exist_ok=True)
+os.chmod(base,0o700)
+env=dict(p.get('env',{}))
+ask_set=False
+for i,f in enumerate(p.get('files',[])):
+ kp=os.path.join(base,f'key_{i}')
+ with open(kp,'w',encoding='utf-8') as fh: fh.write(f['content'])
+ os.chmod(kp,f.get('mode') or 0o600)
+ env[f['envVar']]=kp
+ if f.get('passphrase') is not None and not ask_set:
+  pp=os.path.join(base,f'pass_{i}')
+  with open(pp,'w',encoding='utf-8') as fh: fh.write(f['passphrase'])
+  os.chmod(pp,0o600)
+  ap=os.path.join(base,f'askpass_{i}.sh')
+  q="'"+pp.replace("'","'\\''")+"'"
+  with open(ap,'w',encoding='utf-8') as fh: fh.write('#!/bin/sh\ncat '+q+'\n')
+  os.chmod(ap,0o700)
+  env['SSH_ASKPASS']=ap
+  env['SSH_ASKPASS_REQUIRE']='force'
+  env['DISPLAY']='none'
+  ask_set=True
+ep=os.path.join(base,'env.json')
+with open(ep,'w',encoding='utf-8') as fh: json.dump(env,fh)
+os.chmod(ep,0o600)`;
+
+const VM_VAULT_EXEC_WRAPPER = String.raw`import json,os,re,shutil,signal as sig,subprocess,sys
+tok,cmd=sys.argv[1],sys.argv[2]
+if not re.fullmatch(r'[a-zA-Z0-9-]{8,80}',tok): raise ValueError('bad token')
+base='/dev/shm/aelion-vault/'+tok
+ep=os.path.join(base,'env.json')
+def wipe(path):
+ try:
+  if os.path.isfile(path) and not os.path.islink(path):
+   sz=os.path.getsize(path)
+   if sz>0:
+    with open(path,'r+b') as fh:
+     fh.write(b'\x00'*sz); fh.flush(); os.fsync(fh.fileno())
+ except Exception: pass
+proc=None
+def fwd(signum,_frame):
+ if proc and proc.poll() is None:
+  try: proc.send_signal(signum)
+  except Exception: pass
+for s in (sig.SIGTERM,sig.SIGHUP,sig.SIGINT): sig.signal(s,fwd)
+try:
+ with open(ep,'r',encoding='utf-8') as fh: extra=json.load(fh)
+ wipe(ep)
+ try: os.unlink(ep)
+ except Exception: pass
+ env=os.environ.copy(); env.update(extra)
+ proc=subprocess.Popen(['/bin/bash','-lc',cmd],env=env)
+ sys.exit(proc.wait())
+finally:
+ if os.path.isdir(base):
+  for name in os.listdir(base): wipe(os.path.join(base,name))
+ shutil.rmtree(base,ignore_errors=True)`;
+
+const VM_VAULT_CLEANUP_SCRIPT = String.raw`import os,re,shutil,sys
+tok=sys.argv[1]
+if not re.fullmatch(r'[a-zA-Z0-9-]{8,80}',tok): sys.exit(0)
+base='/dev/shm/aelion-vault/'+tok
+if os.path.isdir(base):
+ for name in os.listdir(base):
+  p=os.path.join(base,name)
+  try:
+   if os.path.isfile(p) and not os.path.islink(p):
+    sz=os.path.getsize(p)
+    if sz>0:
+     with open(p,'r+b') as fh: fh.write(b'\x00'*sz); fh.flush()
+  except Exception: pass
+ shutil.rmtree(base,ignore_errors=True)`;
 function processAlive(pid?: number) {
   if (!pid) return false;
   try {
@@ -1059,18 +1193,49 @@ export class VmController extends EventEmitter {
       throw error;
     }
   }
-  async execute(command: string, botId: string, signal?: AbortSignal, outputLimit = 2_000_000): Promise<CommandResult> {
+  async execute(
+    command: string,
+    botId: string,
+    signal?: AbortSignal,
+    outputLimit = 2_000_000,
+    options?: { inputBytes?: Buffer; vaultPayload?: VmVaultPayload },
+  ): Promise<CommandResult> {
     if (!/^[a-zA-Z0-9_-]{1,80}$/.test(botId)) throw new Error('无效工作区');
     if (this.operation || this.stateValue.status !== 'ready') throw new Error('工作电脑尚未就绪或正在维护');
     if (!command.trim() || command.length > 32000) throw new Error('命令为空或过长');
     this.activeExecutions++;
     try {
+      const hasVaultPayload = Boolean(
+        options?.vaultPayload && (Object.keys(options.vaultPayload.env).length || options.vaultPayload.files.length),
+      );
+      if (hasVaultPayload && options?.vaultPayload) {
+        const wrapperPayload = Buffer.from(
+          JSON.stringify({
+            command,
+            botId,
+            cwd: `/work/${botId}`,
+            env: options.vaultPayload.env,
+            files: options.vaultPayload.files,
+            ...(options.inputBytes?.length ? { stdinB64: options.inputBytes.toString('base64') } : {}),
+          }),
+          'utf8',
+        );
+        return await this.execRaw(
+          `mkdir -p ${shQuote(`/work/${botId}`)} && cd ${shQuote(`/work/${botId}`)} && python3 -c ${shQuote(VM_VAULT_EXEC_RUNNER)}`,
+          'aelion',
+          130000,
+          signal,
+          outputLimit,
+          wrapperPayload,
+        );
+      }
       return await this.execRaw(
         `mkdir -p ${shQuote(`/work/${botId}`)} && cd ${shQuote(`/work/${botId}`)} && AELION_BOT_ID=${shQuote(botId)} timeout -s TERM 120 sh -lc ${shQuote(command)}`,
         'aelion',
         130000,
         signal,
         outputLimit,
+        options?.inputBytes,
       );
     } finally {
       this.activeExecutions--;
@@ -1082,6 +1247,7 @@ export class VmController extends EventEmitter {
     cwd: string,
     signal: AbortSignal,
     pty?: { cols: number; rows: number },
+    vaultPayload?: VmVaultPayload,
   ): Promise<TerminalDriver> {
     if (
       !/^[a-zA-Z0-9_-]{1,80}$/.test(botId) ||
@@ -1092,17 +1258,53 @@ export class VmController extends EventEmitter {
       throw Error('工作电脑尚未就绪');
     const record = this.record;
     signal.throwIfAborted();
+    const hasVaultPayload = Boolean(
+      vaultPayload && (Object.keys(vaultPayload.env).length || vaultPayload.files.length),
+    );
+    const vaultToken = hasVaultPayload ? randomUUID() : undefined;
+    if (vaultToken && vaultPayload) {
+      const staged = await this.execRaw(
+        `python3 -c ${shQuote(VM_VAULT_STAGE_SCRIPT)}`,
+        'aelion',
+        10000,
+        signal,
+        10000,
+        Buffer.from(JSON.stringify({ token: vaultToken, env: vaultPayload.env, files: vaultPayload.files }), 'utf8'),
+      );
+      if (staged.exitCode !== 0) {
+        await this.execRaw(
+          `python3 -c ${shQuote(VM_VAULT_CLEANUP_SCRIPT)} ${shQuote(vaultToken)}`,
+          'aelion',
+          5000,
+        ).catch(() => {});
+        throw new Error(staged.stderr || '暂存工作电脑保险库凭据失败');
+      }
+    }
+    const launchCommand = vaultToken
+      ? `mkdir -p ${shQuote(`/work/${botId}`)} && cd ${shQuote(cwd)} && exec python3 -u -c ${shQuote(VM_VAULT_EXEC_WRAPPER)} ${shQuote(vaultToken)} ${shQuote(command)}`
+      : `mkdir -p ${shQuote(`/work/${botId}`)} && cd ${shQuote(cwd)} && exec /bin/bash -lc ${shQuote(command)}`;
     return new Promise((resolve, reject) => {
       const client = new Client(),
         events = new EventEmitter();
       let channel: import('ssh2').ClientChannel | undefined,
         opened = false,
-        closed = false;
+        closed = false,
+        cleaned = false;
+      const cleanupVault = () => {
+        if (!vaultToken || cleaned) return;
+        cleaned = true;
+        void this.execRaw(
+          `python3 -c ${shQuote(VM_VAULT_CLEANUP_SCRIPT)} ${shQuote(vaultToken)}`,
+          'aelion',
+          5000,
+        ).catch(() => {});
+      };
       const close = (code = -1) => {
         if (closed) return;
         closed = true;
         clearTimeout(timer);
         signal.removeEventListener('abort', abort);
+        cleanupVault();
         if (opened) {
           this.activeExecutions--;
           events.emit('exit', code);
@@ -1124,7 +1326,7 @@ export class VmController extends EventEmitter {
       client.on('close', () => close());
       client.on('ready', () =>
         client.exec(
-          `mkdir -p ${shQuote(`/work/${botId}`)} && cd ${shQuote(cwd)} && exec /bin/bash -lc ${shQuote(command)}`,
+          launchCommand,
           pty ? { pty: { term: 'xterm-256color', cols: pty.cols, rows: pty.rows } } : {},
           (error, stream) => {
             if (error) {
@@ -1154,6 +1356,7 @@ export class VmController extends EventEmitter {
                 } finally {
                   stream.close();
                   client.end();
+                  cleanupVault();
                 }
               },
             });
@@ -1302,12 +1505,19 @@ print(json.dumps({'path':str(target),'size':len(blob),'sha256':a['sha256']},ensu
     await this.bridge();
     return { ...desktop, vncUrl: `${this.stateValue.vncUrl}/bot/${botId}` };
   }
-  async executeDesktop(command: string, botId: string, signal?: AbortSignal, outputLimit = 2_000_000) {
+  async executeDesktop(
+    command: string,
+    botId: string,
+    signal?: AbortSignal,
+    outputLimit = 2_000_000,
+    inputBytes?: Buffer,
+  ) {
     return this.execute(
       `/usr/local/bin/aelion-bot-desktop exec ${shQuote(botId)} sh -c ${shQuote(command)}`,
       botId,
       signal,
       outputLimit,
+      inputBytes ? { inputBytes } : undefined,
     );
   }
   async desktopScreenshot(botId: string, signal?: AbortSignal) {

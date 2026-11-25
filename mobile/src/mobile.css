@@ -978,6 +978,11 @@ small.x-shimmer {
   font-size: 13px;
   color: var(--ink-3);
 }
+.c-user-vault {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 .c-run {
   margin: 4px 0 8px;
 }
@@ -1659,6 +1664,99 @@ small.x-shimmer {
   font-size: 16px;
   outline: none;
   resize: none;
+}
+.h-ask-warn {
+  margin: 8px 0 0;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--danger);
+}
+.c-vault-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 10px;
+}
+.c-vault-tags > span {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--fill);
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.c-vault-fields {
+  max-height: 44vh;
+  overflow: auto;
+  display: grid;
+  gap: 10px;
+  margin: 10px 0 14px;
+}
+.c-vault-field {
+  display: grid;
+  gap: 5px;
+}
+.c-vault-field label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.c-vault-field label em {
+  color: var(--danger);
+  font-style: normal;
+}
+.c-vault-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.c-vault-field input,
+.c-vault-field textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--fill);
+  font-size: 16px;
+  outline: none;
+}
+.c-vault-input-wrap input {
+  padding-right: 54px;
+}
+.c-vault-field textarea {
+  font-family: var(--font-code);
+  font-size: 14px;
+  resize: vertical;
+}
+.c-vault-toggle {
+  position: absolute;
+  right: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.c-vault-details {
+  margin-top: 12px;
+}
+.c-vault-warn {
+  margin: 12px 0 0;
+  padding: 11px 13px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg));
+  color: var(--danger);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.c-vault-warn b {
+  display: block;
+  margin-bottom: 4px;
+}
+.c-vault-warn p {
+  margin: 0 0 4px;
+}
+.c-vault-run-btn {
+  margin-top: 8px;
+  background: var(--fill);
+  font-size: 15px;
 }
 
 /* Long press */

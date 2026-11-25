@@ -3,15 +3,24 @@
 // per bot; a newer one displaces this one, which then stops instead of taking it back.
 import { createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import WebSocket from 'ws';
-import type { AdapterHandlers, ConnectorAdapter, ConnectorCard, InboundMessage } from '../connector-adapter';
+import type {
+  AdapterHandlers,
+  ConnectorAdapter,
+  ConnectorCard,
+  ConnectorTextStream,
+  InboundMessage,
+} from '../connector-adapter';
 import type { VoiceClip } from '../../speech/speech-service';
-import { splitText } from '../format';
+import { splitCut, splitText } from '../format';
 
 const DEFAULT_URL = 'wss://openws.work.weixin.qq.com';
 /** Markdown and stream content limit, in UTF-8 bytes; kept a little under the documented 20480. */
 const TEXT_BYTES = 20000;
 /** Replies may follow a message for 24 hours. */
 const REPLY_WINDOW_MS = 23 * 3600_000;
+/** A single stream must finish within 10 minutes; roll over to a fresh stream ID before that. */
+const STREAM_LIFETIME_MS = 9 * 60_000;
+const STREAM_INTERVAL_MS = 400;
 const CHUNK_BYTES = 512 * 1024;
 const IMAGE_FILE = /\.(png|jpe?g|gif)$/i;
 const LIMITS = { image: 10 * 1024 * 1024, voice: 2 * 1024 * 1024, file: 20 * 1024 * 1024 };
@@ -69,6 +78,9 @@ export class WecomAdapter implements ConnectorAdapter {
       url?: string;
       heartbeatMs?: number;
       ackTimeoutMs?: number;
+      streamIntervalMs?: number;
+      streamLifetimeMs?: number;
+      streamMaxBytes?: number;
       fetch?: typeof fetch;
       reconnectMs?: (attempt: number) => number;
     } = {},
@@ -287,6 +299,73 @@ export class WecomAdapter implements ConnectorAdapter {
         { msgtype: 'stream', stream: { id: requestId('stream'), finish: true, content: part } },
         { msgtype: 'markdown', markdown: { content: part } },
       );
+  }
+  /**
+   * Streams one passive reply over `aibot_respond_msg` with `msgtype: 'stream'` (`finish: false` updates, then
+   * `finish: true`). Returns undefined when the chat has no active callback request (proactive messages cannot stream).
+   */
+  beginStream(chatId: string): ConnectorTextStream | undefined {
+    const reqId = this.context(chatId);
+    if (!reqId) return undefined;
+    const maxBytes = this.options.streamMaxBytes ?? TEXT_BYTES,
+      lifetimeMs = this.options.streamLifetimeMs ?? STREAM_LIFETIME_MS,
+      intervalMs = this.options.streamIntervalMs ?? STREAM_INTERVAL_MS;
+    let streamId = requestId('stream'),
+      startedAt = 0,
+      sentOffset = 0,
+      lastSent = '',
+      finished = false;
+    const sendFrame = (id: string, finish: boolean, content: string) =>
+      this.request(reqId, { msgtype: 'stream', stream: { id, finish, content } }, 'aibot_respond_msg');
+    return {
+      intervalMs,
+      update: async (fullText: string) => {
+        if (finished) return;
+        if (sentOffset > fullText.length) sentOffset = 0;
+        let rest = fullText.slice(sentOffset);
+        if (!rest.trim()) return;
+        if (startedAt > 0 && Date.now() - startedAt >= lifetimeMs) {
+          await sendFrame(streamId, true, lastSent);
+          if (rest.startsWith(lastSent)) {
+            let next = lastSent.length;
+            while (next < rest.length && /\s/.test(rest[next])) next++;
+            sentOffset += next;
+            rest = fullText.slice(sentOffset);
+          }
+          streamId = requestId('stream');
+          startedAt = 0;
+          lastSent = '';
+        }
+        while (Buffer.byteLength(rest, 'utf8') > maxBytes) {
+          const cut = splitCut(rest, maxBytes, true),
+            head = rest.slice(0, cut).trimEnd();
+          if (head) await sendFrame(streamId, true, head);
+          let next = cut;
+          while (next < rest.length && /\s/.test(rest[next])) next++;
+          sentOffset += next;
+          rest = fullText.slice(sentOffset);
+          streamId = requestId('stream');
+          startedAt = 0;
+          lastSent = '';
+        }
+        if (!rest.trim() || (startedAt > 0 && rest === lastSent)) return;
+        await sendFrame(streamId, false, rest);
+        if (!startedAt) startedAt = Date.now();
+        lastSent = rest;
+      },
+      finish: async (fullText: string) => {
+        if (finished) return;
+        finished = true;
+        const rest = sentOffset <= fullText.length ? fullText.slice(sentOffset).trimStart() : fullText.trim();
+        if (!rest.trim()) {
+          if (startedAt > 0) await sendFrame(streamId, true, lastSent);
+          return;
+        }
+        const parts = splitText(rest, maxBytes, true);
+        for (let index = 0; index < parts.length; index++)
+          await sendFrame(index === 0 ? streamId : requestId('stream'), true, parts[index]);
+      },
+    };
   }
   /** Uploads media in pieces and returns its ID, which a message can use for three days. */
   private async upload(type: 'image' | 'voice' | 'file', name: string, bytes: Buffer): Promise<string> {

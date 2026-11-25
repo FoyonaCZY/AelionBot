@@ -1,5 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import type { HostPermissionDetails, InteractionRequest, UserQuestion } from '../../../shared/types/core';
+import {
+  VAULT_CATEGORIES,
+  type VaultCategory,
+  type VaultInputFieldSpec,
+  type VaultItemMeta,
+  type VaultItemWriteInput,
+} from '../../../shared/types/vault-types';
+import { inferFieldKind, isValidVaultFieldKey } from '../../../shared/vault-refs';
+import type { VaultApprovalDecision, VaultApprovalRequest } from '../vault/vault-resolver';
 import type { ComputerController } from '../vm/computer';
 import type { CommandPermissions } from '../host/command-permissions';
 import type { HostApprovalPolicy } from '../host/host-approval-types';
@@ -37,12 +46,25 @@ export class Interactions {
   private pending = new Map<string, Pending>();
   private questions = new Map<string, QuestionRecord>();
   private hostPolicy?: HostApprovalPolicy;
+  private vaultSave?: (input: VaultItemWriteInput, actor?: { botId?: string; runId?: string }) => VaultItemMeta;
+  private vaultInputCallbacks = new Map<
+    string,
+    (input: VaultItemWriteInput, actor: { botId: string; runId: string }) => VaultItemMeta
+  >();
+  private vaultInputResults = new Map<
+    string,
+    { saved: true; item: VaultItemMeta } | { saved: false; cancelled: true }
+  >();
+  private vaultUseDecisions = new Map<string, VaultApprovalDecision>();
   constructor(
     private changed: () => void,
     private record?: (request: InteractionRequest, decision: string, ruleId?: string) => void,
     private commands?: CommandPermissions,
     private reviewTimeoutMs = 22000,
   ) {}
+  setVaultSave(save: (input: VaultItemWriteInput, actor?: { botId?: string; runId?: string }) => VaultItemMeta) {
+    this.vaultSave = save;
+  }
   setHostPolicy(policy: HostApprovalPolicy) {
     this.hostPolicy = policy;
   }
@@ -494,12 +516,187 @@ export class Interactions {
     for (const id of Array.from(this.pending.keys()))
       this.finish(id, new Error('应用已关闭，未执行待授权操作'), 'cancelled');
   }
+
+  /**
+   * Queues a secure Vault input card; plaintext entered by the user is encrypted via `saveFn`/`vaultSave`
+   * immediately on submit and never persisted to interaction history or messages.
+   */
+  async requestVaultInput(
+    botId: string,
+    runId: string,
+    params: {
+      title: string;
+      reason: string;
+      category: VaultCategory;
+      suggestedSlug?: string;
+      bindings?: Array<{ kind: 'domain' | 'app' | 'mcp' | 'host'; value: string }>;
+      fields: VaultInputFieldSpec[];
+      existingItemId?: string;
+    },
+    signal: AbortSignal,
+    saveFn?: (input: VaultItemWriteInput, actor: { botId: string; runId: string }) => VaultItemMeta,
+  ): Promise<{ saved: true; item: VaultItemMeta } | { saved: false; cancelled: true }> {
+    if (signal.aborted) throw new AppError('task.cancelled', '任务已取消');
+    if (!VAULT_CATEGORIES.includes(params.category)) {
+      throw new AppError('vault.ref_invalid', '无效的保险库分类');
+    }
+    if (!params.title?.trim() || !params.reason?.trim() || !Array.isArray(params.fields) || !params.fields.length) {
+      throw new AppError('vault.ref_invalid', '安全录入请求缺少标题、原因或字段列表');
+    }
+    const seen = new Set<string>();
+    const fields: VaultInputFieldSpec[] = params.fields.map((field) => {
+      const key = typeof field.key === 'string' ? field.key.trim() : '';
+      if (!key || !isValidVaultFieldKey(key) || key === 'totp' || seen.has(key)) {
+        throw new AppError('vault.ref_invalid', `非法的安全录入字段名：${key || '(empty)'}`);
+      }
+      seen.add(key);
+      return {
+        key,
+        label: (field.label || key).trim().slice(0, 80),
+        kind: field.kind ?? inferFieldKind(key, params.category, ''),
+        ...(field.required !== undefined ? { required: Boolean(field.required) } : {}),
+        ...(field.placeholder ? { placeholder: field.placeholder.slice(0, 120) } : {}),
+      };
+    });
+
+    const resolver = saveFn || this.vaultSave;
+    if (!resolver) {
+      throw new AppError('vault.encryption_unavailable', '保险库服务未启用，无法接收安全录入');
+    }
+
+    const id = randomUUID();
+    const request: InteractionRequest = {
+      id,
+      botId,
+      runId,
+      createdAt: new Date().toISOString(),
+      kind: 'vault_input',
+      phase: 'waiting',
+      title: params.title.trim().slice(0, 120),
+      reason: params.reason.trim().slice(0, 500),
+      category: params.category,
+      ...(params.suggestedSlug ? { suggestedSlug: params.suggestedSlug.trim().slice(0, 64) } : {}),
+      ...(params.bindings?.length
+        ? { bindings: params.bindings.map((b) => ({ kind: b.kind, value: b.value.trim() })) }
+        : {}),
+      fields,
+      ...(params.existingItemId ? { existingItemId: params.existingItemId.trim() } : {}),
+    };
+
+    this.vaultInputCallbacks.set(id, (vaultInput, actor) => resolver(vaultInput, actor));
+    try {
+      await this.enqueue(request, signal);
+      const result = this.vaultInputResults.get(id);
+      this.vaultInputResults.delete(id);
+      return result ?? { saved: false, cancelled: true };
+    } finally {
+      this.vaultInputCallbacks.delete(id);
+      this.vaultInputResults.delete(id);
+    }
+  }
+
+  decideVaultInput(
+    id: string,
+    decision: { action: 'submit'; vaultInput: VaultItemWriteInput } | { action: 'cancel' },
+  ): void {
+    const request = this.get(id);
+    if (request.kind !== 'vault_input') throw new Error('请求类型不匹配');
+    if (decision.action === 'cancel') {
+      this.vaultInputResults.set(id, { saved: false, cancelled: true });
+      this.finish(id, undefined, 'cancelled');
+      return;
+    }
+    const vaultInput = decision.vaultInput;
+    if (!vaultInput || typeof vaultInput !== 'object' || Array.isArray(vaultInput)) {
+      throw new AppError('vault.ref_invalid', '缺少有效的保险库录入内容');
+    }
+    const missingRequired = request.fields.filter((field) => {
+      if (!field.required) return false;
+      const val = vaultInput.fields?.[field.key];
+      const hasImport = Boolean(vaultInput.importTokens?.[field.key]);
+      return (typeof val !== 'string' || !val.trim()) && !hasImport;
+    });
+    if (missingRequired.length) {
+      throw new AppError('vault.ref_invalid', `请填写必填字段：${missingRequired.map((f) => f.label).join('、')}`);
+    }
+    const saver = this.vaultInputCallbacks.get(id) || this.vaultSave;
+    if (!saver) {
+      throw new AppError('vault.encryption_unavailable', '保险库服务未启用，无法加密保存');
+    }
+    const savedItem = saver(
+      {
+        ...vaultInput,
+        ...(request.existingItemId && !vaultInput.id ? { id: request.existingItemId } : {}),
+      },
+      { botId: request.botId, runId: request.runId },
+    );
+    this.vaultInputResults.set(id, { saved: true, item: savedItem });
+    this.finish(id, undefined, 'submitted');
+  }
+
+  /**
+   * Queues a human-only Vault blind-injection confirmation card. Never delegated to `hostPolicy`.
+   */
+  async requestVaultUse(request: VaultApprovalRequest, signal?: AbortSignal): Promise<VaultApprovalDecision> {
+    const effectiveSignal = signal ?? new AbortController().signal;
+    if (effectiveSignal.aborted) throw new AppError('task.cancelled', '任务已取消');
+    const id = randomUUID();
+    const interaction: InteractionRequest = {
+      id,
+      botId: request.botId,
+      runId: request.runId,
+      createdAt: new Date().toISOString(),
+      kind: 'vault_use',
+      phase: 'waiting',
+      itemId: request.itemId,
+      itemTitle: request.itemTitle,
+      category: request.category,
+      fields: [...request.fields],
+      sink: request.sink,
+      targetSummary: request.targetSummary,
+      ...(request.bindingMismatch ? { bindingMismatch: true } : {}),
+      ...(request.expectedBindings?.length ? { expectedBindings: structuredClone(request.expectedBindings) } : {}),
+      allowRunGrant: request.allowRunGrant,
+    };
+    try {
+      await this.enqueue(interaction, effectiveSignal);
+      const decision = this.vaultUseDecisions.get(id) ?? 'deny';
+      this.vaultUseDecisions.delete(id);
+      return decision;
+    } finally {
+      this.vaultUseDecisions.delete(id);
+    }
+  }
+
+  decideVaultUse(id: string, decision: VaultApprovalDecision): void {
+    const request = this.get(id);
+    if (request.kind !== 'vault_use') throw new Error('请求类型不匹配');
+    if (decision === 'allow-run' && !request.allowRunGrant) {
+      throw new AppError('vault.ref_invalid', '当前条目或上下文不允许在本任务内自动放行');
+    }
+    if (decision === 'deny') {
+      this.finish(
+        id,
+        new InteractionDenied(
+          `用户拒绝使用保险库条目「${request.itemTitle}」`,
+          undefined,
+          'user',
+          false,
+          'vault.denied',
+        ),
+        'denied',
+      );
+      return;
+    }
+    this.vaultUseDecisions.set(id, decision);
+    this.finish(id, undefined, decision === 'allow-run' ? 'allowed-run' : 'allowed');
+  }
 }
 
 export function respondToInteraction(
   interactions: Interactions,
   computer: ComputerController,
-  input: { id?: unknown; action?: unknown; answers?: unknown },
+  input: { id?: unknown; action?: unknown; answers?: unknown; vaultInput?: unknown },
 ) {
   if (typeof input?.id !== 'string' || typeof input.action !== 'string') throw new Error('无效请求');
   const request = interactions.get(input.id);
@@ -521,6 +718,25 @@ export function respondToInteraction(
     if (!['allow', 'deny'].includes(input.action)) throw new Error('无效权限决定');
     interactions.decideComputerAccess(input.id, input.action === 'allow');
     return;
+  }
+  if (request.kind === 'vault_use') {
+    if (!['allow', 'allow-run', 'deny'].includes(input.action)) throw new Error('无效保险库使用决定');
+    interactions.decideVaultUse(input.id, input.action as VaultApprovalDecision);
+    return;
+  }
+  if (request.kind === 'vault_input') {
+    if (input.action === 'cancel') {
+      interactions.decideVaultInput(input.id, { action: 'cancel' });
+      return;
+    }
+    if (input.action === 'submit') {
+      interactions.decideVaultInput(input.id, {
+        action: 'submit',
+        vaultInput: input.vaultInput as VaultItemWriteInput,
+      });
+      return;
+    }
+    throw new Error('无效保险库录入操作');
   }
   if (input.action === 'takeover') {
     computer.setManual(request.botId, true);

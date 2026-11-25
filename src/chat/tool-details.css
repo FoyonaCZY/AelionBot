@@ -781,6 +781,48 @@
   border: 1px solid light-dark(#ede8e0, #3f3f3f);
   border-radius: var(--radius-md);
 }
+.detail-vault-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  margin: 0 2px;
+  border-radius: var(--radius-pill);
+  background: var(--ctl-accent-soft);
+  color: var(--ctl-accent-strong);
+  font-family: var(--font-code);
+  font-size: var(--text-micro);
+  line-height: 1.5;
+  vertical-align: baseline;
+}
+.detail-vault-bindings {
+  margin: 6px 0 0;
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+.detail-vault-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.detail-vault-field-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--ctl-fill);
+  font-size: var(--text-micro);
+}
+.detail-vault-field-chip b {
+  font-weight: var(--weight-label);
+  color: var(--text-secondary);
+}
+.detail-vault-field-chip code {
+  font-family: var(--font-code);
+  color: var(--text-muted);
+}
 @media (max-width: 700px) {
   .tool-detail-header {
     padding: 13px;

@@ -11,10 +11,16 @@ export type SetupResult =
   | { platform: 'feishu'; credentials: { appId: string; appSecret: string }; ownerId?: string }
   | { platform: 'weixin'; credentials: WeixinCredentials };
 
-/** What a Feishu app needs: private messages, files, sending as the bot and card buttons. */
+/** What a Feishu app needs: private messages, files, sending as the bot, streaming cards and card buttons. */
 const FEISHU_ADDONS = {
   scopes: {
-    tenant: ['im:message', 'im:message.p2p_msg:readonly', 'im:message:send_as_bot', 'im:resource'],
+    tenant: [
+      'im:message',
+      'im:message.p2p_msg:readonly',
+      'im:message:send_as_bot',
+      'im:resource',
+      'cardkit:card:write',
+    ],
   },
   events: { items: { tenant: ['im.message.receive_v1'] } },
   callbacks: { items: ['card.action.trigger'] },

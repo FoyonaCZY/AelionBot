@@ -42,7 +42,7 @@ const HEADLESS =
 const HOST_OPERATIONS =
   '\nYou may operate host commands and files when needed. Use exec_command, file_read, and file_write for repositories, files, and existing gh/git sessions. Omit location for this computer. The app applies the current Bot permission mode: ask requires a human decision; auto permits ordinary workspace reads/writes and saved command rules, then asks the configured approval model to review other operations; full follows the human selection. Never assume authorization; wait for actual tool results. Reading discovered skills and discovery/resource/template reads on enabled MCP services are available as needed. Host MCP calls and scripts follow this Bot permission mode. Aelion memories and private skills are internal application state. Do not bundle unrelated actions to reduce confirmations. Never modify permission files, use scripts, MCP, or UI automation to grant or expand authorization, or click Aelion permission buttons. Host CLIs reuse the existing environment and login: run gh directly, do not run gh auth token, read passwords/private keys, or copy credentials into the VM.';
 const USER_CONTROL =
-  '\nFor VM login, CAPTCHA, or decisions requiring a human, call request_user_control and explain what the user needs to do. The call waits for takeover and return. Do not keep operating automatically while waiting or request passwords. Inspect the returned screenshot after control is handed back; do not assume success.';
+  '\nFor VM login, check the user Vault first and blind-inject matching credentials when available. Only for CAPTCHA, QR login, or missing credentials you should not store in Vault, call request_user_control and explain what the user needs to do. The call waits for takeover and return. Do not keep operating automatically while waiting or ask for passwords in chat. Inspect the returned screenshot after control is handed back; do not assume success.';
 const PEERS =
   '\nCollaborate privately with other Bots as needed for the user task. Verify identity with bots_list or an explicitly mentioned Bot ID, then send a specific question with bot_send_message. The recipient processes the message independently; quote their response only after a real reply arrives. Successful sending means queued, not completed. You may report that the message was sent. Raw inter-Bot messages appear in the private chat window; the main chat shows send/receive events and a later user-facing summary. Do not present the recipient words as your own user-facing reply. Do not poll, repeatedly prompt, or wait idly. Host operations still follow saved rules or per-operation approval; Bots cannot approve each other or add permission rules.';
 const GROUPS =
@@ -69,6 +69,11 @@ const MEMORY_OWNERSHIP =
   '\nLong-term memories belong to the Bot the preference actually concerns. If asked to tell another Bot to remember something, forward the original request and let that Bot save it. Do not save another Bot tone, role, or behavioral preferences as your own. Facts about the user that hold for every Bot go to target=user; your own manner and duties stay with you.';
 const PRIVATE_MESSAGE =
   '\nYou are receiving a private message. You may answer questions requiring no action directly. To undertake work, call start_main_task first to enter your main conversation with its full history and tools. Memory delegation also requires entering the main task. Do not merely promise that work was saved or executed.';
+const VAULT =
+  '\nUser Vault (shared across all Bots; plaintext is hidden from the model):' +
+  '\n- Never ask the user for passwords, payment cards, API keys, or private keys as plaintext in chat, and never print, echo, copy, script-dump, or click reveal-password toggles to extract secrets.' +
+  '\n- Before asking the user to log in or enter personal info, check the Vault catalog in context or call vault_list. Blind-inject entries only via allowed channels using {{vault:<slug>.<field>}} (or {{vault:<slug>.totp}} for 2FA codes): computer/host_computer inputs (prefer batch calls that type/set and submit together), exec_command vaultEnv/vaultFiles, python_execute vaultEnv, or MCP tool arguments.' +
+  '\n- If required credentials are missing, call vault_request (interactive runs) to show a secure encrypted input form. When the user explicitly shares info in chat to save for later reuse, call vault_save instead of memory; sensitive values are scrubbed afterwards.';
 
 export interface HarnessPromptOptions {
   botId: string;
@@ -99,6 +104,8 @@ export interface HarnessPromptOptions {
   preview: boolean;
   /** Local design tasks (design_start and its canvas) are available. */
   design?: boolean;
+  /** User Vault is wired for blind credential injection. */
+  vault?: boolean;
   privateMessage: boolean;
 }
 
@@ -142,6 +149,7 @@ export function harnessInstructions(options: HarnessPromptOptions) {
   if (options.preview) text += openPreview(vm);
   if (options.design) text += DESIGN_CAPABILITY;
   text += MEMORY_OWNERSHIP;
+  if (options.vault) text += VAULT;
   if (options.privateMessage) text += PRIVATE_MESSAGE;
   return text;
 }

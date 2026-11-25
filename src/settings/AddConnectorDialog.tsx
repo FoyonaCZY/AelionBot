@@ -100,7 +100,8 @@ function ConnectorFields({
   );
 }
 
-const FEISHU_SCOPES = 'im:message、im:message.p2p_msg:readonly、im:message:send_as_bot、im:resource';
+const FEISHU_SCOPES =
+  'im:message、im:message.p2p_msg:readonly、im:message:send_as_bot、im:resource、cardkit:card:write';
 /** What each platform calls the credentials typed by hand; the second one, where there is one, is the secret. */
 const MANUAL_FIELDS: Record<Exclude<ConnectorPlatform, 'weixin'>, [string, string?]> = {
   feishu: ['App ID', 'App Secret'],

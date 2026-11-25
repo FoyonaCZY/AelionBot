@@ -26,6 +26,7 @@ export const COMPACT_TOOLS: ReadonlySet<string> = new Set([
   'request_user_input',
   'generate_image',
   'knowledge_search',
+  'vault_list',
 ]);
 
 /**
@@ -93,6 +94,10 @@ export const CORE_ACTIVE_TOOLS: ReadonlySet<string> = new Set([
   'group_read',
   'delegation_receipt',
   'start_main_task',
+  // Vault tools
+  'vault_list',
+  'vault_save',
+  'vault_request',
 ]);
 
 /** Automation tools auto-activated when a run is triggered by an automation schedule. */

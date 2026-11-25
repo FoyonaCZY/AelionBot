@@ -30,7 +30,11 @@ export function liveBotProgress(
           ? '尚未执行，等待你授权。'
           : waiting === 'user_input'
             ? '等待你的回答。'
-            : '完成操作后，请交还电脑控制权。',
+            : waiting === 'vault_input'
+              ? '等待你安全录入凭据或信息。'
+              : waiting === 'vault_use'
+                ? '尚未注入，等待你确认使用保险库条目。'
+                : '完成操作后，请交还电脑控制权。',
       ),
       needsInput: true,
     };

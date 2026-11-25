@@ -75,6 +75,9 @@ import { MemoryAdmin } from './core/memory/memory-admin';
 import { LocalEmbedder } from './core/memory/memory-embedder';
 import { compactOnce } from './core/memory/memory-maintenance';
 import { KnowledgeService, WorkerIndexRunner } from './core/knowledge/knowledge-service';
+import { VaultStore } from './core/vault/vault-store';
+import { VaultService } from './core/vault/vault-service';
+import { VaultResolver } from './core/vault/vault-resolver';
 import { PeerChats } from './core/peer/peer-chats';
 import { GroupChats } from './core/group/group-chats';
 import { LayaRuntime } from './core/model/laya-runtime';
@@ -151,6 +154,8 @@ let cognition: Cognition;
 let memoryAdmin: MemoryAdmin;
 let embedder: LocalEmbedder | undefined;
 let knowledge: KnowledgeService | undefined;
+let vault: VaultService | undefined;
+let vaultResolver: VaultResolver | undefined;
 let peerChats: PeerChats | undefined;
 let groupChats: GroupChats | undefined;
 let games: GameRuntime | undefined;
@@ -466,6 +471,13 @@ async function initialize() {
       }),
     commandPermissions,
   );
+  const vaultStore = new VaultStore(dataDir, {
+    ...secretCodec,
+    isAvailable: () => safeStorage.isEncryptionAvailable(),
+  });
+  vault = new VaultService(vaultStore);
+  vaultResolver = new VaultResolver(vault, (request, signal) => interactions.requestVaultUse(request, signal));
+  interactions.setVaultSave((input, actor) => vault!.save(input, actor));
   vm = new VmController({
     dataDir,
     appVersion: app.getVersion(),
@@ -474,7 +486,7 @@ async function initialize() {
     cacheDir: app.isPackaged ? join(dataDir, 'downloads') : resolve('runtime/downloads'),
     downloadFetch: (url, options) => net.fetch(url, options),
   });
-  computer = new ComputerController(vm, dataDir, changed);
+  computer = new ComputerController(vm, dataDir, changed, vaultResolver);
   artifacts = new ArtifactService(store, vm);
   // Model requests inline every picture as base64, and a long vision session can exceed the provider's body limit.
   // Stored screenshots stay lossless for the interface; what goes to the model is a smaller JPEG of the same frame.
@@ -589,8 +601,13 @@ async function initialize() {
       try {
         keys = providers.secrets();
       } catch {}
+      let vaultSecrets: string[] = [];
+      try {
+        vaultSecrets = vault?.allSecretsForRedaction() || [];
+      } catch {}
       return [
         ...keys,
+        ...vaultSecrets,
         ...Object.entries(process.env)
           .filter(([name]) => /TOKEN|SECRET|PASSWORD|PASSWD|KEY|CREDENTIAL|AUTH/i.test(name))
           .map(([, value]) => value || ''),
@@ -637,7 +654,7 @@ async function initialize() {
       projectDir,
       runtimeDir: __dirname,
       env: { ...process.env },
-      secrets: () => providers.secrets(),
+      secrets: () => [...providers.secrets(), ...(vault?.activeSecrets() || [])],
     },
     interactions,
   );
@@ -707,7 +724,10 @@ async function initialize() {
     defaultPermissionReviewer(
       approvalModel,
       () => providers.approvalConfig(),
-      (text) => host.redact(text),
+      (text) => {
+        const redacted = host.redact(text);
+        return vault ? vault.redactor.redactString(redacted) : redacted;
+      },
     ),
     {
       homeDir,
@@ -880,7 +900,7 @@ async function initialize() {
     integrations.skills,
     changed,
     () => Boolean(updatePreparing || harness?.busy || groupChats?.busy),
-    () => providers.secrets(),
+    () => [...providers.secrets(), ...(vault?.allSecretsForRedaction() || [])],
     undefined,
     { memoryModel: () => providers.memoryAccess() },
   );
@@ -895,7 +915,7 @@ async function initialize() {
     },
   );
   cognition.useEmbedder(embedder);
-  memoryAdmin = new MemoryAdmin(cognition, () => providers.secrets());
+  memoryAdmin = new MemoryAdmin(cognition, () => [...providers.secrets(), ...(vault?.allSecretsForRedaction() || [])]);
   memoryAdmin.embedder = embedder;
   cognition.memory.onChanged = changed;
   cognition.onSlow = cognition.learning.onSlow = (source, ms) => slow?.(source, ms);
@@ -935,6 +955,9 @@ async function initialize() {
   });
   generalHarness.setKnowledge(knowledge);
   knowledge.start();
+  if (vault && vaultResolver) {
+    generalHarness.setVault(vault, vaultResolver);
+  }
   // The macOS helper is built from Swift and shipped beside the app; without it the feature is not offered there.
   const macHelper = join(
     app.isPackaged ? process.resourcesPath : resolve('runtime'),
@@ -980,6 +1003,12 @@ async function initialize() {
         hostDesktop?.release(runId);
       },
     }),
+    ...(vaultResolver && vault
+      ? {
+          vaultResolver,
+          redactText: (text, runId) => vault!.redactor.redactString(text, { runId }),
+        }
+      : {}),
   });
   generalHarness.setHostDesktop(hostDesktop);
   designSystems = new DesignSystems(
@@ -1588,6 +1617,9 @@ async function initialize() {
     },
     get knowledge() {
       return knowledge;
+    },
+    get vault() {
+      return vault;
     },
     get designSystems() {
       return designSystems;

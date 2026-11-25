@@ -1,7 +1,38 @@
 import type { ChatMessage, InteractionRequest, RunRecord } from '../types/core';
+import type { VaultAccessPolicy, VaultBinding, VaultCategory, VaultSink } from '../types/vault-types';
 import { placeQuestionAnswers, readableQuestionAnswer } from './question-answers';
 import { isContextCapacityFailure } from './context-issue';
 import { currentLanguage, translate } from '../i18n';
+
+export const VAULT_CATEGORY_LABELS: Record<VaultCategory, string> = {
+  login: '登录',
+  contact: '联系与地址',
+  card: '支付卡',
+  ssh_key: 'SSH 密钥',
+  api_key: 'API 密钥',
+  secret: '机密',
+};
+export const VAULT_POLICY_LABELS: Record<VaultAccessPolicy, string> = {
+  auto: '自动使用',
+  'auto-when-bound': '绑定匹配时自动',
+  'ask-once-per-run': '每次任务询问一次',
+  'always-ask': '每次使用询问',
+};
+export const VAULT_SINK_LABELS: Record<VaultSink, string> = {
+  vm_desktop: '工作电脑桌面',
+  host_desktop: '本机桌面',
+  exec_env: '命令行环境变量',
+  exec_file: '临时只读密钥文件',
+  exec_inline: '命令行输入',
+  python_env: 'Python 环境变量',
+  mcp: '外部工具（MCP）',
+};
+export const VAULT_BINDING_LABELS: Record<VaultBinding['kind'], string> = {
+  domain: '域名',
+  host: '主机',
+  app: '应用',
+  mcp: 'MCP 服务',
+};
 
 const operations: Record<string, { label: string; active: string; icon: string }> = {
   open_preview: { label: '预览', active: '正在打开预览', icon: 'file' },
@@ -99,6 +130,9 @@ const operations: Record<string, { label: string; active: string; icon: string }
   mcp_list_prompts: { label: '查找提示模板', active: '正在查找提示模板', icon: 'book' },
   mcp_get_prompt: { label: '读取提示模板', active: '正在读取提示模板', icon: 'book' },
   read_result: { label: '核对执行结果', active: '正在核对执行结果', icon: 'check' },
+  vault_list: { label: '查看保险库目录', active: '正在查看保险库目录', icon: 'lock' },
+  vault_save: { label: '保存到保险库', active: '正在保存到保险库', icon: 'lock' },
+  vault_request: { label: '请求安全录入', active: '等待你安全录入', icon: 'lock' },
 };
 export const toolOperation = (name?: string) => {
   const operation = operations[name || ''] || { label: '执行操作', active: '正在处理', icon: 'terminal' };
@@ -148,6 +182,14 @@ export function describeTool(
   if (name === 'knowledge_search') detail = text(input.query);
   if (name === 'widget_save') detail = text(result.title || input.title);
   if (name === 'bot_send_message') detail = text((result.recipient as Record<string, unknown> | undefined)?.name);
+  if (name === 'vault_list') {
+    const category = typeof input.category === 'string' ? VAULT_CATEGORY_LABELS[input.category as VaultCategory] : '';
+    detail = text(input.query) || text(input.domain) || (category ? translate(category) : '');
+  }
+  if (name === 'vault_save' || name === 'vault_request') {
+    const item = result.item && typeof result.item === 'object' ? (result.item as Record<string, unknown>) : {};
+    detail = text(item.title || input.title);
+  }
   if (name === 'computer') {
     const actions: Record<string, string> = {
       screenshot: '查看电脑画面',
@@ -248,7 +290,11 @@ export function liveBotStep(
           ? '等待你的操作许可'
           : waiting === 'user_input'
             ? '等待你的回答'
-            : '等待你处理工作电脑',
+            : waiting === 'vault_input'
+              ? '等待你安全录入'
+              : waiting === 'vault_use'
+                ? '等待你授权使用凭据'
+                : '等待你处理工作电脑',
       ),
     };
   const current = [...messages]

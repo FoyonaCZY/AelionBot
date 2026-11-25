@@ -258,6 +258,26 @@ export function Icon({ name, size = 20 }: { name: string; size?: number }) {
         <path d="M3 8h18M7 12h5M7 15h8M16 12h1" />
       </>
     ),
+    lock: (
+      <>
+        <rect x="5" y="10.5" width="14" height="10" rx="2.5" />
+        <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
+      </>
+    ),
+    eye: (
+      <>
+        <path d="M2 12s3.8-6.5 10-6.5S22 12 22 12s-3.8 6.5-10 6.5S2 12 2 12Z" />
+        <circle cx="12" cy="12" r="2.8" />
+      </>
+    ),
+    eyeOff: (
+      <>
+        <path d="M3 3l18 18" />
+        <path d="M10.6 5.7A11.4 11.4 0 0 1 12 5.5c6.2 0 10 6.5 10 6.5a18 18 0 0 1-3.3 4.1" />
+        <path d="M6.6 6.6A17.7 17.7 0 0 0 2 12s3.8 6.5 10 6.5c1.7 0 3.2-.4 4.5-1" />
+        <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+      </>
+    ),
   };
   return (
     <svg

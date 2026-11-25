@@ -2,7 +2,7 @@
 // same functions the desktop uses, so both tell the same story; only the presentation is the phone's.
 import { memo, useState } from 'react';
 import type { Attachment } from '../../../shared/types/attachment-types';
-import type { ChatMessage, RunRecord, StreamingReply } from '../../../shared/types/core';
+import type { ChatMessage, InteractionRequest, RunRecord, StreamingReply } from '../../../shared/types/core';
 import type { RemoteBot } from '../../../shared/remote/protocol';
 import {
   friendlyError,
@@ -84,6 +84,12 @@ export function UserBubble({ message, onPress }: { message: ChatMessage; onPress
           {message.content}
         </div>
       )}
+      {message.vaultScrubbed && (
+        <small className="c-user-note c-user-vault">
+          <I name="lock" size={11} />
+          {t('敏感信息已转存保险库并隐藏')}
+        </small>
+      )}
       {message.inputState === 'queued' && <small className="c-user-note">{t('排队中')}</small>}
     </div>
   );
@@ -163,7 +169,7 @@ export const RunView = memo(function RunView({
   isLast: boolean;
   bot: RemoteBot;
   streams: StreamingReply[];
-  waiting?: 'host_permission' | 'vm_takeover' | 'computer_use' | 'user_input';
+  waiting?: InteractionRequest['kind'];
   onPress: (target: PressTarget) => void;
   /** Given to the newest answer of the chat: the row of actions under it. */
   onAction?: (action: AnswerAction, target: PressTarget) => void;

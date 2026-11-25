@@ -6,6 +6,7 @@ import type {
   AdapterHandlers,
   ConnectorAdapter,
   ConnectorCard,
+  ConnectorTextStream,
   InboundMessage,
   InboundResource,
 } from '../connector-adapter';
@@ -20,6 +21,7 @@ const TEXT_CHARS = 2000;
 const INTENTS = 1 << 12;
 /** "typing…" shows for ten seconds. */
 const TYPING_MS = 8000;
+const STREAM_INTERVAL_MS = 1000;
 const OP = { dispatch: 0, heartbeat: 1, identify: 2, resume: 6, reconnect: 7, invalid: 9, hello: 10, ack: 11 };
 const VOICE_MESSAGE = 1 << 13;
 const SUPPRESS_EMBEDS = 1 << 2;
@@ -49,6 +51,7 @@ export interface DiscordOptions {
   /** How long a "retry after N seconds" answer waits. */
   retryAfterMs?: (seconds: number) => number;
   typingMs?: number;
+  streamIntervalMs?: number;
 }
 
 class DiscordError extends Error {
@@ -450,6 +453,48 @@ export class DiscordAdapter implements ConnectorAdapter {
   async sendText(chatId: string, text: string) {
     for (const part of splitMarkdown(discordMarkdown(text), TEXT_CHARS))
       await this.post(chatId, { content: part, allowed_mentions: { parse: [] }, flags: SUPPRESS_EMBEDS });
+  }
+  /** Streams a reply by posting and editing messages in place, throttled to stay within Discord's 5/5s channel limit. */
+  beginStream(chatId: string): ConnectorTextStream {
+    const intervalMs = this.options.streamIntervalMs ?? STREAM_INTERVAL_MS;
+    const sent: Array<{ channelId: string; messageId: string; content: string }> = [];
+    let finished = false;
+    const sync = async (text: string) => {
+      const parts = splitMarkdown(discordMarkdown(text), TEXT_CHARS);
+      for (let index = 0; index < parts.length; index++) {
+        const part = parts[index];
+        if (!sent[index]) {
+          const posted = await this.post(chatId, {
+            content: part,
+            allowed_mentions: { parse: [] },
+            flags: SUPPRESS_EMBEDS,
+          });
+          sent.push({ channelId: String(posted.channel_id), messageId: String(posted.id), content: part });
+        } else if (sent[index].content !== part) {
+          await this.rest('PATCH', `/channels/${sent[index].channelId}/messages/${sent[index].messageId}`, {
+            content: part,
+            allowed_mentions: { parse: [] },
+            flags: SUPPRESS_EMBEDS,
+          });
+          sent[index].content = part;
+        }
+      }
+    };
+    return {
+      intervalMs,
+      update: async (text: string) => {
+        if (finished || !text.trim()) return;
+        await sync(text);
+      },
+      finish: async (text: string) => {
+        if (finished) return;
+        finished = true;
+        const final = text.trim();
+        if (!final) return;
+        if (!sent.length) await this.sendText(chatId, final);
+        else await sync(final);
+      },
+    };
   }
   async sendFile(chatId: string, file: { name: string; bytes: Buffer }) {
     await this.post(chatId, { attachments: [{ id: 0, filename: file.name }], allowed_mentions: { parse: [] } }, file);

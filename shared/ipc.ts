@@ -86,6 +86,13 @@ export const INVOKE_CHANNELS = {
   reindexKnowledgeBase: 'knowledge:reindex',
   pickKnowledgeSources: 'knowledge:pick',
   knowledgeIssues: 'knowledge:issues',
+  // Vault
+  vaultOverview: 'vault:overview',
+  vaultSave: 'vault:save',
+  vaultDelete: 'vault:delete',
+  vaultReveal: 'vault:reveal',
+  vaultAudit: 'vault:audit',
+  vaultImportSshKey: 'vault:import-ssh-key',
   // Groups
   pinGroup: 'groups:pin',
   createGroup: 'groups:create',

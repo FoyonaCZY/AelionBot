@@ -9,6 +9,7 @@ import { SettingsWindow, type SettingsTab } from '../settings/SettingsWindow';
 import { RemoteSettings } from '../settings/RemoteSettings';
 import { NotificationSettings } from '../settings/NotificationSettings';
 import { KnowledgeSettings } from '../settings/KnowledgeSettings';
+import { VaultSettings } from '../settings/VaultSettings';
 import { CommandPermissionsSettings } from '../settings/CommandPermissionsSettings';
 import { HostComputerSettings } from '../settings/HostComputerSettings';
 import { UserProfileSettings } from '../settings/UserProfileSettings';
@@ -188,6 +189,7 @@ export function AppModals({
                 onOpenMemory={() => setSettingsTab('memory')}
               />
             )}
+            {settingsTab === 'vault' && <VaultSettings bots={state.bots} onNotify={setToast} />}
             {settingsTab === 'computer' && (
               <ComputerSettings
                 state={state}

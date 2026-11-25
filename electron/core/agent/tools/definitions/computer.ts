@@ -10,6 +10,12 @@ export const PYTHON_SESSION_TOOLS: ToolDefinition[] = [
       code: string,
       requestId: string,
       waitMs: { type: 'integer', minimum: 0, maximum: 30000 },
+      vaultEnv: {
+        type: 'object',
+        additionalProperties: { type: 'string', maxLength: 300 },
+        description:
+          '仅用于 action=execute：从保险库注入 Python 子进程环境变量（如 { API_KEY: "{{vault:openai.apiKey}}" }）',
+      },
     },
     ['action'],
   ),
@@ -78,7 +84,14 @@ export const COMPUTER_TOOLS: ToolDefinition[] = [
   tool(
     'python_execute',
     '直接在当前 Bot 工作目录执行 Python3 代码。code 是纯 Python 源码，不要拼接 shell 命令或多层引号。适合 CSV、Excel（openpyxl）、JSON、PDF 文本（pypdf/pdftotext）、计算和文件验证；exitCode 非零表示这次运行的结果，查看 stderr 后继续。',
-    { code: string },
+    {
+      code: string,
+      vaultEnv: {
+        type: 'object',
+        additionalProperties: { type: 'string', maxLength: 300 },
+        description: '从保险库注入环境变量（os.environ），不会修改 code 源码；禁止传入 payment card',
+      },
+    },
     ['code'],
   ),
 ];

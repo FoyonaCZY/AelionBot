@@ -13,6 +13,7 @@ import type {
 import type { GroupPage } from '../types/group-types';
 import type { HostPermissionMode } from '../types/permission-types';
 import type { ScheduledTaskStatus } from '../types/scheduled-types';
+import type { VaultAuditEntry, VaultItemMeta, VaultItemWriteInput, VaultOverview } from '../types/vault-types';
 import type { BotAvatarStyle } from '../chat/bot-colors';
 
 /** Bumped when either side can no longer understand the other; features are announced as capabilities instead. */
@@ -266,7 +267,15 @@ interface RemoteMethods {
   'session.create'(input: { botId: string; name: string }): WorkSession;
   'session.update'(input: { id: string; name?: string; archived?: boolean }): void;
   'permission.set'(input: { botId: string; sessionId?: string; mode: Exclude<HostPermissionMode, 'full'> }): void;
-  'request.respond'(input: { id: string; action: InteractionAction; answers?: Record<string, string> }): void;
+  'request.respond'(input: {
+    id: string;
+    action: InteractionAction;
+    answers?: Record<string, string>;
+    vaultInput?: VaultItemWriteInput;
+  }): void;
+  'vault.overview'(): VaultOverview;
+  'vault.save'(input: VaultItemWriteInput): VaultItemMeta;
+  'vault.audit'(input?: { itemId?: string; limit?: number }): VaultAuditEntry[];
   'files.upload'(input: {
     scope: { kind: 'bot' | 'group'; id: string; sessionId?: string };
     name: string;

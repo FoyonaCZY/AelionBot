@@ -1284,3 +1284,89 @@ test('a Telegram connector runs its real adapter through the hub: pairing code o
   await until(() => connectors.saved.get(id)?.state?.offset === '3');
   assert.equal(connectors.saved.get(id)?.state?.uid, '123456789');
 });
+
+test('Telegram streams with sendMessageDraft and falls back to editMessageText when drafts are unsupported', async (t) => {
+  const api = await telegramApi(t);
+  const adapter = new TelegramAdapter(TELEGRAM_TOKEN, 0, {
+    apiBase: api.url,
+    streamIntervalMs: 100,
+    editIntervalMs: 500,
+  });
+  const stream = adapter.beginStream('1001');
+  assert.equal(stream.intervalMs, 100);
+  await stream.update('**正在**生成');
+  await stream.update('**正在**生成内容');
+  await stream.finish('**正在**生成内容。');
+  const drafts = api.calls('sendMessageDraft').map((request) => request.body);
+  assert.equal(drafts.length, 2);
+  assert.equal(drafts[0].draft_id, drafts[1].draft_id);
+  assert.ok(Number.isInteger(drafts[0].draft_id) && drafts[0].draft_id > 0);
+  assert.deepEqual(
+    drafts.map((body) => [body.chat_id, body.parse_mode, body.text]),
+    [
+      [1001, 'HTML', '<b>正在</b>生成'],
+      [1001, 'HTML', '<b>正在</b>生成内容'],
+    ],
+  );
+  assert.deepEqual(
+    api.calls('sendMessage').map((request) => request.body.text),
+    ['<b>正在</b>生成内容。'],
+  );
+
+  // Older Bot API servers without sendMessageDraft fall back cleanly to sendMessage + editMessageText.
+  const legacyApi = await telegramApi(t, (method) =>
+    method === 'sendMessageDraft'
+      ? { status: 404, json: { ok: false, error_code: 404, description: 'Not Found: method not found' } }
+      : undefined,
+  );
+  const legacy = new TelegramAdapter(TELEGRAM_TOKEN, 0, {
+    apiBase: legacyApi.url,
+    streamIntervalMs: 100,
+    editIntervalMs: 500,
+  });
+  const fallback = legacy.beginStream('1001');
+  await fallback.update('第一句');
+  assert.equal(fallback.intervalMs, 500);
+  await fallback.update('第一句，第二句');
+  await fallback.finish('第一句，第二句。');
+  assert.equal(legacyApi.calls('sendMessageDraft').length, 1);
+  assert.equal(legacyApi.calls('sendMessage').length, 1);
+  assert.deepEqual(
+    legacyApi.calls('editMessageText').map((request) => request.body.text),
+    ['第一句，第二句', '第一句，第二句。'],
+  );
+  // Subsequent streams skip sendMessageDraft once 404 was seen.
+  const next = legacy.beginStream('1001');
+  assert.equal(next.intervalMs, 500);
+  await next.update('又一条');
+  await next.finish('又一条。');
+  assert.equal(legacyApi.calls('sendMessageDraft').length, 1);
+});
+
+test('Discord and Slack stream by updating messages in place and splitting when replies grow past their limits', async (t) => {
+  const discordServer = await discordApi(t);
+  const discord = new DiscordAdapter(DISCORD_TOKEN, { ...discordOptions(discordServer), streamIntervalMs: 500 });
+  const ds = discord.beginStream('dm1');
+  assert.equal(ds.intervalMs, 500);
+  await ds.update('先看第一段');
+  await ds.update('先看第一段，再补充');
+  const longDiscord = Array.from({ length: 260 }, (_, index) => `第 ${index} 行的内容`).join('\n');
+  await ds.finish(longDiscord);
+  assert.equal(discordServer.sent(/^\/channels\/dm1\/messages$/, 'POST').length, 2);
+  assert.ok(discordServer.sent(/^\/channels\/dm1\/messages\/m\d+$/, 'PATCH').length >= 2);
+
+  const slackServer = await slackApi(t);
+  const slack = new SlackAdapter(
+    { appToken: 'xapp-1-A1-good', botToken: 'xoxb-good' },
+    { apiBase: slackServer.url, streamIntervalMs: 500 },
+  );
+  const ss = slack.beginStream('D1');
+  assert.equal(ss.intervalMs, 500);
+  await ss.update('**进展**：已启动');
+  await ss.update('**进展**：已启动并运行');
+  const longSlack = Array.from({ length: 350 }, (_, index) => `第 ${index} 行的较长输出内容`).join('\n');
+  await ss.finish(longSlack);
+  assert.equal(slackServer.calls('chat.postMessage').length, 2);
+  assert.ok(slackServer.calls('chat.update').length >= 2);
+  assert.equal(slackServer.calls('chat.postMessage')[0].body.text, '*进展*：已启动');
+});

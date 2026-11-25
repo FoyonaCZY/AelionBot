@@ -33,6 +33,15 @@ export interface ConnectorCard {
   lines: string[];
   buttons: Array<{ label: string; key: string; style?: 'primary' | 'danger' }>;
 }
+/** One live-updated message while the Bot is writing it. Methods are called sequentially, never concurrently. */
+export interface ConnectorTextStream {
+  /** Minimum wait between intermediate `update` calls, in ms. May change dynamically if a stream falls back. */
+  readonly intervalMs?: number;
+  /** Updates the message with the full text generated so far. */
+  update(text: string): Promise<void>;
+  /** Finalizes the message with its complete text, or closes an open stream cleanly when empty. */
+  finish(text: string): Promise<void>;
+}
 export interface AdapterHandlers {
   status(status: ConnectorStatus, issue?: string): void;
   message(message: InboundMessage): void;
@@ -49,6 +58,11 @@ export interface ConnectorAdapter {
   start(handlers: AdapterHandlers): void;
   stop(): Promise<void>;
   sendText(chatId: string, text: string): Promise<void>;
+  /**
+   * Starts a live-updated reply in the chat, where the platform supports it. Absent, or returning undefined (such as
+   * WeCom without a recent message to reply to), tells the outbox to send each completed message with `sendText`.
+   */
+  beginStream?(chatId: string): ConnectorTextStream | undefined;
   sendFile(chatId: string, file: { name: string; bytes: Buffer }): Promise<void>;
   /** The audio of voice messages the platform takes from bots; absent, with sendVoice, where it takes none. */
   readonly voiceFormat?: VoiceFormat;

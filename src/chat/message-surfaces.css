@@ -142,3 +142,11 @@
   font-size: var(--text-micro);
   color: light-dark(#999, #888);
 }
+.message-vault-scrubbed {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 4px 0;
+  font-size: var(--text-micro);
+  color: var(--text-muted);
+}

@@ -26,6 +26,15 @@ export interface HarnessRunOptions {
   privateSessionId?: string;
   peerContext?: string;
   onStarted?: (runId: string) => void;
+  /** Live assistant text updates during a run (cleaned of reasoning tags and internal markers). */
+  onAssistantStream?: (event: { runId: string; messageId: string; content: string; reset?: boolean }) => void;
+  /** An assistant turn whose text is finalized before tools run or the next turn begins. */
+  onAssistantMessage?: (event: {
+    runId: string;
+    messageId: string;
+    content: string;
+    presentation: 'progress' | 'answer';
+  }) => void;
 }
 export interface PeerGateway {
   waitResult?: (

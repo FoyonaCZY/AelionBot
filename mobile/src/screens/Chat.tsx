@@ -289,7 +289,7 @@ export function Chat({ botId, sessionId, fresh }: { botId: string; sessionId?: s
               <I name="arrowDown" size={18} stroke={2.2} />
             </button>
           )}
-          <RequestDock request={request} onComputer={() => go('#/computer/' + botId)} />
+          <RequestDock key={request.id} request={request} onComputer={() => go('#/computer/' + botId)} />
         </div>
       ) : (
         <Composer

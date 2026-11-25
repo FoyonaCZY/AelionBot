@@ -15,6 +15,7 @@ import { registerRemote } from './register-remote';
 import { registerBackup } from './register-backup';
 import { registerMemory } from './register-memory';
 import { registerKnowledge } from './register-knowledge';
+import { registerVault } from './register-vault';
 import { registerModels } from './register-models';
 import { registerPeers } from './register-peers';
 import { registerPersona } from './register-persona';
@@ -36,6 +37,7 @@ export function registerIpc(ctx: IpcContext) {
   registerChat(ctx);
   registerMemory(ctx);
   registerKnowledge(ctx);
+  registerVault(ctx);
   registerSessions(ctx);
   registerConversations(ctx);
   registerModels(ctx);

@@ -125,7 +125,11 @@ export function Sidebar({
         ? pending.approval?.phase === 'reviewing'
           ? t('审核模型正在审核操作')
           : t('等待你的本机操作许可')
-        : t('等待人工接管')
+        : pending.kind === 'vault_input'
+          ? t('等待你安全录入')
+          : pending.kind === 'vault_use'
+            ? t('等待你授权使用凭据')
+            : t('等待人工接管')
       : active
         ? t('正在工作…')
         : introducing

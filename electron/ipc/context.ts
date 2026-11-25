@@ -33,6 +33,7 @@ import type { UserTerminals } from '../core/host/user-terminals';
 import type { Cognition } from '../core/memory/cognition';
 import type { MemoryAdmin } from '../core/memory/memory-admin';
 import type { KnowledgeService } from '../core/knowledge/knowledge-service';
+import type { VaultService } from '../core/vault/vault-service';
 import type { ModelClient } from '../core/model/model';
 import type { ModelProviders } from '../core/model/model-providers';
 import type { Spending } from '../core/app/spending';
@@ -81,6 +82,7 @@ export interface IpcContext {
   readonly cognition: Cognition;
   readonly memoryAdmin: MemoryAdmin;
   readonly knowledge: KnowledgeService | undefined;
+  readonly vault: VaultService | undefined;
   readonly designSystems: DesignSystems;
   readonly designStore: DesignStore;
   readonly designerFiles: DesignerFiles;

@@ -2,6 +2,9 @@ import type { VideoFrames } from '../preview/video-frames';
 import type { AgentPreviews } from '../preview/agent-previews';
 import { PinnedWidgets } from '../preview/pinned-widgets';
 import type { DesignWork } from '../designer/design-work';
+import { VaultService } from '../vault/vault-service';
+import { VaultResolver, type VaultResolutionContext } from '../vault/vault-resolver';
+import { VaultScrubber, type ScrubTargetField } from '../vault/vault-scrubber';
 import { operationDenial, DENIAL_GUIDANCE } from './operation-denial';
 import { conversationIdentityPrompt } from '../../../shared/chat/user-profile';
 import { isTeachingPrompt } from '../../../shared/teaching/teaching-events';
@@ -34,7 +37,7 @@ import { FileCheckpoints } from '../tools/file-checkpoints';
 import { PythonSessions } from '../tools/python-sessions';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Bot, WireMessage, RunRecord, MessageReasoning } from '../../../shared/types/core';
+import type { Bot, ChatMessage, WireMessage, RunRecord, MessageReasoning } from '../../../shared/types/core';
 import { Store } from '../storage/store';
 import { laneMatches, runLane } from './run-lanes';
 import type { TaskScheduler } from '../scheduler/task-scheduler';
@@ -148,6 +151,7 @@ const HEADLESS_HIDDEN_TOOLS = new Set([
   'user_input_wait',
   'widgets_list',
   'widget_save',
+  'vault_request',
 ]);
 const privateTools = new Set([
   'bots_list',
@@ -306,6 +310,30 @@ export class Harness {
   private knowledge?: import('../knowledge/knowledge-service').KnowledgeAccess;
   setKnowledge(access: import('../knowledge/knowledge-service').KnowledgeAccess) {
     this.knowledge = access;
+  }
+  private vault?: VaultService;
+  private vaultResolver?: VaultResolver;
+  private vaultRunScopes = new Map<
+    string,
+    {
+      scheduledRun: boolean;
+      groupBotTriggered: boolean;
+      connector?: { isOwner: boolean };
+      privateSession: () => boolean;
+      getHistory: () => WireMessage[];
+      getLastRuntimeMessages: () => WireMessage[] | undefined;
+      turnContext: WireMessage;
+    }
+  >();
+  setVault(vault: VaultService, resolver: VaultResolver) {
+    this.vault = vault;
+    this.vaultResolver = resolver;
+    this.terminals.setVault(resolver, vault.redactor);
+    this.interactions?.setVaultSave((input, actor) => vault.save(input, actor));
+  }
+  private redactText(text: string, runId?: string): string {
+    const vaultRedacted = this.vault ? this.vault.redactor.redactString(text, { runId }) : text;
+    return this.host ? this.host.redact(vaultRedacted) : vaultRedacted;
   }
   private pinnedWidgets: PinnedWidgets;
   setPinnedWidgets(service: PinnedWidgets) {
@@ -945,6 +973,7 @@ export class Harness {
             (modelConfig.contextTokens >= 32000 || Boolean(privateSessionId) || Boolean(sessionId)),
           history: Boolean(cognition) && !this.disabledTools.has('history_search'),
           web: !this.disabledTools.has('web_read'),
+          vault: Boolean(this.vault) && !(speaker && !speaker.owner) && !(privateSessionId && options.peerOrigin),
           privateMessage: Boolean(privateSessionId && options.peerOrigin?.kind !== 'peer_summary'),
         }),
     };
@@ -1036,6 +1065,8 @@ export class Harness {
     let mcpOffer: { tools: ToolDefinition[]; prompt: string } | undefined;
     // The knowledge bases this Bot may search, likewise taken once; empty when it has none.
     let knowledgePrompt: string | undefined;
+    // Frozen per-run Vault catalog prompt; empty when no items are visible or non-owner connector.
+    let vaultPrompt: string | undefined;
     const pendingFailures = new Map<string, string>();
     let verificationRetries = 0,
       lastFailure = '',
@@ -1098,6 +1129,23 @@ export class Harness {
       this.store.save();
       this.changed();
     };
+    const emittedAssistantIds = new Set<string>();
+    const emitAssistant = (message: ChatMessage) => {
+      if (!options.onAssistantMessage || emittedAssistantIds.has(message.id)) return;
+      if (message.role !== 'assistant' || message.status !== 'done') return;
+      if (message.presentation !== 'progress' && message.presentation !== 'answer') return;
+      emittedAssistantIds.add(message.id);
+      options.onAssistantMessage({
+        runId: run.id,
+        messageId: message.id,
+        content: this.redactText(message.content, run.id),
+        presentation: message.presentation,
+      });
+    };
+    const nextAssistant = () => {
+      emitAssistant(visible);
+      visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
+    };
     const continueUnfinishedWork = (instruction: string) => {
       visible.status = 'done';
       visible.presentation = 'progress';
@@ -1122,7 +1170,7 @@ export class Harness {
         throw new Error(reason);
       }
       history.push({ role: 'system', content: prematureAnswer(prematureAnswers, instruction) });
-      visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
+      nextAssistant();
       this.store.save();
       this.changed();
       return false;
@@ -1135,11 +1183,25 @@ export class Harness {
       const delivery = options.groupOrigin
         ? this.store.data.groupDeliveries.find((d) => d.id === options.groupOrigin!.deliveryId)
         : undefined;
-      const groupSource = delivery
+      const deliveryMessage = delivery
         ? this.store.data.groups
             .find((g) => g.id === delivery.groupId)
-            ?.messages.find((m) => m.id === delivery.messageId && m.sender.kind === 'user' && !m.reaction)
+            ?.messages.find((m) => m.id === delivery.messageId)
         : undefined;
+      const groupSource =
+        deliveryMessage && deliveryMessage.sender.kind === 'user' && !deliveryMessage.reaction
+          ? deliveryMessage
+          : undefined;
+      const runConnectorMsg = this.store.humanRunMessage(run.id)?.connector ?? speaker;
+      this.vaultRunScopes.set(run.id, {
+        scheduledRun,
+        groupBotTriggered: Boolean(options.groupOrigin && deliveryMessage?.sender.kind === 'bot'),
+        ...(runConnectorMsg ? { connector: { isOwner: Boolean(runConnectorMsg.owner) } } : {}),
+        privateSession: () => Boolean(privateSessionId),
+        getHistory: () => history,
+        getLastRuntimeMessages: () => lastRuntimeMessages,
+        turnContext,
+      });
       const source = options.workItemId
         ? undefined
         : (groupSource?.mentions?.length && !groupSource.mentions.some((m) => m.id === botId)
@@ -1227,6 +1289,16 @@ export class Harness {
           this.disabledTools.has('knowledge_search')
             ? ''
             : this.knowledge?.prompt(botId) || '';
+        const runVaultConnector = speaker ?? this.store.humanRunMessage(run.id)?.connector;
+        const nonOwnerConnector = Boolean(runVaultConnector && !runVaultConnector.owner);
+        vaultPrompt ??=
+          options.peerOrigin?.kind === 'peer_summary' ||
+          (privateSessionId && options.peerOrigin) ||
+          nonOwnerConnector ||
+          !this.vault ||
+          this.disabledTools.has('vault_list')
+            ? ''
+            : this.vault.prompt(botId);
         const { availableTools, modelTools } = this.turnTools(
           botId,
           run,
@@ -1293,6 +1365,7 @@ export class Harness {
           },
           ...(mcpOffer.prompt ? [{ role: 'system' as const, content: mcpOffer.prompt }] : []),
           ...(knowledgePrompt ? [{ role: 'system' as const, content: knowledgePrompt }] : []),
+          ...(vaultPrompt ? [{ role: 'system' as const, content: vaultPrompt }] : []),
           // A run bound to a design task: design rules, craft, the kind's workflow and the pinned reference.
           ...(this.design?.prefix(run) || []),
         ];
@@ -1332,7 +1405,10 @@ export class Harness {
           message.content = '';
           let accepting = true;
           const target = this.streamTarget(botId, run.id, message.id, message.time);
-          let preview = this.streams.begin(target, this.streamMembers(target.groupId));
+          const onStream = options.onAssistantStream
+            ? (content: string) => options.onAssistantStream!({ runId: run.id, messageId: message.id, content })
+            : undefined;
+          let preview = this.streams.begin(target, this.streamMembers(target.groupId), onStream);
           delete message.reasoning;
           try {
             return await abortable(inferenceSignal, () =>
@@ -1385,7 +1461,8 @@ export class Harness {
                   onReset: () => {
                     message.content = '';
                     preview.close(false);
-                    preview = this.streams.begin(target, this.streamMembers(target.groupId));
+                    options.onAssistantStream?.({ runId: run.id, messageId: message.id, content: '', reset: true });
+                    preview = this.streams.begin(target, this.streamMembers(target.groupId), onStream);
                   },
                 },
               ),
@@ -1495,13 +1572,27 @@ export class Harness {
             groupPrepared.stats.calibration,
           );
         }
+        const hasVaultSaveCall = result.calls.some((call) => call.function.name === 'vault_save');
+        const maskedHistoryCalls = hasVaultSaveCall
+          ? result.calls.map((call) =>
+              call.function.name === 'vault_save'
+                ? {
+                    ...call,
+                    function: {
+                      ...call.function,
+                      arguments: VaultScrubber.maskVaultSaveArgumentsJson(call.function.arguments),
+                    },
+                  }
+                : call,
+            )
+          : result.calls;
         lastRuntimeMessages = [
           ...finalContext,
           {
             role: 'assistant',
-            native: result.native,
+            ...(hasVaultSaveCall ? {} : { native: result.native }),
             content: result.content || null,
-            ...(result.calls.length ? { tool_calls: result.calls } : {}),
+            ...(maskedHistoryCalls.length ? { tool_calls: maskedHistoryCalls } : {}),
           },
         ];
         lastTools = modelTools;
@@ -1531,12 +1622,15 @@ export class Harness {
         if ((!groupKey || result.calls.length) && !silentReaction)
           history.push({
             role: 'assistant',
-            native: result.native,
+            ...(hasVaultSaveCall ? {} : { native: result.native }),
             content: standaloneReaction ? null : result.content || null,
-            ...(result.calls.length ? { tool_calls: result.calls } : {}),
+            ...(maskedHistoryCalls.length ? { tool_calls: maskedHistoryCalls } : {}),
           });
         this.store.save();
-        if (result.calls.length) this.changed();
+        if (result.calls.length) {
+          this.changed();
+          if (!hasVaultSaveCall) emitAssistant(visible);
+        }
         if (result.calls.length) prematureAnswers = 0;
         if (!result.calls.length) {
           if (
@@ -1547,8 +1641,9 @@ export class Harness {
             this.store.touch(visible);
             this.store.save();
             this.changed();
+            emitAssistant(visible);
             await this.interactions.waitQuestions(botId, run.id, controller.signal);
-            visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
+            nextAssistant();
             continue;
           }
           const terminals = this.terminals
@@ -1561,7 +1656,7 @@ export class Harness {
               role: 'system',
               content: runningTerminals(terminals),
             });
-            visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
+            nextAssistant();
             continue;
           }
           const delegation =
@@ -1580,7 +1675,7 @@ export class Harness {
               role: 'system',
               content: missingDelegationReceipt(delegation.task),
             });
-            visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
+            nextAssistant();
             continue;
           }
           const pendingPython = this.pythonSessions.pending(botId, run.id);
@@ -1593,7 +1688,7 @@ export class Harness {
               role: 'system',
               content: unfinishedPython(pendingPython),
             });
-            visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
+            nextAssistant();
             continue;
           }
           const pendingProcesses = this.processes
@@ -1608,7 +1703,7 @@ export class Harness {
               role: 'system',
               content: unfinishedProcesses(pendingProcesses),
             });
-            visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
+            nextAssistant();
             continue;
           }
           // A goal keeps itself going turn after turn. While automatic runs are held it stops here instead: the goal
@@ -1635,7 +1730,7 @@ export class Harness {
               role: 'system',
               content: unfinishedProcesses(pendingProcesses),
             });
-            visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
+            nextAssistant();
             continue;
           }
           if (
@@ -1667,7 +1762,7 @@ export class Harness {
               role: 'system',
               content: privateSessionId ? MEMORY_NEEDS_MAIN_TASK : MEMORY_NOT_SAVED,
             });
-            visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
+            nextAssistant();
             this.changed();
             continue;
           }
@@ -1684,7 +1779,7 @@ export class Harness {
               role: 'system',
               content: unresolvedFailures([...pendingFailures]),
             });
-            visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
+            nextAssistant();
             continue;
           }
           const groupNote =
@@ -1695,7 +1790,7 @@ export class Harness {
             this.store.touch(visible);
             if (!readableContent(visible.content)) visible.content = '';
             history.push({ role: 'system', content: groupNote });
-            visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
+            nextAssistant();
             this.store.save();
             this.changed();
             continue;
@@ -1715,7 +1810,7 @@ export class Harness {
                 role: 'system',
                 content: mentionCheckFailed((error as Error).message),
               });
-              visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
+              nextAssistant();
               this.store.save();
               this.changed();
               continue;
@@ -1759,6 +1854,9 @@ export class Harness {
           } catch {
             /* The normal tool validation reports malformed arguments. */
           }
+          if (call.function.name === 'vault_save') {
+            displayInput = VaultScrubber.maskVaultSaveArgs(displayInput);
+          }
           const display = this.store.message(botId, 'tool', '正在执行…', {
             tool: call.function.name,
             status: 'running',
@@ -1773,14 +1871,28 @@ export class Harness {
               };
             } catch {}
           }
-          const execution = this.ledger.begin(botId, run.id, call, displayInput, run.workspaceDir);
+          const ledgerCall =
+            call.function.name === 'vault_save'
+              ? {
+                  ...call,
+                  function: {
+                    ...call.function,
+                    arguments: VaultScrubber.maskVaultSaveArgumentsJson(call.function.arguments),
+                  },
+                }
+              : call;
+          const execution = this.ledger.begin(botId, run.id, ledgerCall, displayInput, run.workspaceDir);
           display.executionId = execution.id;
           display.executionTarget = execution.targetKey;
+          const rawArgsForLog =
+            call.function.name === 'vault_save'
+              ? VaultScrubber.maskVaultSaveArgumentsJson(call.function.arguments)
+              : call.function.arguments;
           this.store.journal('tool.intent', {
             runId: run.id,
             invocationId: call.id,
             tool: call.function.name,
-            args: this.host ? this.host.redact(call.function.arguments) : call.function.arguments,
+            args: this.redactText(rawArgsForLog, run.id),
           });
           return {
             call,
@@ -1872,7 +1984,7 @@ export class Harness {
                 } else if (error instanceof InteractionDenied) {
                   job.denied = error;
                   job.display.status = 'cancelled';
-                  const denial = operationDenial(error, (text) => this.host?.redact(text) || text);
+                  const denial = operationDenial(error, (text) => this.redactText(text, run.id));
                   if (!error.stopTask) job.display.operationDenial = denial;
                   job.output = {
                     error: denial.reason,
@@ -1923,7 +2035,7 @@ export class Harness {
             display.status = 'cancelled';
             job.dispatched = false;
           }
-          let output = job.output,
+          let output = this.vault ? this.vault.redactor.redactValue(job.output, { runId: run.id }) : job.output,
             denied = job.denied,
             dispatched = job.dispatched;
           if (call.function.name === 'group_pass' && (output as any)?.passed === true) passed = true;
@@ -1942,7 +2054,7 @@ export class Harness {
           // Parallel calls settle their messages as they finish; each is completed here, after the others saved.
           display.activity = describeTool(call.function.name, displayInput, output);
           if (display.status === 'done') {
-            const diff = toolDiff(call.function.name, displayInput, (text) => this.host?.redact(text) ?? text);
+            const diff = toolDiff(call.function.name, displayInput, (text) => this.redactText(text, run.id));
             if (diff) display.diff = diff;
           }
           this.store.touch(display);
@@ -2114,7 +2226,7 @@ export class Harness {
             role: 'system',
             content: PIN_NOT_COMPLETION,
           });
-        visible = this.store.message(botId, 'assistant', '', { runId: run.id, status: 'running' });
+        nextAssistant();
         this.changed();
       }
     } catch (error) {
@@ -2144,7 +2256,7 @@ export class Harness {
       record.endedAt = new Date().toISOString();
       record.groupUpdated = (updated && groupRuntime.updateKind === 'group') || undefined;
       record.inputUpdated = (updated && groupRuntime.updateKind === 'input') || undefined;
-      record.error = updated
+      const errRaw = updated
         ? record.inputUpdated
           ? new InputUpdated().message
           : new GroupUpdated().message
@@ -2155,6 +2267,7 @@ export class Harness {
               ? controller.signal.reason.message
               : '任务已停止，已执行的操作和工作记录保留。'
             : (error as Error).message;
+      record.error = this.vault ? this.vault.redactor.redactString(errRaw, { runId: run.id }) : errRaw;
       visible.status = updated || controller.signal.aborted ? 'cancelled' : 'failed';
       visible.presentation = updated ? 'progress' : 'error';
       visible.content = updated ? '' : visible.content + (visible.content ? '\n\n' : '') + record.error;
@@ -2259,6 +2372,20 @@ export class Harness {
         (t.function.name !== 'text_to_speech' || Boolean(this.speech?.available('output'))) &&
         (t.function.name !== 'knowledge_search' || Boolean(knowledge)) &&
         (!['request_user_input', 'user_input_wait'].includes(t.function.name) || Boolean(this.interactions)) &&
+        (!['vault_list', 'vault_save'].includes(t.function.name) ||
+          (Boolean(this.vault) &&
+            !(
+              this.store.humanRunMessage(run.id)?.connector && !this.store.humanRunMessage(run.id)!.connector!.owner
+            ))) &&
+        (t.function.name !== 'vault_request' ||
+          (Boolean(this.vault) &&
+            Boolean(this.interactions) &&
+            !this.headless &&
+            !options.groupOrigin &&
+            !privateSessionId &&
+            !(
+              this.store.humanRunMessage(run.id)?.connector && !this.store.humanRunMessage(run.id)!.connector!.owner
+            ))) &&
         (work.forRun(run)?.status !== 'planning' || PLANNING_TOOLS.has(t.function.name)) &&
         (t.function.name !== 'chat_pin' || (!options.groupOrigin && !options.peerOrigin)) &&
         (!t.function.name.startsWith('design_') ||
@@ -2386,9 +2513,16 @@ export class Harness {
     this.runtimes.delete(lane);
     this.active.delete(lane);
     // Nothing is learned from a run the user took back.
-    if (cognition && !run.retracted) cognition.afterRun(botId, run.id, state.lastRuntimeMessages, state.lastTools);
-    else this.cognition?.learning.schedule();
+    if (cognition && !run.retracted) {
+      const safeRuntimeMessages = this.vault
+        ? this.vault.redactor.redactValue(state.lastRuntimeMessages, { runId: run.id })
+        : state.lastRuntimeMessages;
+      cognition.afterRun(botId, run.id, safeRuntimeMessages, state.lastTools);
+    } else this.cognition?.learning.schedule();
     this.cognition?.noteRun(botId, run.id);
+    this.vaultRunScopes.delete(run.id);
+    this.vaultResolver?.clearRun(run.id);
+    this.vault?.redactor.clearRun(run.id);
     this.changed();
   }
   private async invokeNested(
@@ -2402,18 +2536,28 @@ export class Harness {
     const definition = this.callableTools.get(runId)?.find((tool) => tool.function.name === name);
     if (!definition) throw new TemporarilyUnavailableTool('当前任务不可用的工具：' + name);
     validateToolArguments(definition, input);
+    const ledgerInput = name === 'vault_save' ? VaultScrubber.maskVaultSaveArgs(input) : input;
+    const rawArgs = JSON.stringify(input);
     const entry = this.ledger.begin(
         bot.id,
         runId,
-        { id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(input) } },
-        input,
+        {
+          id: randomUUID(),
+          type: 'function',
+          function: {
+            name,
+            arguments: name === 'vault_save' ? VaultScrubber.maskVaultSaveArgumentsJson(rawArgs) : rawArgs,
+          },
+        },
+        ledgerInput,
         this.store.data.runs.find((run) => run.id === runId)?.workspaceDir,
       ),
       resultId = randomUUID();
     this.changed();
     try {
-      const output = await this.executeTool(bot, input, name, signal, runId, options),
-        failed = commandResultFailed(output);
+      const rawOutput = await this.executeTool(bot, input, name, signal, runId, options);
+      const output = this.vault ? this.vault.redactor.redactValue(rawOutput, { runId }) : rawOutput;
+      const failed = commandResultFailed(output);
       const dir = join(this.store.dir, 'results');
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, resultId + '.json'), JSON.stringify(output ?? null));
@@ -2421,23 +2565,25 @@ export class Harness {
       if (failed && executionBlocksCompletion(entry)) throw Error(JSON.stringify(output).slice(0, 1200));
       return { executionId: entry.id, resultId, result: output };
     } catch (error) {
+      const safeError = this.vault ? this.vault.redactor.redactError(error, { runId }) : error;
       if (entry.status === 'running') {
-        const output = {
-          ...toolFailure(error),
-          ...(error instanceof InteractionDenied ? { denied: true, executed: false } : {}),
+        const rawOut = {
+          ...toolFailure(safeError),
+          ...(safeError instanceof InteractionDenied ? { denied: true, executed: false } : {}),
           ...(signal.aborted ? { cancelled: true } : {}),
         };
+        const output = this.vault ? this.vault.redactor.redactValue(rawOut, { runId }) : rawOut;
         const dir = join(this.store.dir, 'results');
         mkdirSync(dir, { recursive: true });
         writeFileSync(join(dir, resultId + '.json'), JSON.stringify(output));
         this.ledger.finish(
           entry,
-          signal.aborted ? 'unknown' : error instanceof InteractionDenied ? 'cancelled' : 'failed',
+          signal.aborted ? 'unknown' : safeError instanceof InteractionDenied ? 'cancelled' : 'failed',
           output,
           resultId,
         );
       }
-      throw error;
+      throw safeError;
     } finally {
       this.store.save();
       this.changed();
@@ -2457,6 +2603,11 @@ export class Harness {
       throw new TemporarilyUnavailableTool('计划尚未获得用户确认，只能读取资料和完善计划。');
     const restriction = reactionRestriction(name);
     if (restriction) throw new TemporarilyUnavailableTool(restriction);
+    try {
+      this.vaultResolver?.assertToolInputAllowed(name, args);
+    } catch (error) {
+      throw this.vault ? this.vault.redactor.redactError(error, { runId }) : error;
+    }
     const workspace = activeRun?.workspaceDir;
     // A default page must fit the inline tool-result budget, or its middle would be elided.
     if (['file_read', 'host_file_read', 'read_result'].includes(name) && args.maxChars === undefined)
@@ -2478,10 +2629,87 @@ export class Harness {
       });
     } catch (error) {
       await this.design?.afterTool(activeRun, name, args, true);
-      throw error;
+      throw this.vault ? this.vault.redactor.redactError(error, { runId }) : error;
     }
     await this.design?.afterTool(activeRun, name, args, commandResultFailed(output));
-    return output;
+    if (name === 'vault_save' && output && typeof output === 'object' && !Array.isArray(output)) {
+      const outObj = output as Record<string, unknown>;
+      const scrubFields = Array.isArray(outObj.__scrubFields) ? (outObj.__scrubFields as ScrubTargetField[]) : [];
+      delete outObj.__scrubFields;
+      delete outObj.__scrubValues;
+      if (scrubFields.length && outObj.item && typeof outObj.item === 'object') {
+        const scope = this.vaultRunScopes.get(runId);
+        const itemMeta = outObj.item as { id: string; title: string; slug: string };
+        if (this.vault) {
+          this.vault.registerActiveSecrets(
+            scrubFields.map((field) => ({ value: field.value, itemId: itemMeta.id, runId })),
+          );
+        }
+        const prepared = this.preparedContexts.get(runId);
+        const lastRuntime = scope?.getLastRuntimeMessages();
+        VaultScrubber.scrubAfterSave({
+          store: this.store,
+          runId,
+          botId: bot.id,
+          item: itemMeta,
+          savedFields: scrubFields,
+          history: scope?.getHistory(),
+          preparedContext: prepared,
+          turnContext: scope?.turnContext,
+        });
+        if (lastRuntime) {
+          VaultScrubber.scrubAfterSave({
+            store: this.store,
+            runId,
+            botId: bot.id,
+            item: itemMeta,
+            savedFields: scrubFields,
+            preparedContext: lastRuntime,
+          });
+        }
+        if (this.vault) {
+          for (const msg of this.store.runMessages(runId)) {
+            if (msg.role !== 'assistant') continue;
+            let touched = false;
+            if (typeof msg.content === 'string' && msg.content) {
+              const redacted = this.vault.redactor.redactString(msg.content, { runId });
+              if (redacted !== msg.content) {
+                msg.content = redacted;
+                touched = true;
+              }
+            }
+            if (msg.reasoning?.text) {
+              const redactedReasoning = this.vault.redactor.redactString(msg.reasoning.text, { runId });
+              if (redactedReasoning !== msg.reasoning.text) {
+                msg.reasoning = { ...msg.reasoning, text: redactedReasoning };
+                touched = true;
+              }
+            }
+            if (touched) this.store.touch(msg);
+          }
+        }
+      }
+    }
+    return this.vault ? this.vault.redactor.redactValue(output, { runId }) : output;
+  }
+  private buildVaultBaseContext(
+    botId: string,
+    runId: string,
+    options: HarnessRunOptions,
+  ): Omit<VaultResolutionContext, 'sink' | 'targetSummary' | 'target' | 'signal'> {
+    const scope = this.vaultRunScopes.get(runId);
+    const msgConnector = this.store.humanRunMessage(runId)?.connector;
+    const connector = scope?.connector ?? (msgConnector ? { isOwner: Boolean(msgConnector.owner) } : undefined);
+    return {
+      botId,
+      runId,
+      headless: this.headless,
+      scheduledRun: scope?.scheduledRun ?? Boolean(this.store.humanRunMessage(runId)?.scheduled),
+      groupOrigin: Boolean(options.groupOrigin),
+      groupBotTriggered: scope?.groupBotTriggered ?? false,
+      peerOrigin: Boolean(options.privateSessionId ?? scope?.privateSession()),
+      ...(connector ? { connector } : {}),
+    };
   }
   private toolDeps(): ToolDeps {
     return {
@@ -2512,6 +2740,9 @@ export class Harness {
       imageModel: this.imageModel,
       speech: this.speech,
       knowledge: this.knowledge,
+      vault: this.vault,
+      vaultResolver: this.vaultResolver,
+      vaultContext: (botId, runId, options) => this.buildVaultBaseContext(botId, runId, options),
       changed: () => this.changed(),
       callableTools: (runId) => this.callableTools.get(runId),
       activateTools: (runId, names) => this.activateTools(runId, names),

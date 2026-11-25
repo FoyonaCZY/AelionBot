@@ -1,3 +1,5 @@
+import { AppError } from '../../../../../shared/errors';
+import { containsVaultMarker } from '../../../../../shared/vault-refs';
 import { FILE_INPUTS_META, type BridgedFile } from '../../../extensions/mcp-files';
 import { namedFile } from './attachments';
 import { boundedInteger } from '../../../tools/file-text';
@@ -6,6 +8,17 @@ import { requiredText } from '../validation';
 import { MCP_NATIVE_PREFIX } from '../../../extensions/mcp-native';
 import type { McpRuntime } from '../../../extensions/mcp-runtime';
 import type { ToolContext } from '../context';
+
+function treeHasVaultMarker(value: unknown, seen = new Set<unknown>()): boolean {
+  if (typeof value === 'string') return containsVaultMarker(value);
+  if (!value || typeof value !== 'object') return false;
+  if (seen.has(value)) return false;
+  seen.add(value);
+  if (Array.isArray(value)) return value.some((item) => treeHasVaultMarker(item, seen));
+  return Object.entries(value as Record<string, unknown>).some(
+    ([key, item]) => containsVaultMarker(key) || treeHasVaultMarker(item, seen),
+  );
+}
 
 /** The files a tool inside this app reads, as stored copies of attachments the run may use. */
 async function bridgedInputs(context: ToolContext, inputs: string[], args: Record<string, unknown>) {
@@ -26,7 +39,7 @@ async function callTool(
   toolName: string,
   input: Record<string, unknown>,
 ) {
-  const { bot, signal, runId, deps } = context;
+  const { bot, signal, runId, options, deps } = context;
   const inspection = await mcp.inspectCall(server, toolName, input, Boolean(deps.interactions?.hasHostPolicy));
   if (inspection.permission) {
     if (!deps.interactions) throw new Error('此 MCP 操作需要用户确认');
@@ -35,7 +48,25 @@ async function callTool(
   signal.throwIfAborted();
   const bridge = mcp.fileBridge(server, toolName);
   const meta = bridge && { [FILE_INPUTS_META]: await bridgedInputs(context, bridge.inputs, input) };
-  return mcp.call(server, toolName, input, signal, inspection.fingerprint, meta);
+  let resolvedInput = input;
+  if (deps.vaultResolver) {
+    const baseCtx = deps.vaultContext?.(bot.id, runId, options) ?? { botId: bot.id, runId };
+    resolvedInput = await deps.vaultResolver.resolveObject(input, {
+      ...baseCtx,
+      sink: 'mcp',
+      targetSummary: `MCP：${server} / ${toolName}`,
+      target: { kind: 'mcp', value: server },
+      signal,
+    });
+  } else if (treeHasVaultMarker(input)) {
+    throw new AppError('vault.encryption_unavailable', '保险库解析器未配置，无法在 MCP 工具中注入凭据');
+  }
+  try {
+    const output = await mcp.call(server, toolName, resolvedInput, signal, inspection.fingerprint, meta);
+    return deps.vault ? deps.vault.redactor.redactValue(output, { runId }) : output;
+  } catch (error) {
+    throw deps.vault ? deps.vault.redactor.redactError(error, { runId }) : error;
+  }
 }
 
 export const MCP_HANDLER: PrefixHandler = {

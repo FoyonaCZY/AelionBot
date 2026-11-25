@@ -6,6 +6,7 @@ import type {
   AdapterHandlers,
   ConnectorAdapter,
   ConnectorCard,
+  ConnectorTextStream,
   InboundMessage,
   InboundResource,
 } from '../connector-adapter';
@@ -18,6 +19,7 @@ const API_BASE = 'https://slack.com/api';
 /** Slack takes far longer messages, but shows the long ones collapsed. */
 const TEXT_CHARS = 3500;
 const PING_MS = 30_000;
+const STREAM_INTERVAL_MS = 1000;
 const CUE = 'eyes';
 /** Answers that mean a token will not work again. */
 const AUTH_ERRORS = new Set(['invalid_auth', 'not_authed', 'token_revoked', 'token_expired', 'account_inactive']);
@@ -40,6 +42,7 @@ export interface SlackOptions {
   /** How long a "retry after N seconds" answer waits. */
   retryAfterMs?: (seconds: number) => number;
   pingMs?: number;
+  streamIntervalMs?: number;
 }
 
 class SlackError extends Error {
@@ -459,6 +462,51 @@ export class SlackAdapter implements ConnectorAdapter {
         unfurl_links: false,
         unfurl_media: false,
       });
+  }
+  /** Streams a reply in place with `chat.postMessage` + `chat.update`, throttled within Slack's Tier 3 rate limit. */
+  beginStream(chatId: string): ConnectorTextStream {
+    const intervalMs = this.options.streamIntervalMs ?? STREAM_INTERVAL_MS;
+    const sent: Array<{ channel: string; ts: string; content: string }> = [];
+    let finished = false;
+    const sync = async (text: string) => {
+      const channel = await this.channel(chatId),
+        parts = splitMarkdown(text, TEXT_CHARS);
+      for (let index = 0; index < parts.length; index++) {
+        const formatted = slackMrkdwn(parts[index]) || parts[index];
+        if (!sent[index]) {
+          const posted = await this.api('chat.postMessage', {
+            channel,
+            text: formatted,
+            mrkdwn: true,
+            unfurl_links: false,
+            unfurl_media: false,
+          });
+          sent.push({ channel: String(posted.channel || channel), ts: String(posted.ts), content: formatted });
+        } else if (sent[index].content !== formatted) {
+          await this.api('chat.update', {
+            channel: sent[index].channel,
+            ts: sent[index].ts,
+            text: formatted,
+          });
+          sent[index].content = formatted;
+        }
+      }
+    };
+    return {
+      intervalMs,
+      update: async (text: string) => {
+        if (finished || !text.trim()) return;
+        await sync(text);
+      },
+      finish: async (text: string) => {
+        if (finished) return;
+        finished = true;
+        const final = text.trim();
+        if (!final) return;
+        if (!sent.length) await this.sendText(chatId, final);
+        else await sync(final);
+      },
+    };
   }
   /** Slack's upload in three steps: ask for an address, send the bytes there, then share the file in the chat. */
   async sendFile(chatId: string, file: { name: string; bytes: Buffer }) {

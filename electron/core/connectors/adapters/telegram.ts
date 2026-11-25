@@ -1,9 +1,11 @@
 // Telegram through the Bot API: getUpdates as a long poll (no public address), private chats only. Replies go out as
 // Telegram HTML with a plain-text retry; files and voice messages go both ways; approvals are inline-keyboard buttons.
+import { randomInt } from 'node:crypto';
 import type {
   AdapterHandlers,
   ConnectorAdapter,
   ConnectorCard,
+  ConnectorTextStream,
   InboundMessage,
   InboundResource,
 } from '../connector-adapter';
@@ -22,6 +24,8 @@ const PHOTO_BYTES = 10 * 1024 * 1024;
 const FILE_BYTES = 50 * 1024 * 1024;
 /** "typing…" shows for five seconds. */
 const TYPING_MS = 4000;
+const DRAFT_INTERVAL_MS = 400;
+const EDIT_INTERVAL_MS = 1000;
 /** The photos of an album arrive as separate messages, moments apart. */
 const ALBUM_MS = 700;
 const PHOTO_FILE = /\.(png|jpe?g|webp)$/i;
@@ -44,6 +48,8 @@ export interface TelegramOptions {
   retryAfterMs?: (seconds: number) => number;
   typingMs?: number;
   albumMs?: number;
+  streamIntervalMs?: number;
+  editIntervalMs?: number;
 }
 
 class TelegramError extends Error {
@@ -138,6 +144,8 @@ export class TelegramAdapter implements ConnectorAdapter {
   private albums = new Map<string, Album>();
   /** Cards already rewritten with their result, so a press does not rewrite them again. */
   private closed = new Set<string>();
+  /** Set when Bot API rejects `sendMessageDraft`, falling back to editing a sent message. */
+  private draftUnsupported = false;
   private cue: TypingCue;
   constructor(
     private token: string,
@@ -155,6 +163,7 @@ export class TelegramAdapter implements ConnectorAdapter {
     this.halt?.abort();
     this.halt = new AbortController();
     this.last = undefined;
+    this.draftUnsupported = false;
     void this.loop(this.halt.signal);
   }
   private status(status: ConnectorStatus, issue?: string) {
@@ -340,24 +349,148 @@ export class TelegramAdapter implements ConnectorAdapter {
     for (const album of this.albums.values()) clearTimeout(album.timer);
     this.albums.clear();
   }
-  async sendText(chatId: string, text: string) {
-    for (const part of splitMarkdown(text, TEXT_CHARS))
+  private async sendPart(chatId: string, part: string): Promise<number> {
+    try {
+      const sent = await this.call('sendMessage', {
+        chat_id: chat(chatId),
+        text: telegramHtml(part) || part,
+        parse_mode: 'HTML',
+        link_preview_options: { is_disabled: true },
+      });
+      return Number(sent?.message_id);
+    } catch (error) {
+      // Markup Telegram cannot parse, such as emphasis that overlaps: the same part goes as plain text.
+      if (!(error instanceof TelegramError) || error.status !== 400) throw error;
+      const sent = await this.call('sendMessage', {
+        chat_id: chat(chatId),
+        text: (plainText(part) || part).slice(0, 4096),
+        link_preview_options: { is_disabled: true },
+      });
+      return Number(sent?.message_id);
+    }
+  }
+  private async editPart(chatId: string, messageId: number, part: string) {
+    try {
+      await this.call('editMessageText', {
+        chat_id: chat(chatId),
+        message_id: messageId,
+        text: telegramHtml(part) || part,
+        parse_mode: 'HTML',
+        link_preview_options: { is_disabled: true },
+      });
+    } catch (error) {
+      if (!(error instanceof TelegramError) || error.status !== 400) throw error;
+      if (/message is not modified/i.test(error.message)) return;
       try {
-        await this.call('sendMessage', {
+        await this.call('editMessageText', {
           chat_id: chat(chatId),
-          text: telegramHtml(part) || part,
-          parse_mode: 'HTML',
-          link_preview_options: { is_disabled: true },
-        });
-      } catch (error) {
-        // Markup Telegram cannot parse, such as emphasis that overlaps: the same part goes as plain text.
-        if (!(error instanceof TelegramError) || error.status !== 400) throw error;
-        await this.call('sendMessage', {
-          chat_id: chat(chatId),
+          message_id: messageId,
           text: (plainText(part) || part).slice(0, 4096),
           link_preview_options: { is_disabled: true },
         });
+      } catch (fallback) {
+        if (fallback instanceof TelegramError && /message is not modified/i.test(fallback.message)) return;
+        throw fallback;
       }
+    }
+  }
+  async sendText(chatId: string, text: string) {
+    for (const part of splitMarkdown(text, TEXT_CHARS)) await this.sendPart(chatId, part);
+  }
+  /**
+   * Streams a reply using Bot API's native `sendMessageDraft` (persisted via `sendMessage` on finish), falling back
+   * to `sendMessage` + `editMessageText` if the Bot API server does not support drafts.
+   */
+  beginStream(chatId: string): ConnectorTextStream {
+    const draftIntervalMs = this.options.streamIntervalMs ?? DRAFT_INTERVAL_MS,
+      editIntervalMs = this.options.editIntervalMs ?? EDIT_INTERVAL_MS,
+      draftId = randomInt(1, 0x7fffffff),
+      isDraftUnsupported = () => this.draftUnsupported;
+    let mode: 'idle' | 'draft' | 'edit' = 'idle',
+      finished = false,
+      lastDraft = '';
+    const sent: Array<{ messageId: number; content: string }> = [];
+    const draftPreview = (text: string) => {
+      const parts = splitMarkdown(text, TEXT_CHARS);
+      return parts.length > 1 ? '…\n' + parts.at(-1)! : parts[0] || text;
+    };
+    const sendDraft = async (preview: string) => {
+      try {
+        await this.call('sendMessageDraft', {
+          chat_id: chat(chatId),
+          draft_id: draftId,
+          text: telegramHtml(preview) || preview,
+          parse_mode: 'HTML',
+        });
+      } catch (error) {
+        if (error instanceof TelegramError && error.status === 400 && /parse entities/i.test(error.message)) {
+          await this.call('sendMessageDraft', {
+            chat_id: chat(chatId),
+            draft_id: draftId,
+            text: (plainText(preview) || preview).slice(0, 4096),
+          });
+          return;
+        }
+        throw error;
+      }
+    };
+    const syncEdit = async (text: string) => {
+      const parts = splitMarkdown(text, TEXT_CHARS);
+      for (let index = 0; index < parts.length; index++) {
+        const part = parts[index];
+        if (!sent[index]) {
+          const messageId = await this.sendPart(chatId, part);
+          sent.push({ messageId, content: part });
+        } else if (sent[index].content !== part) {
+          await this.editPart(chatId, sent[index].messageId, part);
+          sent[index].content = part;
+        }
+      }
+    };
+    return {
+      get intervalMs() {
+        return mode === 'edit' || isDraftUnsupported() ? editIntervalMs : draftIntervalMs;
+      },
+      update: async (text: string) => {
+        if (finished || !text.trim()) return;
+        if (mode === 'idle') {
+          if (!this.draftUnsupported) {
+            const preview = draftPreview(text);
+            try {
+              await sendDraft(preview);
+              mode = 'draft';
+              lastDraft = preview;
+              return;
+            } catch (error) {
+              if (error instanceof TelegramError && (error.status === 404 || error.status === 400)) {
+                if (error.status === 404 || /method.*not found|unknown method/i.test(error.message))
+                  this.draftUnsupported = true;
+                mode = 'edit';
+              } else throw error;
+            }
+          } else mode = 'edit';
+        }
+        if (mode === 'draft') {
+          const preview = draftPreview(text);
+          if (preview === lastDraft) return;
+          await sendDraft(preview);
+          lastDraft = preview;
+          return;
+        }
+        await syncEdit(text);
+      },
+      finish: async (text: string) => {
+        if (finished) return;
+        finished = true;
+        const final = text.trim();
+        if (!final) return;
+        if (mode === 'edit' && sent.length) {
+          await syncEdit(final);
+          return;
+        }
+        await this.sendText(chatId, final);
+      },
+    };
   }
   private form(chatId: string, field: string, bytes: Buffer, name: string, type?: string) {
     const data = new FormData();

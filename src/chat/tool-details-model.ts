@@ -1,5 +1,27 @@
 import { friendlyError } from '../../shared/chat/activity';
 import { translate } from '../../shared/i18n';
+import { extractVaultRefs } from '../../shared/vault-refs';
+
+type VaultTextSegment = { kind: 'text'; text: string } | { kind: 'vault'; raw: string; item: string; field: string };
+
+/** Splits text around `{{vault:item.field}}` placeholders so UI can render masked pills instead of raw syntax. */
+export function splitVaultText(text: string): VaultTextSegment[] {
+  const refs = extractVaultRefs(text);
+  if (!refs.length) return text ? [{ kind: 'text', text }] : [];
+  const segments: VaultTextSegment[] = [];
+  let cursor = 0;
+  for (const ref of refs) {
+    if (ref.start > cursor) {
+      segments.push({ kind: 'text', text: text.slice(cursor, ref.start) });
+    }
+    segments.push({ kind: 'vault', raw: ref.raw, item: ref.item, field: ref.field });
+    cursor = ref.end;
+  }
+  if (cursor < text.length) {
+    segments.push({ kind: 'text', text: text.slice(cursor) });
+  }
+  return segments;
+}
 
 export const objectValue = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -129,6 +151,21 @@ const labels: Record<string, string> = {
   value: '内容',
   date: '日期',
   id: '编号',
+  slug: '引用别名',
+  category: '分类',
+  bindings: '适用范围',
+  fields: '字段',
+  policy: '授权策略',
+  saved: '已保存',
+  cancelled: '已取消',
+  item: '条目',
+  items: '条目列表',
+  hint: '引用提示',
+  preview: '掩码预览',
+  derived: '动态派生',
+  notes: '说明',
+  tags: '标签',
+  unreadable: '无法解密',
 };
 export function fieldLabel(key: string) {
   return translate(labels[key] || key.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2'));

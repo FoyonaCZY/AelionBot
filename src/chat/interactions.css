@@ -369,3 +369,141 @@
 .conversation-request.question-card {
   max-height: min(560px, 55dvh);
 }
+.conversation-request.vault-card {
+  max-height: min(560px, 60dvh);
+}
+.vault-card-kicker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 2px;
+  font-size: var(--text-micro);
+  color: var(--text-muted);
+}
+.vault-card-note {
+  margin: 0 0 10px;
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+.vault-card-bindings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: var(--text-micro);
+}
+.vault-card-bindings > span {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--ctl-fill);
+  color: var(--text-secondary);
+}
+.vault-card-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.vault-card-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.vault-card-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.vault-card-field-head label {
+  font-size: var(--text-caption);
+  font-weight: var(--weight-label);
+  color: var(--text-ink);
+}
+.vault-card-field-head em {
+  color: var(--ctl-danger);
+  font-style: normal;
+}
+.vault-card-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.vault-card-field input,
+.vault-card-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--ctl-fill);
+  color: var(--text-ink);
+  font: inherit;
+  font-size: var(--text-small);
+  outline: none;
+}
+.vault-card-field input {
+  height: var(--size-lg);
+  padding: 0 38px 0 12px;
+}
+.vault-card-field textarea {
+  padding: 8px 12px;
+  resize: vertical;
+  font-family: var(--font-code);
+  font-size: var(--text-caption);
+}
+.vault-card-field :is(input, textarea):focus {
+  box-shadow: var(--ctl-focus);
+}
+.vault-card-eye {
+  position: absolute;
+  right: 4px;
+  width: var(--size-sm);
+  height: var(--size-sm);
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+}
+.vault-card-imported {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--size-lg);
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  background: var(--ctl-fill);
+  font-size: var(--text-caption);
+}
+.vault-card-imported > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vault-mismatch-banner {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--ctl-danger-soft);
+  color: var(--ctl-danger);
+}
+.vault-mismatch-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: var(--text-small);
+}
+.vault-mismatch-banner p {
+  margin: 0 0 8px;
+  font-size: var(--text-caption);
+  line-height: 1.55;
+}
+.vault-mismatch-banner .vault-card-bindings {
+  margin-bottom: 0;
+}
+.vault-mismatch-banner .vault-card-bindings > span {
+  background: light-dark(rgba(255, 255, 255, 0.7), rgba(0, 0, 0, 0.25));
+  color: var(--ctl-danger);
+}

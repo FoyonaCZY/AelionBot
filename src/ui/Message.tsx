@@ -20,6 +20,7 @@ import type { MessageBlock } from '../../shared/chat/message-blocks';
 import { stripBlockPlacements } from '../../shared/chat/message-blocks';
 import { MessageBlockContent, MessageBlocks, hasBlockMarkers } from '../chat/MessageBlocks';
 import { WidgetMessageContext } from '../chat/widget-context';
+import { Icon } from './Icon';
 import '../chat/message-surfaces.css';
 
 type MessageProps = {
@@ -204,6 +205,12 @@ function MessageView({
           )}
           {bare && <AttachmentList files={message.attachments} />}
         </MessageActions>
+        {message.role === 'user' && message.vaultScrubbed && (
+          <div className="message-vault-scrubbed">
+            <Icon name="lock" size={11} />
+            <span>{t('敏感信息已转存保险库并隐藏')}</span>
+          </div>
+        )}
       </div>
     </>
   );

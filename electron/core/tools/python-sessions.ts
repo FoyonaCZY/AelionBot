@@ -12,7 +12,7 @@ export interface PythonSession {
   closed?: boolean;
 }
 export const PYTHON_KERNEL = String.raw`
-import ast,contextlib,json,pathlib,sys,time,traceback
+import ast,contextlib,json,os,pathlib,sys,time,traceback
 root=pathlib.Path(sys.argv[1]); requests=root/'requests'; requests.mkdir(exist_ok=True); namespace={'__name__':'__aelion_session__'}
 class Output:
     def __init__(self): self.text=''; self.truncated=False
@@ -21,13 +21,29 @@ class Output:
     def flush(self): pass
 def save(path,value):
     temp=path.with_suffix('.tmp'); temp.write_text(json.dumps(value,ensure_ascii=False),encoding='utf-8'); temp.replace(path)
+def consume_env(req_id):
+    ep=pathlib.Path('/dev/shm')/('aelion-vault-py-'+req_id+'.json')
+    if not ep.exists(): return {}
+    raw=ep.read_text(encoding='utf-8')
+    try:
+        sz=ep.stat().st_size
+        if sz>0:
+            with ep.open('r+b') as fh: fh.write(b'\x00'*sz); fh.flush()
+    except Exception: pass
+    try: ep.unlink()
+    except Exception: pass
+    return json.loads(raw) if raw else {}
 while not (root/'stop').exists():
     for path in sorted(requests.glob('*.json')):
         target=root/(path.stem+'.result.json')
         if target.exists(): continue
         request=json.loads(path.read_text(encoding='utf-8')); out=Output(); status={'status':'completed','isError':False}; value=None
+        extra_env=consume_env(path.stem); prev_env={}
         save(root/'active.json',{'id':path.stem})
         try:
+            for k,v in extra_env.items():
+                prev_env[k]=(k in os.environ,os.environ.get(k))
+                os.environ[k]=v
             tree=ast.parse(request['code'],filename='<bot-python>'); expression=tree.body.pop() if tree.body and isinstance(tree.body[-1],ast.Expr) else None
             with contextlib.redirect_stdout(out),contextlib.redirect_stderr(out):
                 exec(compile(tree,'<bot-python>','exec'),namespace)
@@ -35,6 +51,11 @@ while not (root/'stop').exists():
             if value is not None: out.write(repr(value)[:10000]+'\n')
         except BaseException:
             status['isError']=True; out.write(traceback.format_exc(limit=8))
+        finally:
+            for k,(existed,old) in prev_env.items():
+                if existed and old is not None: os.environ[k]=old
+                else: os.environ.pop(k,None)
+            extra_env.clear()
         status.update(output=out.text,truncated=out.truncated,variables=[{'name':k,'type':type(v).__name__} for k,v in namespace.items() if not k.startswith('_')][:100]); save(target,status)
         save(root/'active.json',{})
     time.sleep(.1)
@@ -95,7 +116,13 @@ export class PythonSessions {
     this.store.save();
     return { id, processId: process.id, started: true };
   }
-  async execute(botId: string, runId: string, args: Record<string, unknown>, signal: AbortSignal) {
+  async execute(
+    botId: string,
+    runId: string,
+    args: Record<string, unknown>,
+    signal: AbortSignal,
+    vaultEnv?: Record<string, string>,
+  ) {
     const session = this.get(botId, String(args.id));
     if (session.pending.length) throw Error('Python 会话仍有未取回的执行结果，请先 poll；不要重发可能已运行的代码');
     if (typeof args.code !== 'string' || !args.code.trim() || args.code.length > 50000)
@@ -107,9 +134,9 @@ export class PythonSessions {
     this.store.save();
     await this.run(
       botId,
-      `import pathlib,json; d=pathlib.Path.cwd()/'.aelion-python'/'${session.id}'/'requests'; p=d/(a['id']+'.json'); temp=p.with_suffix('.tmp'); temp.write_text(json.dumps(a),encoding='utf-8'); temp.replace(p); print(json.dumps({'queued':True}))`,
+      `import os,pathlib,json\nif 'vaultEnv' in a:\n ep=pathlib.Path('/dev/shm')/('aelion-vault-py-'+a['id']+'.json')\n fd=os.open(str(ep),os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)\n with os.fdopen(fd,'w',encoding='utf-8') as fh: fh.write(json.dumps(a['vaultEnv']))\n os.chmod(str(ep),0o600)\nd=pathlib.Path.cwd()/'.aelion-python'/'${session.id}'/'requests'; p=d/(a['id']+'.json'); temp=p.with_suffix('.tmp'); temp.write_text(json.dumps({'id':a['id'],'code':a['code']}),encoding='utf-8'); temp.replace(p); print(json.dumps({'queued':True}))`,
       signal,
-      { id, code: args.code },
+      { id, code: args.code, ...(vaultEnv && Object.keys(vaultEnv).length ? { vaultEnv } : {}) },
     );
     return this.poll(botId, session.id, id, signal, Number(args.waitMs) || 10000);
   }

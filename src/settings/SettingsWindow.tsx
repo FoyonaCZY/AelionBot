@@ -16,6 +16,7 @@ export type SettingsTab =
   | 'usage'
   | 'memory'
   | 'knowledge'
+  | 'vault'
   | 'computer'
   | 'remote'
   | 'permissions'
@@ -33,6 +34,7 @@ const groups: ReadonlyArray<{ label: string; pages: ReadonlyArray<Page> }> = [
       { id: 'model', label: '模型', icon: 'layers' },
       { id: 'memory', label: '记忆', icon: 'memory' },
       { id: 'knowledge', label: '知识库', icon: 'book' },
+      { id: 'vault', label: '保险库', icon: 'lock' },
       { id: 'design', label: '设计', icon: 'palette' },
     ],
   },

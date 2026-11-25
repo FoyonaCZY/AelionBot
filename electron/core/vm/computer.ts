@@ -3,7 +3,12 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ComputerState, ComputerDesktopState, ScreenReference } from '../../../shared/types/core';
 import { VmController, shQuote } from './vm';
-import { AppError } from '../../../shared/errors';
+import { AppError, errorCode } from '../../../shared/errors';
+import { containsVaultMarker } from '../../../shared/vault-refs';
+import { InteractionDenied } from '../agent/interactions';
+import type { VaultResolutionContext, VaultResolver } from '../vault/vault-resolver';
+
+type ComputerVaultMeta = Omit<VaultResolutionContext, 'sink' | 'targetSummary' | 'target' | 'signal'>;
 
 type ComputerAction =
   'screenshot' | 'click' | 'double_click' | 'move' | 'drag' | 'scroll' | 'key' | 'type' | 'wait' | 'open_app' | 'batch';
@@ -101,11 +106,14 @@ export class ComputerController {
   >();
   private generation = 0;
   readonly imageDir: string;
+  private vaultResolver?: VaultResolver;
   constructor(
     private vm: VmController,
     dataDir: string,
     private changed: () => void,
+    vaultResolver?: VaultResolver,
   ) {
+    this.vaultResolver = vaultResolver;
     this.imageDir = join(dataDir, 'screenshots');
     mkdirSync(this.imageDir, { recursive: true });
     let pid = vm.state.pid;
@@ -213,8 +221,11 @@ export class ComputerController {
     this.desktop(botId).last = shot;
     return shot;
   }
-  private async command(botId: string, command: string, signal?: AbortSignal) {
-    const result = await this.vm.executeDesktop(command, botId, signal);
+  setVaultResolver(resolver: VaultResolver) {
+    this.vaultResolver = resolver;
+  }
+  private async command(botId: string, command: string, signal?: AbortSignal, inputBytes?: Buffer) {
+    const result = await this.vm.executeDesktop(command, botId, signal, undefined, inputBytes);
     if (result.exitCode !== 0) throw new Error(result.stderr || '独立桌面操作失败');
   }
   private async keys(botId: string, chord: string) {
@@ -272,6 +283,9 @@ export class ComputerController {
     this.changed();
   }
   async openApp(botId: string, app: NonNullable<ComputerInput['app']>, url?: string, path?: string) {
+    if ((url && containsVaultMarker(url)) || (path && containsVaultMarker(path))) {
+      throw new AppError('vault.sink_not_allowed', '禁止将保险库凭据放入 open_app 参数中');
+    }
     if (this.vm.state.status !== 'ready' || !this.vm.state.appsReady || this.vm.state.maintenance)
       throw new Error('工作电脑应用尚未就绪或正在维护');
     const file = path ? workFile(botId, path) : undefined;
@@ -309,7 +323,7 @@ export class ComputerController {
     await this.command(botId, command);
   }
   /** One action against the latest screenshot. Returns how long the screen needs before it is worth capturing. */
-  private async perform(botId: string, input: ComputerInput, signal: AbortSignal) {
+  private async perform(botId: string, input: ComputerInput, signal: AbortSignal, vaultCtx?: ComputerVaultMeta) {
     const desktop = this.desktop(botId);
     if (signal.aborted) throw new Error('任务已取消');
     if (['click', 'double_click', 'move', 'drag', 'scroll'].includes(input.action))
@@ -355,13 +369,46 @@ export class ComputerController {
     } else if (input.action === 'type') {
       if (typeof input.text !== 'string' || !input.text.length || input.text.length > 12000)
         throw new Error('输入文本应为 1–12000 字符');
-      const encoded = Buffer.from(input.text).toString('base64');
-      await this.command(
-        botId,
-        `printf %s ${shQuote(encoded)} | base64 -d | xclip -selection clipboard -in >.desktop/clipboard.log 2>&1`,
-        signal,
-      );
-      await this.keys(botId, input.pasteKey === 'CTRL+SHIFT+V' ? 'CTRL+SHIFT+V' : 'CTRL+V');
+      let text = input.text;
+      let usedVault = false;
+      if (containsVaultMarker(text)) {
+        if (!this.vaultResolver) {
+          throw new AppError('vault.encryption_unavailable', '保险库解析器未配置，无法在工作电脑注入凭据');
+        }
+        text = await this.vaultResolver.resolveText(text, {
+          ...(vaultCtx ?? { botId, runId: 'computer' }),
+          sink: 'vm_desktop',
+          targetSummary: '工作电脑桌面输入',
+          signal,
+        });
+        if (!text.length || text.length > 12000) throw new Error('输入文本应为 1–12000 字符');
+        usedVault = true;
+      }
+      if (usedVault) {
+        try {
+          await this.command(
+            botId,
+            'xclip -selection clipboard -in >/dev/null 2>&1',
+            signal,
+            Buffer.from(text, 'utf8'),
+          );
+          await this.keys(botId, input.pasteKey === 'CTRL+SHIFT+V' ? 'CTRL+SHIFT+V' : 'CTRL+V');
+          await sleep(120);
+        } finally {
+          await this.command(
+            botId,
+            'xclip -selection clipboard -in </dev/null >/dev/null 2>&1; xclip -selection primary -in </dev/null >/dev/null 2>&1',
+          ).catch(() => {});
+        }
+      } else {
+        const encoded = Buffer.from(text).toString('base64');
+        await this.command(
+          botId,
+          `printf %s ${shQuote(encoded)} | base64 -d | xclip -selection clipboard -in >.desktop/clipboard.log 2>&1`,
+          signal,
+        );
+        await this.keys(botId, input.pasteKey === 'CTRL+SHIFT+V' ? 'CTRL+SHIFT+V' : 'CTRL+V');
+      }
     } else if (input.action === 'open_app') {
       if (!this.vm.state.appsReady) throw new Error('桌面应用尚未准备完成，请在电脑设置中修复环境');
       await this.openApp(botId, input.app!, input.url, input.path);
@@ -372,8 +419,19 @@ export class ComputerController {
         ? 1000
         : 200;
   }
-  async execute(botId: string, input: ComputerInput, signal: AbortSignal): Promise<ComputerResult> {
+  async execute(
+    botId: string,
+    input: ComputerInput,
+    signal: AbortSignal,
+    vaultCtx?: ComputerVaultMeta,
+  ): Promise<ComputerResult> {
     if (signal.aborted) throw new Error('任务已取消');
+    if (
+      input.action === 'open_app' &&
+      ((input.url && containsVaultMarker(input.url)) || (input.path && containsVaultMarker(input.path)))
+    ) {
+      throw new AppError('vault.sink_not_allowed', '禁止将保险库凭据放入 open_app 参数中');
+    }
     if (this.vm.state.status !== 'ready' || !this.vm.state.desktopReady || this.vm.state.maintenance)
       throw new Error('工作电脑桌面尚未就绪或正在维护');
     const desktop = this.desktop(botId),
@@ -402,12 +460,18 @@ export class ComputerController {
       let settle = 200;
       for (const [index, step] of steps.entries()) {
         try {
-          const wait = await this.perform(botId, step, signal);
+          const wait = await this.perform(botId, step, signal, vaultCtx);
           // Between steps the screen only needs to take the input; the full settle comes before the screenshot.
           if (index < steps.length - 1) await sleep(step.action === 'wait' ? wait : 120);
           else settle = wait;
         } catch (error) {
-          if (steps.length === 1 || signal.aborted) throw error;
+          if (
+            steps.length === 1 ||
+            signal.aborted ||
+            error instanceof InteractionDenied ||
+            errorCode(error)?.startsWith('vault.')
+          )
+            throw error;
           throw new AppError(
             'computer.batch_failed',
             `第 ${index + 1} 步（${step.action}）失败：${(error as Error).message}。前 ${index} 步已经执行，请重新截图确认当前状态。`,

@@ -2,8 +2,15 @@
 // card buttons. The SDK is loaded on first use; it is large and only connector users need it.
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
-import type { AdapterHandlers, ConnectorAdapter, ConnectorCard, InboundMessage } from '../connector-adapter';
+import type {
+  AdapterHandlers,
+  ConnectorAdapter,
+  ConnectorCard,
+  ConnectorTextStream,
+  InboundMessage,
+} from '../connector-adapter';
 import type { VoiceClip } from '../../speech/speech-service';
+import { splitMarkdown } from '../markdown';
 
 // The parts of @larksuiteoapi/node-sdk used here. Its own declarations are 17 MB and would slow every type check.
 interface LarkMessage {
@@ -22,6 +29,11 @@ interface LarkCardAction {
   operator: { openId: string; name?: string };
   action: { value: unknown };
 }
+interface LarkMarkdownStreamController {
+  append(chunk: string): Promise<void>;
+  setContent(full: string): Promise<void>;
+  readonly messageId: string;
+}
 interface LarkChannel {
   connect(): Promise<void>;
   disconnect(): Promise<void>;
@@ -30,6 +42,11 @@ interface LarkChannel {
   on(name: 'reconnecting' | 'reconnected', handler: () => void): () => void;
   on(name: 'error', handler: (error: Error) => void): () => void;
   send(to: string, input: object, options?: object): Promise<{ messageId: string }>;
+  stream?(
+    to: string,
+    input: { markdown: (controller: LarkMarkdownStreamController) => Promise<void> },
+    options?: object,
+  ): Promise<{ messageId: string }>;
   updateCard(messageId: string, card: object): Promise<void>;
   addReaction(messageId: string, emojiType: string): Promise<string>;
   removeReaction(messageId: string, reactionId: string): Promise<void>;
@@ -65,6 +82,9 @@ export const loadLarkSdk = (runtimeDir: string) =>
   (sdk ??= createRequire(join(runtimeDir, 'connectors-loader.cjs'))('@larksuiteoapi/node-sdk') as LarkSdk);
 
 const RETRY_MS = 30_000;
+const STREAM_INTERVAL_MS = 250;
+const PATCH_INTERVAL_MS = 800;
+const CARD_MAX_CHARS = 25_000;
 const IMAGE_FILE = /\.(png|jpe?g|gif|webp|bmp)$/i;
 /** Messages someone sends in a burst (a picture and its caption, a long paste Feishu split) reach the Bot as one. */
 const BURST = { delayMs: 600, longChars: 1000, longDelayMs: 2000, maxMessages: 8, maxChars: 4000 };
@@ -72,6 +92,29 @@ interface Burst {
   messages: LarkMessage[];
   timer?: ReturnType<typeof setTimeout>;
   flush(): void;
+}
+interface FeishuOptions {
+  streamIntervalMs?: number;
+  patchIntervalMs?: number;
+  cardMaxChars?: number;
+}
+
+/** Card JSON 2.0 carrying Markdown text, updated in place when CardKit streaming is unavailable. */
+export function feishuMarkdownCard(content: string) {
+  return {
+    schema: '2.0',
+    config: { update_multi: true },
+    body: { elements: [{ tag: 'markdown', content }] },
+  };
+}
+
+function isCardkitUnavailable(error: unknown) {
+  const code = String((error as { code?: unknown })?.code || '');
+  const message = String((error as Error)?.message || error);
+  return (
+    code === 'permission_denied' ||
+    /99991672|cardkit|permission|scope|forbidden|unauthorized|access denied|403/i.test(message)
+  );
 }
 
 /** Card JSON 2.0: a header, Markdown lines and a row of buttons. */
@@ -113,13 +156,17 @@ export class FeishuAdapter implements ConnectorAdapter {
   private cues = new Map<string, Promise<{ messageId: string; reactionId: string } | undefined>>();
   private bursts = new Map<string, Burst>();
   private stopped = false;
+  /** Set when CardKit streaming fails due to missing `cardkit:card:write`, falling back to card patching. */
+  private cardkitDisabled = false;
   private retry?: ReturnType<typeof setTimeout>;
   constructor(
     private credentials: { appId: string; appSecret: string },
     private load: () => LarkSdk,
+    private options: FeishuOptions = {},
   ) {}
   start(handlers: AdapterHandlers) {
     this.stopped = false;
+    this.cardkitDisabled = false;
     void this.connect(handlers);
   }
   private async connect(handlers: AdapterHandlers) {
@@ -138,6 +185,7 @@ export class FeishuAdapter implements ConnectorAdapter {
         policy: { dmMode: 'open', requireMention: false },
         // Its merging keeps only the last message's ID, and a resource downloads only through its own (see gather).
         safety: { batch: { text: { delayMs: 0 } } },
+        outbound: { streamInitialText: '…', streamThrottleMs: 150, streamThrottleChars: 20 },
       });
     } catch (error) {
       handlers.status('error', (error as Error).message);
@@ -250,6 +298,114 @@ export class FeishuAdapter implements ConnectorAdapter {
   }
   async sendText(chatId: string, text: string) {
     await this.connected().send(chatId, { markdown: text });
+  }
+  /**
+   * Streams a reply via CardKit native typewriter cards (`channel.stream`). If the Feishu app lacks
+   * `cardkit:card:write` (such as connectors set up before CardKit streaming), automatically falls back to updating a
+   * JSON 2.0 markdown card in place via `im.v1.message.patch`.
+   */
+  beginStream(chatId: string): ConnectorTextStream | undefined {
+    const channel = this.channel;
+    if (!channel) return undefined;
+    const streamIntervalMs = this.options.streamIntervalMs ?? STREAM_INTERVAL_MS,
+      patchIntervalMs = this.options.patchIntervalMs ?? PATCH_INTERVAL_MS,
+      cardMaxChars = this.options.cardMaxChars ?? CARD_MAX_CHARS;
+    let mode: 'idle' | 'cardkit' | 'patch' = 'idle',
+      finished = false,
+      ctrl: LarkMarkdownStreamController | undefined,
+      streamDone: Promise<unknown> | undefined,
+      resolveProducer: (() => void) | undefined,
+      lastText = '';
+    const cards: Array<{ messageId: string; content: string }> = [];
+    const pushCardkit = async (text: string) => {
+      if (!ctrl || text === lastText) return;
+      if (!lastText || text.startsWith(lastText)) await ctrl.append(text);
+      else if (lastText.length <= 28_000 && text.length <= 28_000) await ctrl.setContent(text);
+      else await ctrl.append(text);
+      lastText = text;
+    };
+    const syncCards = async (text: string) => {
+      const parts = splitMarkdown(text, cardMaxChars);
+      for (let index = 0; index < parts.length; index++) {
+        const part = parts[index];
+        if (!cards[index]) {
+          const sent = await channel.send(chatId, { card: feishuMarkdownCard(part) });
+          cards.push({ messageId: sent.messageId, content: part });
+        } else if (cards[index].content !== part) {
+          await channel.updateCard(cards[index].messageId, feishuMarkdownCard(part));
+          cards[index].content = part;
+        }
+      }
+    };
+    const isCardkitDisabled = () => this.cardkitDisabled;
+    return {
+      get intervalMs() {
+        return mode === 'patch' || isCardkitDisabled() || typeof channel.stream !== 'function'
+          ? patchIntervalMs
+          : streamIntervalMs;
+      },
+      update: async (text: string) => {
+        if (finished || !text.trim()) return;
+        if (mode === 'idle') {
+          if (!this.cardkitDisabled && typeof channel.stream === 'function') {
+            let readyResolve!: (controller: LarkMarkdownStreamController) => void;
+            const ready = new Promise<LarkMarkdownStreamController>((resolve) => {
+              readyResolve = resolve;
+            });
+            const done = new Promise<void>((resolve) => {
+              resolveProducer = resolve;
+            });
+            const streamPromise = channel.stream(chatId, {
+              markdown: async (controller) => {
+                readyResolve(controller);
+                await done;
+              },
+            });
+            streamPromise.catch(() => {});
+            try {
+              ctrl = await Promise.race([
+                ready,
+                streamPromise.then(() => {
+                  throw new Error('飞书流式会话提前结束');
+                }),
+              ]);
+              streamDone = streamPromise;
+              mode = 'cardkit';
+              await pushCardkit(text);
+              return;
+            } catch (error) {
+              resolveProducer?.();
+              if (isCardkitUnavailable(error)) this.cardkitDisabled = true;
+            }
+          }
+          mode = 'patch';
+        }
+        if (mode === 'cardkit') {
+          await pushCardkit(text);
+          return;
+        }
+        await syncCards(text);
+      },
+      finish: async (text: string) => {
+        if (finished) return;
+        finished = true;
+        const final = text.trim();
+        if (mode === 'idle') {
+          if (final) await this.sendText(chatId, final);
+          return;
+        }
+        if (mode === 'cardkit') {
+          try {
+            if (final) await pushCardkit(final);
+          } finally {
+            resolveProducer?.();
+          }
+          await streamDone;
+          return;
+        }
+        if (final) await syncCards(final);
+      },
+    };
   }
   async sendFile(chatId: string, file: { name: string; bytes: Buffer }) {
     await this.connected().send(

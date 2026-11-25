@@ -5,9 +5,20 @@ import { tmpdir } from 'node:os';
 import { join, posix } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import { stripVTControlCharacters } from 'node:util';
+import { AppError } from '../../../shared/errors';
+import { containsVaultMarker } from '../../../shared/vault-refs';
 import type { HostComputer } from '../host/host';
 import type { Interactions } from '../agent/interactions';
 import type { VmController } from '../vm/vm';
+import type { VaultRedactor } from '../vault/vault-redactor';
+import {
+  buildVmVaultPayload,
+  materializeHostVaultFiles,
+  type ResolvedVaultFile,
+  type VaultResolutionContext,
+  type VaultResolver,
+  type VmVaultPayload,
+} from '../vault/vault-resolver';
 import { hostEnvironment, hostShell, stopHostProcess } from '../host/host-platform';
 import { spawnPty } from '../host/host-pty';
 import { approvalReason } from './approval-reason';
@@ -21,14 +32,32 @@ export interface TerminalDriver {
   onData: (fn: (text: string) => void) => unknown;
   onExit: (fn: (code: number) => void) => unknown;
 }
+type TerminalVaultMeta = Omit<VaultResolutionContext, 'sink' | 'targetSummary' | 'target' | 'signal'>;
+
+function parseVaultRefMap(raw: unknown, fieldName: string): Record<string, string> | undefined {
+  if (raw === undefined) return undefined;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new AppError('vault.ref_invalid', `${fieldName} 必须是字符串映射对象`);
+  }
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof v !== 'string') {
+      throw new AppError('vault.ref_invalid', `${fieldName}.${k} 必须是字符串`);
+    }
+    out[k] = v;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 /** Test doubles and older VM objects only implement execute. Surface that as a terminal that has already exited. */
 async function oneShotTerminal(
   vm: VmController,
   botId: string,
   command: string,
   signal: AbortSignal,
+  vaultPayload?: VmVaultPayload,
 ): Promise<TerminalDriver> {
-  const result = await vm.execute(command, botId, signal);
+  const result = await vm.execute(command, botId, signal, undefined, vaultPayload ? { vaultPayload } : undefined);
   const text = [result.stdout, result.stderr].filter((part) => typeof part === 'string' && part).join('\n');
   return {
     write: () => {},
@@ -56,6 +85,7 @@ interface Session {
   closed: boolean;
   /** Runs on without this process: dispose leaves it alone. */
   detached?: boolean;
+  cleanupVault?: () => void;
 }
 export class TerminalSessions {
   private sessions = new Map<string, Session>();
@@ -66,27 +96,57 @@ export class TerminalSessions {
     private host: HostComputer | undefined,
     private interactions: Interactions | undefined,
     private runtimeDir: string,
+    private vaultResolver?: VaultResolver,
+    private vaultRedactor?: VaultRedactor,
   ) {}
+  setVault(vaultResolver?: VaultResolver, vaultRedactor?: VaultRedactor) {
+    this.vaultResolver = vaultResolver;
+    this.vaultRedactor = vaultRedactor;
+  }
+  private redactOutput(text: string, runId?: string): string {
+    const vaultRedacted = this.vaultRedactor ? this.vaultRedactor.redactString(text, { runId }) : text;
+    return this.host ? this.host.redact(vaultRedacted) : vaultRedacted;
+  }
   private get(botId: string, id: string) {
     const session = this.sessions.get(id);
     if (!session || session.botId !== botId)
       throw new FileToolError('TERMINAL_NOT_FOUND', '终端不存在、已重启或不属于当前 Bot');
     return session;
   }
-  async start(botId: string, runId: string, args: Record<string, unknown>, signal: AbortSignal, workspace?: string) {
+  async start(
+    botId: string,
+    runId: string,
+    args: Record<string, unknown>,
+    signal: AbortSignal,
+    workspace?: string,
+    vaultMeta?: TerminalVaultMeta,
+  ) {
     if (typeof args.command !== 'string' || !args.command.trim() || args.command.length > 6000)
       throw Error('终端命令需要 1–6000 字符');
     if (this.list(botId).filter((session) => session.exitCode === undefined).length >= 6)
       throw Error('当前 Bot 最多保留 6 个运行终端');
     if ([...this.sessions.values()].filter((session) => !session.closed).length >= 12)
       throw Error('应用最多同时保留 12 个运行终端，请先停止不再使用的终端');
+    const vaultEnvMap = parseVaultRefMap(args.vaultEnv, 'vaultEnv');
+    const vaultFilesMap = parseVaultRefMap(args.vaultFiles, 'vaultFiles');
+    const needsVault =
+      Boolean(vaultEnvMap) ||
+      Boolean(vaultFilesMap) ||
+      containsVaultMarker(args.command) ||
+      (typeof args.stdin === 'string' && containsVaultMarker(args.stdin));
+    if (needsVault && !this.vaultResolver) {
+      throw new AppError('vault.encryption_unavailable', '保险库解析器未配置，无法在终端中使用凭据引用');
+    }
+
     const location = args.location === 'vm' ? 'vm' : 'host',
       tty = args.tty !== false,
       cols = boundedInteger(args.cols, 100, 20, 300, 'cols'),
       rows = boundedInteger(args.rows, 30, 5, 100, 'rows');
     let cwd = workspace || '',
       driver: TerminalDriver,
-      detached = false;
+      detached = false,
+      cleanupVault: (() => void) | undefined;
+
     if (location === 'host') {
       if (!this.host || !this.interactions) throw Error('本机终端不可用');
       if (typeof args.stdin === 'string' && args.stdin.length > 262144) throw Error('stdin 过长');
@@ -94,6 +154,7 @@ export class TerminalSessions {
       cwd = this.host.resolveFilePath(args.cwd || workspace || this.host.workspace(botId), workspace);
       if (!existsSync(cwd) || !statSync(cwd).isDirectory()) throw Error('终端工作目录不存在');
       cwd = realpathSync.native(cwd);
+      // Permission always runs BEFORE Vault expansion so approval UI/reviewer only see unexpanded placeholders.
       await this.interactions.permission(
         botId,
         runId,
@@ -104,95 +165,176 @@ export class TerminalSessions {
           cwd,
           ...(typeof args.stdin === 'string' ? { stdin: args.stdin } : {}),
           tool: typeof args.tool === 'string' ? args.tool : 'terminal_start',
-          arguments: { tty },
+          arguments: {
+            tty,
+            ...(vaultEnvMap ? { vaultEnv: Object.keys(vaultEnvMap) } : {}),
+            ...(vaultFilesMap ? { vaultFiles: Object.keys(vaultFilesMap) } : {}),
+          },
         },
         signal,
       );
       signal.throwIfAborted();
       if (realpathSync.native(cwd) !== cwd) throw Error('目录在审批期间发生变化');
-      const env = hostEnvironment(this.host.options.env || process.env),
-        shell = hostShell(args.command, env),
-        shellArgs = tty ? shell.args.filter((arg) => arg !== '-NonInteractive') : shell.args;
-      if (tty) {
-        driver = spawnPty(this.runtimeDir, { executable: shell.executable, args: shellArgs, cwd, cols, rows, env });
-      } else if (this.keepServices && args.purpose === 'service' && !args.stdin) {
-        const log = join(mkdtempSync(join(tmpdir(), 'aelion-service-')), 'output.log'),
-          out = openSync(log, 'a');
-        const child = spawn(shell.executable, shellArgs, {
-          cwd,
-          env,
-          windowsHide: true,
-          detached: true,
-          stdio: ['ignore', out, out],
-        });
-        closeSync(out);
-        await new Promise<void>((resolve, reject) => {
-          child.once('spawn', resolve);
-          child.once('error', reject);
-        });
-        child.unref();
-        detached = true;
-        const reader = openSync(log, 'r'),
-          decoder = new StringDecoder('utf8'),
-          chunk = Buffer.alloc(65536);
-        let position = 0,
-          emit = (_text: string) => {};
-        const pump = () => {
-          for (let size: number; (size = readSync(reader, chunk, 0, chunk.length, position)) > 0; position += size)
-            emit(decoder.write(chunk.subarray(0, size)));
-        };
-        const timer = setInterval(pump, 100);
-        timer.unref();
-        driver = {
-          write: () => {},
-          onData: (fn) => {
-            emit = fn;
-          },
-          onExit: (fn) => {
-            child.on('close', (code) => {
-              clearInterval(timer);
-              pump();
-              closeSync(reader);
-              fn(code ?? -1);
-            });
-          },
-          kill: () => stopHostProcess(child, env),
-        };
-      } else {
-        const child = spawn(shell.executable, shellArgs, {
-          cwd,
-          env,
-          windowsHide: true,
-          detached: shell.detached,
-          stdio: ['pipe', 'pipe', 'pipe'],
-        });
-        await new Promise<void>((resolve, reject) => {
-          child.once('spawn', resolve);
-          child.once('error', reject);
-        });
-        driver = {
-          write: (value) => {
-            child.stdin.write(value);
-          },
-          onData: (fn) => {
-            child.stdout.on('data', (bytes) => fn(bytes.toString('utf8')));
-            child.stderr.on('data', (bytes) => fn(bytes.toString('utf8')));
-          },
-          onExit: (fn) => {
-            child.on('close', (code) => fn(code ?? -1));
-          },
-          kill: () => stopHostProcess(child, env),
-        };
-      }
     } else {
       cwd = posix.resolve(`/work/${botId}`, typeof args.cwd === 'string' ? args.cwd : '.');
       if (cwd !== `/work/${botId}` && !cwd.startsWith(`/work/${botId}/`))
         throw Error('VM 终端目录必须在当前 Bot 工作目录内');
-      driver =
-        typeof this.vm.openTerminal === 'function'
-          ? await this.vm.openTerminal(botId, args.command, cwd, signal, tty ? { cols, rows } : undefined)
-          : await oneShotTerminal(this.vm, botId, args.command, signal);
     }
+
+    const resolvedBase: TerminalVaultMeta = vaultMeta ?? { botId, runId };
+    const targetSummary = `${location === 'host' ? '本机' : '工作电脑'}命令：${String(args.command).slice(0, 140)}`;
+    let resolvedEnv: Record<string, string> = {};
+    let resolvedFiles: ResolvedVaultFile[] = [];
+    let resolvedCommand = String(args.command);
+    let resolvedStdin = typeof args.stdin === 'string' ? args.stdin : undefined;
+
+    if (needsVault && this.vaultResolver) {
+      if (vaultFilesMap) {
+        resolvedFiles = await this.vaultResolver.resolveFiles(vaultFilesMap, {
+          ...resolvedBase,
+          sink: 'exec_file',
+          targetSummary,
+          signal,
+        });
+      }
+      if (vaultEnvMap) {
+        resolvedEnv = await this.vaultResolver.resolveEnv(vaultEnvMap, {
+          ...resolvedBase,
+          sink: 'exec_env',
+          targetSummary,
+          signal,
+        });
+      }
+      if (containsVaultMarker(resolvedCommand)) {
+        resolvedCommand = await this.vaultResolver.resolveText(resolvedCommand, {
+          ...resolvedBase,
+          sink: 'exec_inline',
+          targetSummary,
+          signal,
+        });
+      }
+      if (resolvedStdin && containsVaultMarker(resolvedStdin)) {
+        resolvedStdin = await this.vaultResolver.resolveText(resolvedStdin, {
+          ...resolvedBase,
+          sink: 'exec_inline',
+          targetSummary,
+          signal,
+        });
+      }
+    }
+
+    let cleanupRan = false;
+    const cleanupOnce = () => {
+      if (cleanupRan) return;
+      cleanupRan = true;
+      try {
+        cleanupVault?.();
+      } catch {}
+    };
+
+    try {
+      if (location === 'host') {
+        const env = { ...hostEnvironment(this.host!.options.env || process.env), ...resolvedEnv };
+        if (resolvedFiles.length) {
+          const materialized = materializeHostVaultFiles(resolvedFiles);
+          cleanupVault = materialized.cleanup;
+          Object.assign(env, materialized.env);
+        }
+        const shell = hostShell(resolvedCommand, env),
+          shellArgs = tty ? shell.args.filter((arg) => arg !== '-NonInteractive') : shell.args;
+        if (tty) {
+          driver = spawnPty(this.runtimeDir, { executable: shell.executable, args: shellArgs, cwd, cols, rows, env });
+        } else if (this.keepServices && args.purpose === 'service' && !resolvedStdin && !resolvedFiles.length) {
+          const log = join(mkdtempSync(join(tmpdir(), 'aelion-service-')), 'output.log'),
+            out = openSync(log, 'a');
+          const child = spawn(shell.executable, shellArgs, {
+            cwd,
+            env,
+            windowsHide: true,
+            detached: true,
+            stdio: ['ignore', out, out],
+          });
+          closeSync(out);
+          await new Promise<void>((resolve, reject) => {
+            child.once('spawn', resolve);
+            child.once('error', reject);
+          });
+          child.unref();
+          detached = true;
+          const reader = openSync(log, 'r'),
+            decoder = new StringDecoder('utf8'),
+            chunk = Buffer.alloc(65536);
+          let position = 0,
+            emit = (_text: string) => {};
+          const pump = () => {
+            for (let size: number; (size = readSync(reader, chunk, 0, chunk.length, position)) > 0; position += size)
+              emit(decoder.write(chunk.subarray(0, size)));
+          };
+          const timer = setInterval(pump, 100);
+          timer.unref();
+          driver = {
+            write: () => {},
+            onData: (fn) => {
+              emit = fn;
+            },
+            onExit: (fn) => {
+              child.on('close', (code) => {
+                clearInterval(timer);
+                pump();
+                closeSync(reader);
+                fn(code ?? -1);
+              });
+            },
+            kill: () => stopHostProcess(child, env),
+          };
+        } else {
+          const child = spawn(shell.executable, shellArgs, {
+            cwd,
+            env,
+            windowsHide: true,
+            detached: shell.detached,
+            stdio: ['pipe', 'pipe', 'pipe'],
+          });
+          await new Promise<void>((resolve, reject) => {
+            child.once('spawn', resolve);
+            child.once('error', reject);
+          });
+          driver = {
+            write: (value) => {
+              child.stdin.write(value);
+            },
+            onData: (fn) => {
+              child.stdout.on('data', (bytes) => fn(bytes.toString('utf8')));
+              child.stderr.on('data', (bytes) => fn(bytes.toString('utf8')));
+            },
+            onExit: (fn) => {
+              child.on('close', (code) => fn(code ?? -1));
+            },
+            kill: () => stopHostProcess(child, env),
+          };
+        }
+      } else {
+        const vmPayload =
+          Object.keys(resolvedEnv).length || resolvedFiles.length
+            ? buildVmVaultPayload(resolvedFiles, resolvedEnv)
+            : undefined;
+        driver =
+          typeof this.vm.openTerminal === 'function'
+            ? await this.vm.openTerminal(
+                botId,
+                resolvedCommand,
+                cwd,
+                signal,
+                tty ? { cols, rows } : undefined,
+                vmPayload,
+              )
+            : await oneShotTerminal(this.vm, botId, resolvedCommand, signal, vmPayload);
+      }
+    } catch (error) {
+      cleanupOnce();
+      throw error;
+    }
+
     const session: Session = {
       id: randomUUID(),
       botId,
@@ -208,6 +350,7 @@ export class TerminalSessions {
       createdAt: new Date().toISOString(),
       closed: false,
       detached,
+      ...(cleanupVault ? { cleanupVault: cleanupOnce } : {}),
     };
     this.sessions.set(session.id, session);
     driver.onData((text) => {
@@ -221,14 +364,16 @@ export class TerminalSessions {
     driver.onExit((code) => {
       session.exitCode = code;
       session.closed = true;
+      cleanupOnce();
     });
     if (signal.aborted) {
       driver.kill();
+      cleanupOnce();
       signal.throwIfAborted();
     }
     for (const [id, value] of this.sessions) if (value.closed && this.sessions.size > 64) this.sessions.delete(id);
     try {
-      if (typeof args.stdin === 'string' && args.stdin) driver.write(args.stdin);
+      if (typeof resolvedStdin === 'string' && resolvedStdin) driver.write(resolvedStdin);
       return await this.read(
         botId,
         session.id,
@@ -241,11 +386,18 @@ export class TerminalSessions {
         try {
           driver.kill();
         } catch {}
+        cleanupOnce();
       }
       throw error;
     }
   }
-  async input(botId: string, runId: string, args: Record<string, unknown>, signal: AbortSignal) {
+  async input(
+    botId: string,
+    runId: string,
+    args: Record<string, unknown>,
+    signal: AbortSignal,
+    vaultMeta?: TerminalVaultMeta,
+  ) {
     const session = this.get(botId, String(args.id));
     if (typeof args.chars !== 'string' || args.chars.length > 16000) throw Error('输入必须是最多 16000 字符的文本');
     const chars = args.chars;
@@ -277,7 +429,19 @@ export class TerminalSessions {
     }
     signal.throwIfAborted();
     if (session.closed) throw Error('终端已退出，未发送输入');
-    if (chars) session.driver.write(chars);
+    let toWrite = chars;
+    if (toWrite && containsVaultMarker(toWrite)) {
+      if (!this.vaultResolver) {
+        throw new AppError('vault.encryption_unavailable', '保险库解析器未配置，无法向终端注入凭据');
+      }
+      toWrite = await this.vaultResolver.resolveText(toWrite, {
+        ...(vaultMeta ?? { botId, runId }),
+        sink: 'exec_inline',
+        targetSummary: `${session.location === 'host' ? '本机' : '工作电脑'}终端输入：${session.command.slice(0, 120)}`,
+        signal,
+      });
+    }
+    if (toWrite) session.driver.write(toWrite);
     if (args.cols !== undefined || args.rows !== undefined)
       session.driver.resize?.(
         boundedInteger(args.cols, 100, 20, 300, 'cols'),
@@ -302,7 +466,7 @@ export class TerminalSessions {
       session.closed || (session.purpose === 'service' && session.baseOffset + session.output.length !== start);
     while (!settled() && Date.now() < until) await backoff(Math.min(100, until - Date.now()), signal);
     signal.throwIfAborted();
-    const safe = this.host?.redact(session.output) || session.output,
+    const safe = this.redactOutput(session.output, session.runId),
       page = textPage(safe, { offset: Math.max(0, offset - session.baseOffset), maxChars: 16000 });
     return {
       id: session.id,
@@ -344,6 +508,7 @@ export class TerminalSessions {
         const until = Date.now() + 3000;
         while (!session.closed && Date.now() < until) await backoff(100, signal);
       }
+      session.cleanupVault?.();
     }
     const result = await this.read(botId, id, signal, 0, 0);
     return {
@@ -409,7 +574,10 @@ export class TerminalSessions {
       }
   }
   dispose() {
-    for (const session of this.sessions.values()) if (!session.closed && !session.detached) session.driver.kill();
+    for (const session of this.sessions.values()) {
+      if (!session.closed && !session.detached) session.driver.kill();
+      if (!session.detached) session.cleanupVault?.();
+    }
     this.sessions.clear();
   }
 }

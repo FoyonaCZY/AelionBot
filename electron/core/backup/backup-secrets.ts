@@ -15,7 +15,9 @@ export interface SecretCodec {
   decrypt(value: string): string;
 }
 /** Where one of the files holding secrets is; undefined when there is none. */
-type Locate = (name: 'state.sqlite' | 'connectors.json' | 'mcp-auth.json' | 'remote.json') => string | undefined;
+type Locate = (
+  name: 'state.sqlite' | 'connectors.json' | 'mcp-auth.json' | 'remote.json' | 'vault.json',
+) => string | undefined;
 /** Returns the text to store in place of a secret, or undefined to leave it. */
 type Replace = (cipher: string) => string | undefined;
 
@@ -82,6 +84,14 @@ function visitAll(locate: Locate, replace: Replace) {
       let changed = visit(record(data.keys), 'secret', replace);
       for (const device of Array.isArray(data.devices) ? data.devices : [])
         changed = visit(record(device), 'push', replace) || changed;
+      return changed;
+    });
+  const vault = locate('vault.json');
+  if (vault && existsSync(vault))
+    visitJson(vault, (data) => {
+      let changed = false;
+      for (const item of Array.isArray(data.items) ? data.items : [])
+        changed = visit(record(item), 'encryptedFields', replace) || changed;
       return changed;
     });
 }

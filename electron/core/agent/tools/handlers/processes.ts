@@ -1,3 +1,5 @@
+import { AppError } from '../../../../../shared/errors';
+import { containsVaultMarker } from '../../../../../shared/vault-refs';
 import { boundedInteger } from '../../../tools/file-text';
 import { toolLocation } from '../../../tools/approval-reason';
 import type { ToolHandler } from '../context';
@@ -19,6 +21,12 @@ export const EXEC_HANDLERS: Record<string, ToolHandler> = {
   exec_command: async (ctx) => {
     const command = requiredText(ctx.args, 'command', 6000);
     toolLocation(ctx.args);
+    if (
+      command.trimStart().startsWith('*** Begin Patch') &&
+      (ctx.args.vaultEnv !== undefined || ctx.args.vaultFiles !== undefined || containsVaultMarker(command))
+    ) {
+      throw new AppError('vault.sink_not_allowed', 'apply_patch 补丁禁止使用保险库引用');
+    }
     const patched = await execPatch(ctx, command);
     if (patched) return { intercepted: 'apply_patch', ...patched };
     return ctx.deps.terminals.start(
@@ -33,9 +41,10 @@ export const EXEC_HANDLERS: Record<string, ToolHandler> = {
       },
       ctx.signal,
       ctx.workspace,
+      ctx.deps.vaultContext?.(ctx.bot.id, ctx.runId, ctx.options),
     );
   },
-  write_stdin: ({ bot, args, signal, runId, deps }) =>
+  write_stdin: ({ bot, args, signal, runId, deps, options }) =>
     deps.terminals.input(
       bot.id,
       runId,
@@ -46,6 +55,7 @@ export const EXEC_HANDLERS: Record<string, ToolHandler> = {
         tool: 'write_stdin',
       },
       signal,
+      deps.vaultContext?.(bot.id, runId, options),
     ),
   exec_stop: ({ bot, args, signal, deps }) => deps.terminals.stop(bot.id, requiredText(args, 'id', 100), signal),
   exec_list: ({ bot, deps }) => ({ sessions: deps.terminals.list(bot.id) }),

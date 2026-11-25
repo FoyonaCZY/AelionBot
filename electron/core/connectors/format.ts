@@ -1,5 +1,25 @@
 // Text for IM platforms: Markdown subsets, length limits and short summaries of approval requests.
 import type { HostPermissionDetails } from '../../../shared/types/core';
+import { readableContent } from '../../../shared/chat/activity';
+import { stripBlockMarkers, visualsAsText } from '../../../shared/chat/message-blocks';
+
+/** Finds where to cut `text` so the prefix fits within `limit` characters (or UTF-8 bytes with `bytes`). */
+export function splitCut(text: string, limit: number, bytes = false) {
+  const size = (value: string) => (bytes ? Buffer.byteLength(value, 'utf8') : value.length);
+  if (size(text) <= limit) return text.length;
+  let cut = 0,
+    used = 0;
+  for (const char of text) {
+    const next = used + size(char);
+    if (next > limit) break;
+    used = next;
+    cut += char.length;
+  }
+  const head = text.slice(0, cut),
+    paragraph = head.lastIndexOf('\n\n'),
+    line = head.lastIndexOf('\n');
+  return paragraph > cut / 2 ? paragraph : line > cut / 2 ? line : Math.max(1, cut);
+}
 
 /** Splits text into parts of at most `limit` units (characters, or UTF-8 bytes with `bytes`), at paragraph or line ends where it can. */
 export function splitText(text: string, limit: number, bytes = false) {
@@ -7,23 +27,25 @@ export function splitText(text: string, limit: number, bytes = false) {
   const parts: string[] = [];
   let rest = text.trim();
   while (rest && size(rest) > limit) {
-    let cut = 0,
-      used = 0;
-    for (const char of rest) {
-      const next = used + size(char);
-      if (next > limit) break;
-      used = next;
-      cut += char.length;
-    }
-    const head = rest.slice(0, cut),
-      paragraph = head.lastIndexOf('\n\n'),
-      line = head.lastIndexOf('\n');
-    const end = paragraph > cut / 2 ? paragraph : line > cut / 2 ? line : cut;
+    const end = splitCut(rest, limit, bytes);
     parts.push(rest.slice(0, end).trimEnd());
     rest = rest.slice(end).trimStart();
   }
   if (rest) parts.push(rest);
   return parts;
+}
+
+const UNCLOSED_VISUAL_FENCE =
+  /(?:^|\n)[ \t]*```(?:widget|chart|metrics|table|timeline|callout|calculator)[ \t]*(?:\n[\s\S]*)?$/;
+
+/** Cleans a finalized assistant message for IM: strips reasoning tags and block markers, turns visual fences into text. */
+export function connectorText(content: string) {
+  return visualsAsText(stripBlockMarkers(readableContent(content))).trim();
+}
+
+/** Cleans a live streaming reply for IM: converts finished visual fences and hides an unclosed visual fence tail. */
+export function connectorStreamingText(content: string) {
+  return visualsAsText(stripBlockMarkers(content)).replace(UNCLOSED_VISUAL_FENCE, '').trim();
 }
 
 /** Plain text for platforms that show no Markdown (WeChat). */

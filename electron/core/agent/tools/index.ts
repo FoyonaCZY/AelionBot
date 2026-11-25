@@ -17,6 +17,7 @@ import { GOAL_TOOLS, PLAN_UPDATE_TOOL, TASK_TOOLS } from './definitions/planning
 import { DESIGN_TOOLS } from '../../designer/designer-tools';
 import { KNOWLEDGE_TOOLS } from './definitions/knowledge';
 import { WIDGET_TOOLS } from './definitions/widgets';
+import { VAULT_TOOLS } from './definitions/vault';
 
 // The order is part of the model request (and its prompt cache); append new tools instead of reordering.
 export const TOOLS: ToolDefinition[] = [
@@ -47,4 +48,5 @@ export const TOOLS: ToolDefinition[] = [
   ...HOST_COMPUTER_TOOLS,
   ...KNOWLEDGE_TOOLS,
   ...WIDGET_TOOLS,
+  ...VAULT_TOOLS,
 ];

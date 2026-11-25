@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createCipheriv, randomBytes } from 'node:crypto';
 import { once } from 'node:events';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { answer, settle, tempDir, until } from './helpers';
+import { delay, answer, settle, tempDir, until } from './helpers';
 import { Store } from '../electron/core/storage/store';
 import { Harness } from '../electron/core/agent/harness';
 import { ChatPinQueue } from '../electron/core/agent/chat-pins';
@@ -15,12 +15,18 @@ import type {
   AdapterHandlers,
   ConnectorAdapter,
   ConnectorCard,
+  ConnectorTextStream,
   InboundMessage,
 } from '../electron/core/connectors/connector-adapter';
 import { WecomAdapter, decryptWecomFile } from '../electron/core/connectors/adapters/wecom';
 import { WeixinAdapter } from '../electron/core/connectors/adapters/weixin';
-import { FeishuAdapter, feishuCard, type LarkSdk } from '../electron/core/connectors/adapters/feishu';
-import { plainText, splitText } from '../electron/core/connectors/format';
+import {
+  FeishuAdapter,
+  feishuCard,
+  feishuMarkdownCard,
+  type LarkSdk,
+} from '../electron/core/connectors/adapters/feishu';
+import { connectorStreamingText, connectorText, plainText, splitText } from '../electron/core/connectors/format';
 import { chatInputText } from '../electron/core/agent/chat-input';
 import type { ModelClient } from '../electron/core/model/model';
 import type { VmController } from '../electron/core/vm/vm';
@@ -1010,8 +1016,491 @@ test('Feishu QR setup creates a connector owned by the person who scanned', asyn
   assert.equal(view.connectors[0].owner?.id, 'ou_owner');
   assert.equal(view.connectors[0].account, 'cli_qr');
   assert.equal(options.createOnly, true);
+  assert.ok(options.addons.scopes.tenant.includes('cardkit:card:write'));
   assert.deepEqual(options.addons.events.items.tenant, ['im.message.receive_v1']);
   assert.equal(view.setups[0].connectorId, view.connectors[0].id);
   // Credentials are stored encrypted, never in the view.
   assert.doesNotMatch(JSON.stringify(view), /sec/);
+});
+
+test('connector runs stream live text, emit intermediate turns before tools and hide unclosed visual fences', async (t) => {
+  assert.equal(
+    connectorStreamingText('先看趋势：\n\n```chart\n{"chartType":"bar"'),
+    '先看趋势：',
+    'unclosed visual fences stay hidden while streaming',
+  );
+  assert.match(
+    connectorText(
+      '<think>内部思考</think>结论如下：\n\n[[block:b1]]\n```metrics\n{"items":[{"label":"收入","value":"100"}]}\n```',
+    ),
+    /结论如下：\s*收入 100/,
+  );
+
+  // Records chronological stream events alongside cards and plain sends.
+  const timeline: string[] = [];
+  class StreamingFakeAdapter extends FakeAdapter {
+    streams: Array<{ chatId: string; updates: string[]; finished?: string }> = [];
+    beginStream(chatId: string): ConnectorTextStream {
+      const record: { chatId: string; updates: string[]; finished?: string } = { chatId, updates: [] };
+      this.streams.push(record);
+      const index = this.streams.length;
+      return {
+        intervalMs: 0,
+        update: async (text) => {
+          record.updates.push(text);
+          timeline.push(`stream#${index}:update:${text}`);
+        },
+        finish: async (text) => {
+          record.finished = text;
+          timeline.push(`stream#${index}:finish:${text}`);
+        },
+      };
+    }
+    override async sendCard(chatId: string, card: ConnectorCard) {
+      timeline.push(`card:${card.title}`);
+      return super.sendCard(chatId, card);
+    }
+  }
+
+  const dir = tempDir(t),
+    store = new Store(dir),
+    bot = store.data.bots[0],
+    adapter = new StreamingFakeAdapter('wecom');
+  store.data.model.model = 'fixture';
+  let turn = 0;
+  const model = {
+    complete: async (_messages: unknown, _tools: unknown, _signal: AbortSignal, onDelta?: (delta: string) => void) => {
+      turn++;
+      if (turn === 1) {
+        onDelta?.('<think>先思考</think>');
+        onDelta?.('我先查一下');
+        await delay(15);
+        onDelta?.('可用工具。');
+        return {
+          content: '<think>先思考</think>我先查一下可用工具。',
+          finishReason: 'tool_calls',
+          calls: [
+            {
+              id: 'c1',
+              type: 'function',
+              function: { name: 'exec_command', arguments: JSON.stringify({ command: 'ls', location: 'vm' }) },
+            },
+          ],
+        };
+      }
+      if (turn === 2) {
+        // Reasoning-only intermediate turn: produces no IM stream or message.
+        onDelta?.('<think>再确认一下</think>');
+        return {
+          content: '<think>再确认一下</think>',
+          finishReason: 'tool_calls',
+          calls: [
+            {
+              id: 'c2',
+              type: 'function',
+              function: { name: 'exec_command', arguments: JSON.stringify({ command: 'pwd', location: 'vm' }) },
+            },
+          ],
+        };
+      }
+      onDelta?.('统计结果：\n\n```metrics\n{"items":[{"label":"通过"');
+      await delay(15);
+      onDelta?.(',"value":"3"}]}\n```\n\n全部搞定了。');
+      return answer('统计结果：\n\n```metrics\n{"items":[{"label":"通过","value":"3"}]}\n```\n\n全部搞定了。');
+    },
+  } as unknown as ModelClient;
+  const vm = {
+    execute: async () => ({ stdout: 'ok', stderr: '', exitCode: 0, durationMs: 1 }),
+  } as unknown as VmController;
+  const harness = new Harness(store, vm, model, () => {});
+  let connectors: Connectors | undefined;
+  const queue = new ChatPinQueue(
+    store,
+    {
+      isRunning: (id, sessionId) => harness.isRunning(id, sessionId),
+      run: (id, input, options) => connectors!.wrapRun(id, options, (wrapped) => harness.run(id, input, wrapped)),
+    },
+    () => {},
+  );
+  connectors = new Connectors({
+    store,
+    dataDir: dir,
+    codec,
+    version: 'test',
+    attachments: new Attachments(store),
+    send: ({ connector, ...input }) => queue.send(input, connector),
+    cancel: () => {},
+    isRunning: (botId, sessionId) => harness.isRunning(botId, sessionId),
+    setPermission: () => {},
+    interactions: new Interactions(() => {}),
+    changed: () => queue.wake(),
+    lark: () => ({}) as LarkSdk,
+    createAdapter: () => adapter,
+  });
+  t.after(async () => {
+    queue.dispose();
+    await until(() => !harness.busy);
+    await connectors!.dispose();
+  });
+  const id = connectors.add({
+    botId: bot.id,
+    permissionMode: 'auto',
+    credentials: { platform: 'wecom', botId: 'bot-stream', secret: 's' },
+  });
+  connectors.saved.get(id)!.owner = { id: 'owner' };
+  adapter.receive({ text: '帮我查一下情况' });
+  await until(() => adapter.streams.length === 2 && adapter.streams[1].finished !== undefined && !harness.busy);
+  assert.equal(adapter.texts.length, 0, 'both turns streamed cleanly without duplicate sendText');
+  assert.ok(adapter.streams[0].updates.length >= 1);
+  assert.ok(adapter.streams[0].updates.every((text) => !text.includes('<think>')));
+  assert.equal(adapter.streams[0].finished, '我先查一下可用工具。');
+  assert.ok(
+    adapter.streams[1].updates.every((text) => !text.includes('{"items"')),
+    'unclosed visual fence JSON is not flashed during live streaming',
+  );
+  assert.equal(adapter.streams[1].finished, '统计结果：\n\n通过 3\n\n全部搞定了。');
+  assert.ok(
+    timeline.indexOf('stream#1:finish:我先查一下可用工具。') <
+      timeline.findIndex((entry) => entry.startsWith('stream#2:')),
+    'intermediate turn finishes before the next turn streams',
+  );
+});
+
+test('non-streaming adapters still send intermediate text turns immediately, and cancelled/failed runs close open streams', async (t) => {
+  const dir = tempDir(t),
+    store = new Store(dir),
+    bot = store.data.bots[0],
+    plainAdapter = new FakeAdapter('weixin');
+  store.data.model.model = 'fixture';
+  let turn = 0,
+    releaseSecondTurn!: () => void;
+  const secondTurnReady = new Promise<void>((resolve) => {
+    releaseSecondTurn = resolve;
+  });
+  const model = {
+    complete: async () => {
+      turn++;
+      if (turn === 1)
+        return {
+          content: '第一步：先读取信息。',
+          finishReason: 'tool_calls',
+          calls: [
+            {
+              id: 'c1',
+              type: 'function',
+              function: { name: 'exec_command', arguments: JSON.stringify({ command: 'cat a.txt', location: 'vm' }) },
+            },
+          ],
+        };
+      await secondTurnReady;
+      return answer('全部完成了。');
+    },
+  } as unknown as ModelClient;
+  const vm = {
+    execute: async () => ({ stdout: 'ok', stderr: '', exitCode: 0, durationMs: 1 }),
+  } as unknown as VmController;
+  const harness = new Harness(store, vm, model, () => {});
+  let connectors: Connectors | undefined;
+  const queue = new ChatPinQueue(
+    store,
+    {
+      isRunning: (id, sessionId) => harness.isRunning(id, sessionId),
+      run: (id, input, options) => connectors!.wrapRun(id, options, (wrapped) => harness.run(id, input, wrapped)),
+    },
+    () => {},
+  );
+  connectors = new Connectors({
+    store,
+    dataDir: dir,
+    codec,
+    version: 'test',
+    attachments: new Attachments(store),
+    send: ({ connector, ...input }) => queue.send(input, connector),
+    cancel: () => {},
+    isRunning: (botId, sessionId) => harness.isRunning(botId, sessionId),
+    setPermission: () => {},
+    interactions: new Interactions(() => {}),
+    changed: () => queue.wake(),
+    lark: () => ({}) as LarkSdk,
+    createAdapter: () => plainAdapter,
+  });
+  t.after(async () => {
+    releaseSecondTurn();
+    queue.dispose();
+    await until(() => !harness.busy);
+    await connectors!.dispose();
+  });
+  const id = connectors.add({
+    botId: bot.id,
+    permissionMode: 'auto',
+    credentials: { platform: 'wecom', botId: 'bot-plain', secret: 's' },
+  });
+  connectors.saved.get(id)!.owner = { id: 'owner' };
+  plainAdapter.receive({ text: '做个多步任务' });
+  // Intermediate text arrives while turn 2 is still blocked.
+  await until(() => plainAdapter.texts.length === 1);
+  assert.equal(plainAdapter.texts[0].text, '第一步：先读取信息。');
+  releaseSecondTurn();
+  await until(() => plainAdapter.texts.length === 2 && !harness.busy);
+  assert.equal(plainAdapter.texts[1].text, '全部完成了。');
+
+  // Cancelled or failed runs close any already-opened stream cleanly.
+  const closedStreams: string[] = [];
+  const {
+    connectors: streamHub,
+    bot: streamBot,
+    store: streamStore,
+  } = fixture(t, {
+    createAdapter: () => ({
+      platform: 'wecom',
+      start: (handlers) => handlers.status('connected'),
+      stop: async () => {},
+      sendText: async (_chatId, text) => void closedStreams.push('text:' + text),
+      sendFile: async () => {},
+      beginStream: () => ({
+        intervalMs: 0,
+        update: async (text) => void closedStreams.push('update:' + text),
+        finish: async (text) => void closedStreams.push('finish:' + text),
+      }),
+    }),
+  });
+  const cid = streamHub.add({
+    botId: streamBot.id,
+    permissionMode: 'auto',
+    credentials: { platform: 'wecom', botId: 'b-cancel', secret: 's' },
+  });
+  const session = {
+    id: 'sess-cancel',
+    botId: streamBot.id,
+    name: '企业微信',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    connector: { connectorId: cid, platform: 'wecom' as const, chatId: 'chat-owner', peer: { id: 'owner' } },
+  };
+  (streamStore.data.workSessions ||= []).push(session);
+  const msg = streamStore.message(streamBot.id, 'user', '测试', {
+    sessionId: session.id,
+    connector: { connectorId: cid, platform: 'wecom', messageId: 'm-c', sender: { id: 'owner' } },
+  });
+  for (const status of ['cancelled', 'failed'] as const) {
+    const runId = 'run-' + status;
+    await streamHub.wrapRun(streamBot.id, { sessionId: session.id, inputMessageIds: [msg.id] }, async (options) => {
+      options.onStarted?.(runId);
+      streamStore.data.runs.push({
+        id: runId,
+        botId: streamBot.id,
+        sessionId: session.id,
+        status,
+        ...(status === 'failed' ? { error: '出错了' } : {}),
+        startedAt: new Date().toISOString(),
+        modelCalls: 0,
+        toolCalls: 0,
+      });
+      options.onAssistantStream?.({ runId, messageId: 'am-' + status, content: '写到一半' });
+      await settle(20);
+    });
+    await settle(30);
+  }
+  assert.deepEqual(closedStreams, [
+    'update:写到一半',
+    'finish:',
+    'update:写到一半',
+    'finish:',
+    'text:这次没有完成：出错了',
+  ]);
+});
+
+test('the WeCom adapter streams passive replies with finish:false/true and rolls over on byte and lifetime limits', async (t) => {
+  const server = new WebSocketServer({ port: 0 });
+  t.after(() => server.close());
+  await once(server, 'listening');
+  const frames: any[] = [];
+  let socket: WebSocket | undefined;
+  server.on('connection', (ws) => {
+    socket = ws;
+    ws.on('message', (data) => {
+      const frame = JSON.parse(String(data));
+      frames.push(frame);
+      if (frame.cmd !== 'ping') ws.send(JSON.stringify({ headers: { req_id: frame.headers.req_id }, errcode: 0 }));
+    });
+  });
+  const statuses: string[] = [];
+  const adapter = new WecomAdapter(
+    { botId: 'B1', secret: 'ok' },
+    {
+      url: `ws://127.0.0.1:${(server.address() as { port: number }).port}`,
+      reconnectMs: () => 20,
+      streamMaxBytes: 30,
+      streamLifetimeMs: 35,
+    },
+  );
+  t.after(() => adapter.stop());
+  adapter.start({
+    status: (status) => void statuses.push(status),
+    message: () => {},
+    action: async () => undefined,
+  });
+  await until(() => statuses.includes('connected'));
+  // Without a recent inbound message, streaming is unavailable (proactive messages use sendText markdown).
+  assert.equal(adapter.beginStream('zhou'), undefined);
+
+  socket!.send(
+    JSON.stringify({
+      cmd: 'aibot_msg_callback',
+      headers: { req_id: 'req-stream' },
+      body: {
+        msgid: 'msg-s1',
+        chattype: 'single',
+        from: { userid: 'zhou' },
+        msgtype: 'text',
+        text: { content: '开始' },
+        create_time: 1760000000,
+      },
+    }),
+  );
+  await until(() => adapter.beginStream('zhou') !== undefined);
+
+  // Basic live stream: same req_id and stream.id, finish:false updates then finish:true.
+  const s1 = adapter.beginStream('zhou')!;
+  await s1.update('前半句');
+  await s1.update('前半句，后半句');
+  await s1.finish('前半句，后半句。');
+  const s1Frames = frames.filter((frame) => frame.cmd === 'aibot_respond_msg');
+  assert.equal(s1Frames.length, 3);
+  assert.ok(s1Frames.every((frame) => frame.headers.req_id === 'req-stream'));
+  assert.equal(new Set(s1Frames.map((frame) => frame.body.stream.id)).size, 1);
+  assert.deepEqual(
+    s1Frames.map((frame) => [frame.body.stream.finish, frame.body.stream.content]),
+    [
+      [false, '前半句'],
+      [false, '前半句，后半句'],
+      [true, '前半句，后半句。'],
+    ],
+  );
+
+  // Byte-limit rollover closes the first stream ID and continues on a new stream ID.
+  const beforeRoll = frames.length;
+  const s2 = adapter.beginStream('zhou')!;
+  await s2.update('第一段内容\n\n第二段内容非常长超出限制');
+  await s2.finish('第一段内容\n\n第二段内容非常长超出限制，结尾');
+  const s2Frames = frames.slice(beforeRoll).filter((frame) => frame.cmd === 'aibot_respond_msg');
+  const s2Ids = [...new Set(s2Frames.map((frame) => frame.body.stream.id))];
+  assert.ok(s2Ids.length >= 2, 'exceeding maxBytes rolls over to a fresh stream ID');
+  assert.ok(
+    s2Frames.every((frame) => Buffer.byteLength(frame.body.stream.content, 'utf8') <= 30),
+    'every frame stays within maxBytes',
+  );
+  for (const id of s2Ids) {
+    const last = s2Frames.filter((frame) => frame.body.stream.id === id).at(-1);
+    assert.equal(last.body.stream.finish, true, 'every stream ID is cleanly finalized');
+  }
+
+  // Lifetime rollover closes an aging stream ID before WeCom's 10-minute cutoff.
+  const beforeLife = frames.length;
+  const s3 = adapter.beginStream('zhou')!;
+  await s3.update('第一部分');
+  await delay(45);
+  await s3.update('第一部分 第二部分');
+  await s3.finish('第一部分 第二部分');
+  const s3Frames = frames.slice(beforeLife).filter((frame) => frame.cmd === 'aibot_respond_msg');
+  const s3Ids = [...new Set(s3Frames.map((frame) => frame.body.stream.id))];
+  assert.equal(s3Ids.length, 2);
+  assert.deepEqual(
+    s3Frames.map((frame) => [
+      frame.body.stream.id === s3Ids[0] ? 'a' : 'b',
+      frame.body.stream.finish,
+      frame.body.stream.content,
+    ]),
+    [
+      ['a', false, '第一部分'],
+      ['a', true, '第一部分'],
+      ['b', false, '第二部分'],
+      ['b', true, '第二部分'],
+    ],
+  );
+});
+
+test('the Feishu adapter streams with CardKit when allowed and falls back to card patching without cardkit:card:write', async (t) => {
+  const ops: string[] = [];
+  let streamError: Error | undefined;
+  const channel = {
+    connect: async () => {},
+    disconnect: async () => {},
+    on: () => () => {},
+    send: async (to: string, input: any) => {
+      ops.push(`send:${to}:${input.markdown ? 'md:' + input.markdown : 'card:' + input.card.body.elements[0].content}`);
+      return { messageId: 'om_' + ops.length };
+    },
+    stream: async (to: string, input: { markdown: (ctrl: any) => Promise<void> }) => {
+      ops.push(`stream:start:${to}`);
+      if (streamError) throw streamError;
+      await input.markdown({
+        messageId: 'om_stream',
+        append: async (chunk: string) => void ops.push(`stream:append:${chunk}`),
+        setContent: async (full: string) => void ops.push(`stream:set:${full}`),
+      });
+      ops.push('stream:end');
+      return { messageId: 'om_stream' };
+    },
+    updateCard: async (messageId: string, card: any) => {
+      ops.push(`patch:${messageId}:${card.body.elements[0].content}`);
+    },
+    addReaction: async () => 'r1',
+    removeReaction: async () => {},
+    rawClient: {
+      im: { v1: { messageResource: { get: async () => ({ getReadableStream: () => Readable.from([]) }) } } },
+    },
+  };
+  const sdk = { createLarkChannel: () => channel, LoggerLevel: { error: 0 } } as unknown as LarkSdk;
+  const statuses: string[] = [];
+  const adapter = new FeishuAdapter({ appId: 'cli', appSecret: 's' }, () => sdk, {
+    streamIntervalMs: 100,
+    patchIntervalMs: 400,
+    cardMaxChars: 80,
+  });
+  t.after(() => adapter.stop());
+  adapter.start({ status: (s) => void statuses.push(s), message: () => {}, action: async () => undefined });
+  await until(() => statuses.at(-1) === 'connected');
+
+  // Tier 1: CardKit native streaming via channel.stream.
+  const first = adapter.beginStream('oc_1')!;
+  assert.equal(first.intervalMs, 100);
+  await first.update('你好');
+  await first.update('你好，世界');
+  await first.update('重写后的内容');
+  await first.finish('重写后的内容！');
+  assert.deepEqual(ops, [
+    'stream:start:oc_1',
+    'stream:append:你好',
+    'stream:append:你好，世界',
+    'stream:set:重写后的内容',
+    'stream:append:重写后的内容！',
+    'stream:end',
+  ]);
+
+  // Tier 1 -> Tier 2 fallback when cardkit:card:write is missing.
+  ops.length = 0;
+  streamError = Object.assign(new Error('99991672 missing cardkit:card:write'), { code: 'permission_denied' });
+  const second = adapter.beginStream('oc_1')!;
+  await second.update('降级第一段');
+  assert.equal(second.intervalMs, 400);
+  await second.update('降级第一段，补充内容');
+  await second.finish('降级第一段，补充内容。');
+  assert.deepEqual(ops, [
+    'stream:start:oc_1',
+    'send:oc_1:card:降级第一段',
+    'patch:om_2:降级第一段，补充内容',
+    'patch:om_2:降级第一段，补充内容。',
+  ]);
+
+  // Once CardKit permission denial is observed, the next stream goes straight to card patching and splits long text.
+  ops.length = 0;
+  const third = adapter.beginStream('oc_1')!;
+  assert.equal(third.intervalMs, 400);
+  const longText = '甲'.repeat(60) + '\n\n' + '乙'.repeat(60);
+  await third.update(longText);
+  await third.finish(longText);
+  assert.ok(!ops.some((entry) => entry.startsWith('stream:start')));
+  assert.equal(ops.filter((entry) => entry.startsWith('send:')).length, 2);
+  assert.deepEqual(feishuMarkdownCard('正文').body.elements, [{ tag: 'markdown', content: '正文' }]);
 });

@@ -28,6 +28,7 @@ import type { MentionFileSearch } from '../chat/file-mentions';
 import type { DiagnosticPreview } from './diagnostic-types';
 import type { ScheduledTask, ScheduledTaskInput, ScheduledTaskUpdate, ScheduledTrigger } from './scheduled-types';
 import type { ToolExecution } from './execution-types';
+import type { VaultInputInteraction, VaultUseInteraction } from './vault-types';
 export type { BotMention } from './peer-types';
 export interface ModelSelection {
   providerId: string;
@@ -197,6 +198,8 @@ export interface ChatMessage {
   reaction?: PinEvent;
   /** The user marked it to find again on the conversation rail; the Bot is not told. */
   marked?: boolean;
+  /** Sensitive user-provided values in this message were scrubbed into Vault. */
+  vaultScrubbed?: boolean;
   id: string;
   botId: string;
   role: 'user' | 'assistant' | 'tool' | 'event';
@@ -426,8 +429,11 @@ export type InteractionRequest = { id: string; botId: string; runId: string; cre
   /** A Bot's task wants to start operating the user's own computer. */
   | { kind: 'computer_use'; phase: 'waiting' }
   | { kind: 'user_input'; questions: UserQuestion[]; phase: 'waiting' }
+  | Omit<VaultInputInteraction, 'id' | 'botId' | 'runId' | 'createdAt'>
+  | Omit<VaultUseInteraction, 'id' | 'botId' | 'runId' | 'createdAt'>
 );
-export type InteractionAction = 'allow' | 'allow-always' | 'deny' | 'takeover' | 'resume' | 'cancel' | 'answer';
+export type InteractionAction =
+  'allow' | 'allow-always' | 'allow-run' | 'deny' | 'takeover' | 'resume' | 'cancel' | 'answer' | 'submit';
 interface CognitionView {
   learning: { enabled: boolean; runningBotId?: string; working?: boolean; queued: number };
   bots: Array<{
@@ -847,7 +853,19 @@ export interface AelionAPI {
   setComputerControl(input: { botId: string; enabled: boolean }): Promise<void>;
   setComputerFullscreen(enabled: boolean): Promise<void>;
   setWindowDimmed(enabled: boolean, color?: string): Promise<void>;
-  respondInteraction(input: { id: string; action: InteractionAction; answers?: Record<string, string> }): Promise<void>;
+  respondInteraction(input: {
+    id: string;
+    action: InteractionAction;
+    answers?: Record<string, string>;
+    vaultInput?: import('./vault-types').VaultItemWriteInput;
+  }): Promise<void>;
+  /** Settings → Vault: metadata overview, save/delete, reveal (desktop only), audit log and SSH key picker. */
+  vaultOverview(): Promise<import('./vault-types').VaultOverview>;
+  vaultSave(input: import('./vault-types').VaultItemWriteInput): Promise<import('./vault-types').VaultItemMeta>;
+  vaultDelete(id: string): Promise<void>;
+  vaultReveal(id: string): Promise<Record<string, string>>;
+  vaultAudit(input?: { itemId?: string; limit?: number }): Promise<import('./vault-types').VaultAuditEntry[]>;
+  vaultImportSshKey(): Promise<import('./vault-types').VaultSshImportResult | null>;
   /** Settings → 手机访问. */
   saveRemoteSettings(input: import('./remote-types').RemoteSettingsInput): Promise<void>;
   startRemotePairing(): Promise<void>;

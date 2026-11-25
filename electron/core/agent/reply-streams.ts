@@ -22,7 +22,7 @@ export class ReplyStreams {
       .filter((reply) => reply.content || reply.reasoning?.text)
       .sort((a, b) => a.time.localeCompare(b.time) || a.id.localeCompare(b.id));
   }
-  begin(target: StreamTarget, members?: () => BotIdentity[]) {
+  begin(target: StreamTarget, members?: () => BotIdentity[], onContent?: (content: string) => void) {
     // Group messages appear only after publication. Promoted tasks may still stream in their Bot's main chat.
     if (target.groupId && !target.main)
       return {
@@ -57,6 +57,7 @@ export class ReplyStreams {
           lastTokenAt: formatted.content ? at : previous.reply.lastTokenAt,
         },
       });
+      onContent?.(formatted.content);
       if (!previous.reply.content && formatted.content) this.emit();
       else this.schedule();
     };
