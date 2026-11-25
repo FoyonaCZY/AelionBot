@@ -98,11 +98,26 @@ export function defaultSpeechProtocol(baseUrl = ''): SpeechProtocol {
   return 'openai-audio';
 }
 
+export function speechProtocolFor(
+  provider: {
+    baseUrl: string;
+    speechProtocol?: SpeechProtocol;
+    asrProtocol?: SpeechProtocol;
+    ttsProtocol?: SpeechProtocol;
+  },
+  kind: 'input' | 'output',
+) {
+  return (
+    (kind === 'input' ? provider.asrProtocol : provider.ttsProtocol) ||
+    provider.speechProtocol ||
+    defaultSpeechProtocol(provider.baseUrl)
+  );
+}
 export interface SpeechSelection {
   providerId: string;
   /** Empty for DeepSeek, whose endpoints take no model. */
   model: string;
-  /** The default voice for synthesis; a Bot can choose its own. */
+  /** The workspace voice for synthesis. */
   voice?: string;
 }
 export interface SpeechSettings {

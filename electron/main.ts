@@ -256,6 +256,7 @@ function snapshot(): Snapshot {
     runs: store.data.runs,
     model: providers.config(),
     providers: providers.list(),
+    mediaDefaults: store.data.mediaDefaults,
     defaultModel: store.data.defaultModel,
     approvalModel: store.data.approvalModel,
     speech: store.data.speech,
@@ -921,7 +922,7 @@ async function initialize() {
   cognition.onSlow = cognition.learning.onSlow = (source, ms) => slow?.(source, ms);
   agentPreviews = new AgentPreviews(store, artifacts, attachments, changed, host);
   pinnedWidgets = new PinnedWidgets(store, changed);
-  const imageModelAccess = (botId: string) => providers.imageAccess(botId);
+  const imageModelAccess = providers.imageAccess.bind(providers);
   const generalHarness = new Harness(
     store,
     vm,
@@ -935,6 +936,7 @@ async function initialize() {
     cognition,
     attachments,
   );
+  generalHarness.setMediaProviders(providers);
   generalHarness.setImageModel(imageModelAccess);
   generalHarness.setPinnedWidgets(pinnedWidgets);
   generalHarness.setAutomaticRunsPaused(() => spending.pausedReason());

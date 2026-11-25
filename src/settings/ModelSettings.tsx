@@ -9,15 +9,17 @@ import {
   type ImageProtocol,
   type ImageProtocolInfo,
 } from '../../shared/types/image-types';
+import { SPEECH_PROTOCOL_CATALOG, speechProtocolFor, type SpeechProtocol } from '../../shared/types/speech-types';
 import {
-  SPEECH_PROTOCOL_CATALOG,
-  defaultSpeechProtocol,
-  speechProtocolInfo,
-  type SpeechProtocol,
-} from '../../shared/types/speech-types';
+  MODEL_USES,
+  VIDEO_PROTOCOLS,
+  usesModel,
+  type ModelUse,
+  type VideoProtocol,
+} from '../../shared/types/media-types';
+import { MediaAssignment } from './MediaAssignment';
 import { SpeechAssignments } from './SpeechSettings';
 import { Icon } from '../ui/Icon';
-import { Emblem } from '../ui/Emblem';
 import { useSwitchMotion } from '../ui/motion';
 import { ModelSelectionFields, validModelSelection } from './ModelSelectionFields';
 import { ContextCapacityInput } from './ContextCapacityInput';
@@ -29,15 +31,6 @@ import './model-settings.css';
 const errorText = (error: unknown) =>
   (error as Error).message.replace(/^Error invoking remote method '[^']+': Error: /, '');
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
-function protocolName(protocol: string | undefined, t: (value: string) => string) {
-  return protocol === 'responses'
-    ? 'Responses'
-    : protocol === 'anthropic'
-      ? 'Claude'
-      : protocol === 'gemini'
-        ? 'Gemini'
-        : t('OpenAI 兼容');
-}
 /** The protocol catalog is owned by the main process so adding an adapter needs no renderer change. */
 function useImageProtocols() {
   const [catalog, setCatalog] = useState<ImageProtocolInfo[]>([]);
@@ -55,20 +48,10 @@ function useImageProtocols() {
   }, []);
   return catalog;
 }
-function capabilityLabels(info: ImageProtocolInfo | undefined, t: (value: string) => string) {
-  if (!info) return [];
-  const { capabilities } = info;
-  return [
-    capabilities.aspect && t('画幅'),
-    capabilities.quality && t('质量'),
-    capabilities.reference && t('参考图'),
-    capabilities.negativePrompt && t('负向提示'),
-    capabilities.seed && t('随机种子'),
-  ].filter(Boolean) as string[];
-}
 export function ModelSettings({ state, onNotify }: { state: Snapshot; onNotify: (text: string) => void }) {
   const { t } = useI18n(),
     providers = state.providers || [];
+  const [use, setUse] = useState<ModelUse>('chat');
   const [page, setPage] = useState<'assignments' | 'providers'>(providers.length ? 'assignments' : 'providers');
   const [editing, setEditing] = useState<string>(providers[0]?.id || 'new'),
     [refreshing, setRefreshing] = useState<string[]>([]),
@@ -89,7 +72,7 @@ export function ModelSettings({ state, onNotify }: { state: Snapshot; onNotify: 
   };
   useEffect(() => {
     for (const provider of providers)
-      if (!provider.modelsCheckedAt && !attempted.current.has(provider.id)) {
+      if (usesModel(provider, 'chat') && !provider.modelsCheckedAt && !attempted.current.has(provider.id)) {
         attempted.current.add(provider.id);
         void refresh(provider.id);
       }
@@ -109,6 +92,8 @@ export function ModelSettings({ state, onNotify }: { state: Snapshot; onNotify: 
     editor &&
     (state.defaultModel?.providerId === editor.id ||
       state.approvalModel?.providerId === editor.id ||
+      state.mediaDefaults?.image?.providerId === editor.id ||
+      state.mediaDefaults?.video?.providerId === editor.id ||
       state.speech?.input?.providerId === editor.id ||
       state.speech?.output?.providerId === editor.id ||
       state.bots.some((bot) => bot.model?.providerId === editor.id)),
@@ -134,48 +119,72 @@ export function ModelSettings({ state, onNotify }: { state: Snapshot; onNotify: 
         </button>
         <button type="button" aria-pressed={page === 'providers'} onClick={() => setPage('providers')}>
           <Icon name="layers" size={16} />
-          Providers<span className="model-count-badge">{providers.length}</span>
+          {t('Provider 连接')}
+          <span className="model-count-badge">{providers.length}</span>
         </button>
       </div>
       <div className="model-assignments-page" hidden={page !== 'assignments'}>
-        <div className="model-assignment-grid">
-          <section className="model-assignment-panel">
-            <header>
-              <span className="model-assignment-mark" aria-hidden="true">
-                <Icon name="message" size={16} />
-              </span>
-              <h3>{t('默认模型')}</h3>
-            </header>
-            <DefaultModelAssignment
-              providers={providers}
-              selection={state.defaultModel || null}
-              busy={busy}
-              onNotify={onNotify}
-            />
-            {busy && (
-              <p className="provider-model-note" role="status">
-                {t('任务运行中，暂不可修改')}
-              </p>
-            )}
-          </section>
-          <section className="model-assignment-panel">
-            <header>
-              <span className="model-assignment-mark" aria-hidden="true">
-                <Icon name="shield" size={16} />
-              </span>
-              <h3>{t('自动审核模型')}</h3>
-            </header>
-            <DefaultModelAssignment
-              approval
-              defaultModel={state.defaultModel}
-              providers={providers}
-              selection={state.approvalModel || null}
-              busy={false}
-              onNotify={onNotify}
-            />
-          </section>
-          <SpeechAssignments providers={providers} settings={state.speech || {}} onNotify={onNotify} />
+        <div className="media-use-tabs" role="group" aria-label={t('模型用途')}>
+          {(Object.keys(MODEL_USES) as ModelUse[]).map((kind) => (
+            <button type="button" key={kind} aria-pressed={use === kind} onClick={() => setUse(kind)}>
+              {t(MODEL_USES[kind])}
+            </button>
+          ))}
         </div>
+        {(use === 'image' || use === 'video') && (
+          <MediaAssignment
+            key={use + JSON.stringify(state.mediaDefaults?.[use])}
+            kind={use}
+            selection={state.mediaDefaults?.[use]}
+            providers={providers}
+            onNotify={onNotify}
+            onManage={(id) => {
+              setEditing(id || providers[0]?.id || 'new');
+              setPage('providers');
+            }}
+          />
+        )}
+        {use === 'chat' && (
+          <div className="model-assignment-grid">
+            <section className="model-assignment-panel">
+              <header>
+                <h3>{t('默认模型')}</h3>
+              </header>
+              <DefaultModelAssignment
+                providers={providers}
+                selection={state.defaultModel || null}
+                busy={busy}
+                onNotify={onNotify}
+              />
+              {busy && (
+                <p className="provider-model-note" role="status">
+                  {t('任务运行中，暂不可修改')}
+                </p>
+              )}
+            </section>
+            <section className="model-assignment-panel">
+              <header>
+                <h3>{t('自动审核模型')}</h3>
+              </header>
+              <DefaultModelAssignment
+                approval
+                defaultModel={state.defaultModel}
+                providers={providers}
+                selection={state.approvalModel || null}
+                busy={false}
+                onNotify={onNotify}
+              />
+            </section>
+          </div>
+        )}
+        {(use === 'asr' || use === 'tts') && (
+          <SpeechAssignments
+            kind={use === 'asr' ? 'input' : 'output'}
+            providers={providers}
+            settings={state.speech || {}}
+            onNotify={onNotify}
+          />
+        )}
         {!providers.length && (
           <button
             type="button"
@@ -214,7 +223,6 @@ export function ModelSettings({ state, onNotify }: { state: Snapshot; onNotify: 
                 aria-label={t('编辑 Provider {name}', { name: provider.name })}
                 onClick={() => setEditing(provider.id)}
               >
-                <Emblem seed={provider.id} size={30} />
                 <span className="provider-browser-copy">
                   <span className="provider-browser-name">
                     <strong>{provider.name}</strong>
@@ -223,10 +231,6 @@ export function ModelSettings({ state, onNotify }: { state: Snapshot; onNotify: 
                         <Icon name="alert" size={14} />
                       </span>
                     )}
-                  </span>
-                  <span className="provider-browser-meta">
-                    {protocolName(provider.protocol, t)}
-                    <span>{refreshing.includes(provider.id) ? t('拉取中…') : provider.models.length}</span>
                   </span>
                 </span>
               </button>
@@ -335,7 +339,7 @@ function ProviderEditor({
   onSaved: (provider: ModelProvider, close?: boolean) => void;
 }) {
   const { t } = useI18n();
-  const [tab, setTab] = useState<'connection' | 'models' | 'images' | 'speech' | 'advanced'>('connection');
+  const [tab, setTab] = useState<'connection' | 'models' | 'images' | 'speech' | 'video' | 'advanced'>('connection');
   const form = useRef<HTMLFormElement>(null);
   useSwitchMotion(form, tab, ':scope > .provider-editor-content:not([hidden])');
   const [parameters, setParameters] = useState<ModelParameters>({
@@ -350,6 +354,12 @@ function ProviderEditor({
     imageAspect: provider?.imageAspect,
     imageQuality: provider?.imageQuality,
     speechProtocol: provider?.speechProtocol,
+    asrProtocol: provider?.asrProtocol,
+    ttsProtocol: provider?.ttsProtocol,
+    uses:
+      provider?.uses ||
+      (provider ? (Object.keys(MODEL_USES) as ModelUse[]).filter((k) => usesModel(provider, k)) : ['chat']),
+    videoProtocol: provider?.videoProtocol,
   });
   const [name, setName] = useState(provider?.name || ''),
     [baseUrl, setBaseUrl] = useState(provider?.baseUrl || ''),
@@ -367,7 +377,6 @@ function ProviderEditor({
         baseUrl,
         ...parameters,
         imageProtocol,
-        speechProtocol,
         apiKey: clearKey ? null : apiKey || undefined,
       });
       setName(saved.name);
@@ -391,9 +400,14 @@ function ProviderEditor({
       ? parameters.imageProtocol
       : defaultImageProtocol(parameters.protocol);
   const imageInfo = imageOptions.find((info) => info.id === imageProtocol);
-  const speechProtocol = parameters.speechProtocol || defaultSpeechProtocol(baseUrl),
-    speechInfo = speechProtocolInfo(speechProtocol);
-  const capabilities = capabilityLabels(imageInfo, t);
+  const toggleUse = (kind: ModelUse, enabled: boolean) => {
+    const uses = enabled ? [...parameters.uses!, kind] : parameters.uses!.filter((k) => k !== kind);
+    setParameters({
+      ...parameters,
+      uses,
+      videoProtocol: parameters.videoProtocol || (kind === 'video' && enabled ? 'dashscope' : undefined),
+    });
+  };
   return (
     <form
       ref={form}
@@ -417,26 +431,19 @@ function ProviderEditor({
     >
       <header className="provider-editor-heading">
         <div>
-          {provider ? (
-            <Emblem seed={provider.id} size={38} />
-          ) : (
+          {!provider && (
             <span className="provider-new-mark is-large" aria-hidden="true">
               <Icon name="plus" size={18} />
             </span>
           )}
           <h3>{provider?.name || t('添加 Provider')}</h3>
-          {provider && <span className="provider-protocol">{protocolName(provider.protocol, t)}</span>}
         </div>
         {provider && (
           <button
             type="button"
             className="icon-button provider-delete"
             disabled={used || disabled || pending || removing}
-            title={
-              used
-                ? t('请先切换使用此 Provider 的默认模型、审核模型、语音或 Bot 模型')
-                : t('删除 Provider {name}', { name: provider.name })
-            }
+            title={used ? t('请先切换使用此连接的模型') : t('删除 Provider {name}', { name: provider.name })}
             aria-label={t('删除 Provider {name}', { name: provider.name })}
             onClick={onRemove}
           >
@@ -451,20 +458,33 @@ function ProviderEditor({
             { id: 'models', label: t('模型'), count: provider?.models.length },
             { id: 'images', label: t('生图') },
             { id: 'speech', label: t('语音') },
+            { id: 'video', label: t('视频生成') },
             { id: 'advanced', label: t('高级') },
           ] as const
-        ).map((item) => (
-          <button
-            type="button"
-            key={item.id}
-            aria-pressed={tab === item.id}
-            disabled={item.id === 'models' && !provider}
-            onClick={() => setTab(item.id)}
-          >
-            {item.label}
-            {'count' in item && item.count !== undefined && <span>{item.count}</span>}
-          </button>
-        ))}
+        )
+          .filter((item) =>
+            item.id === 'images'
+              ? parameters.uses?.includes('image')
+              : item.id === 'speech'
+                ? parameters.uses?.some((k) => k === 'asr' || k === 'tts')
+                : item.id === 'video'
+                  ? parameters.uses?.includes('video')
+                  : item.id === 'advanced'
+                    ? parameters.uses?.includes('chat')
+                    : true,
+          )
+          .map((item) => (
+            <button
+              type="button"
+              key={item.id}
+              aria-pressed={tab === item.id}
+              disabled={item.id === 'models' && !provider}
+              onClick={() => setTab(item.id)}
+            >
+              {item.label}
+              {'count' in item && item.count !== undefined && <span>{item.count}</span>}
+            </button>
+          ))}
       </div>
       {disabled && (
         <p className="provider-editor-notice" role="status">
@@ -473,7 +493,21 @@ function ProviderEditor({
       )}
       <div className="provider-editor-content" data-provider-panel="connection" hidden={tab !== 'connection'}>
         <div className="settings-card">
-          <label className="settings-row">
+          <fieldset className="provider-uses">
+            <legend>{t('模型用途')}</legend>
+            {(Object.keys(MODEL_USES) as ModelUse[]).map((kind) => (
+              <label key={kind}>
+                <input
+                  type="checkbox"
+                  disabled={disabled || pending}
+                  checked={parameters.uses?.includes(kind) || false}
+                  onChange={(e) => toggleUse(kind, e.target.checked)}
+                />
+                {t(MODEL_USES[kind])}
+              </label>
+            ))}
+          </fieldset>
+          <label className="settings-row" hidden={!parameters.uses?.includes('chat')}>
             <span>{t('协议')}</span>
             <Select
               aria-label={t('Provider 协议')}
@@ -559,79 +593,79 @@ function ProviderEditor({
               ))}
             </Select>
           </label>
-          {imageInfo?.endpoint && <p className="provider-model-note">{imageInfo.endpoint}</p>}
-          {capabilities.length > 0 && (
-            <p className="provider-image-capabilities">
-              {t('支持')}：{capabilities.join(' · ')}
-            </p>
-          )}
           <label className="settings-row">
             <span>{t('默认画幅')}</span>
-            <Select
-              aria-label={t('默认画幅')}
+            <EditableSelect
+              label={t('默认画幅')}
               value={parameters.imageAspect || ''}
               disabled={disabled || pending || !imageInfo?.capabilities.aspect}
-              onChange={(e) =>
-                setParameters({
-                  ...parameters,
-                  imageAspect: e.target.value ? (e.target.value as ModelParameters['imageAspect']) : undefined,
-                })
-              }
-            >
-              <option value="">{t('模型默认')}</option>
-              {IMAGE_ASPECTS.map((aspect) => (
-                <option key={aspect} value={aspect}>
-                  {aspect}
-                </option>
-              ))}
-            </Select>
+              options={[...IMAGE_ASPECTS]}
+              placeholder={t('模型默认')}
+              onChange={(imageAspect) => setParameters({ ...parameters, imageAspect: imageAspect || undefined })}
+            />
           </label>
           <label className="settings-row">
             <span>{t('默认质量')}</span>
-            <Select
-              aria-label={t('默认质量')}
-              value={parameters.imageQuality || 'auto'}
+            <EditableSelect
+              label={t('默认质量')}
+              value={parameters.imageQuality || ''}
+              options={[...IMAGE_QUALITIES]}
               disabled={disabled || pending || !imageInfo?.capabilities.quality}
-              onChange={(e) =>
-                setParameters({
-                  ...parameters,
-                  imageQuality:
-                    e.target.value === 'auto' ? undefined : (e.target.value as ModelParameters['imageQuality']),
-                })
+              placeholder={t('模型默认')}
+              onChange={(value) =>
+                setParameters({ ...parameters, imageQuality: value === 'auto' ? undefined : value || undefined })
               }
-            >
-              {IMAGE_QUALITIES.map((quality) => (
-                <option key={quality} value={quality}>
-                  {quality === 'auto' ? t('模型默认') : quality}
-                </option>
-              ))}
-            </Select>
+            />
           </label>
         </div>
       </div>
       <div className="provider-editor-content" data-provider-panel="speech" hidden={tab !== 'speech'}>
         <div className="settings-card provider-image-card">
+          {(['asr', 'tts'] as const)
+            .filter((kind) => parameters.uses?.includes(kind))
+            .map((kind) => {
+              const label = t(kind === 'asr' ? '语音识别协议' : '语音合成协议');
+              return (
+                <label key={kind} className="settings-row">
+                  <span>{label}</span>
+                  <Select
+                    aria-label={label}
+                    value={speechProtocolFor({ ...parameters, baseUrl }, kind === 'asr' ? 'input' : 'output')}
+                    disabled={disabled || pending}
+                    onChange={(e) =>
+                      setParameters({
+                        ...parameters,
+                        [kind === 'asr' ? 'asrProtocol' : 'ttsProtocol']: e.target.value as SpeechProtocol,
+                      })
+                    }
+                  >
+                    {SPEECH_PROTOCOL_CATALOG.map((info) => (
+                      <option key={info.id} value={info.id}>
+                        {t(info.label)}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+              );
+            })}
+        </div>
+      </div>
+      <div className="provider-editor-content" data-provider-panel="video" hidden={tab !== 'video'}>
+        <div className="settings-card">
           <label className="settings-row">
-            <span>{t('语音协议')}</span>
+            <span>{t('视频协议')}</span>
             <Select
-              aria-label={t('语音协议')}
-              value={speechProtocol}
+              value={parameters.videoProtocol || 'dashscope'}
               disabled={disabled || pending}
-              onChange={(e) => setParameters({ ...parameters, speechProtocol: e.target.value as SpeechProtocol })}
+              onChange={(e) => setParameters({ ...parameters, videoProtocol: e.target.value as VideoProtocol })}
             >
-              {SPEECH_PROTOCOL_CATALOG.map((info) => (
-                <option key={info.id} value={info.id}>
-                  {t(info.label)}
+              {Object.entries(VIDEO_PROTOCOLS).map(([id, label]) => (
+                <option key={id} value={id}>
+                  {label}
                 </option>
               ))}
             </Select>
           </label>
-          <p className="provider-model-note">
-            {t('语音识别')}：{speechInfo.endpoints.input}
-            <br />
-            {t('语音合成')}：{speechInfo.endpoints.output}
-          </p>
-          <p className="provider-image-capabilities">{t(speechInfo.hint)}</p>
         </div>
       </div>
       <div className="provider-editor-content" data-provider-panel="advanced" hidden={tab !== 'advanced'}>
@@ -720,7 +754,7 @@ function ProviderEditor({
                 aria-label={t('使用服务端内置搜索；应用内不再提供内置搜索工具')}
               />
             </label>
-            {responses && (
+            {responses && parameters.uses?.includes('image') && (
               <label className="settings-row provider-hosted-row">
                 <span>{t('服务端生图')}</span>
                 <input
@@ -756,15 +790,13 @@ function ProviderEditor({
             <span className="provider-error">{error}</span>
           ) : provider?.modelsError ? (
             <span className="provider-error">{provider.modelsError}</span>
-          ) : provider?.hasKey ? (
-            <span>
-              <Icon name="check" size={14} />
-              {t('密钥已保存')}
-            </span>
           ) : null}
         </div>
-        <button className="primary-button" disabled={disabled || pending || !name.trim() || !baseUrl.trim()}>
-          {pending ? t('保存并拉取中…') : provider ? t('保存更改') : t('添加 Provider')}
+        <button
+          className="primary-button"
+          disabled={disabled || pending || !parameters.uses?.length || !name.trim() || !baseUrl.trim()}
+        >
+          {pending ? t('保存中…') : provider ? t('保存更改') : t('添加 Provider')}
         </button>
       </footer>
     </form>
@@ -787,7 +819,9 @@ function ProviderModelCatalog({
   const { t } = useI18n();
   const [customId, setCustomId] = useState(''),
     [query, setQuery] = useState(''),
-    thinking = ['anthropic', 'gemini'].includes(provider.protocol || 'chat');
+    chat = usesModel(provider, 'chat'),
+    image = usesModel(provider, 'image'),
+    thinking = chat && ['anthropic', 'gemini'].includes(provider.protocol || 'chat');
   const [error, setError] = useState(''),
     [saving, setSaving] = useState(false);
   const save = async (model: ProviderModel) => {
@@ -807,7 +841,7 @@ function ProviderModelCatalog({
   const add = async () => {
     const id = customId.trim();
     if (disabled || saving || !id || provider.models.some((model) => model.id === id)) return;
-    if (await save({ id, contextTokens: 32000 })) setCustomId('');
+    if (await save(chat ? { id, contextTokens: 32000 } : { id })) setCustomId('');
   };
   const needle = query.trim().toLowerCase(),
     models = needle ? provider.models.filter((model) => model.id.toLowerCase().includes(needle)) : provider.models;
@@ -823,7 +857,12 @@ function ProviderModelCatalog({
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
-        <button className="text-button" type="button" disabled={disabled || refreshing || saving} onClick={onRefresh}>
+        <button
+          className="text-button"
+          type="button"
+          disabled={disabled || refreshing || saving || !usesModel(provider, 'chat')}
+          onClick={onRefresh}
+        >
           <Icon name="restart" size={14} />
           {refreshing ? t('拉取中…') : t('刷新')}
         </button>
@@ -861,122 +900,110 @@ function ProviderModelCatalog({
         </p>
       )}
       <div className="provider-model-results">
-        {models.map((model) => (
-          <details key={model.id} className="provider-model-card">
-            <summary>
-              <Icon name="arrow" size={14} />
-              <span className="provider-model-id" title={model.id}>
-                {model.id}
-              </span>
-              <span className="provider-model-meta">
-                {model.imageOutput ? `${t('生图')} · ` : ''}
-                {model.contextTokens ? `${Math.round(model.contextTokens / 1000)}k` : ''}
-                {model.reasoningEffort ? ` · ${model.reasoningEffort}` : ''}
-                {model.thinkingBudget ? ` · ${model.thinkingBudget}` : ''}
-              </span>
-            </summary>
-            <label className="settings-row settings-number">
-              <span>{t('上下文容量')}</span>
-              <ContextCapacityInput
-                value={model.contextTokens ?? 32000}
-                disabled={disabled}
-                onChange={(contextTokens) => Number.isInteger(contextTokens) && void save({ ...model, contextTokens })}
-              />
-            </label>
-            {REASONING_PROTOCOLS.includes(provider.protocol || 'chat') && (
-              <label className="settings-row">
-                <span>{t('推理强度')}</span>
-                <EditableSelect
-                  label={t('推理强度')}
-                  value={model.reasoningEffort || ''}
-                  onChange={(text) => void save({ ...model, reasoningEffort: text || undefined })}
-                  options={reasoningPresets(provider.protocol)}
-                  maxLength={80}
-                  placeholder={t('模型默认，可输入自定义值')}
-                  disabled={disabled}
-                />
-              </label>
-            )}
-            {thinking && (
-              <label className="settings-row">
-                <span>{t('思考预算')}</span>
-                <input
-                  type="number"
-                  min={1024}
-                  max={64000}
-                  placeholder={t('模型默认')}
-                  disabled={disabled}
-                  value={model.thinkingBudget ?? ''}
-                  onChange={(event) => {
-                    const text = event.target.value;
-                    if (text === '') void save({ ...model, thinkingBudget: undefined });
-                    else if (Number.isInteger(Number(text))) void save({ ...model, thinkingBudget: Number(text) });
-                  }}
-                />
-              </label>
-            )}
-            <label className="settings-row provider-hosted-row">
-              <span>{t('可用于生图')}</span>
-              <input
-                type="checkbox"
-                checked={Boolean(model.imageOutput)}
-                disabled={disabled}
-                onChange={(event) => void save({ ...model, imageOutput: event.target.checked || undefined })}
-                aria-label={t('把 {model} 标记为生图模型', { model: model.id })}
-              />
-            </label>
-            {model.imageOutput && (
-              <>
-                <label className="settings-row">
-                  <span>{t('默认画幅')}</span>
-                  <Select
-                    aria-label={t('{model} 的默认画幅', { model: model.id })}
-                    value={model.imageAspect || ''}
+        {models.map((model) =>
+          !chat && !image ? (
+            <div key={model.id} className="provider-model-card">
+              <span className="provider-model-id">{model.id}</span>
+            </div>
+          ) : (
+            <details key={model.id} className="provider-model-card">
+              <summary>
+                <Icon name="arrow" size={14} />
+                <span className="provider-model-id" title={model.id}>
+                  {model.id}
+                </span>
+                <span className="provider-model-meta">
+                  {model.imageOutput ? `${t('生图')} · ` : ''}
+                  {model.contextTokens ? `${Math.round(model.contextTokens / 1000)}k` : ''}
+                  {model.reasoningEffort ? ` · ${model.reasoningEffort}` : ''}
+                  {model.thinkingBudget ? ` · ${model.thinkingBudget}` : ''}
+                </span>
+              </summary>
+              {chat && (
+                <label className="settings-row settings-number">
+                  <span>{t('上下文容量')}</span>
+                  <ContextCapacityInput
+                    value={model.contextTokens ?? 32000}
                     disabled={disabled}
-                    onChange={(event) =>
-                      void save({
-                        ...model,
-                        imageAspect: event.target.value
-                          ? (event.target.value as ProviderModel['imageAspect'])
-                          : undefined,
-                      })
+                    onChange={(contextTokens) =>
+                      Number.isInteger(contextTokens) && void save({ ...model, contextTokens })
                     }
-                  >
-                    <option value="">{t('跟随 Provider')}</option>
-                    {IMAGE_ASPECTS.map((aspect) => (
-                      <option key={aspect} value={aspect}>
-                        {aspect}
-                      </option>
-                    ))}
-                  </Select>
+                  />
                 </label>
+              )}
+              {chat && REASONING_PROTOCOLS.includes(provider.protocol || 'chat') && (
                 <label className="settings-row">
-                  <span>{t('默认质量')}</span>
-                  <Select
-                    aria-label={t('{model} 的默认质量', { model: model.id })}
-                    value={model.imageQuality || 'auto'}
+                  <span>{t('推理强度')}</span>
+                  <EditableSelect
+                    label={t('推理强度')}
+                    value={model.reasoningEffort || ''}
+                    onChange={(text) => void save({ ...model, reasoningEffort: text || undefined })}
+                    options={reasoningPresets(provider.protocol)}
+                    maxLength={80}
+                    placeholder={t('模型默认，可输入自定义值')}
                     disabled={disabled}
-                    onChange={(event) =>
-                      void save({
-                        ...model,
-                        imageQuality:
-                          event.target.value === 'auto'
-                            ? undefined
-                            : (event.target.value as ProviderModel['imageQuality']),
-                      })
-                    }
-                  >
-                    {IMAGE_QUALITIES.map((quality) => (
-                      <option key={quality} value={quality}>
-                        {quality === 'auto' ? t('跟随 Provider') : quality}
-                      </option>
-                    ))}
-                  </Select>
+                  />
                 </label>
-              </>
-            )}
-          </details>
-        ))}
+              )}
+              {thinking && (
+                <label className="settings-row">
+                  <span>{t('思考预算')}</span>
+                  <input
+                    type="number"
+                    min={1024}
+                    max={64000}
+                    placeholder={t('模型默认')}
+                    disabled={disabled}
+                    value={model.thinkingBudget ?? ''}
+                    onChange={(event) => {
+                      const text = event.target.value;
+                      if (text === '') void save({ ...model, thinkingBudget: undefined });
+                      else if (Number.isInteger(Number(text))) void save({ ...model, thinkingBudget: Number(text) });
+                    }}
+                  />
+                </label>
+              )}
+              {image && (
+                <label className="settings-row provider-hosted-row">
+                  <span>{t('可用于生图')}</span>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(model.imageOutput)}
+                    disabled={disabled}
+                    onChange={(event) => void save({ ...model, imageOutput: event.target.checked || undefined })}
+                    aria-label={t('把 {model} 标记为生图模型', { model: model.id })}
+                  />
+                </label>
+              )}
+              {image && model.imageOutput && (
+                <>
+                  <label className="settings-row">
+                    <span>{t('默认画幅')}</span>
+                    <EditableSelect
+                      label={t('{model} 的默认画幅', { model: model.id })}
+                      value={model.imageAspect || ''}
+                      disabled={disabled}
+                      options={[...IMAGE_ASPECTS]}
+                      placeholder={t('跟随 Provider')}
+                      onChange={(imageAspect) => void save({ ...model, imageAspect: imageAspect || undefined })}
+                    />
+                  </label>
+                  <label className="settings-row">
+                    <span>{t('默认质量')}</span>
+                    <EditableSelect
+                      label={t('{model} 的默认质量', { model: model.id })}
+                      value={model.imageQuality || ''}
+                      options={[...IMAGE_QUALITIES]}
+                      disabled={disabled}
+                      placeholder={t('跟随 Provider')}
+                      onChange={(v) => void save({ ...model, imageQuality: v === 'auto' ? undefined : v || undefined })}
+                    />
+                  </label>
+                </>
+              )}
+            </details>
+          ),
+        )}
         {!models.length && <p className="provider-empty">{query.trim() ? t('没有匹配的模型') : t('暂无模型')}</p>}
       </div>
     </div>

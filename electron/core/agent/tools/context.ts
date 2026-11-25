@@ -57,7 +57,14 @@ export interface ToolDeps {
   pinnedWidgets?: PinnedWidgets;
   /** Local design tasks; absent when the app was wired without them. */
   design?: DesignWork;
-  imageModel?: (botId: string) => { config: ModelConfig; key: string } | undefined;
+  mediaProviders?: Pick<
+    import('../../model/model-providers').ModelProviders,
+    'videoAccess' | 'mediaCatalog' | 'hasMedia'
+  >;
+  imageModel?: (
+    botId: string,
+    args?: { providerId?: unknown; model?: unknown },
+  ) => { config: ModelConfig; key: string } | undefined;
   /** Speech recognition and synthesis chosen in settings; absent where the app was wired without them. */
   speech?: SpeechService;
   /** The user's knowledge bases; absent where the app was wired without them (the command line). */

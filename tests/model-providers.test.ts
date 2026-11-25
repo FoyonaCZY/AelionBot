@@ -131,6 +131,9 @@ test('responses hosted web search is marked on the provider and sent with functi
   providers.updateModel(provider.id, { id: 'gpt-test', contextTokens: 128000, hostedWebSearch: true } as any);
   assert.equal((providers.list()[0].models[0] as any).hostedWebSearch, undefined);
   assert.equal(providers.config(bot.id).hostedWebSearch, true);
+  providers.setMediaDefault('image', { providerId: provider.id, model: 'dedicated-image' });
+  assert.equal(providers.config(bot.id).hostedImageGeneration, undefined);
+  assert.equal(providers.imageAccess(bot.id)?.config.model, 'dedicated-image');
   providers.save({
     id: provider.id,
     name: 'Hosted search',
@@ -432,26 +435,6 @@ test('Bot profile saves its name, role and model together, preserves omitted cho
   assert.equal(reopened.bot(bot.id).model, undefined);
   assert.equal(reopened.modelFor(bot.id).model, 'alpha');
   assert.deepEqual(guarded, [bot.id, bot.id]);
-  assert.equal(
-    updateBotProfile(
-      f.store,
-      providers,
-      { id: bot.id, name: 'Default again', soul: 'uses default', imageModel: custom },
-      unexpected,
-    ),
-    false,
-  );
-  assert.deepEqual(f.store.bot(bot.id).imageModel, custom);
-  assert.equal(
-    updateBotProfile(
-      f.store,
-      providers,
-      { id: bot.id, name: 'Default again', soul: 'uses default', imageModel: null },
-      unexpected,
-    ),
-    false,
-  );
-  assert.equal(f.store.bot(bot.id).imageModel, undefined);
 });
 
 test('invalid or busy model changes leave all Bot profile fields and persisted state untouched', (t) => {
@@ -889,12 +872,7 @@ test('image generation is configured per Provider and per model, and resolves th
   assert.equal(catalog.find((model) => model.id === 'chat-only')?.imageOutput, undefined);
 
   const bot = f.store.createBot('设计师', '出图');
-  updateBotProfile(f.store, providers, {
-    id: bot.id,
-    name: bot.name,
-    soul: bot.soul,
-    imageModel: { providerId: saved.id, model: 'flux-pro', contextTokens: 32000 },
-  });
+  providers.setMediaDefault('image', { providerId: saved.id, model: 'flux-pro' });
   const access = providers.imageAccess(bot.id)!;
   assert.equal(access.key, 'image-key');
   assert.equal(access.config.imageProtocol, 'openai-images');
@@ -904,9 +882,9 @@ test('image generation is configured per Provider and per model, and resolves th
   assert.equal(access.config.reasoningEffort, undefined);
   assert.equal(access.config.thinkingBudget, undefined);
 
-  // A Bot with no image model configured has no image access at all.
+  // Every Bot inherits the workspace selection.
   const plain = f.store.createBot('助手', '写作');
-  assert.equal(providers.imageAccess(plain.id), undefined);
+  assert.deepEqual(providers.imageAccess(plain.id), access);
 
   const reopened = new ModelProviders(new Store(f.dir), f.secret);
   assert.equal(reopened.list()[0].imageProtocol, 'openai-images');

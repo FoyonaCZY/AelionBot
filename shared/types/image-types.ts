@@ -3,10 +3,10 @@ const IMAGE_PROTOCOLS = ['openai-images', 'gemini-images', 'responses-images', '
 export type ImageProtocol = (typeof IMAGE_PROTOCOLS)[number];
 
 export const IMAGE_ASPECTS = ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'] as const;
-export type ImageAspect = (typeof IMAGE_ASPECTS)[number];
+export type ImageAspect = string;
 
 export const IMAGE_QUALITIES = ['auto', 'low', 'medium', 'high'] as const;
-export type ImageQuality = (typeof IMAGE_QUALITIES)[number];
+export type ImageQuality = string;
 
 /** Closed set of recovery actions. Every image failure carries exactly one; callers branch on this, never on wording or HTTP status. */
 const IMAGE_NEXT_STEPS = [
@@ -64,16 +64,13 @@ export function migrateImageRoute(value: unknown): ImageProtocol | undefined {
   if (typeof value === 'string' && LEGACY_ROUTES[value]) return LEGACY_ROUTES[value];
   return asImageProtocol(value);
 }
-export function asImageAspect(value: unknown): ImageAspect | undefined {
-  return typeof value === 'string' && (IMAGE_ASPECTS as readonly string[]).includes(value)
-    ? (value as ImageAspect)
+function imageSetting(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() && value.length <= 256 && !/[\u0000-\u001f]/.test(value)
+    ? value.trim()
     : undefined;
 }
-export function asImageQuality(value: unknown): ImageQuality | undefined {
-  return typeof value === 'string' && (IMAGE_QUALITIES as readonly string[]).includes(value)
-    ? (value as ImageQuality)
-    : undefined;
-}
+export const asImageAspect = imageSetting;
+export const asImageQuality = imageSetting;
 
 /** Well-known bucket resolutions. Exact where the ratio divides evenly, otherwise the nearest standard diffusion bucket. */
 const ASPECT_DIMENSIONS: Record<ImageAspect, { width: number; height: number }> = {
@@ -86,7 +83,16 @@ const ASPECT_DIMENSIONS: Record<ImageAspect, { width: number; height: number }> 
   '2:3': { width: 832, height: 1216 },
 };
 export function aspectDimensions(aspect: ImageAspect = '1:1') {
-  return ASPECT_DIMENSIONS[aspect] || ASPECT_DIMENSIONS['1:1'];
+  if (Object.hasOwn(ASPECT_DIMENSIONS, aspect)) return ASPECT_DIMENSIONS[aspect];
+  const ratio = /^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/.exec(aspect);
+  if (ratio && Number(ratio[1]) > 0 && Number(ratio[2]) > 0) {
+    const r = Number(ratio[1]) / Number(ratio[2]);
+    return {
+      width: Math.max(8, Math.round(128 * Math.sqrt(r)) * 8),
+      height: Math.max(8, Math.round(128 / Math.sqrt(r)) * 8),
+    };
+  }
+  return ASPECT_DIMENSIONS['1:1'];
 }
 
 /** What the user sees when a generation fails. Diagnostics stay in the tool trace; this never names a provider or protocol. */

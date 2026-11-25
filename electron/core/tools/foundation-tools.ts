@@ -124,13 +124,49 @@ export const FOUNDATION_TOOLS: ToolDefinition[] = [
     ['path'],
   ),
   tool(
+    'list_media_models',
+    '列出工作区可用于生图或视频的连接 ID、模型和默认分配。可将 providerId 与 model 传给生成工具。',
+    { kind: { type: 'string', enum: ['image', 'video'] } },
+    ['kind'],
+  ),
+  tool(
+    'generate_video',
+    '生成视频并附在回复中。默认使用工作区视频模型；按需先用 list_media_models 选择 providerId 与 model。传 image 生成首帧视频，传 video 编辑、参考或续写源视频，均省略则文生视频。素材填 attachmentId、工作目录 path 或服务可访问的 HTTPS url。规格可以自由填写。fal 和 Replicate 的模型专用参数放 input，可用 sourceField 指定素材字段名。已有任务用原参数和 taskId 继续查询，避免重复计费。',
+    {
+      prompt: text,
+      providerId: text,
+      model: text,
+      aspect: text,
+      resolution: text,
+      duration: { anyOf: [{ type: 'string' }, { type: 'number' }] },
+      filename: text,
+      taskId: text,
+      input: { type: 'object', additionalProperties: true },
+      sourceField: text,
+      image: {
+        type: 'object',
+        properties: { attachmentId: id, path: text, location: text, url: text },
+        additionalProperties: false,
+      },
+      video: {
+        type: 'object',
+        properties: { attachmentId: id, path: text, location: text, url: text },
+        additionalProperties: false,
+      },
+    },
+    ['prompt'],
+  ),
+  tool(
     'generate_image',
-    '使用 Bot 单独配置的生图模型生成一张图，保存为附件。aspect 决定画幅：横幅插图用 16:9，竖版海报用 9:16，方图用 1:1；不填按模型配置的默认值。references 提供最多 4 张参考图：每项填已收到图片的 attachmentId，或图片 path（工作目录相对路径；用户本机绝对路径可加 location=host）；网上的图先下载成文件再引用。部分协议不支持参考图，会明确报错。只在用户要求出图或需要真实插图时调用；没有图像字节必须失败，禁止假装已经出图。失败结果里的 nextStep 是唯一的恢复依据：只有 retry-later 可以原样重试一次，其余一律不要重试，按 guidance 处理。',
+    '使用工作区默认生图模型，或使用 list_media_models 中指定的 providerId 与 model 生成一张图，保存为附件。aspect 决定画幅：横幅插图用 16:9，竖版海报用 9:16，方图用 1:1；不填按模型配置的默认值。references 提供最多 4 张参考图：每项填已收到图片的 attachmentId，或图片 path（工作目录相对路径；用户本机绝对路径可加 location=host）；网上的图先下载成文件再引用。部分协议不支持参考图，会明确报错。只在用户要求出图或需要真实插图时调用；没有图像字节必须失败，禁止假装已经出图。失败结果里的 nextStep 是唯一的恢复依据：只有 retry-later 可以原样重试一次，其余一律不要重试，按 guidance 处理。',
     {
       prompt: { ...text, minLength: 1, maxLength: 4000 },
       filename: { ...text, maxLength: 80 },
-      aspect: { type: 'string', enum: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'] },
-      quality: { type: 'string', enum: ['auto', 'low', 'medium', 'high'] },
+      providerId: text,
+      model: text,
+      aspect: text,
+      resolution: text,
+      quality: text,
       negativePrompt: { ...text, maxLength: 1000 },
       references: {
         type: 'array',
@@ -162,7 +198,7 @@ export const FOUNDATION_TOOLS: ToolDefinition[] = [
   ),
   tool(
     'text_to_speech',
-    '用设置里选择的语音合成，以当前 Bot 的音色把文字读成语音，保存为音频附件并附在本次回复中。在 IM 对话里，平台支持时默认作为语音消息发出（超过 5 分钟仍发文件）；用户要的是音频文件时，voiceMessage 设为 false。Markdown 按口语读法处理，代码块不朗读；长文会分段合成后拼成一个文件。只在用户想听语音或需要音频文件时调用。',
+    '用设置里选择的语音合成，以工作区默认音色把文字读成语音，保存为音频附件并附在本次回复中。在 IM 对话里，平台支持时默认作为语音消息发出（超过 5 分钟仍发文件）；用户要的是音频文件时，voiceMessage 设为 false。Markdown 按口语读法处理，代码块不朗读；长文会分段合成后拼成一个文件。只在用户想听语音或需要音频文件时调用。',
     {
       text: { ...text, minLength: 1, maxLength: 20000 },
       filename: { ...text, maxLength: 80 },

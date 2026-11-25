@@ -1,3 +1,11 @@
+import {
+  MODEL_USES,
+  VIDEO_PROTOCOLS,
+  usesModel,
+  type ModelUse,
+  type VideoSelection,
+  type VideoSpecs,
+} from '../../../shared/types/media-types';
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -9,7 +17,7 @@ import { hostedSearchProtocol, type ModelParameters } from '../../../shared/type
 import { asImageAspect, asImageProtocol, asImageQuality } from '../../../shared/types/image-types';
 import {
   asSpeechProtocol,
-  defaultSpeechProtocol,
+  speechProtocolFor,
   type SpeechSelection,
   type SpeechSettings,
 } from '../../../shared/types/speech-types';
@@ -33,8 +41,21 @@ export function modelParameters(input: ModelParameters): ModelParameters {
     imageAspect,
     imageQuality,
     speechProtocol,
+    asrProtocol,
+    ttsProtocol,
+    uses,
+    videoProtocol,
   } = input;
-  if (speechProtocol !== undefined && !asSpeechProtocol(speechProtocol))
+  if (
+    uses !== undefined &&
+    (!Array.isArray(uses) || !uses.length || uses.some((use) => !Object.hasOwn(MODEL_USES, use)))
+  )
+    throw new AppError('provider.uses_invalid', '请选择有效的模型用途');
+  if (videoProtocol !== undefined && !Object.hasOwn(VIDEO_PROTOCOLS, videoProtocol))
+    throw new AppError('provider.video_protocol_invalid', '视频协议无效');
+  if (uses?.includes('video') && !videoProtocol)
+    throw new AppError('provider.video_protocol_required', '请选择视频协议');
+  if ([speechProtocol, asrProtocol, ttsProtocol].some((p) => p !== undefined && !asSpeechProtocol(p)))
     throw new AppError('provider.speech_protocol_invalid', '语音协议无效');
   if (responsesTransport !== undefined && !['auto', 'http', 'websocket'].includes(responsesTransport))
     throw Error('Responses 连接方式无效');
@@ -73,11 +94,15 @@ export function modelParameters(input: ModelParameters): ModelParameters {
     thinkingBudget,
     fallbackModel: fallbackModel?.trim() || undefined,
     ...(hostedSearchProtocol(protocol) && hostedWebSearch ? { hostedWebSearch: true } : {}),
-    ...(responses && hostedImageGeneration ? { hostedImageGeneration: true } : {}),
+    ...(responses && hostedImageGeneration && (!uses || uses.includes('image')) ? { hostedImageGeneration: true } : {}),
     ...(image !== 'auto' ? { imageProtocol: image } : {}),
     ...(asImageAspect(imageAspect) ? { imageAspect: asImageAspect(imageAspect) } : {}),
     ...(asImageQuality(imageQuality) && imageQuality !== 'auto' ? { imageQuality: asImageQuality(imageQuality) } : {}),
     ...(speechProtocol ? { speechProtocol } : {}),
+    ...(asrProtocol ? { asrProtocol } : {}),
+    ...(ttsProtocol ? { ttsProtocol } : {}),
+    ...(uses ? { uses: [...new Set(uses)] } : {}),
+    ...(videoProtocol ? { videoProtocol } : {}),
   };
 }
 function providerModelEntry(input: unknown): ProviderModel {
@@ -143,6 +168,15 @@ async function jsonBody(response: Response) {
     await reader.cancel().catch(() => {});
   }
 }
+export function videoSpecs(input: { aspect?: unknown; resolution?: unknown; duration?: unknown }): VideoSpecs {
+  const result: VideoSpecs = {};
+  for (const k of ['aspect', 'resolution', 'duration'] as const) {
+    const value = input[k];
+    if (value !== undefined && value !== null && value !== '')
+      result[k] = text(typeof value === 'number' ? String(value) : value, k, 256);
+  }
+  return result;
+}
 export class ModelProviders {
   private requests = new Map<
     string,
@@ -157,6 +191,7 @@ export class ModelProviders {
     if (store.data.providers !== undefined) {
       this.migrateReasoning();
       this.migrateHostedTools();
+      this.migrateMedia();
       return;
     }
     const legacy = store.data.model,
@@ -192,6 +227,27 @@ export class ModelProviders {
             })),
           }
         : {}),
+    });
+  }
+  private migrateMedia() {
+    const { bots, providers, mediaDefaults, speech } = this.store.data;
+    if (!bots.some((bot) => bot.imageModel || bot.voice)) return;
+    const legacy = bots
+      .map((bot) => bot.imageModel)
+      .filter((item): item is ModelSelection => Boolean(item && providers?.some((p) => p.id === item.providerId)));
+    const first = legacy[0];
+    const voice = bots.find((bot) => bot.voice)?.voice;
+    this.commit({
+      bots: bots.map(({ imageModel: _image, voice: _voice, ...bot }) => bot),
+      mediaDefaults: mediaDefaults ?? (first ? { image: { providerId: first.providerId, model: first.model } } : {}),
+      ...(speech?.output && !speech.output.voice && voice
+        ? { speech: { ...speech, output: { ...speech.output, voice } } }
+        : {}),
+      providers: providers?.map((p) => {
+        const ids = new Set(legacy.filter((s) => s.providerId === p.id).map((s) => s.model));
+        const models = p.models.map((model) => (ids.delete(model.id) ? { ...model, imageOutput: true } : model));
+        return { ...p, models: [...models, ...Array.from(ids, (id) => ({ id, imageOutput: true }))] };
+      }),
     });
   }
   private migrateReasoning() {
@@ -296,7 +352,15 @@ export class ModelProviders {
   }
   config(botId?: string, selection?: ModelSelection) {
     const config = this.store.modelFor(botId, selection);
-    return { ...config, hasKey: !config.issue && Boolean(this.key(botId, selection)) };
+    const workspace = this.store.data.defaultModel;
+    const dedicated = this.store.data.mediaDefaults?.image;
+    const inheritHosted =
+      !dedicated && workspace?.providerId === config.providerId && workspace?.model === config.model;
+    return {
+      ...config,
+      ...(botId && !selection && !inheritHosted ? { hostedImageGeneration: undefined } : {}),
+      hasKey: !config.issue && Boolean(this.key(botId, selection)),
+    };
   }
   approvalKey() {
     const config = this.store.modelFor(undefined, this.store.data.approvalModel);
@@ -306,23 +370,59 @@ export class ModelProviders {
     const config = this.store.modelFor(undefined, this.store.data.approvalModel);
     return { ...config, hasKey: !config.issue && Boolean(this.approvalKey()) };
   }
-  /**
-   * Effective image-generation access for a Bot. Chat-only reasoning settings are stripped so they
-   * never reach an image endpoint. A Bot with no dedicated image model still works when its chat
-   * provider has hosted Responses generation enabled — that provider already generates images, so
-   * requiring a second identical selection would be redundant. Anything else returns undefined:
-   * guessing an image endpoint from a chat model is what made failures unreadable before.
-   */
-  imageAccess(botId: string) {
-    const selection = this.store.bot(botId).imageModel;
+  private mediaSelection(kind: 'image' | 'video', args: { providerId?: unknown; model?: unknown } = {}) {
+    const fallback = this.store.data.mediaDefaults?.[kind];
+    if (args.providerId === undefined && args.model === undefined) return fallback;
+    const providerId = args.providerId === undefined ? fallback?.providerId : text(args.providerId, 'Provider', 80);
+    if (!providerId) throw new AppError('media.provider_required', '请选择 Provider');
+    const provider = this.provider(providerId);
+    if (!usesModel(provider, kind)) throw new AppError('media.use_disabled', '此连接未启用所选用途');
+    const model =
+      args.model === undefined && fallback?.providerId === providerId
+        ? fallback.model
+        : text(args.model, '模型名称', 256);
+    return { providerId, model };
+  }
+  setMediaDefault(kind: 'image' | 'video', value: VideoSelection | null) {
+    if (kind !== 'image' && kind !== 'video') throw new AppError('media.kind_invalid', '模型用途无效');
+    if (value !== null && (!value || typeof value.providerId !== 'string' || !value.providerId || !value.model))
+      throw new AppError('media.selection_invalid', '请选择 Provider 和模型');
+    const selection = value && this.mediaSelection(kind, value);
+    const mediaDefaults = { ...this.store.data.mediaDefaults };
+    if (!selection) delete mediaDefaults[kind];
+    else mediaDefaults[kind] = { ...selection, ...videoSpecs(value!) };
+    this.commit({ mediaDefaults });
+  }
+  hasMedia(kind: 'image' | 'video') {
+    return this.store.data.providers?.some((p) => usesModel(p, kind)) ?? false;
+  }
+  mediaCatalog(kind: 'image' | 'video') {
+    return (this.store.data.providers || [])
+      .filter((p) => usesModel(p, kind))
+      .map((p) => ({
+        providerId: p.id,
+        name: p.name,
+        protocol: kind === 'video' ? p.videoProtocol : p.imageProtocol,
+        models: p.models.map((m) => m.id),
+        defaultModel:
+          this.store.data.mediaDefaults?.[kind]?.providerId === p.id
+            ? this.store.data.mediaDefaults[kind]?.model
+            : undefined,
+      }));
+  }
+  imageAccess(_botId: string, args: { providerId?: unknown; model?: unknown } = {}) {
+    const selection = this.mediaSelection('image', args);
     if (selection) {
-      const config = this.config(botId, selection);
-      return {
-        config: { ...config, reasoningEffort: undefined, thinkingBudget: undefined },
-        key: this.key(botId, selection),
-      };
+      const access = this.imageAccessFor({ ...selection, contextTokens: 32000 });
+      const defaults = this.store.data.mediaDefaults?.image;
+      if (defaults?.providerId === selection.providerId && defaults.model === selection.model) {
+        access.config.imageAspect = defaults.aspect || access.config.imageAspect;
+        access.config.imageResolution = defaults.resolution;
+      }
+      return access;
     }
-    const chat = this.config(botId);
+    // Older workspaces may use the workspace's Responses model for hosted generation.
+    const chat = this.config();
     if (chat.protocol !== 'responses' || !chat.hostedImageGeneration || chat.issue) return;
     return {
       config: {
@@ -331,12 +431,28 @@ export class ModelProviders {
         thinkingBudget: undefined,
         imageProtocol: 'responses-images' as const,
       },
-      key: this.key(botId),
+      key: this.key(),
+    };
+  }
+  videoAccess(args: { providerId?: unknown; model?: unknown } = {}) {
+    const selection = this.mediaSelection('video', args);
+    if (!selection) return;
+    const provider = this.provider(selection.providerId);
+    if (!provider.videoProtocol || !usesModel(provider, 'video'))
+      throw new AppError('media.video_unavailable', '请为此连接选择视频协议');
+    const defaults = this.store.data.mediaDefaults?.video;
+    return {
+      baseUrl: provider.baseUrl,
+      key: this.keyFor(provider),
+      model: selection.model,
+      protocol: provider.videoProtocol,
+      defaults:
+        defaults?.providerId === selection.providerId && defaults.model === selection.model ? videoSpecs(defaults) : {},
     };
   }
   /** Image access for an arbitrary selection, used by the settings connection test before anything is assigned to a Bot. */
   imageAccessFor(selection: ModelSelection) {
-    const config = this.config(undefined, selection);
+    const config: import('../../../shared/types/core').ModelConfig = this.config(undefined, selection);
     return {
       config: { ...config, reasoningEffort: undefined, thinkingBudget: undefined },
       key: this.key(undefined, selection),
@@ -357,15 +473,18 @@ export class ModelProviders {
       key: this.key(undefined, selection),
     };
   }
-  private speechSelection(value: unknown, label: string): SpeechSelection | undefined {
+  private speechSelection(value: unknown, kind: 'input' | 'output'): SpeechSelection | undefined {
+    const label = kind === 'input' ? '语音识别' : '语音合成';
     if (value === null || value === undefined) return undefined;
     if (typeof value !== 'object') throw new AppError('speech.selection_invalid', `${label}设置无效`);
     const input = value as SpeechSelection,
       providerId = text(input.providerId, 'Provider', 80),
       provider = this.provider(providerId),
-      protocol = provider.speechProtocol || defaultSpeechProtocol(provider.baseUrl),
+      protocol = speechProtocolFor(provider, kind),
       model = typeof input.model === 'string' ? input.model.trim() : '',
       voice = typeof input.voice === 'string' ? input.voice.trim() : '';
+    if (!usesModel(provider, kind === 'input' ? 'asr' : 'tts'))
+      throw new AppError('media.use_disabled', '此连接未启用所选用途');
     if (protocol !== 'deepseek-tools' && !model) throw new AppError('speech.model_required', `请填写${label}模型`);
     if (model.length > 256 || /[\u0000-\u001f]/.test(model) || voice.length > 120 || /[\u0000-\u001f]/.test(voice))
       throw new AppError('speech.selection_invalid', `${label}设置无效`);
@@ -373,8 +492,8 @@ export class ModelProviders {
   }
   setSpeech(value: unknown) {
     const input = (value && typeof value === 'object' ? value : {}) as SpeechSettings,
-      recognition = this.speechSelection(input.input, '语音识别'),
-      synthesis = this.speechSelection(input.output, '语音合成');
+      recognition = this.speechSelection(input.input, 'input'),
+      synthesis = this.speechSelection(input.output, 'output');
     this.commit({
       speech: {
         ...(recognition ? { input: recognition } : {}),
@@ -384,16 +503,15 @@ export class ModelProviders {
     });
   }
   /**
-   * The endpoint, key and model for recognition or synthesis, or undefined when none is chosen. A Bot's own voice
-   * replaces the default one.
+   * All synthesis callers, including Bot and connector replies, use the workspace voice.
    */
-  speechAccess(kind: 'input' | 'output', botId?: string) {
+  speechAccess(kind: 'input' | 'output', _botId?: string) {
     const selection = this.store.data.speech?.[kind];
     const provider = selection && this.store.data.providers?.find((item) => item.id === selection.providerId);
     if (!selection || !provider) return undefined;
-    const voice = (botId && this.store.data.bots.find((bot) => bot.id === botId)?.voice) || selection.voice;
+    const voice = selection.voice;
     return {
-      protocol: provider.speechProtocol || defaultSpeechProtocol(provider.baseUrl),
+      protocol: speechProtocolFor(provider, kind),
       baseUrl: provider.baseUrl,
       key: this.keyFor(provider),
       model: selection.model,
@@ -427,8 +545,9 @@ export class ModelProviders {
     return this.public(this.provider(provider.id));
   }
   async prewarm(id: string) {
-    const provider = this.provider(id),
-      headers: Record<string, string> = { Accept: 'application/json' };
+    const provider = this.provider(id);
+    if (!usesModel(provider, 'chat')) return;
+    const headers: Record<string, string> = { Accept: 'application/json' };
     const key = this.keyFor(provider);
     if (provider.protocol === 'anthropic') {
       headers['anthropic-version'] = '2023-06-01';
@@ -438,14 +557,14 @@ export class ModelProviders {
     } else if (key) headers.Authorization = `Bearer ${key}`;
     await prewarmModelEndpoint(modelEndpoint(provider.baseUrl, provider.protocol), headers);
   }
-  selection(value: unknown): ModelSelection | undefined {
+  selection(value: unknown, use: 'chat' | 'image' = 'chat'): ModelSelection | undefined {
     if (value === null) return undefined;
     if (!value || typeof value !== 'object') throw new Error('请选择 Provider 和模型');
     const input = value as ModelSelection,
       providerId = text(input.providerId, 'Provider', 80),
       model = text(input.model, '模型名称', 256),
       contextTokens = input.contextTokens;
-    this.provider(providerId);
+    if (!usesModel(this.provider(providerId), use)) throw new AppError('media.use_disabled', '此连接未启用对话模型');
     if (!Number.isInteger(contextTokens) || contextTokens < 8000 || contextTokens > 1000000)
       throw new AppError('model.context_tokens_invalid', '上下文容量应为 8000–1000000');
     const effort = cleanReasoning(input.reasoningEffort);
@@ -463,6 +582,24 @@ export class ModelProviders {
     const name = text(input?.name, 'Provider 名称', 80);
     const previous = input.id ? this.provider(text(input.id, 'Provider', 80)) : undefined;
     const parameters = modelParameters({ ...previous, ...input });
+    if (previous) {
+      const id = previous.id,
+        data = this.store.data;
+      const assigned: [ModelUse, boolean][] = [
+        [
+          'chat',
+          [data.defaultModel, data.approvalModel, data.memoryModel, ...data.bots.map((b) => b.model)].some(
+            (s) => s?.providerId === id,
+          ),
+        ],
+        ['image', data.mediaDefaults?.image?.providerId === id],
+        ['video', data.mediaDefaults?.video?.providerId === id],
+        ['asr', data.speech?.input?.providerId === id],
+        ['tts', data.speech?.output?.providerId === id],
+      ];
+      if (assigned.some(([kind, used]) => used && !usesModel(parameters, kind)))
+        throw new AppError('provider.in_use', '请先切换使用此连接的模型');
+    }
     delete parameters.reasoningEffort;
     // Store the normalized endpoint so the settings form shows the URL requests actually use.
     const baseUrl = modelEndpoint(text(input.baseUrl, 'Base URL', 2000), parameters.protocol);
@@ -515,6 +652,8 @@ export class ModelProviders {
   remove(id: string) {
     const previous = this.provider(id);
     if (
+      this.store.data.mediaDefaults?.image?.providerId === id ||
+      this.store.data.mediaDefaults?.video?.providerId === id ||
       this.store.data.defaultModel?.providerId === id ||
       this.store.data.approvalModel?.providerId === id ||
       this.store.data.memoryModel?.providerId === id ||
@@ -532,8 +671,9 @@ export class ModelProviders {
     if (previous.encryptedKey) this.decrypted.delete(previous.encryptedKey);
   }
   refresh(id: string): Promise<ModelProvider> {
-    const provider = this.provider(id),
-      revision = JSON.stringify([provider.baseUrl, provider.encryptedKey, provider.protocol]);
+    const provider = this.provider(id);
+    if (!usesModel(provider, 'chat')) return Promise.resolve(this.public(provider));
+    const revision = JSON.stringify([provider.baseUrl, provider.encryptedKey, provider.protocol]);
     const existing = this.requests.get(id);
     if (existing?.revision === revision) return existing.promise;
     existing?.controller.abort();

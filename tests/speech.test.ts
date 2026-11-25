@@ -382,7 +382,7 @@ test('speech settings name a provider and model; a Bot can have its own voice', 
   const bot = store.data.bots[0];
   assert.equal(providers.speechAccess('output', bot.id)?.voice, 'marin');
   bot.voice = 'cedar';
-  assert.equal(providers.speechAccess('output', bot.id)?.voice, 'cedar');
+  assert.equal(providers.speechAccess('output', bot.id)?.voice, 'marin');
   // A provider in use for speech cannot be removed.
   assert.throws(() => providers.remove(deepseek.id), { code: 'provider.in_use' });
   // The protocol chosen on the provider wins over its address.

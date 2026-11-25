@@ -1,3 +1,8 @@
+import { videoSourceUrl, type VideoSource } from '../core/video/video-protocols';
+import { generateVideo } from '../core/video/video-generation';
+import { ATTACHMENT_LIMITS } from '../../shared/types/attachment-types';
+import { AppError } from '../../shared/errors';
+import { usesModel } from '../../shared/types/media-types';
 import { validateModelEndpoint } from '../core/model/model';
 import { probeImageModel, storeImageRoutes } from '../core/image/image-generation';
 import { imageProtocolCatalog } from '../core/image/image-protocols';
@@ -9,7 +14,7 @@ export function registerModels(ctx: IpcContext) {
   const { handle } = ctx;
   handle('imageProtocols', () => imageProtocolCatalog());
   handle('testImageModel', async (input) => {
-    const selection = ctx.providers.selection(input?.selection);
+    const selection = ctx.providers.selection(input?.selection, 'image');
     if (!selection) throw new Error('请先选择生图 Provider 和模型');
     const access = ctx.providers.imageAccessFor(selection);
     if (access.config.issue) throw new Error(access.config.issue);
@@ -30,6 +35,65 @@ export function registerModels(ctx: IpcContext) {
     } finally {
       clearTimeout(timer);
     }
+  });
+  let videoTest: { id: string; controller: AbortController } | undefined;
+  handle('cancelVideoTest', (id) => {
+    if (videoTest?.id === id) videoTest.controller.abort();
+  });
+  handle('testVideoModel', async (input) => {
+    if (videoTest) throw new AppError('video.test_busy', '测试视频正在生成');
+    if (
+      !input ||
+      typeof input.id !== 'string' ||
+      input.id.length > 100 ||
+      !input.id ||
+      typeof input.prompt !== 'string' ||
+      !input.prompt.trim() ||
+      input.prompt.length > 32000
+    )
+      throw new AppError('video.test_invalid', '请填写有效的视频提示词');
+    const asset = input.source;
+    let source: VideoSource | undefined;
+    if (asset) {
+      if (typeof asset !== 'object') throw new AppError('video.input_invalid', '素材格式或大小无效');
+      if ('url' in asset) {
+        if (asset.kind !== 'image' && asset.kind !== 'video') throw new AppError('video.input_invalid', '素材类型无效');
+        source = videoSourceUrl(asset.kind, asset.url);
+      } else {
+        if (
+          !(asset.bytes instanceof Uint8Array) ||
+          !asset.bytes.length ||
+          asset.bytes.length > ATTACHMENT_LIMITS.fileBytes ||
+          !/^(image|video)\/[a-z0-9.+-]+$/i.test(asset.mime)
+        )
+          throw new AppError('video.input_invalid', '素材格式或大小无效');
+        source = {
+          kind: asset.mime.startsWith('image/') ? 'image' : 'video',
+          mime: asset.mime,
+          bytes: Buffer.from(asset.bytes),
+        };
+      }
+    }
+    const access = ctx.providers.videoAccess();
+    if (!access) throw new AppError('media.video_unavailable', '请先保存视频模型');
+    const controller = new AbortController();
+    videoTest = { id: input.id, controller };
+    try {
+      const result = await generateVideo(
+        access,
+        {
+          prompt: input.prompt,
+          source,
+        },
+        controller.signal,
+      );
+      return { bytes: new Uint8Array(result.bytes), mime: 'video/' + result.extension };
+    } finally {
+      videoTest = undefined;
+    }
+  });
+  handle('setMediaDefault', (kind, selection) => {
+    ctx.providers.setMediaDefault(kind, selection);
   });
   handle('setSpeech', (settings) => {
     ctx.providers.setSpeech(settings);
@@ -73,6 +137,7 @@ export function registerModels(ctx: IpcContext) {
     ctx.beforeModelChange(input?.id ? ctx.providers.using(String(input.id)) : []);
     try {
       const provider = ctx.providers.save(input);
+      if (!usesModel(provider, 'chat')) return provider;
       const refreshed = await ctx.providers.refresh(provider.id);
       void ctx.providers.prewarm(provider.id);
       return refreshed;

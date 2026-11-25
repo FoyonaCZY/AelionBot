@@ -1,3 +1,4 @@
+import type { MediaDefaults } from '../../../shared/types/media-types';
 import { hostedSearchProtocol } from '../../../shared/types/model-types';
 import { migrateImageRoute } from '../../../shared/types/image-types';
 import { normalizeSoul } from '../../../shared/chat/bot-soul';
@@ -79,6 +80,7 @@ interface Persisted {
   contextOffsets: Record<string, number>;
   model: Omit<ModelConfig, 'hasKey'> & { encryptedKey?: string };
   providers?: StoredProvider[];
+  mediaDefaults?: MediaDefaults;
   defaultModel?: ModelSelection;
   approvalModel?: ModelSelection;
   /** Runs memory's background work when set; each Bot's own model otherwise. */
@@ -717,7 +719,7 @@ export class Store {
     soul: string,
     color?: string,
     avatarStyle?: BotAvatarStyle | null,
-    modelOptions?: Pick<Bot, 'model' | 'imageModel' | 'reasoningEffort' | 'voice'>,
+    modelOptions?: Pick<Bot, 'model' | 'reasoningEffort'>,
   ): Bot {
     const cleanSoul = normalizeSoul(soul);
     if (!name.trim() || name.length > 80 || cleanSoul === undefined) throw new Error('请填写有效的名称与 SOUL.md');

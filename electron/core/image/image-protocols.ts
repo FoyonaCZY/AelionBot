@@ -3,6 +3,7 @@
  * what it accepts, and how to read bytes back. Adding a protocol means adding one
  * descriptor to ADAPTERS — no heuristics elsewhere in the app change.
  */
+import { AppError } from '../../../shared/errors';
 import {
   aspectDimensions,
   type ImageAspect,
@@ -18,6 +19,7 @@ export interface ImageReference {
 }
 export interface ImageJob {
   prompt: string;
+  resolution?: string;
   aspect?: ImageAspect;
   quality?: ImageQuality;
   negativePrompt?: string;
@@ -67,8 +69,14 @@ export function geminiImageUrl(baseUrl: string, model: string) {
 export function openAiSize(model: string, aspect?: ImageAspect) {
   if (!aspect) return undefined;
   const name = (model || '').toLowerCase(),
+    known = ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'].includes(aspect),
     landscape = ['16:9', '4:3', '3:2'].includes(aspect),
     portrait = ['9:16', '3:4', '2:3'].includes(aspect);
+  if (!known) {
+    if (!/^\d+(?:\.\d+)?:\d+(?:\.\d+)?$/.test(aspect)) return aspect;
+    const { width, height } = aspectDimensions(aspect);
+    return width + 'x' + height;
+  }
   if (name.includes('dall-e-3')) return landscape ? '1792x1024' : portrait ? '1024x1792' : '1024x1024';
   if (name.includes('dall-e-2')) return '1024x1024';
   if (name.includes('gpt-image')) return landscape ? '1536x1024' : portrait ? '1024x1536' : '1024x1024';
@@ -79,7 +87,8 @@ export function openAiSize(model: string, aspect?: ImageAspect) {
 function openAiQuality(model: string, quality?: ImageQuality) {
   if (!quality || quality === 'auto') return undefined;
   const name = (model || '').toLowerCase();
-  if (name.includes('dall-e-3')) return quality === 'high' ? 'hd' : 'standard';
+  if (name.includes('dall-e-3') && ['low', 'medium', 'high'].includes(quality))
+    return quality === 'high' ? 'hd' : 'standard';
   if (name.includes('dall-e-2')) return undefined;
   return quality;
 }
@@ -92,7 +101,7 @@ const openAiImages: ImageAdapter = {
   capabilities: { aspect: true, size: true, quality: true, reference: true, negativePrompt: false, seed: false },
   plan(job, endpoint, key) {
     const base = endpoint.baseUrl.replace(/\/$/, ''),
-      size = openAiSize(endpoint.model, job.aspect),
+      size = job.resolution || openAiSize(endpoint.model, job.aspect),
       quality = openAiQuality(endpoint.model, job.quality);
     // gpt-image-* always returns base64 and rejects response_format; the older families require it.
     const legacyFormat = !/gpt-image/i.test(endpoint.model);
@@ -174,7 +183,9 @@ const geminiImages: ImageAdapter = {
         contents: [{ role: 'user', parts }],
         generationConfig: {
           responseModalities: ['TEXT', 'IMAGE'],
-          ...(job.aspect ? { imageConfig: { aspectRatio: job.aspect } } : {}),
+          ...(job.aspect || job.resolution
+            ? { imageConfig: { aspectRatio: job.aspect, imageSize: job.resolution } }
+            : {}),
         },
       }),
     };
@@ -198,7 +209,7 @@ const responsesImages: ImageAdapter = {
   plan(job, endpoint) {
     return {
       kind: 'hosted',
-      size: openAiSize(endpoint.model, job.aspect),
+      size: job.resolution || openAiSize(endpoint.model, job.aspect),
       quality: job.quality && job.quality !== 'auto' ? job.quality : undefined,
     };
   },
@@ -219,7 +230,13 @@ const sdWebui: ImageAdapter = {
   endpoint: '/sdapi/v1/txt2img',
   capabilities: { aspect: true, size: true, quality: false, reference: true, negativePrompt: true, seed: true },
   plan(job, endpoint, key) {
-    const { width, height } = aspectDimensions(job.aspect);
+    const explicit = job.resolution?.match(/^(\d+)\s*[x×*:]\s*(\d+)$/i);
+    if (job.aspect && !explicit && !/^\d+(?:\.\d+)?:\d+(?:\.\d+)?$/.test(job.aspect))
+      throw new AppError('image.aspect_invalid', 'Stable Diffusion 需要数字画幅比例或像素尺寸');
+    if (job.resolution && !explicit) throw new AppError('image.size_invalid', 'Stable Diffusion 需要宽 × 高的像素尺寸');
+    const { width, height } = explicit
+      ? { width: Number(explicit[1]), height: Number(explicit[2]) }
+      : aspectDimensions(job.aspect);
     let origin = endpoint.baseUrl.replace(/\/$/, '');
     try {
       origin = new URL(origin).origin;

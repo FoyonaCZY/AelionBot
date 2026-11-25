@@ -57,17 +57,14 @@ export function localModel(deps: BotTransferDeps, hint?: PortableModel): ModelSe
 export function exportBotContent(deps: BotTransferDeps, botId: string, memories: boolean): BotFileContent {
   const bot = deps.store.bot(botId),
     model = portableModel(deps, bot.model),
-    imageModel = portableModel(deps, bot.imageModel),
     persona = deps.persona && portablePersona(deps.persona, bot.id),
     text = memories ? deps.memory.exportData(botScope(bot.id)) : undefined;
   return {
     name: bot.name,
     soul: bot.soul,
     palette: { color: bot.color, ...(bot.avatarStyle ? { avatarStyle: bot.avatarStyle } : {}) },
-    ...(bot.voice ? { voice: bot.voice } : {}),
     ...(bot.reasoningEffort ? { reasoningEffort: bot.reasoningEffort } : {}),
     ...(model ? { model } : {}),
-    ...(imageModel ? { imageModel } : {}),
     ...(persona ? { persona } : {}),
     skills: deps.skills
       .list(bot.id, true)
@@ -91,7 +88,6 @@ export function exportBotContent(deps: BotTransferDeps, botId: string, memories:
  */
 export function importBotContent(deps: BotTransferDeps, content: BotFileContent, memories: boolean): Bot {
   const model = localModel(deps, content.model),
-    imageModel = localModel(deps, content.imageModel),
     reasoningEffort = content.reasoningEffort ?? deps.store.data.defaultModel?.reasoningEffort;
   const bot = deps.store.createBot(
     freeBotName(
@@ -103,9 +99,7 @@ export function importBotContent(deps: BotTransferDeps, content: BotFileContent,
     content.palette.avatarStyle,
     {
       ...(model ? { model } : {}),
-      ...(imageModel ? { imageModel } : {}),
       ...(reasoningEffort ? { reasoningEffort } : {}),
-      ...(content.voice ? { voice: content.voice } : {}),
     },
   );
   const root = join(deps.dataDir, 'bots', bot.id, 'skills');

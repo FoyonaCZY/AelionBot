@@ -39,7 +39,10 @@ export type DesignWorkExtras = {
   fonts?: DesignFonts;
   pdf?: { render(html: string): Promise<Buffer> };
   craft?: DesignCraft;
-  imageModel?: (botId: string) => { config: ModelConfig; key: string } | undefined;
+  imageModel?: (
+    botId: string,
+    args?: { providerId?: unknown; model?: unknown },
+  ) => { config: ModelConfig; key: string } | undefined;
   /** Resolves a host tool path the way the host tools do, relative to the run's workspace. */
   resolvePath?: (path: unknown, workspace?: string) => string;
 };
@@ -666,7 +669,9 @@ export class DesignWork {
       return { files: [base + '.pptx', base + '.html'], slides: (args.slides as unknown[]).length };
     }
     if (name === 'design_image') {
-      const access = this.extras.imageModel?.(botId);
+      const access = this.extras.imageModel?.(botId, { providerId: args.providerId, model: args.model });
+      if (this.extras.imageModel && !access)
+        throw new ImageGenerationError('open-settings', { detail: '请在模型设置中指定生图模型' });
       const job = imageJobFromArgs(
         args,
         access?.config || {},

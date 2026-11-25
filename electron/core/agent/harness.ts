@@ -295,12 +295,12 @@ export class Harness {
   private peers?: PeerGateway;
   private groups?: GroupGateway;
   private scheduler?: TaskScheduler;
-  private imageModel?: (
-    botId: string,
-  ) => { config: import('../../../shared/types/core').ModelConfig; key: string } | undefined;
-  setImageModel(
-    access: (botId: string) => { config: import('../../../shared/types/core').ModelConfig; key: string } | undefined,
-  ) {
+  private mediaProviders?: import('./tools/context').ToolDeps['mediaProviders'];
+  setMediaProviders(providers: NonNullable<typeof this.mediaProviders>) {
+    this.mediaProviders = providers;
+  }
+  private imageModel?: import('./tools/context').ToolDeps['imageModel'];
+  setImageModel(access: NonNullable<typeof this.imageModel>) {
     this.imageModel = access;
   }
   private speech?: import('../speech/speech-service').SpeechService;
@@ -950,7 +950,11 @@ export class Harness {
         harnessInstructions({
           botId,
           hostedWebSearch: Boolean(modelConfig.hostedWebSearch),
-          imageGeneration: this.imageModel?.(botId) ? 'model' : modelConfig.hostedImageGeneration ? 'hosted' : 'none',
+          imageGeneration: this.imageModel?.(botId)
+            ? 'model'
+            : !this.mediaProviders && modelConfig.hostedImageGeneration
+              ? 'hosted'
+              : 'none',
           scheduling: this.scheduler ? (options.groupOrigin ? 'group' : 'main chat') : undefined,
           computer: Boolean(this.computer),
           hostComputer: this.offersHostComputer,
@@ -2367,7 +2371,10 @@ export class Harness {
         (!['open_preview', 'preview_mark'].includes(t.function.name) || Boolean(this.previews)) &&
         (!['widgets_list', 'widget_save'].includes(t.function.name) || (!options.peerOrigin && !this.headless)) &&
         (t.function.name !== 'view_image' || Boolean(this.host?.options.imagePreview)) &&
-        (t.function.name !== 'generate_image' || Boolean(this.imageModel?.(botId))) &&
+        (t.function.name !== 'generate_image' ||
+          Boolean(this.imageModel?.(botId) || this.mediaProviders?.hasMedia('image'))) &&
+        (t.function.name !== 'generate_video' || Boolean(this.mediaProviders?.hasMedia('video'))) &&
+        (t.function.name !== 'list_media_models' || Boolean(this.mediaProviders)) &&
         (t.function.name !== 'transcribe_audio' || Boolean(this.speech?.available('input'))) &&
         (t.function.name !== 'text_to_speech' || Boolean(this.speech?.available('output'))) &&
         (t.function.name !== 'knowledge_search' || Boolean(knowledge)) &&
@@ -2738,6 +2745,7 @@ export class Harness {
       pinnedWidgets: this.pinnedWidgets,
       design: this.design,
       imageModel: this.imageModel,
+      mediaProviders: this.mediaProviders,
       speech: this.speech,
       knowledge: this.knowledge,
       vault: this.vault,

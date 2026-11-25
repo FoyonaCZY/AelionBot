@@ -23,12 +23,13 @@ export function referenceAttachmentIds(args: Record<string, unknown>) {
 /** Tool arguments win; the model catalog supplies the default when the agent did not choose. */
 export function imageJobFromArgs(
   args: Record<string, unknown>,
-  config: Pick<ModelConfig, 'imageAspect' | 'imageQuality'>,
+  config: Pick<ModelConfig, 'imageAspect' | 'imageQuality' | 'imageResolution'>,
   reference?: ImageReference[],
 ): ImageJob {
   const negative = typeof args.negativePrompt === 'string' ? args.negativePrompt.trim() : '';
   return {
     prompt: typeof args.prompt === 'string' ? args.prompt : '',
+    resolution: asImageAspect(args.resolution) || config.imageResolution,
     aspect: asImageAspect(args.aspect) || config.imageAspect,
     quality: asImageQuality(args.quality) || config.imageQuality,
     ...(negative ? { negativePrompt: negative.slice(0, 1000) } : {}),

@@ -25,6 +25,8 @@ export const COMPACT_TOOLS: ReadonlySet<string> = new Set([
   'write_stdin',
   'request_user_input',
   'generate_image',
+  'generate_video',
+  'list_media_models',
   'knowledge_search',
   'vault_list',
 ]);
@@ -48,6 +50,8 @@ export const CORE_ACTIVE_TOOLS: ReadonlySet<string> = new Set([
   'request_user_input',
   'view_image',
   'generate_image',
+  'generate_video',
+  'list_media_models',
   'video_frames',
   'transcribe_audio',
   'text_to_speech',

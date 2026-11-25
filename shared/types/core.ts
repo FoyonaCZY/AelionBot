@@ -1,3 +1,4 @@
+import type { MediaDefaults } from './media-types';
 import type { AppEvent, StateBase } from '../state-sync';
 import type { MessageReply } from '../chat/message-replies';
 import type { ModelParameters, NativeAssistant } from './model-types';
@@ -93,8 +94,8 @@ export interface Bot {
   createdAt: string;
   memories: string[];
   model?: ModelSelection;
+  /** Legacy on-disk fields, folded into workspace media settings when opening an older store. */
   imageModel?: ModelSelection;
-  /** The voice its replies are read in; the default voice of speech synthesis otherwise. */
   voice?: string;
   reasoningEffort?: string;
 }
@@ -103,8 +104,6 @@ export interface BotUpdateInput {
   name: string;
   soul: string;
   model?: ModelSelection | null;
-  imageModel?: ModelSelection | null;
-  voice?: string | null;
   reasoningEffort?: string | null;
   color?: string;
   avatarStyle?: import('../chat/bot-colors').BotAvatarStyle | null;
@@ -269,6 +268,7 @@ export interface RunRecord {
   };
 }
 export interface ModelConfig extends ModelParameters {
+  imageResolution?: string;
   supportsImages?: boolean;
   opencode?: boolean;
   baseUrl: string;
@@ -480,6 +480,7 @@ export interface Snapshot {
   runs: RunRecord[];
   model: ModelConfig;
   providers?: ModelProvider[];
+  mediaDefaults?: MediaDefaults;
   defaultModel?: ModelSelection;
   approvalModel?: ModelSelection;
   speech?: import('./speech-types').SpeechSettings;
@@ -680,9 +681,7 @@ export interface AelionAPI {
     color?: string;
     avatarStyle?: import('../chat/bot-colors').BotAvatarStyle | null;
     model?: ModelSelection | null;
-    imageModel?: ModelSelection | null;
     reasoningEffort?: string | null;
-    voice?: string | null;
   }): Promise<Bot>;
   deleteBot(id: string): Promise<void>;
   createWorkSession(input: { botId: string; name: string; workspaceDir?: string }): Promise<WorkSession>;
@@ -780,10 +779,17 @@ export interface AelionAPI {
   removeProvider(id: string): Promise<void>;
   setDefaultModel(selection: ModelSelection | null): Promise<void>;
   setApprovalModel(selection: ModelSelection | null): Promise<void>;
+  testVideoModel(input: {
+    id: string;
+    prompt: string;
+    source?: { mime: string; bytes: Uint8Array } | { kind: 'image' | 'video'; url: string };
+  }): Promise<{ bytes: Uint8Array; mime: string }>;
+  cancelVideoTest(id: string): Promise<void>;
+  setMediaDefault(kind: 'image' | 'video', selection: import('./media-types').VideoSelection | null): Promise<void>;
   setSpeech(settings: import('./speech-types').SpeechSettings): Promise<void>;
   /** Text of a recording made in the app, with the chosen speech recognition. */
   transcribeSpeech(input: { audio: Uint8Array; name?: string }): Promise<{ text: string }>;
-  /** Speech of a text with the chosen synthesis, in the Bot's voice when one is given. */
+  /** Speech of a text with the workspace synthesis model and voice. */
   synthesizeSpeech(input: { text: string; botId?: string }): Promise<{ audio: Uint8Array; mime: string }>;
   setBotModel(input: { botId: string; selection: ModelSelection | null }): Promise<void>;
   vmAction(action: 'prepare' | 'start' | 'stop' | 'restart' | 'repair-tools'): Promise<void>;

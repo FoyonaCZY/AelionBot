@@ -90,11 +90,17 @@ export interface PublicRequest {
  * and the connection goes to the address that was checked, so DNS cannot be switched to a local one in between.
  * GET and HEAD follow redirects; other methods return them.
  */
-export async function requestPublic(value: string, init: PublicRequest, signal: AbortSignal) {
+export async function requestPublicBytes(
+  value: string,
+  init: PublicRequest,
+  signal: AbortSignal,
+  limit = LIMIT,
+  timeoutMs = 20000,
+) {
   let url = publicWebUrl(value);
   const method = (init.method || 'GET').toUpperCase(),
     follow = method === 'GET' || method === 'HEAD';
-  const combined = AbortSignal.any([signal, AbortSignal.timeout(20000)]);
+  const combined = AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]);
   for (let redirects = 0; redirects <= 5; redirects++) {
     combined.throwIfAborted();
     const addresses = await abortable(combined, () => lookup(url.hostname.replace(/^\[|\]$/g, ''), { all: true }));
@@ -118,8 +124,13 @@ export async function requestPublic(value: string, init: PublicRequest, signal: 
             let size = 0;
             res.on('data', (chunk) => {
               size += chunk.length;
-              if (size > LIMIT) {
-                req.destroy(new FileToolError('WEB_TOO_LARGE', '网页超过 2 MB，请缩小读取范围'));
+              if (size > limit) {
+                req.destroy(
+                  new FileToolError(
+                    'WEB_TOO_LARGE',
+                    limit === LIMIT ? '网页超过 2 MB，请缩小读取范围' : '下载内容超过大小限制',
+                  ),
+                );
                 return;
               }
               chunks.push(chunk);
@@ -140,20 +151,24 @@ export async function requestPublic(value: string, init: PublicRequest, signal: 
     }
     let bytes = response.bytes;
     const encoding = response.headers['content-encoding'];
-    if (encoding === 'gzip') bytes = gunzipSync(bytes, { maxOutputLength: LIMIT });
-    else if (encoding === 'deflate') bytes = inflateSync(bytes, { maxOutputLength: LIMIT });
-    else if (encoding === 'br') bytes = brotliDecompressSync(bytes, { maxOutputLength: LIMIT });
+    if (encoding === 'gzip') bytes = gunzipSync(bytes, { maxOutputLength: limit });
+    else if (encoding === 'deflate') bytes = inflateSync(bytes, { maxOutputLength: limit });
+    else if (encoding === 'br') bytes = brotliDecompressSync(bytes, { maxOutputLength: limit });
     const contentType = String(response.headers['content-type'] || '');
-    const charset = /charset\s*=\s*["']?([^\s;"']+)/i.exec(contentType)?.[1] || 'utf-8';
-    let body: string;
-    try {
-      body = new TextDecoder(charset).decode(bytes);
-    } catch {
-      body = bytes.toString('utf8');
-    }
-    return { url: url.href, status: response.status, contentType, body };
+    return { url: url.href, status: response.status, contentType, bytes };
   }
   throw new FileToolError('WEB_REDIRECT_LIMIT', '网页重定向次数过多');
+}
+export async function requestPublic(value: string, init: PublicRequest, signal: AbortSignal) {
+  const { url, status, contentType, bytes } = await requestPublicBytes(value, init, signal);
+  const charset = /charset\s*=\s*["']?([^\s;"']+)/i.exec(contentType)?.[1] || 'utf-8';
+  let body: string;
+  try {
+    body = new TextDecoder(charset).decode(bytes);
+  } catch {
+    body = bytes.toString('utf8');
+  }
+  return { url, status, contentType, body };
 }
 async function loadPublicPage(value: string, signal: AbortSignal): Promise<WebDocument> {
   const response = await requestPublic(value, {}, signal);

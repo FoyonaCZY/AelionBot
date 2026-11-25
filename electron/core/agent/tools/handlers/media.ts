@@ -1,3 +1,8 @@
+import { AppError } from '../../../../../shared/errors';
+import { generateVideo } from '../../../video/video-generation';
+import { videoSpecs } from '../../../model/model-providers';
+import { videoSourceUrl, type VideoSource } from '../../../video/video-protocols';
+import { requiredText } from '../validation';
 import { generateModelImage, storeImageRoutes } from '../../../image/image-generation';
 import { MAX_REFERENCES, imageFileName, imageJobFromArgs, imageReferences } from '../../../image/image-tool';
 import type { ToolHandler } from '../context';
@@ -18,10 +23,60 @@ export const MEDIA_HANDLERS: Record<string, ToolHandler> = {
     if (!deps.host) throw Error('本机图像工具不可用');
     return deps.host.viewImage(bot.id, runId, args, signal, workspace);
   },
+  list_media_models: ({ deps, args }) => {
+    if (args.kind !== 'image' && args.kind !== 'video') throw new AppError('media.kind_invalid', '模型用途无效');
+    return { providers: deps.mediaProviders?.mediaCatalog(args.kind) || [] };
+  },
+  generate_video: async (context) => {
+    const { deps, args, signal } = context;
+    const access = deps.mediaProviders?.videoAccess({ providerId: args.providerId, model: args.model });
+    if (!access) throw new AppError('media.video_unavailable', '请选择工作区视频模型或指定 Provider 和模型');
+    const prompt = requiredText(args, 'prompt', 32000);
+    if (args.image && args.video) throw new AppError('video.input_ambiguous', '请选择首帧图片或源视频');
+    const kind = args.image ? 'image' : 'video',
+      ref = args[kind];
+    let source: VideoSource | undefined;
+    if (ref) {
+      if (typeof ref !== 'object' || Array.isArray(ref)) throw new AppError('video.input_invalid', '素材格式无效');
+      const url = (ref as { url?: unknown }).url;
+      if (url !== undefined) {
+        source = videoSourceUrl(kind, url);
+      } else {
+        const file = await namedFile(context, ref, '读取视频生成素材');
+        if (!file.mime.startsWith(kind + '/')) throw new AppError('video.input_invalid', '素材类型与输入不符');
+        source = { kind, mime: file.mime, bytes: deps.attachments.bytes(file.id) };
+      }
+    }
+    if (args.input !== undefined && (!args.input || typeof args.input !== 'object' || Array.isArray(args.input)))
+      throw new AppError('video.input_invalid', '模型输入应为对象');
+    const result = await generateVideo(
+      access,
+      {
+        prompt,
+        source,
+        input: args.input as Record<string, unknown> | undefined,
+        sourceField: args.sourceField === undefined ? undefined : requiredText(args, 'sourceField', 128),
+        ...videoSpecs(args),
+      },
+      signal,
+      args.taskId === undefined ? undefined : requiredText(args, 'taskId', 2048),
+    );
+    signal.throwIfAborted();
+    const stem = attachmentName(String(args.filename || 'generated-video')).replace(/\.(mp4|webm)$/i, '');
+    const { file, attached } = attachToReply(context, stem + '.' + result.extension, result.bytes);
+    deps.store.save();
+    return {
+      attachmentId: file.id,
+      name: file.name,
+      bytes: file.size,
+      taskId: result.taskId,
+      ...(!attached ? { attached: false, note: replyFull(file) } : {}),
+    };
+  },
   generate_image: async (context) => {
     const { bot, args, signal, runId, deps } = context;
-    const access = deps.imageModel?.(bot.id);
-    if (!access) throw Error('这个 Bot 没有配置生图模型');
+    const access = deps.imageModel?.(bot.id, { providerId: args.providerId, model: args.model });
+    if (!access) throw new AppError('media.image_unavailable', '请选择工作区生图模型或指定 Provider 和模型');
     // Reference images are named like message_attach's files: a received attachment, or a path in the work
     // directory or on the user's computer.
     const refs: unknown[] = Array.isArray(args.references) ? args.references : [];

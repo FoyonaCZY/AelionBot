@@ -176,7 +176,7 @@ export class SpeechService {
     };
   }
   /**
-   * The text read aloud in the Bot's voice, as one file. Markdown is read the way a person would say it; text
+   * The text read aloud in the workspace voice, as one file. Markdown is read the way a person would say it; text
    * longer than one request is read in pieces and the audio joined.
    */
   async synthesize(text: string, signal: AbortSignal, botId?: string) {

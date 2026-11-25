@@ -7,8 +7,6 @@ import { BotPaletteEditor } from '../bots/BotPaletteEditor';
 import { BotTemplates } from '../bots/BotTemplates';
 import { ModelSelectionFields, validModelSelection } from '../settings/ModelSelectionFields';
 import { ipcErrorText } from '../ui/ipc-error';
-import { EditableSelect } from '../ui/EditableSelect';
-import { defaultSpeechProtocol, speechProtocolInfo } from '../../shared/types/speech-types';
 import { useI18n } from '../i18n';
 import type { BotProfile } from './use-bot-profile';
 
@@ -33,17 +31,12 @@ export function BotProfileForm({
 }) {
   const { t } = useI18n();
   const { name, setName, soul, setSoul, newBotPalette, setNewBotPalette } = profile;
-  const voiceProvider = state.providers?.find((item) => item.id === state.speech?.output?.providerId),
-    voiceInfo =
-      voiceProvider && speechProtocolInfo(voiceProvider.speechProtocol || defaultSpeechProtocol(voiceProvider.baseUrl));
   const soulId = useId(),
     fileInput = useRef<HTMLInputElement>(null),
     [soulIssue, setSoulIssue] = useState('');
   const {
     model: profileModel,
     setModel: setProfileModel,
-    imageModel: profileImageModel,
-    setImageModel: setProfileImageModel,
     reasoning: profileReasoning,
     setReasoning: setProfileReasoning,
     palette: profilePalette,
@@ -204,38 +197,6 @@ export function BotProfileForm({
             disabled={busy || (modal === 'profile' && profileRunning)}
           />
         </div>
-        <div className="bot-profile-model">
-          <h3>{t('生图模型')}</h3>
-          <ModelSelectionFields
-            providers={state.providers || []}
-            value={profileImageModel}
-            onChange={setProfileImageModel}
-            inheritDefault
-            noneLabel={t('不单独配置生图模型')}
-            purpose="image"
-            showInheritedReasoning={false}
-            disabled={busy || (modal === 'profile' && profileRunning)}
-          />
-        </div>
-        {voiceInfo && (
-          <div className="bot-profile-model">
-            <h3>{t('朗读音色')}</h3>
-            <div className="settings-card">
-              <label className="settings-row">
-                <span>{t('音色')}</span>
-                <EditableSelect
-                  label={t('朗读音色')}
-                  value={profile.voice}
-                  onChange={profile.setVoice}
-                  options={voiceInfo.voices.map((voice) => voice.id)}
-                  placeholder={state.speech?.output?.voice || t('使用默认音色')}
-                  maxLength={120}
-                  disabled={busy}
-                />
-              </label>
-            </div>
-          </div>
-        )}
       </div>
       <div className="bot-profile-actions">
         <button type="button" className="secondary-button" disabled={busy} onClick={onCancel}>
@@ -246,7 +207,6 @@ export function BotProfileForm({
           disabled={
             busy ||
             !validModelSelection(profileModel, state.providers || []) ||
-            !validModelSelection(profileImageModel, state.providers || []) ||
             (modal === 'profile' && (!name.trim() || (profileModelChanged && profileRunning)))
           }
         >

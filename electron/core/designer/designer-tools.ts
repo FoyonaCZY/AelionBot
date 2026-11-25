@@ -1,7 +1,6 @@
 import type { ToolDefinition } from '../model/model';
 import { DECK_LAYOUTS } from './designer-deck';
 import { designerPlaybookNames } from './designer-playbooks';
-import { IMAGE_ASPECTS, IMAGE_QUALITIES } from '../../../shared/types/image-types';
 const tool = (
   name: string,
   description: string,
@@ -114,8 +113,11 @@ export const DESIGN_TOOLS = [
     {
       prompt: { type: 'string', minLength: 1, maxLength: 4000 },
       filename: str,
-      aspect: { type: 'string', enum: [...IMAGE_ASPECTS] },
-      quality: { type: 'string', enum: [...IMAGE_QUALITIES] },
+      aspect: str,
+      resolution: str,
+      providerId: str,
+      model: str,
+      quality: str,
       negativePrompt: { type: 'string', maxLength: 1000 },
       referenceAttachmentIds: { type: 'array', items: str, maxItems: 4 },
       reason: { type: 'string', minLength: 1, maxLength: 1000 },

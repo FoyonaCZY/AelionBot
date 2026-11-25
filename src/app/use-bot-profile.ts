@@ -17,27 +17,21 @@ export function useBotProfile() {
   const [editingId, setEditingId] = useState(''),
     [name, setName] = useState(''),
     [soul, setSoul] = useState('');
-  const [model, setModel] = useState<ModelSelection | null>(null),
-    [imageModel, setImageModel] = useState<ModelSelection | null>(null);
-  const [reasoning, setReasoning] = useState(''),
-    [voice, setVoice] = useState('');
+  const [model, setModel] = useState<ModelSelection | null>(null);
+  const [reasoning, setReasoning] = useState('');
   const shuffleNewPalette = () => setNewBotPalette(randomBotPalette(newBotPalette));
   const startNew = (defaultReasoning: string) => {
     setName('');
     setSoul(defaultSoul('general', language));
     setModel(null);
-    setImageModel(null);
     setReasoning(defaultReasoning);
-    setVoice('');
   };
   const startEdit = (target: Bot) => {
     setEditingId(target.id);
     setName(target.name);
     setSoul(target.soul);
     setModel(target.model ? { ...target.model } : null);
-    setImageModel(target.imageModel ? { ...target.imageModel } : null);
     setReasoning(target.reasoningEffort || '');
-    setVoice(target.voice || '');
     setPalette(displayBotPalette(target));
   };
   const save = async (input: { creating: boolean; onCreated: (id: string) => void }) => {
@@ -46,9 +40,7 @@ export function useBotProfile() {
         name: name || t('新 Bot'),
         soul,
         model,
-        imageModel,
         reasoningEffort: reasoning || null,
-        voice: voice.trim() || null,
         ...newBotPalette,
       });
       input.onCreated(created.id);
@@ -58,9 +50,7 @@ export function useBotProfile() {
         name,
         soul,
         model,
-        imageModel,
         reasoningEffort: reasoning || null,
-        voice: voice.trim() || null,
         color: palette.color,
         avatarStyle: palette.avatarStyle ?? null,
       });
@@ -73,12 +63,8 @@ export function useBotProfile() {
     setSoul,
     model,
     setModel,
-    imageModel,
-    setImageModel,
     reasoning,
     setReasoning,
-    voice,
-    setVoice,
     newBotPalette,
     setNewBotPalette,
     palette,

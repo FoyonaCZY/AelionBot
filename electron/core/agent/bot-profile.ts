@@ -24,17 +24,8 @@ export function updateBotProfile(
         })
       : undefined;
   const model = input.model === undefined ? bot.model : providers.selection(input.model);
-  const imageModel =
-    input.imageModel === undefined
-      ? bot.imageModel
-      : input.imageModel === null
-        ? undefined
-        : providers.selection(input.imageModel);
   const reasoningEffort =
     input.reasoningEffort === undefined ? bot.reasoningEffort : cleanReasoning(input.reasoningEffort);
-  const voice = input.voice === undefined ? bot.voice : typeof input.voice === 'string' ? input.voice.trim() : '';
-  if (voice && (voice.length > 120 || /[\u0000-\u001f]/.test(voice)))
-    throw new AppError('bot.voice_invalid', '音色名称无效');
   const modelChanged =
     bot.model?.providerId !== model?.providerId ||
     bot.model?.model !== model?.model ||
@@ -54,10 +45,6 @@ export function updateBotProfile(
         reasoningEffort,
         ...(palette ? { color: palette.color, avatarStyle: palette.avatarStyle } : {}),
       };
-      if (imageModel) updated.imageModel = imageModel;
-      else delete updated.imageModel;
-      if (voice) updated.voice = voice;
-      else delete updated.voice;
       return updated;
     }),
   });

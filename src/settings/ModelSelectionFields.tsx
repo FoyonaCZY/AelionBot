@@ -5,7 +5,7 @@ import type { ModelProvider, ModelSelection } from '../../shared/types/core';
 import { EditableSelect } from '../ui/EditableSelect';
 import { REASONING_PROTOCOLS, reasoningPresets } from '../../shared/chat/reasoning';
 import { useI18n } from '../i18n';
-import { defaultImageProtocol } from '../../shared/types/image-types';
+import { usesModel } from '../../shared/types/media-types';
 
 export function validModelSelection(value: ModelSelection | null, providers: ModelProvider[]) {
   return (
@@ -21,7 +21,7 @@ export function validModelSelection(value: ModelSelection | null, providers: Mod
 }
 
 /** Proves the image route end to end instead of leaving the user to discover it on the first real task. */
-function ImageModelTest({ selection, disabled }: { selection: ModelSelection; disabled: boolean }) {
+export function ImageModelTest({ selection, disabled }: { selection: ModelSelection; disabled: boolean }) {
   const { t } = useI18n();
   const [state, setState] = useState<{ phase: 'idle' | 'running' | 'done' | 'error'; text?: string }>({
     phase: 'idle',
@@ -74,7 +74,6 @@ export function ModelSelectionFields({
   onReasoningChange,
   showInheritedReasoning = true,
   noneLabel,
-  purpose = 'chat',
 }: {
   showInheritedReasoning?: boolean;
   providers: ModelProvider[];
@@ -86,17 +85,11 @@ export function ModelSelectionFields({
   reasoningValue?: string;
   onReasoningChange?: (value: string) => void;
   noneLabel?: string;
-  purpose?: 'chat' | 'image';
 }) {
   const { t } = useI18n();
-  const image = purpose === 'image',
-    provider = providers.find((provider) => provider.id === value?.providerId);
-  // For image work, models the user marked as image-capable come first so the list is usable on a large catalog.
-  const ids = image
-    ? [...(provider?.models || [])]
-        .sort((a, b) => Number(Boolean(b.imageOutput)) - Number(Boolean(a.imageOutput)) || a.id.localeCompare(b.id))
-        .map((model) => model.id)
-    : provider?.models.map((model) => model.id) || [];
+  providers = providers.filter((p) => usesModel(p, 'chat'));
+  const provider = providers.find((p) => p.id === value?.providerId),
+    ids = provider?.models.map((m) => m.id) || [];
   const effective =
     provider ||
     (inheritDefault && value === null
@@ -111,7 +104,7 @@ export function ModelSelectionFields({
       ...patch,
     });
   const reason =
-    !image && effective && REASONING_PROTOCOLS.includes(effective.protocol || 'chat') ? (
+    effective && REASONING_PROTOCOLS.includes(effective.protocol || 'chat') ? (
       <label className="settings-row">
         <span>{t('推理强度')}</span>
         <EditableSelect
@@ -190,57 +183,33 @@ export function ModelSelectionFields({
                 const entry = provider?.models.find((item) => item.id === model);
                 update({
                   model,
-                  ...(image
-                    ? {}
-                    : {
-                        contextTokens: entry?.contextTokens || value?.contextTokens || 32000,
-                        reasoningEffort: entry?.reasoningEffort,
-                      }),
+                  contextTokens: entry?.contextTokens || value?.contextTokens || 32000,
+                  reasoningEffort: entry?.reasoningEffort,
                 });
               }}
               options={ids}
               placeholder={t('选择或输入模型名称')}
             />
           </label>
-          {!image &&
-            (() => {
-              const entry = provider?.models.find((item) => item.id === value?.model);
-              return entry?.contextTokens ? (
-                <p className="model-catalog-note">
-                  {t('上下文 {tokens} Token', { tokens: entry.contextTokens.toLocaleString() })}
-                  {entry.reasoningEffort ? ` · ${entry.reasoningEffort}` : ''}
-                  {provider?.hostedWebSearch ? ` · ${t('服务端搜索')}` : ''}
-                  {provider?.hostedImageGeneration ? ` · ${t('服务端生图')}` : ''}
-                </p>
-              ) : (
-                <label className="settings-row settings-number">
-                  <span>{t('上下文容量')}</span>
-                  <ContextCapacityInput
-                    value={value?.contextTokens ?? 32000}
-                    disabled={!value || disabled}
-                    onChange={(contextTokens) => update({ contextTokens })}
-                  />
-                </label>
-              );
-            })()}
-          {image &&
-            (() => {
-              const entry = provider?.models.find((item) => item.id === value?.model),
-                aspect = entry?.imageAspect || provider?.imageAspect,
-                quality = entry?.imageQuality || provider?.imageQuality;
-              return (
-                <>
-                  <p className="model-catalog-note">
-                    {t('生图协议')}：{provider?.imageProtocol || defaultImageProtocol(provider?.protocol, value?.model)}
-                    {aspect ? ` · ${aspect}` : ''}
-                    {quality ? ` · ${quality}` : ''}
-                    {entry && !entry.imageOutput ? ` · ${t('未标记为生图模型')}` : ''}
-                  </p>
-                  {value && <ImageModelTest selection={value} disabled={disabled} />}
-                </>
-              );
-            })()}
-          {!image && !provider?.models.some((item) => item.id === value?.model && item.reasoningEffort) && reason}
+          {(() => {
+            const entry = provider?.models.find((item) => item.id === value?.model);
+            return entry?.contextTokens ? (
+              <div className="settings-row">
+                <span>{t('上下文容量')}</span>
+                <span>{entry.contextTokens.toLocaleString()}</span>
+              </div>
+            ) : (
+              <label className="settings-row settings-number">
+                <span>{t('上下文容量')}</span>
+                <ContextCapacityInput
+                  value={value?.contextTokens ?? 32000}
+                  disabled={!value || disabled}
+                  onChange={(contextTokens) => update({ contextTokens })}
+                />
+              </label>
+            );
+          })()}
+          {!provider?.models.some((item) => item.id === value?.model && item.reasoningEffort) && reason}
         </div>
       )}
       {inheritDefault && showInheritedReasoning && value === null && reason && (

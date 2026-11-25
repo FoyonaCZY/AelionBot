@@ -76,7 +76,6 @@ test('a Bot travels to another computer with its profile, skills and personality
     bot = from.store.createBot('小研', '# SOUL.md\n\n你是一位调研助手。', '#19a887', undefined, {
       model: { providerId: 'provider-example', model: 'model-a', contextTokens: 200000 },
       reasoningEffort: 'high',
-      voice: 'alloy',
     });
   const saved = from.deps.skills.save(bot.id, '周报整理', '把一周的记录整理成周报', '先列出本周完成的事。');
   writeFileSync(join(dirname(saved.path), 'template.md'), '# 周报模板');
@@ -107,7 +106,7 @@ test('a Bot travels to another computer with its profile, skills and personality
   assert.notEqual(created.id, bot.id);
   assert.equal(created.soul, bot.soul);
   assert.equal(created.color, '#19a887');
-  assert.equal(created.voice, 'alloy');
+  assert.equal(created.voice, undefined);
   assert.equal(created.reasoningEffort, 'high');
   assert.equal(created.model?.providerId, 'provider-example');
   const skills = to.deps.skills.list(created.id).filter((skill) => skill.botId === created.id);
