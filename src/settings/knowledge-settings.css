@@ -1,4 +1,22 @@
 /* Settings → 知识库. Cards, rows, fields, buttons and switches are the shared ones; this is only their layout. */
+.knowledge-empty-archive {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 14px;
+  min-height: 186px;
+  padding: 22px clamp(16px, 4%, 32px);
+  border-radius: var(--radius-lg);
+  color: light-dark(#24251f, #f8f6ed);
+  background:
+    linear-gradient(90deg, light-dark(#fbf3e1bf, #141710ed), light-dark(#fbf3e126, #14171070) 65%, transparent),
+    url('./knowledge-archive.webp') center/cover;
+}
+.knowledge-empty-archive strong {
+  font-size: var(--text-title);
+  font-weight: var(--weight-heading);
+}
 .knowledge-note {
   display: flex;
   align-items: center;

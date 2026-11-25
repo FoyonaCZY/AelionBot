@@ -1,42 +1,31 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { DesignSystemSummary } from '../../shared/types/designer-types';
+import citrusStill from './image-banner.webp';
 import { Icon } from '../ui/Icon';
 import { ipcErrorText } from '../ui/ipc-error';
 import { useSwitchMotion } from '../ui/motion';
 import { useI18n } from '../i18n';
 
-/**
- * A small poster of the system in its own surface, ink, accent, type and corner: a block of the accent, cut to the
- * system's corner radius (square for sharp systems, round for pill ones), with a second palette color over it.
- * Values are checked upstream.
- */
+/** Compare the same photograph in the type, ink and surface of each design system. */
 function Specimen({ system }: { system: DesignSystemSummary }) {
-  const p = system.preview || {};
-  const same = (a?: string, b?: string) => Boolean(a && b && a.toLowerCase() === b.toLowerCase());
-  const second = [...system.colors, p.fg].find(
-    (color) => color && !same(color, p.accent) && !same(color, p.bg) && !same(color, p.surface),
-  );
+  const p = system.preview;
+  const layout =
+    system.category === 'Bold & Expressive'
+      ? 'print'
+      : ['Developer Tools', 'AI & LLM', 'Backend & Data'].includes(system.category) || system.id === 'agentic'
+        ? 'split'
+        : 'paper';
   const style = {
-    '--sp-bg': p.bg,
-    '--sp-fg': p.fg,
-    '--sp-accent': p.accent,
-    '--sp-second': second,
-    '--sp-radius': p.radius,
-    '--sp-display': p.display,
+    '--sp-bg': p?.bg,
+    '--sp-fg': p?.fg,
+    '--sp-accent': p?.accent || system.colors[0],
+    '--sp-radius': p?.radius,
+    '--sp-display': p?.display,
   } as CSSProperties;
-  const dots = [
-    ...new Set([p.fg, p.accent, p.muted, p.surface, ...system.colors].filter((c): c is string => Boolean(c))),
-  ].slice(0, 5);
   return (
-    <div className="design-specimen" style={style} aria-hidden="true">
-      <span className="design-specimen-shape" />
-      <span className="design-specimen-shape is-second" />
-      <span className="design-specimen-glyph">Aa</span>
-      <span className="design-specimen-dots">
-        {dots.map((color) => (
-          <i key={color} style={{ background: color }} />
-        ))}
-      </span>
+    <div className="design-specimen" data-layout={layout} style={style} aria-hidden="true">
+      <img src={citrusStill} alt="" loading="lazy" decoding="async" draggable={false} />
+      <span lang="en">Citrus Study</span>
     </div>
   );
 }

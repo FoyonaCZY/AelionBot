@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { RunRecord } from '../../shared/types/core';
 import type { DesignSession } from '../../shared/types/designer-types';
-import { pickDesignPreviewFiles, type DesignWorkspaceFile } from '../../shared/preview/designer-canvas';
+import { pickDesignPreviewFiles } from '../../shared/preview/designer-canvas';
 import { useFilePreview } from '../preview/FilePreviewContext';
 import { usePreviewWorkbench } from '../preview/PreviewWorkbench';
 import { Icon } from '../ui/Icon';
@@ -12,30 +12,7 @@ import { closeActiveDesign, type CanvasScope } from './design-canvas-state';
 import { openDesignCanvas, useDesignCanvasSync } from './design-canvas-preview';
 import './design-styles';
 
-/**
- * The first screen of a task page, rendered by the main process. `version` changes when the page file does; the
- * previous picture stays until the new one arrives, and a page without one (a PPTX, a failed render) shows none.
- */
-function useDesignThumbnail(taskId: string, page: DesignWorkspaceFile | undefined) {
-  const [image, setImage] = useState<string>();
-  const path = page?.path,
-    version = page ? page.size + ':' + (page.modifiedAt || '') : '';
-  useEffect(() => {
-    if (!path) {
-      setImage(undefined);
-      return;
-    }
-    let live = true;
-    window.aelion
-      .designThumbnail({ id: taskId, path })
-      .then((result) => live && setImage(result?.dataUrl))
-      .catch(() => live && setImage(undefined));
-    return () => {
-      live = false;
-    };
-  }, [taskId, path, version]);
-  return image;
-}
+import { useDesignThumbnail } from './use-design-thumbnail';
 
 /**
  * The design card under the computer card: a picture of the home page, the title and one status line. A design is
@@ -62,7 +39,7 @@ export function DesignCanvasCard({
   );
   const files = useDesignCanvasSync(task, running, workbench?.info?.itemId, open);
   const home = pickDesignPreviewFiles(task.kind, files, task.artifacts)[0];
-  const thumbnail = useDesignThumbnail(task.id, home);
+  const thumbnail = useDesignThumbnail(task.id, home?.path, home ? home.size + ':' + (home.modifiedAt || '') : '');
   const showing = Boolean(
     workbench?.info?.docked && workbench.info.itemId?.startsWith(`artifact:${task.botId}:${task.workspacePath}/`),
   );

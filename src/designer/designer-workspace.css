@@ -167,6 +167,15 @@
   margin: 8px 0;
   cursor: pointer;
 }
+.designer-task-thumbnail {
+  width: clamp(70px, 13%, 100px);
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  object-position: top;
+  flex: none;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-sm);
+}
 .designer-task-card:hover {
   background: light-dark(#f5f6f1, #303729);
 }

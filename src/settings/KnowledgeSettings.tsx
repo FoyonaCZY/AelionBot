@@ -7,7 +7,7 @@ import {
   type KnowledgeSource,
   type KnowledgeView,
 } from '../../shared/types/knowledge-types';
-import { SettingsEmpty, SettingsSection } from './SettingsWindow';
+import { SettingsSection } from './SettingsWindow';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icon';
 import { useI18n } from '../i18n';
@@ -233,22 +233,18 @@ export function KnowledgeSettings({
       </div>
     </form>
   );
-  return (
-    <SettingsSection
-      title={t('知识库')}
-      aside={
-        !draft && (
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => edit({ name: '', description: '', sources: [] })}
-          >
-            <Icon name="plus" size={14} />
-            {t('新建')}
-          </button>
-        )
-      }
+  const createButton = !draft && (
+    <button
+      type="button"
+      className={view.bases.length ? 'secondary-button' : 'primary-button'}
+      onClick={() => edit({ name: '', description: '', sources: [] })}
     >
+      <Icon name="plus" size={14} />
+      {t('新建')}
+    </button>
+  );
+  return (
+    <SettingsSection title={t('知识库')} aside={view.bases.length ? createButton : undefined}>
       {!view.semantic && (
         <p className="knowledge-note">
           {t('现在按关键词检索。')}
@@ -331,7 +327,12 @@ export function KnowledgeSettings({
           </div>
         ),
       )}
-      {!view.bases.length && !draft && <SettingsEmpty icon="book" title={t('还没有知识库')} />}
+      {!view.bases.length && !draft && (
+        <div className="knowledge-empty-archive">
+          <strong>{t('还没有知识库')}</strong>
+          {createButton}
+        </div>
+      )}
     </SettingsSection>
   );
 }

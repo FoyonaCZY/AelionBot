@@ -16,7 +16,7 @@ export function pickDesignPreviewFiles(
   kind: DesignTaskKind,
   files: DesignWorkspaceFile[],
   artifacts: { path: string; name: string; kind: string }[] = [],
-) {
+): DesignWorkspaceFile[] {
   const live = files.filter((file) => notHidden(file) && htmlFile(file));
   const published = artifacts
     .filter((item) => item.kind === 'html')
