@@ -357,6 +357,10 @@ button.vc-glass:not(:disabled):active {
   background: var(--vc-ok);
   color: #fff;
 }
+.vc-toast.is-hint > .vc-toast-dot {
+  background: var(--text-muted);
+  color: var(--surface-float);
+}
 .vc-toast.is-error > .vc-toast-dot {
   background: var(--ctl-danger-fill);
   color: light-dark(#fff, #2a1414);

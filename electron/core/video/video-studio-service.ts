@@ -121,6 +121,40 @@ function canvasForMedia(
   return { aspect, width, height, ...(fps ? { fps } : {}) };
 }
 
+/**
+ * A video's picture and its sound sit on two tracks as two clips of the same asset at the same place. Removing silence
+ * from one of them also removes it from the other, so they stay in sync.
+ */
+function withSilencePartners(
+  operations: VideoEditRequest['operations'],
+  project: () => VideoProjectDetail,
+): VideoEditRequest['operations'] {
+  if (!operations.some((op) => op.op === 'remove_silence')) return operations;
+  const clips = project().tracks.flatMap((track) => track.clips.map((clip) => ({ ...clip, trackId: track.id })));
+  const targeted = new Set(operations.flatMap((op) => (op.op === 'remove_silence' ? [op.clipId] : [])));
+  const partners: VideoEditRequest['operations'] = [];
+  for (const op of operations) {
+    if (op.op !== 'remove_silence') continue;
+    const clip = clips.find((item) => item.id === op.clipId);
+    if (!clip?.assetId) continue;
+    for (const other of clips) {
+      if (
+        targeted.has(other.id) ||
+        other.trackId === clip.trackId ||
+        other.assetId !== clip.assetId ||
+        other.startUs !== clip.startUs ||
+        other.durationUs !== clip.durationUs ||
+        (other.sourceStartUs ?? 0) !== (clip.sourceStartUs ?? 0) ||
+        (other.rate ?? 1) !== (clip.rate ?? 1)
+      )
+        continue;
+      targeted.add(other.id);
+      partners.push({ ...op, clipId: other.id });
+    }
+  }
+  return [...operations, ...partners];
+}
+
 export class VideoStudioService {
   private readonly posterDir: string;
   private readonly posterMemory = new Map<string, CachedPosterDiskEntry>();
@@ -276,7 +310,11 @@ export class VideoStudioService {
     return probe;
   }
 
-  async editProject(request: VideoEditRequest): Promise<VideoEditResult> {
+  async editProject(input: VideoEditRequest): Promise<VideoEditResult> {
+    const request = {
+      ...input,
+      operations: withSilencePartners(input.operations, () => this.getProject(input.projectId)),
+    };
     // Auto-run silence / beat analysis if requested operations rely on probe metadata that hasn't been gathered yet
     const needsSilence = request.operations.some((op) => op.op === 'remove_silence');
     const needsBeats = request.operations.some((op) => op.op === 'snap_to_beats');

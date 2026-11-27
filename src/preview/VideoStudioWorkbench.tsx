@@ -1,8 +1,10 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import type {
   VideoClipFit,
   VideoClipSummary,
   VideoEditOperation,
+  VideoEditResult,
   VideoEffectPreset,
   VideoExportFormat,
   VideoExportJob,
@@ -22,6 +24,7 @@ import { usePreviewRuntime } from './preview-runtime';
 import { formatPinTimecode, formatVideoTimecode, previewErrorText } from './preview-utils';
 import { VideoRange, VideoToast } from './video-controls';
 import type { VideoPlayerDragOverlay, VideoPlayerFrameEvent, VideoPlayerHostCommand } from './video-player-frame';
+import { planClipMove, planningProject, type ClipMove, type ClipMovePlan } from './video-timeline-plan';
 import './video-studio.css';
 
 type StudioTab = 'preview' | 'timeline' | 'annotate';
@@ -73,6 +76,8 @@ const ZOOM_MAX = 220;
 const ZOOM_STEP = 24;
 /** A press becomes a drag after this many pixels, so a click on a clip only selects it. */
 const DRAG_THRESHOLD_PX = 3;
+/** How long after a move is let go its clips keep easing into place; longer than the slide in video-studio.css. */
+const SETTLE_MS = 400;
 /** A dragged edge within this many pixels of the playhead or a neighbour's edge is held there. */
 const SNAP_PX = 7;
 
@@ -125,8 +130,6 @@ function clipDisplayLabel(clip: VideoClipSummary, project: VideoProjectDetail, t
 const STUDIO_GLYPHS = {
   ripple: 'M9 6H4.5v12H9M15 6h4.5v12H15M15 12H9m0 0 2.5-2.5M9 12l2.5 2.5',
   text: 'M6 6.5h12M12 6.5V19',
-  duck: 'M5 6v12M10 9.5V18M15 13v5M20 15.5V18',
-  level: 'M4 8h16M4 16h16M8 5v14M16 5v14',
   image:
     'M5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5v-9A2.5 2.5 0 0 1 5.5 5ZM3.5 16 8 11.5l4 4 3-3 5.5 5.5',
   music: 'M9 17.5V6l10-2v11.5M9 17.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0ZM19 15.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z',
@@ -239,6 +242,8 @@ interface ClipPlacement {
   readonly startUs: number;
   readonly durationUs: number;
   readonly sourceStartUs: number;
+  /** A move: every clip it moves, the dragged one and the neighbours it pushed aside included. */
+  readonly moves?: readonly ClipMove[];
 }
 
 interface DragGesture {
@@ -261,6 +266,10 @@ interface DragGesture {
   durationUs: number;
   sourceStartUs: number;
   snappedUs: number | undefined;
+  /** A move: the layout a drop would leave, or undefined where a drop is refused. */
+  plan: ClipMovePlan | undefined;
+  /** The other clips drawn where the plan puts them, by id, with their transition markers. */
+  shifted: Map<string, HTMLElement[]>;
   frame: number;
 }
 
@@ -308,12 +317,21 @@ const StudioTimeline = memo(function StudioTimeline(props: TimelineProps) {
   const tagRef = useRef<HTMLSpanElement>(null);
   const hoverRef = useRef<HTMLSpanElement>(null);
   const gesture = useRef<DragGesture | null>(null);
+  const settleTimer = useRef(0);
   const scrub = useRef({ active: false, frame: 0, clientX: 0 });
   // The handlers below outlive a render; they read what they need from here.
   const live = useRef(props);
   live.current = props;
 
   const assets = useMemo(() => new Map(project.assets.map((asset) => [asset.id, asset])), [project.assets]);
+  const planning = useMemo(() => planningProject(project), [project]);
+  const planningRef = useRef(planning);
+  planningRef.current = planning;
+  /** Where a settling move put the clips it moved, until the project has them there itself. */
+  const placedAt = useMemo(
+    () => new Map((placement?.moves ?? []).map((move) => [move.clipId, move.startUs])),
+    [placement],
+  );
   /** One custom property per pictured asset on the grid, so a long data URL is in the DOM once, not once a clip. */
   const posters = useMemo(() => {
     const names = new Map<string, string>(),
@@ -355,6 +373,11 @@ const StudioTimeline = memo(function StudioTimeline(props: TimelineProps) {
       if (Math.abs(dx) < DRAG_THRESHOLD_PX) return;
       g.active = true;
       g.element.dataset.drag = g.mode;
+      if (g.mode === 'move' && gridRef.current) {
+        window.clearTimeout(settleTimer.current);
+        delete gridRef.current.dataset.settling;
+        gridRef.current.dataset.moving = '';
+      }
     }
     const deltaUs = Math.round((dx / scale) * 1_000_000),
       reachUs = (SNAP_PX / scale) * 1_000_000;
@@ -403,8 +426,10 @@ const StudioTimeline = memo(function StudioTimeline(props: TimelineProps) {
     }
 
     const style = g.element.style;
-    if (g.mode === 'move') style.setProperty('--drag-x', `${usToSec(g.startUs - g.origStartUs) * scale}px`);
-    else {
+    if (g.mode === 'move') {
+      style.setProperty('--drag-x', `${usToSec(g.startUs - g.origStartUs) * scale}px`);
+      makeWay(g);
+    } else {
       style.setProperty('--s', String(usToSec(g.startUs)));
       style.setProperty('--d', String(usToSec(g.durationUs)));
     }
@@ -424,19 +449,71 @@ const StudioTimeline = memo(function StudioTimeline(props: TimelineProps) {
         x = g.mode === 'move' ? box.left + box.width / 2 : g.mode === 'trim-left' ? box.left : box.right;
       tag.textContent =
         g.mode === 'move'
-          ? formatVideoTimecode(usToSec(g.startUs), rate)
+          ? formatVideoTimecode(usToSec(g.plan?.startUs ?? g.startUs), rate)
           : t('{sec} 秒', { sec: usToSec(g.durationUs).toFixed(1) });
       tag.style.setProperty('--tag-x', `${x - base.left}px`);
       tag.style.setProperty('--tag-y', `${Math.max(0, box.top - base.top - 22)}px`);
       tag.dataset.on = '';
     }
-    live.current.onDragPreview({
-      timeUs: live.current.timeRef.current,
-      clipId: g.clip.id,
-      trackId: g.trackId,
-      startUs: g.startUs,
-      ...(g.mode !== 'move' ? { durationUs: g.durationUs, sourceStartUs: g.sourceStartUs } : {}),
-    });
+    const timeUs = live.current.timeRef.current;
+    live.current.onDragPreview(
+      g.mode === 'move'
+        ? // The player draws the plan as it is, so the picture shows the same layout as the timeline.
+          {
+            timeUs,
+            ...(g.plan && {
+              placements: [
+                { itemId: g.clip.id, trackId: g.trackId, startUs: g.plan.startUs },
+                ...g.plan.moves
+                  .filter((move) => move.clipId !== g.clip.id)
+                  .map((move) => ({ itemId: move.clipId, trackId: move.trackId, startUs: move.startUs })),
+              ],
+            }),
+          }
+        : {
+            timeUs,
+            clipId: g.clip.id,
+            trackId: g.trackId,
+            startUs: g.startUs,
+            durationUs: g.durationUs,
+            sourceStartUs: g.sourceStartUs,
+          },
+    );
+  };
+
+  /**
+   * A moved clip makes way for itself: the clips the plan moves slide to where a drop would leave them (--plan-s,
+   * eased by the grid's data-moving), and the outlined slot under the clip shows where it would land.
+   */
+  const makeWay = (g: DragGesture) => {
+    const plan = (g.plan = planClipMove(planningRef.current, g.clip.id, g.trackId, g.startUs));
+    const next = new Map<string, number>();
+    for (const move of plan?.moves ?? []) if (move.clipId !== g.clip.id) next.set(move.clipId, move.startUs);
+    for (const [id, elements] of g.shifted) {
+      if (next.has(id)) continue;
+      for (const element of elements) element.style.removeProperty('--plan-s');
+      g.shifted.delete(id);
+    }
+    for (const [id, startUs] of next) {
+      let elements = g.shifted.get(id);
+      if (!elements) {
+        elements = [...(gridRef.current?.querySelectorAll<HTMLElement>(`[data-clip="${CSS.escape(id)}"]`) ?? [])];
+        g.shifted.set(id, elements);
+      }
+      for (const element of elements) element.style.setProperty('--plan-s', String(usToSec(startUs)));
+    }
+    const slot = g.element.parentElement?.querySelector<HTMLElement>(':scope > .vs-drop-slot');
+    if (!slot) return;
+    if (!plan) {
+      delete slot.dataset.on;
+      return;
+    }
+    // It first appears where it is, then glides from one opening to the next.
+    if (slot.dataset.on === undefined) delete slot.dataset.glide;
+    else slot.dataset.glide = '';
+    slot.style.setProperty('--s', String(usToSec(plan.startUs)));
+    slot.style.setProperty('--d', String(usToSec(g.origDurationUs)));
+    slot.dataset.on = '';
   };
 
   const pressClip = (event: React.PointerEvent<HTMLElement>, clip: VideoClipSummary, track: VideoTrackSummary) => {
@@ -466,6 +543,8 @@ const StudioTimeline = memo(function StudioTimeline(props: TimelineProps) {
       durationUs: clip.durationUs,
       sourceStartUs: clip.sourceStartUs || 0,
       snappedUs: undefined,
+      plan: undefined,
+      shifted: new Map(),
       frame: 0,
     };
     live.current.draggingRef.current = true;
@@ -498,17 +577,34 @@ const StudioTimeline = memo(function StudioTimeline(props: TimelineProps) {
     live.current.onDragPreview(null);
     const style = g.element.style,
       moved = Math.abs(g.startUs - g.origStartUs) > 5_000,
-      resized = Math.abs(g.durationUs - g.origDurationUs) > 5_000;
+      resized = Math.abs(g.durationUs - g.origDurationUs) > 5_000,
+      grid = gridRef.current;
+    if (g.mode === 'move') {
+      // Let go, the clip glides from under the pointer into the place it took, or back to its own when the drop
+      // changes nothing; the clips that made way stay where they went, or slide back.
+      if (grid) {
+        delete grid.dataset.moving;
+        grid.dataset.settling = '';
+        window.clearTimeout(settleTimer.current);
+        settleTimer.current = window.setTimeout(() => delete grid.dataset.settling, SETTLE_MS);
+      }
+      for (const elements of g.shifted.values())
+        for (const element of elements) element.style.removeProperty('--plan-s');
+      const slot = g.element.parentElement?.querySelector<HTMLElement>(':scope > .vs-drop-slot');
+      if (slot) delete slot.dataset.on;
+    }
     style.removeProperty('--drag-x');
-    if (commit && (g.mode === 'move' ? moved : moved || resized)) {
-      // The placement renders in this same event, so the clip stays where it was dropped while the edit runs.
+    const plan = g.plan;
+    if (commit && (g.mode === 'move' ? Boolean(plan?.moves.length) : moved || resized)) {
+      // The placement renders in this same event, so the clips stay where they were dropped while the edit runs.
       live.current.onDragCommit({
         mode: g.mode,
         clipId: g.clip.id,
         trackId: g.trackId,
-        startUs: g.startUs,
+        startUs: g.mode === 'move' && plan ? plan.startUs : g.startUs,
         durationUs: g.durationUs,
         sourceStartUs: g.sourceStartUs,
+        ...(g.mode === 'move' && plan ? { moves: plan.moves } : {}),
       });
     } else {
       style.setProperty('--s', String(usToSec(g.origStartUs)));
@@ -532,6 +628,7 @@ const StudioTimeline = memo(function StudioTimeline(props: TimelineProps) {
   };
   useEffect(
     () => () => {
+      window.clearTimeout(settleTimer.current);
       if (gesture.current?.frame) cancelAnimationFrame(gesture.current.frame);
       if (scrub.current.frame) cancelAnimationFrame(scrub.current.frame);
       live.current.draggingRef.current = false;
@@ -660,9 +757,10 @@ const StudioTimeline = memo(function StudioTimeline(props: TimelineProps) {
                 </div>
 
                 <div className="vs-track-lane" onClick={() => props.onSelect('')}>
+                  <span className="vs-drop-slot" aria-hidden="true" />
                   {track.clips.map((clip) => {
                     const placed = placement?.clipId === clip.id ? placement : null,
-                      startUs = placed ? placed.startUs : clip.startUs,
+                      startUs = placed ? placed.startUs : (placedAt.get(clip.id) ?? clip.startUs),
                       durationUs = placed ? placed.durationUs : clip.durationUs,
                       label = clipDisplayLabel(clip, project, t),
                       seconds = usToSec(durationUs),
@@ -679,6 +777,7 @@ const StudioTimeline = memo(function StudioTimeline(props: TimelineProps) {
                         tabIndex={0}
                         aria-pressed={selectedClipId === clip.id}
                         data-kind={clip.kind}
+                        data-clip={clip.id}
                         className={`vs-clip${selectedClipId === clip.id ? ' is-selected' : ''}${
                           track.locked ? ' is-locked' : ''
                         }${clip.enabled ? '' : ' is-off'}`}
@@ -726,9 +825,14 @@ const StudioTimeline = memo(function StudioTimeline(props: TimelineProps) {
                         <span
                           key={clip.id}
                           className="vs-cut"
+                          data-clip={clip.id}
                           style={
                             {
-                              '--s': usToSec(placement?.clipId === clip.id ? placement.startUs : clip.startUs),
+                              '--s': usToSec(
+                                placement?.clipId === clip.id
+                                  ? placement.startUs
+                                  : (placedAt.get(clip.id) ?? clip.startUs),
+                              ),
                             } as CSSProperties
                           }
                         >
@@ -751,7 +855,12 @@ const StudioTimeline = memo(function StudioTimeline(props: TimelineProps) {
   );
 });
 
-type ApplyEdit = (operations: VideoEditOperation[], historyLabel?: string) => Promise<void>;
+/** Applies edits as one undo step; resolves with the result, or nothing when it failed. Warnings show unless `quiet`. */
+type ApplyEdit = (
+  operations: VideoEditOperation[],
+  historyLabel?: string,
+  options?: { quiet?: boolean },
+) => Promise<VideoEditResult | undefined>;
 
 function Field({ label, value, children }: { label: string; value?: string; children: React.ReactNode }) {
   return (
@@ -1069,6 +1178,18 @@ function ClipInspector({
   );
 }
 
+/** Whether the project's export ducks the music under speech and normalizes loudness. */
+function masteringOf(project: VideoProjectDetail | null | undefined) {
+  const sequences = (project?.projectJson as { sequences?: Record<string, { extensions?: Record<string, unknown> }> })
+    ?.sequences;
+  const value = sequences ? Object.values(sequences)[0]?.extensions?.['aelion.audio.mastering'] : undefined;
+  const mastering = (value && typeof value === 'object' ? value : {}) as { ducking?: unknown; targetLufs?: unknown };
+  return {
+    ducking: Array.isArray(mastering.ducking) && mastering.ducking.length > 0,
+    loudness: typeof mastering.targetLufs === 'number',
+  };
+}
+
 /** The export card under the 导出 button. The workbench owns when it is open; it takes focus as it appears. */
 function ExportPopover({
   format,
@@ -1077,6 +1198,7 @@ function ExportPopover({
   onFormat,
   onQuality,
   onAttach,
+  audio,
   onCancel,
   onStart,
 }: {
@@ -1086,6 +1208,16 @@ function ExportPopover({
   onFormat: (format: VideoExportFormat) => void;
   onQuality: (quality: VideoExportQuality) => void;
   onAttach: (attach: boolean) => void;
+  /** The project's audio mastering, which only the export applies. */
+  audio: {
+    ducking: boolean;
+    loudness: boolean;
+    /** There are clips on both the music track and another audio track. */
+    duckable: boolean;
+    busy: boolean;
+    onDucking: (on: boolean) => void;
+    onLoudness: (on: boolean) => void;
+  };
   onCancel: () => void;
   onStart: () => void;
 }) {
@@ -1117,6 +1249,34 @@ function ExportPopover({
               </button>
             ))}
           </div>
+        </div>
+      )}
+      {(format === 'mp4' || format === 'webm' || format === 'wav') && (
+        <div>
+          <span className="vs-label">{t('声音')}</span>
+          <label className="vs-export-check">
+            <input
+              type="checkbox"
+              checked={audio.ducking}
+              disabled={audio.busy || (!audio.ducking && !audio.duckable)}
+              onChange={(event) => audio.onDucking(event.target.checked)}
+            />
+            <span>{t('有人声时压低背景音乐')}</span>
+          </label>
+          <label className="vs-export-check">
+            <input
+              type="checkbox"
+              checked={audio.loudness}
+              disabled={audio.busy}
+              onChange={(event) => audio.onLoudness(event.target.checked)}
+            />
+            <span>{t('统一响度（-14 LUFS）')}</span>
+          </label>
+          <p className="vs-export-hint">
+            {audio.duckable || audio.ducking
+              ? t('导出时处理，预览播放时听不出差别。')
+              : t('导出时处理。背景音乐轨道和人声轨道上都有片段时，才能压低背景音乐。')}
+          </p>
         </div>
       )}
       <label className="vs-export-check">
@@ -1271,7 +1431,7 @@ export function VideoStudioWorkbench({ projectId, name }: { projectId: string; n
   const [pxPerSec, setPxPerSec] = useState(72);
   const [editBusy, setEditBusy] = useState(false);
   const [placement, setPlacement] = useState<ClipPlacement | null>(null);
-  const [syncNotice, setSyncNotice] = useState<{ text: string; tone: 'ok' | 'error' } | null>(null);
+  const [syncNotice, setSyncNotice] = useState<{ text: string; tone: 'hint' | 'ok' | 'error' } | null>(null);
   const [statusError, setStatusError] = useState('');
 
   const [exportOpen, setExportOpen] = useState(false);
@@ -1435,7 +1595,7 @@ export function VideoStudioWorkbench({ projectId, name }: { projectId: string; n
   }, []);
 
   /** A passing notice in the toast stack; it leaves by itself unless `stay` is set. */
-  const showNotice = useCallback((text: string, tone: 'ok' | 'error', stay = false) => {
+  const showNotice = useCallback((text: string, tone: 'hint' | 'ok' | 'error', stay = false) => {
     setSyncNotice({ text, tone });
     if (noticeTimer.current) clearTimeout(noticeTimer.current);
     noticeTimer.current = stay ? undefined : setTimeout(() => setSyncNotice(null), 2600);
@@ -1525,6 +1685,8 @@ export function VideoStudioWorkbench({ projectId, name }: { projectId: string; n
           resolve(data.dataUrl);
         }
       } else if (data.type === 'error') {
+        // The static frames take over, which cannot play: stop the player too, so its sound does not run on.
+        postToPlayer({ source: 'aelion-video-host', type: 'pause' });
         setClock(currentTimeRef.current, false);
         setPlaying(false);
         setFallbackMode(true);
@@ -1533,7 +1695,7 @@ export function VideoStudioWorkbench({ projectId, name }: { projectId: string; n
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [setClock]);
+  }, [setClock, postToPlayer]);
 
   // Graceful fallback to static server-rendered frames if iframe fails to become ready.
   useEffect(() => {
@@ -1694,9 +1856,9 @@ export function VideoStudioWorkbench({ projectId, name }: { projectId: string; n
 
   // Apply edit operations serially via IPC (always reading latest revision) and reload player iframe on new revision.
   const applyEdit = useCallback<ApplyEdit>(
-    (operations, historyLabel) => {
+    (operations, historyLabel, options) => {
       const targetProjectId = projectRef.current?.id;
-      if (!targetProjectId || !window.aelion?.videoProjectEdit) return Promise.resolve();
+      if (!targetProjectId || !window.aelion?.videoProjectEdit) return Promise.resolve(undefined);
       editEpochRef.current += 1;
       inFlightEditsRef.current += 1;
       setEditBusy(true);
@@ -1720,7 +1882,8 @@ export function VideoStudioWorkbench({ projectId, name }: { projectId: string; n
             projectId: result.project.id,
             revision: result.revision,
           });
-          if (result.warnings?.length) showNotice(result.warnings[0]!, 'error', true);
+          if (result.warnings?.length && !options?.quiet) showNotice(result.warnings[0]!, 'error', true);
+          return result;
         } catch (err) {
           if (projectRef.current?.id === targetProjectId) {
             setStatusError(previewErrorText(err));
@@ -1730,7 +1893,10 @@ export function VideoStudioWorkbench({ projectId, name }: { projectId: string; n
           setEditBusy(inFlightEditsRef.current > 0);
         }
       });
-      editQueueRef.current = run.catch(() => {});
+      editQueueRef.current = run.then(
+        () => {},
+        () => {},
+      );
       return run;
     },
     [postToPlayer, showNotice],
@@ -1801,37 +1967,56 @@ export function VideoStudioWorkbench({ projectId, name }: { projectId: string; n
     );
   };
 
-  const handleAutoDuck = () => {
+  const [silenceBusy, setSilenceBusy] = useState(false);
+  const handleRemoveSilence = async () => {
     if (!project) return;
-    const audioTracks = project.tracks.filter((tr) => tr.kind === 'audio');
-    if (audioTracks.length < 2) {
-      setStatusError(t('需要至少两条音频轨道才能自动压低背景音'));
+    if (!selectedClipInfo) {
+      showNotice(t('先在时间轴上选中要去静音的片段'), 'hint');
       return;
     }
-    const bgmTrack =
-      audioTracks.find((tr) => /bgm|music|背景|配乐/i.test(tr.name)) || audioTracks[audioTracks.length - 1]!;
-    const sidechain = audioTracks.filter((tr) => tr.id !== bgmTrack.id).map((tr) => tr.id);
+    const { track, clip } = selectedClipInfo;
+    const length = (detail: VideoProjectDetail) =>
+      detail.tracks.find((item) => item.id === track.id)?.clips.reduce((sum, item) => sum + item.durationUs, 0) ?? 0;
+    const before = length(project);
+    setSilenceBusy(true);
+    const result = await applyEdit([{ op: 'remove_silence', clipId: clip.id }], t('一键去静音'), { quiet: true });
+    setSilenceBusy(false);
+    if (!result) return;
+    const removedSec = (before - length(result.project)) / 1_000_000;
+    if (removedSec >= 0.05) showNotice(t('已去掉 {sec} 秒静音', { sec: removedSec.toFixed(1) }), 'ok');
+    else showNotice(t('这个片段里没有可以去掉的静音'), 'hint');
+  };
+
+  // Mastering the export applies: the music ducks under the other audio tracks, and the loudness is evened out.
+  const mastering = masteringOf(project);
+  const audioTracks = project?.tracks.filter((track) => track.kind === 'audio') ?? [];
+  const musicTrack =
+    audioTracks.find((track) => track.id === 'audio-bgm') ??
+    audioTracks.find((track) => /bgm|music|背景|配乐/i.test(track.name)) ??
+    audioTracks.at(-1);
+  const voiceTracks = audioTracks.filter((track) => track !== musicTrack);
+  const duckable = Boolean(musicTrack?.clips.length && voiceTracks.some((track) => track.clips.length));
+  const setDucking = (on: boolean) => {
+    if (on && !musicTrack) return;
     void applyEdit(
       [
-        {
-          op: 'auto_duck',
-          programTrackIds: [bgmTrack.id],
-          sidechainTrackIds: sidechain,
-          reductionDb: -10,
-        },
+        on
+          ? {
+              op: 'auto_duck',
+              programTrackIds: [musicTrack!.id],
+              sidechainTrackIds: voiceTracks.map((track) => track.id),
+              reductionDb: -10,
+            }
+          : { op: 'auto_duck', remove: true },
       ],
-      t('自动压低背景音'),
+      t('有人声时压低背景音乐'),
     );
   };
-
-  const handleRemoveSilence = () => {
-    if (!selectedClipInfo) return;
-    void applyEdit([{ op: 'remove_silence', clipId: selectedClipInfo.clip.id }], t('一键去静音'));
-  };
-
-  const handleNormalizeLoudness = () => {
-    void applyEdit([{ op: 'normalize_loudness', targetLufs: -14 }], t('响度标准化'));
-  };
+  const setLoudness = (on: boolean) =>
+    void applyEdit(
+      [on ? { op: 'normalize_loudness', targetLufs: -14 } : { op: 'normalize_loudness', remove: true }],
+      t('统一响度'),
+    );
 
   // Poll active export job until terminal state.
   useEffect(() => {
@@ -1984,11 +2169,13 @@ export function VideoStudioWorkbench({ projectId, name }: { projectId: string; n
     (next: ClipPlacement) => {
       setPlacement(next);
       const { clipId, trackId, startUs, durationUs: lengthUs, sourceStartUs } = next;
-      void applyEdit([
+      // A move commits the whole layout the timeline showed, as one step to undo: the clip, the neighbours that
+      // made way for it, and their sound.
+      void applyEdit(
         next.mode === 'move'
-          ? { op: 'move_clip', clipId, startUs, trackId }
-          : { op: 'trim_clip', clipId, startUs, durationUs: lengthUs, sourceStartUs },
-      ]).finally(() => setPlacement((current) => (current === next ? null : current)));
+          ? (next.moves ?? [{ clipId, trackId, startUs }]).map((move) => ({ op: 'move_clip' as const, ...move }))
+          : [{ op: 'trim_clip', clipId, startUs, durationUs: lengthUs, sourceStartUs }],
+      ).finally(() => setPlacement((current) => (current === next ? null : current)));
     },
     [applyEdit],
   );
@@ -2050,6 +2237,17 @@ export function VideoStudioWorkbench({ projectId, name }: { projectId: string; n
     paintTime(currentTimeRef.current);
   });
 
+  // In the preview panel the mode switch and the project's actions share the panel's own header row instead of
+  // adding a second bar under it. Outside one they keep a bar of their own.
+  const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
+  const shown = !loading && Boolean(project) && !loadError;
+  useLayoutEffect(() => {
+    if (shown)
+      setHeaderSlot(
+        rootRef.current?.closest('.fp-panel')?.querySelector<HTMLElement>('.fp-file-controls-slot') ?? null,
+      );
+  }, [shown]);
+
   if (loading) {
     return (
       <div className="vs-state" role="status">
@@ -2078,88 +2276,113 @@ export function VideoStudioWorkbench({ projectId, name }: { projectId: string; n
   const playerSrc = `${PLAYER_BASE_URL}?projectId=${encodeURIComponent(project.id)}`;
   const exporting = exportJob?.status === 'queued' || exportJob?.status === 'running';
 
+  const pinCount = runtime?.annotations?.length ?? 0;
+  const head = (
+    <div className="vs-head">
+      <span className="vs-head-meta">
+        {project.aspect} · {project.width}×{project.height} · {Math.round(fps)}fps · {formatPinTimecode(durationSec)}
+      </span>
+
+      {/* The same segment as the panel's 预览 · 评论 for other files, which this one stands in for. */}
+      <div className="fp-mode" role="radiogroup" aria-label={t('视频工作区模式')}>
+        {(
+          [
+            { id: 'preview', label: t('预览') },
+            { id: 'timeline', label: t('时间轴') },
+            { id: 'annotate', label: t('批注') },
+          ] as const
+        ).map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="radio"
+            aria-checked={tab === item.id}
+            onClick={() => chooseTab(item.id)}
+          >
+            {item.label}
+            {item.id === 'annotate' && pinCount > 0 && (
+              <span className="fp-mode-count" aria-label={t('{count} 条', { count: pinCount })}>
+                {pinCount}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div className="vs-top-actions">
+        <button
+          type="button"
+          className="vc-icon-btn is-sm"
+          disabled={!project.canUndo || editBusy}
+          title={t('撤销') + ' (Ctrl+Z)'}
+          aria-label={t('撤销')}
+          onClick={() => void applyEdit([{ op: 'undo' }])}
+        >
+          <Icon name="undo" size={16} />
+        </button>
+        <button
+          type="button"
+          className="vc-icon-btn is-sm"
+          disabled={!project.canRedo || editBusy}
+          title={t('重做') + ' (Ctrl+Shift+Z)'}
+          aria-label={t('重做')}
+          onClick={() => void applyEdit([{ op: 'redo' }])}
+        >
+          <Icon name="redo" size={16} />
+        </button>
+
+        <div className="vs-export-wrap" ref={exportWrapRef}>
+          <button
+            type="button"
+            className="vc-btn is-ink is-sm"
+            ref={exportButtonRef}
+            aria-haspopup="dialog"
+            aria-expanded={exportOpen}
+            aria-label={t('导出')}
+            onClick={() => setExportOpen((open) => !open)}
+          >
+            <Icon name="download" size={15} />
+            <span className="vs-export-label">{t('导出')}</span>
+          </button>
+          <Presence>
+            {exportOpen && (
+              <ExportPopover
+                format={exportFormat}
+                quality={exportQuality}
+                attach={exportAttach}
+                onFormat={setExportFormat}
+                onQuality={setExportQuality}
+                onAttach={setExportAttach}
+                audio={{
+                  ducking: mastering.ducking,
+                  loudness: mastering.loudness,
+                  duckable,
+                  busy: editBusy,
+                  onDucking: setDucking,
+                  onLoudness: setLoudness,
+                }}
+                onCancel={() => setExportOpen(false)}
+                onStart={() => void startExport()}
+              />
+            )}
+          </Presence>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="vs-root" ref={rootRef} style={{ '--vs-duration': Math.max(durationSec, 0.001) } as CSSProperties}>
-      <header className="vs-topbar">
-        <div className="vs-title">
-          <strong title={project.title}>{project.title || name}</strong>
-          <span>
-            {project.aspect} · {project.width}×{project.height} · {Math.round(fps)}fps ·{' '}
-            {formatPinTimecode(durationSec)}
-          </span>
-        </div>
-
-        <div className="vc-seg" role="tablist" aria-label={t('视频工作区模式')}>
-          {(
-            [
-              { id: 'preview', label: t('预览') },
-              { id: 'timeline', label: t('时间轴') },
-              { id: 'annotate', label: t('批注') },
-            ] as const
-          ).map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={tab === item.id}
-              onClick={() => chooseTab(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="vs-top-actions">
-          <button
-            type="button"
-            className="vc-icon-btn"
-            disabled={!project.canUndo || editBusy}
-            title={t('撤销') + ' (Ctrl+Z)'}
-            aria-label={t('撤销')}
-            onClick={() => void applyEdit([{ op: 'undo' }])}
-          >
-            <Icon name="undo" size={17} />
-          </button>
-          <button
-            type="button"
-            className="vc-icon-btn"
-            disabled={!project.canRedo || editBusy}
-            title={t('重做') + ' (Ctrl+Shift+Z)'}
-            aria-label={t('重做')}
-            onClick={() => void applyEdit([{ op: 'redo' }])}
-          >
-            <Icon name="redo" size={17} />
-          </button>
-
-          <div className="vs-export-wrap" ref={exportWrapRef}>
-            <button
-              type="button"
-              className="vc-btn is-ink"
-              ref={exportButtonRef}
-              aria-haspopup="dialog"
-              aria-expanded={exportOpen}
-              onClick={() => setExportOpen((open) => !open)}
-            >
-              <Icon name="download" size={15} />
-              <span>{t('导出')}</span>
-            </button>
-            <Presence>
-              {exportOpen && (
-                <ExportPopover
-                  format={exportFormat}
-                  quality={exportQuality}
-                  attach={exportAttach}
-                  onFormat={setExportFormat}
-                  onQuality={setExportQuality}
-                  onAttach={setExportAttach}
-                  onCancel={() => setExportOpen(false)}
-                  onStart={() => void startExport()}
-                />
-              )}
-            </Presence>
-          </div>
-        </div>
-      </header>
+      {headerSlot ? (
+        createPortal(head, headerSlot)
+      ) : (
+        <header className="vs-topbar">
+          <strong className="vs-title" title={project.title}>
+            {project.title || name}
+          </strong>
+          {head}
+        </header>
+      )}
 
       <div className="vs-body" ref={bodyRef}>
         <div className="vs-main">
@@ -2404,27 +2627,16 @@ export function VideoStudioWorkbench({ projectId, name }: { projectId: string; n
                 {t('添加字幕')}
               </button>
               <span className="vs-divider" aria-hidden="true" />
-              <button type="button" className="vc-btn is-quiet is-sm" disabled={editBusy} onClick={handleAutoDuck}>
-                <Glyph name="duck" />
-                {t('自动压低背景音')}
-              </button>
-              <button
-                type="button"
-                className="vc-btn is-quiet is-sm"
-                disabled={!selectedClipInfo || editBusy}
-                onClick={handleRemoveSilence}
-              >
-                <Icon name="waveform" size={15} />
-                {t('一键去静音')}
-              </button>
               <button
                 type="button"
                 className="vc-btn is-quiet is-sm"
                 disabled={editBusy}
-                onClick={handleNormalizeLoudness}
+                aria-busy={silenceBusy || undefined}
+                title={t('找出所选片段里没有声音的段落并剪掉，画面和声音一起剪')}
+                onClick={() => void handleRemoveSilence()}
               >
-                <Glyph name="level" />
-                {t('响度标准化')}
+                {silenceBusy ? <i className="vc-spinner" aria-hidden="true" /> : <Icon name="waveform" size={15} />}
+                {t('一键去静音')}
               </button>
             </div>
 

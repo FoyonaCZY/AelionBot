@@ -28,28 +28,65 @@
   font-size: var(--text-small);
 }
 
-/* ---------- Top bar: title, mode switch, history and export ---------- */
+/* ---------- Header: the project's size and length, the mode switch, history and export ---------- */
+/* In the preview panel these join its header row through .fp-file-controls-slot, between the file name and the
+   panel's own buttons. The slot takes the spare width and lets the export popover hang out below it. */
+.fp-layer.is-immersive .fp-file-controls-slot:has(> .vs-head) {
+  flex: 1 1 0;
+  min-width: min-content;
+  overflow: visible;
+}
+/* The row narrows with the panel: first the size and length go, then the export label. */
+.fp-header:has(.vs-head),
+.vs-topbar {
+  container: vs-head / inline-size;
+}
+.vs-head {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+}
+.vs-head-meta {
+  flex: 1 1 0;
+  /* Takes whatever width is left, so it never holds the row open. */
+  width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vs-head .fp-mode {
+  margin: 0;
+}
+.vs-top-actions {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 2px;
+}
+.vs-export-wrap {
+  position: relative;
+  margin-left: 6px;
+}
+/* Outside a preview panel the same row has a bar of its own, with the title first. */
 .vs-topbar {
   position: relative;
   /* Above the toasts and the floating inspector: the export popover opens out of this bar. */
   z-index: 10;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  display: flex;
   align-items: center;
   flex: none;
   gap: 12px;
-  min-height: 52px;
+  min-height: 48px;
   padding: 0 12px 0 16px;
   background: var(--surface-float);
   border-bottom: 1px solid var(--surface-line);
 }
 .vs-title {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  min-width: 0;
-}
-.vs-title > strong {
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -58,25 +95,28 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.vs-title > span {
-  flex: 0 10 auto;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: var(--text-caption);
-  font-variant-numeric: tabular-nums;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+@container vs-head (max-width: 640px) {
+  .vs-head-meta {
+    visibility: hidden;
+  }
 }
-.vs-top-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-}
-.vs-export-wrap {
-  position: relative;
-  margin-left: 6px;
+@container vs-head (max-width: 480px) {
+  .vs-head {
+    gap: 4px;
+  }
+  .vs-head .fp-mode button {
+    padding: 0 8px;
+  }
+  .vs-export-wrap {
+    margin-left: 2px;
+  }
+  .vs-export-wrap > .vc-btn {
+    width: var(--size-sm);
+    padding: 0;
+  }
+  .vs-export-label {
+    display: none;
+  }
 }
 
 /* ---------- Export popover: unfolds from the button with the menu motion ---------- */
@@ -96,6 +136,10 @@
   gap: 12px;
   outline: none;
   transform-origin: top right;
+}
+/* In the panel header the panel's own buttons sit right of the export button, so the popover has less room. */
+.fp-header .vs-export-popover {
+  max-width: calc(100cqw - 150px);
 }
 .vs-export-popover > h3 {
   margin: 0;
@@ -122,6 +166,10 @@
   gap: 8px;
   margin: 4px 0;
   cursor: pointer;
+}
+.vs-export-check:has(input:disabled) {
+  color: var(--text-muted);
+  cursor: default;
 }
 .vs-export-footer {
   display: flex;
@@ -898,7 +946,8 @@
 }
 
 /* ---------- Clips ---------- */
-/* Placed by translate from its start (--s) and length (--d) in seconds; a move adds --drag-x while it is dragged. */
+/* Placed by translate from its start (--s) and length (--d) in seconds; a move adds --drag-x while it is dragged,
+   and the clips making way for it take the start the move would give them (--plan-s). */
 .vs-clip {
   position: absolute;
   top: 2px;
@@ -920,7 +969,7 @@
   cursor: grab;
   touch-action: none;
   user-select: none;
-  translate: calc(var(--s) * var(--vs-pps) * 1px + var(--drag-x, 0px)) 0;
+  translate: calc(var(--plan-s, var(--s)) * var(--vs-pps) * 1px + var(--drag-x, 0px)) 0;
   transition:
     background-color var(--motion-fast),
     box-shadow var(--motion-menu) var(--motion-ease),
@@ -983,6 +1032,24 @@
 }
 .vs-clip[data-drag^='trim'] {
   cursor: ew-resize;
+}
+/* Where a moved clip would land: an outline in the lane under it, which the others open up around. */
+.vs-drop-slot {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  box-sizing: border-box;
+  width: max(24px, calc(var(--d, 0) * var(--vs-pps) * 1px - 2px));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--ctl-accent) 8%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ctl-accent) 55%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  translate: calc(var(--s, 0) * var(--vs-pps) * 1px) 0;
+}
+.vs-drop-slot[data-on] {
+  opacity: 1;
 }
 
 /* The asset's picture, tiled along the clip at the lane's height. */
@@ -1083,7 +1150,7 @@
   box-shadow: var(--elev-1);
   color: var(--text-secondary);
   pointer-events: none;
-  translate: calc(var(--s) * var(--vs-pps) * 1px - 50% - 1px) -50%;
+  translate: calc(var(--plan-s, var(--s)) * var(--vs-pps) * 1px - 50% - 1px) -50%;
 }
 /* The time under a drag: the new start while moving, the new length while trimming. */
 .vs-drag-tag {
@@ -1170,9 +1237,6 @@
   .vs-inspector.is-empty {
     display: none;
   }
-  .vs-title > span {
-    display: none;
-  }
   .vs-stage {
     padding: 12px 12px 4px;
   }
@@ -1185,15 +1249,8 @@
     display: none;
   }
   .vs-topbar {
-    grid-template-columns: minmax(0, 1fr) auto auto;
     gap: 6px;
     padding: 0 8px 0 12px;
-  }
-  .vs-topbar .vc-seg > button {
-    padding: 0 10px;
-  }
-  .vs-export-wrap {
-    margin-left: 2px;
   }
 }
 
@@ -1204,6 +1261,26 @@
   }
   .motion-presence[data-leaving] .vs-export-popover {
     animation: motion-menu-out var(--motion-exit) var(--motion-exit-ease) forwards;
+  }
+  /* A moved clip's neighbours slide aside as it passes them, and when it is let go it glides into its place. */
+  .vs-tracks-grid:is([data-moving], [data-settling]) .vs-clip:not([data-drag]) {
+    transition:
+      translate var(--motion-view) var(--motion-ease),
+      background-color var(--motion-fast),
+      box-shadow var(--motion-menu) var(--motion-ease),
+      opacity var(--motion-fast),
+      scale var(--motion-menu) var(--motion-ease);
+  }
+  .vs-tracks-grid:is([data-moving], [data-settling]) .vs-cut {
+    transition: translate var(--motion-view) var(--motion-ease);
+  }
+  .vs-drop-slot {
+    transition: opacity var(--motion-fast);
+  }
+  .vs-drop-slot[data-glide] {
+    transition:
+      opacity var(--motion-fast),
+      translate var(--motion-view) var(--motion-ease);
   }
   /* The timeline rises in when its mode is chosen; the picture beside it cross-fades (useSwitchMotion). */
   .vs-timeline-panel {

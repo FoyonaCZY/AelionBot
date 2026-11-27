@@ -407,18 +407,23 @@ export type VideoEditOperation =
     }
   | {
       op: 'auto_duck';
-      programTrackIds: string[];
-      sidechainTrackIds: string[];
+      /** Required unless removing; removing without it clears every rule. */
+      programTrackIds?: string[];
+      sidechainTrackIds?: string[];
       thresholdDb?: number;
       reductionDb?: number;
       attackUs?: number;
       releaseUs?: number;
+      /** Turn ducking off instead of on. */
+      remove?: boolean;
     }
   | {
       op: 'normalize_loudness';
       targetLufs?: number;
       maximumGainDb?: number;
       ceilingDbtp?: number;
+      /** Turn loudness normalization off. */
+      remove?: boolean;
     }
   | {
       op: 'snap_to_beats';

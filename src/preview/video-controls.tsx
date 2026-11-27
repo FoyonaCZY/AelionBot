@@ -70,7 +70,8 @@ export function VideoToast({
   onClose,
   closeLabel,
 }: {
-  tone: 'info' | 'ok' | 'error';
+  /** info: work under way (a spinner); hint: a tip about what to do; ok and error: how something ended. */
+  tone: 'info' | 'hint' | 'ok' | 'error';
   children: ReactNode;
   detail?: string;
   /** 0..1 */
@@ -98,7 +99,9 @@ export function VideoToast({
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <path d={tone === 'ok' ? 'M5 12.5 9.5 17 19 7.5' : 'M12 6v8M12 18v.2'} />
+            <path
+              d={tone === 'ok' ? 'M5 12.5 9.5 17 19 7.5' : tone === 'hint' ? 'M12 10.5V18M12 6v.2' : 'M12 6v8M12 18v.2'}
+            />
           </svg>
         </i>
       )}

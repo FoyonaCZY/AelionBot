@@ -123,6 +123,32 @@ function errorMessage(error: unknown): string {
   return String(error || 'Video player error');
 }
 
+/**
+ * A frame the renderer turned away because it was still busy with earlier ones, or one a newer request replaced.
+ * The next frame draws over it, so it is a skipped frame, not a failure: reporting it would stop the studio's
+ * playback for a click on the timeline while playing.
+ */
+const SKIPPED_FRAME_CODES = new Set([
+  'RENDERER_QUEUE_FULL',
+  'RENDERER_FRAME_QUEUE_FULL',
+  'MEDIA_RESOURCE_QUEUE_FULL',
+  'MEDIA_PROVIDER_QUEUE_FULL',
+  'OPERATION_ABORTED',
+]);
+
+function skippedFrame(error: unknown): boolean {
+  if (error instanceof DOMException && error.name === 'AbortError') return true;
+  if (!error || typeof error !== 'object') return false;
+  const diagnostics: unknown = Reflect.get(error, 'diagnostics');
+  if (Array.isArray(diagnostics)) {
+    return diagnostics.some(
+      (entry: unknown) =>
+        entry !== null && typeof entry === 'object' && SKIPPED_FRAME_CODES.has(String(Reflect.get(entry, 'code'))),
+    );
+  }
+  return SKIPPED_FRAME_CODES.has(String(Reflect.get(error, 'code')));
+}
+
 function ensureStageCanvas(): HTMLCanvasElement {
   const existing = document.getElementById('stage') ?? document.querySelector('canvas');
   if (existing instanceof HTMLCanvasElement) return existing;
@@ -221,6 +247,8 @@ class IsolatedVideoPlayerHost {
   #rateRenderInFlight = false;
   #lastTimeEmitNow = 0;
   #dragAbort: AbortController | undefined;
+  #stillUs: number | undefined;
+  #stillDrawing = false;
   #loadSeq = 0;
   #disposed = false;
 
@@ -240,7 +268,10 @@ class IsolatedVideoPlayerHost {
       fit: 'contain',
       background: '#0b0c0e',
       pauseWhenHidden: false,
-      onError: (err) => this.#emit({ source: 'aelion-video-player', type: 'error', message: errorMessage(err) }),
+      onError: (err) => {
+        if (!skippedFrame(err))
+          this.#emit({ source: 'aelion-video-player', type: 'error', message: errorMessage(err) });
+      },
     });
     const player: AelionPlayerApi = this.#session.player;
     this.#unsubTime = player.subscribeTime(({ timeUs, state }) => {
@@ -296,7 +327,7 @@ class IsolatedVideoPlayerHost {
     if (!data || typeof data !== 'object' || data.source !== 'aelion-video-host') return;
     this.#parentOrigin = event.origin && event.origin !== 'null' && event.origin !== 'file://' ? event.origin : '*';
     void this.#handleCommand(data).catch((err) => {
-      this.#emit({ source: 'aelion-video-player', type: 'error', message: errorMessage(err) });
+      if (!skippedFrame(err)) this.#emit({ source: 'aelion-video-player', type: 'error', message: errorMessage(err) });
     });
   };
 
@@ -512,12 +543,21 @@ class IsolatedVideoPlayerHost {
     const clamped = this.#clampTimeUs(timeUs);
     this.#currentTimeUs = clamped;
     if (this.#durationUs <= 0) return;
-    if (this.#session.player.state === 'playing' || this.#session.player.state === 'paused') {
-      await this.#session.player.seek(clamped).catch(async () => {
-        await this.#controller.render(clamped);
+    if (this.#session.player.state === 'playing') {
+      // Playing, the player's own frame loop draws the new time next. Its seek also asks for a frame at once, which
+      // the renderer turns away while the loop's frame is still in flight; that one is simply not needed.
+      await this.#session.player.seek(clamped).catch((error: unknown) => {
+        if (!skippedFrame(error)) throw error;
+      });
+    } else if (this.#session.player.state === 'paused') {
+      // The seek draws the frame itself; when the renderer is busy, the still path asks again until it is drawn.
+      await this.#session.player.seek(clamped).catch(async (error: unknown) => {
+        if (!skippedFrame(error)) throw error;
+        // Unless a later seek has taken over, which draws its own time.
+        if (this.#currentTimeUs === clamped) await this.#drawStill(clamped);
       });
     } else {
-      await this.#controller.render(clamped);
+      await this.#drawStill(clamped);
     }
     this.#emit({
       source: 'aelion-video-player',
@@ -525,6 +565,39 @@ class IsolatedVideoPlayerHost {
       timeUs: clamped,
       playing: this.#playing,
     });
+  }
+
+  /**
+   * Draws the picture at a time while nothing plays. Clicks and drags on the timeline ask faster than frames are
+   * made: only the latest time asked for is kept, and a frame turned away because the renderer is busy is asked
+   * for again once it has caught up, so the picture always ends on where the playhead stopped.
+   */
+  async #drawStill(timeUs: number): Promise<void> {
+    this.#stillUs = timeUs;
+    if (this.#stillDrawing) return;
+    this.#stillDrawing = true;
+    try {
+      for (
+        let busy = 0;
+        this.#stillUs !== undefined && busy < 50 && !this.#disposed && this.#session.player.state !== 'playing';
+      ) {
+        const target: number = this.#stillUs;
+        this.#stillUs = undefined;
+        if (target !== this.#currentTimeUs) continue;
+        try {
+          await this.#controller.render(target);
+          busy = 0;
+        } catch (error) {
+          if (!skippedFrame(error)) throw error;
+          this.#stillUs ??= target;
+          busy += 1;
+          await new Promise((resolve) => setTimeout(resolve, 16));
+        }
+      }
+    } finally {
+      this.#stillUs = undefined;
+      this.#stillDrawing = false;
+    }
   }
 
   async #setRate(rate: number): Promise<void> {

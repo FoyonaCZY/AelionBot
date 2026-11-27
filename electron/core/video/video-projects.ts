@@ -62,6 +62,12 @@ import {
 
 export const VIDEO_ENGINE_SCHEME = 'aelion-video';
 const MASTERING_EXTENSION = 'aelion.audio.mastering';
+
+/** A sequence's extensions with these mastering settings; the entry goes away once nothing is left in it. */
+function withMastering(extensions: JsonObject, mastering: JsonObject): JsonObject {
+  const { [MASTERING_EXTENSION]: _, ...rest } = extensions;
+  return Object.keys(mastering).length ? { ...rest, [MASTERING_EXTENSION]: mastering } : rest;
+}
 const DEFAULT_STILL_DURATION_US = 3_000_000;
 const GLOBAL_BOT_DIR = '_global';
 const MAX_IMPORT_BYTES = 4 * 1024 * 1024 * 1024; // 4 GiB ceiling
@@ -2056,7 +2062,26 @@ export class VideoProjects {
       }
 
       case 'auto_duck': {
-        if (!op.programTrackIds.length || !op.sidechainTrackIds.length) {
+        const currentExt = asObj(seq.extensions) ?? {};
+        const currentMastering = asObj(currentExt[MASTERING_EXTENSION]) ?? {};
+        const existingDucking = Array.isArray(currentMastering.ducking)
+          ? (currentMastering.ducking as JsonObject[])
+          : [];
+        const targets = new Set(op.programTrackIds ?? []);
+        // Rules for the same programTrackIds are replaced (the SDK forbids a programTrackId in two rules).
+        const otherRules = existingDucking.filter((rule) => {
+          const ids = Array.isArray(rule.programTrackIds) ? rule.programTrackIds : [];
+          return !ids.some((id) => typeof id === 'string' && targets.has(id));
+        });
+        if (op.remove) {
+          const { ducking: _, ...rest } = currentMastering;
+          const ducking = targets.size ? otherRules : [];
+          const nextExtensions = withMastering(currentExt, ducking.length ? { ...rest, ducking } : rest);
+          seq.extensions = nextExtensions;
+          tx.setField('sequences', seqId, ['extensions'], nextExtensions);
+          break;
+        }
+        if (!op.programTrackIds?.length || !op.sidechainTrackIds?.length) {
           throw new AppError('video.invalid_operation', 'auto_duck 需要指定 programTrackIds 和 sidechainTrackIds');
         }
         for (const trackId of [...op.programTrackIds, ...op.sidechainTrackIds]) {
@@ -2065,19 +2090,8 @@ export class VideoProjects {
             throw new AppError('video.invalid_operation', `auto_duck 仅支持音频轨道：${trackId}`);
           }
         }
-        const currentExt = asObj(seq.extensions) ?? {};
-        const currentMastering = asObj(currentExt[MASTERING_EXTENSION]) ?? {};
-        const existingDucking = Array.isArray(currentMastering.ducking)
-          ? (currentMastering.ducking as JsonObject[])
-          : [];
-        const newProgramSet = new Set(op.programTrackIds);
-        // Remove any prior rules targeting the same programTrackIds (SDK forbids duplicate programTrackId across rules)
-        const filteredDucking = existingDucking.filter((rule) => {
-          const ids = Array.isArray(rule.programTrackIds) ? rule.programTrackIds : [];
-          return !ids.some((id) => typeof id === 'string' && newProgramSet.has(id));
-        });
         const newRule: JsonObject = {
-          programTrackIds: [...new Set(op.programTrackIds)],
+          programTrackIds: [...targets],
           sidechainTrackIds: [...new Set(op.sidechainTrackIds)],
           thresholdDb: op.thresholdDb ?? -30,
           reductionDb: op.reductionDb !== undefined ? -Math.abs(op.reductionDb) : -12,
@@ -2085,26 +2099,29 @@ export class VideoProjects {
           releaseUs: safeIntUs(op.releaseUs ?? 250_000, 'releaseUs', 0),
           lookaheadUs: 0,
         };
-        const nextMastering: JsonObject = {
-          ...currentMastering,
-          ducking: [...filteredDucking, newRule],
-        };
-        const nextExtensions: JsonObject = { ...currentExt, [MASTERING_EXTENSION]: nextMastering };
+        const nextExtensions = withMastering(currentExt, { ...currentMastering, ducking: [...otherRules, newRule] });
         seq.extensions = nextExtensions;
         tx.setField('sequences', seqId, ['extensions'], nextExtensions);
         break;
       }
 
       case 'normalize_loudness': {
+        const currentExt = asObj(seq.extensions) ?? {};
+        const currentMastering = asObj(currentExt[MASTERING_EXTENSION]) ?? {};
+        if (op.remove) {
+          const { targetLufs: _t, maximumGainDb: _m, limiter: _l, ...rest } = currentMastering;
+          const nextExtensions = withMastering(currentExt, rest);
+          seq.extensions = nextExtensions;
+          tx.setField('sequences', seqId, ['extensions'], nextExtensions);
+          break;
+        }
         const targetLufs = op.targetLufs ?? -14;
         const maximumGainDb = Math.max(0, op.maximumGainDb ?? 24);
         const ceilingDbtp = op.ceilingDbtp ?? -1;
         if (!Number.isFinite(targetLufs) || !Number.isFinite(maximumGainDb) || !Number.isFinite(ceilingDbtp)) {
           throw new AppError('video.invalid_operation', '响度参数必须是有效数值');
         }
-        const currentExt = asObj(seq.extensions) ?? {};
-        const currentMastering = asObj(currentExt[MASTERING_EXTENSION]) ?? {};
-        const nextMastering: JsonObject = {
+        const nextExtensions = withMastering(currentExt, {
           ...currentMastering,
           targetLufs,
           maximumGainDb,
@@ -2113,8 +2130,7 @@ export class VideoProjects {
             releaseUs: 100_000,
             lookaheadUs: 0,
           },
-        };
-        const nextExtensions: JsonObject = { ...currentExt, [MASTERING_EXTENSION]: nextMastering };
+        });
         seq.extensions = nextExtensions;
         tx.setField('sequences', seqId, ['extensions'], nextExtensions);
         break;

@@ -758,3 +758,55 @@ test('video_project_create starts from an existing video with a canvas that keep
   });
   assert.deepEqual([promoted.project?.width, promoted.project?.height], [1080, 1920]);
 });
+
+test('silence removal cuts picture and sound together, and export mastering turns on and off', async (t) => {
+  const dir = tempDir(t, 'aelion-vid-silence-');
+  const workspace = join(dir, 'workspace');
+  mkdirSync(workspace, { recursive: true });
+  const video = join(workspace, 'talk.mp4');
+  writeFileSync(video, Buffer.from('talk-bytes'));
+  const studio = new VideoStudioService({
+    dataDir: dir,
+    projects: new VideoProjects({ workspaceRoot: () => workspace }),
+    engine: makeFakeEngine(),
+    mediaTokens: new VideoMediaTokenRegistry(),
+    imageDir: join(dir, 'screenshots'),
+  });
+  const project = await studio.createProjectFromMedia({ source: { kind: 'host', path: video } });
+  const clipsOn = (detail: typeof project, id: string) =>
+    detail.tracks.find((track) => track.id === id)?.clips.map((clip) => [clip.startUs, clip.durationUs]) ?? [];
+  const picture = project.tracks.find((track) => track.id === 'video-main')!.clips[0]!;
+
+  const cut = await studio.editProject({
+    projectId: project.id,
+    operations: [{ op: 'remove_silence', clipId: picture.id }],
+  });
+  const pictureClips = clipsOn(cut.project, 'video-main');
+  assert.equal(pictureClips.length, 2, 'the silent stretch is cut out of the picture');
+  assert.deepEqual(clipsOn(cut.project, 'audio-voice'), pictureClips, 'and out of its sound, at the same places');
+
+  const mastering = (detail: typeof project) =>
+    (Object.values(
+      (detail.projectJson as { sequences: Record<string, { extensions?: Record<string, unknown> }> }).sequences,
+    )[0]!.extensions ?? {})['aelion.audio.mastering'] as Record<string, unknown> | undefined;
+  const on = await studio.editProject({
+    projectId: project.id,
+    operations: [
+      { op: 'auto_duck', programTrackIds: ['audio-bgm'], sidechainTrackIds: ['audio-voice'] },
+      { op: 'normalize_loudness', targetLufs: -14 },
+    ],
+  });
+  assert.equal((mastering(on.project)!.ducking as unknown[]).length, 1);
+  assert.equal(mastering(on.project)?.targetLufs, -14);
+  const duckingOff = await studio.editProject({
+    projectId: project.id,
+    operations: [{ op: 'auto_duck', remove: true }],
+  });
+  assert.equal(mastering(duckingOff.project)?.ducking, undefined);
+  assert.equal(mastering(duckingOff.project)?.targetLufs, -14, 'loudness stays on');
+  const off = await studio.editProject({
+    projectId: project.id,
+    operations: [{ op: 'normalize_loudness', remove: true }],
+  });
+  assert.equal(mastering(off.project), undefined, 'nothing left, so the setting is gone');
+});

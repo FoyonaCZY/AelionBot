@@ -803,25 +803,28 @@ export function FilePreview({
                   options={PREVIEW_DEVICE_PRESETS.map((preset) => ({ value: preset.id, label: t(preset.label) }))}
                 />
               )}
-              <div className="fp-mode" role="radiogroup" aria-label={t('预览方式')}>
-                {segments.map((option) => (
-                  <button
-                    key={option.key}
-                    type="button"
-                    role="radio"
-                    aria-checked={segment === option.key}
-                    disabled={option.key === 'source' && (draft?.loading || edits.saving)}
-                    onClick={() => chooseSegment(option.key)}
-                  >
-                    {option.label}
-                    {option.key === 'annotate' && pinCount > 0 && (
-                      <span className="fp-mode-count" aria-label={t('{count} 条', { count: pinCount })}>
-                        {pinCount}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
+              {/* A video project puts its own 预览 · 时间轴 · 批注 in the slot above instead. */}
+              {!item.videoProjectId && (
+                <div className="fp-mode" role="radiogroup" aria-label={t('预览方式')}>
+                  {segments.map((option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      role="radio"
+                      aria-checked={segment === option.key}
+                      disabled={option.key === 'source' && (draft?.loading || edits.saving)}
+                      onClick={() => chooseSegment(option.key)}
+                    >
+                      {option.label}
+                      {option.key === 'annotate' && pinCount > 0 && (
+                        <span className="fp-mode-count" aria-label={t('{count} 条', { count: pinCount })}>
+                          {pinCount}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="fp-tools fp-actions">
                 <button
                   aria-label={directoryOpen ? t('收起文件目录') : t('显示文件目录')}
