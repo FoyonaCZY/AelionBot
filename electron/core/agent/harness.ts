@@ -971,7 +971,11 @@ export class Harness {
           // Mirrors the tool filter in modelTools: the prompt only mentions tools the model is actually offered.
           userInput: Boolean(this.interactions) && !this.headless,
           video: Boolean(this.video),
-          videoStudio: Boolean(this.videoStudio) && !this.headless,
+          // Compact tool menus leave out video_project_create.
+          videoStudio:
+            Boolean(this.videoStudio) &&
+            !this.headless &&
+            (modelConfig.contextTokens >= COMPACT_CONTEXT_THRESHOLD || Boolean(privateSessionId)),
           preview: Boolean(this.previews),
           design: Boolean(this.design && this.host && this.interactions) && !this.headless,
           peers: Boolean(this.peers),

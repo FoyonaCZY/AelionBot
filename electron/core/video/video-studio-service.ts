@@ -6,26 +6,28 @@ import { basename, extname, join, resolve } from 'node:path';
 import type { AelionProject } from '@aelionsdk/project-schema';
 import { AppError } from '../../../shared/errors';
 import type { ScreenReference } from '../../../shared/types/core';
-import type {
-  VideoAssetInfo,
-  VideoEditRequest,
-  VideoEditResult,
-  VideoEngineState,
-  VideoExportFormat,
-  VideoExportJob,
-  VideoExportRequest,
-  VideoMediaAnalyzeInput,
-  VideoMediaPosterInput,
-  VideoMediaPosterResult,
-  VideoMediaProbe,
-  VideoMediaSourceRef,
-  VideoProjectCreateInput,
-  VideoProjectDetail,
-  VideoProjectFrameInput,
-  VideoProjectFrameResult,
-  VideoProjectSummary,
-  VideoQuickEditRequest,
-  VideoQuickEditResult,
+import {
+  VIDEO_ASPECT_DIMENSIONS,
+  type VideoAspectPreset,
+  type VideoAssetInfo,
+  type VideoEditRequest,
+  type VideoEditResult,
+  type VideoEngineState,
+  type VideoExportFormat,
+  type VideoExportJob,
+  type VideoExportRequest,
+  type VideoMediaAnalyzeInput,
+  type VideoMediaPosterInput,
+  type VideoMediaPosterResult,
+  type VideoMediaProbe,
+  type VideoMediaSourceRef,
+  type VideoProjectCreateInput,
+  type VideoProjectDetail,
+  type VideoProjectFrameInput,
+  type VideoProjectFrameResult,
+  type VideoProjectSummary,
+  type VideoQuickEditRequest,
+  type VideoQuickEditResult,
 } from '../../../shared/types/video-studio-types';
 import type { EngineAssetRef, EngineCapabilitiesResult } from '../../windows/video-engine-entry';
 import type { VideoEngineBackend } from '../../windows/video-engine-window';
@@ -87,6 +89,38 @@ function extForExportFormat(format: VideoExportFormat): string {
   }
 }
 
+function importSourceFor(source: VideoMediaSourceRef): VideoAssetImportExtendedInput['source'] {
+  if (source.kind === 'host') {
+    if (!source.path) throw new AppError('video.invalid_operation', '缺少 path');
+    return { kind: 'host', path: source.path };
+  }
+  if (source.kind === 'workspace' || source.kind === 'artifact') {
+    if (!source.botId || !source.path) throw new AppError('video.invalid_operation', '缺少 botId 或 path');
+    return { kind: source.kind, botId: source.botId, path: source.path };
+  }
+  if (!source.attachmentId) throw new AppError('video.invalid_operation', '缺少 attachmentId');
+  return { kind: 'attachment', attachmentId: source.attachmentId };
+}
+
+const ASPECT_PRESETS = Object.keys(VIDEO_ASPECT_DIMENSIONS) as Exclude<VideoAspectPreset, 'custom'>[];
+
+/** Canvas that keeps a source's size, orientation and frame rate; empty when the source has no picture size. */
+function canvasForMedia(
+  probe: Pick<VideoMediaProbe, 'width' | 'height' | 'fps'> | undefined,
+): Pick<VideoProjectCreateInput, 'aspect' | 'width' | 'height' | 'fps'> {
+  if (!probe?.width || !probe.height) return {};
+  // Encoders need even sizes.
+  const width = Math.max(16, Math.min(8192, Math.round(probe.width / 2) * 2));
+  const height = Math.max(16, Math.min(8192, Math.round(probe.height / 2) * 2));
+  const aspect =
+    ASPECT_PRESETS.find((key) => {
+      const preset = VIDEO_ASPECT_DIMENSIONS[key];
+      return Math.abs(width / height - preset.width / preset.height) < 0.01;
+    }) ?? 'custom';
+  const fps = probe.fps && probe.fps >= 1 && probe.fps <= 120 ? probe.fps : undefined;
+  return { aspect, width, height, ...(fps ? { fps } : {}) };
+}
+
 export class VideoStudioService {
   private readonly posterDir: string;
   private readonly posterMemory = new Map<string, CachedPosterDiskEntry>();
@@ -124,6 +158,65 @@ export class VideoStudioService {
     const project = this.deps.projects.create(input);
     this.deps.changed?.();
     return project;
+  }
+
+  /** Canvas matching a source video or image; the default canvas when it cannot be read. */
+  private async canvasFor(source: VideoMediaSourceRef): Promise<ReturnType<typeof canvasForMedia>> {
+    try {
+      return canvasForMedia(await this.analyzeMedia({ source }));
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Starts a project for editing an existing video, audio file or image: the canvas keeps the source's size and frame
+   * rate (explicit `canvas` values win), the picture goes on the main video track and the sound on the voice track.
+   */
+  async createProjectFromMedia(input: {
+    source: VideoMediaSourceRef;
+    title?: string;
+    botId?: string;
+    sessionId?: string;
+    canvas?: Omit<VideoProjectCreateInput, 'title' | 'botId' | 'sessionId'>;
+  }): Promise<VideoProjectDetail> {
+    const { source } = input;
+    const project = this.createProject({
+      title: input.title || (source.path ? basename(source.path, extname(source.path)) : 'Video Project'),
+      ...(input.botId ? { botId: input.botId } : {}),
+      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+      ...(await this.canvasFor(source)),
+      ...input.canvas,
+    });
+    try {
+      const { asset } = await this.importAsset({
+        projectId: project.id,
+        source: importSourceFor(source),
+        analyze: true,
+      });
+      const operations: VideoEditRequest['operations'] = [];
+      if (asset.kind !== 'audio') {
+        operations.push({ op: 'add_clip', trackId: STANDARD_TRACK_IDS.videoMain, assetId: asset.id, startUs: 0 });
+      }
+      if (asset.kind === 'audio' || (asset.kind === 'video' && asset.hasAudio)) {
+        operations.push({
+          op: 'add_clip',
+          trackId: STANDARD_TRACK_IDS.audioVoice,
+          assetId: asset.id,
+          kind: 'audio',
+          startUs: 0,
+        });
+      }
+      const edited = await this.editProject({
+        projectId: project.id,
+        operations,
+        historyLabel: 'Promote media to project',
+      });
+      return edited.project;
+    } catch (error) {
+      this.deleteProject(project.id);
+      throw error;
+    }
   }
 
   deleteProject(id: string): void {
@@ -681,57 +774,15 @@ export class VideoStudioService {
 
   async quickEdit(request: VideoQuickEditRequest): Promise<VideoQuickEditResult> {
     const { source, edit } = request;
-    const toImportSource = (): VideoAssetImportExtendedInput['source'] => {
-      if (source.kind === 'host') {
-        if (!source.path) throw new AppError('video.invalid_operation', '缺少 path');
-        return { kind: 'host', path: source.path };
-      }
-      if (source.kind === 'workspace') {
-        if (!source.botId || !source.path) throw new AppError('video.invalid_operation', '缺少 botId 或 path');
-        return { kind: 'workspace', botId: source.botId, path: source.path };
-      }
-      if (source.kind === 'artifact') {
-        if (!source.botId || !source.path) throw new AppError('video.invalid_operation', '缺少 botId 或 path');
-        return { kind: 'artifact', botId: source.botId, path: source.path };
-      }
-      if (!source.attachmentId) throw new AppError('video.invalid_operation', '缺少 attachmentId');
-      return { kind: 'attachment', attachmentId: source.attachmentId };
-    };
 
     if (edit.action === 'promote_to_project') {
-      const project = this.createProject({
-        title: edit.title || (source.path ? basename(source.path, extname(source.path)) : 'Video Project'),
-        botId: edit.botId ?? source.botId,
-        sessionId: edit.sessionId,
+      const project = await this.createProjectFromMedia({
+        source,
+        ...(edit.title ? { title: edit.title } : {}),
+        ...((edit.botId ?? source.botId) ? { botId: edit.botId ?? source.botId } : {}),
+        ...(edit.sessionId ? { sessionId: edit.sessionId } : {}),
       });
-      const { asset } = await this.importAsset({ projectId: project.id, source: toImportSource(), analyze: true });
-      const ops: VideoEditRequest['operations'] = [];
-      if (asset.kind === 'audio') {
-        ops.push({
-          op: 'add_clip',
-          trackId: STANDARD_TRACK_IDS.audioVoice,
-          assetId: asset.id,
-          kind: 'audio',
-          startUs: 0,
-        });
-      } else {
-        ops.push({ op: 'add_clip', trackId: STANDARD_TRACK_IDS.videoMain, assetId: asset.id, startUs: 0 });
-        if (asset.kind === 'video' && asset.hasAudio) {
-          ops.push({
-            op: 'add_clip',
-            trackId: STANDARD_TRACK_IDS.audioVoice,
-            assetId: asset.id,
-            kind: 'audio',
-            startUs: 0,
-          });
-        }
-      }
-      const edited = await this.editProject({
-        projectId: project.id,
-        operations: ops,
-        historyLabel: 'Promote media to project',
-      });
-      return { action: 'promote_to_project', project: edited.project };
+      return { action: 'promote_to_project', project };
     }
 
     if (edit.action === 'capture_frame') {
@@ -754,9 +805,14 @@ export class VideoStudioService {
     const tmpProject = this.deps.projects.create({
       title: `quick-${edit.action}`,
       botId: source.botId,
+      ...(await this.canvasFor(source)),
     });
     try {
-      const { asset } = await this.importAsset({ projectId: tmpProject.id, source: toImportSource(), analyze: true });
+      const { asset } = await this.importAsset({
+        projectId: tmpProject.id,
+        source: importSourceFor(source),
+        analyze: true,
+      });
       const durationUs = asset.durationUs ?? 3_000_000;
       let removedSec: number | undefined;
 

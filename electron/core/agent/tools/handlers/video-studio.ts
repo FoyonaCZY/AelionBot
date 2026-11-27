@@ -7,6 +7,7 @@ import type {
   VideoEditOperation,
   VideoExportFormat,
   VideoExportQuality,
+  VideoProjectCreateInput,
   VideoProjectDetail,
 } from '../../../../../shared/types/video-studio-types';
 import type { VideoAssetImportExtendedInput } from '../../../video/video-projects';
@@ -92,29 +93,77 @@ function summarizeProjectForModel(project: VideoProjectDetail, includeProjectJso
   };
 }
 
+type MediaSource = Exclude<VideoAssetImportExtendedInput['source'], { kind: 'design' }>;
+
+/** Resolves a tool's attachmentId / path / sourceKind arguments to a media source, asking before reading host files. */
+async function resolveMediaSource(context: ToolContext, tool: string, reason: string): Promise<MediaSource> {
+  const { bot, args, workspace, signal, runId, deps } = context;
+  const rawKind = typeof args.sourceKind === 'string' ? args.sourceKind : undefined;
+  const rawPath = typeof args.path === 'string' ? args.path.trim() : undefined;
+  const attachmentId = typeof args.attachmentId === 'string' ? args.attachmentId.trim() : undefined;
+  if (rawKind === 'attachment' || (!rawKind && attachmentId)) {
+    if (!attachmentId) throw new AppError('video.invalid_operation', '导入附件素材需要 attachmentId');
+    try {
+      deps.attachments.forBot(bot.id, [attachmentId]);
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      throw new AppError('video.asset_not_found', `未找到附件素材：${attachmentId}`);
+    }
+    return { kind: 'attachment', attachmentId };
+  }
+  if (!rawPath) throw new AppError('video.invalid_operation', '请提供 path 或 attachmentId');
+  const prefix = `/work/${bot.id}/`;
+  if (rawKind === 'workspace' || rawKind === 'artifact') {
+    return { kind: rawKind, botId: bot.id, path: rawPath.startsWith(prefix) ? rawPath.slice(prefix.length) : rawPath };
+  }
+  if (!rawKind && rawPath.startsWith(prefix))
+    return { kind: 'workspace', botId: bot.id, path: rawPath.slice(prefix.length) };
+  const resolved = deps.host ? deps.host.resolveFilePath(rawPath, workspace) : rawPath;
+  if (deps.interactions) {
+    await deps.interactions.permission(bot.id, runId, { operation: 'read_file', reason, path: resolved, tool }, signal);
+    signal.throwIfAborted();
+  }
+  return { kind: 'host', path: resolved };
+}
+
 export const VIDEO_STUDIO_HANDLERS: Record<string, ToolHandler> = {
-  video_project_create: (context) => {
+  video_project_create: async (context) => {
     const studio = requireVideoStudio(context);
     const { bot, args, run, runId, deps } = context;
-    const project = studio.createProject({
-      botId: bot.id,
-      ...(run?.sessionId ? { sessionId: run.sessionId } : {}),
-      ...(typeof args.title === 'string' && args.title.trim() ? { title: args.title.trim() } : {}),
+    const title = typeof args.title === 'string' && args.title.trim() ? args.title.trim() : undefined;
+    const sessionId = run?.sessionId;
+    const canvas: Omit<VideoProjectCreateInput, 'title' | 'botId' | 'sessionId'> = {
       ...(typeof args.aspect === 'string' ? { aspect: args.aspect as VideoAspectPreset } : {}),
       ...(typeof args.width === 'number' ? { width: args.width } : {}),
       ...(typeof args.height === 'number' ? { height: args.height } : {}),
       ...(typeof args.fps === 'number' ? { fps: args.fps } : {}),
       ...(args.sampleRate === 44100 || args.sampleRate === 48000 || args.sampleRate === 96000
-        ? { sampleRate: args.sampleRate }
+        ? { sampleRate: args.sampleRate as 44100 | 48000 | 96000 }
         : {}),
       ...(typeof args.backgroundColor === 'string' ? { backgroundColor: args.backgroundColor } : {}),
-    });
+    };
+    const fromSource = typeof args.attachmentId === 'string' || typeof args.path === 'string';
+    const project = fromSource
+      ? await studio.createProjectFromMedia({
+          source: await resolveMediaSource(context, 'video_project_create', '打开本机视频进行剪辑'),
+          botId: bot.id,
+          ...(sessionId ? { sessionId } : {}),
+          ...(title ? { title } : {}),
+          canvas,
+        })
+      : studio.createProject({
+          botId: bot.id,
+          ...(sessionId ? { sessionId } : {}),
+          ...(title ? { title } : {}),
+          ...canvas,
+        });
     const activated = deps.activateTools?.(runId, VIDEO_STUDIO_DEFERRED_SET) ?? [];
     return {
       ...summarizeProjectForModel(project),
       ...(activated.length ? { activatedTools: activated } : {}),
-      message:
-        'Video project created. Import assets with video_asset_import, edit timeline with video_edit, visually check frames with video_preview_frame, and open interactively with open_preview(videoProjectId).',
+      message: fromSource
+        ? 'Video project created from the source: the canvas matches its size and frame rate, and it is on the timeline (picture on video-main, sound on audio-voice). Cut picture and sound together (trim_clip, split_clip, delete_clip with ripple) using video_edit, check frames with video_preview_frame, then video_export.'
+        : 'Video project created. Import assets with video_asset_import, edit timeline with video_edit, visually check frames with video_preview_frame, and open interactively with open_preview(videoProjectId).',
     };
   },
 
@@ -127,25 +176,15 @@ export const VIDEO_STUDIO_HANDLERS: Record<string, ToolHandler> = {
 
   video_asset_import: async (context) => {
     const studio = requireVideoStudio(context);
-    const { bot, args, workspace, signal, runId, deps } = context;
+    const { bot, args } = context;
     const projectId = requiredText(args, 'projectId', 128);
     assertBotOwnsProject(studio, bot.id, projectId);
     const rawKind = typeof args.sourceKind === 'string' ? args.sourceKind : undefined;
     const rawPath = typeof args.path === 'string' ? args.path.trim() : undefined;
-    const attachmentId = typeof args.attachmentId === 'string' ? args.attachmentId.trim() : undefined;
     const designSessionId = typeof args.designSessionId === 'string' ? args.designSessionId.trim() : undefined;
 
     let source: VideoAssetImportExtendedInput['source'];
-    if (rawKind === 'attachment' || (!rawKind && attachmentId)) {
-      if (!attachmentId) throw new AppError('video.invalid_operation', '导入附件素材需要 attachmentId');
-      try {
-        deps.attachments.forBot(bot.id, [attachmentId]);
-      } catch (err) {
-        if (err instanceof AppError) throw err;
-        throw new AppError('video.asset_not_found', `未找到附件素材：${attachmentId}`);
-      }
-      source = { kind: 'attachment', attachmentId };
-    } else if (rawKind === 'design' || (!rawKind && designSessionId)) {
+    if (rawKind === 'design' || (!rawKind && designSessionId)) {
       if (!rawPath) throw new AppError('video.invalid_operation', '导入设计稿需要 path');
       source = {
         kind: 'design',
@@ -153,31 +192,8 @@ export const VIDEO_STUDIO_HANDLERS: Record<string, ToolHandler> = {
         botId: bot.id,
         ...(designSessionId ? { sessionId: designSessionId } : {}),
       };
-    } else if (rawKind === 'workspace' || rawKind === 'artifact') {
-      if (!rawPath) throw new AppError('video.invalid_operation', '导入工作区素材需要 path');
-      const prefix = `/work/${bot.id}/`;
-      const rel = rawPath.startsWith(prefix) ? rawPath.slice(prefix.length) : rawPath;
-      source = { kind: rawKind, botId: bot.id, path: rel };
-    } else if (rawKind === 'host' || rawPath) {
-      if (!rawPath) throw new AppError('video.invalid_operation', '请提供 path 或 attachmentId');
-      const prefix = `/work/${bot.id}/`;
-      if (!rawKind && rawPath.startsWith(prefix)) {
-        source = { kind: 'workspace', botId: bot.id, path: rawPath.slice(prefix.length) };
-      } else {
-        const resolved = deps.host ? deps.host.resolveFilePath(rawPath, workspace) : rawPath;
-        if (deps.interactions) {
-          await deps.interactions.permission(
-            bot.id,
-            runId,
-            { operation: 'read_file', reason: '导入本机素材到视频项目', path: resolved, tool: 'video_asset_import' },
-            signal,
-          );
-          signal.throwIfAborted();
-        }
-        source = { kind: 'host', path: resolved };
-      }
     } else {
-      throw new AppError('video.invalid_operation', '请提供 path 或 attachmentId');
+      source = await resolveMediaSource(context, 'video_asset_import', '导入本机素材到视频项目');
     }
 
     const { asset, project } = await studio.importAsset({

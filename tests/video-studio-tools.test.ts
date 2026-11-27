@@ -36,7 +36,9 @@ function makeFakeVm(): VmController {
   } as unknown as VmController;
 }
 
-function makeFakeEngine(opts: { analyzeDelayMs?: number } = {}): VideoEngineBackend & {
+function makeFakeEngine(
+  opts: { analyzeDelayMs?: number; probe?: Partial<VideoMediaProbe> } = {},
+): VideoEngineBackend & {
   analyzeCalls: number;
   renderCalls: number;
   exportCalls: number;
@@ -84,6 +86,7 @@ function makeFakeEngine(opts: { analyzeDelayMs?: number } = {}): VideoEngineBack
           { timeUs: 0, strength: 0.9 },
           { timeUs: 2_000_000, strength: 0.95 },
         ],
+        ...opts.probe,
       };
     },
     renderFrames: async (payload) => {
@@ -666,4 +669,92 @@ test('Video Studio tools enforce cross-bot isolation, host permission checks, an
   for (const file of cacheFiles) {
     assert.ok(!file.includes(':'), `poster cache filename must not contain colon: ${file}`);
   }
+});
+
+test('video_project_create starts from an existing video with a canvas that keeps its size and frame rate', async (t) => {
+  const dir = tempDir(t, 'aelion-vid-from-source-');
+  const workspace = join(dir, 'workspace');
+  mkdirSync(workspace, { recursive: true });
+  const hostVideo = join(workspace, 'phone-clip.mp4');
+  writeFileSync(hostVideo, Buffer.from('phone-clip-bytes'));
+
+  const store = new Store(dir);
+  t.after(() => store.close());
+  const bot = store.createBot('Editor', 'owner');
+  const vm = makeFakeVm();
+  const attachments = new Attachments(store, vm, new ArtifactService(store, vm));
+  const studio = new VideoStudioService({
+    dataDir: dir,
+    projects: new VideoProjects({ workspaceRoot: () => workspace }),
+    engine: makeFakeEngine({ probe: { width: 1080, height: 1920, fps: 29.97 } }),
+    mediaTokens: new VideoMediaTokenRegistry(),
+    imageDir: join(dir, 'screenshots'),
+  });
+  const permissions: string[] = [];
+  const activated: string[] = [];
+  const ctx = (args: Record<string, unknown>) =>
+    ({
+      bot,
+      args,
+      runId: 'run-from-source',
+      workspace,
+      signal: new AbortController().signal,
+      deps: {
+        store,
+        vm,
+        attachments,
+        videoStudio: studio,
+        interactions: {
+          permission: async (_botId: string, _runId: string, req: { tool?: string }) => {
+            permissions.push(req.tool ?? '');
+          },
+        } as unknown as Interactions,
+        activateTools: (_runId: string, names: ReadonlySet<string>) => {
+          activated.push(...names);
+          return [...names];
+        },
+        changed: () => {},
+      },
+    }) as unknown as ToolContext;
+
+  const result = (await VIDEO_STUDIO_HANDLERS.video_project_create!(ctx({ path: hostVideo }))) as {
+    projectId: string;
+    aspect: string;
+    width: number;
+    height: number;
+    fps: number;
+    title: string;
+    tracks: Array<{ id: string; clips: Array<{ kind: string; durationUs: number }> }>;
+  };
+  assert.deepEqual(permissions, ['video_project_create'], 'reading a host file asks first');
+  assert.equal(result.title, 'phone-clip');
+  assert.deepEqual([result.aspect, result.width, result.height], ['9:16', 1080, 1920]);
+  assert.ok(Math.abs(result.fps - 29.97) < 0.01);
+  const clipsOn = (id: string) => result.tracks.find((track) => track.id === id)?.clips ?? [];
+  assert.equal(clipsOn('video-main').length, 1);
+  assert.equal(clipsOn('audio-voice').length, 1);
+  assert.equal(clipsOn('video-main')[0]!.durationUs, 5_000_000);
+  assert.ok(activated.includes('video_edit'), 'the editing tools turn on');
+
+  // Explicit canvas arguments win over the source.
+  const square = (await VIDEO_STUDIO_HANDLERS.video_project_create!(ctx({ path: hostVideo, aspect: '1:1' }))) as {
+    aspect: string;
+    width: number;
+    height: number;
+  };
+  assert.equal(square.aspect, '1:1');
+
+  // A project that cannot import its source is not left behind.
+  const before = studio.listProjects({ botId: bot.id }).length;
+  await assert.rejects(() =>
+    Promise.resolve(VIDEO_STUDIO_HANDLERS.video_project_create!(ctx({ path: join(workspace, 'missing.mp4') }))),
+  );
+  assert.equal(studio.listProjects({ botId: bot.id }).length, before);
+
+  // Quick trims from the preview keep the portrait canvas too.
+  const promoted = await studio.quickEdit({
+    source: { kind: 'host', path: hostVideo },
+    edit: { action: 'promote_to_project', botId: bot.id },
+  });
+  assert.deepEqual([promoted.project?.width, promoted.project?.height], [1080, 1920]);
 });

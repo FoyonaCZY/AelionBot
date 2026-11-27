@@ -64,13 +64,18 @@ const TEXT_BOX_SCHEMA = {
 export const VIDEO_STUDIO_TOOLS: ToolDefinition[] = [
   tool(
     'video_project_create',
-    'Create a new AelionSDK Video Studio project with standard tracks (video-main, video-overlay, captions, audio-voice, audio-bgm). Use this to assemble generated video clips, images, voiceovers, music, DesignWork HTML slides, titles, subtitles, transitions, and effects into an editable timeline. Returns projectId and initial revision.',
+    'Create a new AelionSDK Video Studio project with standard tracks (video-main, video-overlay, captions, audio-voice, audio-bgm). To edit an existing video, audio file, or image, pass its attachmentId or path: the canvas takes its size and frame rate, and its picture and sound are placed on the timeline. Also use it to assemble generated video clips, images, voiceovers, music, DesignWork HTML slides, titles, subtitles, transitions, and effects into an editable timeline. Returns projectId and initial revision.',
     {
       title: { type: 'string', description: 'Project title (up to 200 chars)' },
+      attachmentId: { type: 'string', description: 'Start from this video, audio, or image attachment' },
+      path: {
+        type: 'string',
+        description: 'Start from this video, audio, or image file: a host path or a VM /work/<botId>/... path',
+      },
       aspect: {
         type: 'string',
         enum: ['16:9', '9:16', '1:1', '4:5', '4:3', 'custom'],
-        description: 'Canvas aspect ratio preset (default 16:9)',
+        description: 'Canvas aspect ratio preset (default 16:9, or the source when one is given)',
       },
       width: { type: 'integer', minimum: 16, maximum: 8192, description: 'Custom width in pixels' },
       height: { type: 'integer', minimum: 16, maximum: 8192, description: 'Custom height in pixels' },
