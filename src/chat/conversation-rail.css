@@ -2,7 +2,10 @@
    column, between the header and the composer; only the ticks and the card take the pointer, so text beside them
    stays selectable. The card is drawn like the other popovers over the conversation. */
 .conversation-rail {
-  --rail-step: 10px;
+  --rail-step: 8px;
+  /* At most this many ticks show at once; a longer chat scrolls the rail, faded at the ends that have more. */
+  --rail-rows: 25;
+  --rail-fade: 28px;
   --rail-line: light-dark(#d2d2d2, #4c4c50);
   --rail-line-strong: light-dark(#2a2a2a, #e3e3e3);
   position: absolute;
@@ -14,10 +17,14 @@
   align-items: center;
   pointer-events: none;
 }
+/* A preview, beside the chat or over it, has the reader's attention. */
+body:has(.fp-panel) .conversation-rail {
+  display: none;
+}
 .conversation-rail-ticks {
   display: flex;
   flex-direction: column;
-  max-height: 100%;
+  max-height: min(100%, calc(var(--rail-step) * var(--rail-rows)));
   padding-left: 8px;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -26,6 +33,21 @@
 }
 .conversation-rail-ticks::-webkit-scrollbar {
   display: none;
+}
+.conversation-rail-ticks[data-more='above'] {
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--rail-fade));
+}
+.conversation-rail-ticks[data-more='below'] {
+  mask-image: linear-gradient(to top, transparent, #000 var(--rail-fade));
+}
+.conversation-rail-ticks[data-more='both'] {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--rail-fade),
+    #000 calc(100% - var(--rail-fade)),
+    transparent
+  );
 }
 .conversation-rail-tick {
   display: flex;
@@ -41,15 +63,27 @@
 .conversation-rail-tick:focus-visible {
   outline: none;
 }
+/* The ticks near the pointer reach out to it, most for the one under it. */
+.conversation-rail-tick:hover {
+  --lift: 8px;
+}
+.conversation-rail-tick:hover + .conversation-rail-tick,
+.conversation-rail-tick:has(+ .conversation-rail-tick:hover) {
+  --lift: 4px;
+}
+.conversation-rail-tick:hover + .conversation-rail-tick + .conversation-rail-tick,
+.conversation-rail-tick:has(+ .conversation-rail-tick + .conversation-rail-tick:hover) {
+  --lift: 1.5px;
+}
 /* Longer for turns that said more; the sound adds --wave on top. */
 .conversation-rail-tick > i {
   display: block;
-  width: calc(6px + var(--weight, 0.5) * 8px + var(--wave, 0px));
+  width: calc(6px + var(--weight, 0.5) * 8px + var(--wave, 0px) + var(--lift, 0px));
   height: 2px;
   border-radius: var(--radius-pill);
   background: var(--rail-line);
   transition:
-    width var(--motion-fast) linear,
+    width var(--motion-fast) var(--motion-ease),
     background-color var(--motion-fast);
 }
 .conversation-rail-tick:is(:hover, :focus-visible) > i {
@@ -59,7 +93,7 @@
   box-shadow: 0 0 0 2px var(--ctl-accent-ring);
 }
 .conversation-rail-tick.is-reading > i {
-  width: calc(18px + var(--wave, 0px));
+  width: calc(18px + var(--wave, 0px) + var(--lift, 0px));
   background: var(--rail-line-strong);
 }
 .conversation-rail-tick.is-marked > i {

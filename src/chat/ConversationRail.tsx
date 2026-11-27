@@ -121,15 +121,37 @@ export const ConversationRail = memo(function ConversationRail({
   }, [pane, shown]);
   useEffect(() => measure.current(), [turns]);
 
-  // Keep the tick being read in view when there are more ticks than room, unless the pointer is on them.
+  // When there are more ticks than room, glide the one being read to the middle, unless the pointer is on them.
+  const placed = useRef(false);
   useLayoutEffect(() => {
     const box = list.current,
       tick = box?.children[reading] as HTMLElement | undefined;
-    if (!box || !tick || hovering.current) return;
-    const top = tick.offsetTop - box.offsetTop;
-    if (top < box.scrollTop || top + tick.offsetHeight > box.scrollTop + box.clientHeight)
-      box.scrollTop = top - (box.clientHeight - tick.offsetHeight) / 2;
+    if (!box || !tick || hovering.current || box.scrollHeight <= box.clientHeight) return;
+    const top = tick.offsetTop - box.offsetTop - (box.clientHeight - tick.offsetHeight) / 2;
+    const glide = placed.current && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    placed.current = true;
+    box.scrollTo({ top, behavior: glide ? 'smooth' : 'instant' });
   }, [reading, shown]);
+
+  // Fade the ends of the rail that have more ticks beyond them.
+  useLayoutEffect(() => {
+    const box = list.current;
+    if (!shown || !box) return;
+    const update = () => {
+      const above = box.scrollTop > 1,
+        below = box.scrollTop + box.clientHeight < box.scrollHeight - 1;
+      if (above || below) box.dataset.more = above && below ? 'both' : above ? 'above' : 'below';
+      else delete box.dataset.more;
+    };
+    update();
+    box.addEventListener('scroll', update, { passive: true });
+    const observer = new ResizeObserver(update);
+    observer.observe(box);
+    return () => {
+      box.removeEventListener('scroll', update);
+      observer.disconnect();
+    };
+  }, [shown, turns.length]);
 
   // Drop the marks the chat has caught up with.
   useEffect(() => {
