@@ -182,7 +182,8 @@
     .gp-settings-body,
     .group-laya-setting-row,
     .toolbar-buttons,
-    .integration-toolbar
+    .integration-toolbar,
+    .memory-page
   )
   :is(.primary-button, .secondary-button, .companion-button),
 :root .bot-palette-random {
@@ -523,7 +524,15 @@
 
 /* ---------- Segmented controls ---------- */
 /* Two to four views of the same thing: a gray track, the current one a step deeper. */
-:root :is(.design-tabs, .model-settings-navigation, .usage-segmented, .scheduled-trigger-kinds) {
+:root
+  :is(
+    .design-tabs,
+    .model-settings-navigation,
+    .usage-segmented,
+    .scheduled-trigger-kinds,
+    .memory-tabs,
+    .memory-views
+  ) {
   gap: 2px;
   min-height: var(--size-lg);
   padding: 3px;
@@ -533,7 +542,9 @@
   box-shadow: inset 0 1px 2px light-dark(rgba(45, 45, 45, 0.06), rgba(0, 0, 0, 0.25));
 }
 
-:root :is(.design-tabs, .model-settings-navigation, .usage-segmented, .scheduled-trigger-kinds) > button {
+:root
+  :is(.design-tabs, .model-settings-navigation, .usage-segmented, .scheduled-trigger-kinds, .memory-tabs, .memory-views)
+  > button {
   min-height: 30px;
   padding: 0 14px;
   border: 0;
@@ -545,13 +556,13 @@
 }
 
 :root
-  :is(.design-tabs, .model-settings-navigation, .usage-segmented, .scheduled-trigger-kinds)
+  :is(.design-tabs, .model-settings-navigation, .usage-segmented, .scheduled-trigger-kinds, .memory-tabs, .memory-views)
   > button:not(:disabled):hover {
   color: var(--text-ink);
 }
 
 :root
-  :is(.design-tabs, .model-settings-navigation, .usage-segmented, .scheduled-trigger-kinds)
+  :is(.design-tabs, .model-settings-navigation, .usage-segmented, .scheduled-trigger-kinds, .memory-tabs, .memory-views)
   > button:is([aria-selected='true'], [aria-pressed='true'], [aria-checked='true'], .is-active, .selected) {
   background: var(--ctl-raised);
   color: var(--text-ink);
@@ -584,7 +595,9 @@
     .bot-palette-tabs button,
     .plugins-tabs > button:not(.plugins-tab-link),
     .design-chips button,
-    .gp-tabs button
+    .gp-tabs button,
+    .memory-scopes > button,
+    .memory-filter
   ) {
   align-items: center !important;
   min-height: var(--size-md);
@@ -610,7 +623,9 @@
     .bot-palette-tabs button,
     .plugins-tabs > button:not(.plugins-tab-link),
     .design-chips button,
-    .gp-tabs button
+    .gp-tabs button,
+    .memory-scopes > button,
+    .memory-filter
   ):not(:disabled):hover {
   background: var(--ctl-fill);
   color: var(--text-ink);
@@ -624,7 +639,9 @@
     .bot-palette-tabs button[aria-pressed='true'],
     .plugins-tabs > button[aria-current='true']:not(.plugins-tab-link),
     .design-chips button[aria-pressed='true'],
-    .gp-tabs button[aria-pressed='true']
+    .gp-tabs button[aria-pressed='true'],
+    .memory-scopes > button[aria-pressed='true'],
+    .memory-filter[aria-pressed='true']
   ),
 :root
   :is(
@@ -634,7 +651,9 @@
     .bot-palette-tabs button[aria-pressed='true'],
     .plugins-tabs > button[aria-current='true']:not(.plugins-tab-link),
     .design-chips button[aria-pressed='true'],
-    .gp-tabs button[aria-pressed='true']
+    .gp-tabs button[aria-pressed='true'],
+    .memory-scopes > button[aria-pressed='true'],
+    .memory-filter[aria-pressed='true']
   ):hover {
   background: var(--ctl-raised);
   color: var(--text-ink);
@@ -647,7 +666,7 @@
 }
 
 /* The counts inside tabs are small badges. */
-:root :is(.plugin-tabs button span, .provider-editor-tabs > button > span) {
+:root :is(.plugin-tabs button span, .provider-editor-tabs > button > span, .memory-scopes > button > small) {
   min-width: 18px;
   padding: 0 6px;
   border-radius: var(--radius-pill);
@@ -829,7 +848,6 @@
    draw their own marker. */
 :root
   details:not(
-    .memory-disclosure,
     .bot-palette-custom-section,
     .detail-parameters,
     .setup-diagnostics,
@@ -848,7 +866,6 @@
 
 :root
   details:not(
-    .memory-disclosure,
     .bot-palette-custom-section,
     .detail-parameters,
     .setup-diagnostics,
@@ -866,7 +883,6 @@
 
 :root
   details:not(
-    .memory-disclosure,
     .bot-palette-custom-section,
     .detail-parameters,
     .setup-diagnostics,
@@ -893,7 +909,6 @@
 
 :root
   details[open]:not(
-    .memory-disclosure,
     .bot-palette-custom-section,
     .detail-parameters,
     .setup-diagnostics,

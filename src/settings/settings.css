@@ -806,14 +806,14 @@
   font-weight: var(--weight-heading);
   line-height: 1.35;
 }
-.computer-state {
+:is(.computer-state, .memory-status) {
   display: flex;
   align-items: center;
   gap: 7px;
   font-size: var(--text-small);
   color: var(--text-secondary);
 }
-.computer-state::before {
+:is(.computer-state, .memory-status)::before {
   content: '';
   flex-shrink: 0;
   width: 7px;
@@ -821,11 +821,11 @@
   border-radius: 50%;
   background: light-dark(#bababa, #6f6f6f);
 }
-.computer-state.is-ready::before {
+:is(.computer-state, .memory-status).is-ready::before {
   background: #3fae7f;
   box-shadow: 0 0 0 3px light-dark(#3fae7f26, #3fae7f33);
 }
-.computer-state.is-working::before {
+:is(.computer-state, .memory-status).is-working::before {
   background: var(--settings-accent-fill);
   animation: pulse 1.3s infinite;
 }

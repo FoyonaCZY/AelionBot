@@ -1,4 +1,4 @@
-import type { Dispatch, ReactNode, SetStateAction } from 'react';
+import { useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import type { Bot, Snapshot } from '../../shared/types/core';
 import { WorkspaceFileTree } from '../files/WorkspaceFileTree';
 import { AppearanceSettings } from '../settings/AppearanceSettings';
@@ -22,7 +22,7 @@ import { ipcErrorText } from '../ui/ipc-error';
 import { Vnc, type VncTeachingBridge } from '../ui/Vnc';
 import { useI18n } from '../i18n';
 import { ComputerSettings } from './ComputerSettings';
-import { MemorySettings } from './MemorySettings';
+import { MemorySettings, type MemoryPage } from './MemorySettings';
 import type { useAppearance } from './use-appearance';
 import type { useComputerControl } from './use-computer-control';
 import type { PreviewFile } from './use-file-actions';
@@ -93,6 +93,11 @@ export function AppModals({
   vncTeaching?: VncTeachingBridge;
 }) {
   const { t } = useI18n();
+  // The knowledge page links straight to the Memory page's settings; any other way in opens on the memories.
+  const [memoryPage, setMemoryPage] = useState<MemoryPage>('items');
+  useEffect(() => {
+    if (modal !== 'settings' || settingsTab !== 'memory') setMemoryPage('items');
+  }, [modal, settingsTab]);
   const { vmReady, desktopBot, desktop, controlled, takeover, controlPending, computerAction, toggleComputerControl } =
     computer;
   const anyRunning = state.runs.some((run) => run.status === 'running') || false;
@@ -179,14 +184,25 @@ export function AppModals({
             {settingsTab === 'design' && <DesignSettings designer={state.designer} onNotify={setToast} />}
             {settingsTab === 'usage' && <UsageSettings state={state} />}
             {settingsTab === 'memory' && (
-              <MemorySettings state={state} bot={bot} scope={scope} onScope={setScope} busy={busy} act={act} />
+              <MemorySettings
+                state={state}
+                bot={bot}
+                scope={scope}
+                onScope={setScope}
+                initialPage={memoryPage}
+                busy={busy}
+                act={act}
+              />
             )}
             {settingsTab === 'knowledge' && (
               <KnowledgeSettings
                 view={state.knowledge}
                 bots={state.bots}
                 onNotify={setToast}
-                onOpenMemory={() => setSettingsTab('memory')}
+                onOpenMemory={() => {
+                  setMemoryPage('settings');
+                  setSettingsTab('memory');
+                }}
               />
             )}
             {settingsTab === 'vault' && <VaultSettings bots={state.bots} onNotify={setToast} />}

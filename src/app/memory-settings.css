@@ -1,40 +1,182 @@
-/* The Memory settings tab, beyond the shared settings cards. */
-.memory-learning {
+/* Settings → 记忆. Two parts under one switch at the top: what is remembered (whose it is, then the list), and how
+   remembering works. Cards, rows, fields, buttons, tabs and switches are the shared ones (settings.css, controls.css);
+   this file lays them out. */
+.memory-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
   margin-bottom: 16px;
 }
-.memory-pending {
+.memory-tabs,
+.memory-views {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+:is(.memory-tabs, .memory-views) > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.memory-status {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
+/* ---------- Waiting for you: what a Bot is not sure about, from every scope ---------- */
+.settings-modal .settings-card:is(.memory-inbox, .memory-panel) {
+  padding: 0;
+}
+.memory-inbox {
   margin-bottom: 16px;
+}
+.memory-inbox > summary {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 46px;
+  padding: 0 16px;
+  border-radius: var(--settings-radius);
+  color: var(--text-ink);
+  font-size: var(--text-small);
+  font-weight: var(--weight-label);
+}
+.memory-inbox[open] > summary {
+  border-bottom: 1px solid var(--settings-line);
+  border-radius: var(--settings-radius) var(--settings-radius) 0 0;
+}
+.memory-count {
+  min-width: 20px;
+  margin-left: 5px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--ctl-accent-soft);
+  color: var(--ctl-accent-strong);
+  font-size: var(--text-micro);
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* ---------- Whose memory: you, each Bot, then projects and groups ---------- */
+.memory-scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.memory-scopes > button {
+  display: inline-flex;
+  gap: 7px;
+  min-width: 0;
+  max-width: 100%;
+  cursor: pointer;
+}
+/* The face sits in the round end of the capsule. */
+.memory-scopes > button > :first-child {
+  margin-left: -7px;
+}
+.memory-scopes > button > span:not(.avatar, .memory-scope-icon) {
+  min-width: 0;
+  max-width: 180px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.memory-scopes > button > small {
+  margin-right: -5px;
+  font-variant-numeric: tabular-nums;
+}
+.memory-scope-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ctl-fill);
+  color: var(--text-secondary);
+}
+.memory-scope-head > .memory-scope-icon {
+  width: 36px;
+  height: 36px;
+}
+.memory-chip > .memory-scope-icon {
+  width: 14px;
+  height: 14px;
+  background: none;
+}
+
+/* ---------- One scope: who it is and how it remembers, then what it remembers ---------- */
+.memory-scope-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 14px 16px 12px;
+}
+.memory-scope-title {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 120px;
+}
+.memory-scope-title > strong {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-control);
+  font-weight: var(--weight-heading);
+  line-height: 1.45;
+}
+.memory-scope-title > small {
+  font-size: var(--text-caption);
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+.memory-scope-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.memory-scope-options > .aelion-select {
+  width: auto;
+}
+.memory-share {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+  cursor: pointer;
 }
 .memory-toolbar {
   display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-.memory-toolbar .memory-scope-select {
-  width: 180px;
-  min-width: 0;
-  max-width: 40%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 12px;
 }
 .memory-search {
   display: flex;
   align-items: center;
   flex: 1;
-  min-width: 0;
+  min-width: 160px;
   gap: 8px;
   color: var(--text-muted);
-}
-.memory-filter {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  margin: 0 0 10px;
+  cursor: text;
 }
 .memory-search input[type='search'] {
   flex: 1;
   min-width: 0;
   width: 100%;
-  height: var(--settings-control-height);
+  height: var(--size-lg);
   padding: 0;
   border: 0;
   background: transparent;
@@ -42,255 +184,370 @@
   font: inherit;
   font-size: var(--text-small);
 }
-.memory-filter label {
-  white-space: nowrap;
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-secondary);
-  font-size: var(--text-caption);
+.memory-search input[type='search']:focus {
+  outline: none;
 }
-.memory-rows,
-.memory-jobs {
+.memory-filter {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 6px;
+  cursor: pointer;
+}
+.memory-panel-body {
+  border-top: 1px solid var(--settings-line);
+}
+.memory-panel-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 120px;
   margin: 0;
-  padding: 2px 16px;
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+/* Inside the panel the empty state is not a card of its own. */
+.settings-modal .memory-panel .settings-empty {
+  background: none;
+  box-shadow: none;
+}
+
+/* ---------- A memory: what it says, how the app knows it, and what you can do with it ---------- */
+.memory-rows,
+.memory-episodes,
+.memory-history {
+  margin: 0;
+  padding: 0;
   list-style: none;
 }
 .memory-row {
-  padding: 14px 0;
+  padding: 12px 16px;
+}
+.memory-row + .memory-row,
+.memory-episodes > li + li {
+  border-top: 1px solid var(--settings-line);
 }
 .memory-row-main {
   display: flex;
   align-items: flex-start;
   gap: 12px;
 }
-.memory-row-main > .memory-text,
-.memory-row-main > textarea {
+.memory-row-copy {
   flex: 1;
   min-width: 0;
-}
-.memory-row-tools {
-  display: flex;
-  flex-shrink: 0;
-  gap: 4px;
-}
-.memory-row-tools .icon-button {
-  width: 28px;
-  height: 28px;
-  color: var(--text-secondary);
-}
-.memory-expand[aria-expanded='true'] svg {
-  transform: rotate(90deg);
-}
-.memory-tag {
-  margin-right: 8px;
-  color: var(--text-muted);
-  font-size: var(--text-caption);
-}
-.memory-row + .memory-row,
-.memory-jobs > li + li {
-  border-top: 1px solid var(--settings-line);
-}
-.memory-row.archived .memory-text {
-  color: var(--text-muted);
 }
 .memory-text {
   margin: 0;
   font-size: var(--text-small);
-  line-height: 1.7;
+  line-height: 1.65;
   overflow-wrap: anywhere;
 }
-.memory-text > svg {
-  margin-right: 5px;
-  vertical-align: -1px;
+.memory-row.is-archived .memory-text {
+  color: var(--text-muted);
 }
 .memory-row textarea {
   display: block;
   width: 100%;
-  min-height: 72px;
-  padding: 8px 10px;
-  border: 1px solid var(--settings-line);
-  border-radius: var(--radius-sm);
-  background: transparent;
+  min-height: 76px;
+  padding: 8px 11px;
+  border: 1px solid transparent;
   color: var(--text-ink);
   font: inherit;
   font-size: var(--text-small);
-  line-height: 1.6;
+  line-height: 1.65;
   resize: vertical;
 }
 .memory-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px 10px;
-  margin-top: 3px;
-  color: var(--text-muted);
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 5px;
   font-size: var(--text-micro);
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.memory-chip,
+.memory-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.memory-chip {
+  padding: 0 7px;
+  border-radius: var(--radius-pill);
+  background: var(--ctl-fill);
+  color: var(--text-secondary);
+  font-style: normal;
+  font-weight: var(--weight-body);
+}
+.memory-chip.is-scope {
+  padding-left: 3px;
+}
+.memory-chip:is(.is-pinned, .is-running) {
+  background: var(--ctl-accent-soft);
+  color: var(--ctl-accent-strong);
+}
+.memory-chip.is-failed {
+  background: var(--ctl-danger-soft);
+  color: var(--ctl-danger);
 }
 .memory-note {
-  margin: 4px 0 0;
-  color: var(--text-secondary);
+  margin: 6px 0 0;
   font-size: var(--text-caption);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
 }
-.memory-actions {
+.memory-row-side {
   display: flex;
-  flex-wrap: wrap;
-  gap: 2px 12px;
-  margin-top: 5px;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 2px;
+  margin: -3px -6px 0 0;
 }
-.memory-detail {
+.memory-row-side > .memory-row-actions {
+  margin-right: 6px;
+}
+.memory-row-side .icon-button {
+  width: var(--size-sm);
+  height: var(--size-sm);
+  color: var(--text-muted);
+}
+/* Pin and edit stay out of the way until the row is pointed at, focused or open. */
+.memory-row-side .is-quiet {
+  opacity: 0;
+  transition:
+    opacity var(--motion-fast),
+    background var(--motion-fast),
+    color var(--motion-fast);
+}
+.memory-row:is(:hover, :focus-within, .is-open) .is-quiet {
+  opacity: 1;
+}
+.memory-row-side .memory-pin[aria-pressed='true'] {
+  color: var(--ctl-accent);
+}
+.memory-expand > svg {
+  transition: rotate var(--motion-menu) var(--motion-ease);
+}
+.memory-expand[aria-expanded='true'] > svg {
+  rotate: 90deg;
+}
+.memory-row-actions {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.memory-row-copy > .memory-row-actions {
   margin-top: 8px;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  background: light-dark(#2a2a2a08, #ffffff0a);
+}
+
+/* ---------- Why it remembers: the messages it came from, then what happened to it since ---------- */
+.memory-detail {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--settings-fill);
   font-size: var(--text-caption);
   line-height: 1.6;
 }
-.memory-detail blockquote {
+.memory-detail > .memory-note {
   margin: 0 0 8px;
-  overflow-wrap: anywhere;
 }
-.memory-detail-title {
-  margin: 10px 0 6px;
-  font-weight: var(--weight-label);
-}
-.memory-disclosure {
-  border-top: 1px solid var(--settings-line);
-  font-size: var(--text-small);
-}
-.memory-disclosure > summary {
+.memory-detail-head {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 14px 0;
-  list-style: none;
-  cursor: pointer;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 12px;
+  margin-bottom: 6px;
+}
+.memory-detail-head > strong {
+  font-weight: var(--weight-label);
   color: var(--text-secondary);
 }
-.memory-disclosure > summary::-webkit-details-marker {
-  display: none;
+.memory-detail-head > .memory-meta {
+  margin: 0;
 }
-.memory-disclosure > summary:hover {
-  color: var(--text-ink);
-}
-.memory-disclosure > summary:focus-visible {
-  outline: 2px solid var(--ctl-accent-ring);
-  outline-offset: 2px;
-  border-radius: var(--radius-xs);
-}
-.memory-disclosure[open] > summary > svg {
-  transform: rotate(90deg);
-}
-.memory-disclosure > summary > small {
-  margin-left: auto;
+.memory-detail-state {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
   color: var(--text-muted);
-  text-align: right;
-  font-size: var(--text-caption);
 }
-.memory-pending > summary > small {
-  min-width: 22px;
-  padding: 1px 6px;
-  border-radius: var(--radius-xs);
-  background: var(--settings-fill);
-  text-align: center;
-  font-variant-numeric: tabular-nums;
+.memory-detail blockquote {
+  margin: 0 0 8px;
+  padding: 1px 0 1px 10px;
+  border-left: 2px solid var(--settings-field-line);
+  overflow-wrap: anywhere;
 }
-.settings-modal .memory-disclosure > .settings-section {
-  margin-top: 14px;
-}
-.memory-disclosure .memory-timeline {
-  margin-bottom: 14px;
+.memory-detail blockquote.is-missing {
+  color: var(--text-muted);
 }
 .memory-detail cite {
   display: block;
   color: var(--text-muted);
+  font-size: var(--text-micro);
   font-style: normal;
 }
-.memory-detail ul {
-  margin: 0;
-  padding: 0;
-  color: var(--text-muted);
-  list-style: none;
-}
-.settings-modal .memory-totals {
-  margin: 0 16px;
-  padding: 10px 0 12px;
-  border-top: 1px solid var(--settings-line);
-}
-.memory-model {
-  display: grid;
-  gap: 8px;
-  margin: 0 16px;
-  padding: 12px 0;
-  border-top: 1px solid var(--settings-line);
-}
-.memory-model + .settings-switch-row {
-  border-top: 1px solid var(--settings-line);
-}
-.memory-transfer {
+.memory-history {
   display: flex;
-  flex-shrink: 0;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 2px 18px;
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: var(--text-micro);
+}
+.memory-history > li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.memory-history > li > span {
+  color: var(--text-secondary);
+}
+.memory-detail > .memory-row-actions {
+  margin-top: 10px;
+}
+
+/* ---------- What a Bot did, newest first ---------- */
+.memory-episodes > li {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 4px 12px;
+  padding: 12px 16px;
+}
+.memory-episodes time {
+  padding-top: 2px;
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.memory-episodes strong {
+  display: block;
+  font-size: var(--text-small);
+  font-weight: var(--weight-label);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.memory-episodes p {
+  margin: 2px 0 0;
+  font-size: var(--text-caption);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.memory-episodes .memory-episode-pending {
+  color: var(--text-muted);
+}
+
+/* ---------- How remembering works ---------- */
+.memory-switches {
+  margin-bottom: 26px;
+}
+.memory-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+}
+.settings-modal .settings-card.memory-stats {
+  padding: 0;
+}
+.memory-stats > div {
+  min-width: 0;
+  padding: 12px 16px 14px;
+}
+.memory-stats > div + div {
+  border-left: 1px solid var(--settings-line);
+}
+.memory-stats dt {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+.memory-stats dd {
+  margin: 2px 0 0;
+  color: var(--text-ink);
+  text-align: left;
+  font-size: var(--text-heading);
+  font-weight: var(--weight-label);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.memory-stats dd.is-warn {
+  color: var(--ctl-danger);
+}
+.memory-jobs {
+  margin: 0;
+  list-style: none;
 }
 .memory-jobs > li {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  min-height: 56px;
   padding: 10px 0;
-  font-size: var(--text-small);
 }
-.memory-jobs small {
-  display: block;
-  color: var(--text-muted);
-  font-size: var(--text-micro);
-}
-.memory-timeline {
-  margin-top: 10px;
-  font-size: var(--text-small);
-}
-.memory-timeline > summary {
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-.memory-timeline ol {
-  max-height: 320px;
-  margin: 8px 0 0;
-  padding: 0;
-  overflow-y: auto;
-  list-style: none;
-}
-.memory-timeline li {
-  padding: 8px 0;
+.memory-jobs > li + li {
   border-top: 1px solid var(--settings-line);
 }
-.memory-timeline time {
-  display: block;
-  color: var(--text-muted);
+.memory-job-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.memory-job-copy > span {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: var(--text-small);
+  line-height: 1.5;
+}
+.memory-job-copy > span > .memory-chip {
   font-size: var(--text-micro);
+  line-height: 1.6;
 }
-.memory-timeline strong {
-  font-weight: var(--weight-label);
-}
-.memory-timeline p {
-  margin: 2px 0 0;
-  color: var(--text-secondary);
+.memory-job-copy > small {
+  font-size: var(--text-micro);
+  line-height: 1.6;
+  color: var(--text-muted);
   overflow-wrap: anywhere;
 }
-@media (max-width: 680px) {
-  .memory-toolbar {
-    flex-direction: column;
-  }
-  .memory-toolbar .memory-scope-select {
-    width: 100%;
-    max-width: none;
-  }
-  .memory-advanced > summary {
+
+@container settings-content (max-width: 560px) {
+  /* The two answers move under what they answer. */
+  .memory-row.is-pending > .memory-row-main {
     flex-wrap: wrap;
   }
-  .memory-advanced > summary > small {
+  .memory-row.is-pending .memory-row-copy {
     flex-basis: 100%;
-    margin-left: 23px;
-    text-align: left;
+  }
+  .memory-row.is-pending .memory-row-side {
+    margin: 0 -6px 0 auto;
+  }
+  .memory-episodes > li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .memory-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .memory-stats > div:nth-child(3) {
+    border-left: 0;
+  }
+  .memory-stats > div:nth-child(n + 3) {
+    border-top: 1px solid var(--settings-line);
+  }
+}
+@media (hover: none) {
+  .memory-row-side .is-quiet {
+    opacity: 1;
   }
 }
