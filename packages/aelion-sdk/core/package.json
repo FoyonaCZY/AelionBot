@@ -1,0 +1,12 @@
+{
+  "name": "@aelionsdk/core",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Core time, diagnostics and resource primitives for AelionSDK",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

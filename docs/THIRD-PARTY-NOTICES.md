@@ -39,6 +39,9 @@ AelionBot 的构建和运行依赖以下上游项目；第三方组件的许可�
 | openclaw-weixin | 微信连接器（实验）的 iLink 协议参考 | 参考 `@tencent-weixin/openclaw-weixin@2.4.10` 自行实现，未打包上游代码；MIT 许可见 `docs/licenses/openclaw-weixin.txt` |
 | 平台标志 | 插件页里飞书、企业微信、微信的图标 | 企业微信图形取自 [TDesign Icons](https://github.com/Tencent/tdesign-icons) 的 `logo-wecom`（MIT，许可见 `docs/licenses/tdesign-icons.txt`），按官方图标上色；微信图形取自 [Simple Icons](https://github.com/simple-icons/simple-icons)（CC0）；飞书图形为飞书官方标志。各标志的商标权归其所有者，这里只用来标明对应平台 |
 | 应用标志 | 插件页“连接应用”里各应用的图标 | 取自 [Simple Icons](https://github.com/simple-icons/simple-icons) 15.0.0（CC0）；Neon 图形取自 Neon 官网的图标；DeepSeek 图形取自 [LobeHub Icons](https://github.com/lobehub/lobe-icons)（MIT，许可见 `docs/licenses/lobe-icons.txt`）；monday.com 和 Microsoft 图形按其官方标志绘制；Simple Icons 未收录的应用（如 Ahrefs、Amplitude、Exa、Otter.ai 等）使用各自官网或官方 GitHub 账号的站点图标，缩放为 64 像素。各标志的商标权归其所有者，这里只用来标明对应应用，不代表合作或认可 |
+| AelionSDK（内联源码） | 视频剪辑、时间线合成、渲染与导出引擎 | 源码直接内联在 `packages/aelion-sdk/`（上游 `2.0.0`，[AelionSDK](https://github.com/FoyonaCZY/AelionSDK)），MIT 许可见 `docs/licenses/aelionsdk.txt` |
+| Mediabunny | 视频与音频容器解析（MP4/MOV/MKV/TS/WebM）与封装（MP4/WebM） | 固定版本 `1.50.8`，[上游项目](https://github.com/Vanilagy/mediabunny)，MPL-2.0 许可见 `docs/licenses/mediabunny.txt`；仅位于内部媒体读写与封装适配边界之后，未修改上游受覆盖文件 |
+| ajv / ajv-formats | 项目结构与设计导出 Schema 校验 | 固定版本 `ajv@8.18.0`、`ajv-formats@3.0.1`（MIT），许可文本随 npm 依赖保留 |
 
 首次启动安装的 Linux 内核、XFCE、Chromium、Python、Git 等由 Debian 软件源提供，对应信息保留在 guest 的 `/usr/share/doc` 和包管理数据库中。
 
@@ -56,4 +59,4 @@ Word、表格、演示文稿的 LibreOffice 适配与辅助脚本为本项目编
 
 - `svgpath` 2.6.0 converts SVG paths for editable Sketch vector layers. Copyright Vitaly Puzrin; MIT license in `docs/licenses/svgpath.txt`.
 - `wawoff2` 2.0.1 uses Google's WOFF2 decoder compiled to WebAssembly to read font outlines. MIT license in `docs/licenses/wawoff2.txt`; upstream package license files remain in the runtime dependencies.
-- The development-only `@sketch-hq/sketch-file-format` 6.5.0 schemas and AJV 8.17.1 validate exported Sketch documents. Their license files remain in the development packages.
+- The development-only `@sketch-hq/sketch-file-format` 6.5.0 schemas and AJV 8.18.0 validate exported Sketch documents. Their license files remain in the development packages.

@@ -9,16 +9,20 @@ import type { Attachments } from '../attachments/attachments';
 import type { HostComputer } from '../host/host';
 import { officeExtensions } from '../designer/office-preview';
 import { botPins } from '../../../shared/preview/preview-annotations';
+import { AppError } from '../../../shared/errors';
 import { ATTACHMENT_LIMITS } from '../../../shared/types/attachment-types';
 const LIMIT = ATTACHMENT_LIMITS.fileBytes;
 const HISTORY_PER_SCOPE = 20,
   HISTORY_TOTAL = 400;
+const MEDIA_EXTENSIONS = new Set(['.mp4', '.webm', '.mov', '.mkv', '.m4v', '.m4a', '.mp3', '.wav']);
 const supported = (name: string) =>
   sourceTextFile(name) ||
   officeExtensions.has(extname(name).toLowerCase()) ||
+  MEDIA_EXTENSIONS.has(extname(name).toLowerCase()) ||
   ['.pdf', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.bmp', '.avif'].includes(extname(name).toLowerCase());
 export class AgentPreviews {
   private pending = new Map<string, AgentPreviewRequest>();
+  private resolveVideoProject?: (projectId: string) => { id: string; title: string; botId?: string } | undefined;
   constructor(
     private store: Store,
     private artifacts: ArtifactService,
@@ -26,6 +30,9 @@ export class AgentPreviews {
     private changed: () => void,
     private host?: HostComputer,
   ) {}
+  setVideoProjectResolver(resolver: (projectId: string) => { id: string; title: string; botId?: string } | undefined) {
+    this.resolveVideoProject = resolver;
+  }
   snapshot() {
     return [...this.pending.values()].filter(
       (request) =>
@@ -69,6 +76,7 @@ export class AgentPreviews {
       createdAt: request.createdAt,
       acknowledgedAt: new Date().toISOString(),
       target: request.target,
+      ...(request.videoProjectId ? { videoProjectId: request.videoProjectId } : {}),
     });
     const scoped = history.filter((entry) => entry.scope.kind + ':' + entry.scope.id === scopeKey);
     if (scoped.length > HISTORY_PER_SCOPE)
@@ -81,8 +89,8 @@ export class AgentPreviews {
     signal.throwIfAborted();
     const run = this.store.data.runs.find((run) => run.id === runId && run.botId === botId && run.status === 'running');
     if (!run) throw Error('当前任务已结束，不能发起预览');
-    if ([args.path, args.attachmentId, args.url].filter(Boolean).length !== 1)
-      throw Error('请只填写 path、attachmentId 或 url');
+    if ([args.path, args.attachmentId, args.url, args.videoProjectId].filter(Boolean).length !== 1)
+      throw Error('请只填写 path、attachmentId、url 或 videoProjectId');
     if (args.placement !== undefined && !['side', 'full'].includes(String(args.placement)))
       throw Error('placement 必须是 side 或 full');
     const marks = args.marks === undefined ? undefined : botPins(args.marks);
@@ -96,8 +104,19 @@ export class AgentPreviews {
       )
     )
       throw Error('Bot 已不在此群聊中');
-    let target: AgentPreviewRequest['target'], name: string, size: number;
-    if (args.url) {
+    let target: AgentPreviewRequest['target'], name: string, size: number, videoProjectId: string | undefined;
+    if (args.videoProjectId) {
+      if (typeof args.videoProjectId !== 'string' || !args.videoProjectId.trim())
+        throw new AppError('video.project_not_found', '视频项目 ID 无效');
+      if (!this.resolveVideoProject) throw new AppError('video.engine_unavailable', '视频项目服务尚未就绪');
+      const project = this.resolveVideoProject(args.videoProjectId.trim());
+      if (!project || (project.botId && project.botId !== botId))
+        throw new AppError('video.project_not_found', `未找到视频项目：${args.videoProjectId}`);
+      videoProjectId = project.id;
+      target = { kind: 'workspace', path: `video-project:${project.id}` };
+      name = project.title || project.id;
+      size = 0;
+    } else if (args.url) {
       const url = webPreviewUrl(args.url);
       if (args.location !== undefined && !['host', 'vm'].includes(String(args.location))) throw Error('无效网页位置');
       if (args.location === 'vm') vmPreviewPort(args.url);
@@ -137,7 +156,7 @@ export class AgentPreviews {
         const bytes = await this.artifacts.read(
           botId,
           path,
-          officeExtensions.has(extname(path).toLowerCase())
+          officeExtensions.has(extname(path).toLowerCase()) || MEDIA_EXTENSIONS.has(extname(path).toLowerCase())
             ? LIMIT
             : sourceTextFile(path) && extname(path).toLowerCase() !== '.svg'
               ? 2 * 1024 * 1024
@@ -157,6 +176,7 @@ export class AgentPreviews {
         botId,
         runId,
         designSessionId: run.designSessionId,
+        ...(videoProjectId ? { videoProjectId } : {}),
         scope,
         target,
         name,

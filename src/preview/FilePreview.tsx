@@ -3,7 +3,8 @@ import { PreviewOpenMenu } from './PreviewOpenMenu';
 import { previewOpenTarget, type PreviewOpenAction } from '../../shared/preview/preview-open';
 import { previewHistoryShortcut, previewTextInput } from '../../shared/preview/preview-shortcuts';
 import { FileAnnotationLayer } from './FileAnnotationLayer';
-import { PreviewRuntimeContext, type WebPreviewControls } from './preview-runtime';
+import { PreviewRuntimeContext, type VideoPreviewControls, type WebPreviewControls } from './preview-runtime';
+import type { VideoProjectDetail } from '../../shared/types/video-studio-types';
 import type { AnnotationTool, PreviewAnnotation, PreviewMode } from '../../shared/types/preview-editor-types';
 import { PreviewPicker } from './PreviewPicker';
 import { PREVIEW_DEVICE_PRESETS, previewDevicePreset } from '../../shared/preview/preview-devices';
@@ -116,6 +117,7 @@ export function FilePreview({
   const [mode, setMode] = useState<PreviewMode>('browse'),
     [tool, setTool] = useState<AnnotationTool>('rect'),
     [web, setWeb] = useState<WebPreviewControls>(),
+    [video, setVideo] = useState<VideoPreviewControls>(),
     webItems = useRef(new Set<string>()),
     [fileAnnotations, setFileAnnotations] = useState<PreviewAnnotation[]>([]),
     [domPending, setDomPending] = useState<(() => void) | undefined>(undefined),
@@ -126,6 +128,8 @@ export function FilePreview({
     previousSource = useRef<string | undefined>(undefined);
   const webRef = useRef(web);
   webRef.current = web;
+  const videoRef = useRef(video);
+  videoRef.current = video;
   const fileAnnotationSetter = useRef<(value: PreviewAnnotation[]) => void>(() => {}),
     feedbackSubmit = useRef<((input: PreviewChatInput) => Promise<unknown>) | undefined>(undefined);
   const registerFileAnnotations = useCallback((fn: (value: PreviewAnnotation[]) => void) => {
@@ -165,6 +169,11 @@ export function FilePreview({
   const selectAnnotation = (id: string) => {
     setSelectedAnnotationId(id);
     setBubble(id);
+    const mark = annotationsRef.current.find((entry) => entry.id === id);
+    if (mark?.timestampSec !== undefined && videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.seekTo(mark.timestampSec);
+    }
     if (webRef.current)
       void webRef.current
         .command({ type: 'reveal', id })
@@ -332,12 +341,14 @@ export function FilePreview({
       return;
     }
     if (draft?.editing) void edits.edit(item);
+    if (key === 'annotate') videoRef.current?.pause();
     setMode(key === 'edit' ? 'edit' : key === 'annotate' ? 'annotate' : 'browse');
     if (key === 'annotate') setTool(tool === 'pen' ? 'pen' : selectTool);
   };
   const comment = (next: AnnotationTool) => {
     setBubble(undefined);
     if (draft?.editing) void edits.edit(item);
+    videoRef.current?.pause();
     setMode('annotate');
     setTool(next);
   };
@@ -369,7 +380,7 @@ export function FilePreview({
     ),
     [compare, setCompare] = useState(false),
     comparing = compare && answered && !draft?.editing && mode !== 'edit';
-  const previewKindLabel = t(previewKind(item.name)),
+  const previewKindLabel = item.videoProjectId ? t('视频项目') : t(previewKind(item.name)),
     directoryBotId = item.workspace?.botId || item.directoryBotId;
   useEffect(
     () =>
@@ -612,6 +623,30 @@ export function FilePreview({
     if (!exportInFlight.current) setExportState(undefined);
     setRetry(0);
   };
+  const openVideoProject = (project: VideoProjectDetail) => {
+    const projectItem: PreviewItem = {
+      id: 'video-project:' + project.id,
+      videoProjectId: project.id,
+      directoryBotId: project.botId,
+      name: project.title,
+      size: 0,
+      load: async () => ({
+        kind: 'video-project',
+        videoProjectId: project.id,
+        durationSec: project.durationUs / 1_000_000,
+        width: project.width,
+        height: project.height,
+        posterDataUrl: project.posterDataUrl,
+      }),
+    };
+    const existing = items.findIndex((entry) => entry.id === projectItem.id);
+    if (existing >= 0) {
+      select(existing);
+      return;
+    }
+    setItems([...items, projectItem]);
+    select(items.length);
+  };
   // Previous / next among the opened files, shown over images. Goes through `request` so unsaved edits are kept.
   const browsing = items.length > 1 && previewKind(item.name) === '图片' && !draft?.editing,
     step = (delta: number) => {
@@ -631,6 +666,11 @@ export function FilePreview({
         setTool,
         web,
         setWeb,
+        video,
+        setVideo,
+        openVideoProject,
+        selectAnnotation,
+        selectedAnnotationId,
         annotations,
         setFileAnnotations,
         sendEdits: async (changes) => {

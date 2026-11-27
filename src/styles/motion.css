@@ -301,10 +301,10 @@
   }
 
   /* ---------- Toasts, notices and inline panels ---------- */
-  :is(.toast, .fp-notice) {
+  :is(.toast, .fp-notice, .vc-toast) {
     animation: motion-toast-in var(--motion-pop) var(--motion-ease) backwards;
   }
-  .motion-presence[data-leaving] .toast {
+  .motion-presence[data-leaving] :is(.toast, .vc-toast) {
     animation: motion-toast-out var(--motion-exit) var(--motion-exit-ease) forwards;
   }
   .interaction-notification {

@@ -41,7 +41,13 @@ export function PreviewHistoryChips({
           title={t('重新打开预览')}
         >
           <span className="preview-history-symbol" aria-hidden="true">
-            {entry.target.kind === 'url' ? <Icon name="globe" size={16} /> : <Icon name="file" size={16} />}
+            {entry.videoProjectId ? (
+              <Icon name="film" size={16} />
+            ) : entry.target.kind === 'url' ? (
+              <Icon name="globe" size={16} />
+            ) : (
+              <Icon name="file" size={16} />
+            )}
           </span>
           <span className="preview-history-name">{entry.name}</span>
           <span className="preview-history-action">

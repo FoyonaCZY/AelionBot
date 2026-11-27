@@ -8,6 +8,20 @@ export function previewForConversation(requests: AgentPreviewRequest[], scope: A
   return requests.find((request) => request.scope.kind === scope.kind && request.scope.id === scope.id);
 }
 export function previewItemFromEntry(entry: PreviewHistoryEntry): PreviewItem {
+  if (entry.videoProjectId) {
+    const projectId = entry.videoProjectId;
+    return {
+      id: 'video-project:' + projectId,
+      videoProjectId: projectId,
+      directoryBotId: entry.botId,
+      name: entry.name,
+      size: entry.size || 0,
+      load: async () => ({
+        kind: 'video-project',
+        videoProjectId: projectId,
+      }),
+    };
+  }
   const target = entry.target;
   if (target.kind === 'url')
     return {

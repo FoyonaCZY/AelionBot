@@ -99,6 +99,10 @@ export function stepMeta(result: unknown): { text: string; tone?: 'bad' } | unde
     return { text: translate('{count} 处', { count: value.matches.length }) };
   if (typeof value.replacements === 'number' && value.replacements > 1)
     return { text: translate('{count} 处', { count: value.replacements }) };
+  if (typeof value.applied === 'number' && value.applied > 0)
+    return { text: translate('{count} 项操作', { count: value.applied }) };
+  if (typeof value.progress === 'number' && typeof value.stage === 'string')
+    return { text: `${Math.round(Math.max(0, Math.min(1, value.progress)) * 100)}%` };
   return;
 }
 export function parsedText(text: string): unknown {
@@ -166,6 +170,22 @@ const labels: Record<string, string> = {
   notes: '说明',
   tags: '标签',
   unreadable: '无法解密',
+  projectId: '项目编号',
+  revision: '版本',
+  aspect: '画幅比例',
+  fps: '帧率',
+  durationSec: '时长（秒）',
+  durationUs: '时长（微秒）',
+  trackCount: '轨道数',
+  clipCount: '片段数',
+  assetCount: '素材数',
+  applied: '已应用操作',
+  format: '格式',
+  quality: '质量',
+  progress: '进度',
+  stage: '阶段',
+  outputPath: '输出文件',
+  negotiatedCodec: '编码器',
 };
 export function fieldLabel(key: string) {
   return translate(labels[key] || key.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2'));
@@ -297,6 +317,8 @@ const bookkeeping = new Set([
   'textStartColumn',
   'executionId',
   'resultId',
+  'projectJson',
+  'assetUrls',
 ]);
 export function readableResult(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(readableResult);

@@ -168,11 +168,16 @@ export interface Artifact {
   urlLocation?: 'host' | 'vm';
 }
 export interface ArtifactPreview {
-  kind: 'text' | 'markdown' | 'html' | 'image' | 'video' | 'audio' | 'pdf' | 'web' | 'unsupported';
+  kind: 'text' | 'markdown' | 'html' | 'image' | 'video' | 'video-project' | 'audio' | 'pdf' | 'web' | 'unsupported';
   web?: import('../preview/web-preview').WebPreviewSource;
   content?: string;
   dataUrl?: string;
   truncated?: boolean;
+  videoProjectId?: string;
+  durationSec?: number;
+  width?: number;
+  height?: number;
+  posterDataUrl?: string;
 }
 export interface ChatMessage {
   designSessionId?: string;
@@ -561,6 +566,41 @@ export interface AelionAPI {
     input: import('../preview/canvas-export').CanvasExportInput,
   ): Promise<import('../preview/canvas-export').CanvasExportResult | null>;
   exportDesignProject(input: { id: string; path?: string }): Promise<string | null>;
+
+  // Video Studio
+  videoProjectsList(input?: {
+    botId?: string;
+    sessionId?: string;
+  }): Promise<import('./video-studio-types').VideoProjectSummary[]>;
+  videoProjectGet(id: string): Promise<import('./video-studio-types').VideoProjectDetail>;
+  videoProjectCreate(
+    input: import('./video-studio-types').VideoProjectCreateInput,
+  ): Promise<import('./video-studio-types').VideoProjectDetail>;
+  videoProjectDelete(id: string): Promise<void>;
+  videoAssetImport(input: import('./video-studio-types').VideoAssetImportInput): Promise<{
+    asset: import('./video-studio-types').VideoAssetInfo;
+    project: import('./video-studio-types').VideoProjectDetail;
+  }>;
+  videoProjectEdit(
+    input: import('./video-studio-types').VideoEditRequest,
+  ): Promise<import('./video-studio-types').VideoEditResult>;
+  videoProjectExport(
+    input: import('./video-studio-types').VideoExportRequest,
+  ): Promise<import('./video-studio-types').VideoExportJob>;
+  videoExportStatus(jobId: string): Promise<import('./video-studio-types').VideoExportJob | null>;
+  videoExportCancel(jobId: string): Promise<void>;
+  videoMediaAnalyze(
+    input: import('./video-studio-types').VideoMediaAnalyzeInput,
+  ): Promise<import('./video-studio-types').VideoMediaProbe>;
+  videoQuickEdit(
+    input: import('./video-studio-types').VideoQuickEditRequest,
+  ): Promise<import('./video-studio-types').VideoQuickEditResult>;
+  videoProjectFrame(
+    input: import('./video-studio-types').VideoProjectFrameInput,
+  ): Promise<import('./video-studio-types').VideoProjectFrameResult>;
+  videoMediaPoster(
+    input: import('./video-studio-types').VideoMediaPosterInput,
+  ): Promise<import('./video-studio-types').VideoMediaPosterResult | null>;
 
   focusPreviewFeedback(): Promise<void>;
   captureWebPreviewMenu(input: { id: string }): Promise<import('../preview/web-preview').PreviewFreezeFrame | null>;

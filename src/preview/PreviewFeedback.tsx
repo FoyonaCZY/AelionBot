@@ -139,6 +139,8 @@ export function PreviewFeedback({
         area =
           content?.querySelector<HTMLElement>('.web-preview-slot') ||
           content?.querySelector<HTMLElement>('.fp-pdf-viewport') ||
+          content?.querySelector<HTMLElement>('.vp-stage') ||
+          content?.querySelector<HTMLElement>('.vs-stage') ||
           content;
       if (!area || !area.isConnected) throw Error(t('预览内容已关闭'));
       const bounds = area.getBoundingClientRect(),

@@ -13,6 +13,7 @@ import {
 } from './PreviewWorkbench';
 export interface PreviewItem {
   designSessionId?: string;
+  videoProjectId?: string;
   deviceFrame?: 'phone' | 'slide' | 'page';
   id: string;
   name: string;

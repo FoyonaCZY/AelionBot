@@ -28,6 +28,7 @@ import { registerWebPreview } from './register-web-preview';
 import { registerWorkspace } from './register-workspace';
 import { registerSessions } from './register-sessions';
 import { registerConversations } from './register-conversations';
+import { registerVideoStudio } from './register-video-studio';
 
 export function registerIpc(ctx: IpcContext) {
   registerPreview(ctx);
@@ -51,6 +52,7 @@ export function registerIpc(ctx: IpcContext) {
   registerBots(ctx);
   registerAttachments(ctx);
   registerDesign(ctx);
+  registerVideoStudio(ctx);
   registerGroups(ctx);
   registerPeers(ctx);
   registerGames(ctx);

@@ -25,6 +25,12 @@ export interface WebPreviewControls {
   /** An image of the visible page, pins included. */
   capture: () => Promise<string | undefined>;
 }
+export interface VideoPreviewControls {
+  getCurrentTimeSec: () => number;
+  seekTo: (sec: number) => void;
+  pause: () => void;
+  captureFrame: () => Promise<string | undefined>;
+}
 export interface PreviewRuntime {
   request: (action: () => void) => void;
   initialAnnotations?: PreviewAnnotation[];
@@ -35,6 +41,11 @@ export interface PreviewRuntime {
   setTool: (tool: AnnotationTool) => void;
   web?: WebPreviewControls;
   setWeb: (controls: WebPreviewControls | undefined) => void;
+  video?: VideoPreviewControls;
+  setVideo: (controls: VideoPreviewControls | undefined) => void;
+  openVideoProject?: (project: import('../../shared/types/video-studio-types').VideoProjectDetail) => void;
+  selectAnnotation?: (id: string) => void;
+  selectedAnnotationId?: string;
   annotations: PreviewAnnotation[];
   setFileAnnotations: (value: PreviewAnnotation[]) => void;
   sendEdits: (edits: DomEdit[]) => Promise<boolean>;

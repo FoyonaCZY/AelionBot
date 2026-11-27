@@ -1,0 +1,16 @@
+{
+  "name": "@aelionsdk/transaction",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Atomic project transactions, inverses and change sets for AelionSDK",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@aelionsdk/core": "workspace:*",
+    "@aelionsdk/project-schema": "workspace:*"
+  }
+}

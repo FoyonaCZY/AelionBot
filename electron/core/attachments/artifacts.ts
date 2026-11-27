@@ -1,6 +1,6 @@
-import { randomUUID } from 'node:crypto';
-import { lstatSync, statSync } from 'node:fs';
-import { extname, basename } from 'node:path';
+import { createHash, randomUUID } from 'node:crypto';
+import { lstatSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { extname, basename, join } from 'node:path';
 import type { ArtifactPreview } from '../../../shared/types/core';
 import { ATTACHMENT_LIMITS } from '../../../shared/types/attachment-types';
 import type { MediaStreamRegistry } from './media-stream';
@@ -36,6 +36,15 @@ export class ArtifactService {
   designerFiles?: DesignerFiles;
   mediaStreams?: MediaStreamRegistry;
   openLocal?: (path: string) => Promise<string>;
+  /** Optional cached video/audio probe lookup (durationSec/width/height/posterDataUrl) by host file path. */
+  videoMediaMeta?: (hostPath: string) =>
+    | {
+        durationSec?: number;
+        width?: number;
+        height?: number;
+        posterDataUrl?: string;
+      }
+    | undefined;
   isLocal(botId: string, path: string) {
     return Boolean(this.designerFiles?.owns(botId, path));
   }
@@ -259,6 +268,7 @@ print(json.dumps(files,ensure_ascii=False))`;
       '.m4v': 'video/x-m4v',
       '.mov': 'video/quicktime',
       '.webm': 'video/webm',
+      '.mkv': 'video/x-matroska',
       '.ogv': 'video/ogg',
     };
     const audioTypes: Record<string, string> = {
@@ -282,20 +292,47 @@ print(json.dumps(files,ensure_ascii=False))`;
           stat = statSync(hostPath);
         if (link.isSymbolicLink() || !stat.isFile() || stat.size > ATTACHMENT_LIMITS.fileBytes)
           throw Error('设计文件不存在或超过读取限制');
+        const meta = this.videoMediaMeta?.(hostPath);
         return {
           kind,
           dataUrl: this.mediaStreams.register(
             { kind: 'file', path: hostPath, size: stat.size, mime },
             `local:${hostPath}:${stat.mtimeMs}:${stat.size}`,
           ),
+          ...(meta?.durationSec !== undefined ? { durationSec: meta.durationSec } : {}),
+          ...(meta?.width !== undefined ? { width: meta.width } : {}),
+          ...(meta?.height !== undefined ? { height: meta.height } : {}),
+          ...(meta?.posterDataUrl ? { posterDataUrl: meta.posterDataUrl } : {}),
         };
       }
       const bytes = await this.read(botId, path, ATTACHMENT_LIMITS.fileBytes);
-      if (this.mediaStreams)
+      if (this.mediaStreams) {
+        // Avoid holding large VM video/audio buffers in RAM by spilling to a bounded temp cache file
+        if (bytes.byteLength > 4 * 1024 * 1024 && this.store.dir) {
+          const cacheDir = join(this.store.dir, 'media-cache');
+          mkdirSync(cacheDir, { recursive: true });
+          const digest = createHash('sha256').update(bytes).digest('hex').slice(0, 24);
+          const cacheFile = join(cacheDir, `${digest}${extension}`);
+          writeFileSync(cacheFile, bytes);
+          this.pruneMediaCache(cacheDir, 16);
+          const meta = this.videoMediaMeta?.(cacheFile);
+          return {
+            kind,
+            dataUrl: this.mediaStreams.register(
+              { kind: 'file', path: cacheFile, size: bytes.byteLength, mime },
+              `artifact-file:${botId}:${normalized}:${digest}`,
+            ),
+            ...(meta?.durationSec !== undefined ? { durationSec: meta.durationSec } : {}),
+            ...(meta?.width !== undefined ? { width: meta.width } : {}),
+            ...(meta?.height !== undefined ? { height: meta.height } : {}),
+            ...(meta?.posterDataUrl ? { posterDataUrl: meta.posterDataUrl } : {}),
+          };
+        }
         return {
           kind,
           dataUrl: this.mediaStreams.register({ kind: 'buffer', bytes, mime }, `artifact:${botId}:${normalized}`),
         };
+      }
       return { kind, dataUrl: `data:${mime};base64,${bytes.toString('base64')}` };
     }
     if (!isText && !imageTypes[extension] && extension !== '.pdf') return { kind: 'unsupported' };
@@ -309,6 +346,23 @@ print(json.dumps(files,ensure_ascii=False))`;
       content: bytes.toString('utf8').slice(0, 120000),
       truncated: bytes.toString('utf8').length > 120000,
     };
+  }
+  private pruneMediaCache(cacheDir: string, maxFiles: number) {
+    try {
+      const files = readdirSync(cacheDir);
+      if (files.length <= maxFiles) return;
+      const entries = files
+        .map((name) => {
+          const full = join(cacheDir, name);
+          return { full, mtime: statSync(full).mtimeMs };
+        })
+        .sort((a, b) => a.mtime - b.mtime);
+      for (const old of entries.slice(0, entries.length - maxFiles)) {
+        try {
+          unlinkSync(old.full);
+        } catch {}
+      }
+    } catch {}
   }
   async open(botId: string, path: string) {
     this.store.bot(botId);

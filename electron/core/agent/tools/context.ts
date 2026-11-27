@@ -16,6 +16,7 @@ import type { CodeOrchestrator } from '../../tools/code-orchestrator';
 import type { WebTools } from '../../tools/web-tools';
 import type { TaskScheduler } from '../../scheduler/task-scheduler';
 import type { VideoFrames } from '../../preview/video-frames';
+import type { VideoStudioService } from '../../video/video-studio-service';
 import type { AgentPreviews } from '../../preview/agent-previews';
 import type { PinnedWidgets } from '../../preview/pinned-widgets';
 import type { GroupGateway } from '../../group/group-runtime-types';
@@ -53,6 +54,7 @@ export interface ToolDeps {
   groups?: GroupGateway;
   scheduler?: TaskScheduler;
   video?: VideoFrames;
+  videoStudio?: VideoStudioService;
   previews?: AgentPreviews;
   pinnedWidgets?: PinnedWidgets;
   /** Local design tasks; absent when the app was wired without them. */

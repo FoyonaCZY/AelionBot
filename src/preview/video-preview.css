@@ -1,0 +1,667 @@
+/*
+ * The video player in the file preview: the picture on the stage, and under it one floating dock holding the comment
+ * markers, the scrubber, the transport row and the quick-edit row. Buttons, the range and the toasts come from
+ * video-controls.css; sizes from tokens.css; durations and curves from motion.css.
+ *
+ * What moves every frame (playhead, played veil) or with the pointer (hover line, trim veils) moves by translate
+ * from a custom property on .vp-scrubwrap, so playback and dragging never cause layout.
+ */
+.vp-root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: var(--pv-stage);
+  color: var(--text-ink);
+}
+
+/* ---------- Stage ---------- */
+.vp-stage {
+  display: grid;
+  place-items: center;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 22px 24px 16px;
+  overflow: hidden;
+  container-type: size;
+}
+/* The largest box of the picture's shape that fits the stage, so the corners and the shadow hug the picture. */
+.vp-stage-frame {
+  --vp-ar: 1.7778;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(100cqw, 100cqh * var(--vp-ar));
+  aspect-ratio: var(--vp-ar);
+  border-radius: var(--radius-lg);
+  background: #0b0c0e;
+  box-shadow: var(--elev-2);
+  overflow: hidden;
+}
+/* Presence wraps what animates out in a display: contents box. */
+.vp-stage-frame > *,
+.vp-stage-frame > .motion-presence > * {
+  grid-area: 1 / 1;
+}
+.vp-media-surface {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  cursor: pointer;
+}
+/* On the picture: the big play button, the flash after play or pause, the buffering ring, the size tag. They sit in
+   the frame's one grid cell, so the menu motion (scale, translate) has no positioning transform to fight. */
+.vp-center-play,
+.vp-flash,
+.vp-loading {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  padding: 0;
+  border-radius: 50%;
+}
+.vp-center-play {
+  transition:
+    background-color var(--motion-fast),
+    scale var(--motion-menu) var(--motion-ease);
+}
+.vp-center-play:not(:disabled):hover {
+  scale: 1.06;
+}
+.vp-center-play:not(:disabled):active {
+  scale: 0.94;
+}
+/* The play triangle looks centred a little right of the middle. */
+.vp-center-play > svg {
+  translate: 1px 0;
+}
+.vp-flash,
+.vp-loading {
+  pointer-events: none;
+}
+.vp-loading > .vc-spinner {
+  width: 22px;
+  height: 22px;
+}
+.vp-meta {
+  place-self: start end;
+  margin: 10px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-micro);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .vp-center-play,
+  .vp-flash {
+    animation: motion-menu-in var(--motion-menu) var(--motion-ease) backwards;
+  }
+  .motion-presence[data-leaving] :is(.vp-center-play, .vp-flash) {
+    animation: motion-menu-out var(--motion-exit) var(--motion-exit-ease) forwards;
+  }
+  /* A short stall never shows the ring. */
+  .vp-loading {
+    animation: motion-fade-in var(--motion-pop) ease 180ms backwards;
+  }
+}
+
+/* ---------- Dock ---------- */
+.vp-dock {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: min(920px, calc(100% - 48px));
+  margin: 0 auto 20px;
+  padding: 10px 14px 12px;
+  border-radius: var(--radius-xl);
+  background: var(--surface-float);
+  box-shadow: var(--elev-2);
+}
+/* Status toasts float just above the dock. */
+.vp-toasts {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 10px);
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+/* ---------- Comment markers: their own lane above the scrubber ---------- */
+.vp-lane {
+  position: relative;
+  height: 22px;
+}
+.vp-pin {
+  position: absolute;
+  top: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--ctl-raised);
+  color: var(--text-secondary);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-heading);
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  text-align: center;
+  translate: -50% 0;
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast),
+    translate var(--motion-menu) var(--motion-ease),
+    scale var(--motion-menu) var(--motion-ease);
+}
+/* The stem down to the scrubber. */
+.vp-pin::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 18px;
+  width: 1px;
+  height: 5px;
+  margin-left: -0.5px;
+  background: currentColor;
+  opacity: 0.4;
+}
+.vp-pin:hover {
+  z-index: 1;
+  background: var(--ctl-fill-press);
+  color: var(--text-ink);
+  translate: -50% -2px;
+  scale: 1.1;
+}
+.vp-pin:active {
+  translate: -50% 0;
+  scale: 0.96;
+}
+.vp-pin.is-active {
+  z-index: 1;
+  background: var(--ctl-accent);
+  color: var(--ctl-on-accent);
+}
+/* With the trim tags in the lane the markers step back. */
+.vp-lane.is-trim > .vp-pin:not(:hover, .is-active) {
+  opacity: 0.5;
+}
+
+/* ---------- Scrubber ---------- */
+.vp-scrubwrap {
+  --vp-p: 0;
+  --vp-in: 0;
+  --vp-out: 1;
+  position: relative;
+  height: 48px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+}
+.vp-scrubwrap:focus-visible {
+  outline: 2px solid var(--ctl-accent-ring);
+  outline-offset: 3px;
+}
+.vp-scrubwrap[data-drag='scrub'] {
+  cursor: grabbing;
+}
+.vp-scrubwrap:is([data-drag='in'], [data-drag='out']) {
+  cursor: ew-resize;
+}
+.vp-scrub {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background: var(--ctl-fill);
+  pointer-events: none;
+}
+.vp-film {
+  position: absolute;
+  inset: 0;
+  display: flex;
+}
+.vp-film > img {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  object-fit: cover;
+}
+.vp-film-empty {
+  display: grid;
+  place-items: center;
+  flex: 1;
+  color: var(--text-muted);
+  font-size: var(--text-micro);
+}
+/* What has not played yet is veiled; the layer is the scrubber's size and slides to start at the playhead. */
+.vp-veil,
+.vp-trim-mask {
+  position: absolute;
+  inset: 0;
+  background: light-dark(rgba(255, 255, 255, 0.5), rgba(20, 20, 22, 0.5));
+}
+.vp-veil {
+  translate: calc(var(--vp-p) * 100%) 0;
+  transition: opacity var(--motion-menu) ease;
+}
+.vp-scrubwrap.is-trim .vp-veil {
+  opacity: 0;
+}
+/* Without thumbnails the played part is tinted instead, so progress still reads. */
+.vp-scrub.is-bare {
+  background: color-mix(in srgb, var(--ctl-accent) 24%, var(--ctl-fill));
+}
+.vp-scrub.is-bare > .vp-veil {
+  background: color-mix(in srgb, var(--surface-float) 82%, transparent);
+}
+.vp-wave {
+  position: absolute;
+  inset: auto 0 0;
+  height: 22px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.42));
+}
+.vp-wave > canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* Detected silence: amber diagonal stripes. */
+.vp-silence {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(135deg, rgba(245, 158, 11, 0.62) 0 3px, rgba(245, 158, 11, 0.28) 3px 7px);
+  pointer-events: auto;
+}
+
+/* ---------- Playhead and the time under the pointer ---------- */
+/* Each is a layer the scrubber's size, slid along by a fraction of itself; the mark sits at its left edge. */
+.vp-playhead,
+.vp-hover {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.vp-playhead {
+  z-index: 3;
+  translate: calc(var(--vp-p) * 100%) 0;
+}
+/* A marker or a shortcut sent it somewhere: it travels there instead of jumping. */
+.vp-scrubwrap[data-travel] :is(.vp-playhead, .vp-veil) {
+  transition: translate var(--motion-view) var(--motion-ease);
+}
+.vp-playhead > i {
+  position: absolute;
+  left: -1px;
+  top: -2px;
+  bottom: -3px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--ctl-accent);
+}
+.vp-playhead > i::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ctl-accent);
+  box-shadow: 0 0 0 2px var(--surface-float);
+  transition: scale var(--motion-fast) var(--motion-ease);
+}
+.vp-scrubwrap:is(:hover, [data-drag='scrub']) .vp-playhead > i::before {
+  scale: 1.3;
+}
+.vp-scrubwrap[data-drag='scrub'] .vp-playhead > i::before {
+  scale: 1.5;
+}
+.vp-hover {
+  z-index: 2;
+  opacity: 0;
+  transition: opacity var(--motion-fast);
+}
+.vp-scrubwrap:is([data-hover], [data-drag='scrub']) > .vp-hover {
+  opacity: 1;
+}
+/* A grip under the pointer shows its own time in its tag. */
+.vp-scrubwrap:is([data-drag='in'], [data-drag='out'], [data-drag='move'], :has([data-trim-handle]:hover)) > .vp-hover {
+  opacity: 0;
+}
+.vp-hover > i {
+  position: absolute;
+  left: -0.5px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: light-dark(rgba(0, 0, 0, 0.45), rgba(255, 255, 255, 0.7));
+  translate: var(--vp-hx, 0) 0;
+}
+/* The bubble stops at the scrubber's ends while the line keeps following the pointer. */
+.vp-hover > b {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  padding: 0 7px;
+  border-radius: var(--radius-pill);
+  background: var(--ctl-ink);
+  color: var(--ctl-on-ink);
+  font: var(--weight-heading) var(--text-micro) / 18px var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  translate: calc(var(--vp-hbx, 0px) - 50%) 0;
+}
+
+/* ---------- Trim: the kept range clear inside one frame, the rest veiled ---------- */
+.vp-trim-mask {
+  background: light-dark(rgba(255, 255, 255, 0.72), rgba(20, 20, 22, 0.7));
+}
+.vp-trim-mask.is-before {
+  translate: calc((var(--vp-in) - 1) * 100%) 0;
+}
+.vp-trim-mask.is-after {
+  translate: calc(var(--vp-out) * 100%) 0;
+}
+/* The frame changes size only while a grip is dragged, so it may use left and right. */
+.vp-trim {
+  position: absolute;
+  left: calc(var(--vp-in) * 100%);
+  right: calc((1 - var(--vp-out)) * 100%);
+  top: -2px;
+  bottom: -2px;
+  z-index: 2;
+  border-block: 2px solid var(--ctl-accent);
+  pointer-events: none;
+  container-type: inline-size;
+}
+/* The grips hang outside the range: they never cover a kept frame and cannot cross. */
+.vp-trim-grip {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 12px;
+  background: var(--ctl-accent);
+  cursor: ew-resize;
+  pointer-events: auto;
+  transition:
+    background-color var(--motion-fast),
+    box-shadow var(--motion-fast),
+    scale var(--motion-fast) var(--motion-ease);
+}
+.vp-trim-grip.is-in {
+  right: 100%;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  transform-origin: right center;
+}
+.vp-trim-grip.is-out {
+  left: 100%;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  transform-origin: left center;
+}
+/* A comfortable target around the 12px bar. */
+.vp-trim-grip::before {
+  content: '';
+  position: absolute;
+  inset: -6px -4px -6px -12px;
+}
+.vp-trim-grip.is-out::before {
+  inset: -6px -12px -6px -4px;
+}
+.vp-trim-grip::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 50%;
+  width: 2px;
+  height: 16px;
+  margin-top: -8px;
+  border-radius: 1px;
+  background: #fff;
+}
+.vp-trim-grip:hover,
+.vp-scrubwrap[data-drag='in'] .vp-trim-grip.is-in,
+.vp-scrubwrap[data-drag='out'] .vp-trim-grip.is-out,
+.vp-scrubwrap[data-drag='move'] .vp-trim-grip {
+  background: var(--ctl-accent-strong);
+  box-shadow: 0 2px 8px light-dark(rgba(31, 111, 220, 0.4), rgba(0, 0, 0, 0.5));
+  scale: 1.16 1.08;
+}
+/* Held at the shortest range it can make: the grip says so instead of slipping past the other one. */
+.vp-scrubwrap[data-limit='in'] .vp-trim-grip.is-in,
+.vp-scrubwrap[data-limit='out'] .vp-trim-grip.is-out {
+  background: var(--ctl-danger-fill);
+  box-shadow: none;
+}
+/* Drag this to move the whole range. It goes when the frame is too narrow to hold it. */
+.vp-trim-move {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 30px;
+  height: 10px;
+  margin-left: -15px;
+  border-radius: var(--radius-pill);
+  background: var(--ctl-accent) linear-gradient(#fff, #fff) center / 12px 2px no-repeat;
+  cursor: grab;
+  pointer-events: auto;
+  transition:
+    background-color var(--motion-fast),
+    scale var(--motion-fast) var(--motion-ease);
+}
+.vp-trim-move::before {
+  content: '';
+  position: absolute;
+  inset: -8px -10px;
+}
+.vp-trim-move:hover,
+.vp-scrubwrap[data-drag='move'] .vp-trim-move {
+  background-color: var(--ctl-accent-strong);
+  scale: 1.15;
+}
+.vp-scrubwrap[data-drag='move'],
+.vp-scrubwrap[data-drag='move'] .vp-trim-move {
+  cursor: grabbing;
+}
+@container (max-width: 72px) {
+  .vp-trim-move {
+    display: none;
+  }
+}
+/* The in and out times, above their grips. */
+.vp-trim-tag {
+  position: absolute;
+  left: 0;
+  top: -26px;
+  z-index: 2;
+  padding: 0 7px;
+  border-radius: var(--radius-pill);
+  background: var(--ctl-accent);
+  color: var(--ctl-on-accent);
+  font: var(--weight-heading) var(--text-micro) / 18px var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  translate: calc(var(--x, 0px) - 50%) 0;
+  transition: background-color var(--motion-fast);
+}
+.vp-scrubwrap[data-drag='in'] .vp-trim-tag.is-in,
+.vp-scrubwrap[data-drag='out'] .vp-trim-tag.is-out,
+.vp-scrubwrap[data-drag='move'] .vp-trim-tag {
+  background: var(--ctl-accent-strong);
+}
+@keyframes vp-trim-in {
+  from {
+    opacity: 0;
+    scale: 1 0.78;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .vp-trim-mask {
+    animation: motion-fade-in var(--motion-pop) ease backwards;
+  }
+  .vp-trim {
+    animation: vp-trim-in var(--motion-pop) var(--motion-ease) backwards;
+  }
+  .vp-trim-tag {
+    animation: motion-menu-in var(--motion-pop) var(--motion-ease) 60ms backwards;
+  }
+  .motion-presence[data-leaving] :is(.vp-trim-mask, .vp-trim, .vp-trim-tag) {
+    animation: motion-fade-out var(--motion-exit) var(--motion-exit-ease) forwards;
+  }
+}
+
+/* ---------- Transport row and quick-edit row ---------- */
+.vp-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin-top: 10px;
+}
+.vp-row > .vc-play {
+  margin-right: 4px;
+}
+.vp-row > .vc-timecode {
+  min-width: 0;
+  margin-left: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vp-grow {
+  flex: 1;
+  min-width: 0;
+}
+.vp-volume {
+  margin-right: 6px;
+}
+/* An icon that swaps with its state (play and pause, the speaker, fullscreen) pops in. */
+.vp-swap {
+  display: grid;
+  place-items: center;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .vp-swap {
+    animation: motion-menu-in var(--motion-menu) var(--motion-ease) backwards;
+  }
+}
+.vp-tools {
+  gap: 6px;
+}
+/* The two sets of tools share one cell and cross-fade as trim mode turns on and off. */
+.vp-tools-swap {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.vp-tools-set {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  transition:
+    opacity var(--motion-menu) ease,
+    translate var(--motion-menu) var(--motion-ease),
+    visibility var(--motion-menu);
+}
+.vp-tools-set[data-off] {
+  opacity: 0;
+  visibility: hidden;
+  translate: 0 4px;
+  transition-duration: var(--motion-exit);
+}
+.vp-tools-set > .vc-timecode {
+  min-width: 0;
+  margin-left: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* A narrow dock lets the tools wrap rather than run past its edge (a longer language, a very slim panel). */
+.vp-dock[data-compact] .vp-tools-set {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+/* In a narrow preview a label gives way to its icon; it stays in the accessible name. */
+.vp-label-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* ---------- Fullscreen: the picture fills, the dock floats over its bottom edge ---------- */
+/* The room is dark whatever the theme, so the dock takes the dark tokens. */
+.vp-root:fullscreen {
+  background: #000;
+  color-scheme: dark;
+}
+.vp-root:fullscreen .vp-stage {
+  padding: 0;
+}
+.vp-root:fullscreen .vp-stage-frame {
+  border-radius: 0;
+  background: #000;
+  box-shadow: none;
+}
+.vp-root:fullscreen .vp-dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 24px;
+  margin: 0 auto;
+  background: color-mix(in srgb, var(--surface-float) 84%, transparent);
+  backdrop-filter: blur(24px) saturate(1.4);
+  transition:
+    opacity var(--motion-pop) ease,
+    translate var(--motion-pop) var(--motion-ease);
+}
+/* After a short idle while playing the dock and the pointer step away; any movement brings them back. */
+.vp-root:fullscreen[data-idle] {
+  cursor: none;
+}
+.vp-root:fullscreen[data-idle] .vp-media-surface {
+  cursor: none;
+}
+.vp-root:fullscreen[data-idle] :is(.vp-dock, .vp-meta) {
+  opacity: 0;
+  pointer-events: none;
+}
+.vp-root:fullscreen[data-idle] .vp-dock {
+  translate: 0 12px;
+  transition-duration: var(--motion-view);
+  transition-timing-function: var(--motion-exit-ease);
+}
+.vp-meta {
+  transition: opacity var(--motion-pop) ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vp-center-play,
+  .vp-pin,
+  .vp-veil,
+  .vp-hover,
+  .vp-playhead > i::before,
+  .vp-trim-grip,
+  .vp-trim-move,
+  .vp-trim-tag,
+  .vp-tools-set,
+  .vp-meta,
+  .vp-root:fullscreen .vp-dock,
+  .vp-scrubwrap[data-travel] :is(.vp-playhead, .vp-veil) {
+    transition: none;
+  }
+  .vp-root:fullscreen[data-idle] .vp-dock {
+    translate: none;
+  }
+}

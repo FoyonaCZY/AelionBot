@@ -16,6 +16,7 @@ import { PLANNING_HANDLERS } from './planning';
 import { EXEC_HANDLERS } from './processes';
 import { SCHEDULED_HANDLER } from './scheduling';
 import { VAULT_HANDLERS } from './vault';
+import { VIDEO_STUDIO_HANDLERS } from './video-studio';
 import { WEB_HANDLERS } from './web';
 import { WIDGET_HANDLERS } from './widgets';
 import { AppError } from '../../../../../shared/errors';
@@ -39,6 +40,7 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
   ...KNOWLEDGE_HANDLERS,
   ...WIDGET_HANDLERS,
   ...VAULT_HANDLERS,
+  ...VIDEO_STUDIO_HANDLERS,
 };
 
 /** Handlers for tool namespaces, tried in order. */

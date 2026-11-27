@@ -1,4 +1,5 @@
 import type { VideoFrames } from '../preview/video-frames';
+import type { VideoStudioService } from '../video/video-studio-service';
 import type { AgentPreviews } from '../preview/agent-previews';
 import { PinnedWidgets } from '../preview/pinned-widgets';
 import type { DesignWork } from '../designer/design-work';
@@ -127,6 +128,7 @@ import {
   COMPACT_CONTEXT_THRESHOLD,
   CORE_ACTIVE_TOOLS,
   EXECUTION_RECOVERY_TOOLS,
+  VIDEO_STUDIO_TOOLS,
   deferredMcpPromptNote,
   extractHistoryToolNames,
   selectModelTools,
@@ -258,6 +260,10 @@ export class Harness {
   private video?: VideoFrames;
   setVideoFrames(video: VideoFrames) {
     this.video = video;
+  }
+  private videoStudio?: VideoStudioService;
+  setVideoStudio(service: VideoStudioService) {
+    this.videoStudio = service;
   }
   private callableTools = new Map<string, ToolDefinition[]>();
   private activatedTools = new Map<string, Set<string>>();
@@ -965,6 +971,7 @@ export class Harness {
           // Mirrors the tool filter in modelTools: the prompt only mentions tools the model is actually offered.
           userInput: Boolean(this.interactions) && !this.headless,
           video: Boolean(this.video),
+          videoStudio: Boolean(this.videoStudio) && !this.headless,
           preview: Boolean(this.previews),
           design: Boolean(this.design && this.host && this.interactions) && !this.headless,
           peers: Boolean(this.peers),
@@ -2121,7 +2128,9 @@ export class Harness {
             }
           }
           if (
-            (['mcp_call', 'attachment_read', 'view_image', 'video_frames', 'code_exec'].includes(call.function.name) ||
+            (['mcp_call', 'attachment_read', 'view_image', 'video_frames', 'video_preview_frame', 'code_exec'].includes(
+              call.function.name,
+            ) ||
               call.function.name.startsWith(MCP_NATIVE_PREFIX)) &&
             Array.isArray((output as any)?.images) &&
             display.status === 'done'
@@ -2368,6 +2377,8 @@ export class Harness {
         !this.disabledTools.has(t.function.name) &&
         (!this.headless || !HEADLESS_HIDDEN_TOOLS.has(t.function.name)) &&
         (t.function.name !== 'video_frames' || Boolean(this.video)) &&
+        (!(t.function.name === 'video_project_create' || VIDEO_STUDIO_TOOLS.has(t.function.name)) ||
+          (!this.headless && Boolean(this.videoStudio))) &&
         (!['open_preview', 'preview_mark'].includes(t.function.name) || Boolean(this.previews)) &&
         (!['widgets_list', 'widget_save'].includes(t.function.name) || (!options.peerOrigin && !this.headless)) &&
         (t.function.name !== 'view_image' || Boolean(this.host?.options.imagePreview)) &&
@@ -2438,6 +2449,7 @@ export class Harness {
       groupOrigin: Boolean(options.groupOrigin),
       planning: work.forRun(run)?.status === 'planning',
       designBound: Boolean(this.design?.session(run)),
+      hasVideoProjects: Boolean(!this.headless && this.videoStudio?.hasProjectsForBot(botId)),
       scheduledRun: Boolean(loading.scheduledRun),
       teachingRun: Boolean(loading.teachingRun),
       hasInitialWork: Boolean(loading.hasInitialWork),
@@ -2741,6 +2753,7 @@ export class Harness {
       groups: this.groups,
       scheduler: this.scheduler,
       video: this.video,
+      videoStudio: this.videoStudio,
       previews: this.previews,
       pinnedWidgets: this.pinnedWidgets,
       design: this.design,

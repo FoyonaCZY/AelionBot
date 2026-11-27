@@ -150,20 +150,28 @@ export class MediaStreamRegistry {
   }
 
   handle(request: Request): Response {
+    const corsHeaders: Record<string, string> = {
+      'access-control-allow-origin': '*',
+      'access-control-allow-methods': 'GET, HEAD, OPTIONS',
+      'access-control-allow-headers': 'Range, Content-Type',
+      'access-control-expose-headers': 'Accept-Ranges, Content-Range, Content-Length, Content-Type',
+      'cross-origin-resource-policy': 'cross-origin',
+    };
     const method = request.method.toUpperCase();
-    if (method !== 'GET' && method !== 'HEAD') return new Response(null, { status: 405 });
+    if (method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders });
+    if (method !== 'GET' && method !== 'HEAD') return new Response(null, { status: 405, headers: corsHeaders });
     let url: URL;
     try {
       url = new URL(request.url);
     } catch {
-      return new Response(null, { status: 404 });
+      return new Response(null, { status: 404, headers: corsHeaders });
     }
     if (url.protocol !== MEDIA_STREAM_SCHEME + ':' || url.hostname !== MEDIA_HOST)
-      return new Response(null, { status: 404 });
+      return new Response(null, { status: 404, headers: corsHeaders });
     const token = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
-    if (!TOKEN_PATTERN.test(token)) return new Response(null, { status: 404 });
+    if (!TOKEN_PATTERN.test(token)) return new Response(null, { status: 404, headers: corsHeaders });
     const entry = this.byToken.get(token);
-    if (!entry) return new Response(null, { status: 404 });
+    if (!entry) return new Response(null, { status: 404, headers: corsHeaders });
     this.touch(entry);
 
     const source = entry.source;
@@ -173,10 +181,10 @@ export class MediaStreamRegistry {
         const link = lstatSync(source.path);
         const stat = statSync(source.path);
         if (link.isSymbolicLink() || !stat.isFile() || stat.size !== source.size)
-          return new Response(null, { status: 404 });
+          return new Response(null, { status: 404, headers: corsHeaders });
         total = stat.size;
       } catch {
-        return new Response(null, { status: 404 });
+        return new Response(null, { status: 404, headers: corsHeaders });
       }
     } else {
       total = source.bytes.length;
@@ -184,6 +192,7 @@ export class MediaStreamRegistry {
 
     const range = parseByteRange(request.headers.get('range'), total);
     const headers: Record<string, string> = {
+      ...corsHeaders,
       'content-type': source.mime,
       'accept-ranges': 'bytes',
       'cache-control': 'no-store',

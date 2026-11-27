@@ -3,6 +3,7 @@ import type { Attachment, AttachmentScope } from '../types/attachment-types';
 
 export interface AgentPreviewRequest {
   designSessionId?: string;
+  videoProjectId?: string;
   id: string;
   botId: string;
   runId: string;
@@ -19,6 +20,7 @@ export interface AgentPreviewRequest {
   marks?: import('../types/preview-editor-types').PreviewAnnotation[];
 }
 export interface PreviewHistoryEntry {
+  videoProjectId?: string;
   id: string;
   botId: string;
   runId: string;

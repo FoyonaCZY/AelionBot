@@ -102,6 +102,18 @@ export const CORE_ACTIVE_TOOLS: ReadonlySet<string> = new Set([
   'vault_list',
   'vault_save',
   'vault_request',
+  // Video Studio entry tool (remaining video_* tools auto-activate on project creation or when video projects exist)
+  'video_project_create',
+]);
+
+/** Video Studio tools auto-activated once video_project_create runs or when the Bot has existing video projects. */
+export const VIDEO_STUDIO_TOOLS: ReadonlySet<string> = new Set([
+  'video_project_inspect',
+  'video_asset_import',
+  'video_edit',
+  'video_preview_frame',
+  'video_export',
+  'video_export_status',
 ]);
 
 /** Automation tools auto-activated when a run is triggered by an automation schedule. */
@@ -127,6 +139,7 @@ export interface SelectModelToolsOptions {
   groupOrigin: boolean;
   planning: boolean;
   designBound: boolean;
+  hasVideoProjects?: boolean;
   scheduledRun: boolean;
   teachingRun?: boolean;
   hasInitialWork: boolean;
@@ -175,6 +188,7 @@ export function selectModelTools(
     const name = tool.function.name;
     if (CORE_ACTIVE_TOOLS.has(name)) return true;
     if (options.designBound && name.startsWith('design_')) return true;
+    if (options.hasVideoProjects && VIDEO_STUDIO_TOOLS.has(name)) return true;
     if (options.scheduledRun && AUTOMATION_TOOLS.has(name)) return true;
     if (options.teachingRun && SKILL_AUTHORING_TOOLS.has(name)) return true;
     if (options.hasInitialWork && WORK_CONTEXT_TOOLS.has(name)) return true;

@@ -35,6 +35,7 @@ import {
 import { currentLanguage, useI18n } from '../i18n';
 import { highlightMessageCode } from './code-highlight';
 import { ScreenshotImage } from './ScreenshotImage';
+import { formatPinTimecode } from '../preview/preview-utils';
 import './tool-details.css';
 
 function CopyText({ value, label }: { value: string; label: string }) {
@@ -1200,6 +1201,180 @@ function ResultBody({ message, value }: { message: ChatMessage; value: unknown }
             </div>
           </Section>
         )}
+      </>
+    );
+  }
+  if (tool === 'video_project_create' || tool === 'video_project_inspect') {
+    const project = objectValue(result.project || result);
+    const title = textValue(project.title) || display.detail || t('视频项目');
+    const width = typeof project.width === 'number' ? project.width : 0;
+    const height = typeof project.height === 'number' ? project.height : 0;
+    const fps = typeof project.fps === 'number' ? project.fps : 0;
+    const durUs = typeof project.durationUs === 'number' ? project.durationUs : 0;
+    const tracks = arrayValue(project.tracks).map(objectValue);
+    const chips: Array<{ text: string; tone?: 'ok' | 'bad' }> = [];
+    if (textValue(project.aspect)) chips.push({ text: textValue(project.aspect) });
+    if (width > 0 && height > 0) chips.push({ text: `${width}×${height}` });
+    if (fps > 0) chips.push({ text: `${Math.round(fps)} fps` });
+    if (durUs > 0) chips.push({ text: formatPinTimecode(durUs / 1_000_000) });
+    const metaParts = [
+      typeof project.trackCount === 'number' ? t('{count} 条轨道', { count: project.trackCount }) : '',
+      typeof project.clipCount === 'number' ? t('{count} 个片段', { count: project.clipCount }) : '',
+      typeof project.assetCount === 'number' ? t('{count} 个素材', { count: project.assetCount }) : '',
+    ].filter(Boolean);
+    return (
+      <>
+        <DetailHeader icon="film" title={title} chips={chips} meta={metaParts.join(' · ') || undefined} />
+        {tracks.length > 0 && (
+          <Section>
+            <div className="detail-entries">
+              {tracks.map((tr, index) => (
+                <div className="detail-entry" key={textValue(tr.id) || index}>
+                  <Icon
+                    name={tr.kind === 'audio' ? 'speaker' : tr.kind === 'caption' ? 'captions' : 'film'}
+                    size={14}
+                  />
+                  <span>
+                    {textValue(tr.name) || textValue(tr.id)} ·{' '}
+                    {t('{count} 个片段', { count: arrayValue(tr.clips).length })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+      </>
+    );
+  }
+  if (tool === 'video_asset_import') {
+    const asset = objectValue(result.asset || result);
+    const chips: Array<{ text: string; tone?: 'ok' | 'bad' }> = [];
+    if (textValue(asset.kind)) chips.push({ text: textValue(asset.kind) });
+    if (typeof asset.width === 'number' && typeof asset.height === 'number') {
+      chips.push({ text: `${asset.width}×${asset.height}` });
+    }
+    if (typeof asset.durationUs === 'number' && asset.durationUs > 0) {
+      chips.push({ text: formatPinTimecode(asset.durationUs / 1_000_000) });
+    }
+    return (
+      <>
+        <DetailHeader
+          icon="video"
+          title={textValue(asset.name) || display.detail || t('已导入视频素材')}
+          chips={chips}
+          meta={typeof asset.byteLength === 'number' ? bytes(asset.byteLength) : undefined}
+        />
+        {textValue(asset.posterDataUrl) && (
+          <figure className="detail-image">
+            <img src={textValue(asset.posterDataUrl)} alt={textValue(asset.name)} />
+          </figure>
+        )}
+      </>
+    );
+  }
+  if (tool === 'video_edit') {
+    const project = objectValue(result.project || result);
+    const title = textValue(project.title) || textValue(result.title) || display.detail || t('时间轴已更新');
+    const applied = typeof result.applied === 'number' ? result.applied : 0;
+    const revision = textValue(result.revision) || textValue(project.revision);
+    const durUs =
+      typeof project.durationUs === 'number'
+        ? project.durationUs
+        : typeof result.durationSec === 'number'
+          ? Math.round(result.durationSec * 1_000_000)
+          : 0;
+    const warnings = arrayValue(result.warnings).map(textValue).filter(Boolean);
+    const chips: Array<{ text: string; tone?: 'ok' | 'bad' }> = [];
+    if (applied > 0) chips.push({ text: t('已应用 {count} 项操作', { count: applied }), tone: 'ok' });
+    if (revision) chips.push({ text: `v${revision}` });
+    if (durUs > 0) chips.push({ text: formatPinTimecode(durUs / 1_000_000) });
+    return (
+      <>
+        <DetailHeader icon="scissors" title={title} chips={chips} />
+        {warnings.length > 0 && (
+          <Section title={t('提示')}>
+            {warnings.map((warning, index) => (
+              <p className="detail-muted" key={index}>
+                {warning}
+              </p>
+            ))}
+          </Section>
+        )}
+      </>
+    );
+  }
+  if (tool === 'video_preview_frame') {
+    const frameCount = typeof result.frameCount === 'number' ? result.frameCount : arrayValue(result.frames).length;
+    return (
+      <>
+        <DetailHeader
+          icon="camera"
+          title={textValue(result.title) || display.detail || t('视频预览画面')}
+          meta={frameCount > 0 ? t('{count} 帧', { count: frameCount }) : undefined}
+        />
+        {message.screenshotId && (
+          <figure className="detail-image">
+            <ScreenshotImage id={message.screenshotId} alt={t('视频预览画面')} />
+          </figure>
+        )}
+      </>
+    );
+  }
+  if (tool === 'video_export' || tool === 'video_export_status') {
+    const job = objectValue(result.job || result);
+    const status = textValue(job.status);
+    const format = textValue(job.format).toUpperCase();
+    const quality = textValue(job.quality);
+    const progress = typeof job.progress === 'number' ? Math.round(Math.max(0, Math.min(1, job.progress)) * 100) : null;
+    const outputPath = textValue(job.outputPath);
+    const codec = textValue(job.negotiatedCodec);
+    const statusLabels: Record<string, string> = {
+      queued: t('排队中'),
+      running: t('导出中'),
+      completed: t('导出完成'),
+      failed: t('导出失败'),
+      cancelled: t('已取消导出'),
+    };
+    const qualityLabels: Record<string, string> = {
+      draft: t('草稿'),
+      standard: t('标准'),
+      high: t('高清'),
+    };
+    const chips: Array<{ text: string; tone?: 'ok' | 'bad' }> = [];
+    if (format) chips.push({ text: format });
+    if (quality) chips.push({ text: qualityLabels[quality] || quality });
+    if (status) {
+      chips.push({
+        text: statusLabels[status] || status,
+        tone: status === 'completed' ? 'ok' : status === 'failed' ? 'bad' : undefined,
+      });
+    }
+    if (progress !== null && (status === 'running' || status === 'queued')) {
+      chips.push({ text: `${progress}%` });
+    }
+    if (codec) chips.push({ text: codec });
+    return (
+      <>
+        <DetailHeader
+          icon="download"
+          title={outputPath ? fileName(outputPath) : display.detail || t('视频导出')}
+          chips={chips}
+          subtitle={outputPath || textValue(job.stage) || undefined}
+          action={outputPath ? <CopyText value={outputPath} label={t('复制位置')} /> : undefined}
+        />
+        {progress !== null && (status === 'running' || status === 'queued') && (
+          <div
+            className="detail-progress"
+            role="progressbar"
+            aria-label={t('进度')}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progress}
+          >
+            <b style={{ '--fill': progress / 100 } as React.CSSProperties} />
+          </div>
+        )}
+        {textValue(job.error) && <ErrorDetails error={textValue(job.error)} compact />}
       </>
     );
   }

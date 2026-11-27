@@ -1,38 +1,42 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": [
-    "electron/main.ts",
-    "electron/cli.ts",
-    "electron/preload.ts",
-    "electron/windows/web-preview-preload.ts",
-    "electron/windows/preview-feedback-preload.ts",
-    "electron/windows/remote-direct-preload.ts",
-    "electron/core/file-search-worker.ts",
-    "electron/core/code-worker.ts",
-    "electron/core/context/token-worker.ts",
-    "electron/core/memory/embedding-worker.ts",
-    "electron/core/knowledge/knowledge-worker.ts",
-    "scripts/*.{mjs,ts}",
-    "tests/*.test.ts",
-    "website/src/main.tsx",
-    "website/src/blog/client.ts",
-    "website/scripts/*.mjs",
-    "website/blog/*.mjs",
-    "mobile/src/sw.ts",
-    "relay/src/main.ts"
-  ],
-  "project": [
-    "src/**/*.{ts,tsx}",
-    "shared/**/*.ts",
-    "electron/**/*.ts",
-    "scripts/**/*.{mjs,ts}",
-    "tests/**/*.ts",
-    "website/src/**/*.{ts,tsx,mjs}",
-    "website/scripts/**/*.mjs",
-    "website/blog/**/*.mjs",
-    "website/tests/**/*.mjs",
-    "mobile/src/**/*.{ts,tsx}",
-    "relay/src/**/*.ts"
-  ],
-  "ignoreDependencies": ["@fontsource-variable/*", "markdown-it", "@larksuiteoapi/node-sdk"]
+  "ignoreWorkspaces": ["packages/aelion-sdk/*"],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "electron/main.ts",
+        "electron/cli.ts",
+        "electron/preload.ts",
+        "electron/windows/web-preview-preload.ts",
+        "electron/windows/preview-feedback-preload.ts",
+        "electron/windows/remote-direct-preload.ts",
+        "electron/core/file-search-worker.ts",
+        "electron/core/code-worker.ts",
+        "electron/core/context/token-worker.ts",
+        "electron/core/memory/embedding-worker.ts",
+        "electron/core/knowledge/knowledge-worker.ts",
+        "scripts/*.{mjs,ts}",
+        "tests/*.test.ts",
+        "website/src/blog/client.ts",
+        "website/scripts/*.mjs",
+        "website/blog/*.mjs",
+        "mobile/src/sw.ts",
+        "relay/src/main.ts"
+      ],
+      "project": [
+        "src/**/*.{ts,tsx}",
+        "shared/**/*.ts",
+        "electron/**/*.ts",
+        "scripts/**/*.{mjs,ts}",
+        "tests/**/*.ts",
+        "website/src/**/*.{ts,tsx,mjs}",
+        "website/scripts/**/*.mjs",
+        "website/blog/**/*.mjs",
+        "website/tests/**/*.mjs",
+        "mobile/src/**/*.{ts,tsx}",
+        "relay/src/**/*.ts"
+      ],
+      "ignoreDependencies": ["@fontsource-variable/*", "@larksuiteoapi/node-sdk", "@aelionsdk/*", "ajv-formats"]
+    }
+  }
 }

@@ -1,0 +1,305 @@
+// Bot creative tools for AelionSDK Video Studio project creation, timeline editing, visual frame self-check, and export.
+import type { ToolDefinition } from '../../../model/model';
+import { string, tool } from './shared';
+
+const TRANSITION_ENUM = ['cross-dissolve', 'fade-black', 'fade-white', 'slide-left', 'slide-right'];
+const EFFECT_ENUM = [
+  'warm-film',
+  'soft-glow',
+  'grayscale',
+  'sepia',
+  'cinematic',
+  'blur',
+  'brightness',
+  'contrast',
+  'saturate',
+  'hue-rotate',
+];
+
+const VEC2_SCHEMA = {
+  type: 'object',
+  properties: {
+    x: { type: 'number' },
+    y: { type: 'number' },
+  },
+  required: ['x', 'y'],
+  additionalProperties: false,
+};
+
+const CLIP_STYLE_SCHEMA = {
+  type: 'object',
+  properties: {
+    fit: { type: 'string', enum: ['contain', 'cover', 'fill', 'none'] },
+    opacity: { type: 'number', minimum: 0, maximum: 1 },
+    positionPx: VEC2_SCHEMA,
+    anchor: VEC2_SCHEMA,
+    scale: VEC2_SCHEMA,
+    rotationDeg: { type: 'number' },
+    crop: {
+      type: 'object',
+      properties: {
+        left: { type: 'number', minimum: 0, maximum: 1 },
+        top: { type: 'number', minimum: 0, maximum: 1 },
+        right: { type: 'number', minimum: 0, maximum: 1 },
+        bottom: { type: 'number', minimum: 0, maximum: 1 },
+      },
+      additionalProperties: false,
+    },
+    blendMode: string,
+  },
+  additionalProperties: false,
+};
+
+const TEXT_BOX_SCHEMA = {
+  type: 'object',
+  properties: {
+    x: { type: 'number' },
+    y: { type: 'number' },
+    width: { type: 'number', minimum: 1 },
+    height: { type: 'number', minimum: 1 },
+  },
+  additionalProperties: false,
+};
+
+export const VIDEO_STUDIO_TOOLS: ToolDefinition[] = [
+  tool(
+    'video_project_create',
+    'Create a new AelionSDK Video Studio project with standard tracks (video-main, video-overlay, captions, audio-voice, audio-bgm). Use this to assemble generated video clips, images, voiceovers, music, DesignWork HTML slides, titles, subtitles, transitions, and effects into an editable timeline. Returns projectId and initial revision.',
+    {
+      title: { type: 'string', description: 'Project title (up to 200 chars)' },
+      aspect: {
+        type: 'string',
+        enum: ['16:9', '9:16', '1:1', '4:5', '4:3', 'custom'],
+        description: 'Canvas aspect ratio preset (default 16:9)',
+      },
+      width: { type: 'integer', minimum: 16, maximum: 8192, description: 'Custom width in pixels' },
+      height: { type: 'integer', minimum: 16, maximum: 8192, description: 'Custom height in pixels' },
+      fps: { type: 'number', minimum: 1, maximum: 120, description: 'Frame rate (default 30)' },
+      sampleRate: { type: 'integer', enum: [44100, 48000, 96000], description: 'Audio sample rate (default 48000)' },
+      backgroundColor: { type: 'string', description: 'Canvas background hex color #RRGGBB (default #000000)' },
+    },
+    [],
+  ),
+  tool(
+    'video_project_inspect',
+    'Inspect a Video Studio project timeline: tracks, clips, start/duration in microseconds, effects, transitions, imported assets, revision, and recent exports.',
+    {
+      projectId: { type: 'string', description: 'Video project ID' },
+      includeProjectJson: { type: 'boolean', description: 'Include full canonical AelionSDK v2.0 project JSON' },
+    },
+    ['projectId'],
+  ),
+  tool(
+    'video_asset_import',
+    'Import a video, audio, image, or DesignWork HTML slide into a Video Studio project. Deduplicates by sha256 and automatically probes duration, dimensions, fps, audio, poster, and waveform. HTML slides are rendered to PNG at project resolution.',
+    {
+      projectId: { type: 'string', description: 'Target video project ID' },
+      sourceKind: {
+        type: 'string',
+        enum: ['host', 'workspace', 'attachment', 'artifact', 'design'],
+        description: 'Source type (inferred automatically from attachmentId or path when omitted)',
+      },
+      path: {
+        type: 'string',
+        description: 'Host file path, VM /work/<botId>/... relative path, or DesignWork HTML path',
+      },
+      attachmentId: {
+        type: 'string',
+        description: 'Attachment ID (e.g. from generate_video, generate_image, text_to_speech, or user upload)',
+      },
+      designSessionId: {
+        type: 'string',
+        description: 'Optional DesignWork session ID when importing a design HTML slide',
+      },
+      name: { type: 'string', description: 'Optional display name for the asset' },
+      assetId: { type: 'string', description: 'Optional explicit asset entity ID (must start with a letter)' },
+      analyze: { type: 'boolean', description: 'Probe media metadata and waveform on import (default true)' },
+    },
+    ['projectId'],
+  ),
+  tool(
+    'video_edit',
+    'Apply one or more atomic timeline edit operations to a Video Studio project as a single undo step. Always pass expectedRevision from the latest create/inspect/edit result to avoid conflicting edits. All timestamps and durations are integer microseconds (1 second = 1000000).',
+    {
+      projectId: { type: 'string', description: 'Video project ID' },
+      expectedRevision: { type: 'string', description: 'Expected revision string for optimistic locking' },
+      historyLabel: { type: 'string', description: 'Short human-readable label for the undo stack' },
+      operations: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 50,
+        items: {
+          type: 'object',
+          properties: {
+            op: {
+              type: 'string',
+              enum: [
+                'add_clip',
+                'move_clip',
+                'trim_clip',
+                'split_clip',
+                'delete_clip',
+                'replace_asset',
+                'add_text',
+                'update_text',
+                'import_subtitles',
+                'set_transition',
+                'set_effect',
+                'set_keyframes',
+                'remove_silence',
+                'auto_duck',
+                'normalize_loudness',
+                'snap_to_beats',
+                'set_track_audio',
+                'set_clip_style',
+                'undo',
+                'redo',
+              ],
+            },
+            clipId: string,
+            rightClipId: string,
+            trackId: string,
+            trackKind: { type: 'string', enum: ['visual', 'audio', 'caption'] },
+            assetId: string,
+            kind: { type: 'string', enum: ['video', 'audio', 'image'] },
+            startUs: { type: 'integer', minimum: 0 },
+            durationUs: { type: 'integer', minimum: 1 },
+            sourceStartUs: { type: 'integer', minimum: 0 },
+            atUs: { type: 'integer', minimum: 0 },
+            name: string,
+            ripple: { type: 'boolean' },
+            keepDuration: { type: 'boolean' },
+            rate: { type: 'number', minimum: 0.05, maximum: 16 },
+            gainDb: { type: 'number', minimum: -96, maximum: 36 },
+            pan: { type: 'number', minimum: -1, maximum: 1 },
+            fadeInUs: { type: 'integer', minimum: 0 },
+            fadeOutUs: { type: 'integer', minimum: 0 },
+            role: { type: 'string', enum: ['text', 'caption'] },
+            text: string,
+            box: TEXT_BOX_SCHEMA,
+            style: { type: 'object', additionalProperties: true },
+            clipStyle: CLIP_STYLE_SCHEMA,
+            format: { type: 'string', enum: ['srt', 'vtt', 'cues'] },
+            content: string,
+            cues: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  startUs: { type: 'integer', minimum: 0 },
+                  endUs: { type: 'integer', minimum: 1 },
+                  text: string,
+                },
+                required: ['startUs', 'endUs', 'text'],
+                additionalProperties: false,
+              },
+            },
+            replaceExisting: { type: 'boolean' },
+            fromClipId: string,
+            toClipId: string,
+            preset: {
+              anyOf: [{ type: 'string', enum: [...TRANSITION_ENUM, ...EFFECT_ENUM] }, { type: 'null' }],
+            },
+            enabled: { type: 'boolean' },
+            intensity: { type: 'number', minimum: 0, maximum: 4 },
+            params: { type: 'object', additionalProperties: { type: 'number' } },
+            remove: { type: 'boolean' },
+            property: { type: 'string', enum: ['opacity', 'position', 'scale', 'rotation', 'gain', 'pan'] },
+            keyframes: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  timeUs: { type: 'integer', minimum: 0 },
+                  value: { anyOf: [{ type: 'number' }, VEC2_SCHEMA] },
+                  interpolation: { type: 'string', enum: ['linear', 'hold', 'cubic'] },
+                },
+                required: ['timeUs', 'value'],
+                additionalProperties: false,
+              },
+            },
+            thresholdDb: { type: 'number' },
+            minimumSilenceUs: { type: 'integer', minimum: 0 },
+            paddingUs: { type: 'integer', minimum: 0 },
+            programTrackIds: { type: 'array', items: string },
+            sidechainTrackIds: { type: 'array', items: string },
+            reductionDb: { type: 'number' },
+            attackUs: { type: 'integer', minimum: 0 },
+            releaseUs: { type: 'integer', minimum: 0 },
+            targetLufs: { type: 'number' },
+            maximumGainDb: { type: 'number', minimum: 0 },
+            ceilingDbtp: { type: 'number' },
+            audioTrackId: string,
+            audioClipId: string,
+            clipIds: { type: 'array', items: string },
+            maxOffsetUs: { type: 'integer', minimum: 1 },
+            muted: { type: 'boolean' },
+            solo: { type: 'boolean' },
+            locked: { type: 'boolean' },
+          },
+          required: ['op'],
+          additionalProperties: false,
+        },
+      },
+    },
+    ['projectId', 'operations'],
+  ),
+  tool(
+    'video_preview_frame',
+    'Render 1–9 real composited frames from a Video Studio project at given timestamps (in seconds) and return a labeled contact sheet image so you can visually verify layout, titles, captions, transitions, and color grading before exporting.',
+    {
+      projectId: { type: 'string', description: 'Video project ID' },
+      timestampsSec: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 9,
+        items: { type: 'number', minimum: 0 },
+        description: 'Timestamps in seconds to render (defaults to 4 evenly spaced frames across the timeline)',
+      },
+      maxWidth: {
+        type: 'integer',
+        minimum: 160,
+        maximum: 1280,
+        description: 'Max width per frame in pixels (default 480)',
+      },
+    },
+    ['projectId'],
+  ),
+  tool(
+    'video_export',
+    'Export a Video Studio project to mp4, webm, wav, gif, or png using the AelionSDK WebCodecs/WebGL2 render engine. MP4 automatically negotiates codec support and falls back to WebM if needed; GIF automatically scales down to <= 480px width and <= 12 fps.',
+    {
+      projectId: { type: 'string', description: 'Video project ID' },
+      format: {
+        type: 'string',
+        enum: ['mp4', 'webm', 'wav', 'gif', 'png'],
+        description: 'Export format (default mp4)',
+      },
+      quality: {
+        type: 'string',
+        enum: ['draft', 'standard', 'high'],
+        description: 'Quality preset (default standard)',
+      },
+      outputPath: { type: 'string', description: 'Optional destination file path on the host' },
+      attachToChat: { type: 'boolean', description: 'Attach exported file to the current reply when <= 100 MB' },
+      timeSec: { type: 'number', minimum: 0, description: 'Timestamp in seconds when format=png (default 0)' },
+      fps: { type: 'number', minimum: 1, maximum: 60, description: 'Optional FPS override' },
+      width: { type: 'integer', minimum: 16, maximum: 4096, description: 'Optional width override' },
+      height: { type: 'integer', minimum: 16, maximum: 4096, description: 'Optional height override' },
+      wait: {
+        type: 'boolean',
+        description: 'Wait up to 15s for fast exports to finish before returning (default true)',
+      },
+    },
+    ['projectId'],
+  ),
+  tool(
+    'video_export_status',
+    'Check progress/status of a Video Studio export job or cancel a queued/running export.',
+    {
+      jobId: { type: 'string', description: 'Export job ID returned by video_export' },
+      cancel: { type: 'boolean', description: 'Set true to cancel the export job' },
+    },
+    ['jobId'],
+  ),
+];

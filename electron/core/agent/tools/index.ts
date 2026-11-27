@@ -18,6 +18,7 @@ import { DESIGN_TOOLS } from '../../designer/designer-tools';
 import { KNOWLEDGE_TOOLS } from './definitions/knowledge';
 import { WIDGET_TOOLS } from './definitions/widgets';
 import { VAULT_TOOLS } from './definitions/vault';
+import { VIDEO_STUDIO_TOOLS } from './definitions/video-studio';
 
 // The order is part of the model request (and its prompt cache); append new tools instead of reordering.
 export const TOOLS: ToolDefinition[] = [
@@ -49,4 +50,5 @@ export const TOOLS: ToolDefinition[] = [
   ...KNOWLEDGE_TOOLS,
   ...WIDGET_TOOLS,
   ...VAULT_TOOLS,
+  ...VIDEO_STUDIO_TOOLS,
 ];

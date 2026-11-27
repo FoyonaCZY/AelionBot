@@ -4,10 +4,13 @@ import { useFilePreview, usePreviewScope, type PreviewItem } from '../preview/Fi
 import { FilePreview } from '../preview/FilePreview';
 import type { Attachment } from '../../shared/types/attachment-types';
 import type { ArtifactPreview } from '../../shared/types/core';
+import type { VideoMediaPosterResult } from '../../shared/types/video-studio-types';
+import { formatShortDuration } from '../preview/preview-utils';
 import { FileGlyph, FileInfo, fileKind, FileTypeBadge } from './FileAppearance';
 import { useI18n } from '../i18n';
 import { Icon } from '../ui/Icon';
 import { bytes } from '../ui/format';
+import '../preview/video-controls.css';
 import './attachments.css';
 
 const cache = new Map<string, Promise<ArtifactPreview>>();
@@ -79,6 +82,29 @@ function AttachmentCard({ file, onRemove, onOpen }: { file: Attachment; onRemove
   );
 }
 const excerpts = new Map<string, Promise<string>>();
+const videoPosters = new Map<string, Promise<VideoMediaPosterResult | null>>();
+
+const videoPoster = (file: Attachment) => {
+  if (!window.aelion?.videoMediaPoster) return Promise.resolve(null);
+  let value = videoPosters.get(file.id);
+  if (!value) {
+    value = window.aelion
+      .videoMediaPoster({ source: { kind: 'attachment', attachmentId: file.id }, maxWidth: 360 })
+      .then(
+        (result) => {
+          if (!result) videoPosters.delete(file.id);
+          return result;
+        },
+        () => {
+          videoPosters.delete(file.id);
+          return null;
+        },
+      );
+    if (videoPosters.size >= 80) videoPosters.delete(videoPosters.keys().next().value!);
+    videoPosters.set(file.id, value);
+  }
+  return value;
+};
 /** The opening of a text file, drawn small on its tile. Other formats would need rendering first, so they show a glyph. */
 const excerpt = (file: Attachment) => {
   let value = excerpts.get(file.id);
@@ -134,11 +160,14 @@ function FileMiniature({ name, text }: { name: string; text: string }) {
     </div>
   );
 }
-/** A file in a message: what it holds on top (its first lines, or its kind), its name and size below. */
+/** A file in a message: what it holds on top (its first lines, a video poster, or its kind), its name and size below. */
 function AttachmentTile({ file, onOpen }: { file: Attachment; onOpen: () => void }) {
   const { t } = useI18n();
   const [text, setText] = useState('');
+  const [poster, setPoster] = useState<VideoMediaPosterResult | null>(null);
   const readable = hasExcerpt(file);
+  const kind = fileKind(file.name, file.mime);
+  const video = kind === 'video';
   useEffect(() => {
     let active = true;
     if (readable)
@@ -149,11 +178,40 @@ function AttachmentTile({ file, onOpen }: { file: Attachment; onOpen: () => void
       active = false;
     };
   }, [file.id, readable]);
-  const kind = fileKind(file.name, file.mime);
+  useEffect(() => {
+    if (!video) {
+      setPoster(null);
+      return;
+    }
+    let active = true;
+    void videoPoster(file).then((value) => {
+      if (active) setPoster(value);
+    });
+    return () => {
+      active = false;
+    };
+  }, [file.id, video]);
   return (
-    <article className={`attachment-thumb file-type-${kind}`} data-attachment-id={file.id}>
+    <article
+      className={`attachment-thumb file-type-${kind} ${video ? 'is-video-card' : ''}`}
+      data-attachment-id={file.id}
+    >
       <div className="attachment-thumb-preview" aria-hidden="true">
-        {text.trim() ? (
+        {video ? (
+          <div className="attachment-video-poster">
+            {poster?.posterDataUrl ? (
+              <img src={poster.posterDataUrl} alt="" draggable={false} />
+            ) : (
+              <FileGlyph kind="video" />
+            )}
+            <span className="attachment-video-play vc-glass">
+              <Icon name="play" size={17} />
+            </span>
+            {typeof poster?.durationSec === 'number' && poster.durationSec > 0 && (
+              <span className="attachment-video-duration vc-glass">{formatShortDuration(poster.durationSec)}</span>
+            )}
+          </div>
+        ) : text.trim() ? (
           <div className="attachment-thumb-page">
             <FileMiniature name={file.name} text={text} />
           </div>

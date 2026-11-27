@@ -1,0 +1,1238 @@
+/*
+ * Multi-track video studio (VideoStudioWorkbench): one top bar, the picture with its transport beside a fixed clip
+ * inspector, and the timeline across the bottom. Buttons, segments, sliders and toasts are the shared video controls
+ * (video-controls.css); radii, elevation, sizes and type come from tokens.css, motion from motion.css.
+ *
+ * Everything that follows the pointer or the clock is positioned from custom properties written straight to the
+ * DOM (--vs-time, --vs-pps, --s, --d, --drag-x), so a drag or a playing playhead never re-renders the timeline.
+ */
+.vs-root {
+  --vs-inspector-w: 296px;
+  --vs-time: 0;
+  --vs-duration: 1;
+  /* One hue per kind of clip; every tint, ring and label below is mixed from these. */
+  --vs-k-video: light-dark(#2f80ed, #6ea8f5);
+  --vs-k-image: light-dark(#19a887, #45c4a5);
+  --vs-k-text: light-dark(#8b6bea, #a78df2);
+  --vs-k-audio: light-dark(#ed8c35, #f0a35c);
+  --vs-k-neutral: var(--text-muted);
+  container: vs-root / inline-size;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: var(--pv-stage);
+  color: var(--text-ink);
+  font-size: var(--text-small);
+}
+
+/* ---------- Top bar: title, mode switch, history and export ---------- */
+.vs-topbar {
+  position: relative;
+  /* Above the toasts and the floating inspector: the export popover opens out of this bar. */
+  z-index: 10;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  flex: none;
+  gap: 12px;
+  min-height: 52px;
+  padding: 0 12px 0 16px;
+  background: var(--surface-float);
+  border-bottom: 1px solid var(--surface-line);
+}
+.vs-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.vs-title > strong {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-control);
+  font-weight: var(--weight-heading);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vs-title > span {
+  flex: 0 10 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vs-top-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.vs-export-wrap {
+  position: relative;
+  margin-left: 6px;
+}
+
+/* ---------- Export popover: unfolds from the button with the menu motion ---------- */
+.vs-export-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  width: 320px;
+  max-width: calc(100cqw - 24px);
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-float);
+  box-shadow: var(--elev-2);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  outline: none;
+  transform-origin: top right;
+}
+.vs-export-popover > h3 {
+  margin: 0;
+  font-size: var(--text-control);
+  font-weight: var(--weight-heading);
+}
+.vs-export-popover .vc-seg {
+  display: flex;
+}
+.vs-export-popover .vc-seg > button {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+}
+.vs-export-hint {
+  margin: 6px 0 0;
+  min-height: 1.5em;
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+}
+.vs-export-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+  cursor: pointer;
+}
+.vs-export-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* A field's label line; a value on the right (the gain in dB) is muted. */
+.vs-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 6px;
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-label);
+}
+.vs-label > em {
+  color: var(--text-muted);
+  font-style: normal;
+  font-weight: var(--weight-body);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Body: the picture and its transport, the inspector on the right ---------- */
+.vs-body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.vs-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+/* Measured by the annotation layer and the feedback capture: it only ever fades, it is never moved or scaled. */
+.vs-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  min-height: 120px;
+  padding: 20px 24px 6px;
+  overflow: hidden;
+}
+/* A size container, so the picture below can be as large as fits both ways at the project's own proportions. */
+.vs-stage-frame {
+  container-type: size;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* The picture itself is always dark: these are colours under and on top of footage, not chrome. */
+.vs-canvas-surface {
+  position: relative;
+  flex: none;
+  width: min(100cqw, 100cqh * var(--vs-aspect, 1.7778));
+  aspect-ratio: var(--vs-aspect, 1.7778);
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: #0b0c0e;
+  box-shadow: var(--elev-2);
+}
+.vs-player-iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #0b0c0e;
+}
+.vs-player-iframe.is-inert {
+  pointer-events: none;
+}
+.vs-fallback-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+.vs-fallback-stage > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  animation: motion-fade-in var(--motion-view) ease backwards;
+}
+.vs-fallback-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: var(--text-caption);
+}
+.vs-fallback-retry {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+}
+
+/* ---------- Toasts: export progress and notices, stacked at the picture's top-right ---------- */
+.vs-toasts {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: calc(100% - 24px);
+  pointer-events: none;
+}
+
+/* ---------- Transport: timecode, step and play, speed and volume ---------- */
+.vs-transport {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  flex: none;
+  gap: 8px;
+  min-height: 52px;
+  padding: 0 16px;
+}
+.vs-transport-center,
+.vs-transport-side {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.vs-transport-center > .vc-play {
+  margin: 0 4px;
+}
+.vs-transport-side {
+  justify-content: flex-end;
+  min-width: 0;
+}
+.vs-transport-side > .vc-range {
+  width: 64px;
+}
+
+/* Preview and annotate modes have no timeline, so the transport carries a slim scrubber with the comment pins. */
+.vs-mini-scrubber {
+  position: relative;
+  flex: none;
+  height: 20px;
+  margin: 0 16px 12px;
+  /* The rail slides past the right edge; clip it there but leave room for the knob and the pins. */
+  overflow: clip;
+  overflow-clip-margin: 10px;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+.vs-mini-scrubber::before {
+  content: '';
+  position: absolute;
+  inset: 8px 0;
+  border-radius: 2px;
+  background: var(--ctl-raised);
+}
+.vs-mini-track {
+  position: absolute;
+  inset: 8px 0;
+  overflow: hidden;
+  border-radius: 2px;
+  pointer-events: none;
+}
+/* Full width, scaled from the left by the clock, so it moves on the compositor. */
+.vs-mini-fill {
+  display: block;
+  height: 100%;
+  background: var(--ctl-accent);
+  transform-origin: left center;
+  scale: calc(var(--vs-time) / var(--vs-duration)) 1;
+}
+/* A full-width rail slid by its own width times the progress carries the knob, with no measuring. */
+.vs-mini-rail {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  translate: calc(var(--vs-time) / var(--vs-duration) * 100%) 0;
+}
+.vs-mini-knob {
+  position: absolute;
+  top: 4px;
+  left: -6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.12),
+    0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: scale var(--motion-fast) var(--motion-ease);
+}
+.vs-mini-scrubber:is(:hover, [data-scrubbing]) .vs-mini-knob {
+  scale: 1.17;
+}
+.vs-mini-scrubber[data-scrubbing] .vs-mini-knob {
+  scale: 1.3;
+}
+:root .vs-mini-scrubber:focus-visible {
+  outline: none;
+}
+.vs-mini-scrubber:focus-visible .vs-mini-knob {
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.12),
+    0 1px 3px rgba(0, 0, 0, 0.3),
+    0 0 0 4px var(--ctl-accent-ring);
+}
+
+/* Numbered comment pins, on the mini scrubber and on the ruler. */
+.vs-pin-dot {
+  position: absolute;
+  top: 50%;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--ctl-ink);
+  box-shadow: 0 0 0 2px var(--surface-float);
+  color: var(--ctl-on-ink);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-heading);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  translate: -50% -50%;
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast),
+    scale var(--motion-fast) var(--motion-ease);
+}
+.vs-mini-scrubber > .vs-pin-dot {
+  box-shadow: 0 0 0 2px var(--pv-stage);
+}
+.vs-pin-dot.is-ruler {
+  top: 9px;
+  left: 0;
+  translate: calc(var(--at) * var(--vs-pps) * 1px - 50%) -50%;
+}
+.vs-pin-dot:is(.is-active, :hover) {
+  background: var(--ctl-accent);
+  color: var(--ctl-on-accent);
+}
+.vs-pin-dot:active {
+  scale: 0.92;
+}
+
+/* ---------- Clip inspector: a fixed column, so selecting a clip never moves the timeline ---------- */
+.vs-inspector {
+  flex: none;
+  width: var(--vs-inspector-w);
+  min-height: 0;
+  overflow: hidden auto;
+  padding: 14px 16px 16px;
+  background: var(--surface-float);
+  border-left: 1px solid var(--surface-line);
+  scrollbar-width: thin;
+}
+/* The body remounts with each selection and rises in. */
+.vs-inspector-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: motion-view-in var(--motion-view) var(--motion-ease) backwards;
+}
+.vs-inspector-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+  min-height: 120px;
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  text-align: center;
+  animation: motion-fade-in var(--motion-view) ease backwards;
+}
+.vs-inspector-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+.vs-inspector-head > div {
+  min-width: 0;
+}
+.vs-inspector-head strong {
+  display: block;
+  overflow: hidden;
+  font-size: var(--text-small);
+  font-weight: var(--weight-heading);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vs-inspector-head small {
+  color: var(--text-muted);
+  font-size: var(--text-micro);
+  font-variant-numeric: tabular-nums;
+}
+/* The clip's picture, or its kind's tint and icon when it has none. */
+.vs-thumb {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 46px;
+  height: 30px;
+  overflow: hidden;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--vs-k) 16%, var(--surface-float)) var(--vs-poster, none) center / cover no-repeat;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vs-k) 30%, transparent);
+  color: color-mix(in srgb, var(--vs-k) 70%, var(--text-ink));
+}
+.vs-field {
+  display: block;
+  min-width: 0;
+}
+.vs-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+.vs-inspector .vc-seg {
+  display: flex;
+}
+.vs-inspector .vc-seg > button {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+}
+.vs-inspector .vc-range {
+  display: block;
+  width: 100%;
+}
+
+/* The app's Select and the text fields, at the inspector's 32 with the shared gray fill. */
+.vs-inspector .aelion-select {
+  min-height: var(--size-md);
+  height: var(--size-md);
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 11px;
+  font-size: var(--text-small);
+}
+.vs-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--size-md);
+  margin: 0;
+  padding: 0 11px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--ctl-fill);
+  color: var(--text-ink);
+  font: var(--weight-body) var(--text-small) / 1.5 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+.vs-input:hover {
+  background: var(--ctl-fill-hover);
+}
+.vs-input:focus-visible {
+  box-shadow: var(--ctl-focus);
+}
+/* Colour: the native picker behind a round swatch, with its value beside it. */
+.vs-color {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--size-md);
+  padding: 0 11px 0 7px;
+  border-radius: var(--radius-md);
+  background: var(--ctl-fill);
+  font-size: var(--text-small);
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.vs-color:hover {
+  background: var(--ctl-fill-hover);
+}
+.vs-color:focus-within {
+  box-shadow: var(--ctl-focus);
+}
+.vs-color > input {
+  appearance: none;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  box-shadow: 0 0 0 1px var(--ctl-line);
+  outline: none;
+  cursor: pointer;
+}
+.vs-color > input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.vs-color > input::-webkit-color-swatch {
+  border: 0;
+  border-radius: 50%;
+}
+
+/* Effects: the clip's picture under a filter close to each preset; the chosen one wears the accent ring. */
+.vs-fx {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.vs-fx > button {
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-micro);
+  line-height: 1.7;
+  transition:
+    color var(--motion-fast),
+    scale var(--motion-fast) var(--motion-ease);
+}
+/* The ring is on the holder: on the picture itself the filter would grey or blur it too. */
+.vs-fx > button > b {
+  display: block;
+  height: 34px;
+  overflow: hidden;
+  border-radius: var(--radius-xs);
+  transition: box-shadow var(--motion-fast);
+}
+.vs-fx > button > b > i {
+  display: block;
+  height: 100%;
+  background: color-mix(in srgb, var(--vs-k) 30%, var(--surface-float)) var(--vs-poster, none) center / cover no-repeat;
+  filter: var(--fx, none);
+}
+.vs-fx > button > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vs-fx > button:not(:disabled):hover {
+  color: var(--text-ink);
+}
+.vs-fx > button:not(:disabled):hover > b {
+  box-shadow:
+    0 0 0 2px var(--surface-float),
+    0 0 0 3px var(--ctl-line);
+}
+.vs-fx > button:not(:disabled):active {
+  scale: 0.96;
+}
+.vs-fx > button[aria-pressed='true'] {
+  color: var(--ctl-accent-strong);
+  font-weight: var(--weight-heading);
+}
+.vs-fx > button[aria-pressed='true'] > b,
+.vs-fx > button[aria-pressed='true']:not(:disabled):hover > b {
+  box-shadow:
+    0 0 0 2px var(--surface-float),
+    0 0 0 4px var(--ctl-accent);
+}
+:root .vs-fx > button:focus-visible {
+  outline-offset: 4px;
+}
+
+/* ---------- Timeline: tools, ruler, lanes ---------- */
+.vs-timeline-panel {
+  /* The one place the track header's width is set; lanes, ruler and playhead are laid out from it. */
+  --vs-head-w: 184px;
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  height: clamp(200px, 38%, 340px);
+  min-height: 0;
+  padding: 0 12px 10px;
+  background: var(--surface-float);
+  border-top: 1px solid var(--surface-line);
+}
+.vs-timeline-bar {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 8px;
+  min-height: 46px;
+}
+/* Three groups of quiet tools; they scroll sideways rather than wrap, so the bar keeps its height. */
+.vs-timeline-tools {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.vs-timeline-tools > .vc-btn > svg {
+  flex: none;
+}
+.vs-divider {
+  flex: none;
+  width: 1px;
+  height: 16px;
+  margin: 0 6px;
+  background: var(--surface-line);
+}
+.vs-zoom {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 2px;
+}
+.vs-zoom > .vc-range {
+  width: 84px;
+}
+.vs-tracks-scroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.vs-tracks-grid {
+  --vs-pps: 72;
+  position: relative;
+  width: max-content;
+  min-width: 100%;
+  min-height: 100%;
+}
+.vs-ruler-row,
+.vs-track-row {
+  display: flex;
+  align-items: stretch;
+}
+.vs-ruler-row {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  height: 28px;
+  background: var(--surface-float);
+}
+/* The header column stays put while the lanes scroll under it. */
+.vs-track-head {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 8px;
+  box-sizing: border-box;
+  width: var(--vs-head-w);
+  padding-right: 8px;
+  background: var(--surface-float);
+  white-space: nowrap;
+}
+.vs-track-head.is-ruler {
+  color: var(--text-muted);
+  font-size: var(--text-micro);
+}
+
+.vs-ruler-lane,
+.vs-track-lane {
+  position: relative;
+  flex: 1 0 auto;
+  width: max(480px, calc(var(--vs-total, 10) * var(--vs-pps) * 1px));
+}
+.vs-ruler-lane {
+  color: var(--text-muted);
+  font-size: var(--text-micro);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+.vs-tick {
+  position: absolute;
+  left: 0;
+  bottom: 2px;
+  height: 10px;
+  padding-left: 5px;
+  border-left: 1px solid var(--surface-line);
+  line-height: 0;
+  pointer-events: none;
+  translate: calc(var(--at) * var(--vs-pps) * 1px) 0;
+}
+.vs-tick > span {
+  position: absolute;
+  top: -8px;
+}
+/* Where a click would land: a hairline and its time, under the pointer. */
+.vs-ruler-hover {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--ctl-ink);
+  color: var(--ctl-on-ink);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-label);
+  line-height: 18px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  translate: max(0px, calc(var(--hx, 0px) - 50%)) 0;
+  transition: opacity var(--motion-fast);
+}
+.vs-ruler-lane[data-hover] > .vs-ruler-hover {
+  opacity: 1;
+}
+.vs-ruler-lane[data-scrubbing] > .vs-ruler-hover {
+  opacity: 0;
+}
+
+/* The playhead: an accent line through the lanes and a time tag on the ruler, both moved by --vs-time. */
+.vs-playhead-tag {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  padding: 0 7px;
+  border-radius: var(--radius-pill);
+  background: var(--ctl-accent);
+  box-shadow: 0 0 0 3px var(--surface-float);
+  color: var(--ctl-on-accent);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-heading);
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  white-space: nowrap;
+  pointer-events: none;
+  translate: max(0px, calc(var(--vs-time) * var(--vs-pps) * 1px - 50%)) 0;
+}
+.vs-ruler-stem,
+.vs-playhead-line,
+.vs-snap-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--ctl-accent);
+  pointer-events: none;
+  translate: calc(var(--vs-time) * var(--vs-pps) * 1px) 0;
+}
+.vs-ruler-stem {
+  top: 18px;
+}
+.vs-lane-overlay {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--vs-head-w);
+  z-index: 4;
+  width: 0;
+  pointer-events: none;
+}
+/* Shown while a dragged edge is held by the playhead or a neighbour's edge. */
+.vs-snap-guide {
+  width: 1px;
+  margin-left: 0;
+  opacity: 0;
+  translate: calc(var(--snap, 0) * var(--vs-pps) * 1px) 0;
+  transition: opacity var(--motion-fast);
+}
+.vs-snap-guide[data-on] {
+  opacity: 1;
+}
+
+.vs-track-rows {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+}
+.vs-track-row {
+  --vs-k: var(--vs-k-video);
+  height: 36px;
+}
+.vs-track-row[data-kind='visual'] {
+  height: 50px;
+}
+.vs-track-row[data-kind='overlay'] {
+  --vs-k: var(--vs-k-image);
+}
+.vs-track-row[data-kind='caption'] {
+  --vs-k: var(--vs-k-text);
+  height: 32px;
+}
+.vs-track-row[data-kind='audio'] {
+  --vs-k: var(--vs-k-audio);
+}
+/* Faint rounded lanes with small gaps, instead of hairlines between rows. */
+.vs-track-lane {
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--ctl-fill) 60%, transparent);
+  transition: opacity var(--motion-fast);
+}
+.vs-track-row.is-disabled > .vs-track-lane {
+  opacity: 0.45;
+}
+.vs-track-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--vs-k) 14%, transparent);
+  color: color-mix(in srgb, var(--vs-k) 75%, var(--text-ink));
+}
+.vs-track-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color var(--motion-fast);
+}
+.vs-track-row.is-disabled .vs-track-name {
+  color: var(--text-muted);
+}
+/* M, S and the eye: small square toggles; on is the state blue. */
+.vs-toggle {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-heading);
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast),
+    scale var(--motion-fast) var(--motion-ease);
+}
+.vs-toggle:not(:disabled):hover {
+  background: var(--ctl-fill-hover);
+  color: var(--text-ink);
+}
+.vs-toggle:not(:disabled):active {
+  background: var(--ctl-fill-press);
+  scale: 0.9;
+}
+.vs-toggle[aria-pressed='true'],
+.vs-toggle[aria-pressed='true']:not(:disabled):hover {
+  background: var(--ctl-accent-soft);
+  color: var(--ctl-accent-strong);
+}
+.vs-toggle:disabled {
+  opacity: 0.42;
+}
+
+/* ---------- Clips ---------- */
+/* Placed by translate from its start (--s) and length (--d) in seconds; a move adds --drag-x while it is dragged. */
+.vs-clip {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: max(24px, calc(var(--d) * var(--vs-pps) * 1px - 2px));
+  padding: 0 9px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--vs-k) 15%, var(--surface-float));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vs-k) 36%, transparent);
+  color: color-mix(in srgb, var(--vs-k) 60%, var(--text-ink));
+  font-size: var(--text-micro);
+  font-weight: var(--weight-label);
+  white-space: nowrap;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  translate: calc(var(--s) * var(--vs-pps) * 1px + var(--drag-x, 0px)) 0;
+  transition:
+    background-color var(--motion-fast),
+    box-shadow var(--motion-menu) var(--motion-ease),
+    opacity var(--motion-fast),
+    scale var(--motion-menu) var(--motion-ease);
+}
+/* A clip takes its hue from its own kind, whatever track it is on; the inspector shows the same one. */
+:is(.vs-clip, .vs-inspector-body)[data-kind='video'] {
+  --vs-k: var(--vs-k-video);
+}
+:is(.vs-clip, .vs-inspector-body):is([data-kind='image'], [data-kind='shape'], [data-kind='generator']) {
+  --vs-k: var(--vs-k-image);
+}
+:is(.vs-clip, .vs-inspector-body):is([data-kind='text'], [data-kind='caption']) {
+  --vs-k: var(--vs-k-text);
+}
+:is(.vs-clip, .vs-inspector-body)[data-kind='audio'] {
+  --vs-k: var(--vs-k-audio);
+}
+/* Adjustment layers and gaps are not content: neutral, and a gap is only an outline. */
+:is(.vs-clip, .vs-inspector-body):is([data-kind='adjustment'], [data-kind='gap']) {
+  --vs-k: var(--vs-k-neutral);
+}
+.vs-clip[data-kind='gap'] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vs-k) 28%, transparent);
+}
+.vs-clip.is-off {
+  opacity: 0.5;
+}
+.vs-clip.is-locked {
+  cursor: default;
+}
+.vs-clip:hover {
+  background-color: color-mix(in srgb, var(--vs-k) 21%, var(--surface-float));
+}
+.vs-clip.is-selected {
+  z-index: 2;
+  outline: 2px solid var(--ctl-accent);
+  outline-offset: -2px;
+  box-shadow: 0 0 0 3px var(--ctl-accent-soft);
+}
+:root .vs-clip:focus-visible {
+  z-index: 2;
+  outline: 2px solid var(--ctl-accent);
+  outline-offset: -2px;
+  box-shadow: var(--ctl-focus);
+}
+/* Lifted while it is dragged; it settles back through the transition above when the pointer lets go. */
+.vs-clip[data-drag] {
+  z-index: 3;
+  cursor: grabbing;
+}
+.vs-clip[data-drag='move'] {
+  box-shadow:
+    0 0 0 3px var(--ctl-accent-soft),
+    var(--elev-2);
+  opacity: 0.94;
+  scale: 1 1.07;
+}
+.vs-clip[data-drag^='trim'] {
+  cursor: ew-resize;
+}
+
+/* The asset's picture, tiled along the clip at the lane's height. */
+.vs-clip-film {
+  position: absolute;
+  inset: 0;
+  background: var(--vs-poster) left center / auto 100% repeat-x;
+  pointer-events: none;
+}
+.vs-clip-wave {
+  position: absolute;
+  inset: 3px 0;
+  width: 100%;
+  height: calc(100% - 6px);
+  fill: color-mix(in srgb, var(--vs-k) 46%, transparent);
+  /* Bars two pixels wide every four, whatever the zoom. */
+  mask: repeating-linear-gradient(to right, #000 0 2px, transparent 2px 4px);
+  pointer-events: none;
+}
+.vs-clip-label {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  transition: translate var(--motion-fast) var(--motion-ease);
+}
+/* Over a picture or a waveform the name is a small tag in the top corner. */
+.vs-clip-label.is-tag {
+  align-self: flex-start;
+  margin: 4px 0 0 -4px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  line-height: 17px;
+}
+/* The selected clip's grip takes the corner; the name steps past it. */
+.vs-clip.is-selected:not(.is-locked) > .vs-clip-label {
+  translate: 5px 0;
+}
+.vs-clip.is-selected:not(.is-locked) > .vs-clip-label.is-tag {
+  translate: 8px 0;
+}
+/* On a picture it is the dark glass (.vc-glass); on a waveform, the surface. */
+.vs-clip-label.is-tag:not(.vc-glass) {
+  background: var(--surface-float);
+}
+/* Trim grips: there on hover, kept on the selected clip, wider and brighter under the pointer. */
+.vs-clip-grip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 9px;
+  background: var(--ctl-accent) linear-gradient(#fff, #fff) center / 2px 14px no-repeat;
+  opacity: 0;
+  cursor: ew-resize;
+  transition:
+    opacity var(--motion-fast),
+    background-color var(--motion-fast),
+    scale var(--motion-fast) var(--motion-ease);
+}
+.vs-clip-grip.is-left {
+  left: 0;
+  transform-origin: left center;
+}
+.vs-clip-grip.is-right {
+  right: 0;
+  transform-origin: right center;
+}
+.vs-clip:not(.is-locked):hover > .vs-clip-grip {
+  opacity: 0.55;
+}
+.vs-clip.is-selected:not(.is-locked) > .vs-clip-grip {
+  opacity: 1;
+}
+.vs-clip:not(.is-locked) > .vs-clip-grip:hover,
+.vs-clip[data-drag='trim-left'] > .vs-clip-grip.is-left,
+.vs-clip[data-drag='trim-right'] > .vs-clip-grip.is-right {
+  background-color: var(--ctl-accent-strong);
+  opacity: 1;
+  scale: 1.45 1;
+}
+.vs-clip.is-locked > .vs-clip-grip {
+  display: none;
+}
+/* A transition into a clip: a round mark on the cut. */
+.vs-cut {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface-float);
+  box-shadow: var(--elev-1);
+  color: var(--text-secondary);
+  pointer-events: none;
+  translate: calc(var(--s) * var(--vs-pps) * 1px - 50% - 1px) -50%;
+}
+/* The time under a drag: the new start while moving, the new length while trimming. */
+.vs-drag-tag {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 8;
+  padding: 0 7px;
+  border-radius: var(--radius-pill);
+  background: var(--ctl-accent);
+  box-shadow: var(--elev-1);
+  color: var(--ctl-on-accent);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-heading);
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  translate: calc(var(--tag-x, 0px) - 50%) var(--tag-y, 0px);
+  transition: opacity var(--motion-fast);
+}
+.vs-drag-tag[data-on] {
+  opacity: 1;
+}
+
+/* ---------- Whole-view states: preparing, and a project that would not open ---------- */
+.vs-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 12px;
+  min-height: 180px;
+  padding: 40px 30px;
+  background: var(--pv-stage);
+  color: var(--text-muted);
+  text-align: center;
+  animation: motion-fade-in var(--motion-view) ease backwards;
+}
+.vs-state > strong {
+  color: var(--text-ink);
+  font-size: var(--text-control);
+  font-weight: var(--weight-label);
+}
+.vs-state > p {
+  max-width: 440px;
+  margin: 0;
+  font-size: var(--text-caption);
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.vs-state > .vc-spinner {
+  width: 24px;
+  height: 24px;
+}
+.vs-state-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  background: var(--ctl-fill);
+  color: var(--text-secondary);
+}
+
+/* ---------- Narrow panels ---------- */
+/* Docked beside the conversation there is no room for a column: the inspector floats over the picture's right
+   side while a clip is selected, still without touching the timeline's height. */
+@container vs-root (max-width: 760px) {
+  .vs-inspector {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    /* Clear of the transport, which stays in reach. */
+    bottom: 60px;
+    z-index: 7;
+    width: min(var(--vs-inspector-w), calc(100% - 16px));
+    border-left: 0;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--elev-2);
+  }
+  .vs-inspector.is-empty {
+    display: none;
+  }
+  .vs-title > span {
+    display: none;
+  }
+  .vs-stage {
+    padding: 12px 12px 4px;
+  }
+}
+@container vs-root (max-width: 520px) {
+  .vs-timeline-panel {
+    --vs-head-w: 132px;
+  }
+  .vs-transport-side > .vc-range {
+    display: none;
+  }
+  .vs-topbar {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 6px;
+    padding: 0 8px 0 12px;
+  }
+  .vs-topbar .vc-seg > button {
+    padding: 0 10px;
+  }
+  .vs-export-wrap {
+    margin-left: 2px;
+  }
+}
+
+/* ---------- Motion ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  .vs-export-popover {
+    animation: motion-menu-in var(--motion-menu) var(--motion-ease) backwards;
+  }
+  .motion-presence[data-leaving] .vs-export-popover {
+    animation: motion-menu-out var(--motion-exit) var(--motion-exit-ease) forwards;
+  }
+  /* The timeline rises in when its mode is chosen; the picture beside it cross-fades (useSwitchMotion). */
+  .vs-timeline-panel {
+    animation: motion-view-in var(--motion-view) var(--motion-ease) backwards;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vs-inspector-body,
+  .vs-inspector-empty,
+  .vs-state,
+  .vs-fallback-stage > img {
+    animation: none;
+  }
+  .vs-clip,
+  .vs-clip-label,
+  .vs-clip-grip,
+  .vs-toggle,
+  .vs-pin-dot,
+  .vs-mini-knob,
+  .vs-fx > button,
+  .vs-fx > button > b,
+  .vs-ruler-hover,
+  .vs-snap-guide,
+  .vs-drag-tag,
+  .vs-track-lane,
+  .vs-track-name {
+    transition: none;
+  }
+  .vs-clip[data-drag='move'] {
+    scale: none;
+  }
+}

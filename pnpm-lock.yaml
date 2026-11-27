@@ -208,6 +208,12 @@ importers:
       '@xterm/xterm':
         specifier: 6.0.0
         version: 6.0.0
+      ajv:
+        specifier: 8.18.0
+        version: 8.18.0
+      ajv-formats:
+        specifier: 3.0.1
+        version: 3.0.1(ajv@8.18.0)
       electron-updater:
         specifier: 6.8.9
         version: 6.8.9(supports-color@7.2.0)
@@ -235,6 +241,9 @@ importers:
       mdast-util-from-markdown:
         specifier: 2.0.3
         version: 2.0.3(supports-color@7.2.0)
+      mediabunny:
+        specifier: 1.50.8
+        version: 1.50.8
       node-pty:
         specifier: 1.1.0
         version: 1.1.0
@@ -284,6 +293,42 @@ importers:
       7zip-bin:
         specifier: 5.2.0
         version: 5.2.0
+      '@aelionsdk/audio':
+        specifier: workspace:*
+        version: link:packages/aelion-sdk/audio
+      '@aelionsdk/capability':
+        specifier: workspace:*
+        version: link:packages/aelion-sdk/capability
+      '@aelionsdk/core':
+        specifier: workspace:*
+        version: link:packages/aelion-sdk/core
+      '@aelionsdk/export':
+        specifier: workspace:*
+        version: link:packages/aelion-sdk/export
+      '@aelionsdk/material-compiler':
+        specifier: workspace:*
+        version: link:packages/aelion-sdk/material-compiler
+      '@aelionsdk/material-sdk':
+        specifier: workspace:*
+        version: link:packages/aelion-sdk/material-sdk
+      '@aelionsdk/media':
+        specifier: workspace:*
+        version: link:packages/aelion-sdk/media
+      '@aelionsdk/project-schema':
+        specifier: workspace:*
+        version: link:packages/aelion-sdk/project-schema
+      '@aelionsdk/render-ir':
+        specifier: workspace:*
+        version: link:packages/aelion-sdk/render-ir
+      '@aelionsdk/renderer-worker':
+        specifier: workspace:*
+        version: link:packages/aelion-sdk/renderer-worker
+      '@aelionsdk/sdk':
+        specifier: workspace:*
+        version: link:packages/aelion-sdk/sdk
+      '@aelionsdk/transaction':
+        specifier: workspace:*
+        version: link:packages/aelion-sdk/transaction
       '@electron/asar':
         specifier: 3.4.1
         version: 3.4.1
@@ -311,9 +356,6 @@ importers:
       '@types/ws':
         specifier: 8.18.1
         version: 8.18.1
-      ajv:
-        specifier: 8.17.1
-        version: 8.17.1
       benz-amr-recorder:
         specifier: 1.1.5
         version: 1.1.5
@@ -368,6 +410,146 @@ importers:
       vite:
         specifier: 8.2.2
         version: 8.2.2(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0)
+
+  packages/aelion-sdk/audio:
+    dependencies:
+      '@aelionsdk/core':
+        specifier: workspace:*
+        version: link:../core
+      '@aelionsdk/render-ir':
+        specifier: workspace:*
+        version: link:../render-ir
+
+  packages/aelion-sdk/capability:
+    dependencies:
+      '@aelionsdk/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/aelion-sdk/core: {}
+
+  packages/aelion-sdk/export:
+    dependencies:
+      '@aelionsdk/core':
+        specifier: workspace:*
+        version: link:../core
+      '@aelionsdk/media':
+        specifier: workspace:*
+        version: link:../media
+      '@aelionsdk/render-ir':
+        specifier: workspace:*
+        version: link:../render-ir
+      mediabunny:
+        specifier: 1.50.8
+        version: 1.50.8
+
+  packages/aelion-sdk/material-compiler:
+    dependencies:
+      '@aelionsdk/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/aelion-sdk/material-sdk:
+    dependencies:
+      '@aelionsdk/core':
+        specifier: workspace:*
+        version: link:../core
+      '@aelionsdk/material-compiler':
+        specifier: workspace:*
+        version: link:../material-compiler
+      ajv:
+        specifier: 8.18.0
+        version: 8.18.0
+      ajv-formats:
+        specifier: 3.0.1
+        version: 3.0.1(ajv@8.18.0)
+
+  packages/aelion-sdk/media:
+    dependencies:
+      '@aelionsdk/core':
+        specifier: workspace:*
+        version: link:../core
+      mediabunny:
+        specifier: 1.50.8
+        version: 1.50.8
+
+  packages/aelion-sdk/project-schema:
+    dependencies:
+      '@aelionsdk/core':
+        specifier: workspace:*
+        version: link:../core
+      ajv:
+        specifier: 8.18.0
+        version: 8.18.0
+      ajv-formats:
+        specifier: 3.0.1
+        version: 3.0.1(ajv@8.18.0)
+
+  packages/aelion-sdk/render-ir:
+    dependencies:
+      '@aelionsdk/core':
+        specifier: workspace:*
+        version: link:../core
+      '@aelionsdk/material-compiler':
+        specifier: workspace:*
+        version: link:../material-compiler
+      '@aelionsdk/project-schema':
+        specifier: workspace:*
+        version: link:../project-schema
+
+  packages/aelion-sdk/renderer-worker:
+    dependencies:
+      '@aelionsdk/core':
+        specifier: workspace:*
+        version: link:../core
+      '@aelionsdk/material-compiler':
+        specifier: workspace:*
+        version: link:../material-compiler
+      '@aelionsdk/render-ir':
+        specifier: workspace:*
+        version: link:../render-ir
+
+  packages/aelion-sdk/sdk:
+    dependencies:
+      '@aelionsdk/audio':
+        specifier: workspace:*
+        version: link:../audio
+      '@aelionsdk/capability':
+        specifier: workspace:*
+        version: link:../capability
+      '@aelionsdk/core':
+        specifier: workspace:*
+        version: link:../core
+      '@aelionsdk/export':
+        specifier: workspace:*
+        version: link:../export
+      '@aelionsdk/material-compiler':
+        specifier: workspace:*
+        version: link:../material-compiler
+      '@aelionsdk/media':
+        specifier: workspace:*
+        version: link:../media
+      '@aelionsdk/project-schema':
+        specifier: workspace:*
+        version: link:../project-schema
+      '@aelionsdk/render-ir':
+        specifier: workspace:*
+        version: link:../render-ir
+      '@aelionsdk/renderer-worker':
+        specifier: workspace:*
+        version: link:../renderer-worker
+      '@aelionsdk/transaction':
+        specifier: workspace:*
+        version: link:../transaction
+
+  packages/aelion-sdk/transaction:
+    dependencies:
+      '@aelionsdk/core':
+        specifier: workspace:*
+        version: link:../core
+      '@aelionsdk/project-schema':
+        specifier: workspace:*
+        version: link:../project-schema
 
 packages:
 
@@ -1275,6 +1457,12 @@ packages:
   '@types/debug@4.1.13':
     resolution: {integrity: sha512-KSVgmQmzMwPlmtljOomayoR89W4FynCAi3E8PPs7vmDVPe84hT+vGPKkJfThkmXs0x0jAaa9U8uW8bbfyS2fWw==}
 
+  '@types/dom-mediacapture-transform@0.1.12':
+    resolution: {integrity: sha512-d7/QsLRwF864A5mgIM/YrfiglHoYn7zgCcAoJgW404r+2DwnNr7EBbLnCWpmOMgH8y0te73L1AV6H1bmauaWFw==}
+
+  '@types/dom-webcodecs@0.1.13':
+    resolution: {integrity: sha512-O5hkiFIcjjszPIYyUSyvScyvrBoV3NOEEZx/pMlsu44TKzWNkLVBBxnxJz42in5n3QIolYOcBYFCPZZ0h8SkwQ==}
+
   '@types/estree-jsx@1.0.5':
     resolution: {integrity: sha512-52CcUVNFyfb1A2ALocQw/Dd1BQFNmSdkuC3BkZ6iqhdMfQz7JWOFRuJFloOzjk+6WijU56m9oKXFAXc7o3Towg==}
 
@@ -1494,8 +1682,8 @@ packages:
       ajv:
         optional: true
 
-  ajv@8.17.1:
-    resolution: {integrity: sha512-B/gBuNg5SiMTrPkC+A2+cW0RszwxYmn6VYxB/inlBStS5nx6xHIt/ehKRhIMhqusl7a8LjQoZnjCs5vhwxOQ1g==}
+  ajv@8.18.0:
+    resolution: {integrity: sha512-PlXPeEWMXMZ7sPYOHqmDyCJzcfNrUr3fGNKtezX14ykXOEIvyK81d+qydx89KY5O71FKMPaQ2vBfBFI5NHR63A==}
 
   ajv@8.20.0:
     resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
@@ -2529,6 +2717,9 @@ packages:
   media-typer@1.1.1:
     resolution: {integrity: sha512-yz3xRaG20c6/BOzvYoDaGtPmGscs7YivItZEEqe6GbwNfHuxu9YNmvnEkMzKldAGY4/80pRcQRZSEnhquk9XuQ==}
     engines: {node: '>= 0.8'}
+
+  mediabunny@1.50.8:
+    resolution: {integrity: sha512-LgykLyQzhdpo0V2yw3UXmOpj+b4JAGdpHBwsPE6kjSt8Za0d1VllD+FV7EGHBcdV4+oHUAo+yrqbVAWxNSDCPQ==}
 
   merge-descriptors@2.0.0:
     resolution: {integrity: sha512-Snk314V5ayFLhp3fkUREub6WtjBfPdCPY1Ln8/8munuLuiYhsABgBVWsozAG+MWMbVEvcdcpbi9R7ww22l9Q3g==}
@@ -4129,6 +4320,12 @@ snapshots:
     dependencies:
       '@types/ms': 2.1.0
 
+  '@types/dom-mediacapture-transform@0.1.12':
+    dependencies:
+      '@types/dom-webcodecs': 0.1.13
+
+  '@types/dom-webcodecs@0.1.13': {}
+
   '@types/estree-jsx@1.0.5':
     dependencies:
       '@types/estree': 1.0.9
@@ -4280,11 +4477,15 @@ snapshots:
 
   agent-base@7.1.4: {}
 
+  ajv-formats@3.0.1(ajv@8.18.0):
+    optionalDependencies:
+      ajv: 8.18.0
+
   ajv-formats@3.0.1(ajv@8.20.0):
     optionalDependencies:
       ajv: 8.20.0
 
-  ajv@8.17.1:
+  ajv@8.18.0:
     dependencies:
       fast-deep-equal: 3.1.3
       fast-uri: 3.1.8
@@ -5574,6 +5775,11 @@ snapshots:
   mdurl@2.1.0: {}
 
   media-typer@1.1.1: {}
+
+  mediabunny@1.50.8:
+    dependencies:
+      '@types/dom-mediacapture-transform': 0.1.12
+      '@types/dom-webcodecs': 0.1.13
 
   merge-descriptors@2.0.0: {}
 

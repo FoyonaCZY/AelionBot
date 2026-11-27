@@ -235,9 +235,22 @@ test('scope isolation and cascade cleanup on work session, bot, and group delete
   }
 });
 
-test('widget tools are appended at the end of TOOLS (before Vault tools) and execute through Harness', async (t) => {
+test('widget tools are appended at the end of TOOLS (before Vault and Video Studio tools) and execute through Harness', async (t) => {
   const names = TOOLS.map((tool) => tool.function.name);
-  assert.deepEqual(names.slice(-5), ['widgets_list', 'widget_save', 'vault_list', 'vault_save', 'vault_request']);
+  assert.deepEqual(names.slice(-12), [
+    'widgets_list',
+    'widget_save',
+    'vault_list',
+    'vault_save',
+    'vault_request',
+    'video_project_create',
+    'video_project_inspect',
+    'video_asset_import',
+    'video_edit',
+    'video_preview_frame',
+    'video_export',
+    'video_export_status',
+  ]);
 
   const { store, bot, widgets } = makeStore(t);
   store.data.model.model = 'fixture';

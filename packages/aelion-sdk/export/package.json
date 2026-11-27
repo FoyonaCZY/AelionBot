@@ -1,0 +1,19 @@
+{
+  "name": "@aelionsdk/export",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Streaming WebCodecs export, muxing, sinks and recovery for AelionSDK",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./mux-export-worker": "./src/mux-export-worker.ts"
+  },
+  "dependencies": {
+    "@aelionsdk/core": "workspace:*",
+    "@aelionsdk/media": "workspace:*",
+    "@aelionsdk/render-ir": "workspace:*",
+    "mediabunny": "1.50.8"
+  }
+}

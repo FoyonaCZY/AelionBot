@@ -228,6 +228,7 @@ export function Icon({ name, size = 20 }: { name: string; size?: number }) {
       </>
     ),
     expand: <path d="M4 9V4h5m6 0h5v5M4 15v5h5m6 0h5v-5" />,
+    shrink: <path d="M9 4v5H4m11-5v5h5M9 20v-5H4m11 5v-5h5" />,
     book: (
       <>
         <path d="M3 4h7l2 2 2-2h7v16h-7l-2 2-2-2H3zM12 6v16" />
@@ -278,6 +279,85 @@ export function Icon({ name, size = 20 }: { name: string; size?: number }) {
         <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
       </>
     ),
+    film: (
+      <>
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M7 4v16M17 4v16M3 8h4M3 12h18M3 16h4M17 8h4M17 16h4" />
+      </>
+    ),
+    video: (
+      <>
+        <rect x="3" y="5.5" width="13" height="13" rx="2.5" />
+        <path d="m16 10 5-3v10l-5-3" />
+      </>
+    ),
+    play: <path d="M7.5 5.5v13l11-6.5-11-6.5Z" fill="currentColor" stroke="none" />,
+    scissors: (
+      <>
+        <circle cx="6.5" cy="7" r="2.5" />
+        <circle cx="6.5" cy="17" r="2.5" />
+        <path d="M8.6 8.6 20 17.5M8.6 15.4 20 6.5" />
+      </>
+    ),
+    speakerOff: (
+      <>
+        <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4v-5Z" />
+        <path d="m16 9.5 5 5m0-5-5 5" />
+      </>
+    ),
+    camera: (
+      <>
+        <path d="M4 8.5A2 2 0 0 1 6 6.5h2.2l1.4-2h4.8l1.4 2H18a2 2 0 0 1 2 2V17.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9Z" />
+        <circle cx="12" cy="13" r="3.2" />
+      </>
+    ),
+    timeline: (
+      <>
+        <path d="M3 6h18M3 12h18M3 18h18" />
+        <rect x="5" y="4.5" width="7" height="3" rx="1" fill="currentColor" stroke="none" />
+        <rect x="10" y="10.5" width="9" height="3" rx="1" fill="currentColor" stroke="none" />
+        <rect x="7" y="16.5" width="6" height="3" rx="1" fill="currentColor" stroke="none" />
+      </>
+    ),
+    captions: (
+      <>
+        <rect x="3" y="5" width="18" height="14" rx="2.5" />
+        <path d="M7 13h4M13 13h4M7 16h7" />
+      </>
+    ),
+    stepBack: (
+      <>
+        <path d="M6 6v12" />
+        <path d="M17.5 6.5 9.5 12l8 5.5v-11Z" />
+      </>
+    ),
+    stepForward: (
+      <>
+        <path d="M18 6v12" />
+        <path d="M6.5 6.5 14.5 12l-8 5.5v-11Z" />
+      </>
+    ),
+    repeat: (
+      <>
+        <path d="M17 3.5 20 6.5 17 9.5" />
+        <path d="M4 11V9.5a3 3 0 0 1 3-3h13" />
+        <path d="M7 20.5 4 17.5 7 14.5" />
+        <path d="M20 13v1.5a3 3 0 0 1-3 3H4" />
+      </>
+    ),
+    undo: (
+      <>
+        <path d="M8 7H4v4" />
+        <path d="M4 11a7.5 7.5 0 1 1 2.2 5.3" />
+      </>
+    ),
+    redo: (
+      <>
+        <path d="M16 7h4v4" />
+        <path d="M20 11a7.5 7.5 0 1 0-2.2 5.3" />
+      </>
+    ),
+    waveform: <path d="M4 12v0M7.5 8v8M11 5v14M14.5 9v6M18 6.5v11M21 11v2" />,
   };
   return (
     <svg

@@ -41,6 +41,7 @@ import type { SpeechService } from '../core/speech/speech-service';
 import type { PeerChats } from '../core/peer/peer-chats';
 import type { AgentPreviews } from '../core/preview/agent-previews';
 import type { PinnedWidgets } from '../core/preview/pinned-widgets';
+import type { VideoStudioService } from '../core/video/video-studio-service';
 import type { TaskScheduler } from '../core/scheduler/task-scheduler';
 import type { Store } from '../core/storage/store';
 import type { ComputerController } from '../core/vm/computer';
@@ -100,6 +101,7 @@ export interface IpcContext {
   readonly diagnostics: Diagnostics | undefined;
   readonly agentPreviews: AgentPreviews | undefined;
   readonly pinnedWidgets: PinnedWidgets | undefined;
+  readonly videoStudio: VideoStudioService | undefined;
   readonly updatePreparing: boolean;
   previewDirty: boolean;
   previewWrites: number;

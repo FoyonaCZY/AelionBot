@@ -37,6 +37,16 @@
 .composer-annotation-body em.is-empty {
   color: light-dark(#aaaaaa, #7e7e7e);
 }
+/* When in the video the comment was pinned. */
+.composer-annotation-time {
+  flex: none;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--ctl-fill-hover);
+  color: var(--text-secondary);
+  font: var(--weight-label) var(--text-micro) / 17px var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
 .composer-annotation-body b {
   flex: none;
   width: 17px;

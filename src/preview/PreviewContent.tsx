@@ -4,6 +4,8 @@ import { WebPreview } from './WebPreview';
 import { DocumentPreview } from './DocumentPreview';
 import { FileTypeBadge } from '../files/FileAppearance';
 import { ImagePreview } from './ImagePreview';
+import { VideoPreview } from './VideoPreview';
+import { VideoStudioWorkbench } from './VideoStudioWorkbench';
 import type { PreviewItem } from './FilePreviewContext';
 import { PreviewIcon } from './PreviewIcon';
 import { previewErrorText, previewKind } from './preview-utils';
@@ -95,13 +97,11 @@ export function PreviewContent({
       </div>
     );
   if (value.kind === 'video')
-    return (
-      <div className="fp-video-stage">
-        <video src={value.dataUrl} controls playsInline preload="metadata" aria-label={item.name}>
-          {t('当前环境无法播放此视频，可保存原文件后查看。')}
-        </video>
-      </div>
-    );
+    return <VideoPreview src={value.dataUrl!} name={item.name} item={item} initialMeta={value} />;
+  if (value.kind === 'video-project' || item.videoProjectId) {
+    const projectId = value.videoProjectId || item.videoProjectId;
+    if (projectId) return <VideoStudioWorkbench projectId={projectId} name={item.name} />;
+  }
   if (value.kind === 'pdf')
     return (
       <Suspense

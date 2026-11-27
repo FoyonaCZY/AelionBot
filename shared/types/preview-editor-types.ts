@@ -28,6 +28,8 @@ export interface PreviewAnnotation {
   text?: string;
   color: string;
   page?: number;
+  /** Video playback timestamp in seconds for timecoded video/timeline annotations. */
+  timestampSec?: number;
   selector?: string;
   designId?: string;
   /** The number on the pin. It stays when other pins are removed, so a reply's #n still finds its pin. */

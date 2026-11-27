@@ -3,6 +3,7 @@ import type { PreviewAnnotation } from '../../shared/types/preview-editor-types'
 import { pinNumber, pinTitle, unsentPins } from '../../shared/preview/preview-annotations';
 import { useI18n } from '../i18n';
 import { usePreviewWorkbench } from './PreviewWorkbench';
+import { formatPinTimecode } from './preview-utils';
 import './preview-annotation-chips.css';
 
 const sameScope = (a?: AttachmentScope, b?: AttachmentScope) => Boolean(a && b && a.kind === b.kind && a.id === b.id);
@@ -38,6 +39,9 @@ export function PinChips({
               onClick={() => onSelect(mark.id)}
             >
               <b aria-hidden="true">{n}</b>
+              {mark.timestampSec !== undefined && (
+                <code className="composer-annotation-time">{formatPinTimecode(mark.timestampSec)}</code>
+              )}
               <span>
                 {label}
                 {note ? (

@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { translate } from '../../shared/i18n';
 import { nextPinNumber, PIN, pinColor, pinNumber, straightStroke } from '../../shared/preview/preview-annotations';
 import type { AnnotationTool, PreviewAnnotation, PreviewMode } from '../../shared/types/preview-editor-types';
+import { usePreviewRuntime } from './preview-runtime';
+import { formatPinTimecode } from './preview-utils';
 /**
  * Comment pins over a file preview (PDF page, image, document, code). The select tool drops a pin where it is
  * clicked or around a dragged region; the pen draws, and a straight stroke becomes an arrow. Each pin is numbered.
@@ -29,8 +31,9 @@ export function FileAnnotationLayer({
   onChange: (value: PreviewAnnotation[]) => void;
   register: (update: (value: PreviewAnnotation[]) => void) => () => void;
 }) {
+  const runtime = usePreviewRuntime();
   const root = useRef<SVGSVGElement>(null),
-    targets = useRef({ x: 0, y: 0, width: 1, height: 1, key: '' }),
+    targets = useRef({ x: 0, y: 0, width: 1, height: 1, key: '', isVideo: false }),
     cache = useRef(
       new Map<string, PreviewAnnotation[]>(
         Object.entries(initialCache || {}).filter(([key]) => !key.startsWith('web:')),
@@ -38,6 +41,7 @@ export function FileAnnotationLayer({
     ),
     [marks, setMarks] = useState<PreviewAnnotation[]>([]),
     [shape, setShape] = useState<PreviewAnnotation>(),
+    [videoTime, setVideoTime] = useState<number | undefined>(undefined),
     [geometry, setGeometry] = useState({
       x: 0,
       y: 0,
@@ -46,6 +50,7 @@ export function FileAnnotationLayer({
       hostWidth: 1,
       hostHeight: 1,
       enabled: false,
+      isVideo: false,
     }),
     drawing = useRef<PreviewAnnotation | undefined>(undefined),
     latestShape = useRef<PreviewAnnotation | undefined>(undefined),
@@ -71,11 +76,19 @@ export function FileAnnotationLayer({
           return;
         }
         const target = content.querySelector<HTMLElement>(
-          '.fp-pdf-viewport .fp-pdf-page,.fp-image-space img,.fp-code-text code,.fp-paper,.fp-csv,.cm-content',
+          '.fp-pdf-viewport .fp-pdf-page,.fp-image-space img,.vp-media-surface,.vs-canvas-surface,.fp-code-text code,.fp-paper,.fp-csv,.cm-content',
         );
         if (!target) {
           setGeometry((old) => (old.enabled ? { ...old, enabled: false } : old));
           return;
+        }
+        const isVideo = target.matches('.vp-media-surface,.vs-canvas-surface');
+        if (isVideo) {
+          const parsedTime = Number(target.dataset.videoTime);
+          const nextTime = Number.isFinite(parsedTime) ? parsedTime : undefined;
+          setVideoTime((old) => (old === nextTime ? old : nextTime));
+        } else {
+          setVideoTime((old) => (old === undefined ? old : undefined));
         }
         if (observed !== target) {
           if (observed) resize.unobserve(observed);
@@ -107,8 +120,8 @@ export function FileAnnotationLayer({
           setShape(undefined);
           drawing.current = undefined;
         }
-        targets.current = { x: a.x, y: a.y, width: Math.max(1, a.width), height: Math.max(1, a.height), key };
-        setGeometry({
+        targets.current = { x: a.x, y: a.y, width: Math.max(1, a.width), height: Math.max(1, a.height), key, isVideo };
+        const nextGeometry = {
           x: a.x - b.x,
           y: a.y - b.y,
           width: a.width,
@@ -116,7 +129,20 @@ export function FileAnnotationLayer({
           hostWidth: b.width,
           hostHeight: b.height,
           enabled: a.width > 0 && a.height > 0,
-        });
+          isVideo,
+        };
+        setGeometry((old) =>
+          old.x === nextGeometry.x &&
+          old.y === nextGeometry.y &&
+          old.width === nextGeometry.width &&
+          old.height === nextGeometry.height &&
+          old.hostWidth === nextGeometry.hostWidth &&
+          old.hostHeight === nextGeometry.hostHeight &&
+          old.enabled === nextGeometry.enabled &&
+          old.isVideo === nextGeometry.isVideo
+            ? old
+            : nextGeometry,
+        );
       });
     };
     const resize = new ResizeObserver(refresh);
@@ -126,7 +152,7 @@ export function FileAnnotationLayer({
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['data-preview-page'],
+      attributeFilter: ['data-preview-page', 'data-video-time'],
     });
     content.addEventListener('scroll', refresh, true);
     window.addEventListener('resize', refresh);
@@ -166,9 +192,16 @@ export function FileAnnotationLayer({
       draft = i < 0,
       color = draft ? PIN.focus : pinColor(a),
       focus = draft || selectedAnnotationId === a.id,
-      angle = end ? Math.atan2(end.y - y, end.x - x) : 0;
+      angle = end ? Math.atan2(end.y - y, end.x - x) : 0,
+      timeLabel = a.timestampSec !== undefined ? formatPinTimecode(a.timestampSec) : '',
+      offFrame =
+        !draft &&
+        !focus &&
+        videoTime !== undefined &&
+        a.timestampSec !== undefined &&
+        Math.abs(a.timestampSec - videoTime) > 1.5;
     return (
-      <g key={a.id} data-annotation-id={draft ? undefined : a.id}>
+      <g key={a.id} data-annotation-id={draft ? undefined : a.id} opacity={offFrame ? 0.42 : 1}>
         {(a.type === 'rect' || a.type === 'element') && (w > 0 || h > 0) && (
           <rect
             x={x - 3}
@@ -235,6 +268,31 @@ export function FileAnnotationLayer({
             <text x={x} y={y + 3.5} textAnchor="middle" fontSize={10} fontWeight={600} fill="#fff">
               {pinNumber(a, i)}
             </text>
+            {timeLabel && (
+              <g transform={`translate(${x + 14}, ${y - 9})`}>
+                <rect
+                  x={0}
+                  y={0}
+                  width={Math.max(42, timeLabel.length * 6.5 + 10)}
+                  height={18}
+                  rx={9}
+                  fill="rgba(20, 22, 26, 0.84)"
+                  stroke="rgba(255, 255, 255, 0.25)"
+                  strokeWidth={1}
+                />
+                <text
+                  x={Math.max(42, timeLabel.length * 6.5 + 10) / 2}
+                  y={12.5}
+                  textAnchor="middle"
+                  fontSize={9.5}
+                  fontWeight={600}
+                  fontFamily="var(--font-code, monospace)"
+                  fill="#fff"
+                >
+                  {timeLabel}
+                </text>
+              </g>
+            )}
           </g>
         )}
       </g>
@@ -294,9 +352,11 @@ export function FileAnnotationLayer({
       data-tool={tool}
       style={{
         display: geometry.enabled ? undefined : 'none',
-        pointerEvents: mode === 'annotate' ? 'auto' : 'none',
+        // On video & studio previews, keep pointer events scoped strictly to the media frame rect so transport
+        // controls, filmstrip scrubber, pin jump markers, and timeline stay interactive in annotate mode.
+        pointerEvents: mode === 'annotate' && !geometry.isVideo ? 'auto' : 'none',
         visibility: mode === 'edit' ? 'hidden' : undefined,
-        cursor: mode === 'annotate' ? 'crosshair' : undefined,
+        cursor: mode === 'annotate' && !geometry.isVideo ? 'crosshair' : undefined,
       }}
       viewBox={`0 0 ${geometry.hostWidth} ${geometry.hostHeight}`}
       aria-label={translate('文件评论')}
@@ -316,6 +376,19 @@ export function FileAnnotationLayer({
               root.current?.closest('.fp-content')?.querySelector<HTMLElement>('[data-preview-page]')?.dataset
                 .previewPage,
             ) || undefined;
+        let timestampSec: number | undefined;
+        if (target.isVideo) {
+          runtime?.video?.pause();
+          const raw =
+            runtime?.video?.getCurrentTimeSec() ??
+            Number(
+              root.current?.closest('.fp-content')?.querySelector<HTMLElement>('.vp-media-surface,.vs-canvas-surface')
+                ?.dataset.videoTime,
+            );
+          if (Number.isFinite(raw) && raw >= 0) {
+            timestampSec = Math.round(raw * 100) / 100;
+          }
+        }
         const a: PreviewAnnotation = {
           id: crypto.randomUUID(),
           type: tool === 'pen' ? 'pen' : 'rect',
@@ -324,6 +397,7 @@ export function FileAnnotationLayer({
           h: 0,
           color: PIN.mine,
           ...(page ? { page } : {}),
+          ...(timestampSec !== undefined ? { timestampSec } : {}),
           ...(tool === 'pen' ? { points: [p] } : {}),
         };
         pointer.current = e.pointerId;
@@ -354,6 +428,16 @@ export function FileAnnotationLayer({
         setShape(undefined);
       }}
     >
+      {mode === 'annotate' && geometry.isVideo && (
+        <rect
+          x={geometry.x}
+          y={geometry.y}
+          width={geometry.width}
+          height={geometry.height}
+          fill="transparent"
+          style={{ pointerEvents: 'all', cursor: 'crosshair' }}
+        />
+      )}
       {marks.map(render)}
       {shape && render(shape, -1)}
     </svg>

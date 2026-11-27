@@ -4,6 +4,7 @@ import type { FeedbackOverlayState } from '../../shared/preview/preview-feedback
 import type { PreviewAnnotation } from '../../shared/types/preview-editor-types';
 import type { WebPreviewControls } from './preview-runtime';
 import { useI18n } from '../i18n';
+import { formatPinTimecode } from './preview-utils';
 import './pin-bubble.css';
 
 export interface PinBubbleActions {
@@ -151,6 +152,9 @@ export function PinBubble({
       <header>
         <span className={`pin-dot ${pinClass(mark)}`}>{pinNumber(mark, index)}</span>
         <span className="pin-bubble-title">{words.title(mark)}</span>
+        {mark.timestampSec !== undefined && (
+          <span className="pin-bubble-time">{formatPinTimecode(mark.timestampSec)}</span>
+        )}
         {state && <span className={`pin-bubble-state ${mark.status}`}>{state}</span>}
       </header>
       {mark.botNote && <div className="pin-bubble-note">{mark.botNote}</div>}

@@ -21,7 +21,11 @@ import { DesignFonts } from './core/designer/design-fonts';
 import { renderCanvasExport } from './windows/canvas-export-renderer';
 import { WebPreviewBrowser } from './windows/web-preview';
 import { MEDIA_STREAM_SCHEME, MediaStreamRegistry } from './core/attachments/media-stream';
-import { protocol } from 'electron';
+import { VIDEO_ENGINE_SCHEME, VideoProjects } from './core/video/video-projects';
+import { registerVideoEngineProtocol, VideoMediaTokenRegistry } from './core/video/video-engine-protocol';
+import { VideoStudioService } from './core/video/video-studio-service';
+import { VIDEO_ENGINE_PARTITION, VideoEngineWindow } from './windows/video-engine-window';
+import { protocol, session } from 'electron';
 import { VideoInspector } from './windows/video-inspector';
 import { AudioCodecWindow } from './windows/audio-codecs';
 import { allowSystemAudio } from './windows/system-audio';
@@ -50,8 +54,8 @@ import {
   powerSaveBlocker,
 } from 'electron';
 import { randomUUID } from 'node:crypto';
-import { join, resolve, dirname } from 'node:path';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join, resolve, dirname, basename } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { Store } from './core/storage/store';
 import { VmController } from './core/vm/vm';
 import { ModelClient } from './core/model/model';
@@ -138,6 +142,8 @@ let spending: Spending;
 let computer: ComputerController;
 let artifacts: ArtifactService;
 let videoInspector: VideoInspector;
+let videoStudio: VideoStudioService | undefined;
+let unregisterVideoProtocol: (() => void) | undefined;
 let audioCodecs: AudioCodecWindow | undefined;
 let speech: SpeechService;
 let attachments: Attachments;
@@ -188,7 +194,14 @@ const secretCodec = {
 };
 protocol.registerSchemesAsPrivileged([
   { scheme: 'aelion-preview', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
-  { scheme: MEDIA_STREAM_SCHEME, privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true } },
+  {
+    scheme: MEDIA_STREAM_SCHEME,
+    privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, corsEnabled: true },
+  },
+  {
+    scheme: VIDEO_ENGINE_SCHEME,
+    privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, corsEnabled: true },
+  },
 ]);
 let webPreview: WebPreviewBrowser | undefined;
 let appUpdates: AppUpdates | undefined;
@@ -1047,6 +1060,78 @@ async function initialize() {
   generalHarness.streams.onEmit = streamsChanged;
   harness.setPreviewGateway(agentPreviews);
   videoInspector = new VideoInspector(join(app.getAppPath(), 'assets', 'video-inspector.html'));
+  const videoMediaTokens = new VideoMediaTokenRegistry();
+  const videoEngine = new VideoEngineWindow(join(__dirname, 'video-engine-preload.cjs'));
+  const readWorkspaceFileForVideo = async (botId: string, path: string) => {
+    const bytes = await artifacts.read(botId, path);
+    const resolvedPath = artifacts.isLocal(botId, path) ? designerFiles.hostPath(botId, path) : undefined;
+    return { bytes, name: basename(path), resolvedPath };
+  };
+  const readAttachmentForVideo = (attachmentId: string) => {
+    const record = store.data.attachments.find((item) => item.id === attachmentId);
+    if (!record) throw new Error(`未找到附件：${attachmentId}`);
+    return { bytes: attachments.bytes(attachmentId), name: record.name, mime: record.mime };
+  };
+  const videoProjects = new VideoProjects({
+    workspaceRoot: () => host.workspaceSettings().workspaceDir,
+    readWorkspaceFile: readWorkspaceFileForVideo,
+    readAttachment: readAttachmentForVideo,
+    resolveHostPath: (rawPath) => host.resolveFilePath(rawPath),
+    renderDesignPageToPng: async ({ botId, path, width, height, allowHostFile }) => {
+      let html: string;
+      if (botId && artifacts.isLocal(botId, path)) {
+        html = (await artifacts.read(botId, path, 4 * 1024 * 1024)).toString('utf8');
+      } else if (allowHostFile && existsSync(path)) {
+        html = readFileSync(path, 'utf8');
+      } else if (botId) {
+        html = (await artifacts.read(botId, path, 4 * 1024 * 1024)).toString('utf8');
+      } else {
+        throw new Error(`找不到设计稿页面：${path}`);
+      }
+      const rendered = await renderCanvasExport(html, 'png', { width, height });
+      return { bytes: rendered.bytes, name: `${basename(path).replace(/\.html?$/i, '')}.png` };
+    },
+    listExports: (projectId) => videoStudio?.listExportsForProject(projectId) ?? [],
+  });
+  videoStudio = new VideoStudioService({
+    dataDir,
+    projects: videoProjects,
+    engine: videoEngine,
+    mediaTokens: videoMediaTokens,
+    imageDir: computer.imageDir,
+    readWorkspaceFile: readWorkspaceFileForVideo,
+    readAttachment: readAttachmentForVideo,
+    importAttachmentForBot: (botId, name, bytes, sourcePath) =>
+      attachments.importForBot(botId, name, bytes, sourcePath),
+    resolveHostPath: (rawPath) => host.resolveFilePath(rawPath),
+    changed,
+  });
+  const videoProtocolDeps = {
+    runtimeDir: join(__dirname, '..', 'dist', 'video-runtime'),
+    projects: videoProjects,
+    mediaTokens: videoMediaTokens,
+  };
+  const unregisterDefaultVideoProtocol = registerVideoEngineProtocol(protocol, videoProtocolDeps);
+  const videoEngineSessionProtocol = session.fromPartition(VIDEO_ENGINE_PARTITION).protocol;
+  const unregisterEngineVideoProtocol = registerVideoEngineProtocol(videoEngineSessionProtocol, videoProtocolDeps);
+  videoEngineSessionProtocol.handle(MEDIA_STREAM_SCHEME, (request) => mediaStreams.handle(request));
+  unregisterVideoProtocol = () => {
+    unregisterDefaultVideoProtocol();
+    unregisterEngineVideoProtocol();
+    try {
+      videoEngineSessionProtocol.unhandle(MEDIA_STREAM_SCHEME);
+    } catch {}
+  };
+  generalHarness.setVideoStudio(videoStudio);
+  agentPreviews.setVideoProjectResolver((projectId) => {
+    try {
+      const detail = videoStudio!.getProject(projectId);
+      return { id: detail.id, title: detail.title, botId: detail.botId };
+    } catch {
+      return undefined;
+    }
+  });
+  artifacts.videoMediaMeta = (hostPath) => videoStudio?.getCachedMediaMetaForFile(hostPath);
   harness.setVideoFrames(
     new VideoFrames(
       host,
@@ -1687,6 +1772,9 @@ async function initialize() {
     get pinnedWidgets() {
       return pinnedWidgets;
     },
+    get videoStudio() {
+      return videoStudio;
+    },
     get updatePreparing() {
       return updatePreparing;
     },
@@ -1742,6 +1830,8 @@ async function initialize() {
         () => model?.dispose(),
         () => harness.disposeTools(),
         () => videoInspector?.dispose(),
+        () => unregisterVideoProtocol?.(),
+        () => videoStudio?.dispose(),
         () => audioCodecs?.dispose(),
         () => webPreview?.close(),
         () => chatPins?.dispose(),

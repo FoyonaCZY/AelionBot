@@ -45,7 +45,12 @@ export function validateAnnotations(value: unknown): PreviewAnnotation[] {
     if (
       (raw.n !== undefined && (!Number.isInteger(raw.n) || raw.n < 1 || raw.n > 999)) ||
       (raw.status !== undefined && !STATUSES.includes(raw.status)) ||
-      (raw.author !== undefined && raw.author !== 'bot')
+      (raw.author !== undefined && raw.author !== 'bot') ||
+      (raw.timestampSec !== undefined &&
+        (typeof raw.timestampSec !== 'number' ||
+          !Number.isFinite(raw.timestampSec) ||
+          raw.timestampSec < 0 ||
+          raw.timestampSec > 86400 * 7))
     )
       throw new AppError('preview.annotation_invalid', '标注无效');
     return {
@@ -65,6 +70,7 @@ export function validateAnnotations(value: unknown): PreviewAnnotation[] {
       ...(raw.elementLabel ? { elementLabel: raw.elementLabel } : {}),
       ...(raw.elementText ? { elementText: raw.elementText } : {}),
       ...(Number.isInteger(raw.page) && raw.page > 0 ? { page: raw.page } : {}),
+      ...(raw.timestampSec !== undefined ? { timestampSec: raw.timestampSec } : {}),
       ...(raw.n !== undefined ? { n: raw.n } : {}),
       ...(raw.status ? { status: raw.status } : {}),
       ...(raw.reply ? { reply: raw.reply } : {}),
@@ -79,6 +85,8 @@ export interface PreviewMarkRef {
   n: number;
   /** A short name for what was pointed at, as an i18n key (see pinTitle). */
   title: string;
+  /** Video playback timestamp in seconds when the pin was placed on a video or video project. */
+  timestampSec?: number;
 }
 const TAG_TITLES: Record<string, string> = {
   a: '链接',
@@ -125,7 +133,12 @@ export function pinTitle(mark: Pick<PreviewAnnotation, 'type' | 'elementLabel' |
   return mark.type === 'arrow' ? '箭头' : mark.type === 'pen' ? '画笔' : '文字';
 }
 export const markRefs = (marks: PreviewAnnotation[]): PreviewMarkRef[] =>
-  marks.map((mark, index) => ({ id: mark.id, n: pinNumber(mark, index), title: pinTitle(mark) }));
+  marks.map((mark, index) => ({
+    id: mark.id,
+    n: pinNumber(mark, index),
+    title: pinTitle(mark),
+    ...(mark.timestampSec !== undefined ? { timestampSec: mark.timestampSec } : {}),
+  }));
 export function validMarkRefs(value: unknown): PreviewMarkRef[] | undefined {
   if (value === undefined) return undefined;
   if (
@@ -141,11 +154,21 @@ export function validMarkRefs(value: unknown): PreviewMarkRef[] | undefined {
         ref.n < 1 ||
         ref.n > 999 ||
         typeof ref.title !== 'string' ||
-        ref.title.length > 40,
+        ref.title.length > 40 ||
+        (ref.timestampSec !== undefined &&
+          (typeof ref.timestampSec !== 'number' ||
+            !Number.isFinite(ref.timestampSec) ||
+            ref.timestampSec < 0 ||
+            ref.timestampSec > 86400 * 7)),
     )
   )
     throw new AppError('preview.annotation_invalid', '评论无效');
-  return value.map((ref) => ({ id: ref.id, n: ref.n, title: ref.title }));
+  return value.map((ref) => ({
+    id: ref.id,
+    n: ref.n,
+    title: ref.title,
+    ...(ref.timestampSec !== undefined ? { timestampSec: ref.timestampSec } : {}),
+  }));
 }
 /** Pin colours: the person's own, waiting, changed, left as it was, and the Bot's. */
 export const PIN = {
@@ -201,6 +224,14 @@ export function botPins(value: unknown): PreviewAnnotation[] {
       throw new AppError('preview.mark_invalid', '每条 mark 需要 selector，或 box [x, y, w, h]（0–1 之间）');
     if (raw.page !== undefined && (!Number.isInteger(raw.page) || raw.page < 1 || raw.page > 100000))
       throw new AppError('preview.mark_invalid', 'page 无效');
+    if (
+      raw.timestampSec !== undefined &&
+      (typeof raw.timestampSec !== 'number' ||
+        !Number.isFinite(raw.timestampSec) ||
+        raw.timestampSec < 0 ||
+        raw.timestampSec > 86400 * 7)
+    )
+      throw new AppError('preview.mark_invalid', 'timestampSec 无效');
     const [x, y, w, h] = region || [0, 0, 0, 0];
     return {
       id: globalThis.crypto.randomUUID(),
@@ -214,6 +245,7 @@ export function botPins(value: unknown): PreviewAnnotation[] {
       botNote: note,
       ...(selector ? { selector } : {}),
       ...(raw.page ? { page: raw.page } : {}),
+      ...(raw.timestampSec !== undefined ? { timestampSec: raw.timestampSec } : {}),
     } satisfies PreviewAnnotation;
   });
 }
@@ -225,6 +257,16 @@ export const nextPinNumber = (marks: PreviewAnnotation[]) =>
 /** Pins that go out with the next message: the person's own, not yet sent, and Bot pins they answered. */
 export const unsentPins = (marks: PreviewAnnotation[]) =>
   marks.filter((mark) => !mark.status && (mark.author !== 'bot' || Boolean(mark.text?.trim())));
+const formatPinTimestamp = (sec: number) => {
+  const totalTenths = Math.round(sec * 10);
+  const tenths = totalTenths % 10;
+  const totalSec = Math.floor(totalTenths / 10);
+  const s = totalSec % 60;
+  const m = Math.floor(totalSec / 60) % 60;
+  const h = Math.floor(totalSec / 3600);
+  const mmss = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${tenths}`;
+  return h > 0 ? `${h}:${mmss}` : mmss;
+};
 const clean = (text: string) => text.replace(/[\r\n\u0000-\u001f]+/g, ' ').trim();
 /**
  * The pins as the Bot reads them: one block per number with what was pointed at, what the person asked, where to
@@ -274,6 +316,8 @@ export function annotationContext(
         a.selector && clean(a.selector),
         a.designId && 'data-design-id=' + a.designId,
         a.page && (en ? 'page ' + a.page : '第 ' + a.page + ' 页'),
+        a.timestampSec !== undefined &&
+          (en ? 'time ' + formatPinTimestamp(a.timestampSec) : '时间点 ' + formatPinTimestamp(a.timestampSec)),
       ].filter(Boolean);
       if (locate.length) lines.push(field('定位', 'Locate') + locate.join(' · '));
       lines.push(

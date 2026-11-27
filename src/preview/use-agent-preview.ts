@@ -34,7 +34,20 @@ export function useAgentPreview(
     seen.current.add(request.id);
     if (seen.current.size > 200) seen.current.delete(seen.current.values().next().value!);
     let item: PreviewItem;
-    if (request.target.kind === 'url') {
+    if (request.videoProjectId) {
+      const projectId = request.videoProjectId;
+      item = {
+        id: 'video-project:' + projectId,
+        videoProjectId: projectId,
+        directoryBotId: request.botId,
+        name: request.name,
+        size: request.size || 0,
+        load: async () => ({
+          kind: 'video-project',
+          videoProjectId: projectId,
+        }),
+      };
+    } else if (request.target.kind === 'url') {
       const web = {
         kind: 'url' as const,
         url: request.target.url,

@@ -767,6 +767,28 @@
   border-radius: var(--radius-sm);
   object-fit: contain;
 }
+/* A job still running (a video export): a thin bar under the header. The fill is full width and slides in, so it
+   moves without resizing. */
+.detail-progress {
+  height: 4px;
+  margin: 10px 12px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--ctl-raised);
+}
+.detail-progress > b {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--ctl-accent);
+  translate: calc((var(--fill, 0) - 1) * 100%) 0;
+  transition: translate var(--motion-view) var(--motion-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .detail-progress > b {
+    transition: none;
+  }
+}
 .detail-additional-output {
   margin-top: 13px;
   color: light-dark(#9ba9b8, #a2a9b0);

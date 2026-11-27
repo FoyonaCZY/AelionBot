@@ -55,6 +55,13 @@ const operations: Record<string, { label: string; active: string; icon: string }
   request_user_input: { label: '向你提问', active: '等待你的回答', icon: 'message' },
   user_input_wait: { label: '等待回答', active: '等待你的回答', icon: 'message' },
   video_frames: { label: '查看视频画面', active: '正在抽取视频画面', icon: 'file' },
+  video_project_create: { label: '创建视频项目', active: '正在创建视频项目', icon: 'film' },
+  video_project_inspect: { label: '查看视频项目', active: '正在查看视频项目', icon: 'film' },
+  video_asset_import: { label: '导入视频素材', active: '正在导入视频素材', icon: 'video' },
+  video_edit: { label: '剪辑视频时间轴', active: '正在剪辑视频时间轴', icon: 'scissors' },
+  video_preview_frame: { label: '预览视频画面', active: '正在渲染视频画面', icon: 'camera' },
+  video_export: { label: '导出视频', active: '正在导出视频', icon: 'download' },
+  video_export_status: { label: '查看导出进度', active: '正在查看导出进度', icon: 'clock' },
   view_image: { label: '查看图片', active: '正在查看图片', icon: 'file' },
   generate_video: { label: '生成视频', active: '正在生成视频', icon: 'file' },
   generate_image: { label: '生成图片', active: '正在生成图片', icon: 'file' },
@@ -190,6 +197,33 @@ export function describeTool(
   if (name === 'vault_save' || name === 'vault_request') {
     const item = result.item && typeof result.item === 'object' ? (result.item as Record<string, unknown>) : {};
     detail = text(item.title || input.title);
+  }
+  if (name === 'video_project_create' || name === 'video_project_inspect') {
+    const proj =
+      result.project && typeof result.project === 'object' ? (result.project as Record<string, unknown>) : {};
+    detail = text(result.title || proj.title || input.title || input.projectId);
+  }
+  if (name === 'video_asset_import') {
+    const asset = result.asset && typeof result.asset === 'object' ? (result.asset as Record<string, unknown>) : {};
+    const rawPath = typeof input.path === 'string' ? input.path.replace(/\\/g, '/').split('/').at(-1) : '';
+    detail = text(asset.name || input.name || rawPath);
+  }
+  if (name === 'video_edit') {
+    const proj =
+      result.project && typeof result.project === 'object' ? (result.project as Record<string, unknown>) : {};
+    detail = text(proj.title || result.title || input.historyLabel);
+  }
+  if (name === 'video_preview_frame') {
+    detail = text(result.title || input.projectId);
+  }
+  if (name === 'video_export') {
+    const fmt = text(result.format || input.format).toUpperCase();
+    detail = [text(result.title), fmt].filter(Boolean).join(' · ');
+  }
+  if (name === 'video_export_status') {
+    const fmt = text(result.format).toUpperCase();
+    const pct = typeof result.progress === 'number' ? `${Math.round(result.progress * 100)}%` : '';
+    detail = [fmt, pct].filter(Boolean).join(' · ');
   }
   if (name === 'computer') {
     const actions: Record<string, string> = {
@@ -584,6 +618,12 @@ const RUN_KINDS = [
     many: '操作了 {count} 次电脑',
   },
   { kind: 'generate', test: /^generate_image$/, one: '生成了 1 张图片', many: '生成了 {count} 张图片' },
+  {
+    kind: 'video',
+    test: /^(generate_video|video_project_|video_asset_|video_edit|video_preview_frame|video_export)/,
+    one: '剪辑了 1 次视频',
+    many: '剪辑了 {count} 次视频',
+  },
   { kind: 'message', test: /^(bot_|group_|delegation)/, one: '协作了 1 次', many: '协作了 {count} 次' },
   { kind: 'mcp', test: /^mcp_/, one: '调用了 1 次外部工具', many: '调用了 {count} 次外部工具' },
   { kind: 'plan', test: /^(plan_|task_|goal_)/, one: '更新了 1 次计划', many: '更新了 {count} 次计划' },

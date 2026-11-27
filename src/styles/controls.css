@@ -204,8 +204,8 @@
   color: var(--ctl-accent-strong);
 }
 
-/* Icon buttons are 32 circles everywhere: headers, the sidebar and the corner of every dialog. */
-:root .icon-button {
+/* Icon buttons are 32 circles everywhere: headers, the sidebar, the corner of every dialog and the video views. */
+:root :is(.icon-button, .vc-icon-btn) {
   border-radius: 50%;
   transition:
     background var(--motion-fast),
@@ -213,12 +213,12 @@
     scale var(--motion-fast);
 }
 
-:root .icon-button:not(:disabled):hover {
+:root :is(.icon-button, .vc-icon-btn):not(:disabled):hover {
   background: var(--ctl-fill-hover);
   color: var(--text-ink);
 }
 
-:root .icon-button:not(:disabled):active {
+:root :is(.icon-button, .vc-icon-btn):not(:disabled):active {
   background: var(--ctl-fill-press);
   scale: 0.94;
 }
@@ -531,7 +531,8 @@
     .usage-segmented,
     .scheduled-trigger-kinds,
     .memory-tabs,
-    .memory-views
+    .memory-views,
+    .vc-seg
   ) {
   gap: 2px;
   min-height: var(--size-lg);
@@ -543,7 +544,15 @@
 }
 
 :root
-  :is(.design-tabs, .model-settings-navigation, .usage-segmented, .scheduled-trigger-kinds, .memory-tabs, .memory-views)
+  :is(
+    .design-tabs,
+    .model-settings-navigation,
+    .usage-segmented,
+    .scheduled-trigger-kinds,
+    .memory-tabs,
+    .memory-views,
+    .vc-seg
+  )
   > button {
   min-height: 30px;
   padding: 0 14px;
@@ -556,13 +565,29 @@
 }
 
 :root
-  :is(.design-tabs, .model-settings-navigation, .usage-segmented, .scheduled-trigger-kinds, .memory-tabs, .memory-views)
+  :is(
+    .design-tabs,
+    .model-settings-navigation,
+    .usage-segmented,
+    .scheduled-trigger-kinds,
+    .memory-tabs,
+    .memory-views,
+    .vc-seg
+  )
   > button:not(:disabled):hover {
   color: var(--text-ink);
 }
 
 :root
-  :is(.design-tabs, .model-settings-navigation, .usage-segmented, .scheduled-trigger-kinds, .memory-tabs, .memory-views)
+  :is(
+    .design-tabs,
+    .model-settings-navigation,
+    .usage-segmented,
+    .scheduled-trigger-kinds,
+    .memory-tabs,
+    .memory-views,
+    .vc-seg
+  )
   > button:is([aria-selected='true'], [aria-pressed='true'], [aria-checked='true'], .is-active, .selected) {
   background: var(--ctl-raised);
   color: var(--text-ink);
@@ -570,11 +595,11 @@
 }
 
 /* The small one inside a card header keeps its own height. */
-:root .usage-segmented.is-small {
+:root :is(.usage-segmented.is-small, .vc-seg.is-sm) {
   min-height: var(--size-sm);
 }
 
-:root .usage-segmented.is-small > button {
+:root :is(.usage-segmented.is-small, .vc-seg.is-sm) > button {
   min-height: 22px;
   padding: 0 10px;
 }

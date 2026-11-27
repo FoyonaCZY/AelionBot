@@ -5,6 +5,7 @@ verifyDesignCraft();
 import { build } from 'esbuild';
 import { build as viteBuild } from 'vite';
 import { mkdirSync, cpSync } from 'node:fs';
+import { buildVideoRuntime } from './build-video-runtime.mjs';
 mkdirSync('dist-electron', { recursive: true });
 await build({
   entryPoints: ['electron/windows/web-preview-preload.ts'],
@@ -28,6 +29,16 @@ await build({
 await build({
   entryPoints: ['electron/windows/remote-direct-preload.ts'],
   outfile: 'dist-electron/remote-direct-preload.cjs',
+  bundle: true,
+  platform: 'node',
+  format: 'cjs',
+  target: 'node22',
+  external: ['electron'],
+});
+// Hidden sandboxed Chromium video engine preload (electron/windows/video-engine-window.ts).
+await build({
+  entryPoints: ['electron/windows/video-engine-preload.ts'],
+  outfile: 'dist-electron/video-engine-preload.cjs',
   bundle: true,
   platform: 'node',
   format: 'cjs',
@@ -144,3 +155,5 @@ await viteBuild({ base: './', build: { outDir: 'dist' } });
 
 for (const folder of ['cmaps', 'standard_fonts', 'wasm'])
   cpSync(`node_modules/pdfjs-dist/${folder}`, `dist/pdf-assets/${folder}`, { recursive: true });
+
+await buildVideoRuntime({ outDir: 'dist/video-runtime', minify: true });

@@ -1,0 +1,16 @@
+{
+  "name": "@aelionsdk/media",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Range I/O, media indexing, decoding and exact seek for AelionSDK",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@aelionsdk/core": "workspace:*",
+    "mediabunny": "1.50.8"
+  }
+}

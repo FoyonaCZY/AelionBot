@@ -1,0 +1,17 @@
+{
+  "name": "@aelionsdk/project-schema",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Project v1 types, validation and canonical serialization for AelionSDK",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@aelionsdk/core": "workspace:*",
+    "ajv": "8.18.0",
+    "ajv-formats": "3.0.1"
+  }
+}

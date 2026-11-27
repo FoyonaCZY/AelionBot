@@ -1,3 +1,5 @@
+packages:
+  - 'packages/aelion-sdk/*'
 allowBuilds:
   cpu-features: true
   electron-winstaller: true

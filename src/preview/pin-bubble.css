@@ -67,6 +67,16 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* When in the video the comment was pinned. */
+.pin-bubble-time {
+  flex: none;
+  padding: 0 7px;
+  border-radius: var(--radius-pill);
+  background: var(--ctl-fill);
+  color: var(--text-secondary);
+  font: var(--weight-label) var(--text-micro) / 18px var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
 .pin-bubble-state {
   flex: none;
   font-size: var(--text-micro);

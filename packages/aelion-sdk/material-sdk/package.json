@@ -1,0 +1,18 @@
+{
+  "name": "@aelionsdk/material-sdk",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Type-safe authoring, validation and packaging tools for Aelion materials",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@aelionsdk/core": "workspace:*",
+    "@aelionsdk/material-compiler": "workspace:*",
+    "ajv": "8.18.0",
+    "ajv-formats": "3.0.1"
+  }
+}

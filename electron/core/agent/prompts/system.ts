@@ -11,6 +11,8 @@ const LOCAL_REFERENCES =
   '\nLocal file paths selected with @ are references, not uploaded copies; read their current contents with file_read and omit location.';
 const VIDEO =
   '\nFor video understanding use video_frames on a local path or a received attachment, inspect its timestamped contact sheet, and request narrower time ranges when needed. Sampled frames do not establish unseen events or audio contents.';
+const VIDEO_STUDIO =
+  '\nVideo Studio is available for non-linear video production and editing: create a project with video_project_create, import clips, images, voiceovers, music, or DesignWork HTML slides with video_asset_import (you can combine generate_video, generate_image, text_to_speech, transcribe_audio, and DesignWork slides as assets), assemble and polish the timeline atomically with video_edit (cuts, trims, splits, titles, SRT/VTT/cues captions, transitions, color/glow effects, keyframes, silence removal, auto-ducking, loudness normalization, and beat snapping), visually inspect real composited frames with video_preview_frame before delivering, export via video_export / video_export_status, and present the live project or exported video in the app with open_preview (and preview_mark with timestampSec when asking for timecoded feedback).';
 const attachments = (save: boolean) =>
   '\nAttachments are real files carried by messages. Use attachment_read to inspect text or images' +
   (save ? ' and attachment_save to copy originals into your workspace' : '') +
@@ -93,6 +95,8 @@ export interface HarnessPromptOptions {
   userInput: boolean;
   /** video_frames is offered. */
   video: boolean;
+  /** Video Studio creative tools (video_project_create and video_*) are offered. */
+  videoStudio?: boolean;
   peers: boolean;
   groups: boolean;
   chatPin: boolean;
@@ -117,6 +121,7 @@ export function harnessInstructions(options: HarnessPromptOptions) {
   if (vm) text += workComputer(options.botId);
   if (options.host) text += LOCAL_REFERENCES;
   if (options.video) text += VIDEO;
+  if (options.videoStudio) text += VIDEO_STUDIO;
   text += attachments(vm) + toolExecution(vm);
   text +=
     '\nLess frequent and connected MCP tools may be loaded on demand rather than listed upfront. Discover omitted capabilities with tool_search to activate matching tools for direct calls on the next turn, or invoke tools.TOOL_NAME(arguments) inside code_exec. Every call is still subject to permission checks; await its result. Use apply_patch for multiple files. Use exec_command to run a command and write_stdin to poll or continue it. A shell command whose body is an apply_patch document is applied as a patch instead of being executed. ' +

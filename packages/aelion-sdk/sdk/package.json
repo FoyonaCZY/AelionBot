@@ -1,0 +1,25 @@
+{
+  "name": "@aelionsdk/sdk",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Browser-first real-time editing, preview and export SDK facade",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./migrate-cli": "./src/migrate-cli-lib.ts"
+  },
+  "dependencies": {
+    "@aelionsdk/audio": "workspace:*",
+    "@aelionsdk/capability": "workspace:*",
+    "@aelionsdk/core": "workspace:*",
+    "@aelionsdk/export": "workspace:*",
+    "@aelionsdk/material-compiler": "workspace:*",
+    "@aelionsdk/media": "workspace:*",
+    "@aelionsdk/project-schema": "workspace:*",
+    "@aelionsdk/render-ir": "workspace:*",
+    "@aelionsdk/renderer-worker": "workspace:*",
+    "@aelionsdk/transaction": "workspace:*"
+  }
+}
